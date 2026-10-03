@@ -261,6 +261,37 @@ The compiler emits position-free blobs with ordinal references, and a separate
 linker removes unreachable blobs before assigning addresses. See the
 [build pipeline](build-pipeline.md).
 
+
+### D14. Type annotations use `as`, after the name
+
+Every declared name is followed by `as` and its type, as in Nucleus:
+
+```nucleus
+var total as u32
+sub distance(a as Point, b as Point) as u16
+record Node
+    value as u16
+    next  as own? nodes
+end
+```
+
+`var` stays for variable declarations.
+
+**Why name first.** After a name, the next token (`as`, `=`, `(`) tells a
+single-pass parser what the statement is, without first looking up whether an
+identifier is a type, which C's type-first grammar requires. The whole type
+stays on one side of the name, which matters for arrays and, later, routine
+types. Result types follow the parameter list where they are read. It leaves
+room for inference (`var count = 0`). Nearly every language designed since about
+2005 puts the name first.
+
+**Why `as` rather than `:`.** The colon would save about three characters per
+declaration and is familiar from TypeScript, Pascal, Go and Rust. But Baton
+already has enough punctuation that a bare colon doesn't say what it does,
+while `as` reads as a phrase, especially where modifiers stack up
+(`list as inout own? nodes`), and keeps the BASIC character. The compiler cost
+is the same either way.
+
 ## Open
 
 ### Memory safety
