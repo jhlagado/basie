@@ -75,6 +75,8 @@ These terms are provisional, but the documents use them consistently.
   against the 24K compiler budget, and whether it is in version 1 or 2.
 - [Input, output and effects](docs/io-and-effects.md): services and the
   external-effects channel instead of operating-system or port primitives.
+- [Services](docs/services.md): the version 1 console, file, command-line and
+  machine services, and their failure codes.
 - [Memory safety](docs/memory-safety.md): how Baton is memory safe without a
   garbage collector: storage classes, aliases, pools and handles, `move`, and
   stack bounds.

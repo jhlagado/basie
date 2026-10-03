@@ -101,8 +101,7 @@ emulator or a test harness without change.
 
 ## 6. Open questions
 
-1. **The standard service set** for 1.0: which console, file, command-line and
-   time services, with which signatures and error codes.
+1. **The standard service set** is drafted in [services](services.md).
 2. **File services:** Skate's staged open/write/commit model with bounded
    handles, or plain CP/M sequential files?
 3. **Typed service results:** with variants available, should services report
