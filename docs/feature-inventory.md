@@ -53,8 +53,8 @@ Without these, Baton is not a complete systems language.
 | `select` on integers and enums (Section 3) | 0.5–1K | — | Every menu, parser and state machine |
 | Enumerations | 0.3–0.6K | — | Named states with checked exhaustiveness |
 | Local aggregates and `from` (D8) | 0.8–1.5K | — | Temporary buffers without globals |
-| Parameter modes (`inout`) | 0.2K | — | Signatures say what a routine changes |
-| Ownership: pools, `own`, `id`, `new`, `take`, `retire`, flow check, `frees` | 2–4K | 0.3–0.6K (allocation, retirement, generation checks) | The memory-safety claim |
+| Parameter modes (`var`) | 0.2K | — | Signatures say what a routine changes |
+| Ownership: pools, `own`, `id`, `new`, `take`, `free`, flow check | 2–4K | 0.3–0.6K (allocation, retirement, generation checks) | The memory-safety claim |
 | Stack checking | 0.2K | 0.1K | Part of the memory-safety claim |
 | Port input and output (`in`, `out` built-ins) | 0.2K | — | Talking to hardware without unsafe code |
 | Blob output for the linker | about neutral against NOBJ | — | Tree shaking |
@@ -166,7 +166,7 @@ end
   `Shape` here is 5 bytes.
 - **Bindings:** each case may name the variant's fields. A scalar field is
   copied into the name; an aggregate field is bound as an alias, valid within
-  the case. Bindings are read-only unless the subject is passed `inout`.
+  the case. Bindings are read-only unless the subject is a `var` parameter.
 - **Exhaustiveness:** every variant must have a case, or there must be a `case
   else`.
 - **Code:** a dispatch on the tag byte, as for an enumeration.

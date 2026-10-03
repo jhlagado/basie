@@ -56,9 +56,9 @@ These terms are provisional, but the documents use them consistently.
 | --- | --- |
 | **holder** | The variable, field or slot that owns an object's storage. |
 | **ticket** | Temporary read access to an object that stays with its holder. An aggregate parameter is a ticket: it can be used during the call but not stored or returned except as an alias the signature declares. |
-| **lease** | Temporary access to change an object in place, returned to the holder when the call ends. Written `inout` in parameter lists. |
+| **lease** | Temporary access to change an object in place, returned to the holder when the call ends. Written `var` before a parameter's name. |
 | **pass** | Moving ownership of an object to a new holder. Planned for owned pool handles. |
-| **retire** | Releasing an object's storage when its holder is finished with it. |
+| **free** | Releasing a pool slot when its owner is finished with it. Mostly automatic. |
 | **pool** | A fixed array of records addressed by index, used for dynamic or graph-shaped data. |
 | **arena** | A region freed all at once, for temporary data within a scope. |
 | **blob** | The unit the linker places or removes: one routine, constant or variable. |

@@ -289,7 +289,7 @@ room for inference (`var count = 0`). Nearly every language designed since about
 declaration and is familiar from TypeScript, Pascal, Go and Rust. But Baton
 already has enough punctuation that a bare colon doesn't say what it does,
 while `as` reads as a phrase, especially where modifiers stack up
-(`list as inout own? nodes`), and keeps the BASIC character. The compiler cost
+(`var list as own? nodes`), and keeps the BASIC character. The compiler cost
 is the same either way.
 
 
@@ -333,12 +333,12 @@ them separately.
 Pool records are reached only through handles, never through aliases:
 
 - every access through a handle or identifier is one checked operation,
-  resolved after all of its operands are evaluated, so nothing can retire the
+  resolved after all of its operands are evaluated, so nothing can free the
   slot between the check and the access;
 - aggregate fields of pool records are copied out, not passed by alias;
 - `match` on an optional handle binds an identifier, not an alias;
-- a lease on a handle (`h as inout own nodes`) may be taken only from the
-  caller's own owned local, and the callee may not move, retire or overwrite
+- a lease on a handle (`var h as own nodes`) may be taken only from the
+  caller's own owned local, and the callee may not move, free or overwrite
   it; and
 - storing an owned value through an identifier path is checked at run time so
   that it can't create an ownership cycle.
@@ -350,6 +350,39 @@ none of that machinery is needed: aliases remain fully expressive for program
 and activation storage, where the `from` rule makes them safe, and pool storage
 is protected by unique ownership and generation checks. The
 [memory safety](memory-safety.md) design is to be revised to match.
+
+
+### D17. `var` marks a parameter the routine may change
+
+An aggregate parameter is read-only unless it is written with `var` before its
+name, which lets the routine change the caller's object:
+
+```nucleus
+sub scale(var p as Point, factor as i16)    // may change the caller's Point
+sub bump(var h as own nodes)                // may change the caller's node
+sub push(var list as own? nodes, v as u16)  // may change what list holds
+sub show(p as Point)                        // may only read it
+```
+
+This replaces the earlier working spelling `inout`. The caller's object stays the
+caller's in every case; nothing is handed over unless the parameter's type is
+`own`.
+
+**Why `var`.** It is Pascal's "variable parameter", with exactly this meaning,
+and it matches the `var` that declares variables, so it adds no reserved word.
+`inout` suggested a round trip of ownership that doesn't happen. `byref` and
+`ref` describe how data is passed rather than what the routine may do, and
+Baton passes every aggregate by reference anyway.
+
+There is no `const` in the same position: read-only is already the default, and
+a second spelling for it would add a keyword without adding meaning.
+
+### D18. `free` is the word for releasing a pool slot
+
+Releasing a pool slot is called **freeing** it, and the explicit statement is
+`free h`. It replaces the working term "retire". Most freeing is automatic:
+when an owned handle goes out of scope without being handed on, and when an
+owned field or variable is overwritten.
 
 ## Open
 
