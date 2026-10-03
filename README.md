@@ -36,7 +36,7 @@ Baton keeps Nucleus's foundations and widens the language:
   alias can't be stored, so it can never dangle.
 - **Checked safety.** Out-of-range indexing, narrowing conversions and division
   by zero trap rather than corrupting memory.
-- **Tree shaking.** A separate layout step places only the routines, data and
+- **Tree shaking.** A separate link step places only the routines, data and
   runtime helpers the program can reach.
 
 ## The principle
@@ -61,7 +61,7 @@ These terms are provisional, but the documents use them consistently.
 | **retire** | Releasing an object's storage when its holder is finished with it. |
 | **pool** | A fixed array of records addressed by index, used for dynamic or graph-shaped data. |
 | **arena** | A region freed all at once, for temporary data within a scope. |
-| **blob** | The unit the layout tool places or removes: one routine, constant or variable. |
+| **blob** | The unit the linker places or removes: one routine, constant or variable. |
 
 ## Documents
 
@@ -69,5 +69,5 @@ These terms are provisional, but the documents use them consistently.
   Baton learned from Nucleus.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
-- [Build pipeline](docs/build-pipeline.md): object spools, the layout step and
+- [Build pipeline](docs/build-pipeline.md): object spools, the link step and
   tree shaking.

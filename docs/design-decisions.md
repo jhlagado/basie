@@ -77,7 +77,7 @@ cost.
 - **32-bit types are opt-in.** The Z80 has three register pairs, so a 32-bit
   binary operation doesn't fit in registers and becomes a call to a runtime
   helper. Programs that never use 32-bit types don't carry those helpers; the
-  layout step removes them.
+  link step removes them.
 - **No tags, so no cell size.** Values are untyped bits at run time, sized by
   their static type. There is no reason to choose a width to leave room for tag
   bits.
@@ -231,7 +231,7 @@ disk, is the scarce resource Baton is designed around.
 A trap site is a call to the runtime reporter for its reason, 3 bytes when the
 check's result is in a testable condition flag and 5 bytes otherwise. The
 reporter prints the reason and the site's address, such as
-`TRAP bounds at 1A3F`, and the line table the layout tool writes turns the
+`TRAP bounds at 1A3F`, and the line table the linker writes turns the
 address into a source line.
 
 **Why.** Nucleus put the source position inline at each site, about 8 bytes. A
@@ -256,7 +256,7 @@ copy mechanism, so offering the option costs no extra design. See the
 ### D13. Build pipeline
 
 The compiler emits position-free blobs with ordinal references, and a separate
-layout tool removes unreachable blobs before assigning addresses. See the
+linker removes unreachable blobs before assigning addresses. See the
 [build pipeline](build-pipeline.md).
 
 ## Open
@@ -329,7 +329,7 @@ supplies a value of the right type.
 
 Scope-bound regions freed all at once, for temporary data. Free memory between
 the end of static storage and the stack is available for this at run time,
-starting at the layout tool's `FREE_START` (see the build pipeline, §8.4).
+starting at the linker's `FREE_START` (see the build pipeline, §8.4).
 
 ### O5. Routine values
 

@@ -1,4 +1,4 @@
-# Build pipeline: object spools and the layout step
+# Build pipeline: object spools and the link step
 
 - Status: design proposal, revision 2
 - Date: 2026-10-03
@@ -23,9 +23,19 @@ The pipeline has two programs:
 
 1. The **compiler** reads the source once and writes a set of append-only
    **object spools**. It never assigns final addresses.
-2. The **layout tool** reads those spools and a prebuilt **runtime spool set**,
+2. The **linker** reads those spools and a prebuilt **runtime spool set**,
    finds the live parts of the program, assigns addresses and writes the
    program image, such as a CP/M `.COM` file.
+
+The compiler generates Z80 machine code itself. No assembler takes part in
+building a Baton program: the compiler writes machine-code blobs, and the
+linker writes the final binary. Both are part of the Baton toolchain.
+
+The linker is a relocating linker, deliberately kept small. It links one
+program with one prebuilt runtime library per run, identifies blobs by number
+rather than by name, supports one family of reference forms and reads its
+input sequentially. Its purpose is tree shaking: placing only what the program
+can reach.
 
 The primary target is CP/M 2.2 and CP/M 3 on a 64K Z80, where both programs run
 on the Z80 itself. Section 13 covers ROM and banked targets.
@@ -59,7 +69,7 @@ Any design that removes unused code must therefore do one of three things:
 3. read the source twice.
 
 Baton takes the first option. The compiler emits code without addresses, and
-the layout step places only what is live.
+the link step places only what is live.
 
 ## 3. Design rules
 
@@ -67,19 +77,19 @@ the layout step places only what is live.
    after that reads compact binary spools.
 2. **No names in linking.** Blobs are identified by number (an **ordinal**),
    never by name. There is no symbol table, no library search and no name
-   resolution in the layout tool. Names appear only in an optional spool used
+   resolution in the linker. Names appear only in an optional spool used
    for reports and debugger symbols.
-3. **One program per run.** The layout tool combines one compilation with one
+3. **One program per run.** The linker combines one compilation with one
    runtime spool set. It does not combine separately compiled modules.
 4. **No backward seeks.** Every spool is written append-only. Readers move
    forward only. A reader may skip forward with a random read where the
    platform provides one; it never returns to an earlier position. The design
    therefore also works on sequential stores such as TEC-FS.
-5. **Fixups only for code addresses.** The layout tool fills in addresses. It
+5. **Fixups only for code addresses.** The linker fills in addresses. It
    never supplies type information or any other semantic fact the compiler
    lacked. This is the same rule Baton applies to forward declarations.
 6. **Every address use is a reference.** No absolute address appears in a blob
-   except through a reference record. This one rule gives the layout tool the
+   except through a reference record. This one rule gives the linker the
    complete call and data graph.
 
 ## 4. Blobs and ordinals
@@ -87,7 +97,7 @@ the layout step places only what is live.
 ### 4.1 Blobs
 
 A **blob** is the unit of placement and of removal: a contiguous run of bytes
-that the layout tool places as a whole or drops as a whole. Every blob has an
+that the linker places as a whole or drops as a whole. Every blob has an
 ordinal, a kind, a size, an alignment and a list of references.
 
 | Kind | Contents | Stored bytes | Produced by |
@@ -136,7 +146,7 @@ An ordinal is an unsigned 16-bit number. The ordinal space is partitioned:
 | --- | --- |
 | `$0000` | Reserved; never a valid target |
 | `$0001`–`$00FF` | Runtime blobs, numbered by the runtime's published helper table |
-| `$0100`–`$011F` | Pseudo-ordinals supplied by the layout tool (Section 8.4) |
+| `$0100`–`$011F` | Pseudo-ordinals supplied by the linker (Section 8.4) |
 | `$0120`–`$FFFF` | Program blobs, assigned by the compiler |
 
 The compiler assigns program ordinals in increasing order as it creates blobs.
@@ -160,6 +170,11 @@ Runtime blobs are ordinary blobs: an unused helper is removed like any other.
 This matters more in Baton than in Nucleus. `i32` and `f32` support may cost
 several hundred bytes to about a kilobyte, and a program that never uses them
 should carry none of it.
+
+The runtime library is built once by the Baton project and shipped prebuilt,
+like the compiler itself. How its hand-written helpers are turned into blobs is
+a concern of the project's own build tooling, not of a user's build, which only
+compiles and links.
 
 The runtime spool set is specific to a target profile. It supplies the
 `startup` blob (Section 9.2) and anything else that depends on the operating
@@ -209,12 +224,12 @@ fixed-size, because branch shrinking must not change their length
 **Self-modifying code** that writes into its own operand bytes is allowed: the
 writing instruction's address operand is a self-reference.
 
-### 5.2 What references give the layout tool
+### 5.2 What references give the linker
 
 Because every address use is a reference (rule 6), a blob's reference targets
 are exactly the blobs it can reach: the routines it calls or jumps to, the
 variables and constants it reads or writes, and the helpers the compiler called
-on its behalf. The layout tool computes reachability from this graph without
+on its behalf. The linker computes reachability from this graph without
 the compiler recording a separate call graph.
 
 Future routine values are safe by construction. Taking a routine's address is a
@@ -238,7 +253,7 @@ One compilation writes these files, each append-only:
 
 **One byte spool for CP/M.** Every blob with stored bytes goes into a single
 byte spool in directory order, whatever its kind. On a `.COM` target all stored
-blobs are placed in that order (Section 8.3), so the layout tool writes the
+blobs are placed in that order (Section 8.3), so the linker writes the
 image in a single pass that reads the directory spool and the byte spool
 together. A ROM target, which must separate initialised data from code, uses
 per-kind byte spools instead (Section 13.1).
@@ -259,7 +274,7 @@ buffered for branch shrinking (Section 10.3).
 References within one blob record are written in strictly increasing offset
 order. The compiler sorts its pending list before writing it; the list is short
 and nearly sorted already, so an insertion sort suffices. Two references at the
-same offset are invalid, and the layout tool rejects them.
+same offset are invalid, and the linker rejects them.
 
 The compiler's memory cost is the pending reference list for one routine at a
 time, about 5 bytes per reference. The Nucleus pending-fixup table, which held
@@ -273,11 +288,11 @@ Spools take their names from the program, with `$` in the file type so that
 stray files are recognisable and `ERA *.$*` removes them: for a program `PROG`,
 `PROG.$DR` (directory), `PROG.$BY` (bytes), `PROG.$LN` (lines) and `PROG.$NM`
 (names). By default the spools go on the same drive as the source. The
-compiler and the layout tool each accept a drive designator for spools, in the
+compiler and the linker each accept a drive designator for spools, in the
 manner of Microsoft's `M80` and `L80`, so that a RAM disk or a faster drive can
-hold them; the layout tool accepts a separate drive for the runtime spool set.
+hold them; the linker accepts a separate drive for the runtime spool set.
 
-The layout tool deletes the program's spools after it has written the output
+The linker deletes the program's spools after it has written the output
 and the line table (Section 11.1) successfully, unless asked to keep them.
 
 ## 7. Spool encodings
@@ -347,7 +362,7 @@ reference costs 5, or 7 when the offset needs the escape.
 | byte spool length | `u16`, `u16` | Total stored bytes, as 32 bits |
 | directory CRC | `u16` | CRC-16/CCITT-FALSE over every directory byte before this field |
 
-The layout tool rejects a directory without a valid trailer, so an interrupted
+The linker rejects a directory without a valid trailer, so an interrupted
 compilation can never be laid out. It checks the byte spool's length against
 the trailer rather than a CRC over its contents, because it skips the bytes of
 dead blobs without reading them where it can (Section 8.5).
@@ -374,15 +389,15 @@ The size matters for transfer time, not for space. The reference density must
 still be measured on real compiler output before the format is fixed, because
 it sets the I/O cost of every build.
 
-## 8. The layout tool
+## 8. The linker
 
-The layout tool is a separate CP/M program. It runs after the compiler has
+The linker is a separate CP/M program. It runs after the compiler has
 exited, so it has the transient program area to itself.
 
 ### 8.1 Phase A: read the directories
 
 Read the runtime directory spool, then the program directory spool, start to
-end. Check both headers against each other and against the layout tool's own
+end. Check both headers against each other and against the linker's own
 format version (Section 12). For each blob, record in a table indexed by
 ordinal:
 
@@ -414,7 +429,7 @@ the transient program area: about 44K to 56K, depending on the system
 (Section 9.1). The largest programs approach that limit, and on a system with a
 small transient program area they exceed it.
 
-**Edge overflow is a capacity error.** If the tables don't fit, the layout tool
+**Edge overflow is a capacity error.** If the tables don't fit, the linker
 stops and reports the program's blob and edge counts and the memory it needed.
 Revision 1 proposed a fallback that rescanned the directory spool until no new
 blob was marked. That fallback is slow exactly when it is needed: declaration
@@ -436,7 +451,7 @@ The **roots** are:
   exported routines).
 
 `main` is not a root by itself: `startup` reaches it through the `MAIN`
-pseudo-ordinal (Section 8.4), which the layout tool binds to the program blob
+pseudo-ordinal (Section 8.4), which the linker binds to the program blob
 the compiler flags as the entry routine.
 
 Marking is a depth-first walk with an explicit stack of ordinals. Each blob is
@@ -463,7 +478,7 @@ fits the target (Section 9.5), and stops with a report if it doesn't.
 
 ### 8.4 Pseudo-ordinals
 
-The layout tool supplies values only it can know. Startup and runtime code
+The linker supplies values only it can know. Startup and runtime code
 refer to them like any other blob:
 
 | Pseudo-ordinal | Value |
@@ -505,7 +520,7 @@ Errors in this phase:
 A reference from a live blob to a dead blob cannot occur, because marking
 followed every reference.
 
-The final 128-byte record of a `.COM` file is padded with zeros. The layout tool
+The final 128-byte record of a `.COM` file is padded with zeros. The linker
 writes that record, so the padding is defined.
 
 **Files.** Phase D has at most five files open: the runtime directory and byte
@@ -540,7 +555,7 @@ The tool writes:
 CP/M has no way to rename one file over another. CP/M 2.2's rename function is
 believed not to check whether the new name already exists, which can leave two
 directory entries with the same name; CP/M 3 returns an error instead. The
-layout tool therefore replaces an existing output in this order:
+linker therefore replaces an existing output in this order:
 
 1. write the image to `PROG.$$$` and close it;
 2. delete `PROG.BAK`, rename `PROG.COM` to `PROG.BAK`;
@@ -630,7 +645,7 @@ BIOS scratch.
 
 ### 9.5 Fit checks
 
-The layout tool checks against the target profile:
+The linker checks against the target profile:
 
 | Check | Kind | Reason |
 | --- | --- | --- |
@@ -652,7 +667,7 @@ run left.
 
 **Decision:** a target-profile option, **re-runnable**, off by default.
 
-With the option on, the layout tool stores a read-only copy of the initial data
+With the option on, the linker stores a read-only copy of the initial data
 in the image, and startup copies it into place before calling `main`, using the
 same mechanism as ROM targets (Section 13.1). This costs the size of the
 initialised data a second time, plus a short copy loop.
@@ -763,7 +778,7 @@ optimisation and can be turned off for speed-critical code.
 
 ### 10.4 Unused routines in the user's source
 
-The layout tool removes them. The compiler may still warn about a routine that
+The linker removes them. The compiler may still warn about a routine that
 is never referenced, since it knows this at the end of input, but the warning
 is advisory: the cost has already been avoided.
 
@@ -785,7 +800,7 @@ spool**: one record of (ordinal, offset, source part, source offset) at each
 statement boundary. The compiler writes it by default, because trap reports
 depend on it (Section 11.2); an option turns it off.
 
-Before it deletes the spools, the layout tool joins the line spool with the
+Before it deletes the spools, the linker joins the line spool with the
 addresses it assigned and writes a permanent **line table**, `PROG.LIN`: final
 address to source position, for live blobs only, sorted by address. A host tool
 can build a full source map from it, and a CP/M command can look up a single
@@ -842,7 +857,7 @@ tool.
   new ordinals but never renumbers or removes one. A program compiled against
   helper-table version *n* therefore lays out against any runtime with version
   *n* or later and the same runtime identity.
-- **The layout tool checks** the program directory's format version, the
+- **The linker checks** the program directory's format version, the
   runtime directory's format version, runtime identity, helper-table version
   and target profile, and stops on any mismatch it can't accept.
 
@@ -851,7 +866,7 @@ tool.
 | Program compiled against an older helper table, newer runtime | Yes |
 | Program compiled against a newer helper table, older runtime | No |
 | Different runtime identity or target profile | No |
-| Directory format the layout tool doesn't know | No |
+| Directory format the linker doesn't know | No |
 
 ## 13. Other targets
 
@@ -869,7 +884,7 @@ re-runnable option (Section 9.6) uses the same mechanism.
 
 Nucleus assigns banks by source part, and its compiler enforces the cross-bank
 rules: for example, that aggregate constants are local to their bank. If the
-layout tool chose banks instead, nothing would enforce those rules. A constant
+linker chose banks instead, nothing would enforce those rules. A constant
 placed in one bank and read from code in another would read the wrong memory
 without any error. Calls reached by `JP` or through a routine value would cross
 banks with no bank switch.
@@ -877,10 +892,10 @@ banks with no bank switch.
 Baton therefore keeps Nucleus's model for banked targets: **the compiler
 assigns each blob to a bank from its source part,** enforces the cross-bank
 rules as Nucleus does, and emits the near or far call form itself. The blob
-record gains a bank field, and the layout tool places each blob within its
+record gains a bank field, and the linker places each blob within its
 assigned bank. Tree shaking works within each bank.
 
-Layout-time bank packing, with call veneers generated by the layout tool, is a
+Layout-time bank packing, with call veneers generated by the linker, is a
 possible later extension. It would need to solve the problems above and these:
 
 - on TECM8, common memory is RAM, so veneers must be copied there at startup at
@@ -894,7 +909,7 @@ Banked layout is deferred until the flat CP/M target works.
 
 ### 13.3 Overlays
 
-Because the layout tool knows the complete call graph, it could split a program
+Because the linker knows the complete call graph, it could split a program
 larger than the transient program area into a resident root and overlays
 loaded on demand, in the manner of Digital Research's `LINK`. Each overlay
 would be a separately placed image, cross-overlay calls would go through a
@@ -907,10 +922,10 @@ of the first design, but nothing in the spool format prevents it.
 build. On a 4 MHz Z80 reading floppies, that is the main cost of the design and
 should be measured.
 
-Precompiled libraries can be added later without changing the layout tool's
+Precompiled libraries can be added later without changing the linker's
 nature. Each would need its own ordinal range and a compiler-readable
 interface file giving names, signatures and ordinals. Names would then return,
-but only in the compiler, which reads interfaces; the layout tool would still
+but only in the compiler, which reads interfaces; the linker would still
 work by ordinal and read several spool sets. This is the same split as
 Microsoft's `M80` and `L80`, with the names on the compiler's side.
 
@@ -922,12 +937,12 @@ program is always compiled and laid out as a whole.
 1. **Reference density and blob count.** Measure on the largest available
    Nucleus programs, then fix the directory encoding and confirm the disk and
    memory estimates of Sections 7.6 and 8.1.
-2. **Table size limits.** If measurements show the layout tool's tables
+2. **Table size limits.** If measurements show the linker's tables
    overflow for realistic programs, options include 1-byte edges for targets
    within a nearby ordinal window, storing edges only for blobs not yet marked,
    or letting the compiler write a deduplicated edge list.
 3. **String literal deduplication.** A compiler-side cache of recent short
-   literals, about 1K, would catch most duplicates. The layout tool can't
+   literals, about 1K, would catch most duplicates. The linker can't
    compare contents without reading the byte spool in Phase A.
 4. **Routine buffer size** for branch shrinking, and the capacity limit on
    references per routine.
@@ -971,7 +986,7 @@ problems, now corrected:
   re-entry through `GO`, debugger margins, upper-case command lines, interrupt
   mode and restart vector conflicts (Section 9).
 - **Trap reporting (decided after the review).** Trap sites are 3- or 5-byte
-  calls identified by return address, decoded through the layout tool's line
+  calls identified by return address, decoded through the linker's line
   table (Section 11).
 - **Re-running (decided after the review).** The re-runnable option is off by
   default (Section 9.6).

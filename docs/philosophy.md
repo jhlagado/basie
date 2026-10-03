@@ -102,7 +102,7 @@ Baton keeps the predictability of that style and makes it safe. Global arrays,
 pools and indices remain first-class tools; the language adds the lifetime
 rules that let the compiler check them.
 
-## One pass, then one layout step
+## One pass, then one link step
 
 The Baton compiler, like Nucleus's, reads its source exactly once and streams
 its output. This keeps it small enough to run on the machine it targets, and it
@@ -113,7 +113,7 @@ can be checked with what it has already seen.
 One thing a single pass can't know is whether a routine will be called later in
 the source. Nucleus placed every routine as soon as it was compiled, so unused
 routines stayed in the output. Baton separates compilation from placement: the
-compiler writes position-free code, and a small layout tool removes what is
+compiler writes position-free code, and a small linker removes what is
 unreachable before it assigns addresses. The
 [build pipeline](build-pipeline.md) describes the design.
 
