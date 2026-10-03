@@ -1,0 +1,155 @@
+# Baton roadmap
+
+- Status: working plan
+- Date: 2026-10-04
+- Expands: [implementation plan](implementation-plan.md) (D35)
+
+This roadmap breaks the implementation plan into numbered steps. Each step names
+what it produces and how it is checked. Steps within a milestone are mostly in
+order; milestones overlap where noted. Every step ends with a commit and push.
+
+The **tracks**:
+
+- **Design:** documents and decisions.
+- **Spec:** the language specification.
+- **Ref:** the TypeScript reference toolchain on Deno.
+- **RT:** the runtime library (Z80) and the standard library (Baton).
+- **Native:** `BATON.COM` and `BLINK.COM` (Z80).
+
+## M0. Close the design
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 1 | Design | Apply the memory-safety verification pass and freeze revision 5 | Frozen memory-safety design | Verification report says ready |
+| 2 | Design | Apply the services review; align every service with z80-services; raise contract gaps there | Services revision 2; issues in z80-services | Review findings closed |
+| 3 | Design | Write the remaining small decisions: string library contents, `assert` message form, the `F=n` link option and its pseudo-object, message-file format | Decisions D36 onwards | Each referenced from the spec outline |
+| 4 | Design | Complete the limits register: audit every document and the Nucleus specification for fixed limits | Register in the implementation plan, every row justified | No unexplained limit |
+| 5 | Design | Freeze the version 1 feature list against the budget | Feature inventory marked frozen | Totals within 24K |
+
+## M1. Foundations
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 6 | Ref | Deno tasks, formatting, linting, test layout | `deno.json` | `deno task check` (done) |
+| 7 | Ref | Minimal CP/M harness on the Z80 runtime | `tests/harness/cpm.ts` | First test (done) |
+| 8 | Ref | Extend the minimal harness: file BDOS functions over an in-memory disk, the command tail, return codes, cycle counting | Harness with files | Tests for each BDOS function |
+| 9 | Ref | Full-fidelity harness: boot real CP/M 2.2 on the Triptych machine, as Skate does | `tests/harness/triptych.ts` | A `.COM` runs from the CCP prompt |
+| 10 | Ref | Golden-output test runner: compile, link, run, compare output, traps and diagnostics | `tests/run-conformance.ts` | Runs an empty corpus |
+| 11 | Ref | Budget census tool, adapted from Skate's: measures images by module | `tools/census.ts` | Measures the hello program |
+
+## M2. The specification
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 12 | Spec | Fork the Nucleus 0.1 specification into `spec/`, with a change log | `spec/` chapters | Builds as Markdown |
+| 13 | Spec | Lexical rules: new literals (`f32`), keywords (`select`, `move`, `pool`, `new`, `shl`, `shr`, `private`, `include`, `assert`), contextual `id` | Chapter 3 | Conformance programs for each token |
+| 14 | Spec | Types: eight numeric types, handles, owning types, arrays of arrays | Chapter 6 | Conformance programs |
+| 15 | Spec | Storage and lifetime: block scope, activation storage, pools, the memory-safety rules | Chapter 7 | Conformance programs, including rejected programs |
+| 16 | Spec | Declarations: typed and local constants, inference, `pool`, `private` | Chapter 8 | Conformance programs |
+| 17 | Spec | Expressions: the numeric rules (D31), conversions, shifts, bitwise operators | Chapter 9 | Conformance programs, including edge values |
+| 18 | Spec | Statements: declarations anywhere, `select`, `move`, `assert` | Chapters 10 and 11 | Conformance programs |
+| 19 | Spec | Routines: `var` parameters, leases, `from`, forward rules for recursion | Chapter 13 | Conformance programs |
+| 20 | Spec | Errors and traps: the new traps, named failure constants | Chapters 14 and 15 | Conformance programs |
+| 21 | Spec | The system boundary: services and the standard library | Chapter 16 | Conformance programs |
+| 22 | Spec | Complete grammar, checked for single-pass parsing | Chapter 17 | A grammar check like Nucleus's |
+| 23 | Spec | Adversarial review of the specification | Review report and fixes | Findings closed |
+
+Steps 12 to 23 can run alongside M3 once chapters 3 and 6 exist.
+
+## M3. Object format, linker and blob libraries (reference)
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 24 | Ref | Object format readers and writers, with CRCs | `ref/object/` | Round-trip tests, including the worked example |
+| 25 | Ref | Linker Phase A: tables, deduplication, every Phase A diagnostic | `ref/link/` | One test per diagnostic |
+| 26 | Ref | Phases B and C: marking, placement passes, pseudo-objects, fit checks | | Placement tests with aligned blobs |
+| 27 | Ref | Phase D: image writing, value checks, `.COM`, `.BIN`, `.HEX`, the line table | | Byte-level tests |
+| 28 | Ref | Phase E: map, symbol file, removal report | | Golden files |
+| 29 | Ref | Publication and failure handling, temporary names, `.BAK` | | Tests with injected disk errors |
+| 30 | RT | Decide the blob-library build: an ATOM blob output mode or a Deno tool over ATOM's output | Decision and tool | Builds a two-blob library |
+| 31 | RT | A minimal `CPM22.BRL`: startup, one trap reporter, `writeOutputByte` | First blob library | Linked with a hand-written object, runs under the harness |
+| 32 | Ref | The linker's conformance list in full | Linker test suite | All pass |
+
+## M4. The reference compiler
+
+Each step adds conformance programs and runs them end to end.
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 33 | Ref | Lexer and source parts, with `include` | `ref/compile/lexer.ts` | Token tests |
+| 34 | Ref | Declarations, scopes, `private`, forward declarations | | Scope tests |
+| 35 | Ref | Expressions and statements on `u8`, `u16`, `boolean`: the Nucleus core | Blob output | Nucleus's conformance examples pass |
+| 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | | Nucleus examples |
+| 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | | Nucleus examples |
+| 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | | Edge-value tests |
+| 39 | Ref | `f32` through helpers, literal conversion, constant folding | | Conversion and rounding tests |
+| 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | | Scope and inference tests |
+| 41 | Ref | `select` on integers, characters and ranges; dispatch shapes | | Dispatch tests |
+| 42 | Ref | Local aggregates, `var` parameters, arrays of arrays, `assert` | | Tests |
+| 43 | Ref | Pools, handles, `new`, `new?`, `move`, freeing, temporaries | | Memory-safety tests, accepted and rejected |
+| 44 | Ref | The flow check and the statement rule | | Rejected-program tests from the reviews |
+| 45 | Ref | Leases, slot-holders, owner words, `select` on handles, `select move` | | The reviews' counterexamples all rejected or trapped |
+| 46 | Ref | The stack bound, prologue figures, activation checks | | Recursion and deep-call tests |
+| 47 | Ref | Branch shrinking and the literal buffer | | Size tests |
+| 48 | Ref | Diagnostics by message number, matching the planned message file | | Diagnostic tests |
+| 49 | Ref | The whole conformance corpus | Reference toolchain complete | Corpus passes |
+
+## M5. Runtime and standard library
+
+M5 starts alongside M4: each compiler step needs its helpers.
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 50 | RT | 16-bit and 8-bit helpers: multiply, divide, compare, copy, bounds | Runtime blobs | Unit tests on the Z80 runtime |
+| 51 | RT | 32-bit helpers | | Exhaustive edge tests against host arithmetic |
+| 52 | RT | `f32` helpers: add, subtract, multiply, divide, compare, conversions, with flush-to-zero and traps | | Tests against host IEEE arithmetic |
+| 53 | RT | Pools: allocation, `new?`, freeing with descriptors, the link test, generations, the cycle walk | | Tests including the reviews' programs |
+| 54 | RT | Stack checks, trap reporters, startup and exit, the `OPTIONS` word | | Startup tests under both harnesses |
+| 55 | RT | Services: console and printer, then files, then the command line and machine | | z80-services conformance vectors; CP/M harness tests |
+| 56 | RT | Publish every helper's size and stack figure in the helper table, with interface keys | Helper table | Linker compatibility tests |
+| 57 | RT | Standard library in Baton: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/` | Library tests |
+| 58 | RT | Example programs: a text adventure, a file utility, a game with a pool | `examples/` | Run under the full harness |
+
+## M6. The native linker
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 59 | Native | Skeleton `BLINK.COM`: command tail, file I/O, CRC, message output | | Runs under the harness |
+| 60 | Native | Phase A and B | | Same tables as the reference, dumped and compared |
+| 61 | Native | Phase C and D, the line table | | Byte-identical images on the linker suite |
+| 62 | Native | Phase E and publication | | Byte-identical maps and files |
+| 63 | Native | Capacity measurement: the largest program it can link | Measured limits | Published in the limits register |
+
+## M7. The native compiler
+
+Each stage keeps a working compiler, and the census runs on every commit.
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 64 | Native | Fork the Nucleus 12K rewrite into `native/compiler/`; build and run its existing proofs | Baseline | Nucleus proofs pass |
+| 65 | Native | Replace placed output with blob output; chain to `BLINK` | | Nucleus examples link and run |
+| 66 | Native | Message file and overlay mechanism | `BATON.MSG`, `BATON.OVL` | Diagnostics match the reference |
+| 67 | Native | Steps 38 to 48 in order, each as a native stage | | Corpus behaviour identical to the reference after each stage; census within budget |
+| 68 | Native | Capacity measurement: largest compilable program, symbol counts, build times | Measured limits | Published |
+
+## M8. Release
+
+| # | Track | Step | Produces | Checked by |
+| ---: | --- | --- | --- | --- |
+| 69 | All | Large-program tests and stress tests | Test reports | Pass |
+| 70 | All | Release image: `BATON.COM`, `BATON.MSG`, `BATON.OVL`, `BLINK.COM`, `CPM22.BRL`, the library | Disk image | Boots and builds the examples |
+| 71 | Design | The Baton book in debug80-docs | Book | Verification script like Nucleus's |
+| 72 | All | Version 2 planning: enumerations and variants, expression blocks, routine values | Plan | — |
+
+## Running order
+
+```text
+M0 ──► M1 ──► M2 ─────────────┐
+              │               │
+              └──► M3 ──► M4 ─┴──► M6 ──► M7 ──► M8
+                         ▲
+                    M5 ──┘ (alongside M4)
+```
+
+The reference toolchain is complete at the end of M4 and M5. The native work
+then has a full oracle to compare against at every step.
