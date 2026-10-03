@@ -203,6 +203,11 @@ what future routine values need.
 in as few passes as possible. With the re-runnable option, or on a ROM target,
 `DATA` is separate so that it can be copied as one block.
 
+**The file table.** If any live blob references `FILES` or `FILECOUNT`, the
+linker appends the file table to `BSS`: `n` entries of the profile's file-entry
+size, where `n` is the `F=n` option (default 4, at most 255). Otherwise it
+allocates nothing ([object format](object-format.md), Section 3.6).
+
 **Where sections go.**
 
 - **CP/M:** `START`, `TEXT`, `DATA` and `COPY` follow one another from the image

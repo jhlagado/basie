@@ -124,7 +124,9 @@ size. A reference to a pseudo-object marks nothing live, except `MAIN`.
 | `$FFE5` | `DATA` | Run address of the first separately placed `data` blob | Total length of the `DATA` section; may be 0 |
 | `$FFE6` | `DATACOPY` | Address of the stored copy of `DATA`; equal to `DATA` if none | Length of the copy; 0 if none |
 | `$FFE7` | `OPTIONS` | A 16-bit flag word, used as a value rather than an address (Section 3.5) | 0 |
-| `$FFE8`–`$FFFF` | — | Reserved; a reference is an error | — |
+| `$FFE8` | `FILES` | First address of the file table the linker allocates in `BSS` (Section 3.6) | Its length: the file count times the profile's file-entry size |
+| `$FFE9` | `FILECOUNT` | The number of file-table entries, used as a value | 0 |
+| `$FFEA`–`$FFFF` | — | Reserved; a reference is an error | — |
 
 When there are no `bss` blobs, `BSS` has the address of `FREE` and size 0.
 Likewise, when `DATA` is empty, `DATA` and `DATACOPY` have size 0. Code that
@@ -142,6 +144,17 @@ reference to it yields the flag word, for example as `LD HL,OPTIONS`.
 | 1 | Re-runnable: restore `DATA` from `DATACOPY` at startup |
 | 2 | A line table was written for this image |
 | 3–15 | Zero |
+
+### 3.6 The file table
+
+The runtime's file services keep one entry per file that can be open at once.
+The number of entries is chosen at link time (the linker's `F=n` option,
+default 4, at most 255), so the table can't be a fixed `bss` blob in the
+library. Instead, the linker allocates it as the last part of `BSS`, `n` times
+the profile block's **file-entry size** long, and the runtime reaches it through
+the `FILES` and `FILECOUNT` pseudo-objects. Startup's clearing of `BSS` clears
+it. A program that calls no file service references neither pseudo-object, and
+the linker then allocates nothing.
 
 ## 4. Program object
 
@@ -403,6 +416,7 @@ The profile block follows the header directly.
 | option support | `u8` | Bit 0: keep-CCP supported. Bit 1: re-runnable supported |
 | free restart vectors | `u8` | Bit *n* set: `RST n*8` is free for runtime use. Bits 0 and 7 must be clear on CP/M |
 | debugger margin | `u16` | Bytes a resident debugger typically takes, for reports |
+| file-entry size | `u16` | Bytes per file-table entry (Section 3.6); 0 if the library has no file services |
 | further fields | — | Added in later minor versions; a reader skips them using the length |
 
 ### 7.3 Directory section

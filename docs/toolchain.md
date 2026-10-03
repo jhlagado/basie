@@ -139,7 +139,7 @@ parts     = part { ws* "," ws* part }
 part      = filename
 options   = "[" ws* option { ws* "," ws* option } ws* "]"
 option    = flag | "P=" name | "L=" drive | "S=" drive | "O=" filename
-          | "STACK=" decimal | "T=" hex
+          | "F=" decimal | "STACK=" decimal | "T=" hex
 flag      = "K" | "C" | "X" | "M" | "Y" | "N" | "R" | "B" | "Z" | "V"
 filename  = [ drive ":" ] name [ "." type ]
 drive     = letter "A" to "P"
@@ -175,6 +175,7 @@ ws        = a space
 | `B` | Keep the CCP resident (CP/M 2.2) | warm boot on exit |
 | `Z` | Don't keep a `.BAK` | keep one |
 | `V` | Verify placeholder bytes and the library's whole-file CRC | off |
+| `F=n` | File-table entries: files open at once, 1 to 255 | 4 |
 | `STACK=n` | Minimum stack in decimal bytes; the linker uses it when it exceeds the compiler's estimate, so it works with `X` | the compiler's estimate |
 | `T=hhhh` | Trap lookup (Section 8) | — |
 
@@ -287,7 +288,13 @@ About 48K remains for the linker's tables ([linker](linker.md), Section 2).
 ### 7.3 Overlays and the message file
 
 - **Diagnostic text** is kept in `BATON.MSG`, read only when a diagnostic is
-  reported. `BATON` holds only message numbers.
+  reported. `BATON` holds only message numbers. The file is a header (magic
+  `BTMS`, version, message count), a table of 16-bit offsets, one per message
+  number, and the messages, each a length byte and text. A message may contain
+  `^1` and `^2`, replaced by up to two arguments the compiler supplies: a name,
+  a number or a type. `BLINK` uses the same file and format for its own
+  diagnostics. If `BATON.MSG` can't be found, the programs print the message
+  number and its arguments, so a diagnostic is never lost.
 - **Rarely used compiler parts,** starting with the conversion of decimal
   literals to `f32`, are kept in `BATON.OVL` and loaded into the overlay area
   when first needed. A program that uses no `f32` literal never loads it.

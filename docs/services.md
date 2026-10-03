@@ -82,8 +82,10 @@ runtime keeps each open file's FCB and record buffer in its own storage; the
 program never sees them.
 
 The number of files open at once is **chosen by the program** at link time,
-with `BLINK` option `F=n`, and is limited only by memory: each entry costs about
-170 bytes for its FCB, record buffer and state. The default is 4.
+with `BLINK` option `F=n`, from 1 to 255, and is otherwise limited only by
+memory: each entry costs about 170 bytes for its FCB, record buffer and state.
+The default is 4. The linker allocates the table in `BSS` only when the program
+uses a file service ([object format](object-format.md), Section 3.6).
 
 ### 3.2 Opening and closing
 

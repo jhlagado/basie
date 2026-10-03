@@ -710,6 +710,61 @@ conformance suite.
 questions are far cheaper to settle in TypeScript than in Z80. A second
 implementation catches errors a single one can't.
 
+
+### D36. The version 1 standard library
+
+The standard library is Baton source, compiled with the program through
+`include` and tree-shaken. Version 1 provides:
+
+- **Strings** (`STRINGS.BTN`): `append(var s, t)`, `appendByte(var s, b)`,
+  `copyFrom(var dest, src, start, count)`, `equal(a, b)`, `compare(a, b)`
+  returning `i8`, `find(s, t)` returning the position or `$FFFF`, `toUpper`,
+  `toLower`, `trim`. Each fails with `lineTooLong` rather than exceed the
+  destination's capacity.
+- **Numbers to text** (`FORMAT.BTN`): `appendU16`, `appendI16`, `appendU32`,
+  `appendI32` in decimal; `appendHex8` and `appendHex16`; `appendF32(var s, x,
+  places)` with a chosen number of decimal places.
+- **Text to numbers** (`PARSE.BTN`): `parseU16`, `parseI16`, `parseU32`,
+  `parseI32`, `parseF32`, each failing with `badNumber` (a library failure
+  code, 32) on malformed or out-of-range text.
+- **Console and files** (`TEXTIO.BTN`): `writeLine(f, s)` with CR LF,
+  `writeNumber`-style conveniences, `prompt(text, var answer)`.
+- **Pseudo-random numbers** (`RANDOM.BTN`): a 16-bit generator with a seed.
+
+**Why.** These are what a first program needs and what D25 left to the library;
+written in Baton, they cost compiler bytes nothing and programs only what they
+call.
+
+### D37. `assert`
+
+`assert condition` evaluates a `boolean` condition; if it is false, the program
+traps with `assertion`, and the report gives the site's address like any trap.
+There is no message argument: the line table names the source line. `assert`
+with a condition the compiler can prove false from constants is a compile-time
+error, as Nucleus does for other guaranteed traps.
+
+### D38. The file table is sized at link time
+
+The number of files open at once is chosen with the linker option `F=n`, 1 to
+255, default 4. The linker allocates the file table at the end of `BSS`, sized
+from a file-entry size in the library's profile block, and only when the
+program uses a file service; the runtime reaches it through the `FILES` and
+`FILECOUNT` pseudo-objects ([object format](object-format.md), Section 3.6).
+
+**Why.** The limits register forbids arbitrary limits. 255 is the largest count
+a one-byte slot in a file number can hold, far beyond what memory allows for
+real programs.
+
+### D39. Diagnostics come from a message file
+
+`BATON` and `BLINK` hold diagnostics as numbers and read their text from
+`BATON.MSG`, with up to two substituted arguments
+([toolchain](toolchain.md), Section 7.3). Without the file, the number and
+arguments are printed instead.
+
+**Why.** Message text is several kilobytes that the compiler would otherwise
+carry through every compilation (D9).
+
 ## Open
 
 ### O1. Exclusivity (resolved)
