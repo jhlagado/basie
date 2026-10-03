@@ -19,13 +19,11 @@ Each factual claim carries one of two marks:
   source in this session. Treat these as leads to confirm before relying on
   them. Where recall is uncertain, the text says so.
 
-Coverage is uneven. Sections 1 and 2 (Microsoft REL and Digital Research
-LINK-80, PRL, SPR, RSX) rest on primary manuals that were fetched and read in
-full. The research passes for SLR, Hi-Tech C, ASxxxx/sdld, z88dk, Turbo
-Pascal, Oberon, ordinals and the modern linkers had not reported when this
-note was written. Those sections are therefore marked **[R]** throughout,
-except where a fetched source happened to cover them. They are the first
-candidates for a follow-up verification pass.
+Coverage is uneven. Sections 1 to 6 and 9 rest on primary manuals, format
+documents and source code fetched in this session. Sections 7 (Turbo Pascal),
+8 (Oberon) and 10.4 (ordinals) are **recalled**: the research pass covering
+them had not reported when this note was finalised. They are marked **[R]**
+throughout and are the first candidates for a follow-up verification pass.
 
 ## Summary table
 
@@ -34,17 +32,18 @@ candidates for a follow-up verification pass.
 | Microsoft REL, L80 | Module | Abs 16-bit word (prog, data, common relative); later postfix expressions with HIGH and LOW | Module-level only, through library search | Names, 3-bit length field (7 characters max) | Sequential scan; whole modules pulled |
 | DRI LINK-80, RMAC | Module | Same REL forms; RMAC restricts expressions | Module-level only | Names truncated to 6 characters by RMAC | Sequential, or IRL index |
 | DRI PRL, SPR, RSX | Whole image | High-byte page relocation only | None | None | None |
-| SLR Z80ASM, SLRNK | Module | REL forms | Module-level only [R] | Names [R] | Module-level [R] |
-| Hi-Tech C LINK | Module, placed by psect | Psect-relative and symbol-relative, byte and word [R] | Module-level only [R] | Names [R] | LIBR archive with symbol directory [R] |
-| ASxxxx, sdld | Module, placed by area | Byte, word, PC-relative, MSB or LSB, paged [R] | None beyond module pull-in [R] | Names [R] | Text `.lib` lists or archives [R] |
-| z88dk z80asm | Module, placed by section | Byte, word, relative, expressions [R] | None beyond module pull-in [R] | Names [R] | Z80LMF library, whole modules [R] |
+| SLR Z80ASM, SLRNK | Module | REL forms plus RPN expressions, byte and word | Module-level only | 16 characters in SLR REL; 6 or 7 in M-REL | `/S` scan, `.REQUEST` |
+| Phoenix PLINK-II | Module, segments grouped into sections | REL forms | Module-level only | Names | One-pass `LIBRARY` or repeating `SEARCH` |
+| Hi-Tech C 3.09 LINK | Module, placed by psect | Psect-, name- and PC-relative, 1 to 4 bytes; no LOW/HIGH | Module-level only | Names, record-bounded | LIBR directory, single scan |
+| ASxxxx, sdld | Module, placed by area | Byte, word, PC-relative, MSB or LSB, paged | None beyond module pull-in | Names, effectively unlimited in sdld | Text `.lib` lists or archives, repeated |
+| z88dk z80asm | Module, placed by section | Range-coded patches; expressions stored as text | None beyond module pull-in | Names, unlimited | Z80LMF library, restart after each pull |
 | Turbo Pascal 3 | None (no linker) | Not applicable | None; whole runtime always present [R] | Not applicable | Not applicable |
 | Turbo Pascal 4+ | Procedure and variable inside a unit [R] | Fixup lists per routine [R] | Yes, per routine ("smart linking") [R] | Names in unit interface [R] | Units by name |
 | Oberon (PO 2013) | Module (loaded whole) | Fixup chains through instructions [R] | None (dynamic loading) | Module name plus entry number [R] | Modules by name plus key [R] |
-| ELF `--gc-sections` | Input section | Many relocation types | Yes, mark from roots [R] | Names | Archive index |
-| wasm-ld | Function, data segment, global | Index relocations padded to 5-byte LEB [R] | Yes, mark from exports [R] | Indexes in output, names in objects [R] | Archive index |
-| Go linker | Symbol | Per-symbol relocations [R] | Yes, reachability from `main` [R] | Names | Packages |
-| Plan 9 `8l` and kin | Instruction stream | Pseudo-instructions, linker selects encodings [R] | Unreferenced text dropped [R], uncertain | Names | `__.SYMDEF` archive index [R] |
+| ELF `--gc-sections` | Input section | Many relocation types | Yes, mark from roots | Names | Archive index |
+| wasm-ld | Function, data segment, global | Index relocations padded to 5-byte LEB | Yes, mark from exports | Indexes in output, names in objects | Archive index |
+| Go linker | Symbol | Per-symbol relocations | Yes, reachability from `main` | Names | Packages |
+| Plan 9 `8l` and kin | Instruction stream | Pseudo-instructions, linker selects encodings | Unreachable instructions only, not functions | Names | `__.SYMDEF` index, repeated |
 
 ## 1. Microsoft REL format (M80, L80, LIB-80)
 
@@ -575,23 +574,41 @@ assemblers and compilers for forward references within a unit [R].
 
 ### 10.2 Branch relaxation at link time versus compile time
 
-- **Link time:** Plan 9 linkers relaxed branches by iterating spans to a fixed
-  point [R]. Modern linkers rewrite code too: RISC-V `ld` relaxation, x86
-  GOTPCRELX relaxation, and ARM and AArch64 range-extension thunks in lld and
-  GNU ld [R].
-- **Theory:** Szymanski (1978) showed that choosing optimal branch sizes is
-  NP-complete when span expressions are general. The standard practical
-  algorithm starts every branch short and only ever grows them, which
+- **Link time, Plan 9:** `8l`'s `span()` re-sizes every instruction each pass
+  until nothing changes, choosing a 2-byte or 6-byte conditional jump by
+  displacement, and gives up after 50 passes [V S56]. Go 1.3 moved this work
+  out of the linker because linking had become the slowest step [V S51, S52].
+- **Link time, modern:** GNU ld `--relax` performs "target specific, global
+  optimizations that become possible when the linker resolves addressing"
+  [V S41]. RISC-V relaxation deletes bytes (`auipc+jalr` to `jal`), which forces
+  alignment tracking, iteration to convergence and DWARF bloat [V S58]. lld
+  adds range-extension thunks on ARM, AArch64, MIPS, PPC and others, iterating
+  thunk creation to a fixpoint and failing with "address assignment did not
+  converge" after 30 passes [V S59]. Apple's ld64 inserts branch islands at
+  fixed intervals [V S59a].
+- **Theory:** Szymanski (1978) showed that choosing branch sizes is efficiently
+  solvable when operands are labels or restricted expressions, and NP-complete
+  with general assembly-time expressions [V S59b, abstract only]. The standard
+  practical algorithm starts every branch short and only lengthens, which
   terminates [R].
+- **Compile time, CP/M:** Z80ASM was a one-pass assembler by default [V S61];
+  JR versus JP was chosen by the assembler or programmer.
 - **Period CP/M linkers:** none of the REL-based linkers did relaxation, and
   could not: REL has no PC-relative form, and it carries no record of which
-  bytes are instructions [V S1, S4 for the item set; R for the conclusion]. JR
-  versus JP was decided by the assembler or the programmer.
+  bytes are instructions [V S1, S4]. A modern L80 reimplementation confirms
+  that "LINK-80 has no PC-relative operator", so a JR to an external is an
+  error [V S7]. Hi-Tech's format does have PC-relative relocations, but only to
+  fill in a displacement, not to change instruction size [V S64, S66]. No
+  CP/M-era linker was found that relaxed JP to JR (absence of evidence, not
+  proof).
 
 ### 10.3 Tree shaking in period CP/M tools
 
-No period CP/M linker found here shook below module granularity. The reasons
-visible in the sources:
+No period CP/M linker found here shook below module granularity: L80 and
+LINK-80 [V S1, S4], SLRNK [V S60], PLINK-II [V S63] and Hi-Tech LINK [V S65]
+all select whole modules. Neither do the later ASxxxx/sdld and z88dk
+linkers, whose maintainers point users to one-function-per-module libraries
+instead [V S23, S29]. The reasons visible in the sources:
 
 - **The format had no smaller unit.** A REL module has one program segment and
   one data segment, and nothing marks where one routine ends and another
@@ -600,6 +617,9 @@ visible in the sources:
   relative to the segment base; they say "this word is relative to CSEG" but not
   "this word refers to routine X". The linker cannot build a routine-level graph
   from them [V S1].
+- **Fixed tables.** Hi-Tech LINK keeps symbols in a fixed 997-slot hash table
+  with no overflow to disk [V S66]; a routine-level graph multiplies the entry
+  count.
 - **Memory.** L80 holds the image in RAM and LINK-80 already spills buffers to
   disk to fit its symbol table [V S1, S4]. A routine-level graph would compete
   for the same memory.
@@ -644,11 +664,14 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
    byte operands or addends, need random access to the image and fail silently
    (Section 10.1). A dropped blob would also take part of a chain with it.
    Keep explicit reference records: blob ordinal, site offset, form, target
-   ordinal and addend.
+   ordinal and addend. z88dk's planned v19 format moves the same way, from
+   expressions to plain symbol-plus-addend records, for link speed
+   (Section 6).
 
 4. **Include low-byte, high-byte and addend forms from day one.** M80 had to
-   bolt on postfix expressions for `LOW` and `HIGH` externals, and DRI's LINK-80
-   never read them (Section 1). Baton's page-aligned tables used through
+   bolt on postfix expressions for `LOW` and `HIGH` externals, DRI's LINK-80
+   never read them (Section 1), and Hi-Tech's 3.09 LINK rejects its own
+   complex relocations (Section 4). Baton's page-aligned tables used through
    `LD H,hi(table)` need a high-byte form; `table+k` needs an addend. A fixed
    small set (word, low byte, high byte, each with a signed addend) covers this
    without a general expression evaluator.
@@ -674,7 +697,10 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
 
 8. **Separate graph, placement and emission passes over sequential data.**
    L80 needed the whole image in RAM and a 40K minimum (Section 1); LINK-80
-   spilled to eight temporary files when memory ran out (Section 2). Baton's
+   spilled to eight temporary files when memory ran out (Section 2). Hi-Tech's
+   LINK shows the better shape: tables in RAM, two passes, output placed by
+   seeking so the image is never held in memory (Section 4); PLINK-II and
+   SLRNK+ built the output on disk (Section 3). Baton's
    linker should hold only per-ordinal tables (live bit, size, address) in
    memory, about 4 to 5 bytes per blob, and stream bytes from disk to output.
    State the capacity limit as a number of blobs, and report it as a clear
@@ -723,18 +749,107 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
     runtime code is the likely offender in Baton; enforce one helper per blob in
     the runtime build, as the build pipeline already proposes.
 
+## Addendum: verified findings for Sections 7, 8 and 10.4
+
+A later research pass checked the sections above that were marked as recalled.
+Its findings supersede them where they differ. Claims still without a primary
+source are marked [R].
+
+### Turbo Pascal 3 (CP/M-80)
+
+- **No linker.** The compiler writes to memory, a `.COM` file or a `.CHN` file.
+  A `.COM` "contains the program code and Pascal run-time library"; a `.CHN`
+  contains the program code without it. Code starts at "the end address of the
+  Pascal library plus one", so every `.COM` carries the whole library. Its size,
+  about 8K to 12K, is [R]. (TP3 CP/M manual, pp. 143–145)
+- **No symbolic externals.** External routines are bound to absolute addresses
+  (`external $EC00`). Reuse is by `{$I}` include files. (§22.15, ch. 17)
+- **One pass, all in RAM.** When compiling to memory, code is generated upwards
+  from the end of the source text, and the symbol table grows down from 1K
+  below the top of memory. (pp. 170–171)
+- **Overlays.** An `overlay` procedure's code goes to a numbered file; a group of
+  consecutive overlays shares one area the size of its largest member, and
+  members of a group must not call each other. (ch. 18)
+
+### Turbo Pascal 4 to 7: smart linking
+
+- **Granularity.** "The linker automatically removes unused code on a
+  per-procedure basis" (TP4, p. 372). TP6 and TP7 extend removal to variables
+  and typed constants, but per **declaration section**, not per variable: one
+  referenced variable keeps its whole `var` section. (TP6 Programmer's Guide
+  p. 258; TP7 Language Guide pp. 250–251)
+- **Two passes.** Pass 1 marks every called procedure; pass 2 builds the `.EXE`
+  from the marked procedures in the `.TPU` files. `{$L+}` keeps the units in
+  memory between passes, `{$L-}` rereads them. (TP4, p. 540) TP7 disables smart
+  linking when compiling to memory. (TP7 LG, p. 250)
+- **Unit format.** Unpublished. Reconstructions show each code, constant and
+  variable block with its own reference list; marking starts from the main
+  program, unused blocks keep offset `$FFFF`, and relocations are written only
+  for placed blocks. (turbopascal.org; INTRFC)
+- **`.OBJ` files.** Converted from OMF, keeping only the standard code, constant
+  and data segments. That a whole `.OBJ` is kept when anything in it is
+  referenced is [R].
+- **Virtual methods.** A method table references every virtual method, so a
+  live constructor keeps them all; this is documented for C++ in LLVM, and Free
+  Pascal's whole-program optimisation works around it. That Turbo Pascal behaved
+  the same way is [R].
+
+### Oberon
+
+- **Ceres (NS32000).** Wirth compared fixup lists with an indirection table and
+  chose the **link table**: one conversion per referenced object, code left
+  untouched, short call addresses. Direct addressing tested 15–20 per cent
+  larger. (Project Oberon, 2005, §6.1–6.2)
+- **Project Oberon 2013 (RISC).** Linking is by number: clients see only a
+  procedure number, an index into the callee's entry table; "procedure names
+  are not needed". Export numbers are assigned in declaration order. Calls are
+  fixed up through **chains** in the instruction fields (4-bit module, 8-bit
+  procedure, 12-bit displacement); the compiler reports "fixup impossible" when
+  a gap reaches 1000H words, which caps imports at 15 and entries at 256.
+  (ORG.Mod, Modules.Mod, PO.System §6)
+- **Keys.** A key is a checksum of the symbol file that changes if and only if
+  the interface changes; the loader refuses a mismatched import. Reordering
+  exports renumbers them and changes the key.
+
+### Ordinals elsewhere
+
+- **Win16.** Exports are an ordinal-indexed table; names live in a resident
+  table and a non-resident one read only on demand. Imports within a segment
+  are threaded through their placeholders as a chain ending at `$FFFF`.
+  (Raymond Chen, *The Old New Thing*, July 2006)
+- **Win32.** Ordinals assigned automatically by the linker are not stable:
+  `LocalAlloc` was 314 in NT 3.1 and 501 in Windows 95. Microsoft recommends
+  exporting by ordinal only for legacy clients. (Chen; Microsoft Learn)
+- **Amiga.** A library function's vector offset "is always the same on every
+  system and is not subject to change". (Amiga RKM Libraries) Appending new
+  functions only at the end is [R].
+- **Lilith Modula-2.** `CX 1 0` calls external module 1, procedure 0, in 3
+  bytes. (afborchert/lilith)
+
+### What this changes for Baton
+
+- **Turbo Pascal 4 is confirmed** as the closest precedent: per-procedure blocks,
+  each with its own reference list, marked from the main program. Its data
+  granularity was coarser than Baton's, which removes each variable and
+  constant individually.
+- **Ordinals need fixed assignment, not linker-assigned numbering.** The Win32
+  `LocalAlloc` case is the failure Baton's append-only helper table prevents:
+  runtime ordinals are published and fixed by the runtime, never assigned by a
+  tool at build time.
+- **Oberon's key is the model for the interface check** Baton should add: a
+  checksum of the helper table carried by the blob library and recorded by the
+  compiler, so a library with the same version number but a different
+  interface is refused.
+
 ## Follow-up verification
 
 These recalled claims matter most to the design and should be checked first:
 
-- Hi-Tech C relocation record types and LIBR directory layout (Section 4).
-- ASxxxx `R`-line mode bits (Section 5), as a reference for a compact set of
-  byte and word forms.
 - Turbo Pascal 4 TPU per-routine fixup structure and the `.OBJ` limitation
   (Section 7).
 - Oberon 2013 fixup chain field widths and the key check (Section 8).
-- wasm-ld 5-byte padded LEB relocations (Section 9).
-- Whether SLR defined its own REL extensions (Section 3).
+- The byte-level SLR REL format (Section 3), in the SLRNK manual.
+- Windows and Amiga ordinal practice (Section 10.4).
 
 ## Sources
 
@@ -769,6 +884,82 @@ Verified in this session (fetched and read):
   excerpt only (iterative library search, six-character identifiers).
   <https://www.bitsavers.org/pdf/tdl/TDL_Z80_Linker_197803.pdf>
 
+- **S20** A. R. Baldwin, *ASxxxx linker documentation* (object format, R-line
+  modes, libraries). <https://shop-pdp.net/ashtml/asls01.htm>
+- **S21** SDCC, `sdas/linksrc/aslink.h`.
+  <https://sourceforge.net/p/sdcc/code/HEAD/tree/trunk/sdcc/sdas/linksrc/aslink.h>
+- **S22** SDCC, `sdas/linksrc/lklibr.c`.
+  <https://sourceforge.net/p/sdcc/code/HEAD/tree/trunk/sdcc/sdas/linksrc/lklibr.c>
+- **S23** SDCC feature request #635, "Unused functions are not removed".
+  <https://sourceforge.net/p/sdcc/feature-requests/635/>
+- **S24** SDCC, `sdas/linksrc/lkmain.c`.
+  <https://sourceforge.net/p/sdcc/code/HEAD/tree/trunk/sdcc/sdas/linksrc/lkmain.c>
+- **S25** z88dk wiki, *z80asm directives* and *Tool - z80asm*.
+  <https://github.com/z88dk/z88dk/wiki/Tool---z80asm---directives>,
+  <https://github.com/z88dk/z88dk/wiki/Tool---z80asm>
+- **S26** z88dk, object file format v18 and `objfile.h`.
+  <https://github.com/z88dk/z88dk/blob/master/src/z80nm/object-file-format/obj_v18.txt>
+- **S27** z88dk, `src/z80asm/src/c/modlink.c`.
+  <https://github.com/z88dk/z88dk/blob/master/src/z80asm/src/c/modlink.c>
+- **S28** z88dk issue #45. <https://github.com/z88dk/z88dk/issues/45>
+- **S29** z88dk issue #2058. <https://github.com/z88dk/z88dk/issues/2058>
+- **S30** z88dk issue #692. <https://github.com/z88dk/z88dk/issues/692>
+- **S31** z88dk, object file format v19.
+  <https://github.com/z88dk/z88dk/blob/master/src/z80nm/object-file-format/obj_v19.txt>
+- **S40** GCC manual, *Optimize Options* (`-ffunction-sections`).
+  <https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html>
+- **S41** GNU ld manual, *Options*. <https://sourceware.org/binutils/docs/ld/Options.html>
+- **S42** GNU ld manual, *Input Section Keep*.
+  <https://sourceware.org/binutils/docs/ld/Input-Section-Keep.html>
+- **S43** LLVM lld, `lld/ELF/MarkLive.cpp`.
+  <https://github.com/llvm/llvm-project/blob/main/lld/ELF/MarkLive.cpp>
+- **S44** lld, *start-stop-gc*. <https://lld.llvm.org/ELF/start-stop-gc.html>
+- **S45** F. Song (MaskRay), *Linker garbage collection*.
+  <https://maskray.me/blog/2021-02-28-linker-garbage-collection>
+- **S46** LLVM lld, `lld/ELF/ICF.cpp`.
+  <https://github.com/llvm/llvm-project/blob/main/lld/ELF/ICF.cpp>
+- **S47** LLVM lld, `lld/wasm/MarkLive.cpp`.
+  <https://github.com/llvm/llvm-project/blob/main/lld/wasm/MarkLive.cpp>
+- **S48** lld, *WebAssembly lld port*. <https://lld.llvm.org/WebAssembly.html>
+- **S49** WebAssembly tool conventions, *Linking.md*.
+  <https://github.com/WebAssembly/tool-conventions/blob/main/Linking.md>
+- **S50** Go, `src/cmd/link/internal/ld/deadcode.go`.
+  <https://github.com/golang/go/blob/master/src/cmd/link/internal/ld/deadcode.go>
+- **S51** *Go 1.3 Release Notes*. <https://go.dev/doc/go1.3>
+- **S52** R. Cox, *Go 1.3 Linker Overhaul*.
+  <https://docs.google.com/document/d/1xN-g6qjjWflecSP08LNgh2uFsKjWb-rR9KA11ip_DIE/mobilebasic>
+- **S53** A. Clements, *Building a better Go linker* (2019).
+  <https://docs.google.com/document/d/1D13QhciikbdLtaI67U6Ble5d_1nsI4befEd6_k1z91U/mobilebasic>
+- **S54** K. Thompson, *Plan 9 C Compilers*. <https://9p.io/sys/doc/compiler.html>
+- **S55** R. Pike, *A Manual for the Plan 9 assembler*. <https://9p.io/sys/doc/asm.html>
+- **S56** Plan 9 `8l` sources (`obj.c`, `pass.c`, `span.c`).
+  <https://github.com/plan9foundation/plan9/tree/main/sys/src/cmd/8l>
+- **S57** Go 1.2 `src/cmd/ld/go.c` (`deadcode()`).
+  <https://github.com/golang/go/blob/release-branch.go1.2/src/cmd/ld/go.c>
+- **S58** F. Song (MaskRay), *The dark side of RISC-V linker relaxation*.
+  <https://maskray.me/blog/2021-03-14-the-dark-side-of-riscv-linker-relaxation>
+- **S59** LLVM lld, `lld/ELF/Thunks.cpp` and `lld/ELF/Writer.cpp`.
+  <https://github.com/llvm/llvm-project/blob/main/lld/ELF/Thunks.cpp>
+- **S59a** Apple ld64, `branch_island.cpp`.
+  <https://github.com/apple-oss-distributions/ld64/blob/main/src/ld/passes/branch_island.cpp>
+- **S59b** T. G. Szymanski, "Assembling code for machines with span-dependent
+  instructions", *CACM* 21(4), 1978 (abstract).
+  <https://dl.acm.org/doi/10.1145/359460.359474>
+- **S60** J. Sage, `SYNTAX.HLP` for SLRNK.
+  <https://deramp.com/downloads/mfe_archive/040-Software/SLR%20Systems/SLRNK/SYNTAX.HLP>
+- **S61** SLR Systems, *Z80ASM manual*.
+  <https://www.s100computers.com/Software%20Folder/Assembler%20Collection/z80asm%20(SLR%20Systems).pdf>
+- **S62** SLR Systems leaflet (SLRNK, SLRNK+), Internet Archive.
+  <https://archive.org/details/slr-systems-z-80-asm-leaflet-zilog-mnemonic-relocating-macro-assembler>
+- **S63** Phoenix Software Associates, *PLINK-II manual* (January 1981).
+  <https://bitsavers.org/pdf/phoenixSoftwareAssociates/PLINK-II_Jan1981.pdf>
+- **S64** Hi-Tech Software, `OBJCODE.TXT` (object format).
+  <https://github.com/agn453/HI-TECH-Z80-C/blob/master/doc/OBJCODE.TXT>
+- **S65** Hi-Tech Software, *HI-TECH C Z80 user manual* (`HTCZ80.TXT`).
+  <https://github.com/agn453/HI-TECH-Z80-C/blob/master/doc/HTCZ80.TXT>
+- **S66** A. Nikitin and M. Ogden, decompiled Hi-Tech 3.09 LINK and LIBR.
+  <https://github.com/ogdenpm/hitech>
+
 Located but not readable in this session:
 
 - **S13** SLR Systems, *SLRNK Super-Linker User's Guide* (1984); requires a
@@ -782,22 +973,7 @@ Located but not readable in this session:
 
 Recalled references for the [R] sections (not fetched in this session):
 
-- Hi-Tech Software, *HI-TECH C Z80 Compiler User's Manual* (v3.09), and the
-  freeware distribution at <https://github.com/agn453/HI-TECH-Z80-C>.
-- Alan R. Baldwin, *ASxxxx Assemblers and ASLINK Relocating Linker*,
-  <https://shop-pdp.net/ashtml/asxxxx.htm>.
-- z88dk project, z80asm documentation, <https://github.com/z88dk/z88dk>.
 - Niklaus Wirth and Jürg Gutknecht, *Project Oberon* (2013 edition),
   <https://people.inf.ethz.ch/wirth/ProjectOberon/>.
-- GNU ld manual, *Input Section Keep* and `--gc-sections`,
-  <https://sourceware.org/binutils/docs/ld/>.
-- LLVM lld sources, `lld/ELF/MarkLive.cpp` and `lld/wasm/MarkLive.cpp`,
-  <https://github.com/llvm/llvm-project>; lld WebAssembly notes,
-  <https://lld.llvm.org/WebAssembly.html>.
-- Go sources, `cmd/link/internal/ld/deadcode.go`, <https://go.dev/src/cmd/link/>.
-- Ken Thompson, *Plan 9 C Compilers*, and Rob Pike, *A Manual for the Plan 9
-  assembler*, <https://9p.io/sys/doc/>.
-- Thomas G. Szymanski, "Assembling code for machines with span-dependent
-  instructions", *Communications of the ACM* 21(4), 1978.
 - Microsoft Learn, *Exporting from a DLL Using DEF Files* (ordinals and
   `NONAME`).
