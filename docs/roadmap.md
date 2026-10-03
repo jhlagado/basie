@@ -20,7 +20,7 @@ The **tracks**:
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
-| 1 | Design | Apply the memory-safety verification pass and freeze revision 5 | Frozen memory-safety design | Verification report says ready |
+| 1 | Design | Apply the memory-safety verification pass and freeze revision 5 | Frozen memory-safety design (done: revision 6) | Verification report says ready |
 | 2 | Design | Apply the services review; align every service with z80-services; raise contract gaps there | Services revision 2; issues in z80-services | Review findings closed |
 | 3 | Design | Write the remaining small decisions: string library contents, `assert` message form, the `F=n` link option and its pseudo-object, message-file format | Decisions D36–D39 (done) | Each referenced from the spec outline |
 | 4 | Design | Complete the limits register: audit every document and the Nucleus specification for fixed limits | [Limits register](limits.md), every row justified (done) | No unexplained limit |
@@ -33,7 +33,7 @@ The **tracks**:
 | 6 | Ref | Deno tasks, formatting, linting, test layout | `deno.json` | `deno task check` (done) |
 | 7 | Ref | Minimal CP/M harness on the Z80 runtime | `tests/harness/cpm.ts` | First test (done) |
 | 8 | Ref | Extend the minimal harness: file BDOS functions over an in-memory disk, the command tail, return codes, cycle counting | Harness with files | Tests for each BDOS function (done: console, files, search, random records, size, tail, return codes) |
-| 9 | Ref | Full-fidelity harness: boot real CP/M 2.2 on the Triptych machine, as Skate does | `tests/harness/triptych.ts` | A `.COM` runs from the CCP prompt |
+| 9 | Ref | Full-fidelity harness: boot real CP/M 2.2 on the Triptych machine, as Skate does | `tests/harness/triptych.ts` | A `.COM` runs from the CCP prompt (done) |
 | 10 | Ref | Golden-output test runner: compile, link, run, compare output, traps and diagnostics | `tests/run-conformance.ts` | Runs the corpus; tests pending until the compiler handles them (done) |
 | 11 | Ref | Budget census tool, adapted from Skate's: measures images by module | `tools/census.ts` | Measures a fixture program; `--budget` fails when exceeded (done) |
 
