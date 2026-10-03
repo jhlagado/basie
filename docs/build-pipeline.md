@@ -1,6 +1,6 @@
 # Build pipeline
 
-- Status: design overview, revision 4
+- Status: design overview, revision 5
 - Date: 2026-10-03
 - Specifications: [object format](object-format.md), [linker](linker.md),
   [toolchain](toolchain.md), [CP/M target](cpm-target.md)
@@ -22,8 +22,8 @@ one executable:
    variable, each a run of bytes plus a list of the places that hold
    addresses. It never chooses a final address.
 2. **Link.** The linker reads the blobs and a prebuilt **blob library** holding
-   the runtime for the target. It keeps only the blobs reachable from the
-   program's entry, assigns their addresses, fills in every address and writes
+   the runtime for the target. It keeps only the blobs reachable from its
+   roots, assigns their addresses, fills in every address and writes
    the program image.
 
 No assembler takes part. The compiler generates machine code; the linker
@@ -158,7 +158,11 @@ how the compiler changes from Nucleus to write it.
 
 Its memory cost for references is one routine's pending list at a time, about
 5 bytes per reference, instead of Nucleus's program-wide table of unresolved
-sites.
+sites. The list has a published capacity, 512 references in the first
+estimate. A routine that exceeds it is rejected with a capacity diagnostic
+asking for the routine to be split, as Nucleus does for its other capacities;
+the compiler cannot write a routine's record before the routine ends, so it has
+no fallback here.
 
 ### 6.3 Shorter forward branches
 
@@ -202,18 +206,24 @@ buffer** and appends them after the routine's code when the routine ends,
 reaching each by a self-reference.
 
 If the literal buffer fills, the compiler writes further literals inline at the
-point of use, preceded by a `JR` over them, and loads their address with a
-self-reference: 2 bytes and 12 T-states more per literal. Correctness never
-depends on the buffer's size. Identical literals are not merged.
+point of use, preceded by a jump over them, and loads their address with a
+self-reference. The jump is a `JR` (2 bytes) for literals up to 127 bytes and a
+`JP` with a self-reference (3 bytes) for longer ones. Correctness never depends
+on the buffer's size. Identical literals are not merged. The literal buffer is
+about 1K in the first estimate.
 
 ### 6.5 Line entries during shrinking
 
 Statement offsets for the line stream move when branches shrink. For a buffered
-routine, the compiler holds the routine's line entries, about 4 bytes each, and
+routine, the compiler holds the routine's line entries, 5 bytes each, and
 adjusts them in step 4 of Section 6.3 along with the references. An unbuffered
 routine writes its line entries as it generates them, since nothing moves.
 
 ### 6.6 Shared tails and fall-through
+
+**Tail calls.** Program routines may tail-call each other with `JP`. Compiled
+code never tail-calls a runtime helper, because a trap inside the helper would
+then report the wrong call site ([CP/M target](cpm-target.md), Section 10.2).
 
 Blobs may not fall through into one another or share code by adjacency. A tail
 the Nucleus backend shared between routines becomes an explicit `JP` to a
@@ -249,7 +259,7 @@ target it runs on.
 ## 8. Costs
 
 - **More disk traffic per build.** The directory stream may be as large as the
-  program itself, and the linker reads it at least twice. On the 720K-and-larger
+  program itself, and the linker reads it at least three times. On the 720K-and-larger
   disks Baton assumes, space is not a concern, but transfer time is. The
   reference density of real compiled code must be measured to size this.
 - **Placeholders hide addresses from the compiler.** It cannot fold or compare
@@ -301,8 +311,9 @@ These are collected from the specifications:
 1. **Reference density and blob counts** of real compiled code, which size the
    directory stream, the linker's tables and the build time.
 2. **Linker table capacity** for the largest programs, and how to shrink the
-   tables if needed ([linker](linker.md), Section 11).
-3. **Line table memory** when a program has many statements.
+   tables if needed ([linker](linker.md), Section 12).
+3. **The activation-capacity threshold** above which a routine checks its
+   stack in its prologue ([CP/M target](cpm-target.md), Section 4.1).
 4. **Routine and literal buffer sizes** for branch shrinking, and the limit on
    references per routine.
 5. **Stack reserve for recursive programs,** beyond the default reserve and the
@@ -319,6 +330,10 @@ These are collected from the specifications:
   termination argument, branch shrinking that broke backward branches, a
   reference encoding with no spare bits, linker-assigned banks, underestimated
   file sizes and the claim of atomic output replacement.
+- **Revision 3** split the design into this overview and four specifications,
+  named the layout tool the linker, made it a phase of the single `BATON`
+  executable, and added aliases, pseudo-objects as regions, the blob library
+  file with its profile block, the line table and the trap lookup mode.
 - **Revision 4** incorporated an adversarial review of the four
   specifications ([review](reviews/2026-10-03-linker-spec-review.md)). Its
   main corrections: an `OPTIONS` pseudo-object so prebuilt startup code can see
@@ -332,7 +347,13 @@ These are collected from the specifications:
   the ordinal space and the library range widened; a compilation stamp binding
   the streams; the image written on the output drive; and deleting files before
   creating them.
-- **Revision 3** split the design into this overview and four specifications,
-  named the layout tool the linker, made it a phase of the single `BATON`
-  executable, and added aliases, pseudo-objects as regions, the blob library
-  file with its profile block, the line table and the trap lookup mode.
+- **Revision 5** incorporated a second adversarial review
+  ([review 2](reviews/2026-10-03-linker-spec-review-2.md)): part records first
+  in the line stream; aliases' effective sizes for range checks; the reporter
+  contract extended to forbid tail calls to helpers and to cover nested helpers
+  and restart-vector helpers; alignment codes stored in the linker's tables, with
+  one placement read per alignment class and the `startup` blob first in the
+  library; an exact definition of `COPY`; aliases setting the defined bit; the
+  edge list layout; a compilation stamp derived from the previous directory; a
+  `JP` for long inline literals; the stack reserve as a lower bound guarded by
+  an activation-capacity check; and a per-routine reference capacity.

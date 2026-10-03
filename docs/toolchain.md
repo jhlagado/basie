@@ -1,10 +1,11 @@
 # Baton toolchain 1.0
 
-- Status: draft specification, revision 2 (after adversarial review)
+- Status: draft specification, revision 3 (after two adversarial reviews)
 - Date: 2026-10-03
 - Related: [object format](object-format.md), [linker](linker.md),
   [CP/M target](cpm-target.md), [build pipeline](build-pipeline.md),
-  [review](reviews/2026-10-03-linker-spec-review.md)
+  reviews [1](reviews/2026-10-03-linker-spec-review.md) and
+  [2](reviews/2026-10-03-linker-spec-review-2.md)
 
 ## 1. Scope
 
@@ -97,6 +98,8 @@ another:
 | `MAIN.SYM` | option `Y` | Symbol file for `SID` and `ZSID` |
 
 The base name is the first part's, unless option `O` names another.
+Intermediate files always take the first part's name and the spool drive,
+whatever `O` says, so a later link-only run finds them.
 
 ## 4. Phases
 
@@ -124,20 +127,28 @@ to upper case; option names are case-insensitive under CP/M 3 too.
 ### 5.2 Grammar
 
 ```text
-command   = parts [ ws options ]
-parts     = part { "," part }
-part      = [ drive ":" ] name [ "." type ]
-options   = "[" option { "," option } "]"
-option    = letter [ "=" value ]  |  "STACK=" number
-value     = drive  |  filename  |  hex
-ws        = one or more spaces
+command   = parts [ ws* options ]
+parts     = part { ws* "," ws* part }
+part      = filename
+options   = "[" ws* option { ws* "," ws* option } ws* "]"
+option    = flag | "P=" name | "L=" drive | "S=" drive | "O=" filename
+          | "STACK=" decimal | "T=" hex
+flag      = "K" | "C" | "X" | "M" | "Y" | "N" | "R" | "B" | "Z" | "V"
+filename  = [ drive ":" ] name [ "." type ]
+drive     = letter "A" to "P"
+name      = 1 to 8 file-name characters
+type      = 1 to 3 file-name characters
+decimal   = 1 to 5 decimal digits, value 1 to 65535
+hex       = 1 to 4 hexadecimal digits
+ws        = a space
 ```
 
-- Spaces are allowed around `,` and inside the brackets, and not elsewhere.
-- A part without a type means `.BTN`. User numbers are not supported in names.
+- A part without a type means `.BTN`. In `O=`, a missing type means `.COM`, and
+  a missing drive means the first part's drive. User numbers are not supported.
 - Each option may appear once; a repeated or unknown option is an error, as is
   a malformed value.
-- `T=` (trap lookup) may not be combined with options other than `P` and `L`.
+- `T=` (trap lookup) may be combined only with `L`, which says where to find
+  the library named in the line table's header.
 
 ### 5.3 Options
 
@@ -157,7 +168,7 @@ ws        = one or more spaces
 | `B` | Keep the CCP resident (CP/M 2.2) | warm boot on exit |
 | `Z` | Don't keep a `.BAK` | keep one |
 | `V` | Verify placeholder bytes and the library's whole-file CRC | off |
-| `STACK=n` | Minimum stack, in decimal bytes, if more than the compiler's estimate | the compiler's estimate |
+| `STACK=n` | Minimum stack in decimal bytes; the linker uses it when it exceeds the compiler's estimate, so it works with `X` | the compiler's estimate |
 | `T=hhhh` | Trap lookup (Section 8) | — |
 
 `C` and `X` are for diagnosing the toolchain, not for incremental compilation.
@@ -171,9 +182,13 @@ Under CP/M 3, `BATON` sets the program return code with BDOS function 108:
 | Code | Meaning |
 | --- | --- |
 | `$0000` | Output published |
-| `$FF01` | Source error |
-| `$FF02` | Link error |
-| `$FF03` | Disk error |
+| `$FF11` | Source error |
+| `$FF12` | Link error |
+| `$FF13` | Disk error |
+
+These differ from the codes a Baton program returns (`$FF01` to `$FF03`;
+[CP/M target](cpm-target.md), Section 5), so a `SUBMIT` log shows which program
+failed.
 
 Values from `$FF00` count as failure to the CP/M 3 CCP's `:` conditional, so
 `SUBMIT` files can stop on a failed build. Under CP/M 2.2, which has no return
@@ -249,6 +264,17 @@ tables occupy everything from the start of the compiler code up to the stack.
 | Stack | about 0.5K |
 | **Fixed total during linking** | **about 9.7K** |
 | Compiler code | not yet known; Nucleus's compiler core is about 15K |
+
+The compiler's workspace during compilation, also estimates:
+
+| Region | Size |
+| --- | --- |
+| Symbol table and scopes | not yet known; set by the number of declarations |
+| Routine buffer, for branch shrinking | 2K to 4K |
+| Literal buffer | about 1K |
+| Pending references for one routine | 512 references at 5 bytes, 2.5K |
+| Branch records, line entries and labels for one routine | about 1K, bounded by the routine buffer |
+| File buffers: a source part, the four streams, and the library during the check | about 1K |
 
 On a CP/M 2.2 system with 62K of memory, the area from `$0100` to the BDOS
 entry at `$E406` is about 56.75K. Less the fixed 9.7K, about 47K remains for the

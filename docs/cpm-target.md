@@ -1,9 +1,11 @@
 # Baton CP/M target 1.0
 
-- Status: draft specification, revision 2 (after adversarial review)
+- Status: draft specification, revision 3 (after two adversarial reviews)
 - Date: 2026-10-03
 - Related: [object format](object-format.md), [linker](linker.md),
-  [toolchain](toolchain.md), [review](reviews/2026-10-03-linker-spec-review.md)
+  [toolchain](toolchain.md), reviews
+  [1](reviews/2026-10-03-linker-spec-review.md) and
+  [2](reviews/2026-10-03-linker-spec-review-2.md)
 
 ## 1. Scope
 
@@ -116,6 +118,25 @@ The first byte of the image must not be `$C9` (`RET`); CP/M 3's loader treats a
 `.COM` file beginning with `$C9` as carrying a 256-byte RSX header. A startup
 blob that begins with `LD C,26` satisfies this; the conformance suite checks
 it.
+
+### 4.1 Stack checking
+
+`REQUIRED` is a lower bound: the profile's default reserve plus the largest
+single activation frame, or the `STACK=` option if larger. A single-pass
+compiler cannot know the deepest chain of calls, so startup's memory check
+cannot guarantee the stack is enough.
+
+The guard is the **activation-capacity check**, Nucleus's `activation-capacity`
+trap carried over. A routine whose activation frame is larger than a profile
+threshold, and every routine that can recurse, begins with a call to the
+runtime's stack-check helper, passing its frame size. The helper traps with
+`activation-capacity` if the stack pointer minus the frame size would fall below
+`FREE` plus a guard band of 64 bytes. The guard band covers runtime helpers'
+own pushes and an interrupt-mode-1 BIOS pushing onto the program's stack. The
+helper follows the reporter contract (Section 10.2), so the trap reports the
+routine's prologue, which the line table maps to the routine's header.
+
+### 4.2 Programs too large to load
 
 A program too large for the real machine never reaches startup. The CP/M 2.2
 CCP loads the file record by record and stops with `BAD LOAD` if the next record
@@ -238,6 +259,25 @@ A helper that cannot restore its entry stack pointer cheaply on a failure path
 records the entry value when it starts, or doesn't trap itself and instead
 returns a condition flag for an inline site to test. A reporter may destroy
 every register, since it never returns.
+
+Three further rules keep the reported site correct:
+
+1. **No tail calls to helpers.** Compiled code enters a runtime helper only with
+   a 3-byte `CALL`, never with a tail-call `JP`. (Program routines may still
+   tail-call each other.) A helper reached by `JP` from compiled code would
+   leave the caller's caller's return address on the stack, and the report
+   would name the wrong routine.
+2. **Helpers that call helpers.** A helper that needs another helper as a
+   subroutine calls a non-trapping variant that returns a condition flag, and
+   traps itself, with its own entry stack restored. A helper may also finish
+   by jumping to another trapping helper, but only after restoring its own entry
+   stack pointer, so the stack still holds the program's return address.
+3. **`RST` helpers never trap.** A helper entered through a restart vector has
+   a 1-byte call instruction, so "return address minus 3" would be wrong.
+
+The conformance suite checks every library helper's failure path: the reporter
+must be reached with the stack pointer equal to its value immediately after the
+program's call.
 
 ### 10.3 Lookup
 

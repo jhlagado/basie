@@ -1,10 +1,11 @@
 # Baton Object Format 1.0
 
-- Status: draft specification, revision 2 (after adversarial review)
+- Status: draft specification, revision 3 (after two adversarial reviews)
 - Date: 2026-10-03
 - Related: [build pipeline](build-pipeline.md) (overview and rationale),
   [linker](linker.md), [toolchain](toolchain.md), [CP/M target](cpm-target.md),
-  [review](reviews/2026-10-03-linker-spec-review.md)
+  reviews [1](reviews/2026-10-03-linker-spec-review.md) and
+  [2](reviews/2026-10-03-linker-spec-review-2.md)
 
 ## 1. Scope
 
@@ -154,11 +155,14 @@ writes it into the header of every stream it produces. The linker refuses
 streams whose stamps differ, so a stale byte, line or name stream left from an
 earlier compilation can never be combined with a newer directory.
 
-The stamp need only differ between successive compilations, and it must be
-known when the first header is written. CP/M 2.2 has no clock, so the compiler
-derives it from the CRC of the first source part's first 128-byte record,
-combined with the Z80's `R` register sampled while waiting for that record. A
-stamp of zero is replaced by 1.
+The stamp must differ from that of any stream an earlier compilation could
+have left behind, and it must be known when the first header is written. Before
+deleting an existing program directory, the compiler reads its stamp and uses
+that value plus one, skipping zero. Only when no earlier directory exists does
+it derive a stamp from the CRC of the first source record combined with the
+Z80's `R` register. CP/M 2.2 has no clock, and source content alone repeats
+whenever a program is rebuilt unchanged, which is exactly when stale files are
+likeliest.
 
 ### 4.2 Directory stream
 
@@ -295,15 +299,16 @@ Each reference entry is:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | control | `u8` | Bits 0–5: offset delta 0–62, or 63 to escape. Bit 6: an addend follows. Bit 7: a form byte follows |
-| absolute offset | `u16`, optional | Present when the delta field is 63 |
+| absolute offset | `u16`, optional | Present when the delta field is 63: the entry's offset from the start of the blob |
 | form | `u8`, optional | Present when bit 7 is set: the form code 1–7. When absent, the form is `ABS16` |
 | target | `u16` | Target ordinal |
 | addend | `u16`, optional | Present when bit 6 is set; otherwise 0 |
 
-For a blob's first entry, the delta or absolute offset is the offset from the
-start of the blob. For each later entry it is the distance from the previous
-entry's offset, and must be at least 1 whether given as a delta or an
-absolute offset. Offsets are therefore strictly increasing. A form byte of 0 is
+For a blob's first entry, the delta is the offset from the start of the blob.
+For each later entry, the delta is the distance from the previous entry's
+offset and must be at least 1. The escaped field is always an absolute offset
+from the start of the blob, and must be greater than the previous entry's
+offset. Offsets are therefore strictly increasing. A form byte of 0 is
 invalid, since `ABS16` is expressed by omitting it.
 
 A reference's bytes must lie wholly inside the blob, and two references' bytes
@@ -313,6 +318,10 @@ at *o* + 2 or later.
 **Cost.** An `ABS16` with no addend within 62 bytes of the previous reference,
 the commonest case, takes 3 bytes. Another form adds 1 byte, an addend 2, and
 the escape 2.
+
+**Restriction on library references.** A reference in the library may target
+only library ordinals no higher than the header's highest ordinal, and
+pseudo-objects. A library never references a program ordinal.
 
 ## 6. Control records
 
@@ -337,13 +346,15 @@ the program directory.
 
 **`LIMITS`.** Facts the compiler knows only at the end of input:
 
-- **stack reserve:** the minimum stack the program needs, in bytes. The compiler
-  sets it to the profile's default stack reserve plus the largest activation
-  frame, unless the source or command line asks for more;
+- **stack reserve:** the compiler's lower bound on the stack the program needs:
+  the profile's default stack reserve plus the largest activation frame. It is
+  a lower bound, not a guarantee; a single pass cannot know the deepest chain of
+  calls. The runtime's activation-capacity check ([CP/M target](cpm-target.md),
+  Section 4.1) is the guard;
 - **largest frame:** the largest single activation frame, for the map; and
-- **flags:** bit 0 is set if any routine can recurse, directly or through a
-  forward declaration. The stack reserve can't cover unbounded recursion; the
-  runtime's activation-capacity check traps if the stack runs out.
+- **flags:** bit 0 is set when any routine calls itself or calls a routine that
+  is declared forward and not yet defined at the call, which are the only ways a
+  single-pass compiler can see recursion arise.
 
 ## 7. Blob library
 
@@ -402,7 +413,8 @@ The directory section uses the record grammar of a program directory
 
 - it has no header of its own; the library header serves instead;
 - implicit ordinals start at `$0001`, and ordinals lie in `$0001`–`$03FF`;
-- exactly one blob has kind `startup`, and it is a root;
+- exactly one blob has kind `startup`; it is a root, and it is the first record
+  of the directory section;
 - the `startup` blob references `MAIN`;
 - `ENTRY` and `LIMITS` records are not allowed; and
 - `data` blobs are allowed, for runtime state. They are placed and, when
@@ -435,7 +447,7 @@ library, because that reads the whole file again.
 Optional; written by default. It maps code positions to source positions.
 
 ```text
-line-stream = line-header (part-record | blob-lines)* line-trailer
+line-stream = line-header part-record* blob-lines* line-trailer
 ```
 
 | Record | Layout |
@@ -446,11 +458,15 @@ line-stream = line-header (part-record | blob-lines)* line-trailer
 | Line trailer | tag `$FF`, CRC `u16` over every preceding byte |
 
 Part records name each source part with the name the compiler opened, such as
-`B:MAIN.BTN`. A part record precedes every blob-lines record that uses its
-part. Parts are numbered from 0; 255 is reserved.
+`B:MAIN.BTN`. **All part records come first,** in part order, before any
+blob-lines record; the compiler knows every part from the command line before
+it compiles anything. Parts are numbered from 0; 255 is reserved.
 
 The compiler writes a blob-lines record for each `code` blob at the same time as
 the blob's directory record, so blob-lines records are in directory order.
+Every `code` blob has one, and its first entry is at offset 0 and gives the
+source position of the routine's header, so a trap in a routine's prologue
+reports the routine.
 
 Each entry marks the start of a statement:
 
@@ -461,10 +477,11 @@ Each entry marks the start of a statement:
 | part | `u8`, optional | Present when bit 7 is set; otherwise the previous entry's part |
 | source offset | `u16` | Byte offset of the statement in its source part |
 
-The first entry of every blob-lines record carries a part number. Offsets are
-measured as in Section 5.2: the first from the blob start, the rest from the
-previous entry. Two entries may share an offset only if they are in different
-parts. A source part is at most 65,535 bytes long.
+The first entry of every blob-lines record carries a part number. The first
+entry's delta is its offset from the blob start; each later entry's delta is
+the distance from the previous entry, and may be 0 only when the entry changes
+part. The escaped field is an absolute offset from the blob start. A source part
+is at most 65,535 bytes long.
 
 ## 9. Name stream
 
@@ -519,7 +536,7 @@ an incompatible library is reported at once.
 ## 11. Line table
 
 The linker writes the line table while it writes the image (linker,
-Section 7.6). Its entries are in increasing address order as written.
+Section 7.7). Its entries are in increasing address order as written.
 
 | Record | Layout |
 | --- | --- |
@@ -530,23 +547,25 @@ Section 7.6). Its entries are in increasing address order as written.
 
 Each entry is: address `u16`, part `u8`, source offset `u16`.
 
-- Each statement of a live `code` blob contributes one entry.
-- Each live blob that does not start with a statement contributes one entry at
-  its start address, with part `$FF` and the blob's ordinal in the source-offset
-  field. This covers runtime blobs and constants, and any routine whose first
-  byte is not a statement.
+- Each statement of a live program `code` blob contributes one entry. Its first
+  entry is at the blob's start (Section 8).
+- Each other live blob in a stored section (runtime blobs, `rodata`, `data` and
+  `startup`) contributes one entry at its start address, with part `$FF` and
+  the blob's ordinal in the source-offset field.
+- `bss` blobs and the `COPY` section contribute nothing. An address beyond the
+  last entry's blob, or in `BSS`, is reported as outside the stored code.
 
-No blob may start at `$FFFF` (the linker rejects such a placement with
-`L-FIT-IMAGE`), so no entry has address `$FFFF`, and the five `$FF` bytes mark
-the trailer unambiguously.
+Five `$FF` bytes can never form an entry: that would be a start entry for
+ordinal `$FFFF`, which is a reserved pseudo-object, never a blob. They mark the
+trailer unambiguously.
 
 The source position of an address is that of the entry with the greatest
 address not above it. Part `$FF` means the address lies in a blob without
 source; the ordinal identifies it.
 
-The **image CRC** is the CRC of the output file as stored, including the zero
-padding of its final 128-byte record, so a tool can check that a line table
-belongs to a given program file. It is in the trailer because the linker knows
+The **image CRC** is the CRC of the output file as stored, including whatever
+padding the output kind uses, so a tool can check that a line table belongs to
+a given program file. It is in the trailer because the linker knows
 it only after the image is written.
 
 ## 12. Limits
