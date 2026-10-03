@@ -68,6 +68,7 @@ On the spool drive (option `S`):
 | `MAIN.$BY` | compiler | linker | Program byte stream |
 | `MAIN.$LN` | compiler | linker | Line stream, unless option `N` |
 | `MAIN.$NM` | compiler | linker | Name stream, with option `M` or `Y` |
+| `MAIN.$RF` | compiler | compiler | Scratch file for one routine's in-order references, used only when a routine's references overflow a 128-byte buffer; deleted when compilation ends |
 
 On the output drive:
 
@@ -272,7 +273,7 @@ The compiler's workspace during compilation, also estimates:
 | Symbol table and scopes | not yet known; set by the number of declarations |
 | Routine buffer, for branch shrinking | 2K to 4K |
 | Literal buffer | about 1K |
-| Pending references for one routine | 512 references at 5 bytes, 2.5K |
+| References for one routine | 128-byte in-order buffer (spilling to `MAIN.$RF`), plus about 256 deferred references at 5 bytes, 1.25K |
 | Branch records, line entries and labels for one routine | about 1K, bounded by the routine buffer |
 | File buffers: a source part, the four streams, and the library during the check | about 1K |
 

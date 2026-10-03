@@ -156,13 +156,30 @@ how the compiler changes from Nucleus to write it.
   `LIMITS` record with the stack reserve and recursion flag it knows only at
   the end of input.
 
-Its memory cost for references is one routine's pending list at a time, about
-5 bytes per reference, instead of Nucleus's program-wide table of unresolved
-sites. The list has a published capacity, 512 references in the first
-estimate. A routine that exceeds it is rejected with a capacity diagnostic
-asking for the routine to be split, as Nucleus does for its other capacities;
-the compiler cannot write a routine's record before the routine ends, so it has
-no fallback here.
+**References for one routine.** The record can't be written until the routine
+ends, because its header needs the size and reference count and its references
+must be sorted. Most references are produced in offset order as code is
+emitted: calls, global loads and stores, backward jumps. A few are **deferred**,
+because their value is learned later: forward jumps to labels later in the
+routine, addresses of literals in the literal buffer, and the address of a jump
+table placed after its arms. The compiler handles the two kinds separately:
+
+- **In-order references** are encoded as they are produced into a 128-byte
+  buffer, which spills to a scratch file, `MAIN.$RF`, when it fills. They have
+  no limit.
+- **Deferred references** are held in memory, in a list of about 256 entries
+  (5 bytes each, 1.25K).
+- **At the end of the routine,** the compiler merges the two sorted sequences
+  into the directory record, reading the scratch file forward once if it was
+  used, and then empties it for the next routine.
+
+When the deferred list fills, further literals are placed inline, which makes
+their references in-order. Jump tables go after the arms they dispatch to, so a
+table costs one deferred reference, not one per entry. The only remaining limit
+is the number of forward jumps outstanding in one routine; a routine with more
+than about 256 is rejected with a capacity diagnostic asking for it to be split.
+This replaces Nucleus's program-wide table of unresolved call sites, and revision
+5's limit of 512 references per routine.
 
 ### 6.3 Shorter forward branches
 
@@ -314,8 +331,8 @@ These are collected from the specifications:
    tables if needed ([linker](linker.md), Section 12).
 3. **The activation-capacity threshold** above which a routine checks its
    stack in its prologue ([CP/M target](cpm-target.md), Section 4.1).
-4. **Routine and literal buffer sizes** for branch shrinking, and the limit on
-   references per routine.
+4. **Routine, literal and deferred-reference buffer sizes,** fixed by
+   measurement.
 5. **Stack reserve for recursive programs,** beyond the default reserve and the
    runtime's activation-capacity trap.
 6. **Source parts named in source** rather than on the command line.
