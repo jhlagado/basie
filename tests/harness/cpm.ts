@@ -54,7 +54,11 @@ export async function assembleFile(path: string) {
   });
   const image = materializeAtomGeneration(result.generation);
   if (!image) throw new Error(`ATOM produced no image for ${path}`);
-  return image;
+  const symbols = result.generation.symbols.map(
+    (s: { name: string; value: number }) =>
+      [s.name.toLowerCase(), s.value] as const,
+  );
+  return { ...image, symbols };
 }
 
 /** The bytes of an assembled image from $0100 on, as a .COM file holds them. */
