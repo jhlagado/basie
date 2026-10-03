@@ -24,7 +24,7 @@ The **tracks**:
 | 2 | Design | Apply the services review; align every service with z80-services; raise contract gaps there | Services revision 2; issues in z80-services | Review findings closed |
 | 3 | Design | Write the remaining small decisions: string library contents, `assert` message form, the `F=n` link option and its pseudo-object, message-file format | Decisions D36–D39 (done) | Each referenced from the spec outline |
 | 4 | Design | Complete the limits register: audit every document and the Nucleus specification for fixed limits | [Limits register](limits.md), every row justified (done) | No unexplained limit |
-| 5 | Design | Freeze the version 1 feature list against the budget | Feature inventory marked frozen | Totals within 24K |
+| 5 | Design | Freeze the version 1 feature list against the budget | Feature inventory marked frozen (done) | Totals within 24K |
 
 ## M1. Foundations
 

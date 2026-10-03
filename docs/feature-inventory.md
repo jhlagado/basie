@@ -1,6 +1,6 @@
 # Baton feature inventory
 
-- Status: working record
+- Status: version 1 list frozen (roadmap step 5); costs updated as measured
 - Date: 2026-10-04
 - Related: [design decisions](design-decisions.md) (D9 budget, D24 scope),
   [memory safety](memory-safety.md), [build pipeline](build-pipeline.md)
@@ -67,6 +67,12 @@ The compiler is kept within budget by:
 The standard library, written in Baton and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text
 (including `f32`), and the console and file conveniences built on the services.
+
+**Frozen.** This is the complete version 1 language. A feature is added to
+version 1 only by a new design decision that also says what it displaces or
+which measured saving pays for it; otherwise new ideas go to version 2. The
+standard library (D36), the message file (D39) and the link-time file table
+(D38) add nothing to the compiler's language cost.
 
 ## 4. Version 2
 
