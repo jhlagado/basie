@@ -28,7 +28,7 @@ Two profiles cover CP/M. Each is a blob library whose profile block
 | Image limit | `$DC00`, the CCP base of a typical 62K system | `$E000`, a typical top of memory for a banked system |
 | Nominal top | `$E406` | `$E000` |
 | CCP size | `$0800` | 0 |
-| Default stack reserve | 512 bytes | 512 bytes |
+| Guard band | 64 bytes | 64 bytes |
 | Option support | keep-CCP, re-runnable | re-runnable |
 | Free restart vectors | none | none |
 | Debugger margin | 8,192 bytes | 8,192 bytes |
@@ -121,20 +121,28 @@ it.
 
 ### 4.1 Stack checking
 
-`REQUIRED` is a lower bound: the profile's default reserve plus the largest
-single activation frame, or the `STACK=` option if larger. A single-pass
-compiler cannot know the deepest chain of calls, so startup's memory check
-cannot guarantee the stack is enough.
+The compiler computes, for every routine, the most stack its call subtree can
+use outside cycles, `need(R)`, and writes `need(main)` plus the profile's guard
+band into the `LIMITS` record as the stack reserve
+([memory safety](memory-safety.md), Section 7). `REQUIRED` is therefore a true
+bound for everything reachable from `main` outside cycles, and startup's memory
+check (step 3) guarantees that part can never overflow. The `STACK=` option can
+only raise it.
 
-The guard is the **activation-capacity check**, Nucleus's `activation-capacity`
-trap carried over. A routine whose activation frame is larger than a profile
-threshold, and every routine that can recurse, begins with a call to the
-runtime's stack-check helper, passing its frame size. The helper traps with
-`activation-capacity` if the stack pointer minus the frame size would fall below
-`FREE` plus a guard band of 64 bytes. The guard band covers runtime helpers'
-own pushes and an interrupt-mode-1 BIOS pushing onto the program's stack. The
-helper follows the reporter contract (Section 10.2), so the trap reports the
-routine's prologue, which the line table maps to the routine's header.
+Every cycle of calls passes through a routine that calls itself or a forward
+routine not yet defined at the call. Each **self-recursive** and each
+**forward-declared** routine begins with the **activation-capacity check**,
+Nucleus's `activation-capacity` trap carried over: a call to the runtime's
+stack-check helper with `need(R)`, which traps if the stack pointer minus
+`need(R)` minus the guard band would fall below `FREE`. No other routine needs
+a check.
+
+The guard band is a profile value. It covers the trap reporter's call into the
+BDOS, which switches to its own stack after a few pushes, and an
+interrupt-mode-1 BIOS pushing onto the program's stack. Runtime helpers' own
+stack use is counted in `need(R)` from figures published in the helper table.
+The helper follows the reporter contract (Section 10.2), so the trap reports
+the routine's prologue, which the line table maps to the routine's header.
 
 ### 4.2 Programs too large to load
 
@@ -227,7 +235,7 @@ installs nothing at `$0038`.
 
 The library provides one reporter blob for each trap reason (`bounds`,
 `narrowing`, `division-by-zero`, `loop-range`, `activation-capacity`,
-`float-overflow`, `float-invalid`). Each prints:
+`float-overflow`, `float-invalid`, `stale-handle`). Each prints:
 
 ```text
 TRAP bounds at 1A3F

@@ -55,7 +55,7 @@ and the linker are two phases of one program.
 The compiler has the runtime's helper table compiled into it (object format,
 Section 10). From the library it reads only the header, profile block and key
 table, before compiling, to check compatibility and to learn the target class,
-the default stack reserve and the free restart vectors. An incompatible library
+the guard band and the free restart vectors. An incompatible library
 is reported before any source is read.
 
 ### 3.2 Intermediate files

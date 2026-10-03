@@ -346,11 +346,10 @@ the program directory.
 
 **`LIMITS`.** Facts the compiler knows only at the end of input:
 
-- **stack reserve:** the compiler's lower bound on the stack the program needs:
-  the profile's default stack reserve plus the largest activation frame. It is
-  a lower bound, not a guarantee; a single pass cannot know the deepest chain of
-  calls. The runtime's activation-capacity check ([CP/M target](cpm-target.md),
-  Section 4.1) is the guard;
+- **stack reserve:** `need(main)` plus the profile's guard band: the most stack
+  the program can use outside cycles of calls, computed by the compiler in its
+  single pass ([memory safety](memory-safety.md), Section 7). Cycles are guarded
+  by activation-capacity checks ([CP/M target](cpm-target.md), Section 4.1);
 - **largest frame:** the largest single activation frame, for the map; and
 - **flags:** bit 0 is set when any routine calls itself or calls a routine that
   is declared forward and not yet defined at the call, which are the only ways a
@@ -400,7 +399,7 @@ The profile block follows the header directly.
 | CCP size | `u16` | CP/M 2.2: bytes the CCP occupies below the BDOS base, normally `$0800`. Otherwise 0 |
 | RAM base | `u16` | ROM targets: first RAM address. CP/M: 0 |
 | RAM limit | `u16` | ROM targets: first address after RAM. CP/M: 0 |
-| default stack reserve | `u16` | Bytes of stack added to every program's largest frame |
+| guard band | `u16` | Stack bytes reserved beyond `need(main)` and in every activation-capacity check, for BDOS entry and interrupt pushes |
 | option support | `u8` | Bit 0: keep-CCP supported. Bit 1: re-runnable supported |
 | free restart vectors | `u8` | Bit *n* set: `RST n*8` is free for runtime use. Bits 0 and 7 must be clear on CP/M |
 | debugger margin | `u16` | Bytes a resident debugger typically takes, for reports |
