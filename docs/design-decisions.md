@@ -426,6 +426,27 @@ integer types. With eight numeric types, an untyped `70000` or `0.5` leaves the
 reader guessing; an optional type removes the guess without forcing it on small
 integers. Local constants mirror local variables and cost little.
 
+
+### D21. A variable's type may be inferred from a typed initialiser
+
+```nucleus
+var d = distance(a, b)        // u16, from the routine's result type
+var p = Origin                // Point, from the constant's type
+var count as u16 = 0          // a bare literal: the type must be written
+```
+
+A variable declared without `as` takes the type of its initialiser, provided
+the initialiser has a definite type: a typed variable, constant or field, a
+routine result, or an expression built from them. A bare literal or an untyped
+constant has no definite type, so a variable initialised with one must state
+its type.
+
+**Why.** Inference from a typed initialiser is safe and saves repetition. A
+default type for bare literals would need a rule, and the obvious one, the
+smallest type that fits, makes `var x = 0` a `u8` that silently wraps at 255.
+Requiring the type there catches the moment when it matters which of eight
+numeric types was meant.
+
 ## Open
 
 ### Memory safety
