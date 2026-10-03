@@ -384,6 +384,46 @@ Releasing a pool slot is called **freeing** it, and the explicit statement is
 when an owned handle goes out of scope without being handed on, and when an
 owned field or variable is overwritten.
 
+
+### D19. Moves are written with `move`
+
+Handing on an owned value is always written with `move` at the point where it
+happens:
+
+```nucleus
+kept = move n                               // n gives up its node
+sink(move n)                                // passed to an own parameter
+var n as own nodes = new nodes(v, "", move list) else fail
+```
+
+A move leaves the source empty (`none`). Assigning, passing or returning an
+owned value without `move` is a compile-time error, so a variable can never be
+emptied silently. `move` replaces the working keyword `take`: since every move
+leaves `none` behind, the two were the same operation.
+
+**Why.** Implicit moves are the commonest source of confusion in Rust. Making
+each move visible costs a few characters and lets a reader see every place a
+variable gives up what it owns.
+
+### D20. Constants may be typed, and may be local
+
+```nucleus
+const limit = 10                  // untyped: behaves like the literal 10
+const big as u32 = 70000          // typed
+const half as f32 = 0.5
+const Origin as Point = (0, 0)    // aggregate constants are always typed
+```
+
+- A scalar constant may be written with or without a type. An untyped one
+  behaves like its literal at every use, as in Nucleus, adopting whichever
+  compatible type the context needs. A typed one has exactly its declared type.
+- Constants may also be declared inside routines, with the same rules.
+
+**Why.** Nucleus forbade types on scalar constants, which worked with two
+integer types. With eight numeric types, an untyped `70000` or `0.5` leaves the
+reader guessing; an optional type removes the guess without forcing it on small
+integers. Local constants mirror local variables and cost little.
+
 ## Open
 
 ### Memory safety
