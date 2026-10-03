@@ -81,7 +81,9 @@ detected and reported as `fileClosed` rather than reaching another file. The
 runtime keeps each open file's FCB and record buffer in its own storage; the
 program never sees them.
 
-The number of files open at once is a profile value: 4 in the CP/M profiles.
+The number of files open at once is **chosen by the program** at link time,
+with `BLINK` option `F=n`, and is limited only by memory: each entry costs about
+170 bytes for its FCB, record buffer and state. The default is 4.
 
 ### 3.2 Opening and closing
 
@@ -232,7 +234,9 @@ The compiler carries only the signatures in its helper table, about 0.2K.
 
 ## 9. Open questions
 
-1. **More files at once** than 4, at about 170 bytes of runtime storage each.
+1. **Alignment with z80-services.** Each service should map to an operation of
+   the shared z80-services contracts (byte gateway, console and storage), as
+   Skate's ports and Nucleus's procedures do.
 2. **Text-mode `seek`.** Positioning is binary-only above; text files could
    support saving and restoring a position.
 3. **Typed results** for the file services once variants exist in version 2.

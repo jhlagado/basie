@@ -80,6 +80,8 @@ These terms are provisional, but the documents use them consistently.
 - [Memory safety](docs/memory-safety.md): how Baton is memory safe without a
   garbage collector: storage classes, aliases, pools and handles, `move`, and
   stack bounds.
+- [Implementation plan](docs/implementation-plan.md): how Baton will be built:
+  a reference toolchain in TypeScript on Deno, then the native Z80 toolchain.
 - [Build pipeline](docs/build-pipeline.md): why Baton compiles to machine-code
   blobs and links them, and how the pieces fit.
 - [Object format](docs/object-format.md): the files passed from the compiler to
