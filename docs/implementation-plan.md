@@ -235,32 +235,13 @@ own procedures. Before the runtime's services are written:
 
 ## 7. The limits register
 
-Every limit in Baton is listed, with its value, its reason and whether it can
-be raised. **The rule:** no limit is smaller than memory allows unless the
-object format, CP/M or a measured cost requires it, and every limit is published
-and diagnosed.
-
-| Limit | Current value | Reason | Action |
-| --- | --- | --- | --- |
-| Files open at once | 4 in the services draft | arbitrary | **Raise:** chosen by the program at link time, default 4, limited only by memory at about 170 bytes each |
-| Slots in one pool | 256 if an identifier holds an 8-bit index | representation | **Raise:** identifiers hold a 16-bit slot index or address; any pool size memory allows |
-| Bounded string capacity | 253 | Nucleus's one-byte length | **Keep** for version 1; large text uses `u8[]` buffers. Revisit 16-bit lengths later |
-| `readLine` from the console | 255 characters | BDOS 10 | **Keep:** CP/M limit |
-| Command tail | 127 characters | CP/M | **Keep** |
-| File names | 8.3, with a drive | CP/M | **Keep** |
-| Directory searches in progress | 1 | BDOS 17 and 18 keep their state in the BDOS | **Keep:** CP/M limit |
-| Failure codes | 256 | `u8` codes (D26) | **Keep** |
-| Source part length | 65,535 bytes | 16-bit source offsets | **Keep** |
-| Source parts | 255 | line-stream format | **Keep** |
-| Program and library ordinals | 64,480 and 1,023 | object format | **Keep** |
-| Blob size, record size, array length | 65,535 bytes | 16-bit addresses | **Keep:** the address space |
-| Deferred references in one routine | about 256 | compiler buffer | **Measure;** routines over it get a capacity diagnostic |
-| Symbol table, nesting depth, scopes | set by workspace | compiler memory | **Publish** measured figures |
-| Linker tables | set by memory | linker memory | **Publish** measured figures |
-| Identifier length | to be measured | compiler memory | **Publish;** at least 31 characters |
-
-Phase 0 completes this table by auditing the specification and every design
-document.
+Every limit in Baton is listed in the [limits register](limits.md), with its
+value, its reason and its kind: language, format, CP/M, or capacity. **The
+rule:** no limit is smaller than memory allows unless the object format, CP/M or
+a measured cost requires it, and every limit is published and diagnosed.
+Capacity limits carry guaranteed minimums that the native toolchain must meet,
+and the register records every small limit from Nucleus's first implementation
+that Baton does not inherit.
 
 ## 8. Library questions, not language questions
 

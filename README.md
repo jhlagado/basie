@@ -82,6 +82,8 @@ These terms are provisional, but the documents use them consistently.
   stack bounds.
 - [Roadmap](docs/roadmap.md): the implementation broken into numbered steps
   and milestones.
+- [Limits register](docs/limits.md): every limit in Baton, its reason, and the
+  minimum capacities the toolchain guarantees.
 - [Implementation plan](docs/implementation-plan.md): how Baton will be built:
   a reference toolchain in TypeScript on Deno, then the native Z80 toolchain.
 - [Build pipeline](docs/build-pipeline.md): why Baton compiles to machine-code
