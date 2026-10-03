@@ -1,12 +1,12 @@
 # Baton design decisions
 
 - Status: working record
-- Date: 2026-10-03
+- Date: 2026-10-04
 
 This document records the language decisions made so far, with the reasons for
 each, and the questions still open. Where Baton keeps a Nucleus rule unchanged,
 the entry says so and points at the Nucleus specification
-(`../nucleus/docs/specification.md`). Examples use Nucleus 0.1 syntax unless
+(`../../nucleus/docs/specification.md`). Examples use Nucleus 0.1 syntax unless
 they show a new feature.
 
 ## Decided
@@ -207,12 +207,34 @@ need no lifetime information in signatures. Local aggregates also move
 aggregate storage into activation frames, which changes how peak memory is
 accounted.
 
-### D9. Compiler budget
+### D9. Compiler budget and shape
 
-The compiler is no longer held to Nucleus's 16 KiB compiler-core limit, but
-size remains a first-class constraint. Every feature is costed in compiler bytes
-and in generated-code bytes before it is adopted, and the measurements are
-published, as Nucleus did.
+The toolchain is two programs:
+
+- **`BATON.COM`**, the compiler, at most **24K** including its tables, which
+  leaves at least **32K** of working space on a CP/M 2.2 system with 56K free;
+  and
+- **`BLINK.COM`**, the linker, which `BATON` runs automatically when compilation
+  succeeds. CP/M 2.2 has no call to run another program, so `BATON` copies a
+  small loader to the top of memory, which reads `BLINK.COM` into place and
+  starts it, as Turbo Pascal's `Execute` did. The user still types one command,
+  and the linker gets nearly the whole program area for its tables.
+
+Ways the compiler is kept within budget:
+
+1. It is built on the 12K Nucleus compiler rewrite.
+2. 32-bit and `f32` operations are generated as calls to runtime helpers, never
+   inline, so the compiler only checks types and selects helpers.
+3. Diagnostic message text lives in a message file, `BATON.MSG`, read only when
+   a diagnostic is reported.
+4. Rarely used parts, starting with decimal-to-`f32` literal conversion, are
+   overlays loaded only when needed.
+5. Strings, formatting and other library facilities are Baton source libraries,
+   compiled with the program and tree-shaken, not compiler features.
+6. Features are deferred to version 2 when they don't fit (D24).
+
+Every feature is costed in compiler bytes and in generated-code bytes before it
+is adopted, and the measurements are published, as Nucleus did.
 
 ### D10. Target machine
 
@@ -273,7 +295,7 @@ var total as u32
 sub distance(a as Point, b as Point) as u16
 record Node
     value as u16
-    next  as own? nodes
+    next  as nodes?
 end
 ```
 
@@ -291,7 +313,7 @@ room for inference (`var count = 0`). Nearly every language designed since about
 declaration and is familiar from TypeScript, Pascal, Go and Rust. But Baton
 already has enough punctuation that a bare colon doesn't say what it does,
 while `as` reads as a phrase, especially where modifiers stack up
-(`var list as own? nodes`), and keeps the BASIC character. The compiler cost
+(`var list as nodes?`), and keeps the BASIC character. The compiler cost
 is the same either way.
 
 
@@ -305,10 +327,15 @@ superset of `SELECT CASE`, so one statement covers both:
   with `case else`;
 - enumerations, with a check that every value is covered unless there is a
   `case else`;
-- variants whose cases carry data, binding their fields; and
 - optional handles and identifiers: `some(x)` when there is a live value,
   `none` when there isn't. For an identifier, `none` covers both an empty
-  identifier and one whose slot has been freed, so testing never traps.
+  identifier and one whose slot has been freed, so testing never traps; and
+- in version 2, variants whose cases carry data (D24).
+
+When the subject of a `match` is an owning local, `some(n)` gives direct,
+unchecked access to the node, as a lease does; for any other subject it binds an
+identifier. `match move x` moves the value out of `x` and, in `some(n)`, binds
+`n` as a non-optional owning local, which is how a `nodes?` becomes a `nodes`.
 
 ```nucleus
 match key
@@ -339,10 +366,10 @@ Pool records are reached only through handles, never through aliases:
   resolved after all of its operands are evaluated, so nothing can free the
   slot between the check and the access;
 - aggregate fields of pool records are copied out, not passed by alias;
-- `match` on an optional handle binds an identifier, not an alias;
-- a lease on a handle (`var h as own nodes`) may be taken only from the
-  caller's own owned local, and the callee may not move, free or overwrite
-  it; and
+- `match` on an optional handle binds an identifier, except that a match on
+  the caller's own owning local gives direct access, as a lease does (D15);
+- a `var` parameter of record type may be bound to a node held in the
+  caller's own owning local, giving direct access for the call (D30); and
 - storing an owned value through an identifier path is checked at run time so
   that it can't create an ownership cycle.
 
@@ -351,8 +378,8 @@ effect system (`frees`), pool provenance on every alias and a statement-level
 staging rule, and each round of fixes opened new holes. Without pool aliases,
 none of that machinery is needed: aliases remain fully expressive for program
 and activation storage, where the `from` rule makes them safe, and pool storage
-is protected by unique ownership and generation checks. The
-[memory safety](memory-safety.md) design is to be revised to match.
+is protected by unique ownership and generation checks. See
+[memory safety](memory-safety.md).
 
 
 ### D17. `var` marks a parameter the routine may change
@@ -362,14 +389,15 @@ name, which lets the routine change the caller's object:
 
 ```nucleus
 sub scale(var p as Point, factor as i16)    // may change the caller's Point
-sub bump(var h as own nodes)                // may change the caller's node
-sub push(var list as own? nodes, v as u16)  // may change what list holds
+sub bump(var n as Node)                     // may change the caller's Node,
+                                            //   wherever it lives (D30)
+sub push(var list as nodes?, v as u16)      // may change what list holds
 sub show(p as Point)                        // may only read it
 ```
 
 This replaces the earlier working spelling `inout`. The caller's object stays the
-caller's in every case; nothing is handed over unless the parameter's type is
-`own`.
+caller's in every case; nothing is handed over unless the parameter has an
+owning handle type such as `nodes`.
 
 **Why `var`.** It is Pascal's "variable parameter", with exactly this meaning,
 and it matches the `var` that declares variables, so it adds no reserved word.
@@ -389,9 +417,9 @@ Releasing a pool slot is called **freeing** it (replacing the working term
 - when an owned variable or field is overwritten, including with `none`; and
 - when the slot that owns it is freed, which frees everything it owns.
 
-To free something early, assign `none` to the `own?` variable or field that
-holds it: `head = none`. A non-optional `own` is always a local or parameter and
-is freed at the end of its scope.
+To free something early, assign `none` to the optional variable or field that
+holds it: `head = none`. A non-optional owning handle is always a local or
+parameter and is freed at the end of its scope.
 
 **Why.** Every case already has a natural spelling, so a keyword would add a
 second way to do the same thing.
@@ -501,72 +529,100 @@ type appears: fields, variables, parameters, results and array elements
 (`owners as nodes?[32]` is an array of 32 optional handles). A marker on the
 name could not express a result or an element type.
 
+
+### D23. One pool per record type is the expected style; no generics in 1.0
+
+A pool is storage, not a container: any number of lists, trees or graphs can
+share one pool. Programs normally declare one pool per record type, so code
+written for that pool's handles serves every structure in it. Baton 1.0 has no
+generics; Pascal never had them either.
+
+### D24. Version 1 scope
+
+Version 1 includes the Nucleus core and: signed and 32-bit integers, `f32`,
+shifts and bitwise operators, `match` on integers, characters, enumerations and
+optional handles, enumerations, local aggregates with `from`, `var` parameters,
+pools and handles with `move`, and services for I/O.
+
+Deferred to **version 2**: variants whose cases carry data, expression blocks
+(O3), arenas (O4), routine values (O5), default parameter values (O6) and
+generics (D23).
+
+**Why.** The deferred features are the largest compiler costs that ordinary
+programs can do without, and the version 1 set fits the 24K budget (D9).
+
+### D25. Strings: bounded strings and a Baton library
+
+Baton keeps Nucleus's strings: `string[N]` with a fixed capacity of at most 253
+and a current length; string literals as constants and as direct arguments; and
+open `string[]` parameters, which accept any capacity and can read `.capacity`
+and set `.length`. String building, comparison, searching and conversion between
+numbers and text, including `f32`, are a **standard library written in Baton**,
+compiled with the program and tree-shaken, not compiler features.
+
+Raising a string's length makes the bytes it exposes zero, so a local string can
+be initialised by zeroing only its length byte.
+
+### D26. Failure codes may be named by an enumeration
+
+A failable routine still reports a `u8` code, as in Nucleus, but may name the
+enumeration its codes come from: `sub open(name as string[]) fails FileError`.
+The compiler then checks that `fail` and `handle` use that enumeration's values.
+Richer error values carrying data wait for variants (D24).
+
+### D27. A full pool traps
+
+`new nodes(...)` traps with `pool-full` when the pool has no free slot, as stack
+overflow does: a full pool is a capacity bug. A program that wants to handle
+exhaustion uses `new? nodes(...)`, which returns `nodes?` and is `none` when the
+pool is full.
+
+**Why.** Every allocation would otherwise need `else fail`, though most programs
+size their pools so they never fill.
+
+### D28. Declarations anywhere, with block scope
+
+A local may be declared at any statement position. Its scope runs from its
+declaration to the end of the innermost enclosing block (a routine body, an
+`if` or `match` arm, or a loop body). Owning locals are freed at the end of that
+block.
+
+**Why.** The ownership patterns declare handles where they are made, and block
+scope gives every owning local an exact end.
+
+### D29. `id` is a contextual word
+
+`id` is a keyword only before a pool name in a type. Elsewhere it is an ordinary
+identifier, so `id` remains usable as a field or variable name.
+
+### D30. Direct access to a node is a `var` record parameter
+
+A `var` parameter of record type, `var n as Node`, accepts any `Node` the caller
+can change: one in program or activation storage, or the node held by one of the
+caller's own owning locals of a pool of `Node`. Inside, the routine has direct,
+unchecked access. For a node, the rules of a lease apply: the argument must be
+the caller's own owning local, and that local may not appear anywhere else in
+the same statement except as `id(n)`. This replaces the separate parameter kind
+`var h as nodes`.
+
 ## Open
 
-### Memory safety
+### O1. Exclusivity (resolved)
 
-The ownership and memory-safety design, which resolves O1 and O2 below and
-defines how each hazard is prevented, is drafted in
-[memory safety](memory-safety.md). Once reviewed, its rules become decisions
-here.
+Resolved by D16 and D17: Baton has no exclusivity rule. Overlapping aliases to
+program storage remain allowed, as in Nucleus; they are visible through mutation
+but never a lifetime hazard, because program storage is never freed. Pool
+storage is never aliased, so freeing can't reach an alias.
 
-### O1. Exclusivity and `inout`
+### O2. Pools with owned handles (resolved)
 
-Swift's rule is that an `inout` argument may not overlap any other access
-during the call. It makes routines easier to reason about and optimise, but it
-can't be checked only at the call site, because a routine can touch globals by
-name. This Nucleus example (§13) is the test case any rule must answer:
+Resolved by D16, D18, D19 and D22, and specified in
+[memory safety](memory-safety.md): owning records can't be copied (§5.2),
+`none` is the empty value of optional handles (§5.2), failure paths free
+automatically (§5.3), freeing never recurses (§5.10), and generations saturate
+so they never repeat (§5.11).
 
-```nucleus
-sub entryAt(index as u8) as Entry
-    return entries[index]
-end
-
-sub update(items as Entry[8], index as u8)
-    items[index].value = entryAt(index).value
-end
-```
-
-The natural call `update(entries, i)` writes through `items` while `entryAt`
-reads `entries` by name. Under Swift's rule that conflicts, two calls deep,
-where the call site can't see it. Global arrays with accessor routines like
-`entryAt` are idiomatic Nucleus style.
-
-Options:
-
-- **No exclusivity**, as in Nucleus: overlaps are permitted and visible
-  through mutation. Safe while storage is never freed.
-- **Effect summaries:** each signature records which globals the routine writes.
-  This is whole-program information and conflicts with D1.
-- **Run-time checks** on globals passed as `inout`.
-
-Exclusivity becomes a **memory-safety** requirement, not just a reasoning aid,
-once pools can free storage (O2): freeing a slot that another parameter still
-aliases is a use after free. Without pools it is optional.
-
-### O2. Pools with owned handles
-
-A pool is a fixed array of records with a generation byte per slot. Allocation
-returns an owned handle that must be moved or freed exactly once; plain indices
-derived from it are copyable and checked by generation.
-
-Known problems to solve before adopting it:
-
-- **Copying.** Aggregate assignment copies a whole record (Nucleus §7.8). A
-  record containing an owned handle can't be copied, so such records would be
-  non-copyable, splitting the type system.
-- **Absence.** An optional handle introduces a "no value" state, which Nucleus
-  doesn't have (§7.2).
-- **Failure paths.** Every owned handle must be freed or moved on every exit,
-  including `fail`. Nucleus's structured `else fail` makes this checkable at
-  compile time; traps end the program, so they need no cleanup.
-- **Recursive free.** Freeing an owned list recursively uses stack in proportion
-  to its length, so free must be iterative.
-- **Generation width.** One generation byte wraps after 256 reuses of a slot, so
-  it detects most stale indices but not all. Sixteen bits per slot makes the
-  check reliable at twice the cost.
-
-### O3. Expression blocks
+### O3. Expression blocks (version 2)
 
 A block that produces a value, with an explicit `result` statement supplying
 the value and `return` still meaning "leave the routine". This borrows Rust's
@@ -574,20 +630,20 @@ composition without Rust's rule that a missing semicolon changes meaning. The
 cost is a new reserved word and a check that every path through the block
 supplies a value of the right type.
 
-### O4. Arenas
+### O4. Arenas (version 2)
 
 Scope-bound regions freed all at once, for temporary data. Free memory between
 the end of static storage and the stack is available for this at run time,
 starting at the address of the `FREE` pseudo-object ([object format](object-format.md), §3.4).
 
-### O5. Routine values
+### O5. Routine values (version 2)
 
 Function pointers or routine values. The build pipeline already handles them
 for tree shaking (a routine whose address is taken by live code stays live),
 but the type system, calling convention and interaction with `from` are not
 designed.
 
-### O6. Default parameter values
+### O6. Default parameter values (version 2)
 
 Parameters with default values, as in TypeScript. Feasible in a single pass,
 since defaults would be constant expressions carried by the signature and any
