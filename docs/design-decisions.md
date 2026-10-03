@@ -397,8 +397,10 @@ var n as own nodes = new nodes(v, "", move list) else fail
 ```
 
 A move leaves the source empty (`none`). Assigning, passing or returning an
-owned value without `move` is a compile-time error, so a variable can never be
-emptied silently. `move` replaces the working keyword `take`: since every move
+owned value held in a variable, parameter or field without `move` is a
+compile-time error, so a variable can never be emptied silently. A fresh value,
+such as the result of `new` or of a routine returning `own`, needs no `move`,
+since nothing named is emptied. `move` replaces the working keyword `take`: since every move
 leaves `none` behind, the two were the same operation.
 
 **Why.** Implicit moves are the commonest source of confusion in Rust. Making
