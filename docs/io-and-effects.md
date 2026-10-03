@@ -9,8 +9,8 @@
 
 ## 1. The question
 
-How does a Baton program talk to the world: the console, files, the screen,
-sound, a TEC-1's displays and keypad? There are two broad approaches:
+How does a Baton program talk to the world: the console, files, the command
+line, the screen and sound? There are two broad approaches:
 
 1. **Direct:** the language can call the operating system (BDOS functions) or
    touch hardware (`IN` and `OUT` on Z80 ports) itself.
@@ -58,7 +58,6 @@ with Baton signatures, failable where the operation can fail, as in Nucleus.
 | Command line | the command tail and default file names | CP/M |
 | Time | ticks or a clock, where the machine has one | where available |
 | Devices | `sendCommand`, `receiveEvent` over the command channel | profiles with a provider |
-| Hardware (profile-specific) | `readKeypad`, `writeDisplay`, `beep` on a TEC-1 | bare-machine profiles only |
 
 Services are runtime blobs in the blob library, so a program carries only the
 services it calls (tree shaking), and on CP/M a call to a service is an
@@ -77,24 +76,14 @@ service; the provider on the other end interprets them. The language knows only
 bytes. This lets the same Baton program drive a Triptych terminal, a host
 emulator or a test harness without change.
 
-### 3.4 Hardware on bare machines
-
-On a TEC-1 or another machine with no operating system, programs need the
-hardware itself: the seven-segment displays, the keypad, the speaker. These are
-services too, written in the profile's runtime library, which is trusted code.
-A program calls `writeDisplay(digits)` rather than executing `OUT`. The service
-can be as fast as an inline instruction sequence, since it is a direct call to a
-small blob, and the runtime may provide wide services, such as writing all six
-digits at once, to keep per-call overhead low.
-
 ## 4. Why indirect
 
 - **Memory safety.** A direct `OUT` or BDOS call can do anything: a BDOS read
   writes 128 bytes wherever the DMA address points. Keeping every such operation
   inside the trusted runtime, which checks extents and modes (memory safety,
   Section 2.1), is what lets the safety claim hold for all source code.
-- **Portability.** The same program runs on CP/M 2.2, CP/M 3, a TEC-1, Triptych
-  or a host emulator, with the target chosen at link time by the blob library.
+- **Portability.** The same program runs on CP/M 2.2, CP/M 3, Triptych or a host
+  emulator, with the target chosen at link time by the blob library.
 - **Testing.** The proof harness can substitute providers and record exactly
   what a program asked for, as Nucleus and Skate already do.
 - **Cost.** With services as runtime blobs, there is no vector table and no
@@ -107,9 +96,6 @@ digits at once, to keep per-call overhead low.
   doesn't expose can't reach it from source. The remedy is a profile variant
   with a new service, written in the runtime library, which is trusted code and
   takes more effort than a line of source.
-- **Bit-banging.** Timing-critical device code, such as driving a speaker or a
-  serial line in software, must live in the runtime library, not in Baton
-  source.
 - **The service set must be designed** and versioned, as the helper table
   already is.
 
@@ -121,6 +107,7 @@ digits at once, to keep per-call overhead low.
    handles, or plain CP/M sequential files?
 3. **Typed service results:** with variants available, should services report
    errors as richer values than the `u8` codes Nucleus uses?
-4. **A raw escape hatch for experts,** such as a profile option that exposes
-   port I/O as unchecked services for bare-machine work. If adopted, programs
-   using it fall outside the memory-safety claim, and the compiler would say so.
+4. **A raw escape hatch for experts,** such as unchecked BDOS access. If
+   adopted, programs using it fall outside the memory-safety claim, and the
+   compiler would say so. With CP/M 2.2 as the only target, the standard
+   services may make it unnecessary.

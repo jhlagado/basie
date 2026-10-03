@@ -216,8 +216,11 @@ published, as Nucleus did.
 
 ### D10. Target machine
 
-Baton programs and the Baton toolchain assume a Z80 with 64K of RAM running
-CP/M 2.2 or CP/M 3, with high-capacity disk storage: 720K or larger floppies
+Baton programs and the Baton toolchain target a Z80 with 64K of RAM running
+**CP/M 2.2**, which is the primary target; CP/M 3 is supported where it costs
+nothing extra. TEC-1 ROM and other bare-machine targets are **not** design
+considerations: features, formats and services are not shaped for them. Storage
+is high-capacity: 720K or larger floppies
 (1.2M and 1.44M high-density formats, the Triptych system's 2M disks) or a hard
 disk. A single drive is enough to build any program. Early low-capacity
 formats, such as 90K to 250K floppies, are not supported for large builds.
@@ -251,8 +254,7 @@ values. A target-profile option, **re-runnable**, keeps a second copy of the
 initial values and restores them at every start. It is off by default.
 
 **Why.** Most CP/M users never re-enter programs this way, so most programs
-shouldn't pay for a second copy of their initial data. ROM targets need the same
-copy mechanism, so offering the option costs no extra design. See the
+shouldn't pay for a second copy of their initial data. See the
 [CP/M target](cpm-target.md), §7.
 
 ### D13. Build pipeline

@@ -291,22 +291,12 @@ target it runs on.
 
 ## 9. Other targets and later work
 
-### 9.1 ROM targets
+### 9.1 ROM and banked targets
 
-A ROM image stores initialised data in ROM and runs it from RAM. The linker
-places `DATA` at RAM addresses and stores its initial bytes in a `COPY` section
-in ROM; startup copies them before calling `main`. The CP/M re-runnable option
-uses the same mechanism.
-
-### 9.2 Banked targets
-
-Nucleus assigns banks by source part, and its compiler enforces the cross-bank
-rules. If the linker chose banks, nothing would enforce them: a constant placed
-in one bank and read from another would silently read the wrong memory, and a
-tail call or routine value could cross banks with no switch. Baton therefore
-keeps compiler-assigned banks: the `BANK` control record carries each blob's
-bank, and the linker places blobs within their banks. Banked linking is
-reserved in the format but not part of Baton 1.0.
+TEC-1 ROM and banked targets are no longer design considerations (design
+decision D10). The format keeps its reserved target classes, `BANK` record and
+`BANK8` form so that they could be added later, but nothing in Baton 1.0 is
+shaped for them.
 
 ### 9.3 Precompiled libraries
 
