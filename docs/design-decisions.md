@@ -373,8 +373,9 @@ Pool records are reached only through handles, never through aliases:
 - aggregate fields of pool records are copied out, not passed by alias;
 - `select` on an optional handle binds an identifier, except that a `select` on
   the caller's own owning local gives direct access, as a lease does (D15);
-- a `var` parameter of record type may be bound to a node held in the
-  caller's own owning local, giving direct access for the call (D30); and
+- a record parameter, read-only or `var`, may be bound to a node held in the
+  caller's own owning local, parameter or temporary, giving direct access for
+  the call (D30); and
 - storing an owned value through an identifier path is checked at run time so
   that it can't create an ownership cycle.
 

@@ -1,12 +1,13 @@
 # Baton memory safety
 
-- Status: design, revision 5; ready to freeze once reviewed
+- Status: **frozen**, revision 6 (2026-10-04)
 - Date: 2026-10-04
-- Decisions it rests on: [design decisions](design-decisions.md) D8, D15–D30
+- Decisions it rests on: [design decisions](design-decisions.md) D8, D15–D31
 - Reviews: [1](reviews/2026-10-03-memory-safety-review.md),
   [2](reviews/2026-10-03-memory-safety-review-2.md),
   [whole design](reviews/2026-10-04-design-review.md),
-  [3](reviews/2026-10-04-memory-safety-review-3.md)
+  [3](reviews/2026-10-04-memory-safety-review-3.md),
+  [verification](reviews/2026-10-04-memory-safety-verification.md)
 - Related: [CP/M target](cpm-target.md) (stack checks, traps),
   [feature inventory](feature-inventory.md) (`select`)
 
@@ -192,9 +193,12 @@ only with `move`, which leaves `none` behind (D19). Fresh values, the results of
 - when the slot or the local aggregate that owns it is freed; and
 - when the temporary holding it ends (below).
 
-Freeing `none` does nothing. A routine's exits share one epilogue that frees its
-owning locals, so freeing costs a jump per exit path, not a copy of the freeing
-code.
+Freeing `none` does nothing, and **freeing through an owning local, parameter,
+temporary or local aggregate stores `none` into it**. So a block-end free followed
+by the routine's shared epilogue, or a block whose frame space is reused by a
+later block, can never free the same slot twice. A routine's exits share one
+epilogue that frees its owning locals, so freeing costs a jump per exit path,
+not a copy of the freeing code.
 
 **Fresh temporaries.** A fresh owning value that is not stored, such as an unused
 result of `new` or of a routine, is held in an anonymous local of the innermost
@@ -220,7 +224,7 @@ evaluated:
 | --- | --- | --- | --- |
 | An owning local or parameter | `n.value = 1` | none: an owner is never stale | fastest |
 | A lease | `n.value = 1` inside the callee or the `select` arm | none | Section 5.6 |
-| An identifier | `i.value = 1` | generation check; `stale-handle` trap | about 165 T-states |
+| An identifier | `i.value = 1` | generation check; `stale-handle` trap | about 150 T-states |
 
 A path through an identifier may select any chain of record fields and checked
 array indices under one generation check, such as `i.pos.x` or `i.kids[k]`; only
@@ -257,7 +261,8 @@ end
   means the identifier is empty or stale. The test never traps (D15).
 - For an owning subject that is a **program variable or a field**, `some(i)`
   binds an identifier.
-- For an owning subject that is the **caller's own owning local**, `some(n)`
+- For an owning subject that is the **caller's own owning local, parameter or
+  temporary**, `some(n)`
   gives direct access to the node, a lease for the length of the arm. The local
   can't be moved, overwritten or passed to a slot-holder within the arm.
 - `select move x` moves the value out of `x`. In `some(n)`, `n` is a non-optional
@@ -297,13 +302,16 @@ array containing owning handles, or a `nodes?` slot-holder) carries a hidden
 activation storage, and the slot's address when the argument is a leased node or
 lies inside one. Every store of an owning handle through the parameter writes
 the owner word as the moved slot's link (Section 5.9). A parameter passed on to
-another such parameter passes its own owner word. The cost is 2 bytes of stack
+another such parameter passes its own owner word, and so does a field or element
+of the parameter passed on, and a result rooted in the parameter. The cost is 2 bytes of stack
 per such parameter and 1 to 3 bytes at each call site.
 
 **Identifiers inside a lease.** In a routine with a `var` record parameter `n`,
-`id(n)` gives `id P?`, where `P` is the pool of that record type: the node's
-identifier when `n` is a leased node, and `none` when it is not. It is an error
-if the record type has more than one pool.
+`id(n)` gives `id P?`, where `P` is the pool of that record type. It is the
+node's identifier only when the owner word **equals `n`'s own address**, which is
+the case exactly when `n` is a whole leased node; otherwise, including when `n`
+is a record nested inside a node, it is `none`. It is an error if the record
+type has no pool or more than one.
 
 **Results.** A lease may be named in a `from` clause. A result rooted in it is
 used within the caller's statement, where the lease's statement rule already
@@ -353,6 +361,10 @@ For each owning local and owning parameter, the compiler tracks whether it
 - Moves are not allowed inside an operand of `and` or `or`, or in a `while`
   condition.
 
+**Evaluation order.** Expressions and arguments are evaluated in source order,
+left to right, as in Nucleus, except where Section 5.3 states the order of an
+assignment. A local's flow state changes at the point of its `move`.
+
 **The statement rule.** Within one statement, an owning local or parameter that
 is used directly anywhere (as an access path such as `x.value` or `x.kids[k]`,
 an assignment destination, a lease argument, or a `select` subject) may not be
@@ -377,8 +389,8 @@ Each allocated slot's link records its owner:
 
 **Every store of a non-`none` owning handle writes the moved slot's link.** The
 value written is the destination slot's address when the destination is a field
-of a slot reached through an owner, an identifier, or a lease's owner word; it
-is 0 otherwise. Binding an argument to an owning parameter, binding `some(n)` in
+of a slot reached through an owner, an identifier, or a lease's owner word, or a
+field of the slot `new` is initialising; it is 0 otherwise. Binding an argument to an owning parameter, binding `some(n)` in
 `select move`, and holding a fresh value in a temporary are stores that write 0.
 `new` writes 0 into the new slot's link. A `none` handle has no slot, so no link
 is written for it; the test costs 4 bytes and about 20 T-states, folded into the
@@ -392,9 +404,9 @@ location no slot owns can't create a cycle. A store into a field of a slot that
 is a root (reached through an owning local, an owning parameter or a temporary)
 can't either. Only a store into a field of a slot reached through an
 **identifier**, or through a lease of a slot that is not itself a root, can.
-Before storing handle *b* into a field of slot *s*, the runtime follows the
-links upwards from *s* until it reaches 0; if it meets *b*, it traps with
-`ownership-cycle`. The walk takes one step per level between *s* and its root,
+Before storing a non-`none` handle *b* into a field of slot *s*, the runtime
+follows the links upwards from *s* until it reaches 0; if it meets *b*, it traps
+with `ownership-cycle`. Storing `none` needs no walk. The walk takes one step per level between *s* and its root,
 about 60 T-states each: appending to the end of a 64-node list walks the whole
 list.
 
@@ -409,8 +421,9 @@ The link test replaces a mark bit. A correctly owned live child always passes
 it; a child that is already free, already on the work list, or reached through a
 cycle that slipped past the check never does, since its link no longer names
 this slot. So the cascade can neither loop nor free a slot twice. The slot at
-the top of a cascade, freed from a local, parameter, temporary or local
-aggregate, has link 0 and is freed without the test. A withdrawn slot's fields
+the top of a cascade is freed without the test, whatever owned it: a local, a
+parameter, a temporary, a local aggregate, or a field of another slot that is
+being overwritten. A withdrawn slot's fields
 are never read again.
 
 To find a slot's owned fields, the runtime uses a **descriptor** per owning type
@@ -471,11 +484,11 @@ an explicit or default value. For local aggregates:
 | Alias to a freed pool slot | Only leases alias pool slots, and a leased slot's owner is unreachable | compile time |
 | Stale owning handle | Owning handles are never copied | compile time |
 | Stale identifier | Generation check; generations never repeat | run time |
-| Freeing storage a slot-holder writes to | Slot-holders are never inside a pool slot | compile time |
+| Freeing storage a slot-holder writes to | A slot-holder is outside every pool, or inside a leased node nothing else can reach (Section 5.7) | compile time |
 | Double free | Moves leave `none`; owning handles are never copied; cycles are prevented; the cascade is idempotent | compile and run time |
 | Use after move | Flow check | compile time |
 | Leak | Automatic freeing at block exit, on overwrite, through cascades and of temporaries | placed at compile time |
-| Ownership cycle | Only identifier paths can form one, and they are checked | run time |
+| Ownership cycle | Only stores through identifiers, or through leases of non-root slots, can form one, and they are checked (Section 5.9) | run time |
 | Uninitialised read | Every storage class has an initial value | compile time |
 | Type confusion | Static types; handles name their pool; no casts to or from addresses | compile time |
 | Null dereference | Optional handles must be tested with `select` | compile time |
@@ -505,7 +518,9 @@ space.
 
 Every cycle of calls passes through a routine that calls itself or calls a
 forward routine not yet defined at the call. **A routine that calls itself must
-be forward-declared**, so every cycle passes through a forward-declared routine.
+be forward-declared**: a call to the routine being compiled is a compile-time
+error unless it was declared `forward`. So every cycle passes through a
+forward-declared routine.
 Every forward-declared routine begins with an activation-capacity check: it
 traps if `SP − need(R) − guard` would fall below `FREE`.
 
