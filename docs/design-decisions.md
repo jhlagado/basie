@@ -394,27 +394,26 @@ is freed at the end of its scope.
 **Why.** Every case already has a natural spelling, so a keyword would add a
 second way to do the same thing.
 
-### D19. Ownership is handed on with `give`
+### D19. Ownership is handed on with `move`
 
 Handing on an owned value held in a variable, parameter or field is always
-written with `give` at the point where it happens:
+written with `move` at the point where it happens:
 
 ```nucleus
-kept = give n                               // n gives its node to kept
-sink(give n)                                // passed to an own parameter
-var n = new nodes(v, "", give list) else fail
+kept = move n                               // n's node moves to kept
+sink(move n)                                // passed to an owning parameter
+var n = new nodes(v, "", move list) else fail
 ```
 
-`give` leaves the source empty (`none`). Assigning, passing or returning such a
-value without `give` is a compile-time error, so a variable can never be emptied
+`move` leaves the source empty (`none`). Assigning, passing or returning such a
+value without `move` is a compile-time error, so a variable can never be emptied
 silently. A fresh value, such as the result of `new` or of a routine returning
-`own`, needs no `give`, since nothing named is emptied. `give` replaces the
-working keywords `take` and `move`: since every handing-on leaves `none`
-behind, they were the same operation.
+an owning type, needs no `move`, since nothing named is emptied. `move`
+replaces the working keyword `take`, which was the same operation.
 
-**Why.** Implicit moves are the commonest source of confusion in Rust. An active
-verb pairs with `own` and is easy to remember: what you own, you give. `move`
-would also have worked; `give` was chosen for that pairing.
+**Why.** Implicit moves are the commonest source of confusion in Rust. `give`
+was considered because it paired with an `own` keyword; once D22 removed that
+keyword, the neutral and familiar `move` described the action best.
 
 ### D20. Constants may be typed, and may be local
 
@@ -455,6 +454,50 @@ default type for bare literals would need a rule, and the obvious one, the
 smallest type that fits, makes `var x = 0` a `u8` that silently wraps at 255.
 Requiring the type there catches the moment when it matters which of eight
 numeric types was meant.
+
+
+### D22. A pool name as a type means owning; `id` marks a reference
+
+A pool's name used as a type denotes a handle to one of its slots. On its own it
+**owns** the slot. `id` before it makes a non-owning reference. `?` after the
+type allows `none`:
+
+| Type | Meaning |
+| --- | --- |
+| `nodes` | owns a slot of `nodes`; never empty |
+| `nodes?` | owns a slot of `nodes`, or is `none` |
+| `id nodes` | refers to a slot of `nodes` without owning it |
+| `id nodes?` | refers to a slot, or is `none` |
+
+```nucleus
+record Node
+    value  as u16
+    next   as nodes?          // owns the next node
+    parent as id nodes?       // refers to the parent
+end
+
+var head as nodes?
+sub sink(n as nodes)          // takes ownership: caller writes sink(move n)
+sub bump(var h as nodes)      // works on the caller's node; caller keeps it
+sub show(i as id nodes)       // refers to a node
+```
+
+There is no `own` keyword. A non-optional owning handle is allowed only for
+locals and parameters; fields and program variables that hold handles are
+always optional.
+
+**Why.** It reads like containment: a node contains the next node as a record
+contains its fields. Owning links are the commoner kind in records, so the
+rarer non-owning links carry the extra word. Forgetting either qualifier is a
+compile-time error, not a silent fault: copying from an existing owner into an
+owning field needs `move`, and storing a fresh node only in an identifier would
+free it at once, which the compiler rejects.
+
+**The `?` belongs to the type.** It makes a different type, an optional, which
+must be tested with `match` before use, and it must be expressible wherever a
+type appears: fields, variables, parameters, results and array elements
+(`owners as nodes?[32]` is an array of 32 optional handles). A marker on the
+name could not express a result or an element type.
 
 ## Open
 
@@ -541,3 +584,11 @@ Function pointers or routine values. The build pipeline already handles them
 for tree shaking (a routine whose address is taken by live code stays live),
 but the type system, calling convention and interaction with `from` are not
 designed.
+
+### O6. Default parameter values
+
+Parameters with default values, as in TypeScript. Feasible in a single pass,
+since defaults would be constant expressions carried by the signature and any
+forward declaration, at perhaps 0.3–0.5K of compiler. Deferred: in a language
+without overloading they add little, they raise questions for owning and `var`
+parameters, and they can be added later without breaking existing programs.
