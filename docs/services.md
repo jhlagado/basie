@@ -31,33 +31,51 @@ calls, port instructions or addresses ([I/O and effects](io-and-effects.md)).
 The target is CP/M 2.2 (D10). Where CP/M 3 offers more, the service says so;
 everything works on 2.2.
 
-## 2. Console
+## 2. Console and printer
+
+The console and the printer are **predeclared file numbers**, `console` and
+`printer`, so the file services of Section 3 work on them too:
+
+```nucleus
+writeText(console, "Name? ") else fail
+readLine(console, name) else fail
+writeText(printer, report) else fail
+```
+
+| On `console` | Meaning | CP/M 2.2 |
+| --- | --- | --- |
+| `writeByte`, `writeText` | Write bytes unchanged | BDOS 2, or 6 for bytes BDOS 2 would interpret |
+| `readByte` | Read one byte of standard input, with echo; Control-Z gives `endOfFile` | BDOS 1 |
+| `readLine` | Read one edited line, up to the string's capacity, excluding its terminator | BDOS 10, through the runtime's own buffer |
+
+`printer` accepts only writes (BDOS 5). Reading from it, or positioning either
+device, fails with `notAvailable`. Neither can be closed.
+
+Two services are for the console alone:
 
 | Service | Meaning | CP/M 2.2 |
 | --- | --- | --- |
-| `writeOutputByte(b as u8) fails` | Write one byte to the console, unchanged | BDOS 2, or 6 for bytes BDOS 2 would interpret |
-| `writeText(text as string[]) fails` | Write a string's bytes, unchanged | BDOS 2 per byte |
-| `readInputByte() as u8 fails` | Read one byte of standard input, with echo; Control-Z or end of a redirected input gives `endOfInput` | BDOS 1 |
 | `readKey() as u8` | Wait for one key, without echo or interpretation | BDOS 6 with `$FF`, repeated until a key arrives |
 | `keyReady() as boolean` | Whether a key is waiting | BDOS 11 |
-| `readLine(var line as string[]) fails` | Read one edited line, up to the string's capacity; the line excludes its terminator | BDOS 10, through the runtime's own buffer |
-| `writeListByte(b as u8) fails` | Write one byte to the printer (list device) | BDOS 5 |
 
-Console output is raw bytes: `writeText` does no newline translation, so the
-library writes CR LF where a line ends. Terminal control, including the
-external-effects command frames of Skate's protocol, is bytes written through
-these services by library routines.
+Nucleus's `readInputByte()` and `writeOutputByte(b)` remain, as shorthand for
+`readByte(console)` and `writeByte(console, b)`.
 
-`readLine` enforces the string's capacity: the runtime reads into its own
-buffer, limited to the smaller of the capacity and 255, then copies, so the
-BDOS never writes into program storage directly.
+Console output is raw bytes: no newline translation is done, so the library
+writes CR LF where a line ends. Terminal control, including the external-effects
+command frames of Skate's protocol, is bytes written by library routines.
+
+`readLine` on the console enforces the string's capacity: the runtime reads into
+its own buffer, limited to the smaller of the capacity and 255, then copies, so
+the BDOS never writes into program storage directly.
 
 ## 3. Files
 
 ### 3.1 File numbers
 
-A file is identified by a **file number**, of type `File`, a predeclared alias
-for `u16`. It holds a slot in the runtime's file table and a generation, in the
+A file is identified by a **file number**, of the predeclared type `File`, a
+16-bit value the program can copy and compare but not do arithmetic on. It
+holds a slot in the runtime's file table and a generation, in the
 same way as an identifier, so a file number used after its file is closed is
 detected and reported as `fileClosed` rather than reaching another file. The
 runtime keeps each open file's FCB and record buffer in its own storage; the
@@ -99,7 +117,7 @@ old contents.
 | `writeByte(f as File, b as u8) fails` | Write one byte |
 | `readBlock(f as File, var buf as u8[], count as u16) as u16 fails` | Read up to `count` bytes into `buf`, never more than `buf.length`; returns the number read, 0 only at the end |
 | `writeBlock(f as File, buf as u8[], count as u16) fails` | Write the first `count` bytes of `buf`; `count` above `buf.length` traps `bounds` |
-| `readLine(f as File, var line as string[]) fails` | Read one line in text mode, up to the capacity; a longer line fails with `lineTooLong` and leaves the rest unread |
+| `readLine(f as File, var line as string[]) fails` | Read one line in text mode, up to the capacity; a longer line fails with `lineTooLong` and leaves the rest unread on a file |
 | `writeText(f as File, text as string[]) fails` | Write a string's bytes |
 
 ### 3.4 Positioning, for binary and update files
@@ -204,7 +222,7 @@ codes from 32 upwards for their own failures.
 
 | Group | Size |
 | --- | --- |
-| Console | 0.2–0.4K |
+| Console and printer | 0.2–0.4K |
 | Files: open, close, bytes, blocks, text lines | 1.2–1.8K |
 | Files: positioning and directory operations | 0.4–0.6K |
 | Command line | 0.2K |
@@ -217,6 +235,4 @@ The compiler carries only the signatures in its helper table, about 0.2K.
 1. **More files at once** than 4, at about 170 bytes of runtime storage each.
 2. **Text-mode `seek`.** Positioning is binary-only above; text files could
    support saving and restoring a position.
-3. **Printer as a file,** so `writeText` and the library's formatting work on
-   the list device without separate routines.
-4. **Typed results** for the file services once variants exist in version 2.
+3. **Typed results** for the file services once variants exist in version 2.
