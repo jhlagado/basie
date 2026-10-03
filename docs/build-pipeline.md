@@ -1,6 +1,6 @@
 # Build pipeline
 
-- Status: design overview, revision 3
+- Status: design overview, revision 4
 - Date: 2026-10-03
 - Specifications: [object format](object-format.md), [linker](linker.md),
   [toolchain](toolchain.md), [CP/M target](cpm-target.md)
@@ -140,14 +140,21 @@ how the compiler changes from Nucleus to write it.
 
 ### 6.2 What the compiler starts doing
 
+- It chooses a compilation stamp and writes it into the header of every stream.
 - It assigns an ordinal to each blob as it meets the declaration, including at
-  a forward declaration.
+  a forward declaration. It tracks the next free ordinal and the last ordinal
+  it wrote, and writes an explicit ordinal whenever a record's ordinal doesn't
+  follow the last one written.
 - It emits every absolute address operand as zero placeholder bytes, with an
   entry in the routine's pending reference list.
 - At the end of each routine or declaration, it writes the blob's record and
   references to the directory stream, sorted by offset. The bytes have already
   gone to the byte stream, unless the routine was buffered for branch shrinking.
-- It writes the `ENTRY` record naming `main`.
+- It writes the line-stream and name-stream records for each blob at the same
+  time as the blob's directory record, so all three are in directory order.
+- It writes the `ENTRY` record naming `main`, and, after the last blob, the
+  `LIMITS` record with the stack reserve and recursion flag it knows only at
+  the end of input.
 
 Its memory cost for references is one routine's pending list at a time, about
 5 bytes per reference, instead of Nucleus's program-wide table of unresolved
@@ -185,7 +192,28 @@ The estimated cost is a routine buffer of 2K to 4K, about 5 bytes per recorded
 branch and 300 to 500 bytes of compiler code. `JR` is a byte shorter than `JP`;
 taken, it costs 12 T-states against 10, and not taken, 7 against 10.
 
-### 6.4 Shared tails and fall-through
+### 6.4 Literals
+
+A string or aggregate literal inside a routine belongs to that routine's blob
+([object format](object-format.md), Section 3.1). The compiler can't write a
+literal into the byte stream where it meets it, because the routine's code is
+still being written there. It holds the routine's literals in a **literal
+buffer** and appends them after the routine's code when the routine ends,
+reaching each by a self-reference.
+
+If the literal buffer fills, the compiler writes further literals inline at the
+point of use, preceded by a `JR` over them, and loads their address with a
+self-reference: 2 bytes and 12 T-states more per literal. Correctness never
+depends on the buffer's size. Identical literals are not merged.
+
+### 6.5 Line entries during shrinking
+
+Statement offsets for the line stream move when branches shrink. For a buffered
+routine, the compiler holds the routine's line entries, about 4 bytes each, and
+adjusts them in step 4 of Section 6.3 along with the references. An unbuffered
+routine writes its line entries as it generates them, since nothing moves.
+
+### 6.6 Shared tails and fall-through
 
 Blobs may not fall through into one another or share code by adjacency. A tail
 the Nucleus backend shared between routines becomes an explicit `JP` to a
@@ -194,7 +222,7 @@ the two routines happened to be adjacent. Hand-written runtime helpers that fall
 into one another are either one blob with aliases for their extra entry points,
 or separate blobs joined by `JP`, whichever lets programs carry less.
 
-### 6.5 Unused routines in the user's source
+### 6.7 Unused routines in the user's source
 
 The linker removes them. The compiler may still warn about a routine that is
 never referenced, since it knows at the end of input, but the warning is
@@ -275,10 +303,10 @@ These are collected from the specifications:
 2. **Linker table capacity** for the largest programs, and how to shrink the
    tables if needed ([linker](linker.md), Section 11).
 3. **Line table memory** when a program has many statements.
-4. **String literal deduplication,** by a compiler-side cache of recent
-   literals.
-5. **Routine buffer size** for branch shrinking, and the limit on references
-   per routine.
+4. **Routine and literal buffer sizes** for branch shrinking, and the limit on
+   references per routine.
+5. **Stack reserve for recursive programs,** beyond the default reserve and the
+   runtime's activation-capacity trap.
 6. **Source parts named in source** rather than on the command line.
 7. **Resident linker or overlay** ([toolchain](toolchain.md), Section 7.3).
 8. **Symbol file format** for `SID` and `ZSID`, to be verified.
@@ -291,6 +319,19 @@ These are collected from the specifications:
   termination argument, branch shrinking that broke backward branches, a
   reference encoding with no spare bits, linker-assigned banks, underestimated
   file sizes and the claim of atomic output replacement.
+- **Revision 4** incorporated an adversarial review of the four
+  specifications ([review](reviews/2026-10-03-linker-spec-review.md)). Its
+  main corrections: an `OPTIONS` pseudo-object so prebuilt startup code can see
+  link options; stamp deduplication that no longer drops the first blob's
+  edges; Phase C reading the directories to recover placement order; literals
+  inside their routine's blob; a `LIMITS` record for facts known only at the
+  end of input; a range rule relative to the target, which accepts end pointers
+  and RAM below ROM; helpers that jump to the trap reporter with the stack
+  balanced so traps report the call site; a line table written during Phase D
+  without sorting; a wider reference delta; pseudo-objects moved to the top of
+  the ordinal space and the library range widened; a compilation stamp binding
+  the streams; the image written on the output drive; and deleting files before
+  creating them.
 - **Revision 3** split the design into this overview and four specifications,
   named the layout tool the linker, made it a phase of the single `BATON`
   executable, and added aliases, pseudo-objects as regions, the blob library

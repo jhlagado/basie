@@ -1,383 +1,447 @@
 # Baton linker 1.0
 
-- Status: draft specification, not yet reviewed
+- Status: draft specification, revision 2 (after adversarial review)
 - Date: 2026-10-03
 - Related: [object format](object-format.md), [toolchain](toolchain.md),
-  [CP/M target](cpm-target.md), [build pipeline](build-pipeline.md)
+  [CP/M target](cpm-target.md), [build pipeline](build-pipeline.md),
+  [review](reviews/2026-10-03-linker-spec-review.md)
 
 ## 1. Scope and purpose
 
 The Baton linker combines one program object with one blob library and writes
 one program image. Its purpose is **tree shaking**: the image contains exactly
-the blobs reachable from the program's roots, and nothing else.
+the blobs reachable from the roots, and nothing else.
 
 It is a relocating linker with deliberate limits:
 
-- **One program per run.** It does not combine separately compiled program
-  objects. A program's source, including any source libraries, is compiled as a
-  whole.
+- **One program per run.** A program's source, including any source libraries,
+  is compiled as a whole.
 - **Ordinals, not names.** It never compares names. Names appear only in
-  optional reports.
+  reports and diagnostics.
 - **No library search.** The blob library is read whole; its unused blobs are
-  removed by the same reachability rule as the program's.
-- **Forward-only reading.** It reads every input from start to end, skipping
-  forward with random reads where the platform allows, and never returns to an
-  earlier position in a file, except that it reads the program directory twice
-  (Section 7).
+  removed by the same rule as the program's.
+- **Forward reading.** Within a pass it reads every file forward, skipping
+  forward where the platform allows. Several phases read the same file again
+  from its start; Section 10 counts them.
 - **Output in address order.** It writes each output file once, sequentially.
 
-The linker runs as the second phase of the Baton executable, or alone in
-link-only mode; see the [toolchain](toolchain.md).
+The linker runs as a phase of the Baton executable, or alone in link-only
+mode; see the [toolchain](toolchain.md).
 
 ## 2. Memory
 
 ### 2.1 Tables
 
-The linker keeps three tables in memory, sized from the inputs:
-
-| Table | Entry | Indexed by | Contents |
+| Table | Entry | Indexed by | Grows |
 | --- | --- | --- | --- |
-| Object table | 8 bytes | ordinal | Kind and flags (1), size (2), address (2), first-edge index (2), stamp (1) |
-| Edge array | 2 bytes | position | Target ordinals, grouped by source blob, duplicates removed |
-| Mark stack | 2 bytes | position | Ordinals waiting to be scanned during marking |
+| Library table | 8 bytes | library ordinal, `$0000`–highest | fixed; its size is in the library header |
+| Program table | 8 bytes | program ordinal minus `$0400` | upwards, after the library table |
+| Pseudo table | 8 bytes | pseudo ordinal minus `$FFE0` | fixed, 8 entries |
+| Edge lists | 2 bytes per edge, plus a 2-byte terminator per blob | — | downwards from the top of free memory |
+| Mark stack | 2 bytes | — | in the gap between the tables and the edge lists, after Phase A |
 
-For an alias, the object-table entry holds the base ordinal in the
-first-edge field and the offset in the size field, with a kind value marking
-it as an alias.
+The library table's size is known from the library header before any record is
+read. The program table grows as Phase A meets program ordinals, whether as
+definitions or as reference targets; a newly covered entry is zeroed. The edge
+lists grow down from the top. If the program table and the edge lists meet,
+the linker stops with `L-CAP-TABLES`.
 
-The object table covers ordinals `$0000` to the highest ordinal defined in
-either input. Its size is therefore fixed by the compiler's ordinal count, not
-by how many blobs are live. The mark stack never holds more entries than there
-are blobs.
+**Table entry** (8 bytes):
+
+| Field | Size | Meaning |
+| --- | --- | --- |
+| flags | 1 | Bits 0–2: kind. Bit 3: defined. Bit 4: referenced. Bit 5: live. Bit 6: alias. Bit 7: root |
+| size | 2 | Blob size; for an alias, its offset |
+| address | 2 | Assigned in Phase C; for an alias before Phase C, its base ordinal |
+| edges | 2 | Address of the blob's first edge; the list ends with ordinal `$0000` |
+| stamp | 1 | Deduplication stamp (Section 4.2) |
+
+Pseudo-object entries hold the address and size the linker computes, and a
+stamp.
 
 ### 2.2 Capacity
 
-The tables use all memory left after the linker's code and its I/O buffers
-(Section 7.5). The [toolchain](toolchain.md) document places them over the
-compiler's code and workspace, which are dead once compilation ends.
+**[estimate]** At 8 bytes per ordinal, 4 bytes per blob for the edge
+terminator and the mark stack, and 2 bytes per distinct edge:
 
-| Program | Ordinals | Distinct edges | Tables |
-| --- | ---: | ---: | ---: |
-| Typical, 20K output | 800 | 4,000 | 6K + 8K = about 15K |
-| Large, 40K output | 2,000 | 9,000 | 16K + 18K = about 38K |
-| Largest, 56K output | 3,000 | 14,000 | 24K + 28K = about 58K |
+| Program | Library ordinals | Program ordinals | Distinct edges | Memory |
+| --- | ---: | ---: | ---: | ---: |
+| Typical, 20K output | 200 | 800 | 4,000 | 1.6K + 6.4K + 4.0K + 8.0K = 20K |
+| Large, 40K output | 200 | 2,000 | 9,000 | 1.6K + 16K + 8.8K + 18K = 44K |
+| Largest, 56K output | 200 | 3,000 | 14,000 | 1.6K + 24K + 12.8K + 28K = 66K |
 
-These figures are estimates and must be replaced by measurements. On a CP/M
-system with a 58K transient program area, the [toolchain](toolchain.md)
-leaves about 47K to 49K for tables after the shared code, the linker's code,
-its buffers and the stack. The largest programs may exceed it.
+With literals inside their routines, a program has roughly one blob per
+routine, top-level variable and top-level constant.
 
-If the tables don't fit, the linker stops with diagnostic `L-CAP-TABLES`,
-reporting the ordinal count, the edge count reached and the memory needed. It
-does not fall back to a slower method; a rescanning fallback would make the
-cases that need it the slowest of all.
+The [toolchain](toolchain.md) leaves about 47K for these tables on a CP/M 2.2
+system with 62K of memory. Typical and large programs fit; the largest
+programs the address space allows do not, and fail with `L-CAP-TABLES`.
+The figures are estimates to be replaced by measurement (Section 12).
 
 ## 3. Roots
 
-The linker marks these objects live before following any reference:
+The linker marks these live before following any reference:
 
-1. the library's `startup` blob;
-2. every blob whose header has the root flag, in either input; and
-3. the program's entry routine, but only through `MAIN`: the `startup` blob
-   references `MAIN`, and a reference to `MAIN` marks the routine named by the
-   `ENTRY` record.
+1. the library's `startup` blob; and
+2. every blob whose header has the root flag, in either input.
 
-A program directory without exactly one `ENTRY` record is rejected with
-`L-ENTRY`.
+The program's entry routine is not a root. The `startup` blob references
+`MAIN`, and marking resolves `MAIN` to the routine named by the program's
+`ENTRY` record. A library whose `startup` blob does not reference `MAIN` is
+rejected with `L-STARTUP`.
 
 ## 4. Phase A: read the directories
 
-The linker reads the library's directory section, then the program directory,
-each from start to end.
+### 4.1 Reading
 
-For each input it:
+The linker reads the library header, profile block, key table and directory
+section, then the program directory and the headers of the byte, line and name
+streams. Before reading any blob record it checks:
 
-1. checks the header: magic, major and minor version, and, after both headers
-   are read, the compatibility rule of the object format (Section 10);
-2. for each blob record, fills the blob's object-table entry, and appends the
-   distinct targets of its references to the edge array;
-3. for each `ALIAS` record, fills the alias's entry;
-4. for each `ENTRY` record, records the entry ordinal; and
-5. checks the trailer: the marker, the blob count, the CRC and, later, the byte
-   stream length.
+- every magic and version (`L-FORMAT`);
+- the compatibility rule of the object format, Section 10 (`L-COMPAT`);
+- that all program streams carry the same nonzero compilation stamp
+  (`L-STAMP`); and
+- that the options and output kind requested are supported by the profile
+  (`L-OPTION`, `L-OUTPUT`).
 
-**Deduplication.** Before appending a target to the edge array, the linker
-compares the target's stamp with the current blob's sequence number modulo 256.
-If they are equal, the target has already been appended for this blob and is
-skipped. Otherwise the linker appends it and sets the stamp. When the sequence
-number wraps to 0, the linker clears every stamp, once per 256 blobs.
+Then, for each record in each directory:
 
-**Edges to pseudo-objects** are not stored, except that an edge to `MAIN` is
-stored as an edge to the entry routine once the `ENTRY` record has been read.
-Because `ENTRY` may follow the blobs that reference `MAIN`, the linker stores
-`MAIN` edges as `MAIN` and resolves them during marking.
+- **Blob record:** check it; fill its table entry and set the defined bit;
+  append the distinct targets of its references to the edge lists, then a
+  terminator; set the referenced bit of each target.
+- **`ALIAS`:** check it; fill the alias's entry with the alias bit, the base
+  ordinal and the offset.
+- **`ENTRY`:** record the entry ordinal.
+- **`LIMITS`:** record the stack reserve and flags.
 
-**Checks during Phase A:**
+Finally it checks each trailer and, once both directories are read, every
+cross-record rule (Section 4.3).
+
+### 4.2 Deduplication
+
+Each blob record gets a sequence number from 1 to 255, counting blob records
+across both directories. When the count would reach 256, the linker clears every
+stamp in every table to 0 and restarts the count at 1.
+
+Before appending a target, the linker compares the target's stamp with the
+current sequence number. If they are equal, the target has already been
+appended for this blob and is skipped. Otherwise the linker appends it and sets
+the target's stamp to the sequence number. Since sequence numbers are never 0
+and cleared stamps are 0, no blob's first reference to a target is ever
+skipped.
+
+Every reference target is appended as its own ordinal, including aliases and
+pseudo-objects. Marking resolves them (Section 5).
+
+### 4.3 Checks
 
 | Condition | Diagnostic |
 | --- | --- |
 | Bad magic, unknown major version or higher minor version | `L-FORMAT` |
-| Runtime identity, profile identity or helper-table version incompatible | `L-COMPAT` |
+| Runtime identity, profile identity, helper-table version or key incompatible | `L-COMPAT` |
+| Program streams with different or zero compilation stamps | `L-STAMP` |
+| An option, or the output kind, not supported by the profile | `L-OPTION`, `L-OUTPUT` |
 | Ordinal outside its owner's range, or defined twice | `L-ORDINAL` |
-| Reserved kind, form or subtype | `L-RESERVED` |
-| Blob of size 0; `code` blob with nonzero alignment | `L-BLOB` |
+| A reserved kind, form, subtype or field value; a form byte of 0; a `BANK` record or `BANK8` reference under a 1.0 profile | `L-RESERVED` |
+| A blob of size 0; a `code` or `startup` blob with nonzero alignment; a `bss` blob with references; a `startup` blob in the program; a reference count escape below 255 | `L-BLOB` |
 | Reference offsets not strictly increasing, overlapping, or outside the blob | `L-REFERENCE` |
-| `SIZE16` naming an alias; reference to `$0000` or a reserved pseudo-object | `L-REFERENCE` |
-| Alias whose base is an alias, is undefined, or whose offset is outside the base | `L-ALIAS` |
-| Missing, bad or mismatched trailer or CRC | `L-TRUNCATED` |
-| Not exactly one `startup` blob in the library | `L-STARTUP` |
-| A `BANK` record under a flat profile | `L-RESERVED` |
-| Tables full | `L-CAP-TABLES` |
+| A `SIZE16` naming an alias; a reference to `$0000` or a reserved pseudo-object | `L-REFERENCE` |
+| An alias outside its owner's range, whose base is an alias, is undefined, is in the other directory, or whose offset is not below the base's size | `L-ALIAS` |
+| Not exactly one `ENTRY` record, or an entry ordinal that is not a `code` blob in the program | `L-ENTRY` |
+| Not exactly one `LIMITS` record, or one before the last blob record | `L-LIMITS` |
+| Not exactly one `startup` blob in the library, or a `startup` blob without a reference to `MAIN` | `L-STARTUP` |
+| A referenced ordinal that is never defined | `L-UNDEFINED` |
+| Missing or bad trailer, CRC, count or highest ordinal; library header and trailer disagree | `L-TRUNCATED` |
+| The tables don't fit | `L-CAP-TABLES` |
 
-A reference to an ordinal that is never defined is detected at the end of
-Phase A, once every definition has been read: `L-UNDEFINED`. This is the
-signature of a version mismatch or a compiler fault, because the compiler
-rejects an incomplete forward declaration.
+`L-UNDEFINED` is found by scanning both tables at the end of Phase A for entries
+with the referenced bit set and the defined bit clear. It signals a version
+mismatch or a compiler fault, since the compiler rejects an incomplete forward
+declaration.
 
 ## 5. Phase B: mark
 
-Marking is a depth-first walk with the mark stack:
+1. Push every root.
+2. While the stack is not empty, pop an ordinal and walk its edge list. For
+   each target: resolve `MAIN` to the entry routine and an alias to its base;
+   ignore other pseudo-objects; if the result is a blob without the live bit,
+   set the bit and push it.
 
-1. Push every root, and the entry routine.
-2. While the stack is not empty, pop an ordinal. For each edge of that blob:
-   resolve an alias to its base and `MAIN` to the entry routine; if the target
-   is a blob not yet marked, mark it and push it.
-
-Each blob is pushed at most once, so marking takes time linear in the number of
-blobs plus edges. The result is the **live set**.
+Each blob is pushed at most once, so marking takes time linear in blobs plus
+edges. The live bits form the **live set**.
 
 ## 6. Phase C: place
 
 ### 6.1 Sections
 
-The linker places live blobs into these sections, in this order:
-
 | Section | Holds | Stored in the image |
 | --- | --- | --- |
 | `START` | the `startup` blob | yes |
-| `TEXT` | live `code` and `rodata` blobs | yes |
-| `DATA` | live `data` blobs | yes |
-| `COPY` | a copy of `DATA`, when the profile or options need one (Section 6.4) | yes |
+| `TEXT` | live `code` and `rodata` blobs, and live `data` blobs when `DATA` is not separate | yes |
+| `DATA` | live `data` blobs, when separate | on CP/M, yes; on ROM, no |
+| `COPY` | the initial bytes of `DATA`, when separate | yes |
 | `BSS` | live `bss` blobs | no |
 
-On a CP/M target without the re-runnable option, `data` blobs are placed in
-`TEXT` alongside code and read-only data, in directory order, so the stored
-image is written in a single pass, and the `DATA` and `COPY` sections are
-empty. With the re-runnable option, `DATA` is a separate section so that it can
-be copied as one block. On CP/M, all stored sections follow one another from
-the image base, and `BSS` follows the stored image. On a ROM target, `START`, `TEXT` and `COPY` go into
-ROM from the image base, and `DATA` and `BSS` go into RAM from the RAM base;
-`DATA` then holds no stored bytes of its own (Section 6.4).
+**When `DATA` is separate.** On a CP/M target without the re-runnable option,
+`data` blobs go in `TEXT`, `DATA` and `COPY` are empty, and the image is written
+in as few passes as possible. With the re-runnable option, or on a ROM target,
+`DATA` is separate so that it can be copied as one block.
 
-### 6.2 Order within a section
+**Where sections go.**
 
-Within a section, blobs are placed:
+- **CP/M:** `START`, `TEXT`, `DATA` and `COPY` follow one another from the image
+  base, and `BSS` follows the stored image.
+- **ROM:** `START`, `TEXT` and `COPY` go into ROM from the image base. `DATA`
+  and `BSS` go into RAM from the RAM base; `DATA` occupies RAM addresses but has
+  no stored bytes there.
 
-1. blobs with page alignment first, then those with 64-byte alignment, and so
-   on down to 2-byte alignment, so that padding is paid as few times as
-   possible;
-2. within each alignment class, library blobs before program blobs; and
-3. within that, in directory order.
+### 6.2 Placement passes
 
-The order is a pure function of the inputs, so the same inputs always produce
-the same image, byte for byte.
+Within each section, blobs are placed in **placement passes**:
 
-Padding inserted before an aligned blob is filled with zeros in stored
-sections. The map reports it.
+1. one pass for each alignment class that has live blobs, from 256 down to 2
+   bytes; then
+2. one pass for unaligned blobs.
 
-### 6.3 Addresses
+Within a pass, library blobs come before program blobs, each in directory
+order. The order is a pure function of the inputs, so the same inputs always
+produce the same image, byte for byte.
 
-The `START` section begins at the profile's image base. Each section begins
-where the previous one ends, except that a RAM section on a ROM target begins at
-the RAM base. Each blob's address is the next address in its section rounded up
-to its alignment. Aliases take their base's address plus their offset.
+A pass places each blob at the next address rounded up to the blob's alignment.
+Padding is zeros in stored sections. Each alignment class pays padding at most
+once at its start, plus whatever its own blobs' sizes cause between them.
 
-Then the linker defines the pseudo-objects (object format, Section 3.4).
+### 6.3 Assigning addresses
 
-### 6.4 Initialised data
+Placement order is directory order within a pass, and the tables are indexed
+by ordinal, not by directory position. So Phase C reads both directories once
+for each placement pass that has live blobs, in the same order Phase D will
+use, and assigns each live blob in the pass the next address. This is the same
+sequence of reads as Phase D (Section 7.1) without the byte streams.
 
-- **CP/M, default.** `data` blobs are stored in place within `TEXT`. No copy
-  exists, and the `DATA` and `DATACOPY` pseudo-objects have size 0.
-- **CP/M, re-runnable option.** The linker adds a `COPY` section after `DATA`
-  holding a second copy of the initial data. Startup copies `COPY` over `DATA`
-  before calling `main`. See the [CP/M target](cpm-target.md).
-- **ROM targets.** `DATA` has RAM addresses; its initial bytes are stored only
-  in `COPY`, in ROM. Startup copies them into RAM.
+Aliases take their base's address plus their offset. Then the linker computes
+the pseudo-objects (object format, Section 3.4) from the section boundaries,
+the `LIMITS` stack reserve and the options.
 
-### 6.5 Fit checks
+### 6.4 Fit checks
 
 | Check | Result if it fails |
 | --- | --- |
-| Stored image ends at or below the profile's image limit | `L-FIT-IMAGE`, error |
-| `BSS` and stack reserve fit below 65,536 | `L-FIT-MEMORY`, error |
+| Stored image ends at or below the profile's image limit, and no blob starts at `$FFFF` | `L-FIT-IMAGE`, error |
+| `BSS` plus the stack reserve ends at or below 65,536 | `L-FIT-MEMORY`, error |
 | `REQUIRED` at or below the profile's nominal top | `L-FIT-NOMINAL`, warning |
-| ROM targets: `DATA` and `BSS` fit between RAM base and RAM limit | `L-FIT-RAM`, error |
+| ROM: `DATA` and `BSS` lie between the RAM base and the RAM limit | `L-FIT-RAM`, error |
 
-The warning is not an error because the real top of memory varies from machine
-to machine. The startup code makes the final check on the machine where the
-program runs.
+`L-FIT-NOMINAL` is a warning because the real top of memory varies; startup
+makes the final check on the running machine. On CP/M 2.2, `REQUIRED` may lie
+above the image limit, because a running program may use the CCP's memory.
 
 ## 7. Phase D: write
 
-### 7.1 Order
+### 7.1 Passes
 
-The linker writes each stored section in address order. For each section it
-reads the library's directory and byte sections and the program's directory and
-byte stream forward, in step, emitting the section's live blobs in placement
-order.
-
-Placement order puts aligned blobs first (Section 6.2), which is not
-directory order. The linker therefore makes one forward pass per alignment
-class that has live blobs in the section, plus one for unaligned blobs. A
-typical CP/M program has no aligned blobs and no separate `DATA` section, so
-its whole image is written in one pass. A separate `DATA` or `COPY` section
-adds one pass each.
-
-Each pass reads the directories again from the start. The program directory is
-therefore read in Phase A and once more for every pass in Phase D. This is the
-only exception to forward-only reading, and it is a fresh read from the start
-of the file, not a seek backwards within a pass.
+Phase D writes the image by repeating the placement passes of Phase C, section
+by section. Each pass reads the library directory and byte section and then the
+program directory and byte stream, from their starts. A typical CP/M program has
+no aligned blobs and no separate `DATA`, so its whole image is one pass.
 
 ### 7.2 Emitting a blob
 
-For each blob record read during a pass:
+For each blob record read in a pass:
 
-- **Not in the pass, or dead:** skip its stored bytes in the byte stream. Where
-  the platform has random reads, skip whole 128-byte records without reading
-  them.
-- **In the pass and live:** copy its stored bytes to the output. When the copy
-  reaches a reference's offset, compute the value (object format, Section 5.1)
-  and write it in place of the placeholder bytes.
+- **Dead, or not in this pass:** skip its stored bytes. Where the platform has
+  random reads, the linker may skip whole 128-byte records. Under CP/M, a
+  random read (BDOS function 33) leaves the file positioned so that the next
+  sequential read returns the same record again; the linker accounts for this.
+- **Live and in this pass:** write any alignment padding, then copy the blob's
+  bytes. References are read one at a time in step with the copy: read the next
+  reference, copy bytes up to its offset, compute its value, write it in place
+  of the placeholder, skip the placeholder bytes, and repeat. No reference list
+  is held in memory.
 
-Padding for alignment is written before the blob as zeros.
+Every byte written is also added to the running image CRC.
 
 ### 7.3 Value checks
 
 | Condition | Diagnostic |
 | --- | --- |
-| `ABS16`, `LO8` or `HI8` value outside the target's memory: below the image base, or at or above 65,536 before the modulo, unless the addend is negative and the result is inside the target's memory | `L-RANGE` |
-| Byte stream shorter or longer than its trailer says | `L-TRUNCATED` |
+| A value that breaks the range rule (object format, Section 5.1) | `L-RANGE` |
+| A byte stream shorter or longer than its trailer says | `L-TRUNCATED` |
 | Nonzero placeholder bytes, when verification is requested | `L-PLACEHOLDER` |
 
-A reference from a live blob to a dead blob cannot occur, because marking
-follows every reference.
+A live blob cannot reference a dead one, because marking follows every
+reference.
 
 ### 7.4 Output kinds
 
 | Kind | Contents |
 | --- | --- |
 | `.COM` | The stored image from the image base, as a flat binary. Requires image base `$0100`. The final 128-byte record is padded with zeros. |
-| `.BIN` | The stored image from the image base, as a flat binary. On CP/M, the final record is padded with zeros. |
-| `.HEX` | Intel HEX: data records (type `00`) of at most 16 bytes each with absolute addresses, then an end-of-file record (type `01`). Each line ends with CR LF. On CP/M, the file is padded with `$1A`. |
+| `.BIN` | The stored image from the image base, as a flat binary, padded likewise on CP/M. |
+| `.HEX` | Intel HEX (Section 7.5). |
 
-The profile's output-kinds field limits which kinds may be written.
+### 7.5 Intel HEX
 
-### 7.5 Files and buffers
+- Data records only (type `00`), each holding at most 16 bytes, with absolute
+  16-bit addresses. No extended address records.
+- Each record is `:` then byte count, address (high byte first), type, data and
+  checksum, as uppercase hexadecimal; the checksum is the two's complement of
+  the low byte of the sum of every preceding byte of the record.
+- Records break at every 16-byte boundary. Alignment padding is part of the
+  image and is written as data.
+- The file ends with `:00000001FF`. Each line ends with CR LF. On CP/M the file
+  is padded with `$1A`.
 
-During Phase D the linker has at most five files open: the library (opened
-twice, once for its directory section and once for its byte section), the
-program directory, the program byte stream and the output. CP/M permits the
-same file to be opened with two file control blocks for reading.
+### 7.6 The line table
 
-Each open file needs a 36-byte file control block and a 128-byte record
-buffer, about 820 bytes in all. Blobs and references cross record boundaries,
-so the linker keeps a byte cursor into each buffer and refills it as it goes.
-An `ABS16` at the last byte of a record spans two records.
+When the program has a line stream and option `N` is not given, the linker
+writes the line table during Phase D, in address order, with no sorting:
 
-## 8. Phase E: reports and line table
+- In each pass, for every live blob that does not start with a statement, it
+  writes a start entry (object format, Section 11) as it emits the blob.
+- In the pass that emits unaligned `code` blobs, it reads the line stream
+  forward in step with the program directory. Blob-lines records are in
+  directory order, so when it emits a `code` blob, the blob's record is next in
+  the line stream; it writes one entry per statement at the blob's address plus
+  the statement's offset.
 
-After the image is written, the linker writes the reports requested on the
-command line (see the [toolchain](toolchain.md)).
+Passes run in address order, and each pass emits blobs in address order, so the
+entries come out sorted. The image CRC goes in the line table's trailer, written
+after the last pass. The line table is written under a temporary name and
+published with the image ([toolchain](toolchain.md), Section 6).
+
+### 7.7 Files and buffers
+
+At most seven files are open during Phase D: the library twice (for its
+directory and its byte section), the program directory, byte stream and line
+stream, the output, and the line table. CP/M allows a file to be opened for
+reading with two file control blocks at once. Each open file takes a 36-byte
+FCB and a 128-byte buffer, about 1.2K in all.
+
+Records and references cross record boundaries, so the linker keeps a byte
+cursor into each buffer. An `ABS16` at the last byte of a record spans two
+records, in the byte stream and in the output.
+
+## 8. Phase E: reports
+
+After the image and line table are written and published, the linker writes the
+reports requested on the command line. A failure here is reported but does not
+undo publication; a partly written report is deleted.
 
 ### 8.1 Map
 
-A text file with these sections, in order:
+A text file in four parts:
 
-1. **Summary:** input file names, runtime and profile identities, output kind,
-   image base and end, `BSS` start and size, stack reserve, `REQUIRED`, the
-   profile's image limit and nominal top, and the margin to each.
-2. **Live blobs,** one per line in address order: address, size, kind,
-   alignment padding paid, ordinal, and name if a name stream is available.
-3. **Removed blobs,** one per line in ordinal order: ordinal, kind, size and
-   name; then the total bytes removed from the program and from the library.
+1. **Summary:** input names, runtime and profile identities, output kind, image
+   base and end, `BSS` start and size, stack reserve and largest frame, whether
+   any routine can recurse, `REQUIRED`, the profile's image limit and nominal
+   top, the margin to each, and the debugger margin.
+2. **Live blobs,** one line each in address order: address, size, kind, padding
+   paid, ordinal, and name.
+3. **Removed blobs,** one line each in directory order: ordinal, kind, size and
+   name.
+4. **Totals:** bytes kept and removed, for the program and the library.
 
-Addresses and ordinals are written in hexadecimal, sizes in decimal.
+Addresses and ordinals are hexadecimal; sizes are decimal. Names come from the
+name stream and the library's name section; where none exists, the ordinal
+alone is printed.
+
+**How it is produced.** Name records are in directory order, so the live-blob
+list is written by repeating the placement passes once more, reading the name
+stream in step with the program directory and the library's name section in
+step with the library directory. The removed-blob list is one further pass over
+both directories.
 
 ### 8.2 Symbol file
 
-A `.SYM` file for Digital Research's `SID` and `ZSID` debuggers: one line per
-live blob and alias with a name, giving the address as four hexadecimal digits,
-a space and the name. The exact format these debuggers accept, including the
-name length limit and separator, must be verified before implementation.
+A `.SYM` file for Digital Research's `SID` and `ZSID`: one line per live named
+blob and alias, in address order, consisting of four uppercase hexadecimal
+digits, one space and the name truncated to 16 characters, ending in CR LF; the
+file ends with `$1A`. This format is believed correct and must be checked against
+the `SID` manual before implementation. It is produced in the same pass as the
+map's live list.
 
-### 8.3 Line table
+### 8.3 Names in diagnostics
 
-When the program directory's flags say a line stream exists, the linker reads
-it, translates each entry's (ordinal, offset) to an address, discards entries
-for dead blobs, sorts the rest by address and writes the line table (object
-format, Section 11).
-
-Sorting needs memory proportional to the number of live statements: 5 bytes
-each. The object table is no longer needed at this point except for addresses
-and live flags, so the linker reuses the edge array's space. If the entries do
-not fit, the linker writes the line table in several sorted runs and merges
-them, or reports `L-CAP-LINES` and skips the line table without failing the
-link. Which of these 1.0 does is an open question (Section 11).
+A diagnostic from Phases A to D names the ordinal concerned. When a name stream
+or name section exists, the linker then reads it forward to find and print the
+name, which costs nothing unless an error occurs.
 
 ## 9. Diagnostics
 
-Every diagnostic is reported with its code, a message, and where useful the
-ordinal and name concerned. An error stops the link; the previous output is
-left in place (see the [toolchain](toolchain.md)).
+An error stops the link and leaves the previous output in place
+([toolchain](toolchain.md), Section 6).
 
 | Code | Severity | Meaning |
 | --- | --- | --- |
 | `L-FORMAT` | error | Bad magic or an unsupported version |
 | `L-COMPAT` | error | Program and library are not compatible |
+| `L-STAMP` | error | Program streams from different compilations |
+| `L-OPTION` | error | An option the profile doesn't support |
+| `L-OUTPUT` | error | An output kind the profile doesn't support |
 | `L-ORDINAL` | error | Ordinal out of range or defined twice |
-| `L-RESERVED` | error | A reserved kind, form, subtype or field value |
+| `L-RESERVED` | error | A reserved kind, form, subtype or value |
 | `L-BLOB` | error | A malformed blob record |
 | `L-REFERENCE` | error | A malformed reference |
 | `L-ALIAS` | error | A malformed alias |
-| `L-ENTRY` | error | Not exactly one `ENTRY` record |
-| `L-STARTUP` | error | Not exactly one `startup` blob in the library |
+| `L-ENTRY` | error | A missing, repeated or invalid `ENTRY` |
+| `L-LIMITS` | error | A missing, repeated or misplaced `LIMITS` |
+| `L-STARTUP` | error | A missing, repeated or invalid `startup` blob |
 | `L-UNDEFINED` | error | A reference to an ordinal never defined |
-| `L-TRUNCATED` | error | A missing trailer, bad CRC or wrong byte-stream length |
+| `L-TRUNCATED` | error | A missing trailer, bad CRC or wrong length |
 | `L-CAP-TABLES` | error | The tables don't fit in memory |
-| `L-FIT-IMAGE` | error | The stored image exceeds the profile's image limit |
-| `L-FIT-MEMORY` | error | The image, `BSS` and stack exceed the address space |
-| `L-FIT-RAM` | error | ROM targets: `DATA` and `BSS` exceed RAM |
+| `L-FIT-IMAGE` | error | The stored image exceeds the image limit |
+| `L-FIT-MEMORY` | error | Image, `BSS` and stack exceed the address space |
+| `L-FIT-RAM` | error | ROM: `DATA` and `BSS` exceed RAM |
 | `L-FIT-NOMINAL` | warning | The program may not fit a typical machine |
-| `L-RANGE` | error | A computed address is outside the target's memory |
+| `L-RANGE` | error | A reference value breaks the range rule |
 | `L-PLACEHOLDER` | error | Nonzero placeholder bytes, under verification |
-| `L-CAP-LINES` | warning | The line table could not be written |
-| `L-IO` | error | A disk read or write failed, or the disk or directory is full |
+| `L-IO` | error | A read or write failed, or a disk or directory is full |
 
-## 10. Conformance
+## 10. File reads
+
+Let *P* be the number of placement passes (1 for a typical CP/M program).
+
+| File | Reads |
+| --- | --- |
+| Library and program directories | Phase A once; Phase C *P* times; Phase D *P* times; the map *P* + 1 times when requested |
+| Library byte section and program byte stream | Phase D once in total, across its passes, with dead bytes skipped |
+| Line stream | once, in Phase D |
+| Name stream and library name section | *P* + 1 times when the map or symbol file is requested; on a diagnostic, once more |
+
+A typical build without a map reads each directory three times and each byte
+stream once.
+
+## 11. Conformance
 
 An implementation conforms when it produces, for every valid input, exactly the
-image the rules above define, and rejects every invalid input with the
-diagnostic named. The conformance suite must include at least:
+image these rules define, and rejects every invalid input with the diagnostic
+named. The suite includes at least:
 
-- a program with no dead blobs, whose image equals the unlinked concatenation;
-- programs where dead blobs occur at the start, the middle and the end of each
-  section, and in the library;
-- a chain of references through a forward-declared routine;
-- aliases, including a reference to an alias in a blob otherwise dead;
-- every reference form at every alignment, including an `ABS16` spanning a
-  128-byte record boundary in the input and in the output;
-- aligned blobs of every class, checking padding and order;
+- a program with no dead blobs;
+- dead blobs at the start, middle and end of each section, and in the library;
+- a chain of references through a forward-declared routine, and a record
+  following it;
+- aliases, including one referenced only from an otherwise dead blob;
+- more than 256 blob records, so the stamp clear happens, with a blob after the
+  clear that references targets stamped before it;
+- every reference form, including an `ABS16` spanning a 128-byte record in the
+  directory, in the byte stream and in the output;
+- end-pointer references at exactly `addr + size`, and one byte beyond (an
+  error);
+- aligned blobs of every class, checking padding, order and pass count;
 - self-references and negative addends;
-- each diagnostic in Section 9, from a minimal file that triggers it;
+- empty `BSS` and empty `DATA`, checking that startup handles size 0;
+- re-runnable and keep-CCP images, checking `OPTIONS`;
+- every diagnostic in Section 9, from a minimal file that triggers it;
 - the largest program the tables allow, and one ordinal beyond it; and
-- re-linking the same inputs and comparing the outputs byte for byte.
+- linking the same inputs twice and comparing the outputs byte for byte.
 
-## 11. Open questions
+## 12. Open questions
 
-1. **Line table memory.** Sorted runs and a merge, or skip the line table with
-   a warning when it doesn't fit?
-2. **Table sizes.** If measurements show programs reaching `L-CAP-TABLES`, the
-   edge array could store 1-byte relative targets, or the compiler could write
-   each blob's edges deduplicated so the linker stores them as they come.
-3. **Symbol file format** for `SID` and `ZSID`, to be verified.
-4. **Placeholder verification** on by default, or only on request?
+1. **Table sizes.** If measurement shows typical programs nearing
+   `L-CAP-TABLES`, the edge lists could use 1-byte targets relative to a nearby
+   base, or the compiler could write each blob's targets deduplicated so the
+   linker stores them as they come.
+2. **Placeholder verification** on by default, or only with option `V`?

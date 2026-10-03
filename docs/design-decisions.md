@@ -232,7 +232,9 @@ A trap site is a call to the runtime reporter for its reason, 3 bytes when the
 check's result is in a testable condition flag and 5 bytes otherwise. The
 reporter prints the reason and the site's address, such as
 `TRAP bounds at 1A3F`, and the line table the linker writes turns the
-address into a source line.
+address into a source line. A runtime helper that detects a failure jumps to
+the reporter with its stack balanced, so the report gives the program's call to
+the helper rather than an address inside it.
 
 **Why.** Nucleus put the source position inline at each site, about 8 bytes. A
 checked program has hundreds of sites, and the call form saves roughly 2K per

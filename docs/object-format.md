@@ -1,25 +1,25 @@
 # Baton Object Format 1.0
 
-- Status: draft specification, not yet reviewed
+- Status: draft specification, revision 2 (after adversarial review)
 - Date: 2026-10-03
 - Related: [build pipeline](build-pipeline.md) (overview and rationale),
-  [linker](linker.md), [toolchain](toolchain.md), [CP/M target](cpm-target.md)
+  [linker](linker.md), [toolchain](toolchain.md), [CP/M target](cpm-target.md),
+  [review](reviews/2026-10-03-linker-spec-review.md)
 
 ## 1. Scope
 
 This document defines, byte for byte, the files that carry compiled Baton code
 between the compiler and the linker:
 
-- the **program object**, written by the compiler for one compilation;
-- the **blob library**, which carries the prebuilt runtime for one target;
+- the **program object**, written by the compiler for one compilation, made of
+  a directory stream and a byte stream;
+- the **blob library**, which carries the prebuilt runtime and target profile;
 - the **line stream** and **name stream**, which carry debugging information;
   and
 - the **line table**, which the linker writes for trap lookup.
 
 It does not define source syntax, code generation or the linker's algorithm,
-except where a field's meaning depends on them. The linker document defines how
-these files are consumed. The toolchain document defines file names, the
-command line and the order in which files are created and deleted.
+except where a field's meaning depends on them.
 
 ## 2. Conventions
 
@@ -28,13 +28,15 @@ command line and the order in which files are created and deleted.
 - Bit 0 is the least significant bit.
 - A **record** is a self-delimiting sequence of fields. Records are not aligned
   to anything and may cross 128-byte CP/M record boundaries.
-- "Must" states a requirement on a producer. A consumer rejects any file that
-  breaks one, with the diagnostic named in the linker document.
-- Every file ends with a trailer containing a CRC-16/CCITT-FALSE value:
-  polynomial `$1021`, initial value `$FFFF`, no reflection, final XOR `$0000`.
-  The check value for ASCII `123456789` is `$29B1`.
-- On CP/M, a file's final 128-byte record is padded with `$1A` after the
-  trailer. A consumer stops at the trailer and ignores the padding.
+- "Must" states a requirement on a producer. A consumer rejects a file that
+  breaks one, with the diagnostic the linker document names.
+- **CRC** means CRC-16/CCITT-FALSE: polynomial `$1021`, initial value `$FFFF`,
+  no reflection, final XOR `$0000`. The check value for ASCII `123456789` is
+  `$29B1`.
+- On CP/M, a file whose length is not a multiple of 128 is padded after its
+  last meaningful byte with `$1A`. Every file in this document either records
+  its own length or ends in a recognisable trailer, so a consumer never needs to
+  interpret padding.
 
 ## 3. Concepts
 
@@ -45,29 +47,36 @@ linker places whole or drops whole.
 
 | Kind code | Kind | Stored bytes | Meaning |
 | ---: | --- | --- | --- |
-| 0 | `code` | yes | One routine, with any jump tables and inline constants it owns |
-| 1 | `rodata` | yes | One read-only constant: an aggregate constant, a string literal, an aligned table |
+| 0 | `code` | yes | One routine, with the jump tables and literals it owns |
+| 1 | `rodata` | yes | One top-level read-only constant, or an aligned table |
 | 2 | `data` | yes | One initialised, writable top-level variable |
 | 3 | `bss` | no | One zero-initialised top-level variable, pool or buffer |
-| 4 | `startup` | yes | The program's first code; exactly one, in the blob library |
-| 5 | — | — | Reserved; a consumer rejects it |
+| 4 | `startup` | yes | The program's first code; exactly one, in the blob library only |
+| 5 | — | — | Reserved |
 | 6 | control | — | Not a blob; a control record (Section 6) |
 | 7 | — | — | Never begins a record; `$FF` marks the trailer |
 
 A blob obeys these rules:
 
 1. **No relative transfer leaves a blob.** `JR`, `DJNZ` and any other
-   relative displacement must target a byte inside the same blob.
-2. **No fall-through between blobs.** Execution never runs off the end of one
-   blob into the next. A blob that ends in code ends in an unconditional
-   transfer or return.
-3. **No adjacency assumptions.** No code may rely on two blobs being next to
-   each other or in a particular order.
+   relative displacement target a byte inside the same blob.
+2. **No fall-through between blobs.** A blob that contains code never lets
+   execution run off its end.
+3. **No adjacency assumptions.** No code relies on two blobs being next to each
+   other or in a particular order.
 4. **Every absolute address is a reference.** Any byte whose final value
-   depends on where any blob is placed, including the blob itself, is covered
-   by a reference (Section 5). Its stored placeholder bytes must be zero.
-5. **Alignment belongs to the whole blob.** A `code` blob has alignment 1.
-   Anything that needs alignment is its own `rodata`, `data` or `bss` blob.
+   depends on where any blob is placed, including the blob itself, is covered by
+   a reference (Section 5). Its placeholder bytes are zero.
+5. **Alignment belongs to the whole blob.** A `code` or `startup` blob has
+   alignment 1. Anything that needs alignment is its own `rodata`, `data` or
+   `bss` blob.
+6. **A `bss` blob has no references.** It has no bytes to patch.
+
+**Literals belong to their routine.** A string or aggregate literal that
+appears inside a routine is stored in that routine's `code` blob, normally
+after its code, and reached by a self-reference. A literal's liveness is its
+routine's, so a separate blob would gain nothing. Only top-level constants are
+`rodata` blobs. Identical literals in different routines are not merged.
 
 ### 3.2 Ordinals
 
@@ -77,72 +86,105 @@ names in linking: the linker never compares strings.
 | Range | Owner | Use |
 | --- | --- | --- |
 | `$0000` | — | Invalid; never defined, never referenced |
-| `$0001`–`$00FF` | blob library | Runtime blobs and aliases, numbered by the library's published helper table |
-| `$0100`–`$011F` | linker | Pseudo-objects (Section 3.4) |
-| `$0120`–`$FFFF` | compiler | Program blobs and aliases |
+| `$0001`–`$03FF` | blob library | Runtime blobs and aliases, numbered by the runtime's published helper table |
+| `$0400`–`$FFDF` | compiler | Program blobs and aliases |
+| `$FFE0`–`$FFFF` | linker | Pseudo-objects (Section 3.4) |
 
-Within each owner's range, an ordinal is defined at most once. Ordinals need
-not be dense; the linker sizes its tables by the highest ordinal defined.
+Within each owner's range an ordinal is defined at most once. Ordinals need not
+be dense, but the linker's memory grows with the highest ordinal in each range,
+so producers assign them densely from the bottom of their range.
 
-A runtime ordinal, once published for a runtime identity, keeps its meaning in
-every later version of that runtime (Section 10).
+The pseudo-objects sit at the top of the space, where a compiler counting up
+from `$0400` never reaches them.
 
 ### 3.3 Aliases
 
 An **alias** is an ordinal that denotes a fixed offset inside a blob:
 `addr(alias) = addr(base) + offset`. Aliases give a blob more than one entry
-point, which hand-written runtime code needs. For example, a multiply helper
-may have a second entry that skips loading an operand, and both entries must
-live in one blob because one falls through to the other.
+point, which hand-written runtime code needs: a helper with two entries, one
+falling through into the other, must be one blob.
 
-A reference to an alias marks the alias's base blob live. An alias has no size
-of its own; a `SIZE16` reference to an alias is invalid.
+A reference to an alias marks the alias's base blob live. For range checking,
+an alias's size is its base's size minus its offset. A `SIZE16` reference to an
+alias is invalid.
 
 ### 3.4 Pseudo-objects
 
 The linker defines these ordinals after placement. Each has an address and a
-size. A reference to a pseudo-object marks nothing live, except as stated.
+size. A reference to a pseudo-object marks nothing live, except `MAIN`.
 
 | Ordinal | Name | Address | Size |
 | --- | --- | --- | --- |
-| `$0100` | `MAIN` | The entry routine's address; marks that routine live | The entry routine's size |
-| `$0101` | `IMAGE` | First address of the stored image | Length of the stored image |
-| `$0102` | `BSS` | First `bss` address | Total `bss` length, including padding |
-| `$0103` | `FREE` | First address after `bss` | 0 |
-| `$0104` | `REQUIRED` | `FREE` plus the stack reserve: the lowest acceptable top of memory | The stack reserve |
-| `$0105` | `DATA` | Run address of the first `data` blob | Total `data` length, including padding |
-| `$0106` | `DATACOPY` | Address of the stored copy of `DATA`, if one exists; otherwise equal to `DATA` | The copy's length, or 0 if none |
-| `$0107`–`$011F` | — | Reserved; a reference is an error | — |
+| `$FFE0` | `MAIN` | The entry routine's address; marks that routine live | The entry routine's size |
+| `$FFE1` | `IMAGE` | First address of the stored image | Length of the stored image |
+| `$FFE2` | `BSS` | First `bss` address | Total `bss` length, including padding; may be 0 |
+| `$FFE3` | `FREE` | First address after `bss` | 0 |
+| `$FFE4` | `REQUIRED` | `FREE` plus the stack reserve: the lowest acceptable top of memory | The stack reserve |
+| `$FFE5` | `DATA` | Run address of the first separately placed `data` blob | Total length of the `DATA` section; may be 0 |
+| `$FFE6` | `DATACOPY` | Address of the stored copy of `DATA`; equal to `DATA` if none | Length of the copy; 0 if none |
+| `$FFE7` | `OPTIONS` | A 16-bit flag word, used as a value rather than an address (Section 3.5) | 0 |
+| `$FFE8`–`$FFFF` | — | Reserved; a reference is an error | — |
 
-When a program has no `bss` blobs, `BSS` has the address `FREE` and size 0, and
-likewise for `DATA`.
+When there are no `bss` blobs, `BSS` has the address of `FREE` and size 0.
+Likewise, when `DATA` is empty, `DATA` and `DATACOPY` have size 0. Code that
+copies or clears using these sizes must handle 0, because `LDIR` with
+`BC = 0` moves 65,536 bytes.
+
+### 3.5 The `OPTIONS` word
+
+`OPTIONS` lets prebuilt runtime code learn the link-time options. An `ABS16`
+reference to it yields the flag word, for example as `LD HL,OPTIONS`.
+
+| Bit | Meaning when set |
+| ---: | --- |
+| 0 | Keep the CCP resident and return to it (CP/M 2.2) |
+| 1 | Re-runnable: restore `DATA` from `DATACOPY` at startup |
+| 2 | A line table was written for this image |
+| 3–15 | Zero |
 
 ## 4. Program object
 
-One compilation produces one program object, held in two files written in
-parallel: a **directory stream** and a **byte stream**.
+One compilation produces one program object: a **directory stream** and a
+**byte stream**, written in parallel, plus the optional line and name streams.
 
-### 4.1 Directory stream
+### 4.1 Compilation stamp
+
+The compiler chooses a 16-bit **compilation stamp** for each compilation and
+writes it into the header of every stream it produces. The linker refuses
+streams whose stamps differ, so a stale byte, line or name stream left from an
+earlier compilation can never be combined with a newer directory.
+
+The stamp need only differ between successive compilations, and it must be
+known when the first header is written. CP/M 2.2 has no clock, so the compiler
+derives it from the CRC of the first source part's first 128-byte record,
+combined with the Z80's `R` register sampled while waiting for that record. A
+stamp of zero is replaced by 1.
+
+### 4.2 Directory stream
 
 ```text
 directory-stream = program-header record* trailer
 record           = blob-record | control-record
 ```
 
-#### Program header (18 bytes)
+#### Program header (20 bytes)
 
 | Offset | Field | Type | Meaning |
 | ---: | --- | --- | --- |
 | 0 | magic | 4 bytes | ASCII `BTNP` |
 | 4 | major version | `u8` | 1 |
 | 5 | minor version | `u8` | 0 |
-| 6 | runtime identity | `u16` | The runtime this program was compiled against |
-| 8 | helper-table version | `u16` | The lowest helper-table version the program needs |
-| 10 | profile identity | `u16` | The target profile this program was compiled for |
-| 12 | flags | `u8` | Bit 0: a line stream was written. Bit 1: a name stream was written. Bits 2–7: zero |
-| 13 | stack reserve | `u16` | Minimum stack in bytes; 0 means the profile's default |
-| 15 | compiler version | `u16` | Informational; not checked |
-| 17 | reserved | `u8` | Zero |
+| 6 | compilation stamp | `u16` | Section 4.1 |
+| 8 | runtime identity | `u16` | The runtime the compiler was built for |
+| 10 | helper-table version | `u16` | The version of the helper table compiled into the compiler |
+| 12 | helper-table key | `u16` | The interface key of that version (Section 10) |
+| 14 | profile identity | `u16` | The profile the program was compiled for |
+| 16 | ordinal base | `u16` | `$0400` in 1.0; reserved so a precompiled library's ordinals can later be relocated by addition |
+| 18 | flags | `u8` | Bit 0: a line stream was written. Bit 1: a name stream was written. Bits 2–7: zero |
+| 19 | reserved | `u8` | Zero |
+
+Every header field is known before compilation starts. Facts learned only at
+the end of input go in the `LIMITS` control record (Section 6).
 
 #### Blob record
 
@@ -151,49 +193,59 @@ record           = blob-record | control-record
 | header | `u8` | Bits 0–2: kind 0–4. Bit 3: an explicit ordinal follows. Bit 4: root. Bits 5–7: alignment code |
 | ordinal | `u16`, optional | Present when bit 3 is set |
 | size | `u16` | Stored length, or reserved length for `bss`; 1 to 65,535 |
-| reference count | `u8` | 0–254, or 255 followed by a `u16` count of 255 or more |
+| reference count | `u8` | 0 to 254; or 255 followed by a `u16` count, which must be 255 or more |
 | references | — | The blob's references, in strictly increasing offset order (Section 5) |
 
 **Implicit ordinals.** A record without an explicit ordinal takes the previous
 blob record's ordinal plus one. The first blob record of a program directory
-takes `$0120`. Control records do not affect the sequence. A producer writes an
-explicit ordinal whenever the next ordinal differs from that rule, as it does
-for a routine whose ordinal was assigned at a forward declaration.
+takes the ordinal base, `$0400`. Control records do not affect the sequence.
 
-**Alignment code.** Values 0–6 mean alignment to 2 raised to that power: 1, 2,
-4 ... 64 bytes. Value 7 means 256 bytes (page alignment). A `code` or `startup`
-blob must have code 0.
+The compiler therefore tracks two values: the **next free ordinal**, which it
+assigns as it meets declarations, and the **last written ordinal**, from which
+it decides whether a record needs an explicit ordinal. A routine whose ordinal
+was assigned at a forward declaration is written later with an explicit
+ordinal, and so, usually, is the record after it.
 
-**Root flag.** A root blob is live whatever references it (Section 3 of the
-linker document). A program uses roots only for routines the source marks for
-fixed-address use; Baton 1.0 defines no such source feature, so a program
-directory from a 1.0 compiler has no roots.
+**Alignment code.** Values 0 to 6 mean alignment to 2 raised to that power: 1,
+2, 4 ... 64 bytes. Value 7 means 256 bytes. A `code` or `startup` blob must use
+0.
 
-**Size.** A blob of size 0 is invalid. A routine always has at least a `RET`;
-an empty aggregate is not representable in Baton.
+**Root flag.** A root blob is live whatever references it. Baton 1.0 defines no
+source feature that makes a program blob a root, so a 1.0 program directory has
+none; the flag exists for future interrupt and exported routines.
 
-### 4.2 Byte stream
+**Size.** A blob of size 0 is invalid. Every routine has at least a return
+instruction, and Baton has no empty aggregates.
 
-The byte stream is the concatenation of the stored bytes of every blob of kind
-`code`, `rodata` or `data`, in directory order. It has no header, framing or
-trailer of its own. Its length is recorded in the directory trailer, and a
-consumer checks it.
+### 4.3 Byte stream
 
-Placeholder bytes covered by references must be zero. A consumer may check
-this; a nonzero placeholder means a compiler fault.
+```text
+byte-stream = byte-header blob-bytes*
+```
 
-### 4.3 Directory trailer (10 bytes)
+| Field | Type | Meaning |
+| --- | --- | --- |
+| magic | 4 bytes | ASCII `BTNB` |
+| major, minor version | `u8`, `u8` | 1, 0 |
+| compilation stamp | `u16` | Must equal the directory's |
+
+After the 8-byte header come the stored bytes of every `code`, `rodata` and
+`data` blob, in directory order, with no framing. The directory trailer records
+their total length. Placeholder bytes covered by references must be zero.
+
+### 4.4 Directory trailer (12 bytes)
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | marker | `u8` | `$FF` |
 | blob count | `u16` | Number of blob records, excluding control records |
-| byte stream length | `u32` | Exact number of bytes in the byte stream |
+| byte stream length | `u32` | Exact number of blob bytes after the byte-stream header |
+| highest ordinal | `u16` | Highest ordinal defined in this directory |
 | reserved | `u8` | Zero |
 | CRC | `u16` | CRC over every directory byte from the magic up to, but not including, this field |
 
-A directory without a valid trailer is rejected, so the linker can never use
-the output of an interrupted compilation.
+A directory without a valid trailer is rejected, so the linker never uses the
+output of an interrupted compilation.
 
 ## 5. References
 
@@ -208,26 +260,33 @@ target *t* and addend *a*.
 | 1 | `LO8` | 1 | Low byte of `(addr(t) + a) mod 65536` |
 | 2 | `HI8` | 1 | High byte of `(addr(t) + a) mod 65536` |
 | 3 | `SIZE16` | 2 | `(size(t) + a) mod 65536`, little-endian |
-| 4 | `BANK8` | 1 | Bank number of target *t*; reserved for banked profiles |
-| 5–7 | — | — | Reserved; a consumer rejects them |
+| 4 | `BANK8` | 1 | Bank number of *t*; reserved; invalid under every 1.0 profile |
+| 5–7 | — | — | Reserved |
 
-The addend is a 16-bit value added modulo 65,536. A negative offset is written
+The addend is a 16-bit value added modulo 65,536; a negative offset is written
 as its two's-complement value.
 
-The target may be:
-
-- any blob or alias, including the referring blob itself;
-- a pseudo-object; or
-- for `SIZE16`, a blob or a pseudo-object, but not an alias.
+The target may be any blob or alias, including the referring blob itself, or a
+pseudo-object. A `SIZE16` target may be a blob or a pseudo-object but not an
+alias.
 
 **Self-references.** A blob that needs an absolute address inside itself, such
-as an absolute `JP` to its own label or a jump-table entry, references its own
-ordinal with the label's offset as the addend.
+as an absolute jump to its own label, a jump-table entry, or the address of a
+literal it owns, references its own ordinal with the offset as the addend.
 
-**Range.** `ABS16`, `LO8` and `HI8` targets must, after addition, denote an
-address within the target's memory as the linker document defines. The
-modulo arithmetic exists so that addends can be negative and large positive
-offsets into big arrays are representable, not so that addresses may wrap.
+**Range rule.** For `ABS16`, `LO8` and `HI8`, let `v = addr(t) + a`, computed
+without the modulo, treating the addend as signed (−32,768 to 32,767). Then:
+
+- `addr(t) ≤ v ≤ addr(t) + size(t)` must hold, so a reference may point at any
+  byte of its target or one byte past its end, as end pointers do; and
+- `v` must lie in 0 to 65,535.
+
+The rule is relative to the target, not to the image, so references to RAM
+below a ROM image are valid. Two kinds of reference are exempt from the first
+condition: references to `OPTIONS`, whose value is not an address; and
+references to `IMAGE`, `BSS`, `FREE`, `REQUIRED`, `DATA` and `DATACOPY`, whose
+sizes may be 0 but which runtime code uses as region boundaries. For those, only
+the second condition applies.
 
 ### 5.2 Encoding
 
@@ -235,54 +294,64 @@ Each reference entry is:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| control | `u8` | Bits 0–3: offset delta 0–14, or 15 to escape. Bit 4: an addend follows. Bits 5–7: form code |
-| absolute offset | `u16`, optional | Present when the delta field is 15 |
+| control | `u8` | Bits 0–5: offset delta 0–62, or 63 to escape. Bit 6: an addend follows. Bit 7: a form byte follows |
+| absolute offset | `u16`, optional | Present when the delta field is 63 |
+| form | `u8`, optional | Present when bit 7 is set: the form code 1–7. When absent, the form is `ABS16` |
 | target | `u16` | Target ordinal |
-| addend | `u16`, optional | Present when bit 4 is set; otherwise the addend is 0 |
+| addend | `u16`, optional | Present when bit 6 is set; otherwise 0 |
 
-For a blob's first entry, the delta is the offset from the start of the blob.
-For each later entry, it is the distance from the previous entry's offset and
-must be at least 1. Offsets are strictly increasing.
+For a blob's first entry, the delta or absolute offset is the offset from the
+start of the blob. For each later entry it is the distance from the previous
+entry's offset, and must be at least 1 whether given as a delta or an
+absolute offset. Offsets are therefore strictly increasing. A form byte of 0 is
+invalid, since `ABS16` is expressed by omitting it.
 
-A reference's bytes must lie wholly inside the blob, and two references'
-bytes must not overlap. Since offsets are strictly increasing, an `ABS16` at
-offset *o* requires the next entry, if any, to be at offset *o* + 2 or later.
+A reference's bytes must lie wholly inside the blob, and two references' bytes
+must not overlap: after an `ABS16` or `SIZE16` at offset *o*, the next entry is
+at *o* + 2 or later.
 
-A `CALL` with no addend costs 3 bytes of directory. A self-reference or field
-reference costs 5 bytes, or 7 when its offset needs the escape.
+**Cost.** An `ABS16` with no addend within 62 bytes of the previous reference,
+the commonest case, takes 3 bytes. Another form adds 1 byte, an addend 2, and
+the escape 2.
 
 ## 6. Control records
 
-A control record has header `$06` combined with a subtype in bits 3–7:
+A control record has header `$06` combined with a subtype in bits 3 to 7:
 `header = $06 | (subtype << 3)`.
 
 | Subtype | Name | Payload | Where allowed |
 | ---: | --- | --- | --- |
-| 0 | `ALIAS` | alias `u16`, base `u16`, offset `u16` | Program directory, blob library |
+| 0 | `ALIAS` | alias `u16`, base `u16`, offset `u16` | Program directory, library |
 | 1 | `ENTRY` | ordinal `u16` | Program directory, exactly once |
-| 2 | `BANK` | bank `u8` | Banked profiles only |
-| 3–31 | — | — | Reserved; a consumer rejects them |
+| 2 | `BANK` | bank `u8` | Banked profiles only; invalid in 1.0 |
+| 3 | `LIMITS` | stack reserve `u16`, largest frame `u16`, flags `u8` | Program directory, exactly once, after the last blob record |
+| 4–31 | — | — | Reserved |
 
-**`ALIAS`.** Defines `alias` as `base + offset`. The base must be a blob
-defined somewhere in the same directory; it need not precede the alias. The
-offset must be less than the base blob's size. An alias may not have another
-alias as its base.
+**`ALIAS`.** Defines `alias` as `base + offset`. The alias lies in the same
+owner's range as the directory. The base is a blob defined in the same
+directory, before or after the alias. The offset is less than the base's size.
+An alias's base is never another alias.
 
-**`ENTRY`.** Names the program's entry routine, which `MAIN` resolves to. The
-ordinal must be a `code` blob in the program directory.
+**`ENTRY`.** Names the program's entry routine. The ordinal is a `code` blob in
+the program directory.
 
-**`BANK`.** Sets the bank of the blob records that follow it, until the next
-`BANK` record. Without one, blobs are in bank 0. A flat profile rejects any
-`BANK` record. Banked linking is not part of Baton 1.0; the record is reserved
-so the format need not change when it is added.
+**`LIMITS`.** Facts the compiler knows only at the end of input:
+
+- **stack reserve:** the minimum stack the program needs, in bytes. The compiler
+  sets it to the profile's default stack reserve plus the largest activation
+  frame, unless the source or command line asks for more;
+- **largest frame:** the largest single activation frame, for the map; and
+- **flags:** bit 0 is set if any routine can recurse, directly or through a
+  forward declaration. The stack reserve can't cover unbounded recursion; the
+  runtime's activation-capacity check traps if the stack runs out.
 
 ## 7. Blob library
 
-A blob library carries the prebuilt runtime for one target profile in a single
-file: a header, a profile block, a directory section, a byte section and an
-optional name section.
+A blob library carries the prebuilt runtime for one target profile in one file:
+a header, a profile block, a directory section, a byte section, a key table and
+an optional name section.
 
-### 7.1 Library header (32 bytes)
+### 7.1 Library header (40 bytes)
 
 | Offset | Field | Type | Meaning |
 | ---: | --- | --- | --- |
@@ -290,23 +359,24 @@ optional name section.
 | 4 | major version | `u8` | 1 |
 | 5 | minor version | `u8` | 0 |
 | 6 | runtime identity | `u16` | Identity of this runtime |
-| 8 | helper-table version | `u16` | Version of the helper ordinal table this library provides |
+| 8 | helper-table version | `u16` | Version of the helper table this library provides |
 | 10 | profile identity | `u16` | The target profile this library implements |
-| 12 | directory offset | `u32` | Byte offset of the directory section from the start of the file |
+| 12 | directory offset | `u32` | Byte offset of the directory section |
 | 16 | byte section offset | `u32` | Byte offset of the byte section |
 | 20 | byte section length | `u32` | Length of the byte section |
-| 24 | name section offset | `u32` | Byte offset of the name section, or 0 if none |
-| 28 | reserved | `u32` | Zero |
+| 24 | name section offset | `u32` | Byte offset of the name section, or 0 |
+| 28 | file length | `u32` | Length of the file up to and including the whole-file CRC |
+| 32 | key table offset | `u32` | Byte offset of the helper key table (Section 10) |
+| 36 | highest ordinal | `u16` | Highest ordinal the library defines |
+| 38 | reserved | `u16` | Zero |
 
-Each offset must be a multiple of 128, so that a CP/M reader can position to a
-section with a random read (BDOS function 33). The gap before an offset is
+The directory, byte section, name section and key table offsets are multiples
+of 128, so a CP/M reader can position to each with a random read. Gaps are
 filled with zeros.
 
 ### 7.2 Profile block
 
-The profile block follows the header directly. It describes the target the
-library was built for, so that one file carries both the runtime and the target
-description.
+The profile block follows the header directly.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -316,151 +386,181 @@ description.
 | image base | `u16` | Address of the first stored byte: `$0100` on CP/M |
 | image limit | `u16` | First address the stored image may not reach: the CCP base on CP/M 2.2, the nominal top of memory on CP/M 3, the end of ROM on a ROM target |
 | nominal top | `u16` | Typical top of memory, for warnings |
+| CCP size | `u16` | CP/M 2.2: bytes the CCP occupies below the BDOS base, normally `$0800`. Otherwise 0 |
 | RAM base | `u16` | ROM targets: first RAM address. CP/M: 0 |
 | RAM limit | `u16` | ROM targets: first address after RAM. CP/M: 0 |
-| default stack reserve | `u16` | Bytes of stack if the program asks for none |
-| option support | `u8` | Bit 0: keep-CCP supported. Bit 1: re-runnable supported. Bits 2–7: zero |
-| free restart vectors | `u8` | Bit *n* set: `RST n*8` is free for runtime use. Bit 7 (`RST 38h`) must be clear on CP/M |
+| default stack reserve | `u16` | Bytes of stack added to every program's largest frame |
+| option support | `u8` | Bit 0: keep-CCP supported. Bit 1: re-runnable supported |
+| free restart vectors | `u8` | Bit *n* set: `RST n*8` is free for runtime use. Bits 0 and 7 must be clear on CP/M |
 | debugger margin | `u16` | Bytes a resident debugger typically takes, for reports |
-| further fields | — | Fields added in later minor versions; a reader skips them using the length |
+| further fields | — | Added in later minor versions; a reader skips them using the length |
 
 ### 7.3 Directory section
 
-The directory section uses the same record grammar as a program directory
-(Sections 4.1, 5 and 6), with these differences:
+The directory section uses the record grammar of a program directory
+(Sections 4.2, 5 and 6), with these differences:
 
-- there is no program header; the library header serves instead;
-- implicit ordinals start at `$0001`;
-- ordinals must lie in `$0001`–`$00FF`;
-- exactly one blob has kind `startup`, and it is a root; and
-- `ENTRY` records are not allowed.
+- it has no header of its own; the library header serves instead;
+- implicit ordinals start at `$0001`, and ordinals lie in `$0001`–`$03FF`;
+- exactly one blob has kind `startup`, and it is a root;
+- the `startup` blob references `MAIN`;
+- `ENTRY` and `LIMITS` records are not allowed; and
+- `data` blobs are allowed, for runtime state. They are placed and, when
+  re-runnable, restored like the program's.
 
 Roots in a library mark code the system reaches without a call from the
-program, such as restart-vector handlers the startup blob installs.
+program, such as restart-vector handlers that startup installs.
 
-The section ends with a trailer of the program-directory form (Section 4.3).
-Its byte-stream length field gives the byte section's length, and its CRC
-covers the directory section only.
+The section ends with a directory trailer (Section 4.4). Its CRC covers the
+section from its first record byte. Its byte-stream length must equal the
+header's byte section length, and its highest ordinal the header's.
 
 ### 7.4 Byte section
 
 The stored bytes of the library's `code`, `rodata`, `data` and `startup` blobs,
-in directory order, exactly as in a program byte stream.
+in directory order, with no header.
 
 ### 7.5 Name section
 
-Optional. The same format as a name stream (Section 9), for the library's own
-ordinals.
+Optional; the same format as a name stream (Section 9), with stamp 0.
 
-### 7.6 Whole-file check
+### 7.6 Whole-file CRC
 
-The last 2 bytes before any padding are a CRC over every preceding byte of the
-file. The linker checks the directory CRC when it reads the directory. It
-checks the whole-file CRC only when asked to verify a library, because doing so
-reads the whole file an extra time.
+The 2 bytes ending at the file length (Section 7.1) are a CRC over every
+preceding byte of the file. The linker checks it only when asked to verify a
+library, because that reads the whole file again.
 
 ## 8. Line stream
 
-Optional, written by default. It maps code positions to source positions for
-trap lookup and source maps.
+Optional; written by default. It maps code positions to source positions.
 
 ```text
-line-stream = line-header part-record* blob-lines* line-trailer
+line-stream = line-header (part-record | blob-lines)* line-trailer
 ```
 
 | Record | Layout |
 | --- | --- |
-| Line header | magic `BTLS` (4 bytes), major version `u8` = 1, minor `u8` = 0 |
-| Part record | tag `$01`, part `u8`, name length `u8`, name bytes |
+| Line header | magic `BTLS` (4 bytes), major `u8` = 1, minor `u8` = 0, compilation stamp `u16` |
+| Part record | tag `$01`, part `u8` (0–254), name length `u8`, name bytes |
 | Blob lines | tag `$02`, ordinal `u16`, entry count `u16`, entries |
 | Line trailer | tag `$FF`, CRC `u16` over every preceding byte |
 
-Part records name each source part, using the name the compiler opened, such as
-`B:MAIN.BTN`. They precede any blob-lines record that uses the part.
+Part records name each source part with the name the compiler opened, such as
+`B:MAIN.BTN`. A part record precedes every blob-lines record that uses its
+part. Parts are numbered from 0; 255 is reserved.
 
-Each entry of a blob-lines record marks the start of a statement:
+The compiler writes a blob-lines record for each `code` blob at the same time as
+the blob's directory record, so blob-lines records are in directory order.
+
+Each entry marks the start of a statement:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | control | `u8` | Bits 0–6: code offset delta 0–126, or 127 to escape. Bit 7: a part number follows |
 | absolute offset | `u16`, optional | Present when the delta field is 127 |
-| part | `u8`, optional | Present when bit 7 is set; otherwise the previous entry's part, or for the first entry the part of the blob's first statement |
+| part | `u8`, optional | Present when bit 7 is set; otherwise the previous entry's part |
 | source offset | `u16` | Byte offset of the statement in its source part |
 
-The first entry's delta is its offset from the start of the blob; each later
-entry's delta is the distance from the previous entry. Two entries may share an
-offset only if they are in different parts. A source part may be at most
-65,535 bytes long, so a `u16` offset suffices. The first entry of each
-blob-lines record must carry a part number.
+The first entry of every blob-lines record carries a part number. Offsets are
+measured as in Section 5.2: the first from the blob start, the rest from the
+previous entry. Two entries may share an offset only if they are in different
+parts. A source part is at most 65,535 bytes long.
 
 ## 9. Name stream
 
-Optional. It maps ordinals to source names for maps and debugger symbol files.
+Optional. It maps ordinals to source names for maps, symbol files and
+diagnostics.
 
 | Record | Layout |
 | --- | --- |
-| Name header | magic `BTNM` (4 bytes), major version `u8` = 1, minor `u8` = 0 |
+| Name header | magic `BTNM` (4 bytes), major `u8` = 1, minor `u8` = 0, compilation stamp `u16` |
 | Name record | ordinal `u16`, name length `u8` (1–31), name bytes |
 | Name trailer | ordinal `$0000`, CRC `u16` over every preceding byte |
 
-Names are the source spelling, truncated to 31 bytes. Compiler-generated blobs,
-such as string literals, may have names the compiler invents, such as
-`main.str3`; tools must not treat them as source identifiers.
+The compiler writes each blob's name record when it writes the blob's
+directory record, so name records are in directory order, and an alias's name
+record when it writes the `ALIAS` record. Names are the source spelling,
+truncated to 31 bytes. Names of generated blobs are invented by the compiler and
+are not source identifiers.
 
 ## 10. Versions and compatibility
 
-**Format version.** A consumer accepts a file whose major version it
-implements and whose minor version is equal to or lower than its own. A higher
-minor version may add fields only where this document says a reader skips
-unknown fields (the profile block) and may define reserved kinds, forms or
-subtypes; a consumer rejects any reserved value it does not implement.
+**Format version.** A consumer accepts a file whose major version it implements
+and whose minor version is equal to or lower than its own. Reserved values stay
+invalid until a version that defines them.
 
-**Runtime compatibility.** The linker accepts a program and a library together
-only if:
+**Helper table.** The runtime's helper table assigns each runtime ordinal to a
+helper, with its kind and calling convention. It is published as a generated
+source file that is compiled into the compiler, so the compiler knows each
+helper's ordinal without reading the library. The table is **append-only**: a
+new version may define ordinals in unused slots but never renumbers, removes or
+changes an existing one.
+
+**Interface key.** Each version of the helper table has a 16-bit key: the CRC of
+a canonical description of every helper defined in that version (ordinal, kind
+and calling-convention code). A library carries a **key table** at the key table
+offset: a `u16` count followed by the key of every version from 1 up to its own,
+in order.
+
+**Compatibility.** The linker accepts a program and a library together only if:
 
 - their runtime identities are equal;
-- their profile identities are equal; and
-- the library's helper-table version is equal to or higher than the program's.
+- their profile identities are equal;
+- the library's helper-table version is equal to or higher than the program's;
+  and
+- the library's key for the program's helper-table version equals the
+  program's key.
 
-A runtime identity's helper table is append-only: a new version may define new
-ordinals in unused slots but never renumbers, removes or changes the kind of an
-existing one. A helper whose implementation changes keeps its ordinal.
+The key catches a library whose version number matches but whose helper table
+was changed in violation of the append-only rule. The compiler checks the same
+rule against the library's header and key table before it compiles anything, so
+an incompatible library is reported at once.
 
 ## 11. Line table
 
-The linker writes the line table after placement, from the line stream and the
-final addresses, before it deletes the program object.
+The linker writes the line table while it writes the image (linker,
+Section 7.6). Its entries are in increasing address order as written.
 
 | Record | Layout |
 | --- | --- |
-| Header | magic `BTLT` (4 bytes), major `u8` = 1, minor `u8` = 0, image CRC `u16`, part count `u8` |
+| Header | magic `BTLT` (4 bytes), major `u8` = 1, minor `u8` = 0, part count `u8`, output name length `u8`, output name, library name length `u8`, library name |
 | Part names | for each part in order: name length `u8`, name bytes |
-| Entries | entry count `u16`, then entries sorted by address |
-| Trailer | CRC `u16` over every preceding byte |
+| Entries | 5 bytes each, in increasing address order |
+| Trailer | marker `$FF $FF $FF $FF $FF`, entry count `u16`, image CRC `u16`, CRC `u16` over every preceding byte |
 
-Each entry is 5 bytes: address `u16`, part `u8`, source offset `u16`. Only live
-blobs contribute entries. Every live blob also contributes an entry at its own
-start address: for a blob without line information, such as a runtime blob or
-a constant, that entry has part `$FF` and its source offset holds the blob's
-ordinal. The source position of an address is that of the entry with the
-greatest address not above it; part `$FF` means the address lies in a blob
-without source.
+Each entry is: address `u16`, part `u8`, source offset `u16`.
 
-The image CRC is the CRC-16/CCITT-FALSE of the stored image as written, so a
-tool can tell whether a line table belongs to a given program file.
+- Each statement of a live `code` blob contributes one entry.
+- Each live blob that does not start with a statement contributes one entry at
+  its start address, with part `$FF` and the blob's ordinal in the source-offset
+  field. This covers runtime blobs and constants, and any routine whose first
+  byte is not a statement.
+
+No blob may start at `$FFFF` (the linker rejects such a placement with
+`L-FIT-IMAGE`), so no entry has address `$FFFF`, and the five `$FF` bytes mark
+the trailer unambiguously.
+
+The source position of an address is that of the entry with the greatest
+address not above it. Part `$FF` means the address lies in a blob without
+source; the ordinal identifies it.
+
+The **image CRC** is the CRC of the output file as stored, including the zero
+padding of its final 128-byte record, so a tool can check that a line table
+belongs to a given program file. It is in the trailer because the linker knows
+it only after the image is written.
 
 ## 12. Limits
 
-| Item | Limit | Source of the limit |
-| --- | --- | --- |
-| Ordinals | 65,535 values, partitioned as in Section 3.2 | Format |
-| Blob size | 65,535 bytes | Format; in practice the target's memory |
-| References per blob | 65,535 | Format |
-| Program byte stream | 4 GiB | Format; in practice under 64K |
-| Source parts named in a line stream | 255 | Format |
-| Source part length | 65,535 bytes | Format |
-| Name length | 31 bytes | Format |
-| Table sizes in the linker | Set by available memory | Linker document, Section 2 |
+| Item | Limit |
+| --- | --- |
+| Library ordinals | 1,023 |
+| Program ordinals | 64,480 |
+| Blob size | 65,535 bytes; in practice the target's memory |
+| References per blob | 65,535 |
+| Source parts in a line stream | 255 |
+| Source part length | 65,535 bytes |
+| Name length | 31 bytes |
+| Table sizes in the linker | set by memory; [linker](linker.md), Section 2 |
 
 ## 13. Worked example
 
@@ -477,10 +577,14 @@ sub bump()
         reset()
     end
 end
+
+sub reset
+    count = 0
+end
 ```
 
-The compiler assigns ordinals as it meets declarations: `count` gets `$0120`,
-the forward declaration of `reset` gets `$0121`, and `bump` gets `$0122`.
+The compiler assigns ordinals as it meets declarations: `count` gets `$0400`,
+the forward declaration of `reset` gets `$0401`, and `bump` gets `$0402`.
 
 Machine code for `bump`, 17 bytes:
 
@@ -493,23 +597,28 @@ Machine code for `bump`, 17 bytes:
 | 10 | `B7` | `OR A` |
 | 11 | `ED 52` | `SBC HL,DE` |
 | 13 | `C0` | `RET NZ` |
-| 14 | `C3 00 00` | `JP reset` |
+| 14 | `C3 00 00` | `JP reset` (a tail call) |
 
-References: `ABS16` at offsets 1, 5 and 15, targeting `$0120`, `$0120` and
-`$0121`.
+Machine code for `reset`, 7 bytes: `21 00 00` (`LD HL,0`), `22 00 00`
+(`LD (count),HL`), `C9` (`RET`). One reference: `ABS16` at offset 4 to `count`.
 
-Directory records, assuming `count` is the first program blob:
+Directory records:
 
 ```text
-03 02 00 00            bss, implicit ordinal $0120, size 2, no references
-08 22 01 11 00 03      code, explicit ordinal $0122, size 17, 3 references
-   01 20 01            ABS16, delta 1  (offset 1)  -> $0120
-   04 20 01            ABS16, delta 4  (offset 5)  -> $0120
-   0A 21 01            ABS16, delta 10 (offset 15) -> $0121
+03 02 00 00            bss, implicit $0400, size 2, no references
+08 02 04 11 00 03      code, explicit $0402, size 17, 3 references
+   01 00 04            ABS16, delta 1  (offset 1)  -> $0400
+   04 00 04            ABS16, delta 4  (offset 5)  -> $0400
+   0A 01 04            ABS16, delta 10 (offset 15) -> $0401
+08 01 04 07 00 01      code, explicit $0401, size 7, 1 reference
+   04 00 04            ABS16, delta 4  (offset 4)  -> $0400
 ```
 
 `bump` needs an explicit ordinal because the implicit sequence would give it
-`$0121`, which the forward declaration of `reset` already holds. The `bss`
-record for `count` carries no bytes. The byte stream receives the 17 bytes of
-`bump`, with zeros at offsets 1–2, 5–6 and 15–16. When the body of `reset`
-arrives later, its record also carries an explicit ordinal, `$0121`.
+`$0401`, which the forward declaration holds. `reset` needs one because the
+sequence would give it `$0403`. The next blob, ordinal `$0403`, also needs an
+explicit ordinal, because after `reset` the implicit sequence gives `$0402`.
+Implicit numbering resumes from there.
+
+The byte stream, after its header, receives the 17 bytes of `bump` and then the
+7 bytes of `reset`, with zeros at every referenced offset.
