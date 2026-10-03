@@ -57,7 +57,7 @@ These terms are provisional, but the documents use them consistently.
 | **holder** | The variable, field or slot that owns an object's storage. |
 | **ticket** | Temporary read access to an object that stays with its holder. An aggregate parameter is a ticket: it can be used during the call but not stored or returned except as an alias the signature declares. |
 | **lease** | Temporary access to change an object in place, returned to the holder when the call ends. Written `var` before a parameter's name. |
-| **pass** | Moving ownership of an object to a new holder. Planned for owned pool handles. |
+| **give** | Handing ownership of a pool slot to a new owner, written `give x`. The giver is left empty. |
 | **free** | Releasing a pool slot when its owner is finished with it. Mostly automatic. |
 | **pool** | A fixed array of records addressed by index, used for dynamic or graph-shaped data. |
 | **arena** | A region freed all at once, for temporary data within a scope. |

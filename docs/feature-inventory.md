@@ -54,7 +54,7 @@ Without these, Baton is not a complete systems language.
 | Enumerations | 0.3–0.6K | — | Named states with checked exhaustiveness |
 | Local aggregates and `from` (D8) | 0.8–1.5K | — | Temporary buffers without globals |
 | Parameter modes (`var`) | 0.2K | — | Signatures say what a routine changes |
-| Ownership: pools, `own`, `id`, `new`, `take`, `free`, flow check | 2–4K | 0.3–0.6K (allocation, retirement, generation checks) | The memory-safety claim |
+| Ownership: pools, `own`, `id`, `new`, `give`, flow check | 2–4K | 0.3–0.6K (allocation, retirement, generation checks) | The memory-safety claim |
 | Stack checking | 0.2K | 0.1K | Part of the memory-safety claim |
 | Port input and output (`in`, `out` built-ins) | 0.2K | — | Talking to hardware without unsafe code |
 | Blob output for the linker | about neutral against NOBJ | — | Tree shaking |
@@ -188,7 +188,7 @@ the same storage rules as a record.
 It also unifies features the memory-safety design needs anyway:
 
 - `own? T` behaves as a variant with cases `some(h)` and `none`;
-- a checked identifier dereference can yield `live(alias)` or `stale`; and
+- testing an identifier yields `some` if its slot is still live and `none` otherwise; and
 - an enumeration is a variant whose cases carry no data.
 
 So the testing syntax that memory safety leaves open (its Section 11, question

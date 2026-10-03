@@ -304,8 +304,9 @@ superset of `SELECT CASE`, so one statement covers both:
 - enumerations, with a check that every value is covered unless there is a
   `case else`;
 - variants whose cases carry data, binding their fields; and
-- optional handles and identifiers (`some`, `none`) and identifier liveness
-  (`live`, `stale`), which is how the memory-safety design tests them.
+- optional handles and identifiers: `some(x)` when there is a live value,
+  `none` when there isn't. For an identifier, `none` covers both an empty
+  identifier and one whose slot has been freed, so testing never traps.
 
 ```nucleus
 match key
@@ -377,35 +378,43 @@ Baton passes every aggregate by reference anyway.
 There is no `const` in the same position: read-only is already the default, and
 a second spelling for it would add a keyword without adding meaning.
 
-### D18. `free` is the word for releasing a pool slot
+### D18. Freeing is automatic; there is no `free` keyword
 
-Releasing a pool slot is called **freeing** it, and the explicit statement is
-`free h`. It replaces the working term "retire". Most freeing is automatic:
-when an owned handle goes out of scope without being handed on, and when an
-owned field or variable is overwritten.
+Releasing a pool slot is called **freeing** it (replacing the working term
+"retire"). Freeing is always implicit:
 
+- when an owned handle goes out of scope without having been given away;
+- when an owned variable or field is overwritten, including with `none`; and
+- when the slot that owns it is freed, which frees everything it owns.
 
-### D19. Moves are written with `move`
+To free something early, assign `none` to the `own?` variable or field that
+holds it: `head = none`. A non-optional `own` is always a local or parameter and
+is freed at the end of its scope.
 
-Handing on an owned value is always written with `move` at the point where it
-happens:
+**Why.** Every case already has a natural spelling, so a keyword would add a
+second way to do the same thing.
+
+### D19. Ownership is handed on with `give`
+
+Handing on an owned value held in a variable, parameter or field is always
+written with `give` at the point where it happens:
 
 ```nucleus
-kept = move n                               // n gives up its node
-sink(move n)                                // passed to an own parameter
-var n as own nodes = new nodes(v, "", move list) else fail
+kept = give n                               // n gives its node to kept
+sink(give n)                                // passed to an own parameter
+var n = new nodes(v, "", give list) else fail
 ```
 
-A move leaves the source empty (`none`). Assigning, passing or returning an
-owned value held in a variable, parameter or field without `move` is a
-compile-time error, so a variable can never be emptied silently. A fresh value,
-such as the result of `new` or of a routine returning `own`, needs no `move`,
-since nothing named is emptied. `move` replaces the working keyword `take`: since every move
-leaves `none` behind, the two were the same operation.
+`give` leaves the source empty (`none`). Assigning, passing or returning such a
+value without `give` is a compile-time error, so a variable can never be emptied
+silently. A fresh value, such as the result of `new` or of a routine returning
+`own`, needs no `give`, since nothing named is emptied. `give` replaces the
+working keywords `take` and `move`: since every handing-on leaves `none`
+behind, they were the same operation.
 
-**Why.** Implicit moves are the commonest source of confusion in Rust. Making
-each move visible costs a few characters and lets a reader see every place a
-variable gives up what it owns.
+**Why.** Implicit moves are the commonest source of confusion in Rust. An active
+verb pairs with `own` and is easy to remember: what you own, you give. `move`
+would also have worked; `give` was chosen for that pairing.
 
 ### D20. Constants may be typed, and may be local
 
