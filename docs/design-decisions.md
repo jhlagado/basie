@@ -506,6 +506,7 @@ type allows `none`:
 | `id nodes?` | refers to a slot, or is `none` |
 
 ```nucleus
+forward pool nodes            // D40
 record Node
     value  as u16
     next   as nodes?          // owns the next node
