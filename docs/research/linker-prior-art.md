@@ -239,49 +239,104 @@ period's most compact answer to "relocate an image at load time".
 
 ## 3. SLR Systems Z80ASM, SLRNK, and Phoenix PLINK II
 
-*All [R] unless noted. The only SLRNK manual found (S13) sits behind a login.*
+### SLR Z80ASM, SLRNK and SLRNK+
 
-- SLR Systems (Steve Russell) sold Z80ASM, SLRMAC (8080) and the SLRNK linker
-  in the mid-1980s, with "+" versions for larger jobs. Their selling point was
-  speed. The tools read and wrote Microsoft REL, so they interworked with M80
-  and L80 [R].
-- **Unit of linking:** module, as in REL [R].
-- **Relocation:** REL forms. Z80ASM is reported to emit the M80-style
-  extension items for byte expressions on externals [R, uncertain]. Whether SLR
-  defined its own longer-name REL variant could not be confirmed; treat any
-  claim of an "SLR REL" format with names longer than 7 characters as
-  unverified.
-- **Dead-code elimination:** none below module level is known [R].
-- **Output:** SLRNK produced COM, HEX, PRL and SPR outputs [R], and SLRNK+ used
-  disk to handle links bigger than memory [R].
-- **Phoenix PLINK II:** an overlay linker for CP/M from Phoenix Software
-  Associates, with tree-structured overlays. It is said to read REL files [R].
-  No primary documentation was located in this session.
+- **Two object formats.** Z80ASM writes Microsoft REL with `/M` (6 or 7
+  significant characters by `/6` or `/7`) or **SLR-format REL** with `/R`
+  [V S60, S61]. Symbols are significant to 16 characters; SLR format carries
+  all 16 to the linker, while M-REL truncates them [V S61]. Jay Sage warns that
+  mixing formats causes trouble because M-REL truncates names to 6 characters
+  "but the SLR REL format will include the first 16!", and calls SLR files
+  "shorter and faster" [V S60]. No byte-level description of SLR format was
+  found; it is probably in the SLRNK manual (S13), which needs a login.
+- **Unit of linking:** the module. With `/S` libraries are "'S'canned so that
+  only the modules required by PROG will be linked in"; without it the whole
+  library is linked [V S60].
+- **Relocation forms:** program-, data-, common-relative or external values,
+  "or any mathematical combination". Unresolvable expressions are "passed in
+  reverse polish form to SLRNK for resolution at link time", including
+  byte-sized ones such as `LD E,DATAITEM*EXTERNAL1+EXTERNAL2`; SLRNK reports
+  out-of-range byte results [V S61]. Up to 15 program, data and common areas
+  [V S61].
+- **Library search:** `.REQUEST lib1,lib2` names libraries to search in order
+  [V S61]. Whether `/S` makes one pass or repeats was not found.
+- **Passes and memory:** Z80ASM is one-pass by default, with an optional
+  second pass for full listings, and claims over 6000 lines per minute
+  [V S61]. SLRNK claims to link Microsoft files "7 times faster than L80"; SLRNK+
+  overflows its tables to disk and can produce a full 64K output whatever the
+  TPA size [V S62]. SLRNK+ adds PRL and SPR output and 8 address spaces
+  [V S62].
+- **Dead-code elimination:** library-module selection only [V S60].
+- **Known problems:** slash options are processed before files, so an early
+  `/E` ends the link before inputs are read; `/A` puts DSEG before CSEG, which
+  breaks the ZCPR3 header [V S60].
+
+### Phoenix PLINK-II (1981)
+
+- **Input:** "PSA and MicroSoft relocatable files"; IRL is not supported
+  [V S63].
+- **Unit:** the module, split into segments (code, data, COMMONs) that can be
+  grouped into sections; each overlay is a section. `CONCATENATE` gives each
+  module its own slice of a COMMON, useful for building tables. Duplicate
+  definitions are allowed, first one wins, with a warning [V S63].
+- **Library search:** `FILE` links every module; `LIBRARY` makes one pass;
+  `SEARCH` "may make multiple passes" until nothing more resolves, which "should
+  hardly ever be necessary". `INCLUDE` and `EXCLUDE` filter modules [V S63].
+- **Overlays:** nested `BEGINAREA … OVERLAY … ENDAREA` areas "up to 32 levels
+  deep". Calls into overlays are rewritten into vector stubs that call an
+  automatically linked loader. Because PLINK-II cannot tell code addresses from
+  data addresses, every reference into an overlay is treated as a call or jump
+  [V S63].
+- **Passes and memory:** "Plink-II is a two-pass linkage editor. That is, each
+  of the input files is read twice." The output is built on disk, so it can
+  fill all 64K, and overlaid programs of up to 4 megabytes are claimed [V S63].
+  Uninitialised segments are sorted to the end of each section so they take no
+  disk space [V S63].
+- **Dead-code elimination:** module-level only [V S63].
+- **Known problems:** with Microsoft REL input, overlapping commons used by the
+  same module give error #93, "because fixups are expressed as memory
+  addresses" [V S63].
 
 ## 4. Hi-Tech C for CP/M (LINK, LIBR, psects)
 
-*All [R]; the Hi-Tech research pass had not reported.*
+Sources are Hi-Tech's own `OBJCODE.TXT` and user manual from the freeware
+3.09 distribution, and a decompilation of the 3.09 `LINK.COM` and `LIBR.COM`
+checked for equivalence with the originals [V S64, S65, S66].
 
-- **Psects:** code and data live in named program sections (psects) with flags
-  such as `global`, `abs`, `ovrld`, `pure`, `reloc=` (alignment), `size=`,
-  `class=` and `delta=`. The C compiler uses `text`, `data` and `bss` [R]. LINK
-  concatenates same-named global psects across modules and places them by `-P`
-  options [R].
-- **Unit of linking:** the module. Library modules are pulled whole; psects are
-  placement units, not removal units [R].
-- **Object format:** a record-oriented binary format with records such as
-  TEXT, PSECT, RELOC, SYM, START, END and IDENT [R]. Relocation entries name a
-  psect or a symbol and have a size (byte or word) [R]. Exact codes not
-  verified.
-- **Libraries:** LIBR archives carry a symbol directory at the front, so the
-  linker can choose modules without reading every module [R]. Library order on
-  the command line matters [R].
-- **Symbols:** names with a leading underscore for C identifiers. The length
-  limit is longer than REL's [R].
-- **Dead-code elimination:** none below module level; the runtime library is
-  split into small modules instead [R].
-- **Memory:** LINK runs on CP/M and holds the symbol table in memory. Large
-  links were a known pain point on 64K machines [R].
+- **Record envelope:** 16-bit length (low byte first), 8-bit type, then data,
+  at most 512 bytes in practice; names are NUL-terminated [V S64].
+- **Record types:** TEXT 1 (u32 offset, psect name, bytes), PSECT 2 (u16
+  flags, name), RELOC 3 (entries for the preceding TEXT: u16 offset, u8 type,
+  name), SYM 4 (u32 value, u16 flags, psect name, symbol name), START 5, END 6,
+  IDENT 7 (byte order, machine name), XPSECT 8 [V S64]. The 3.09 LINK handles
+  only types 1 to 8 [V S66].
+- **Psects:** flags GLOBAL, PURE, OVRLD, ABS, BIGSEG, BPAGE [V S64]. Psects are
+  global by default and concatenated across modules unless OVRLD [V S65]. LINK
+  places them with `-Pname=link/load,…` and defines `__Lpsect`, `__Hpsect` and
+  `__Bpsect` for each [V S65, S66]. The CP/M order is text, data, bss; bss is
+  not stored in the `.COM` [V S65].
+- **Relocation:** a type byte with the kind in the high nibble and size (1 to
+  4 bytes) in the low nibble. Kinds: absolute, psect-relative, name-relative,
+  PC-relative to psect or name, segment forms, and RCPLX, a stack-machine
+  expression with LOW, HIGH and arithmetic operators [V S64]. **The 3.09 LINK
+  rejects RCPLX** with "illegal relocation type", so it has no low- or
+  high-byte-of-address relocation; a 1-byte fixup that does not fit gives
+  "Fixup overflow" [V S66].
+- **Symbols:** names with no format limit, bounded by the record size; a fixed
+  997-slot hash table fails with "Too many symbols", and there are at most 20
+  psects [V S66].
+- **LIBR format:** a header (directory size, module count), a directory
+  listing each module's size, name and symbols with a type byte (defined,
+  common, undefined), then the modules [V S66].
+- **Library search:** one linear scan of each library's directory in pass 1;
+  a module is pulled in if it defines a currently undefined symbol. Pass 2
+  reads only flagged modules and seeks past the rest [V S66]. Order matters;
+  the remedy is naming the library twice [V S65].
+- **Passes, memory and I/O:** two passes, inputs re-read from disk; symbol and
+  psect tables in RAM with no overflow to disk. With `-C` each TEXT block is
+  placed in the output by `fseek`, so the image is never held in memory
+  [V S66].
+- **Dead-code elimination:** module-level library selection only [V S65].
 
 ## 5. ASxxxx and SDCC sdld (.rel text format)
 

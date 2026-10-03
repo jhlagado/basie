@@ -109,7 +109,23 @@ purpose, rather than pretending not to need one.
 The [prior-art survey](research/linker-prior-art.md) examined period CP/M
 linkers and modern ones. What Baton borrows, and what it avoids:
 
-*This section summarises the survey and is completed from it.*
+| Prior art | What it did | What Baton takes or avoids |
+| --- | --- | --- |
+| Microsoft REL and `L80`; Digital Research `LINK-80` | Linked whole **modules**; relocatable words said only "relative to the code segment"; names of 6 or 7 characters; a bit-stream encoding | Avoided. Module granularity is why no CP/M linker shook below the module. Baton's unit is the blob, and every reference names its target. Byte-aligned records replace the bit stream so dead blobs can be skipped without decoding. |
+| REL chained externals; Oberon fixup chains | Threaded unresolved references through the placeholder bytes | Avoided. Chains can't hold an addend or a byte operand, need random access to the image, and corrupt silently when broken. Baton keeps explicit reference records. |
+| M80's late `LOW`/`HIGH` items | Byte references to externals added as an afterthought | Taken from the start: `LO8`, `HI8` and an addend on every form. |
+| `LINK-80` IRL index; `LIBR` and `__.SYMDEF` directories | A directory separate from the code, so the linker could find what it needed | Taken: the directory stream and the blob library's directory section hold the graph, so marking never reads code bytes. |
+| `L80`'s whole image in RAM; `LINK-80`'s spill files | Memory limits shaped the linker | Avoided: Baton's linker holds per-ordinal tables only and streams bytes from disk to output, with a stated capacity error. |
+| Turbo Pascal 4 smart linking | Removed unused routines because each routine was its own block with its own fixups | Taken: the closest precedent for Baton's design, on the same class of machine. Its weak point, `.OBJ` files and method tables that kept everything alive, is a warning for Baton's runtime and any future dispatch tables. |
+| ELF `--gc-sections`, `wasm-ld`, Go | Mark from roots over a reference graph; `KEEP` for things reached by convention; reports of what was removed | Taken: marking from roots, an explicit root flag instead of a convention, and a removal report in the map. |
+| Plan 9 `8l` | Chose instruction encodings and shortened branches at link time, holding the whole program in memory | Avoided: branch shrinking stays in the compiler, inside one routine, where the bytes are still in memory. |
+| Windows import ordinals; Oberon module keys | Numbered references, which drift when the defining side changes | Taken with the guard: runtime ordinals are append-only, and the linker checks runtime identity and helper-table version before linking. |
+| Digital Research PRL, SPR and RSX | Page relocation by bitmap, for whole images | Not needed for 1.0. A page-relocatable output is a possible later output kind, since the linker knows every `HI8` and `ABS16` site. |
+
+The survey found no period CP/M linker that removed code below the module
+level. Baton's design differs from them mainly in its unit of linking: the
+format makes every routine its own blob, and every address use a named
+reference.
 
 ## 6. The compiler's side
 
