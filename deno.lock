@@ -1,0 +1,40 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/internal@^1.0.12": "1.0.14",
+    "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@1": "1.1.6"
+  },
+  "jsr": {
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.12"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    },
+    "@std/path@1.1.6": {
+      "integrity": "c68485c2a4dfbb5ae3cc74fae4e8c4e5d874cf8a8ed12927917235c758b46cbe",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.14"
+      ]
+    }
+  },
+  "remote": {
+    "https://raw.githubusercontent.com/jhlagado/z80-tool-services/6313682d4a9bc3d08d32c11fe054d153ce350720/source-preparation/errors.mjs": "ff796d869d4d93d027b0dc16ea937ca08c9977ae73d73d90b9b3846a55b8f8b4",
+    "https://raw.githubusercontent.com/jhlagado/z80-tool-services/6313682d4a9bc3d08d32c11fe054d153ce350720/source-preparation/index.mjs": "17fbd0d0edb8b9a4c33b6787455b5e43f8d5d501683cef662840c299155830d7",
+    "https://raw.githubusercontent.com/jhlagado/z80-tool-services/6313682d4a9bc3d08d32c11fe054d153ce350720/source-preparation/node-source-reader.mjs": "e4974427744dc76cfc1a68363441eaf8e2f175a390ea63d497a66ac62a21ae41",
+    "https://raw.githubusercontent.com/jhlagado/z80-tool-services/6313682d4a9bc3d08d32c11fe054d153ce350720/source-preparation/passthrough-profile.mjs": "c82ad58262f7130d82b3ffbf16d5d487d6edf82561345b14ef202bd3873424d4",
+    "https://raw.githubusercontent.com/jhlagado/z80-tool-services/6313682d4a9bc3d08d32c11fe054d153ce350720/source-preparation/placement.mjs": "d09572aeafa46e44c0b58ba74b44a34e8f229468b62a9cdfed26cfef118abbe9",
+    "https://raw.githubusercontent.com/jhlagado/z80-tool-services/6313682d4a9bc3d08d32c11fe054d153ce350720/source-preparation/resolver.mjs": "692aa82fdedc25d310453e1e0a29808e0aaa980feed48f33405a98d0fa6df58d"
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@std/assert@1",
+      "jsr:@std/path@1"
+    ]
+  }
+}
