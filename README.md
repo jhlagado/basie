@@ -72,6 +72,8 @@ These terms are provisional, but the documents use them consistently.
 - [Feature inventory](docs/feature-inventory.md): every feature a complete
   Baton needs, its cost, and what leaving it out would save, including
   `select` and pattern matching.
+- [Input, output and effects](docs/io-and-effects.md): services and the
+  external-effects channel instead of operating-system or port primitives.
 - [Memory safety](docs/memory-safety.md): how Baton is memory safe without a
   garbage collector: storage classes, owned handles, pools, the `frees` effect
   and stack bounds.

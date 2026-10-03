@@ -56,7 +56,7 @@ Without these, Baton is not a complete systems language.
 | Parameter modes (`var`) | 0.2K | — | Signatures say what a routine changes |
 | Ownership: pools, `own`, `id`, `new`, `give`, flow check | 2–4K | 0.3–0.6K (allocation, retirement, generation checks) | The memory-safety claim |
 | Stack checking | 0.2K | 0.1K | Part of the memory-safety claim |
-| Port input and output (`in`, `out` built-ins) | 0.2K | — | Talking to hardware without unsafe code |
+| Services for console, files and devices | 0.2K for the service table | per service used | Replaces port built-ins; see [input, output and effects](io-and-effects.md) |
 | Blob output for the linker | about neutral against NOBJ | — | Tree shaking |
 | The linker phase | 5K, in the same executable but a separate phase | — | Tree shaking |
 
