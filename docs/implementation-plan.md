@@ -1,6 +1,6 @@
 # Baton implementation plan
 
-- Status: proposal
+- Status: approved (design decision D35)
 - Date: 2026-10-04
 - Related: [design decisions](design-decisions.md), [feature inventory](feature-inventory.md),
   [build pipeline](build-pipeline.md), [memory safety](memory-safety.md),

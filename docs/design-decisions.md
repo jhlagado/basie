@@ -684,6 +684,26 @@ not planned.
 Nucleus already does. A run-time `assert` costs about 0.1K and suits a language
 whose errors stop the program with a located report.
 
+
+### D35. Two implementation tracks
+
+Baton is built in two tracks ([implementation plan](implementation-plan.md)):
+
+- a **reference toolchain** in TypeScript on Deno, written in the same
+  single-pass style as the native compiler, which implements each feature first
+  and serves as the test oracle; and
+- the **native toolchain**, `BATON.COM` and `BLINK.COM` in Z80 assembly,
+  assembled with ATOM as development tooling. The compiler is forked from the
+  Nucleus 12K rewrite and evolved in stages; the linker is new.
+
+The native linker must produce byte-identical output to the reference linker; the
+native compiler must produce programs that behave identically on the whole
+conformance suite.
+
+**Why.** Baton's language is several times larger than Nucleus's, and design
+questions are far cheaper to settle in TypeScript than in Z80. A second
+implementation catches errors a single one can't.
+
 ## Open
 
 ### O1. Exclusivity (resolved)
