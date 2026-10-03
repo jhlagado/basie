@@ -730,7 +730,9 @@ The standard library is Baton source, compiled with the program through
   `parseI32`, `parseF32`, each failing with `badNumber` (a library failure
   code, 32) on malformed or out-of-range text.
 - **Console and files** (`TEXTIO.BTN`): `writeLine(f, s)` with CR LF,
-  `writeNumber`-style conveniences, `prompt(text, var answer)`.
+  `prompt(text, var answer)`, `readSecret(var answer)` without echo,
+  `word(text, n, var out)` for command-line words, `readAll(f, var buf)` and a
+  copying `truncate`.
 - **Pseudo-random numbers** (`RANDOM.BTN`): a 16-bit generator with a seed.
 
 **Why.** These are what a first program needs and what D25 left to the library;

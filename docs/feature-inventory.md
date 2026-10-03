@@ -59,10 +59,10 @@ The compiler is kept within budget by:
 | Typed and local constants; inference from typed initialisers | 0.2K | — | D20, D21 |
 | Pools, handles, `forward pool`, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
 | Stack bound and checks | 0.2K | 0.1K | memory safety §7 |
-| Services for I/O | 0.2K for the service table | per service used | [I/O and effects](io-and-effects.md) |
+| Services for I/O | 0.7K for the services' signatures | per service used | [services](services.md) |
 | Blob output for the linker | about neutral against Nucleus's output | — | build pipeline |
 | Branch shrinking | 0.3K | — | build pipeline §6.3 |
-| **Total** | **about 21–23K** | | within 24K, with little room to spare |
+| **Total** | **about 21.5–23.5K** | | within 24K, with little room to spare |
 
 The standard library, written in Baton and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text

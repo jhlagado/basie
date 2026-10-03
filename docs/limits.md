@@ -34,7 +34,7 @@ Limits fall into four kinds:
 | Array dimensions | no fixed limit; each dimension is a separate bound | D32 |
 | Bounded string capacity | 1 to 253 | One length byte and one capacity byte per string; large text uses `u8[]` buffers (D25) |
 | Record or array extent | 65,535 bytes | 16-bit addressing |
-| Failure codes | 256 (`u8`) | D26; codes 1–31 services, 32 upwards programs and the library |
+| Failure codes | 256 (`u8`) | D26; 1–31 services, 32–47 the library, 48–253 programs, 254–255 reserved ([services](services.md) §9) |
 | Identifier length | 255 bytes | One length byte, as in Nucleus |
 | Integer literals | the range of the widest integer type, `u32` | D31 |
 | Counted-loop step | nonzero, within the counter type's range | Nucleus §12 |
@@ -58,10 +58,10 @@ Limits fall into four kinds:
 
 | Limit | Value | Reason |
 | --- | --- | --- |
-| File names | 8.3, with an optional drive | CP/M directory entries |
-| Console line input | 255 characters | BDOS 10's one-byte count |
+| File names | 8.3, with an optional drive; no user-number syntax; types beginning `$` reserved for temporaries | CP/M directory entries ([services](services.md) §4.1) |
+| Console line input | 253 characters | The string capacity; BDOS 10 itself allows 255 |
 | Command tail | 127 characters | The CCP's buffer at `$0080` |
-| Directory searches in progress | 1 | BDOS 17 and 18 keep their state inside the BDOS |
+| Directory searches in progress | 1 | BDOS 17 and 18 keep their directory cursor inside the BDOS; any other disk call ends a search |
 | File size | 8 megabytes | CP/M 2.2's random record range |
 | Program image | below the CCP base, about 56K on a 62K system | The CCP's loader ([CP/M target](cpm-target.md) §4.2) |
 | Return codes | CP/M 3 only | BDOS 108 doesn't exist on 2.2 |
