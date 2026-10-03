@@ -69,6 +69,9 @@ These terms are provisional, but the documents use them consistently.
   Baton learned from Nucleus.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
+- [Feature inventory](docs/feature-inventory.md): every feature a complete
+  Baton needs, its cost, and what leaving it out would save, including
+  `select` and pattern matching.
 - [Memory safety](docs/memory-safety.md): how Baton is memory safe without a
   garbage collector: storage classes, owned handles, pools, the `frees` effect
   and stack bounds.
