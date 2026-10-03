@@ -28,8 +28,15 @@ The pipeline has two programs:
    program image, such as a CP/M `.COM` file.
 
 The primary target is CP/M 2.2 and CP/M 3 on a 64K Z80, where both programs run
-on the Z80 itself and read and write floppy or hard-disk files. Section 13
-covers ROM and banked targets.
+on the Z80 itself. Section 13 covers ROM and banked targets.
+
+**Storage assumption.** The build system assumes high-capacity disks: 720K
+double-density or 1.2M to 1.44M high-density floppies, as on later CP/M and
+PC-era machines, up to the 2M disks of the Triptych system, or a hard disk. Disk
+space is therefore not a design constraint, and a single drive holds the
+source, the compiler, the spools and the output of any program that fits in 64K.
+Early low-capacity formats (90K to 250K) are not supported targets for large
+builds. Transfer speed still matters, so the spool formats stay compact.
 
 ## 2. Why Nucleus's approach cannot shrink programs
 
@@ -265,9 +272,10 @@ diagnostic, never a silent split.
 Spools take their names from the program, with `$` in the file type so that
 stray files are recognisable and `ERA *.$*` removes them: for a program `PROG`,
 `PROG.$DR` (directory), `PROG.$BY` (bytes), `PROG.$LN` (lines) and `PROG.$NM`
-(names). The compiler and the layout tool each accept a drive designator for
-spools, in the manner of Microsoft's `M80` and `L80`, and the layout tool
-accepts a separate drive for the runtime spool set.
+(names). By default the spools go on the same drive as the source. The
+compiler and the layout tool each accept a drive designator for spools, in the
+manner of Microsoft's `M80` and `L80`, so that a RAM disk or a faster drive can
+hold them; the layout tool accepts a separate drive for the runtime spool set.
 
 The layout tool deletes the program's spools after it has written the output
 successfully, unless asked to keep them.
@@ -360,9 +368,11 @@ dead blobs without reading them where it can (Section 8.5).
 - **Directory spool**, then, 36K to 52K, comparable to or larger than the
   program itself. The byte spool is 40K.
 
-The reference density must be measured on real compiler output before the
-format is fixed. If it is near the top of this range, the directory spool is
-the main disk cost of the design.
+Even at the top of this range, the spools for the largest possible program
+(about 56K of output) total well under 200K, a small fraction of a 720K disk.
+The size matters for transfer time, not for space. The reference density must
+still be measured on real compiler output before the format is fixed, because
+it sets the I/O cost of every build.
 
 ## 8. The layout tool
 
@@ -882,10 +892,6 @@ program is always compiled and laid out as a whole.
 7. **Target profile files.** Where the CP/M profile lives (CCP base, nominal
    top of memory, CP/M version, free restart vectors, keep-CCP and re-runnable
    options) and how it is versioned with the runtime spool set.
-8. **Floppy capacity.** On a 90K 5.25-inch disk the source, spools and output
-   don't fit together, and even on an 8-inch single-density disk (about 243K)
-   a large program needs a second drive. Is two drives the stated minimum for
-   large programs?
 
 ## 15. Changes in revision 2
 
@@ -920,6 +926,9 @@ problems, now corrected:
   really points to, CP/M 3's load rule, page-zero use, the `$C9` first byte,
   re-entry through `GO`, debugger margins, upper-case command lines, interrupt
   mode and restart vector conflicts (Section 9).
+- **Storage assumption (decided after the review).** Builds assume disks of
+  720K or more, so a single drive is enough and disk space is not a constraint
+  (Section 1).
 - **New sections:** where `startup` comes from and how it finds `main`
   (Sections 4.3 and 8.4), debugging and trap locations (Section 11), versions
   (Section 12), libraries and incremental builds (Section 13.4), and failure
