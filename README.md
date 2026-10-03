@@ -56,7 +56,7 @@ These terms are provisional, but the documents use them consistently.
 | --- | --- |
 | **holder** | The variable, field or slot that owns an object's storage. |
 | **ticket** | Temporary read access to an object that stays with its holder. An aggregate parameter is a ticket: it can be used during the call but not stored or returned except as an alias the signature declares. |
-| **lease** | Direct access to a node held in the caller's own owning local, for the length of a call or a `match` arm. |
+| **lease** | Direct access to a node held in the caller's own owning local, for the length of a call or a `select` arm. |
 | **`var` parameter** | A parameter the routine may change, written `var` before its name. |
 | **move** | Handing ownership of a pool slot to a new owner, written `move x`. The source is left empty. |
 | **free** | Releasing a pool slot when its owner is finished with it. Always automatic. |

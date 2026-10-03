@@ -49,18 +49,20 @@ The compiler is kept within budget by:
 | Shifts and bitwise operators | 0.3K | 0.1K | |
 | `u32`, `i32`, through helpers | 0.8K | 0.4–0.7K | D3, D9 |
 | `f32`, through helpers; literal conversion in an overlay | 1K | 1–1.5K arithmetic; formatting and parsing in the library | D7 |
-| `match` on integers, characters, enumerations and optional handles; enumerations | 0.8K | — | D15 |
+| `select` on integers, characters and optional handles | 0.6K | — | D15 |
+| Arrays of arrays | 0.3K | — | D32 |
+| `private` and `include` | 0.5K | — | D33 |
+| Run-time `assert` | 0.1K | 0.05K | D34 |
 | Local aggregates and `from` | 1K | — | D8 |
 | `var` parameters | 0.2K | — | D17, D30 |
 | Declarations anywhere, block scope | 0.2K | — | D28 |
 | Typed and local constants; inference from typed initialisers | 0.2K | — | D20, D21 |
 | Pools, handles, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
 | Stack bound and checks | 0.2K | 0.1K | memory safety §7 |
-| Named failure codes | 0.1K | — | D26 |
 | Services for I/O | 0.2K for the service table | per service used | [I/O and effects](io-and-effects.md) |
 | Blob output for the linker | about neutral against Nucleus's output | — | build pipeline |
 | Branch shrinking | 0.3K | — | build pipeline §6.3 |
-| **Total** | **about 20.5–22.5K** | | within 24K |
+| **Total** | **about 21–23K** | | within 24K, with little room to spare |
 
 The standard library, written in Baton and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text
@@ -70,20 +72,20 @@ building, comparison and searching, conversion between numbers and text
 
 | Feature | Compiler | Notes |
 | --- | --- | --- |
-| Variants whose cases carry data, and matching on them | 1.5–2.5K | D24; rules in memory safety §11 |
-| Expression blocks with `result`; `match` as an expression | 0.5K | O3 |
+| Enumerations, and variants whose cases carry data, in `select` | 1.7–2.7K | D15, D24; rules in memory safety §11 |
+| Failure codes named by an enumeration (`fails FileError`) | 0.1K | D26 |
+| Expression blocks with `result`; `select` as an expression | 0.5K | O3 |
 | Routine values | 0.5–1K | O5 |
 | Arenas | 0.5–1K | O4 |
 | Default parameter values | 0.3–0.5K | O6 |
 | Generics | 1–2K | D23 |
-| Source parts named in source | 0.3–0.6K | toolchain open question |
 | `repeat` and a general `loop` | 0.2K | convenience |
 | Precompiled libraries | 1–2K | build pipeline §9.3 |
 
-## 5. `match`
+## 5. `select`
 
 ```nucleus
-match key
+select key
 case 'q', 'Q'
     exit
 case '0' to '9'
@@ -93,13 +95,11 @@ case else
 end
 ```
 
-- The subject is an integer, a character, a `boolean`, an enumeration, or an
-  optional handle or identifier.
+- The subject is an integer, a character, a `boolean`, or an optional handle or
+  identifier.
 - Each `case` lists constants or constant ranges (`to`); values may not repeat.
 - `case else` covers everything else and comes last.
 - There is no fall-through.
-- Over an enumeration, the cases must cover every value unless there is a
-  `case else`.
 - Over an optional handle, the cases are `some(x)` and `none`
   ([memory safety](memory-safety.md), Section 5.5).
 
@@ -110,10 +110,10 @@ table for dense ranges (a bounds check and an indexed jump, then 2 bytes per
 value). The dispatch jumps backwards into the bodies, so case labels need no
 forward references.
 
-**Cost.** About 0.8K of compiler with enumerations, nothing at run time. It
+**Cost.** About 0.6K of compiler, nothing at run time. It
 replaces long `elseif` chains, which are larger and slower.
 
-## 6. Variants, in version 2
+## 6. Enumerations and variants, in version 2
 
 Rust's `match` is powerful because of variants whose cases carry data,
 destructuring, and exhaustiveness. Baton's version 2 takes the first and third
@@ -126,7 +126,7 @@ variant Shape
     empty
 end
 
-match s
+select s
 case circle(r)
     area = 3 * u32(r) * u32(r)
 case rect(w, h)

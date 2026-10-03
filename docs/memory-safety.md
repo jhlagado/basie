@@ -7,7 +7,7 @@
   [2](reviews/2026-10-03-memory-safety-review-2.md),
   [whole design](reviews/2026-10-04-design-review.md)
 - Related: [CP/M target](cpm-target.md) (stack checks, traps),
-  [feature inventory](feature-inventory.md) (`match`)
+  [feature inventory](feature-inventory.md) (`select`)
 
 ## 1. In plain terms
 
@@ -29,11 +29,11 @@ program with a report naming the source line.
 | **Handle** | An explicit reference to a pool slot. The only kind of reference that is a value |
 | **Owning handle** | A handle of type `nodes` or `nodes?`. Exactly one owner per slot; the slot is freed when its owner goes away |
 | **Identifier** | A handle of type `id nodes` or `id nodes?`. Refers to a slot without owning it; checked on every use |
-| **`?`** | "May be empty". An optional value must be tested with `match` before use |
+| **`?`** | "May be empty". An optional value must be tested with `select` before use |
 | **`none`** | The empty value of an optional handle |
 | **`move`** | Hands an owning handle from a named variable, parameter or field to a new owner, leaving `none` behind |
 | **Freeing** | Returning a slot to its pool. Always automatic |
-| **Lease** | Direct access to a node held in the caller's own owning local, given by a `var` record parameter or by `match` on that local |
+| **Lease** | Direct access to a node held in the caller's own owning local, given by a `var` record parameter or by `select` on that local |
 | **Generation** | A counter in each slot that changes whenever the slot is freed, so stale identifiers can be detected |
 
 ### 1.2 The two kinds of reference
@@ -48,7 +48,7 @@ copied, only moved; an identifier can be copied freely and is checked whenever
 it is used.
 
 The two meet in one place, the **lease**: a node held in an owning local can be
-lent to a `var` record parameter, or reached through a `match` on that local,
+lent to a `var` record parameter, or reached through a `select` on that local,
 with direct access for as long as the call or the arm lasts. Nothing else can
 reach the node meanwhile, so it can't be freed underneath.
 
@@ -187,8 +187,8 @@ path was taken.
 **Fresh temporaries.** A fresh owning value that is not stored, such as an unused
 result of `new` or of a routine, is held in an anonymous local of the innermost
 enclosing statement. It is freed on every exit from that statement. For a
-`match`, the statement is the whole `match`, so a fresh subject lives until the
-end of the last arm. A temporary may be matched and leased like a local.
+`select`, the statement is the whole `select`, so a fresh subject lives until the
+end of the last arm. A temporary may be selected on and leased like a local.
 
 **Order of overwrite.** An assignment to an owning location evaluates the right
 side first, then resolves the destination, then frees the old value, then
@@ -202,7 +202,7 @@ evaluated:
 | Through | Example | Check | Notes |
 | --- | --- | --- | --- |
 | An owning local or parameter | `n.value = 1` | none: an owner is never stale | fastest |
-| A lease | `n.value = 1` inside the callee or the `match` arm | none | Section 5.6 |
+| A lease | `n.value = 1` inside the callee or the `select` arm | none | Section 5.6 |
 | An identifier | `i.value = 1` | generation check; `stale-handle` trap | about 165 T-states |
 
 A path through an identifier may select any chain of record fields and checked
@@ -212,7 +212,7 @@ without a new access: `i.next.value` is two accesses, through the identifier
 `i` and then through the handle in `i.next`.
 
 An optional handle, owning or not, can't be used directly; it is tested with
-`match` (Section 5.5).
+`select` (Section 5.5).
 
 Scalar fields are read and written in place. An aggregate field, such as
 `name`, is copied as a whole: `var s = i.name` copies it out to a local, and
@@ -225,7 +225,7 @@ the slot between the check and the access.
 ### 5.5 Testing optional handles
 
 ```nucleus
-match head
+select head
 case some(i)          // head is a program variable: i is an identifier
     print(i.value)
 case none
@@ -240,7 +240,7 @@ end
 - For an owning subject that is the **caller's own owning local**, `some(n)`
   gives direct access to the node, a lease for the length of the arm. The local
   can't be moved, overwritten or passed to a slot-holder within the arm.
-- `match move x` moves the value out of `x`. In `some(n)`, `n` is a non-optional
+- `select move x` moves the value out of `x`. In `some(n)`, `n` is a non-optional
   owning local of the arm, which is how a `nodes?` becomes a `nodes`; in `none`,
   nothing was moved.
 
@@ -375,7 +375,7 @@ A local record or array may contain owning handles, for example
 `var arr as nodes?[8]`. At the end of its block, the compiler frees its owning
 fields using the type's descriptor, on every exit path.
 
-- Through a ticket (`h as Holder`), owning fields can be read, matched and
+- Through a ticket (`h as Holder`), owning fields can be read, tested with `select` and
   turned into identifiers, but not moved or overwritten.
 - Through a `var` parameter (`var h as Holder`), they can be moved and
   overwritten; such a store needs no cycle check, since the record is not in a
@@ -409,7 +409,7 @@ an explicit or default value. For local aggregates:
 | Ownership cycle | Only identifier paths can form one, and they are checked | run time |
 | Uninitialised read | Every storage class has an initial value | compile time |
 | Type confusion | Static types; handles name their pool; no casts to or from addresses | compile time |
-| Null dereference | Optional handles must be tested with `match` | compile time |
+| Null dereference | Optional handles must be tested with `select` | compile time |
 | Pool exhaustion | `new` traps; `new?` returns `none` | run time |
 | Stack overflow | Compiler-computed bound and cycle checks (Section 7) | run time |
 
@@ -454,7 +454,7 @@ sub total() as u32
     var sum as u32 = 0
     var p = id(head)                  // id nodes?
     while true
-        match p
+        select p
         case some(i)
             sum = sum + u32(i.value)
             p = id(i.next)
@@ -470,7 +470,7 @@ work on it there, and move it back:
 
 ```nucleus
 sub bumpHead()
-    match move head
+    select move head
     case some(n)                      // n owns the node: direct access
         n.value = n.value + 1
         head = move n
@@ -484,7 +484,7 @@ end
 ```nucleus
 sub removeAll(v as u16)
     while true                        // strip matching nodes from the head
-        match head
+        select head
         case some(i)
             if i.value <> v
                 exit
@@ -496,9 +496,9 @@ sub removeAll(v as u16)
     end
     var p = id(head)
     while true                        // then walk the rest
-        match p
+        select p
         case some(i)
-            match i.next
+            select i.next
             case some(q)
                 if q.value = v
                     i.next = move q.next   // q is freed; cycle check runs
@@ -521,7 +521,7 @@ subtrees; `parent` is `id trees?`. Removing a subtree is one assignment of
 
 **A graph:** every vertex is owned by one element of a program array
 `vertices as verts?[32]`; edges are `id verts?`. Removing a vertex makes every
-edge to it stale, and a sweep drops them with `match`, which never traps.
+edge to it stale, and a sweep drops them with `select`, which never traps.
 
 **A Nucleus-style free list** over a program array with integer links still
 compiles and is memory safe by bounds checking, but detects no stale index.
@@ -545,7 +545,7 @@ compiles and is memory safe by bounds checking, but detects no stale index.
 | --- | --- | --- |
 | Identifier access | 6 at the site, about 28 per pool in a helper | about 165 |
 | Owning-handle or lease access | 3 | 16 |
-| `match` on an optional handle | 5 plus the arms | about 20 |
+| `select` on an optional handle | 5 plus the arms | about 20 |
 | `move` (store `none`, write the owner link) | 6 to 8 | about 40 |
 | Overwrite of an owning location | about 9 | about 40, plus freeing |
 | Freeing one slot | about 6 at the site; a shared helper and descriptors | 200 to 250 per slot |

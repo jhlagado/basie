@@ -317,28 +317,19 @@ while `as` reads as a phrase, especially where modifiers stack up
 is the same either way.
 
 
-### D15. One `match` statement
+### D15. One `select` statement
 
-Baton has a single selection statement, `match`, instead of a BASIC-style
-`select` alongside a separate pattern-matching form. Rust's `match` is a
-superset of `SELECT CASE`, so one statement covers both:
+Baton version 1 has one selection statement, `select`, in the spirit of BASIC's
+`SELECT CASE`:
 
 - integer and character constants, lists of them, and ranges (`'0' to '9'`),
-  with `case else`;
-- enumerations, with a check that every value is covered unless there is a
-  `case else`;
+  with `case else`; and
 - optional handles and identifiers: `some(x)` when there is a live value,
   `none` when there isn't. For an identifier, `none` covers both an empty
-  identifier and one whose slot has been freed, so testing never traps; and
-- in version 2, variants whose cases carry data (D24).
-
-When the subject of a `match` is an owning local, `some(n)` gives direct,
-unchecked access to the node, as a lease does; for any other subject it binds an
-identifier. `match move x` moves the value out of `x` and, in `some(n)`, binds
-`n` as a non-optional owning local, which is how a `nodes?` becomes a `nodes`.
+  identifier and one whose slot has been freed, so testing never traps.
 
 ```nucleus
-match key
+select key
 case 'q', 'Q'
     exit
 case '0' to '9'
@@ -346,17 +337,31 @@ case '0' to '9'
 case else
     beep()
 end
+
+select head
+case some(i)
+    print(i.value)
+case none
+    print("empty")
+end
 ```
 
-There is no fall-through. `match` is a statement; using it as an expression
-waits on expression blocks (O3). Nested patterns and guards are left out to keep
-the compiler small. See the [feature inventory](feature-inventory.md),
-Sections 3 and 4.
+There is no fall-through, and `select` is a statement, not an expression.
 
-**Why.** Two statements would mean two parsers, two rule sets and two things to
-learn, when one does everything both would. The parts share one dispatch and
-one exhaustiveness mechanism, so building them together costs less than adding
-them separately.
+When the subject is an owning local, `some(n)` gives direct, unchecked access to
+the node, as a lease does; for any other subject it binds an identifier.
+`select move x` moves the value out of `x` and, in `some(n)`, binds `n` as a
+non-optional owning local, which is how a `nodes?` becomes a `nodes`.
+
+**Version 2.** Enumerations and variants whose cases carry data, with
+exhaustiveness checking and one level of destructuring, come together in
+version 2 (D24), since an enumeration is a variant without data. They extend
+`select`; Rust-style nested patterns and guards are not planned. Version 1
+programs use named constants, as Nucleus did.
+
+**Why.** In version 1 the statement only chooses between constants, ranges and
+`some`/`none`, so the BASIC name is the honest one. Enumerations earn their
+place mainly alongside full matching, so they wait for it.
 
 ### D16. No aliases into pool storage
 
@@ -366,7 +371,7 @@ Pool records are reached only through handles, never through aliases:
   resolved after all of its operands are evaluated, so nothing can free the
   slot between the check and the access;
 - aggregate fields of pool records are copied out, not passed by alias;
-- `match` on an optional handle binds an identifier, except that a match on
+- `select` on an optional handle binds an identifier, except that a `select` on
   the caller's own owning local gives direct access, as a lease does (D15);
 - a `var` parameter of record type may be bound to a node held in the
   caller's own owning local, giving direct access for the call (D30); and
@@ -524,7 +529,7 @@ owning field needs `move`, and storing a fresh node only in an identifier would
 free it at once, which the compiler rejects.
 
 **The `?` belongs to the type.** It makes a different type, an optional, which
-must be tested with `match` before use, and it must be expressible wherever a
+must be tested with `select` before use, and it must be expressible wherever a
 type appears: fields, variables, parameters, results and array elements
 (`owners as nodes?[32]` is an array of 32 optional handles). A marker on the
 name could not express a result or an element type.
@@ -540,13 +545,14 @@ generics; Pascal never had them either.
 ### D24. Version 1 scope
 
 Version 1 includes the Nucleus core and: signed and 32-bit integers, `f32`,
-shifts and bitwise operators, `match` on integers, characters, enumerations and
-optional handles, enumerations, local aggregates with `from`, `var` parameters,
-pools and handles with `move`, and services for I/O.
+shifts and bitwise operators, `select` on integers, characters and optional
+handles, local aggregates with `from`, arrays of arrays, `var` parameters, pools
+and handles with `move`, `private` and `include`, run-time `assert`, and
+services for I/O.
 
-Deferred to **version 2**: variants whose cases carry data, expression blocks
-(O3), arenas (O4), routine values (O5), default parameter values (O6) and
-generics (D23).
+Deferred to **version 2**: enumerations and variants whose cases carry data,
+expression blocks (O3), arenas (O4), routine values (O5), default parameter
+values (O6), generics (D23) and `repeat`.
 
 **Why.** The deferred features are the largest compiler costs that ordinary
 programs can do without, and the version 1 set fits the 24K budget (D9).
@@ -563,12 +569,14 @@ compiled with the program and tree-shaken, not compiler features.
 Raising a string's length makes the bytes it exposes zero, so a local string can
 be initialised by zeroing only its length byte.
 
-### D26. Failure codes may be named by an enumeration
+### D26. Failure codes are named constants; enumerations later
 
-A failable routine still reports a `u8` code, as in Nucleus, but may name the
-enumeration its codes come from: `sub open(name as string[]) fails FileError`.
-The compiler then checks that `fail` and `handle` use that enumeration's values.
-Richer error values carrying data wait for variants (D24).
+A failable routine reports a `u8` code, as in Nucleus, normally named by a
+constant: `const fileMissing = 1`. In version 2, when enumerations arrive, a
+routine may name the enumeration its codes come from,
+`sub open(name as string[]) fails FileError`, and the compiler checks that
+`fail` and `handle` use that enumeration's values. Richer error values carrying
+data wait for variants.
 
 ### D27. A full pool traps
 
@@ -584,7 +592,7 @@ size their pools so they never fill.
 
 A local may be declared at any statement position. Its scope runs from its
 declaration to the end of the innermost enclosing block (a routine body, an
-`if` or `match` arm, or a loop body). Owning locals are freed at the end of that
+`if` or `select` arm, or a loop body). Owning locals are freed at the end of that
 block.
 
 **Why.** The ownership patterns declare handles where they are made, and block
@@ -604,6 +612,77 @@ unchecked access. For a node, the rules of a lease apply: the argument must be
 the caller's own owning local, and that local may not appear anywhere else in
 the same statement except as `id(n)`. This replaces the separate parameter kind
 `var h as nodes`.
+
+
+### D31. Numeric rules
+
+- **Implicit widening** only where no value can be lost: `u8` to `u16` to
+  `u32`; `i8` to `i16` to `i32`; `u8` to `i16`; `u16` to `i32`; any 8- or 16-bit
+  integer to `f32`. Every other change of type is an explicit, checked
+  conversion (D4).
+- **Mixed operands:** if one operand's type widens without loss to the other's,
+  the operation is done in the wider type; otherwise it is an error and one
+  operand must be converted explicitly. `u8 + i16` is an `i16` addition;
+  `u16 + i16` is an error.
+- **Literals** take the type their context requires and must fit it. A literal
+  containing `.` or an exponent is an `f32` literal: `1.5`, `0.25`, `1e3`,
+  `2.5e-3`. A digit is required before the decimal point.
+- **Unary minus** wraps, as in Nucleus: on an unsigned type it is subtraction
+  from zero modulo the width. On signed types it wraps in two's complement, so
+  `-(-32768)` is `-32768` in `i16`.
+- **Division** truncates toward zero, and `mod` takes the sign of the dividend:
+  `-7 / 2` is `-3` and `-7 mod 2` is `-1`. `-32768 / -1` wraps to `-32768`.
+  Division by zero traps, as in Nucleus.
+- **Shifts** are written `shl` and `shr`, with an unsigned shift count. `shr`
+  keeps the sign for signed types and shifts in zeros for unsigned ones. A shift
+  by the type's width or more gives 0, or -1 for a negative signed value shifted
+  right.
+- **Bitwise operators:** `and`, `or`, `xor` and `not` work bit by bit on integer
+  operands of the same type, and logically on `boolean` operands, as in Pascal.
+- **Comparisons** follow the operand rules above; mixed signed and unsigned
+  comparisons that don't widen are errors.
+- **Counted loops** may use any integer type as the counter, with negative steps;
+  Nucleus's loop-range trap rules apply.
+- **Constant expressions** are evaluated exactly as at run time: integers exactly
+  and then checked to fit, `f32` with round-to-nearest-even and flush-to-zero
+  (D7).
+
+**Why.** These are the conventional answers (C99, modern Pascal and ATOM agree on
+division and `mod`), chosen so that no rule silently loses a value.
+
+### D32. Arrays of arrays
+
+Arrays may contain arrays, giving multi-dimensional arrays:
+`var screen as u8[25][40]`, used as `screen[r][c]`. Each index is checked
+against its own bound. Open array parameters (`u8[]`) work as in Nucleus, on the
+outermost dimension.
+
+**Why.** Screens, boards and grids are common in CP/M programs; the record-per-row
+workaround is clumsy. It costs about 0.3K of compiler, and changes Nucleus's
+internal type encoding, which assumed arrays never nest.
+
+### D33. `private` and `include`
+
+- A top-level declaration marked `private` is visible only within its own source
+  file.
+- A source file may begin with `include "STRINGS.BTN"` lines naming the files it
+  depends on. Each file is compiled once, before the files that include it, as
+  in ATOM and Skate. The command line then names only the main file.
+
+**Why.** The standard library is written in Baton, so its internal routines need
+to be hidden from programs, and programs need a way to pull in the library parts
+they use. Together they cost about 0.5K. Full modules with qualified names are
+not planned.
+
+### D34. Case sensitivity and `assert`
+
+- Names are **case-sensitive**, as in Nucleus: `Count` and `count` are different.
+- **`assert condition`** checks a condition at run time and traps with
+  `assertion` when it is false, reporting the site like any trap.
+
+**Why.** Case sensitivity is simpler and faster for the compiler and is what
+Nucleus already does. A run-time `assert` costs about 0.1K and suits a language
+whose errors stop the program with a located report.
 
 ## Open
 

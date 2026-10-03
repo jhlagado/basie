@@ -235,7 +235,7 @@ installs nothing at `$0038`.
 
 The library provides one reporter blob for each trap reason (`bounds`,
 `narrowing`, `division-by-zero`, `loop-range`, `activation-capacity`,
-`float-overflow`, `float-invalid`, `stale-handle`, `ownership-cycle`, `pool-full`). Each prints:
+`float-overflow`, `float-invalid`, `stale-handle`, `ownership-cycle`, `pool-full`, `assertion`). Each prints:
 
 ```text
 TRAP bounds at 1A3F
