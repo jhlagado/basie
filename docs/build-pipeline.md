@@ -650,11 +650,21 @@ without reloading it from disk. `bss` is correct on re-entry, because startup
 clears it. Initialised `data` blobs are not: they keep the values the previous
 run left.
 
-A profile option, **re-runnable**, handles this with the same mechanism as ROM
-targets (Section 13.1). The layout tool stores a read-only copy of the initial
-data in the image, and startup copies it into place before calling `main`. This
-costs the size of the initialised data a second time. Without the option, the
-documentation must state that re-entry without reloading is unsupported.
+**Decision:** a target-profile option, **re-runnable**, off by default.
+
+With the option on, the layout tool stores a read-only copy of the initial data
+in the image, and startup copies it into place before calling `main`, using the
+same mechanism as ROM targets (Section 13.1). This costs the size of the
+initialised data a second time, plus a short copy loop.
+
+With the option off, which is the default, the image carries no second copy.
+The documentation states that such a program must be reloaded from disk to run
+again, and must not be re-entered with `GO`.
+
+**Why off by default.** Re-entry without reloading is a Z-System feature most
+CP/M users never use. Programs shouldn't pay for it unless their users need it,
+and the mechanism costs nothing extra to provide, because ROM targets need it
+anyway.
 
 ### 9.7 Page zero, restart vectors and interrupts
 
@@ -767,25 +777,61 @@ login. Leftover spools can always be removed with `ERA *.$*` (Section 6.3).
 
 ## 11. Debugging and trap locations
 
+### 11.1 Line records
+
 Nucleus builds source maps from trace events keyed by final address. Under late
-placement the compiler doesn't know final addresses, so it writes the optional
-**line spool**: records of (ordinal, offset, source part, source offset) at
-each statement boundary. The layout tool's map turns (ordinal, offset) into an
-address, so a host tool can join the two into a source map, or a CP/M tool can
-translate an address back to a source position.
+placement the compiler doesn't know final addresses, so it writes a **line
+spool**: one record of (ordinal, offset, source part, source offset) at each
+statement boundary. The compiler writes it by default, because trap reports
+depend on it (Section 11.2); an option turns it off.
 
-Trap reporting has two options:
+Before it deletes the spools, the layout tool joins the line spool with the
+addresses it assigned and writes a permanent **line table**, `PROG.LIN`: final
+address to source position, for live blobs only, sorted by address. A host tool
+can build a full source map from it, and a CP/M command can look up a single
+address.
 
-- **Inline source positions,** as in Nucleus: each trap site loads its source
-  offset and a trap code before jumping to the trap reporter. About 8 bytes per
-  site, and the report is readable with no other files.
-- **Map-resolved addresses:** each trap site is `CALL trap` followed by a code
-  byte, about 4 bytes. The trap reporter prints the return address, and the map
-  and line spool translate it to a source position.
+### 11.2 Trap reports
 
-A checked program has many trap sites, so the second option saves several
-kilobytes **[estimate]**, at the cost of needing the map to read a trap report.
-This is an open question (Section 14).
+**Decision:** trap sites identify themselves by their return address, and the
+line table turns that address into a source position. Trap sites carry no
+inline source position.
+
+The runtime spool set provides one small reporter entry for each trap reason:
+`bounds`, `narrowing`, `division-by-zero`, `loop-range`, `float-overflow`,
+`float-invalid` and the others. Each is an ordinary runtime blob, so a program
+that can never divide by zero carries no division-by-zero reporter. A trap
+site is a call to the reporter for its reason:
+
+```
+        cp   8              ; is the index below the bound?
+        call nc,trapBounds  ; 3 bytes; returns nowhere
+```
+
+When the check leaves its result in a condition flag that `CALL cc` can test
+(`Z`, `NZ`, `C`, `NC`, `PE`, `PO`, `P`, `M`), the site costs 3 bytes. Otherwise
+it is a `JR` around an unconditional `CALL`, 5 bytes.
+
+The reporter never returns. It pops the return address, subtracts 3 to get the
+address of the call, and prints the reason and that address:
+
+```
+TRAP bounds at 1A3F
+```
+
+The trap lookup command, or a host tool, reads `PROG.LIN` and gives the routine
+and source line. Traps with no site, such as `unhandled-error` when `main`
+returns failure, print their reason and code as in Nucleus.
+
+**Why.** Inline source positions, as in Nucleus, cost about 8 bytes per site:
+loading a position and a code, then jumping to the reporter. A checked program
+has hundreds of sites, so the call form saves roughly 2K or more per 500 sites
+**[estimate]**, all of it in code that runs only when the program has a bug.
+The cost is that a trap report must be looked up before it names a source line.
+
+A later debug option may switch to inline positions. That would change only the
+report's format, never which operations trap or when, so debug and release
+builds still behave the same.
 
 ## 12. Versions and compatibility
 
@@ -880,16 +926,14 @@ program is always compiled and laid out as a whole.
    overflow for realistic programs, options include 1-byte edges for targets
    within a nearby ordinal window, storing edges only for blobs not yet marked,
    or letting the compiler write a deduplicated edge list.
-3. **Trap reporting.** Inline source positions (about 8 bytes per site) or
-   map-resolved addresses (about 4 bytes per site)?
-4. **String literal deduplication.** A compiler-side cache of recent short
+3. **String literal deduplication.** A compiler-side cache of recent short
    literals, about 1K, would catch most duplicates. The layout tool can't
    compare contents without reading the byte spool in Phase A.
-5. **Routine buffer size** for branch shrinking, and the capacity limit on
+4. **Routine buffer size** for branch shrinking, and the capacity limit on
    references per routine.
-6. **Root marking in source.** The syntax for interrupt routines and other
+5. **Root marking in source.** The syntax for interrupt routines and other
    blobs reached only by fixed address.
-7. **Target profile files.** Where the CP/M profile lives (CCP base, nominal
+6. **Target profile files.** Where the CP/M profile lives (CCP base, nominal
    top of memory, CP/M version, free restart vectors, keep-CCP and re-runnable
    options) and how it is versioned with the runtime spool set.
 
@@ -926,6 +970,11 @@ problems, now corrected:
   really points to, CP/M 3's load rule, page-zero use, the `$C9` first byte,
   re-entry through `GO`, debugger margins, upper-case command lines, interrupt
   mode and restart vector conflicts (Section 9).
+- **Trap reporting (decided after the review).** Trap sites are 3- or 5-byte
+  calls identified by return address, decoded through the layout tool's line
+  table (Section 11).
+- **Re-running (decided after the review).** The re-runnable option is off by
+  default (Section 9.6).
 - **Storage assumption (decided after the review).** Builds assume disks of
   720K or more, so a single drive is enough and disk space is not a constraint
   (Section 1).
