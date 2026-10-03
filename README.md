@@ -1,70 +1,52 @@
 # Baton
 
-A Scheme-like language for Z80 machines running CP/M, with memory managed by
-ownership instead of a garbage collector.
+A statically typed systems language for Z80 machines, compiled to native code
+in a single pass, with memory whose lifetime the compiler can see.
 
-Baton is at the design stage. The name is a working title.
+Baton is the successor to [Nucleus](../nucleus). It is at the design stage, and
+the name is a working title.
 
 ## The name
 
 A relay baton is held by one runner at a time. It is passed on, never copied,
-and the race depends on every hand-off being clean. That is the whole memory
-model in one object: every value has exactly one holder, values move from
-holder to holder, and when the last holder is finished with a value, its
-memory is released at once.
+and the race depends on every hand-off being clean. Baton applies that idea to
+storage: every object has one holder, access to it is handed to a routine for
+the length of a call and then handed back, and no reference can outlive the
+storage it points into.
 
-## The problem
+## What Baton is
 
-Baton descends from [Skate](../skate), a Scheme compiled to native Z80 code for
-64K CP/M machines. Skate showed that a real Scheme fits on such a machine. It
-also showed where the strain is. Scheme's memory model assumes a garbage
-collector, and a garbage collector assumes spare capacity:
+Nucleus showed that a small, strictly specified language can be compiled to
+native Z80 code by a compiler that itself runs on the Z80, in one streaming
+pass. It also showed where it was too narrow for general use: no signed
+integers, nothing wider than 16 bits, no floating point, no storage shorter-lived
+than the whole program, and no way to drop unused code from the output.
 
-- spare memory, held back as headroom so the collector can work;
-- spare bytes in every object, for mark and allocation bits;
-- spare code space, for the collector itself;
-- spare processor time, spent tracing the heap instead of running the program.
+Baton keeps Nucleus's foundations and widens the language:
 
-A 64K machine has none of these to spare. Skate looked for a collector cheap
-enough to stop mattering and didn't find one. Every design moved the cost
-somewhere else rather than removing it.
+- **Single-pass compilation.** The compiler reads its source once.
+  Declarations come before use, and a forward declaration is a routine's
+  complete signature.
+- **Static types, no tags.** Every value's representation is known at compile
+  time, so nothing at run time spends bits or cycles rediscovering it.
+- **Plain syntax.** Statements end at a newline, blocks end with `end`, and
+  control flow uses words such as `if`, `elseif`, `for` and `and`. The style is
+  closer to BASIC and Lua than to C.
+- **Second-class references.** Routines receive aggregates by alias, and an
+  alias can't be stored, so it can never dangle.
+- **Checked safety.** Out-of-range indexing, narrowing conversions and division
+  by zero trap rather than corrupting memory.
+- **Tree shaking.** A separate layout step places only the routines, data and
+  runtime helpers the program can reach.
 
-## The idea
-
-Baton treats memory management as an **ownership problem** and gives it to the
-**compiler**.
-
-For most values, the program text already says when they die: a list built in
-a `let` and never returned or stored dies when the `let` ends. A garbage
-collector rediscovers that fact at run time, repeatedly, at the machine's
-expense. Baton's compiler reads it from the source once and emits the release
-at the exact point the value dies. The running program carries no collector,
-no mark bits and no headroom. Its peak memory is its live data.
-
-This is the same move Skate already made for execution. An interpreter works
-out what a program means every time it runs; a compiler works it out once.
-Baton applies that principle to memory:
+## The principle
 
 > What can be known before the program runs should be decided before it runs.
 > The machine should pay at run time only for what can't be known any earlier.
 
-## Where this comes from
-
-Garbage collection is almost as old as high-level programming. McCarthy
-described it for Lisp in 1960, and practical collectors followed through the
-1960s and 1970s: reference counting, copying collectors, then incremental and
-generational ones. Since then, most languages above C have been garbage
-collected by default, because their data outlives the code that creates it.
-
-The alternative, managing memory by hand, has proved unsafe at scale. Leaks,
-dangling references and double frees are a leading source of security
-vulnerabilities in C and C++ code. Memory safety is now an industry-wide
-concern, and Rust showed that it can be achieved without a collector: the
-compiler tracks who owns each value and when it is released. Swift, Hylo and
-Mojo have since made that idea gentler, with fewer annotations and more
-inference.
-
-Baton brings this modern answer to an old machine, where it matters most.
+This is why Baton compiles instead of interpreting, uses static types instead
+of runtime tags, checks storage lifetimes at compile time instead of collecting
+garbage, and chooses addresses only once it knows which code is live.
 
 ## Terms
 
@@ -72,37 +54,20 @@ These terms are provisional, but the documents use them consistently.
 
 | Term | Meaning |
 | --- | --- |
-| **holder** | The one variable, field or slot that owns a value. Every heap value has exactly one. |
-| **pass** | Moving a value to a new holder. The old holder can no longer use it. The last use of a variable passes its value. |
-| **exchange** | The point in the program where a pass happens. |
-| **ticket** | Temporary read access to a value that stays with its holder. A ticket can be given to a procedure but can't be stored or returned. (From railway single-line working, where a driver could proceed on a ticket after being shown the staff, which stayed with its holder.) |
-| **lease** | Temporary exclusive access to change a value in place, returned to the holder when the call ends. Written `inout` in parameter lists. |
-| **retire** | Releasing a value's memory when its holder is finished with it. The compiler places every retire. |
-| **copy** | Making a second, independent value. Free for numbers, characters and booleans; a deep copy for heap values, and the compiler reports each one. |
-| **double-spend** | Using a value after it has been passed. This is a compile-time error. |
-| **pool** | A vector of records addressed by integer index, used for shared or graph-shaped data. |
-| **arena** | A region that is freed all at once, for temporary data within a scope. |
-
-## Compared with Skate
-
-| | Skate | Baton |
-| --- | --- | --- |
-| Language | Scheme subset | Scheme-like; values instead of shared places |
-| Compilation | Native Z80, compiled on CP/M | Same |
-| Memory | Garbage collected heap | Ownership; the compiler places every release |
-| Run-time memory cost | Collector code, mark and allocation metadata, headroom | None beyond the live data |
-| Timing | Pauses when the heap fills | No collection pauses |
-| Sharing | Shared list tails and shared closure state | One holder per value; copies or pools when sharing is needed |
-| Closures | Capture shared mutable variables | Capture by copy or by pass |
-| Continuations | One-shot `call/ec` | Escapes that retire what they leave behind |
-| Graphs | Pointers | Pools and integer indices |
-| Errors found | At run time, often as heap exhaustion | Ownership errors at compile time |
-
-Baton expects to reuse much of Skate: the reader, the CP/M toolchain and
-ATOM-based build, the value conventions and four-byte cell contract, ports and
-file I/O, and the proof harness.
+| **holder** | The variable, field or slot that owns an object's storage. |
+| **ticket** | Temporary read access to an object that stays with its holder. An aggregate parameter is a ticket: it can be used during the call but not stored or returned except as an alias the signature declares. |
+| **lease** | Temporary access to change an object in place, returned to the holder when the call ends. Written `inout` in parameter lists. |
+| **pass** | Moving ownership of an object to a new holder. Planned for owned pool handles. |
+| **retire** | Releasing an object's storage when its holder is finished with it. |
+| **pool** | A fixed array of records addressed by index, used for dynamic or graph-shaped data. |
+| **arena** | A region freed all at once, for temporary data within a scope. |
+| **blob** | The unit the layout tool places or removes: one routine, constant or variable. |
 
 ## Documents
 
-- [Philosophy](docs/philosophy.md): the motivation and the design in brief,
-  including what Baton gives up and what it costs.
+- [Philosophy](docs/philosophy.md): the motivation, the principle and what
+  Baton learned from Nucleus.
+- [Design decisions](docs/design-decisions.md): the language decisions made so
+  far and the questions still open.
+- [Build pipeline](docs/build-pipeline.md): object spools, the layout step and
+  tree shaking.
