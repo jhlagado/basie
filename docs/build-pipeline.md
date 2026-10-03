@@ -231,7 +231,7 @@ One compilation writes these files, each append-only:
 | --- | --- |
 | **Directory spool** | Header, then one blob record per blob, each followed by that blob's references, then a trailer |
 | **Byte spool** | Raw bytes of every blob with stored bytes, in directory order |
-| **Line spool** (optional) | Source positions keyed by (ordinal, offset), for debugging and source maps (Section 11) |
+| **Line spool** | Source positions keyed by (ordinal, offset), for trap reports and source maps; written by default (Section 11) |
 | **Name spool** (optional) | Ordinal-to-name pairs for maps and debugger symbol files |
 
 `bss` blobs have no bytes, so they appear only in the directory.
@@ -278,7 +278,7 @@ manner of Microsoft's `M80` and `L80`, so that a RAM disk or a faster drive can
 hold them; the layout tool accepts a separate drive for the runtime spool set.
 
 The layout tool deletes the program's spools after it has written the output
-successfully, unless asked to keep them.
+and the line table (Section 11.1) successfully, unless asked to keep them.
 
 ## 7. Spool encodings
 
