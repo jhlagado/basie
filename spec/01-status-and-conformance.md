@@ -1,0 +1,115 @@
+# 1. Status and conformance
+
+
+## 1.1 Status
+
+This specification is a working draft. Baton 1.0 has not been frozen or released as a standard, and later revisions may change rules recorded here. This revision defines the complete proposed 0.1 source language and supports conformance review, but the project may still correct it before the freeze.
+
+The language under design is named **Baton 1.0**. It has one source language: no language levels, selectable language profiles, or compiler-selected subsets of standard syntax exist.
+
+## 1.2 Scope
+
+This specification defines the source-language syntax, static semantics, runtime semantics, required diagnostics, specified safety failures, and abstract compilation-input contract of Baton 1.0. It defines the conditions for a source program or compiler to claim Baton 1.0 conformance.
+
+The separate Baton runtime documents ([CP/M target](../docs/cpm-target.md), [object format](../docs/object-format.md)) defines the packed data representation, direct-code integrity rules, runtime boundary, and target execution obligations. Non-normative implementation plans and design papers record compiler strategies and project constraints; they do not add source-language semantics.
+
+The first implementation is a handwritten Z80 compiler that emits Z80 machine code directly. Project acceptance requires its compiler core and required immutable constants to fit in one 16 KiB bank; generated programs, compiler workspace, and the target runtime have separate budgets. That gate does not create a smaller Baton dialect or alter the meaning of a conforming program. Chapter 2 and the implementation plan carry the detailed budget rules.
+
+## 1.3 Authority
+
+When repository materials disagree, apply this order:
+
+1. This specification governs Baton 1.0 source syntax and semantics.
+2. The Baton Z80 Runtime and Backend Contract governs packed representation, generated-code integrity, runtime services, and direct Z80 execution. It cannot change the meaning required by this specification.
+3. The implementation plan is non-normative. It records construction order, budgets, measurements, and implementation choices.
+4. Architecture and design-rationale papers explain decisions but do not override either authority.
+5. Conformance tests provide evidence that an implementation follows the specifications. A conflicting test is a test defect, not a language amendment.
+
+An unwritten rule cannot be supplied by a lower-ranked document. Until this specification states the rule, the point remains unresolved for Baton 1.0 conformance.
+
+## 1.4 Normative words
+
+This specification uses four requirement words:
+
+| Word         | Meaning                                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- |
+| **must**     | The rule is required for conformance.                                                                            |
+| **must not** | The described form or behaviour is prohibited.                                                                   |
+| **may**      | The form or implementation choice is permitted but not required.                                                 |
+| **should**   | The rule is recommended. A departure needs a documented reason and must not violate a `must` or `must not` rule. |
+
+Declarative syntax and semantic rules are normative even when they contain none of these words. Notes, rationale, examples, and implementation sketches are non-normative unless they explicitly state a rule.
+
+## 1.5 Conforming source programs
+
+A conforming Baton 1.0 source program:
+
+- uses only syntax and features admitted by this specification;
+- satisfies the complete grammar and all applicable static-semantic rules;
+- depends only on specified behaviour or on a choice that this specification explicitly marks as implementation-defined;
+- does not depend on an extension or an unadmitted design candidate.
+
+Exceeding one compiler's documented capacity does not affect a program's language conformance. The compiler may reject the program with a capacity diagnostic; that diagnostic reports an implementation limit rather than a source-language violation.
+
+The complete accepted programs in Chapter 21 form the minimum conformance corpus. A conforming compiler and execution environment must compile and execute each program under its stated inputs without a capacity diagnostic or an `activation-capacity` trap. An implementation may publish smaller limits than another implementation only above this floor. This requirement establishes a minimum useful implementation without creating a language profile or changing the conformance of larger source programs.
+
+A program can use this complete working revision to establish conformance. Such a claim identifies the exact specification revision because the draft may still change before the 0.1 freeze.
+
+## 1.6 Conforming compilers
+
+A compiler claiming Baton 1.0 conformance must:
+
+- compile every complete accepted program in Chapter 21 without a capacity diagnostic;
+- accept and translate every conforming source program within its documented capacity limits;
+- accept an in-capacity program presented through the multipart compilation stream in Section 4.3;
+- preserve the specified observable results, side effects, and runtime traps of each accepted program;
+- issue a diagnostic for compile-time invalid source rather than silently translating it with another meaning;
+- issue a diagnostic when a documented capacity limit prevents translation;
+- identify each source diagnostic by stable source-part identity and position within that part;
+- identify and document every implementation-defined choice it makes;
+- keep extensions separate from standard Baton mode.
+
+A compiler must not report successful translation and then emit code with semantics that differ from this specification. Diagnostic wording and presentation are implementation-defined unless a later chapter requires a particular machine-readable result.
+
+The first handwritten compiler passes an additional project acceptance gate only if its core plus required immutable constants fit in one 16 KiB bank. A compiler may conform to the language and fail that size gate. Conversely, fitting in the bank does not excuse a compiler that rejects an in-capacity conforming program, accepts invalid source without a diagnostic, or changes program meaning.
+
+## 1.7 Extensions
+
+An implementation may provide extensions only through an explicit selection, such as a distinct mode or option. Standard mode must diagnose source that requires an extension. An extension must not change the syntax, validity, or meaning of a conforming Baton 1.0 program.
+
+Source that requires an extension is not a conforming Baton 1.0 program unless a later specification revision admits that feature into the language.
+
+## 1.8 Implementation-defined choices
+
+An implementation-defined choice is permitted only where this specification uses that term. The implementation must identify the choice, document the selected behaviour, and apply it consistently for the documented configuration.
+
+Baton does not use undefined behaviour as an escape hatch for source-language errors. If this working draft omits a necessary rule, the omission is a specification gap; it does not permit arbitrary compiler or runtime behaviour.
+
+## 1.9 Invalid source, capacity failures, and runtime traps
+
+These cases are distinct:
+
+| Case                                                                                   | Required treatment                                                                                                                       |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| A grammar or static-semantic rule is violated.                                         | The source is invalid. The compiler must issue a compile-time diagnostic and must not present an executable as a successful translation. |
+| A conforming program exceeds a documented compiler capacity.                           | The compiler may stop with a capacity diagnostic. The source does not become invalid.                                                    |
+| A conforming program reaches a condition for which this specification requires a trap. | The generated program must perform the specified runtime trap unless a later chapter explicitly permits compile-time rejection.          |
+| This draft has not yet specified the case.                                             | No conformance result can be inferred until the specification supplies the missing rule.                                                 |
+
+A runtime trap is specified behaviour, not undefined behaviour and not evidence that the source was necessarily invalid. Later chapters define which failures are compile-time invalid, which are recoverable, and which trap at runtime.
+
+## 1.10 Provisional features
+
+Design candidates may be prototyped and measured while Baton 1.0 remains a working draft. Before 0.1 is frozen, the project either admits each candidate to the single normative language or omits it. Baton does not expose candidates as language levels or standard profiles.
+
+A program that depends on an unadmitted candidate is not yet a conforming Baton 1.0 program. Prototype support for that candidate follows the extension rules in Section 1.7.
+
+## 1.11 Direct Z80 implementation
+
+The first compiler emits Z80 machine code directly and satisfies the separate Z80 runtime and backend contract. It may retain a checked semantic-operation transcript as private compiler workspace, but it does not serialize or execute that transcript as a public bytecode format.
+
+Another compiler may use a different internal organization or target only when it preserves the same source semantics, diagnostics, and specified traps. An implementation choice does not create another Baton language profile.
+
+## 1.12 Non-requirements
+
+This working draft makes no claim that Baton 1.0 is frozen or implementation-validated. It does not require the first compiler to be written in Baton or compile its own source. It also does not require another conforming compiler to copy the first compiler's internal organization.
