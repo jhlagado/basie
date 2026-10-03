@@ -1,0 +1,11 @@
+// Arrays may contain arrays; each index is checked against its own bound.
+// spec: 6.2
+// expect output: X\r\n
+
+var screen as u8[25][40]
+
+sub main() fails
+    screen[24][39] = 'X'
+    writeOutputByte(screen[24][39]) else fail
+    writeText(console, "\r\n") else fail
+end

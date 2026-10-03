@@ -1,0 +1,9 @@
+// A checked conversion traps when the value doesn't fit.
+// spec: 6.4
+// expect trap: narrowing at 8
+
+sub main()
+    var wide as u16 = 300
+    var byte as u8
+    byte = u8(wide)
+end

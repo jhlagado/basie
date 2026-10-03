@@ -1,0 +1,8 @@
+// A signed value doesn't widen to an unsigned type.
+// spec: 6.4
+// expect error: conversion-required at 7:24
+
+sub main()
+    var delta as i8 = -3
+    var count as u16 = delta
+end

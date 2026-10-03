@@ -1,0 +1,15 @@
+// A record with an owning handle field can't be copied.
+// spec: 6.15
+// expect error: owning-copy at 13:5
+
+record Node
+    next as nodes?
+end
+
+pool nodes as Node[4]
+var a as Node
+var b as Node
+
+sub main()
+    a = b
+end

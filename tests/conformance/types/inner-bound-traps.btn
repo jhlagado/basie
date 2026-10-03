@@ -1,0 +1,10 @@
+// The inner index of an array of arrays has its own bound.
+// spec: 6.2
+// expect trap: bounds at 9
+
+var screen as u8[25][40]
+
+sub main()
+    var c as u8 = 40
+    screen[0][c] = 1
+end

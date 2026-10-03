@@ -1,0 +1,19 @@
+// `id` is an ordinary name outside handle types, so it can name a field.
+// spec: 3.5
+// expect output: 7\r\n
+
+include "FORMAT.BTN"
+
+record Part
+    id as u16
+end
+
+var part as Part
+
+sub main() fails
+    var line as string[8]
+    part.id = 7
+    appendU16(line, part.id) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

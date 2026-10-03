@@ -9,39 +9,61 @@ The type system supports local checking during one streaming source pass. A comp
 
 ## 6.2 Type set
 
-Baton 1.0 has three scalar types, three owned aggregate forms, and one
-parameter-only aggregate view:
+Baton 1.0 has eight scalar types, four handle forms, three owned aggregate
+forms, and two parameter-only aggregate views:
 
-| Category        | Types or forms                       |
-| --------------- | ------------------------------------ |
-| Scalar          | `u8`, `u16`, `boolean`               |
-| Owned aggregate | nominal records, `T[N]`, `string[N]` |
-| Parameter view  | `string[]`                           |
+| Category        | Types or forms                                         |
+| --------------- | ------------------------------------------------------ |
+| Scalar          | `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `f32`, `boolean` |
+| Handle          | `P`, `P?`, `id P`, `id P?` for a pool `P` (Section 6.14) |
+| Owned aggregate | nominal records, `T[N]`, `string[N]`                   |
+| Parameter view  | `string[]`, `T[]`                                      |
 
 The following skeleton records type formation without defining declaration grammar:
 
 ```text
 type             ::= scalar-type
+                   | handle-type
                    | record-type-name
                    | fixed-array-type
                    | bounded-string-type
-scalar-type      ::= "u8" | "u16" | "boolean"
+scalar-type      ::= "u8" | "i8" | "u16" | "i16" | "u32" | "i32"
+                   | "f32" | "boolean"
+handle-type      ::= [ "id" ] pool-name [ "?" ]
 fixed-array-type ::= element-type "[" array-length "]"
-element-type     ::= scalar-type | record-type-name | bounded-string-type
+                   | element-type "[" "]"
+element-type     ::= scalar-type | handle-type | record-type-name
+                   | bounded-string-type | fixed-array-type
 bounded-string-type
                  ::= "string" "[" [ string-capacity ] "]"
 ```
 
-An array has one dimension. An array element may be a scalar, record, or bounded string, but not another array. Records may contain fields of any admitted type, including fixed arrays.
+An array element may be a scalar, a handle, a record, a bounded string or another fixed array, so arrays may have several dimensions (design decision D32): `u8[25][40]` is an array of 25 elements, each an array of 40 `u8`. Records may contain fields of any admitted type, including fixed arrays and handles.
 
 `string[N]` is the owned bounded-text form. An omitted capacity is admitted only
 in a formal parameter: `string[]` denotes a view whose actual capacity comes
-from the argument. `string` is a core reserved word. No other type word is
-added by this chapter.
+from the argument. Likewise `T[]`, an **open array**, is admitted only as a
+formal parameter and denotes a view of any complete `T[N]` argument, retaining
+its length as `.length`; for a multi-dimensional array only the outermost
+dimension may be open. `string` and the eight scalar type names are reserved
+words; `id` is contextual (Chapter 3).
 
 ## 6.3 Scalar types
 
-`u8` is the unsigned integer type whose values range from 0 through 255. `u16` is the unsigned integer type whose values range from 0 through 65,535. Their widths and ranges do not vary by target.
+The integer types and their ranges are:
+
+| Type | Width | Range |
+| --- | ---: | --- |
+| `u8` | 8 | 0 through 255 |
+| `i8` | 8 | −128 through 127 |
+| `u16` | 16 | 0 through 65,535 |
+| `i16` | 16 | −32,768 through 32,767 |
+| `u32` | 32 | 0 through 4,294,967,295 |
+| `i32` | 32 | −2,147,483,648 through 2,147,483,647 |
+
+Signed types use two's complement. Their widths and ranges do not vary by target.
+
+`f32` holds IEEE 754 single-precision values in the IEEE storage layout, restricted to finite values: there is no infinity and no NaN, and denormal values are flushed to zero (design decision D7). An operation whose result would be infinite or invalid traps (Chapter 15). `f32` is a numeric type but not an integer type: it can't index an array, count a loop or take part in a shift or bitwise operation.
 
 `boolean` has exactly the values `false` and `true`. It is distinct from both integer types. An integer is not a condition, a Boolean value is not an integer, and Baton 1.0 provides no Boolean-to-integer or integer-to-Boolean conversion.
 
@@ -49,15 +71,24 @@ A scalar variable, parameter, field, array element, or routine result holds a sc
 
 ## 6.4 Literals and scalar conversion
 
-An integer literal is exact and has no fixed integer type until an expected integer type or an expression rule supplies one. In a declaration initializer, scalar argument, assignment, return, array index, or other expected-type position, a literal may take type `u8` or `u16` when its value lies in that type's range. A literal outside the expected range is invalid; it is not truncated or wrapped.
+An integer literal is exact and has no fixed integer type until an expected integer type or an expression rule supplies one. In a declaration initializer, scalar argument, assignment, return, array index, or other expected-type position, a literal may take any integer type whose range contains its value, and an `f32` type when its value is exactly representable. A literal outside the expected range is invalid; it is not truncated or wrapped. A floating-point literal (Chapter 3) has type `f32` and never takes an integer type.
 
 Chapter 9 defines the treatment of an integer literal with no expected type and the result types of operators. This chapter does not assign an expression-wide default type.
 
 A character literal has type `u8` and its value is the decoded byte from Chapter 3. Baton has no separate character type. The ordinary `u8`-to-`u16` widening rule permits a character literal where a `u16` value is expected.
 
-The only implicit conversion between declared scalar types is `u8` to `u16`. It preserves every source value and zero-extends in representations where extension is required. The same conversion applies to assignment, initialization, scalar arguments, scalar results, and operands when Chapter 9 admits a mixed-width operation.
+**Implicit widening** is admitted only where every source value is preserved (design decisions D4 and D31):
 
-Conversion from `u16` to `u8` requires an explicit checked narrowing operation. Chapter 9 defines its expression spelling. When the source value is known and exceeds 255, the compiler must issue a diagnostic. When the value is not known until execution, the generated program must trap before producing or storing a `u8` result if the value exceeds 255. Checked narrowing never means low-byte extraction, modulo reduction, or reinterpretation.
+| From | To |
+| --- | --- |
+| `u8` | `u16`, `u32`, `i16`, `i32`, `f32` |
+| `i8` | `i16`, `i32`, `f32` |
+| `u16` | `u32`, `i32`, `f32` |
+| `i16` | `i32`, `f32` |
+
+Unsigned values are zero-extended and signed values sign-extended. The same widening applies to assignment, initialization, scalar arguments, scalar results, and operands when Chapter 9 admits a mixed operation. `u32` and `i32` don't widen implicitly to `f32`, because not every 32-bit value is exactly representable.
+
+**Every other conversion between numeric types is explicit and checked.** Chapter 9 defines the spelling, which uses the target type's name as a conversion, such as `u8(x)`, `i16(y)` or `f32(n)`. When the source value is known at compile time and does not fit, the compiler issues a diagnostic. Otherwise the generated program traps with `narrowing` before producing a result that does not fit. A negative value never converts to an unsigned type, and an unsigned value above a signed type's range never converts to it. Conversion from `f32` to an integer type truncates toward zero and traps if the result does not fit. Conversion from `u32` or `i32` to `f32` rounds to nearest, ties to even. Checked conversion never means low-byte extraction, modulo reduction, or reinterpretation.
 
 No implicit or explicit scalar conversion changes `boolean` into an integer or an integer into `boolean`. Baton 1.0 also has no arbitrary cast or same-width reinterpretation operation.
 
@@ -146,9 +177,8 @@ Type identity is determined as follows:
 
 | Type form       | Identity rule                                                      |
 | --------------- | ------------------------------------------------------------------ |
-| `u8`            | The predefined `u8` type.                                          |
-| `u16`           | The predefined `u16` type.                                         |
-| `boolean`       | The predefined Boolean type.                                       |
+| Scalar          | Each predefined scalar type is its own type.                       |
+| Handle          | The same pool, the same kind (owning or `id`), and the same optionality. |
 | Record          | The single declaration that introduced the record.                 |
 | Fixed array     | Identical element type and identical fixed length.                 |
 | `string[N]`     | Identical capacity `N`.                                            |
@@ -159,15 +189,17 @@ The compiler applies these compatibility rules:
 
 | Context                                                | Required compatibility                                                                                          |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Scalar assignment, initialization, argument, or result | Exact scalar type, fitting exact integer literal or named constant, or implicit `u8`-to-`u16` widening.         |
-| Checked narrowing to `u8`                              | Explicit operation and successful range check.                                                                  |
+| Scalar assignment, initialization, argument, or result | Exact scalar type, a fitting literal or untyped constant, or an implicit widening from Section 6.4.              |
+| Checked conversion                                     | Explicit operation and successful range check.                                                                  |
+| Handle assignment, argument or result                  | Exact handle type, except that `P` may be used where `P?` is expected, and `id P` where `id P?` is expected; an owning handle is moved (Chapter 7). |
 | Boolean condition or destination                       | `boolean` only.                                                                                                 |
 | Record field selection                                 | The field's declared type.                                                                                      |
-| Fixed-array index                                      | `u8` or `u16` index; result has the exact element type.                                                         |
+| Fixed-array index                                      | `u8` or `u16` index, never signed (D31); result has the exact element type.                                    |
 | Bounded-string `.length`                               | Read-only `u8` value equal to the current logical length.                                                       |
 | Bounded-string index                                   | `u8` or `u16` index below the current length; result is a writable `u8` path.                                   |
 | Concrete aggregate parameter                           | Exact referent-type identity.                                                                                   |
 | `string[]` parameter                                   | Any concrete bounded-string storage path or transient alias, or another `string[]`; retain the actual capacity. |
+| `T[]` parameter                                        | Any complete `T[N]` storage path or transient alias, or another `T[]`; retain the actual length.               |
 | Aggregate assignment                                   | Exact concrete type identity; copy the complete aggregate into the destination.                                 |
 | Aggregate result                                       | Exact referent-type identity and immediate consumption under Chapter 7.                                         |
 | Aggregate by-value argument or result                  | Invalid; calls transfer aggregate aliases.                                                                      |
@@ -181,16 +213,16 @@ Baton 1.0 has none of the following:
 - raw pointer or address types visible to source;
 - pointer or address arithmetic;
 - implicit word/address interchange;
-- enumeration or subrange types;
+- enumeration or subrange types (enumerations are planned for version 2);
 - set types;
-- variant records, unions, or overlaid aggregate layouts;
+- variant records, unions, or overlaid aggregate layouts (variants are planned for version 2);
 - structural equivalence between distinct record declarations;
 - arbitrary casts, type punning, or unchecked narrowing;
-- generic types or generic parameters other than the single built-in `string[]` form;
-- open arrays, slices, or user-defined variable-capacity views;
-- heap-allocated or resizable types;
+- generic types or generic parameters other than the built-in `string[]` and `T[]` views;
+- slices or user-defined variable-capacity views;
+- a general heap, or resizable types;
 - variable-sized local allocation; or
-- unrestricted dynamic data.
+- dynamic data outside declared pools (Chapter 7).
 
 An implementation must diagnose a source form that requires one of these mechanisms. Equal storage width or a convenient machine representation does not admit the source operation.
 
@@ -198,7 +230,7 @@ An implementation must diagnose a source form that requires one of these mechani
 
 Exact type identity is checked from retained metadata without reconstructing source text. Record declarations require nominal IDs. Predefined scalars, fixed arrays, and bounded strings have compact, bounded structural descriptions: kind, element type when applicable, and length or capacity. A compiler may store those descriptions directly in symbols and signatures or intern them behind compact ordinals. Measurements of compiler-core bytes, immutable data, writable workspace, and comparison code determine the representation used by the first implementation.
 
-One direct representation fits every admitted type in four bytes. Its kind byte distinguishes the three scalars, records, bounded strings, and the five permitted array-element families. A second byte carries a record ordinal or string capacity where needed, and two bytes carry an array length. Folding the element family into the array kind is valid because arrays cannot contain arrays. It does not remove arrays of records, arrays of bounded strings, or aliases to any aggregate type; alias category is stored separately from referent-type identity.
+Nucleus could fit every type in four bytes because its arrays could not contain arrays. Baton's arrays can nest and its handles name pools, so a type description may need a chain of element descriptions. A compiler may intern descriptions behind ordinals or store short descriptions inline; either way the chosen representation must describe nested arrays to any depth the source uses, within a published capacity.
 
 Four inline bytes are not automatically cheaper than one ordinal per symbol. With mostly distinct types, direct descriptors avoid an interning table; with many repeated types, ordinals reduce writable symbol storage. The measurement package reports both retained-data totals for representative symbol populations. The first compiler also counts the code and scratch state for descriptor construction, interning, exhaustion checks, and equality before selecting either form.
 
@@ -212,7 +244,12 @@ These declarations illustrate scalar compatibility:
 
 ```nucleus
 var byteValue as u8 = 42
-var wordValue as u16 = byteValue
+var wordValue as u16 = byteValue    // u8 widens to u16
+var delta as i8 = -3
+var offset as i16 = delta           // i8 widens to i16
+var big as u32 = 70000
+var ratio as f32 = 0.25
+var scaled as f32 = wordValue       // u16 widens to f32
 var code as u8 = 'A'
 var flag as boolean = true
 ```
@@ -221,7 +258,10 @@ Each of the following is invalid under this chapter:
 
 ```nucleus
 var tooSmall as u8 = 256       // literal does not fit
-var narrowed as u8 = wordValue // explicit checked narrowing required
+var narrowed as u8 = wordValue // explicit checked conversion required
+var unsigned as u16 = delta    // i8 does not widen to u16
+var fromBig as f32 = big       // u32 does not widen to f32
+var whole as u16 = 1.5         // a floating-point literal is f32
 var truth as boolean = 1       // integer is not Boolean
 var count as u16 = false       // Boolean is not integer
 ```
@@ -252,3 +292,36 @@ var name as string[12]
 `bytes[0]` through `bytes[15]` are within the declared domain. `bytes[16]` is a compile-time error. A runtime value used as the index is checked before access. `string[12]` and `string[16]` are different types, and a thirteen-byte literal cannot initialize `name`.
 
 For a bounded string `name`, `name.length` reads its logical length and `name[index]` reads or replaces one existing byte. An index equal to the current length traps; assignment through the index does not append or change `name.length`.
+
+## 6.14 Handle types
+
+A pool declaration (Chapter 7) names a fixed set of slots of one record type.
+The pool's name, used as a type, denotes a **handle** to one of its slots
+(design decision D22):
+
+| Type | Meaning |
+| --- | --- |
+| `P` | owns a slot of pool `P`; never empty |
+| `P?` | owns a slot of `P`, or is `none` |
+| `id P` | refers to a slot of `P` without owning it |
+| `id P?` | refers to a slot of `P`, or is `none` |
+
+The non-optional forms are admitted only for locals with an initializer and for
+parameters. Fields, array elements and program variables of handle type are
+always optional, since they start as `none`.
+
+A handle is not an address the program can see: there is no conversion between
+handles and integers, no handle arithmetic, and no comparison of owning handles.
+Identifiers of the same type may be compared with `=` and `<>`.
+
+Owning handles are never copied; they are moved with `move` (Chapter 9). An
+identifier is copied freely, and every use of it is checked (Chapter 7).
+
+## 6.15 Owning types
+
+A record type is an **owning type** if any of its fields has an owning handle
+type (`P` or `P?`) or an owning type, directly or as the element of an array. An
+array whose element type is owning is also an owning type. Owning types can't be
+copied: whole-object assignment, by-value initialization and returning one by
+value are invalid. They may be passed by alias, and their fields moved
+individually (Chapter 7).

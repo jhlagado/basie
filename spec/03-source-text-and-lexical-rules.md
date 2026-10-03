@@ -88,14 +88,19 @@ After scanning the longest identifier, the tokenizer compares its exact spelling
 The Baton 1.0 reserved words are:
 
 ```text
-and      as       assert   boolean   const     continue else
-elseif
-end      exit     fail      fails     false    for      forward
-handle   if       mod      not       or        record
-return
-step     string   sub      to        true      u16      u8
-until    var      while    xor
+and      as       assert   boolean  case     const    continue
+else     elseif   end      exit     f32      fail     fails
+false    for      forward  handle   i16      i32      i8
+if       include  mod      move     new      none     not
+or       pool     private  record   return   select   shl
+shr      some     step     string   sub      to       true
+u16      u32      u8       until    var      while    xor
 ```
+
+`id` is a **contextual word**, not a reserved word: it is a keyword only where a
+type is expected and it is followed by a pool name (`id nodes`), and in the
+conversion form `id(...)`. Everywhere else it is an ordinary identifier, so a
+record may have a field named `id`.
 
 `elseif` is one keyword. `else if` produces the two keywords `else` and `if` and does not form an `elseif` clause. `ELSEIF` is a `NAME`, not a keyword.
 
@@ -105,7 +110,8 @@ Baton uses name-led routine invocation and has no `call` keyword. `call` remains
 
 ## 3.6 Numeric literals
 
-Baton admits unsigned decimal, hexadecimal, and binary integer literals:
+Baton admits unsigned decimal, hexadecimal, and binary integer literals, and
+decimal floating-point literals:
 
 ```text
 decimal-literal ::= decimal-digit+
@@ -118,13 +124,23 @@ integer-literal ::= decimal-literal
 
 Hexadecimal digits may use either letter case. The `$` and `%` prefixes are part of the literal and do not form separate punctuation tokens. A prefix must be followed by at least one digit of its base.
 
-The tokenizer computes an exact unsigned value from zero through 65,535. A decimal literal whose value exceeds 65,535 is a lexical error. A hexadecimal literal may contain at most four digits, and a binary literal may contain at most sixteen digits; an additional digit is an overflow even when it is a leading or trailing zero. Later type checking decides whether the value fits its context, including `u8`, `u16`, an array bound, or a counted-loop parameter.
+The tokenizer computes an exact unsigned value from zero through 4,294,967,295, the range of `u32`. A decimal literal whose value exceeds 4,294,967,295 is a lexical error. A hexadecimal literal may contain at most eight digits, and a binary literal may contain at most thirty-two digits; an additional digit is an overflow even when it is a leading or trailing zero. Later type checking decides whether the value fits its context, including each integer type, an array bound, or a counted-loop parameter.
+
+A **floating-point literal** is written in decimal with a decimal point, an exponent, or both:
+
+```text
+float-literal ::= decimal-digit+ "." decimal-digit+ exponent?
+                | decimal-digit+ exponent
+exponent      ::= ("e" | "E") ("+" | "-")? decimal-digit+
+```
+
+A digit is required on both sides of the decimal point, so `1.0`, `0.25`, `1e3` and `2.5e-3` are valid and `.5` and `5.` are not. The tokenizer converts the literal to the nearest `f32` value, rounding to nearest with ties to even and flushing values below the smallest normal `f32` to zero (design decision D7). A literal whose value exceeds the largest finite `f32` is a lexical error. A floating-point literal has type `f32`; it never adapts to an integer context.
 
 A leading `+` or `-` is a separate punctuation token and is never part of the literal. Thus `-32768` begins with `-` followed by the literal `32768`; expression and constant rules determine whether that combination is valid.
 
-A letter or underscore immediately following any integer literal makes the numeric token malformed instead of beginning an adjacent identifier. This rejects forms such as `0x2a`, `12u8`, `$ffu8`, and `%10value` with one diagnostic. A decimal digit other than zero or one inside a binary literal is likewise malformed rather than the start of a following decimal token.
+A letter or underscore immediately following any numeric literal makes the numeric token malformed instead of beginning an adjacent identifier, except for the `e` or `E` that begins an exponent of a decimal literal. This rejects forms such as `0x2a`, `12u8`, `$ffu8`, `1.5f` and `%10value` with one diagnostic. A decimal digit other than zero or one inside a binary literal is likewise malformed rather than the start of a following decimal token. A decimal point after a hexadecimal or binary literal is not part of it.
 
-Octal and floating-point literals are absent. Numeric separators, exponent notation, decimal points, and type suffixes are absent. In particular, `1_000`, `1.0`, and `42u8` are not alternative integer spellings. The later word operator `mod` is distinct from the `%` binary-literal prefix.
+Octal literals, hexadecimal floating-point literals, numeric separators and type suffixes are absent. In particular, `1_000` and `42u8` are not alternative integer spellings. The later word operator `mod` is distinct from the `%` binary-literal prefix.
 
 ## 3.7 Character and string literals
 
@@ -162,7 +178,8 @@ The tokenizer recognizes these punctuation tokens:
 | `(` `)`  | grouping, calls, declarations, and record initializers |
 | `[` `]`  | array types, indexing, and array initializers          |
 | `,`      | item and argument separator                            |
-| `.`      | record-field selection                                 |
+| `.`      | record-field selection; also the decimal point inside a floating-point literal |
+| `?`      | the optional suffix on a handle type (`nodes?`)        |
 | `+` `-`  | arithmetic punctuation; also unary punctuation         |
 | `*` `/`  | arithmetic punctuation                                 |
 | `=`      | assignment or equality, according to grammar context   |
@@ -174,7 +191,7 @@ Chapter 9 defines which expression operators are admitted, their operand types, 
 
 At each punctuation start, the tokenizer uses deterministic longest match. It recognizes `//` before `/`, and `<>`, `<=`, and `>=` before their one-character prefixes. No other two-character punctuation token is formed. `!=` and `==` are not comparison spellings.
 
-Braces, colon, semicolon, question mark, hash, at sign, and backtick have no token in this draft. A source byte that begins no name, number, literal, comment, whitespace, line ending, or listed punctuation token is a lexical error. Baton 1.0 has no lexical preprocessor directive or macro form.
+Braces, colon, semicolon, hash, at sign, and backtick have no token in this draft. A source byte that begins no name, number, literal, comment, whitespace, line ending, or listed punctuation token is a lexical error. Baton 1.0 has no lexical preprocessor directive or macro form.
 
 ## 3.9 Token contract
 
@@ -184,7 +201,8 @@ The tokenizer emits the following token categories. Identifier spelling is part 
 | ----------- | ------------------------------------------------------------- |
 | `NAME`      | exact preserved identifier spelling and source span           |
 | keyword     | fixed reserved-word ordinal and source span                   |
-| `NUMBER`    | exact value from 0 through 65,535 and source span             |
+| `NUMBER`    | exact integer value from 0 through 4,294,967,295 and source span |
+| `FLOAT`     | the nearest `f32` value and source span                        |
 | `CHARACTER` | one decoded byte and source span                              |
 | `STRING`    | decoded byte sequence and source span                         |
 | punctuation | fixed punctuation ordinal and source span                     |
@@ -206,6 +224,9 @@ identifier         ::= ascii-letter
 integer-literal    ::= decimal-digit+
                      | "$" hexadecimal-digit+
                      | "%" binary-digit+
+float-literal      ::= decimal-digit+ "." decimal-digit+ exponent?
+                     | decimal-digit+ exponent
+exponent           ::= ("e" | "E") ("+" | "-")? decimal-digit+
 character-literal  ::= "'" literal-byte "'"
 string-literal     ::= '"' literal-byte* '"'
 literal-byte       ::= direct-literal-byte | escape
@@ -286,4 +307,4 @@ The two physical line endings inside delimiters do not appear in the token seque
 
 ## 3.12 Reserved-word and literal decisions
 
-Chapter 8 admits `assert`. Chapter 9 admits `mod`, `not`, `and`, `or`, and `xor`. Chapter 14 admits `fail`, `fails`, and `handle`. These nine words are reserved. Chapter 11 omits a conditional header marker, so `then` remains an identifier. Baton integer literals use decimal digits, `$` hexadecimal, or `%` binary. A later revision that needs another token requires an amendment here and cost accounting for the added scanner, table, test, and diagnostic work.
+Chapter 10 admits `assert` (D37). Chapter 9 admits `mod`, `not`, `and`, `or`, `xor`, `shl` and `shr`, and `move`. Chapter 11 admits `select`, `case`, `some` and `none`. Chapter 4 admits `include` and Chapter 5 `private` (D33). Chapter 7 admits `pool` and `new`. Chapter 6 admits the type names `i8`, `i16`, `u32`, `i32` and `f32`. Chapter 14 admits `fail`, `fails`, and `handle`. `id` is contextual (D29). Chapter 11 omits a conditional header marker, so `then` remains an identifier. Baton integer literals use decimal digits, `$` hexadecimal, or `%` binary, and floating-point literals use decimal digits with a decimal point or an exponent (D31). A later revision that needs another token requires an amendment here and cost accounting for the added scanner, table, test, and diagnostic work.

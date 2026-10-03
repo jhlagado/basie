@@ -14,7 +14,8 @@
   memory-safety and a disk-safety boundary. Findings are numbered by section:
   A alignment, E errors, S safety, L limits, M missing and misplaced, C cost.
 
-Counts: 46 findings. 6 critical (E1, E2, E3, E5, S1, S4), 17 major, 23 minor.
+Counts: 58 findings. 8 critical (E1, E2, E3, E5, E6, E7, S1, S4), 23 major,
+27 minor.
 Critical means a program following the draft loses data, corrupts a disk, or
 cannot do something the draft promises.
 
