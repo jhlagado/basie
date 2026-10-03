@@ -1,6 +1,6 @@
 # Baton toolchain 1.0
 
-- Status: draft specification, revision 3 (after two adversarial reviews)
+- Status: draft specification, revision 4
 - Date: 2026-10-03
 - Related: [object format](object-format.md), [linker](linker.md),
   [CP/M target](cpm-target.md), [build pipeline](build-pipeline.md),
@@ -14,7 +14,7 @@ order, how it uses memory, and how it is invoked. It is the user's view of a
 build. The object format and linker documents define the files and the linking
 algorithm.
 
-## 2. One executable
+## 2. Two programs, one command
 
 Building a program is one command:
 
@@ -22,25 +22,31 @@ Building a program is one command:
 A>BATON MAIN
 ```
 
-`BATON.COM` compiles the source and links the result in one run. The compiler
-and the linker are two phases of one program.
+The toolchain is two programs (design decision D9):
 
-**Why one executable.**
+- **`BATON.COM`** compiles the source and writes the intermediate files. Its
+  budget is at most 24K, including tables, leaving at least 32K of working
+  space on a CP/M 2.2 system with 56K free.
+- **`BLINK.COM`** links them and writes the program. When compilation succeeds,
+  `BATON` runs it automatically: CP/M 2.2 has no call to run another program, so
+  `BATON` copies a small loader to the top of memory, which reads `BLINK.COM` to
+  `$0100` and starts it with a command tail describing the build, as Turbo
+  Pascal's `Execute` did.
 
-- **Precedent.** ATOM appends its materializer to `ATOM.COM`, and Skate's
-  compiler, output writer and materializer are all one CP/M program. Both reuse
-  the compiler's workspace for the later phase.
-- **Memory.** The linker's tables are large. In one executable they occupy the
-  compiler's code and workspace, which are dead once compilation finishes.
-- **Shared code.** File handling, record buffering, CRC, diagnostics and
-  console output are written once.
-- **One command.** No script is needed to run two programs in order.
+`BLINK` can also be run directly, as `BLINK MAIN`, to link intermediate files
+kept by an earlier compile.
+
+**Why two programs.** The compiler's size limits its own working space, and so
+the size of program it can compile. Keeping the linker out of `BATON.COM` saves
+its 5K there, and gives the linker nearly the whole program area for its tables.
+The cost is one extra program load per build.
 
 **Rejected alternatives.**
 
-- **A separate `BLINK.COM`:** a second program load on every build, duplicated
-  shared code, and two commands or a script.
-- **An assembler as the second stage:** Baton generates machine code itself.
+- **The linker as a phase of `BATON.COM`,** as ATOM and Skate append their
+  materializers. It shares code but carries the linker's 5K through every
+  compilation.
+- **An assembler as the second stage.** Baton generates machine code itself.
   No assembler takes part in building a Baton program.
 
 ## 3. Files
@@ -108,7 +114,7 @@ whatever `O` says, so a later link-only run finds them.
 | --- | --- | --- |
 | 1. Check | library header, profile block, key table | — |
 | 2. Compile | source parts | `MAIN.$DR`, `MAIN.$BY`, `MAIN.$LN`, `MAIN.$NM` |
-| 3. Handover | — | — (memory is reorganised; Section 7) |
+| 3. Chain | `BLINK.COM` | — (`BATON` loads and starts `BLINK`) |
 | 4. Link A–C | library directory, program directory and stream headers | — |
 | 5. Link D | library, `MAIN.$DR`, `MAIN.$BY`, `MAIN.$LN` | `MAIN.$$$`, `MAIN.$LT` |
 | 6. Publish | — | renames (Section 6) |
@@ -161,7 +167,7 @@ ws        = a space
 | `O=[d:]name.type` | Output drive, name and kind (`.COM`, `.BIN` or `.HEX`) | the first part's drive and name, `.COM` |
 | `K` | Keep intermediate files, including after a failure | delete them |
 | `C` | Compile only, keeping the intermediate files | compile and link |
-| `X` | Link only, from existing intermediate files | compile and link |
+| `X` | Link only, from existing intermediate files; the same as running `BLINK` directly | compile and link |
 | `M` | Write the map | no map |
 | `Y` | Write the symbol file | no symbol file |
 | `N` | No line stream and no line table | written |
@@ -232,64 +238,62 @@ be removed with `ERA MAIN.$*`. (`ERA *.$*` on drive `A:` would also delete
 
 ## 7. Memory
 
-### 7.1 Image layout
+### 7.1 `BATON.COM`
 
 ```text
-$0100  shared core: startup, BDOS and file I/O, record buffers, CRC,
-       diagnostics, console output, command-line parsing
-       linker code
+$0100  core: startup, BDOS and file I/O, record buffers, CRC, console,
+       command-line parsing, the chain loader
        compiler code
+       overlay area (Section 7.3)
        --- end of BATON.COM, below the CCP ---
        compiler workspace: symbol tables, scopes, routine buffer,
-       literal buffer, pending references, spool buffers
+       literal buffer, references, spool buffers
        ...
 top    stack, below the word at $0006
 ```
 
 `BATON.COM` must load below the CCP, so its file is at most the CCP base minus
 `$0100`. Its workspace may extend over the CCP's memory, up to the address in
-`$0006`, so `BATON` always exits with a warm boot.
+`$0006`, so it never returns to the CCP: it chains to `BLINK` or exits with a
+warm boot.
 
-At handover, the compiler's code and workspace become free, and the linker's
-tables occupy everything from the start of the compiler code up to the stack.
-
-### 7.2 Budget
-
-**[estimate]** To be replaced by measurement:
+**[estimate]** Workspace during compilation:
 
 | Region | Size |
 | --- | --- |
-| Shared core | about 3K |
-| Linker code | about 5K |
-| Linker file buffers (seven files) | about 1.2K |
-| Stack | about 0.5K |
-| **Fixed total during linking** | **about 9.7K** |
-| Compiler code | not yet known; Nucleus's compiler core is about 15K |
-
-The compiler's workspace during compilation, also estimates:
-
-| Region | Size |
-| --- | --- |
-| Symbol table and scopes | not yet known; set by the number of declarations |
+| Symbol table and scopes | the rest; set by the number of declarations |
 | Routine buffer, for branch shrinking | 2K to 4K |
 | Literal buffer | about 1K |
 | References for one routine | 128-byte in-order buffer (spilling to `MAIN.$RF`), plus about 256 deferred references at 5 bytes, 1.25K |
 | Branch records, line entries and labels for one routine | about 1K, bounded by the routine buffer |
 | File buffers: a source part, the four streams, and the library during the check | about 1K |
 
-On a CP/M 2.2 system with 62K of memory, the area from `$0100` to the BDOS
-entry at `$E406` is about 56.75K. Less the fixed 9.7K, about 47K remains for the
-linker's tables. The compiler's code and workspace lie inside that area, so
-their size doesn't reduce it.
+With a 24K `BATON.COM` and about 56.75K from `$0100` to the BDOS entry on a
+62K system, about 32K remains for the workspace.
 
-### 7.3 Linker as an overlay
+### 7.2 `BLINK.COM`
 
-If the compiler needs the 5K the resident linker code occupies during
-compilation, the linker code can be stored in a separate file, `BATON.OVL`, and
-loaded into the compiler's code area at handover. This saves that memory during
-compilation, at the cost of one more file read per build and a second file to
-install. Baton 1.0 starts with the resident layout and adopts the overlay only
-if measurements of the compiler's workspace show the need.
+**[estimate]**
+
+| Region | Size |
+| --- | --- |
+| Core and linker code | about 7K |
+| File buffers (seven files) | about 1.2K |
+| Stack | about 0.5K |
+| **Fixed total** | **about 8.7K** |
+
+About 48K remains for the linker's tables ([linker](linker.md), Section 2).
+
+### 7.3 Overlays and the message file
+
+- **Diagnostic text** is kept in `BATON.MSG`, read only when a diagnostic is
+  reported. `BATON` holds only message numbers.
+- **Rarely used compiler parts,** starting with the conversion of decimal
+  literals to `f32`, are kept in `BATON.OVL` and loaded into the overlay area
+  when first needed. A program that uses no `f32` literal never loads it.
+
+`BATON.COM`, `BATON.MSG`, `BATON.OVL`, `BLINK.COM` and the blob libraries are
+looked for on the drive given by option `L`, then on drive `A:`.
 
 ## 8. Trap lookup
 
@@ -320,6 +324,5 @@ statement.
 1. **Source parts named in source.** Whether a part can name the parts it
    depends on, as ATOM's `%INCLUDE` and Skate's `include` do, instead of the
    command line listing them all.
-2. **Overlay or resident linker,** decided by measurement (Section 7.3).
 3. **Library search under CP/M 3,** which records the drive `BATON.COM` was
    loaded from at `$0050`.

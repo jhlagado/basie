@@ -1,6 +1,6 @@
 # Baton linker 1.0
 
-- Status: draft specification, revision 3 (after two adversarial reviews)
+- Status: draft specification, revision 4
 - Date: 2026-10-03
 - Related: [object format](object-format.md), [toolchain](toolchain.md),
   [CP/M target](cpm-target.md), [build pipeline](build-pipeline.md),
@@ -26,8 +26,9 @@ It is a relocating linker with deliberate limits:
   from its start; Section 10 counts them.
 - **Output in address order.** It writes each output file once, sequentially.
 
-The linker runs as a phase of the Baton executable, or alone in link-only
-mode; see the [toolchain](toolchain.md).
+The linker is a separate program, `BLINK.COM`, which `BATON` runs automatically
+after a successful compilation, or which can be run directly; see the
+[toolchain](toolchain.md).
 
 ## 2. Memory
 
@@ -81,7 +82,7 @@ terminator and the mark stack, and 2 bytes per distinct edge:
 With literals inside their routines, a program has roughly one blob per
 routine, top-level variable and top-level constant.
 
-The [toolchain](toolchain.md) leaves about 47K for these tables on a CP/M 2.2
+The [toolchain](toolchain.md) leaves about 48K for these tables on a CP/M 2.2
 system with 62K of memory. Typical and large programs fit; the largest
 programs the address space allows do not, and fail with `L-CAP-TABLES`.
 The figures are estimates to be replaced by measurement (Section 12).

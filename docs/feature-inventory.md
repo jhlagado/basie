@@ -1,94 +1,89 @@
 # Baton feature inventory
 
-- Status: draft for discussion
-- Date: 2026-10-03
-- Related: [design decisions](design-decisions.md), [memory safety](memory-safety.md),
-  [build pipeline](build-pipeline.md)
+- Status: working record
+- Date: 2026-10-04
+- Related: [design decisions](design-decisions.md) (D9 budget, D24 scope),
+  [memory safety](memory-safety.md), [build pipeline](build-pipeline.md)
 
 ## 1. Purpose
 
-This document lists every feature a complete Baton needs, what each costs, and
-what leaving it out would save. Its aim is a language that is **feature
-complete**: everything a programmer reasonably expects of a systems language is
-there. Where the budget is tight, it shows the order in which features would be
-cut.
+This document lists every feature of Baton, what each costs, and which version
+it belongs to. It is the ledger the compiler budget is kept against.
 
-All sizes are **estimates**, to be replaced by measurement as features are
-built. They are anchored to one measured figure: the Nucleus compiler core,
-covering the Nucleus 0.1 language, is about 15K, with a rewrite aiming at 12K.
+All sizes are **estimates** until measured. They are anchored to one measured
+figure: the Nucleus compiler core, covering the Nucleus 0.1 language, is about
+15K, and its rewrite aims at 12K.
 
-Two kinds of cost matter, and they are very different:
+Two kinds of cost matter:
 
-- **Compiler cost** is paid by every user, in the size of `BATON.COM`. The
-  compiler's code competes with its own workspace: every kilobyte of compiler is
-  a kilobyte less for symbol tables, which limits how large a program it can
-  compile.
+- **Compiler cost** is paid by every user, in the size of `BATON.COM`, and comes
+  out of the compiler's own working space, which limits how large a program it
+  can compile.
 - **Runtime cost** is paid only by programs that use the feature, because the
-  linker removes unused runtime helpers. A program that never touches `f32`
-  carries none of the float library.
+  linker removes unused runtime helpers.
 
-## 2. Inventory
+## 2. The budget
 
-### 2.1 The Nucleus core (kept)
+`BATON.COM` is at most **24K**, including its tables, leaving at least **32K**
+of working space (D9). The linker is a separate program, `BLINK.COM`, so its
+code doesn't count against this.
 
-| Feature | Compiler | Runtime | Notes |
-| --- | --- | --- | --- |
-| Lexer, declarations, scopes, forward routines | in the 15K | — | measured |
-| `u8`, `u16`, `boolean`; arithmetic, comparison, logic | in the 15K | multiply, divide helpers | measured |
-| Records, fixed arrays, bounded strings, constants | in the 15K | bounds checks, copy helpers | measured |
-| `if`/`elseif`/`else`, `while`, counted `for`, `exit`, `continue` | in the 15K | — | measured |
-| Routines, results, aggregate aliases | in the 15K | — | measured |
-| `fails`, `else fail`, `handle`; traps | in the 15K | trap reporters | measured |
+The compiler is kept within budget by:
 
-### 2.2 Essential additions
+1. building on the 12K Nucleus compiler rewrite;
+2. generating 32-bit and `f32` operations as calls to runtime helpers, so the
+   compiler only checks types and selects helpers;
+3. keeping diagnostic text in `BATON.MSG`, read only when needed;
+4. keeping rarely used parts, starting with decimal-to-`f32` literal
+   conversion, in `BATON.OVL`;
+5. writing strings, formatting and other library facilities in Baton source;
+   and
+6. deferring features to version 2 when they don't fit.
 
-Without these, Baton is not a complete systems language.
-
-| Feature | Compiler | Runtime, if used | Why essential |
-| --- | --- | --- | --- |
-| Signed `i8`, `i16` | 0.5–1K | 0.1–0.2K (signed divide, compare) | Displacements, deltas, coordinates; Nucleus's biggest gap |
-| Shifts and bitwise operators on integers | 0.3–0.5K | 0.1K (variable shifts) | Device registers, flags, packing |
-| `u32`, `i32` | 1–2K | 0.4–0.7K (multiply, divide, shifts, conversion) | File sizes, timers, products above 65,535 |
-| `f32` | 1–1.5K, plus 0.5–1K to convert decimal literals | 1–1.5K arithmetic; 0.8–1.2K formatting and parsing | Measurement, graphics, games, science |
-| `select` on integers and enums (Section 3) | 0.5–1K | — | Every menu, parser and state machine |
-| Enumerations | 0.3–0.6K | — | Named states with checked exhaustiveness |
-| Local aggregates and `from` (D8) | 0.8–1.5K | — | Temporary buffers without globals |
-| Parameter modes (`var`) | 0.2K | — | Signatures say what a routine changes |
-| Ownership: pools, `own`, `id`, `new`, `give`, flow check | 2–4K | 0.3–0.6K (allocation, retirement, generation checks) | The memory-safety claim |
-| Stack checking | 0.2K | 0.1K | Part of the memory-safety claim |
-| Services for console, files and devices | 0.2K for the service table | per service used | Replaces port built-ins; see [input, output and effects](io-and-effects.md) |
-| Blob output for the linker | about neutral against NOBJ | — | Tree shaking |
-| The linker phase | 5K, in the same executable but a separate phase | — | Tree shaking |
-
-### 2.3 Important additions
-
-A complete language has these, but a first release could ship without one or
-two.
+## 3. Version 1
 
 | Feature | Compiler | Runtime, if used | Notes |
 | --- | --- | --- | --- |
-| Variant records and pattern matching (Section 4) | 1.5–2.5K | — | Rust-style `match`, restricted to fit |
-| Routine values (function pointers) | 0.5–1K | — | Callbacks, dispatch tables; needs a stack-bound rule |
-| String building: append, truncate, slice | 0.4–0.8K | 0.2–0.4K | Nucleus strings can't change length |
-| Source parts named in source (imports) | 0.3–0.6K | — | Instead of listing every part on the command line |
-| Branch shrinking | 0.3–0.5K | — | About 1 byte per forward branch in every program |
-| Expression blocks with `result` (O3) | 0.5K | — | Composition; also makes `select` usable as an expression |
-| `repeat`/`until` and a general `loop` | 0.2K | — | Convenience; `while` covers both |
+| Nucleus core: declarations, records, arrays, bounded strings, `if`, `while`, `for`, routines, `fails`, traps | 12–14K | multiply, divide, bounds, copy, trap reporters | built on the rewrite |
+| Signed `i8`, `i16` | 0.5K | 0.1–0.2K | D3 |
+| Shifts and bitwise operators | 0.3K | 0.1K | |
+| `u32`, `i32`, through helpers | 0.8K | 0.4–0.7K | D3, D9 |
+| `f32`, through helpers; literal conversion in an overlay | 1K | 1–1.5K arithmetic; formatting and parsing in the library | D7 |
+| `match` on integers, characters, enumerations and optional handles; enumerations | 0.8K | — | D15 |
+| Local aggregates and `from` | 1K | — | D8 |
+| `var` parameters | 0.2K | — | D17, D30 |
+| Declarations anywhere, block scope | 0.2K | — | D28 |
+| Typed and local constants; inference from typed initialisers | 0.2K | — | D20, D21 |
+| Pools, handles, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
+| Stack bound and checks | 0.2K | 0.1K | memory safety §7 |
+| Named failure codes | 0.1K | — | D26 |
+| Services for I/O | 0.2K for the service table | per service used | [I/O and effects](io-and-effects.md) |
+| Blob output for the linker | about neutral against Nucleus's output | — | build pipeline |
+| Branch shrinking | 0.3K | — | build pipeline §6.3 |
+| **Total** | **about 20.5–22.5K** | | within 24K |
 
-### 2.4 Later
+The standard library, written in Baton and tree-shaken, provides string
+building, comparison and searching, conversion between numbers and text
+(including `f32`), and the console and file conveniences built on the services.
+
+## 4. Version 2
 
 | Feature | Compiler | Notes |
 | --- | --- | --- |
-| Arenas | 0.5–1K | Scope-bound dynamic storage |
-| Interrupt routines | 0.5–1K | Needs a profile statement and register saving |
-| Precompiled libraries | 1–2K | Names in the compiler, ordinals in the linker |
+| Variants whose cases carry data, and matching on them | 1.5–2.5K | D24; rules in memory safety §11 |
+| Expression blocks with `result`; `match` as an expression | 0.5K | O3 |
+| Routine values | 0.5–1K | O5 |
+| Arenas | 0.5–1K | O4 |
+| Default parameter values | 0.3–0.5K | O6 |
+| Generics | 1–2K | D23 |
+| Source parts named in source | 0.3–0.6K | toolchain open question |
+| `repeat` and a general `loop` | 0.2K | convenience |
+| Precompiled libraries | 1–2K | build pipeline §9.3 |
 
-## 3. `select`
-
-### 3.1 Form
+## 5. `match`
 
 ```nucleus
-select key
+match key
 case 'q', 'Q'
     exit
 case '0' to '9'
@@ -98,49 +93,31 @@ case else
 end
 ```
 
-- The subject is an integer, a `boolean` or an enumeration.
-- Each `case` lists constants or constant ranges (`to`). Values may not repeat
-  across cases.
+- The subject is an integer, a character, a `boolean`, an enumeration, or an
+  optional handle or identifier.
+- Each `case` lists constants or constant ranges (`to`); values may not repeat.
 - `case else` covers everything else and comes last.
-- There is no fall-through: exactly one case runs.
+- There is no fall-through.
 - Over an enumeration, the cases must cover every value unless there is a
-  `case else`. The compiler checks this.
+  `case else`.
+- Over an optional handle, the cases are `some(x)` and `none`
+  ([memory safety](memory-safety.md), Section 5.5).
 
-### 3.2 Code
+**Code.** The compiler emits the case bodies first, with a jump around them, and
+the dispatch code after the last case, when every value is known. It then chooses
+between a compare chain for sparse values (4 to 6 bytes per value) and a jump
+table for dense ranges (a bounds check and an indexed jump, then 2 bytes per
+value). The dispatch jumps backwards into the bodies, so case labels need no
+forward references.
 
-The compiler chooses between two shapes as it reads the cases:
+**Cost.** About 0.8K of compiler with enumerations, nothing at run time. It
+replaces long `elseif` chains, which are larger and slower.
 
-- a **compare chain** for sparse values: about 4 to 6 bytes per value; and
-- a **jump table** for dense ranges: a bounds check and an indexed jump, then 2
-  bytes per value.
+## 6. Variants, in version 2
 
-A single-pass compiler sees the cases before it must commit to a shape only if
-it delays the dispatch code: it emits the case bodies first, with a jump around
-them, and the dispatch code after the last case, when every value is known. The
-dispatch then jumps backwards into the bodies, so no forward references are
-needed for the case labels.
-
-### 3.3 Cost
-
-0.5 to 1K of compiler, nothing at run time. It replaces long `elseif` chains,
-which are larger and slower, so most programs get smaller.
-
-## 4. Pattern matching
-
-### 4.1 What Rust's `match` is made of
-
-Rust's `match` is powerful because of three things together:
-
-1. **Sum types:** an `enum` whose variants carry data.
-2. **Patterns:** destructuring a variant's data into names, at any depth, with
-   guards.
-3. **Exhaustiveness:** the compiler proves every case is handled.
-
-Of these, nested patterns and guards are where the compiler cost and the type
-system's complexity grow. Variants with data, one level of destructuring and
-exhaustiveness give most of the benefit at a fraction of the cost.
-
-### 4.2 A restricted form for Baton
+Rust's `match` is powerful because of variants whose cases carry data,
+destructuring, and exhaustiveness. Baton's version 2 takes the first and third
+with one level of destructuring, leaving out nested patterns and guards:
 
 ```nucleus
 variant Shape
@@ -149,93 +126,24 @@ variant Shape
     empty
 end
 
-sub area(s as Shape) as u32
-    select s
-    case circle(r)
-        return 3 * u32(r) * u32(r)
-    case rect(w, h)
-        return u32(w) * u32(h)
-    case empty
-        return 0
-    end
+match s
+case circle(r)
+    area = 3 * u32(r) * u32(r)
+case rect(w, h)
+    area = u32(w) * u32(h)
+case empty
+    area = 0
 end
 ```
 
-- **Representation:** a tag byte followed by the largest variant's fields. A
-  `Shape` here is 5 bytes.
-- **Bindings:** each case may name the variant's fields. A scalar field is
-  copied into the name; an aggregate field is bound as an alias, valid within
-  the case. Bindings are read-only unless the subject is a `var` parameter.
-- **Exhaustiveness:** every variant must have a case, or there must be a `case
-  else`.
-- **Code:** a dispatch on the tag byte, as for an enumeration.
+A variant is stored as a tag byte followed by the largest case's fields.
+Declarations precede use, so a single pass can check exhaustiveness. Variants
+with owning payloads need the binding, construction and overwrite rules recorded
+in memory safety §11.
 
-Left out, to keep the compiler small:
+## 7. Open questions
 
-- nested patterns, such as a `rect` whose width is a constant;
-- guards (`case circle(r) if r > 10`);
-- `select` as an expression, unless expression blocks (O3) are adopted; and
-- binding owned fields by move, except through `take`.
-
-### 4.3 Is this too much for the type system?
-
-No. Declarations precede use, so a variant type is fully known before any
-`select` over it, and a single pass can check exhaustiveness by marking each
-variant as its case is read. It adds one new kind of type, the variant, with
-the same storage rules as a record.
-
-It also unifies features the memory-safety design needs anyway:
-
-- `own? T` behaves as a variant with cases `some(h)` and `none`;
-- testing an identifier yields `some` if its slot is still live and `none` otherwise; and
-- an enumeration is a variant whose cases carry no data.
-
-So the testing syntax that memory safety leaves open (its Section 11, question
-3) can be `select` itself, and one mechanism replaces three.
-
-### 4.4 Cost
-
-1.5 to 2.5K of compiler beyond `select` and enumerations, nothing at run time
-beyond a byte per variant value. Ownership interacts in one place: a variant
-holding an owned field is an owning type and can't be copied.
-
-## 5. Totals and the budget
-
-| Group | Compiler |
-| --- | --- |
-| Nucleus core | 12–15K (measured 15K; rewrite target 12K) |
-| Essential additions | 7–12K |
-| Important additions | 4–7K |
-| Linker phase | 5K |
-| **Total** | **28–39K** |
-
-On a CP/M system with about 56K free, a 32K `BATON.COM` leaves about 24K for
-the compiler's workspace: the symbol table, scopes, buffers and file buffers.
-That may limit the largest programs Baton can compile, before the 64K limit of
-the programs themselves matters.
-
-Ways to recover space, in the order to consider them:
-
-1. **Overlays for rarely used compiler code.** Decimal-to-float conversion,
-   pattern-match exhaustiveness checking and the linker are each used at a
-   known point. Loading them from an overlay file when needed costs a disk read,
-   not a feature.
-2. **Pay once for shared machinery.** Enumerations, variants, `select` and
-   `own?` testing share one dispatch and exhaustiveness mechanism (Section 4.3).
-   Built together, they cost less than the sum of the table rows.
-3. **Move work from the compiler into Baton-source libraries.** Formatting,
-   parsing and string building can be ordinary Baton routines compiled with the
-   program and tree-shaken, rather than compiler built-ins.
-4. **Cut features,** last of all, starting from Section 2.4 and then Section 2.3.
-
-Cutting `f32` would save the most in one stroke (1.5–2.5K of compiler), but a
-complete language needs it, and its runtime cost already falls only on programs
-that use it.
-
-## 6. Open questions
-
-1. Are variant records and matching in the first release, or the second?
-2. Is `select` usable as an expression, which needs expression blocks?
-3. What is the compiler budget: a hard limit on `BATON.COM`, or a minimum
-   workspace that sets the largest compilable program?
-4. Which compiler parts, if any, go into overlays?
+1. Which compiler parts, beyond `f32` literal conversion, go into overlays,
+   decided by measurement.
+2. The standard library's contents and the service set
+   ([I/O and effects](io-and-effects.md)).

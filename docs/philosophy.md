@@ -73,9 +73,11 @@ Nucleus in the same spirit rather than adopting a collector:
   a routine call. A routine may return an alias only into storage that outlives
   it, and its signature says which parameters a returned alias may point into.
   The compiler checks this locally, in one pass.
-- **Pools and arenas, later.** Dynamic data will live in fixed pools addressed
-  by index, or in arenas freed all at once. Ownership checking can make pools
-  leak-free without reference counts or a collector.
+- **Pools.** Dynamic data lives in fixed pools of records, reached through
+  handles. Each slot has exactly one owner and is freed automatically when its
+  owner goes away; other references are identifiers, checked on every use. No
+  reference counts and no collector are needed. Arenas, freed all at once, may
+  follow in a later version.
 
 ### The case for garbage collection
 
@@ -137,9 +139,8 @@ unreachable before it assigns addresses. The
 Some things really can't be known before the program runs:
 
 - **Array indices** are checked at run time because their values are data.
-- **Conflicting access through globals** may need run-time checks once pools
-  can free storage, because a call site can't see every global a routine
-  touches.
+- **Identifiers into pools** are checked on use, because whether a slot has
+  been freed since is a run-time fact.
 - **Memory size** varies between machines, so a program checks at startup that
   it fits.
 

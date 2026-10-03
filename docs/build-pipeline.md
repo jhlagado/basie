@@ -6,7 +6,7 @@
   [toolchain](toolchain.md), [CP/M target](cpm-target.md)
 - Research: [linker prior art](research/linker-prior-art.md)
 - Replaces: the final-address model of the Nucleus Object Stream Format 0.1
-  (`../nucleus/docs/nucleus-object-format.md`)
+  (`../../nucleus/docs/nucleus-object-format.md`)
 
 This document explains why Baton builds programs the way it does and how the
 pieces fit together. The four specifications above define the details; where
@@ -14,8 +14,9 @@ this overview and a specification disagree, the specification governs.
 
 ## 1. Summary
 
-Building a Baton program is one command, `BATON MAIN`, which runs two phases of
-one executable:
+Building a Baton program is one command, `BATON MAIN`, which runs two programs
+in turn: the compiler, `BATON.COM`, and the linker, `BLINK.COM`, which `BATON`
+starts automatically:
 
 1. **Compile.** The compiler reads the source once and generates Z80 machine
    code. It writes the code as **blobs**: one per routine, constant or
@@ -101,7 +102,7 @@ purpose, rather than pretending not to need one.
 | --- | --- |
 | Blobs, ordinals, references, file layouts | [Object format](object-format.md) |
 | Reading, marking, placing, writing, reports, diagnostics | [Linker](linker.md) |
-| The executable, command line, file lifecycle, memory plan | [Toolchain](toolchain.md) |
+| The two programs, command line, file lifecycle, memory plan | [Toolchain](toolchain.md) |
 | Profiles, memory map, startup, exit, traps under CP/M | [CP/M target](cpm-target.md) |
 
 ## 5. Prior art
@@ -266,7 +267,7 @@ advisory.
 | Forward branches | always `JP` | `JR` where it fits, for buffered routines |
 | Runtime | linked whole for the target | blob library; unused helpers removed |
 | Output | image and patch spools, merged by a materializer | written in address order by the linker |
-| Executables | compiler, plus a materializer | one executable with compile and link phases |
+| Executables | compiler, plus a materializer | compiler `BATON.COM` (24K budget), then linker `BLINK.COM`, chained automatically |
 
 What carries over from Nucleus: append-only output files, a CRC that makes
 partial output unusable, a publication sequence that never destroys the
@@ -364,3 +365,6 @@ These are collected from the specifications:
   edge list layout; a compilation stamp derived from the previous directory; a
   `JP` for long inline literals; the stack reserve as a lower bound guarded by
   an activation-capacity check; and a per-routine reference capacity.
+- **Revision 5 addendum (2026-10-04):** the linker became a separate program,
+  `BLINK.COM`, chained from `BATON.COM`, to keep the compiler within its 24K
+  budget (design decision D9).

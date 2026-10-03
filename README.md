@@ -56,10 +56,12 @@ These terms are provisional, but the documents use them consistently.
 | --- | --- |
 | **holder** | The variable, field or slot that owns an object's storage. |
 | **ticket** | Temporary read access to an object that stays with its holder. An aggregate parameter is a ticket: it can be used during the call but not stored or returned except as an alias the signature declares. |
-| **lease** | Temporary access to change an object in place, returned to the holder when the call ends. Written `var` before a parameter's name. |
+| **lease** | Direct access to a node held in the caller's own owning local, for the length of a call or a `match` arm. |
+| **`var` parameter** | A parameter the routine may change, written `var` before its name. |
 | **move** | Handing ownership of a pool slot to a new owner, written `move x`. The source is left empty. |
-| **free** | Releasing a pool slot when its owner is finished with it. Mostly automatic. |
-| **pool** | A fixed array of records addressed by index, used for dynamic or graph-shaped data. |
+| **free** | Releasing a pool slot when its owner is finished with it. Always automatic. |
+| **pool** | A fixed number of slots of one record type, reached through handles, used for dynamic or graph-shaped data. |
+| **handle** | A reference to a pool slot: owning (`nodes`, `nodes?`) or an identifier (`id nodes`, `id nodes?`). |
 | **arena** | A region freed all at once, for temporary data within a scope. |
 | **blob** | The unit the linker places or removes: one routine, constant or variable. |
 
@@ -69,14 +71,13 @@ These terms are provisional, but the documents use them consistently.
   Baton learned from Nucleus.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
-- [Feature inventory](docs/feature-inventory.md): every feature a complete
-  Baton needs, its cost, and what leaving it out would save, including
-  `select` and pattern matching.
+- [Feature inventory](docs/feature-inventory.md): every feature, its cost
+  against the 24K compiler budget, and whether it is in version 1 or 2.
 - [Input, output and effects](docs/io-and-effects.md): services and the
   external-effects channel instead of operating-system or port primitives.
 - [Memory safety](docs/memory-safety.md): how Baton is memory safe without a
-  garbage collector: storage classes, owned handles, pools, the `frees` effect
-  and stack bounds.
+  garbage collector: storage classes, aliases, pools and handles, `move`, and
+  stack bounds.
 - [Build pipeline](docs/build-pipeline.md): why Baton compiles to machine-code
   blobs and links them, and how the pieces fit.
 - [Object format](docs/object-format.md): the files passed from the compiler to

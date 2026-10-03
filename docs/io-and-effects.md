@@ -2,7 +2,7 @@
 
 - Status: proposal, not yet reviewed
 - Date: 2026-10-04
-- Related: Nucleus runtime contract, Section 8 (`../nucleus/docs/z80-runtime-contract.md`);
+- Related: Nucleus runtime contract, Section 8 (`../../nucleus/docs/z80-runtime-contract.md`);
   Skate's [external effects](../../skate/docs/public/external-effects.md) and
   [ports](../../skate/docs/ports.md); [memory safety](memory-safety.md);
   [CP/M target](cpm-target.md)
@@ -43,7 +43,7 @@ language.
 ### 3.1 No operating-system or port primitives in the language
 
 Baton source has no way to call a BDOS function, execute `IN` or `OUT`, or name
-a memory address. This withdraws the port built-ins listed in revision 1 of the
+a memory address. This withdraws the port built-ins listed in an earlier draft of the
 [feature inventory](feature-inventory.md).
 
 ### 3.2 Services
