@@ -1,0 +1,10 @@
+// An index one past the end traps with `bounds` on the line that indexes.
+// spec: 15 (traps)
+// expect trap: bounds at 10
+
+var cells as u8[4]
+
+sub main()
+    var i as u8 = 4
+    cells[i] = 1
+end

@@ -1,0 +1,8 @@
+// The smallest program: write a string through the console service.
+// spec: 16 (services)
+// expect output: Hello\r\n
+// expect return: 0
+
+sub main() fails
+    writeText(console, "Hello\r\n") else fail
+end
