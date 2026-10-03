@@ -69,6 +69,9 @@ These terms are provisional, but the documents use them consistently.
   Baton learned from Nucleus.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
+- [Memory safety](docs/memory-safety.md): how Baton is memory safe without a
+  garbage collector: storage classes, owned handles, pools, the `frees` effect
+  and stack bounds.
 - [Build pipeline](docs/build-pipeline.md): why Baton compiles to machine-code
   blobs and links them, and how the pieces fit.
 - [Object format](docs/object-format.md): the files passed from the compiler to

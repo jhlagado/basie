@@ -263,6 +263,13 @@ linker removes unreachable blobs before assigning addresses. See the
 
 ## Open
 
+### Memory safety
+
+The ownership and memory-safety design, which resolves O1 and O2 below and
+defines how each hazard is prevented, is drafted in
+[memory safety](memory-safety.md). Once reviewed, its rules become decisions
+here.
+
 ### O1. Exclusivity and `inout`
 
 Swift's rule is that an `inout` argument may not overlap any other access
