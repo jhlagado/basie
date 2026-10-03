@@ -306,6 +306,11 @@ The pool's name, used as a type, denotes a **handle** to one of its slots
 | `id P` | refers to a slot of `P` without owning it |
 | `id P?` | refers to a slot of `P`, or is `none` |
 
+A record may name a pool declared after it only if the pool was announced
+earlier with `forward pool P` (design decision D40); a forward pool may appear in
+handle types, whose size doesn't depend on the record, but in nothing else until
+the pool declaration completes it.
+
 The non-optional forms are admitted only for locals with an initializer and for
 parameters. Fields, array elements and program variables of handle type are
 always optional, since they start as `none`.

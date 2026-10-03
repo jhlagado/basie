@@ -57,7 +57,7 @@ The compiler is kept within budget by:
 | `var` parameters | 0.2K | — | D17, D30 |
 | Declarations anywhere, block scope | 0.2K | — | D28 |
 | Typed and local constants; inference from typed initialisers | 0.2K | — | D20, D21 |
-| Pools, handles, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
+| Pools, handles, `forward pool`, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
 | Stack bound and checks | 0.2K | 0.1K | memory safety §7 |
 | Services for I/O | 0.2K for the service table | per service used | [I/O and effects](io-and-effects.md) |
 | Blob output for the linker | about neutral against Nucleus's output | — | build pipeline |

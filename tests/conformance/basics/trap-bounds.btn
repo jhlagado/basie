@@ -1,6 +1,6 @@
 // An index one past the end traps with `bounds` on the line that indexes.
 // spec: 15 (traps)
-// expect trap: bounds at 10
+// expect trap: bounds at 9
 
 var cells as u8[4]
 

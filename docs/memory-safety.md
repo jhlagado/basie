@@ -121,6 +121,8 @@ leased node's owner can't be reached during the lease.
 ### 5.1 Pools
 
 ```nucleus
+forward pool nodes            // lets Node's fields name the pool (D40)
+
 record Node
     value  as u16
     name   as string[16]

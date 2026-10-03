@@ -766,6 +766,34 @@ arguments are printed instead.
 **Why.** Message text is several kilobytes that the compiler would otherwise
 carry through every compilation (D9).
 
+
+### D40. Forward pool declarations
+
+A record and its pool refer to each other: `record Node` has a field of type
+`nodes?`, and `pool nodes as Node[64]` needs `Node`. Under declaration before
+use, a **forward pool declaration** breaks the cycle, as `forward sub` does for
+mutually recursive routines:
+
+```nucleus
+forward pool nodes
+
+record Node
+    value as u16
+    next  as nodes?
+end
+
+pool nodes as Node[64]
+```
+
+`forward pool P` makes `P` usable in handle types, which have a fixed size (2
+bytes for owning handles, 4 for identifiers) whatever the record is. Nothing
+else may use `P` until the pool declaration completes it: no `new`, no field
+access through its handles. A forward pool must be completed in the same
+compilation, and at most once.
+
+**Why.** It keeps declaration before use, and with it the single pass, while
+letting records hold handles to their own pool.
+
 ## Open
 
 ### O1. Exclusivity (resolved)
