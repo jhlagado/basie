@@ -69,5 +69,11 @@ These terms are provisional, but the documents use them consistently.
   Baton learned from Nucleus.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
-- [Build pipeline](docs/build-pipeline.md): object spools, the link step and
-  tree shaking.
+- [Build pipeline](docs/build-pipeline.md): why Baton compiles to machine-code
+  blobs and links them, and how the pieces fit.
+- [Object format](docs/object-format.md): the files passed from the compiler to
+  the linker, byte for byte.
+- [Linker](docs/linker.md): marking, placement, output and diagnostics.
+- [Toolchain](docs/toolchain.md): the `BATON` executable, its command line,
+  files and memory plan.
+- [CP/M target](docs/cpm-target.md): profiles, memory map, startup and exit.

@@ -239,7 +239,7 @@ checked program has hundreds of sites, and the call form saves roughly 2K per
 500 of them, all in code that runs only when there is a bug. The person fixing
 a trap will have the line table. A later debug option may restore inline
 positions; it would change only the report's format, not program behaviour.
-See the [build pipeline](build-pipeline.md), §11.
+See the [CP/M target](cpm-target.md), §10, and the [toolchain](toolchain.md), §8.
 
 ### D12. Re-running without reloading is opt-in
 
@@ -251,7 +251,7 @@ initial values and restores them at every start. It is off by default.
 **Why.** Most CP/M users never re-enter programs this way, so most programs
 shouldn't pay for a second copy of their initial data. ROM targets need the same
 copy mechanism, so offering the option costs no extra design. See the
-[build pipeline](build-pipeline.md), §9.6.
+[CP/M target](cpm-target.md), §7.
 
 ### D13. Build pipeline
 
@@ -329,7 +329,7 @@ supplies a value of the right type.
 
 Scope-bound regions freed all at once, for temporary data. Free memory between
 the end of static storage and the stack is available for this at run time,
-starting at the linker's `FREE_START` (see the build pipeline, §8.4).
+starting at the address of the `FREE` pseudo-object ([object format](object-format.md), §3.4).
 
 ### O5. Routine values
 
