@@ -81,7 +81,6 @@ two.
 | --- | --- | --- |
 | Arenas | 0.5–1K | Scope-bound dynamic storage |
 | Interrupt routines | 0.5–1K | Needs a profile statement and register saving |
-| Banked targets | 1–2K plus linker work | TEC banked ROM |
 | Precompiled libraries | 1–2K | Names in the compiler, ordinals in the linker |
 
 ## 3. `select`
