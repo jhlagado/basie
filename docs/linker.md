@@ -246,6 +246,9 @@ its section, keeping one cursor per section (`TEXT`, `DATA`, `BSS`). Because
 the reads run from the largest class down, each section ends up ordered as
 Section 6.2 requires.
 
+Each section's base is rounded up to the largest alignment of any blob in it,
+so that offsets aligned within the section are aligned absolutely.
+
 After the last read, the linker knows each section's size. It computes the
 section bases (`START` at the image base, followed by the others as Section 6.1
 describes), then walks the tables by ordinal and adds each live blob's section
