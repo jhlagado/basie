@@ -1,11 +1,12 @@
 # Baton memory safety
 
-- Status: draft design, revision 4
+- Status: design, revision 5; ready to freeze once reviewed
 - Date: 2026-10-04
 - Decisions it rests on: [design decisions](design-decisions.md) D8, D15–D30
 - Reviews: [1](reviews/2026-10-03-memory-safety-review.md),
   [2](reviews/2026-10-03-memory-safety-review-2.md),
-  [whole design](reviews/2026-10-04-design-review.md)
+  [whole design](reviews/2026-10-04-design-review.md),
+  [3](reviews/2026-10-04-memory-safety-review-3.md)
 - Related: [CP/M target](cpm-target.md) (stack checks, traps),
   [feature inventory](feature-inventory.md) (`select`)
 
@@ -33,7 +34,7 @@ program with a report naming the source line.
 | **`none`** | The empty value of an optional handle |
 | **`move`** | Hands an owning handle from a named variable, parameter or field to a new owner, leaving `none` behind |
 | **Freeing** | Returning a slot to its pool. Always automatic |
-| **Lease** | Direct access to a node held in the caller's own owning local, given by a `var` record parameter or by `select` on that local |
+| **Lease** | Direct access to a node held in the caller's own owning local or parameter, given by a record parameter or by `select` on it |
 | **Generation** | A counter in each slot that changes whenever the slot is freed, so stale identifiers can be detected |
 
 ### 1.2 The two kinds of reference
@@ -129,11 +130,13 @@ end
 pool nodes as Node[64]
 ```
 
-A pool is placed as a `bss` blob. Each slot holds the record, a 2-byte
-generation and a 2-byte link kept outside the record. The pool also has a
-high-water mark and a free-list head and tail. Pool storage never moves, and a
-slot only ever holds its pool's record type. The expected style is one pool per
-record type, shared by every structure that uses it (D23).
+A pool is placed as a `bss` blob. Each slot holds a 2-byte generation and a
+2-byte link, **in the four bytes immediately before the record**, followed by
+the record itself. A handle is the record's address, so the runtime can find
+any slot's generation and link from its handle alone, whatever pool it is in.
+The pool also has a high-water mark and a free-list head and tail. Pool storage
+never moves, and a slot only ever holds its pool's record type. The expected
+style is one pool per record type, shared by every structure that uses it (D23).
 
 ### 5.2 Handle types
 
@@ -160,14 +163,22 @@ assignment and by-value passing are errors.
 
 ```nucleus
 var n = new nodes(5, "five", none, none)
+var t = new trees(1)              // trailing fields omitted: zeroed
 ```
 
-`new` allocates a slot and initialises every field from its arguments. It takes
-the oldest slot on the free list, or the next never-used slot above the
-high-water mark. If the pool is full, it traps with `pool-full` (D27);
-`new? nodes(...)` returns `nodes?` instead, `none` when the pool is full. The
-slot is reserved before the arguments are evaluated, so exhaustion never
-consumes a moved argument.
+`new` allocates a slot and initialises fields from its arguments, in order.
+Trailing arguments may be omitted, and their fields are zeroed; this is how a
+record with an array of owning handles, or a nested owning record, is built,
+since such a field has no value that could be passed. `new`'s stores into the
+new record are initialising stores, not overwrites.
+
+`new` takes the oldest slot on the free list, or the next never-used slot above
+the high-water mark. If the pool is full, it traps with `pool-full` (D27).
+`new? nodes(...)` returns `nodes?` instead, and when the pool is full it
+evaluates **none** of its arguments and returns `none`. In both forms the slot
+is reserved before the arguments are evaluated, so exhaustion never consumes a
+moved argument. A non-optional local moved into a `new?` argument is
+**may be moved** afterwards, on both arms of the `select` that tests the result.
 
 **Moving.** An owning handle held in a variable, parameter or field is handed on
 only with `move`, which leaves `none` behind (D19). Fresh values, the results of
@@ -181,14 +192,20 @@ only with `move`, which leaves `none` behind (D19). Fresh values, the results of
 - when the slot or the local aggregate that owns it is freed; and
 - when the temporary holding it ends (below).
 
-Freeing `none` does nothing, so the compiler emits the same epilogue whatever
-path was taken.
+Freeing `none` does nothing. A routine's exits share one epilogue that frees its
+owning locals, so freeing costs a jump per exit path, not a copy of the freeing
+code.
 
 **Fresh temporaries.** A fresh owning value that is not stored, such as an unused
 result of `new` or of a routine, is held in an anonymous local of the innermost
-enclosing statement. It is freed on every exit from that statement. For a
-`select`, the statement is the whole `select`, so a fresh subject lives until the
-end of the last arm. A temporary may be selected on and leased like a local.
+enclosing statement, which is set to `none` when the statement begins. It is
+freed on every exit from that statement. For a `select`, the statement is the
+whole `select`, so a fresh subject lives until the end of the last arm. A
+temporary made in a `while` or `if` condition is freed once the condition has
+been tested. A temporary in a call with a `handle` body lives until the end of
+the handle body. Because the anonymous local starts as `none`, an operand left
+unevaluated by `and` or `or` leaves nothing to free. A temporary may be selected
+on and leased like a local.
 
 **Order of overwrite.** An assignment to an owning location evaluates the right
 side first, then resolves the destination, then frees the old value, then
@@ -216,7 +233,10 @@ An optional handle, owning or not, can't be used directly; it is tested with
 
 Scalar fields are read and written in place. An aggregate field, such as
 `name`, is copied as a whole: `var s = i.name` copies it out to a local, and
-`i.name = s` copies it in. It can't be passed by alias, except through a lease.
+`i.name = s` copies it in. Passing it to a ticket parameter, `g(i.name)`, copies
+it into a hidden temporary in the caller's frame and passes that; the
+temporary is counted in the frame (Section 7). It can't be passed to a `var`
+parameter, except through a lease.
 
 Because every access resolves its handle after evaluating its operands,
 `i.value = f()` calls `f` first, then checks `i`, then stores. Nothing can free
@@ -257,19 +277,37 @@ var p as Node
 bump(p)                       // a Node in activation storage works too
 ```
 
-A `var` record parameter accepts any record of its type that the caller can
-change, including the node held by one of the caller's own owning locals (D30).
-For a node:
+A record parameter, a ticket or `var`, accepts any record of its type in program
+or activation storage, and also the node held by one of the caller's own owning
+locals or owning parameters, or by a temporary (D30). Passing a node is a
+**lease**:
 
-- the argument must be the caller's own owning local, or a temporary;
-- that local may not appear anywhere else in the same statement, except as
-  `id(h)` or as a read of a scalar field; and
-- the callee sees an ordinary `var` record: it can read and write fields, but it
-  has no handle to move, overwrite or free.
+- that local or parameter may not appear anywhere else in the same statement,
+  except as `id(h)` or as a read of a scalar field (Section 5.8); and
+- the callee sees an ordinary record: through a `var` parameter it can read and
+  write fields, but it has no handle to move, overwrite or free.
 
-Only the owner can free a slot, and the owner is a local of the caller that
-nothing else can reach during the call. So the slot can't be freed while it is
-leased.
+Only the owner can free a slot, and the owner is a local or parameter of the
+caller that nothing else can reach during the call. So the slot can't be freed
+while it is leased.
+
+**The owner word.** A `var` parameter whose type is an owning type (a record or
+array containing owning handles, or a `nodes?` slot-holder) carries a hidden
+**owner word**, supplied by the caller: 0 when the argument is in program or
+activation storage, and the slot's address when the argument is a leased node or
+lies inside one. Every store of an owning handle through the parameter writes
+the owner word as the moved slot's link (Section 5.9). A parameter passed on to
+another such parameter passes its own owner word. The cost is 2 bytes of stack
+per such parameter and 1 to 3 bytes at each call site.
+
+**Identifiers inside a lease.** In a routine with a `var` record parameter `n`,
+`id(n)` gives `id P?`, where `P` is the pool of that record type: the node's
+identifier when `n` is a leased node, and `none` when it is not. It is an error
+if the record type has more than one pool.
+
+**Results.** A lease may be named in a `from` clause. A result rooted in it is
+used within the caller's statement, where the lease's statement rule already
+applies. `from` may not name a slot-holder.
 
 ### 5.7 Slot-holders
 
@@ -283,19 +321,25 @@ sub push(var list as nodes?, v as u16)
 end
 ```
 
-Its argument must be a location that **no pool slot owns**: an owning local, a
-program variable, or a field or element of a local or program aggregate. A field
-of a pool record can't be passed as a slot-holder; the program edits it inline
-through an identifier, where every access is checked. It may not be a local
-leased in the same statement.
+Its argument must be one of:
 
-This keeps a slot-holder's storage outside every pool, so nothing the callee
-does can free the storage it is writing to.
+- an owning local or parameter of type `nodes?`, or a program variable;
+- a field or element of a local or program aggregate; or
+- a field or element of a `var` owning-aggregate parameter, including a leased
+  node, in which case the slot-holder inherits that parameter's owner word.
 
-### 5.8 The flow check
+A field of a pool record reached through an **identifier** can't be passed as a
+slot-holder; the program edits it inline, where every access is checked. A
+slot-holder may not be a local or parameter leased in the same statement.
 
-For each owning local, the compiler tracks whether it **certainly** holds a
-value, **certainly** holds `none`, or **may** hold either.
+These rules keep a slot-holder's storage out of reach of anything that could
+free it during the call: either it is outside every pool, or it lies in a
+leased node whose owner nothing else can reach.
+
+### 5.8 The flow check and the statement rule
+
+For each owning local and owning parameter, the compiler tracks whether it
+**certainly** holds a value, **certainly** holds `none`, or **may** hold either.
 
 - Accessing or moving a non-optional owning local that **may** have been moved
   is an error.
@@ -309,50 +353,72 @@ value, **certainly** holds `none`, or **may** hold either.
 - Moves are not allowed inside an operand of `and` or `or`, or in a `while`
   condition.
 
+**The statement rule.** Within one statement, an owning local or parameter that
+is used directly anywhere (as an access path such as `x.value` or `x.kids[k]`,
+an assignment destination, a lease argument, or a `select` subject) may not be
+moved or overwritten anywhere else in that statement. The exceptions are
+`id(x)`, reads of scalar fields, and a plain `x = ...` with no other direct use
+of `x`. So `x.value = eat(move x)` and `show(h, eat(move h))` are errors: the
+right side would free the node the left side or the lease still uses.
+
 Because a move stores `none` at run time, no code is needed at joins: a path
 that moved a value and one that didn't already agree in memory. Flow states
-exist only for owning locals; every other owning location is treated as
-possibly holding a value.
+exist only for owning locals and parameters; every other owning location is
+treated as possibly holding a value.
 
 ### 5.9 Owner links and cycles
 
-Each allocated slot's link field records its owner:
+Each allocated slot's link records its owner:
 
 - **0** while it is owned by anything that is not a pool slot: a local, a
-  program variable, or a local or program aggregate; and
+  parameter, a temporary, a program variable, or a local or program aggregate;
+  and
 - **the owning slot's address** while it is owned by a field of another slot.
 
-`new` writes 0. Every store of an owning handle writes the moved slot's link: the
-destination slot's address when the destination is a field of a slot, 0
-otherwise. A move out of a field leaves the moved slot's link unchanged until the
-next store, which is harmless: the cycle check below reads the links of slots
-**above** the destination, and those were not moved in the same statement.
+**Every store of a non-`none` owning handle writes the moved slot's link.** The
+value written is the destination slot's address when the destination is a field
+of a slot reached through an owner, an identifier, or a lease's owner word; it
+is 0 otherwise. Binding an argument to an owning parameter, binding `some(n)` in
+`select move`, and holding a fresh value in a temporary are stores that write 0.
+`new` writes 0 into the new slot's link. A `none` handle has no slot, so no link
+is written for it; the test costs 4 bytes and about 20 T-states, folded into the
+store helper where one is used.
+
+So no link is stale beyond the statement that moved its slot, and whenever the
+cycle check runs, the links form a forest whose roots have link 0.
 
 A slot must never own itself, directly or through a chain. A store into a
-location that no slot owns can't create a cycle. A store into a field of a slot
-reached through an owning local or a lease can't either, because that slot's
-link is 0: it is a root. Only a store into a field of a slot reached through an
-**identifier** can, because the identifier may point inside the subtree being
-stored. Before storing handle *b* into a field of slot *s*, the runtime follows
-the links upwards from *s* until it reaches 0; if it meets *b*, it traps with
-`ownership-cycle`. Each step costs one link read.
+location no slot owns can't create a cycle. A store into a field of a slot that
+is a root (reached through an owning local, an owning parameter or a temporary)
+can't either. Only a store into a field of a slot reached through an
+**identifier**, or through a lease of a slot that is not itself a root, can.
+Before storing handle *b* into a field of slot *s*, the runtime follows the
+links upwards from *s* until it reaches 0; if it meets *b*, it traps with
+`ownership-cycle`. The walk takes one step per level between *s* and its root,
+about 60 T-states each: appending to the end of a 64-node list walks the whole
+list.
 
 ### 5.10 Freeing without recursion
 
 Freeing a slot frees everything it owns. The runtime keeps a work list threaded
-through the link fields: it reads each owned field of a slot, pushes each
-non-empty child, then returns the slot to its pool, and repeats until the list
-is empty. Stack use is constant.
+through the link words: it reads each owned field of a slot, pushes each child
+**whose link equals the address of the slot being freed**, then returns the slot
+to its pool, and repeats until the list is empty. Stack use is constant.
 
-The cascade is **idempotent**: a slot being freed is marked, and a child that is
-already marked or already free is not pushed. Any cycle that slipped through
-would then become a leak, not a double free.
+The link test replaces a mark bit. A correctly owned live child always passes
+it; a child that is already free, already on the work list, or reached through a
+cycle that slipped past the check never does, since its link no longer names
+this slot. So the cascade can neither loop nor free a slot twice. The slot at
+the top of a cascade, freed from a local, parameter, temporary or local
+aggregate, has link 0 and is freed without the test. A withdrawn slot's fields
+are never read again.
 
 To find a slot's owned fields, the runtime uses a **descriptor** per owning type
-in `rodata`: for each owning field, its offset and the pool it points into; and
-for each array of them, the offset, stride, count and pool. The linker keeps a
-descriptor whenever live code can free a slot of that type, including through
-another type's descriptor. The same descriptors free the owning fields of local
+in `rodata`: for each owning field, its offset; and for each array of them, the
+offset, stride and count. Because the generation and link sit just before every
+record, the descriptor needs no pool information. The linker keeps a descriptor
+whenever live code can free a slot of that type, including through another
+type's descriptor. The same descriptors free the owning fields of local
 aggregates at the end of their block.
 
 ### 5.11 Generations
@@ -361,9 +427,11 @@ A never-used slot has generation 0. `new` gives a fresh slot generation 1. A slo
 is allocated only while its generation is below `$FFFF`. Freeing advances the
 generation; a slot whose generation becomes `$FFFF` is withdrawn instead of being
 put on the free list. No identifier is ever made with generation 0 or `$FFFF`,
-and the check rejects both, so withdrawn and never-used slots never match. An
-identifier's slot index is checked against the pool's size as part of the same
-check.
+and the check rejects both, so withdrawn and never-used slots never match.
+
+An identifier holds its slot's address and the generation, 4 bytes. Identifiers
+are made only by `id()`, are never converted from integers, and start as `none`,
+so an identifier's address always names a real slot; no range check is needed.
 
 The free list is first in, first out, so frees spread across all slots. A
 64-slot pool withdraws its first slot only after about four million frees.
@@ -378,8 +446,9 @@ fields using the type's descriptor, on every exit path.
 - Through a ticket (`h as Holder`), owning fields can be read, tested with `select` and
   turned into identifiers, but not moved or overwritten.
 - Through a `var` parameter (`var h as Holder`), they can be moved and
-  overwritten; such a store needs no cycle check, since the record is not in a
-  pool.
+  overwritten. Such a store writes the parameter's owner word as the link
+  (Section 5.6); when the word is 0 the record is not in a pool and no cycle
+  check is needed.
 - A pool record with a field of an owning record type is reached through an
   identifier path such as `i.sub.head`, under one check (Section 5.4).
 
@@ -430,10 +499,22 @@ need(R) = frame(R) + helperStack(R)
 `helperStack(R)` comes from the stack figures published for each runtime
 helper.
 
+`frame(R)` is the largest total of locals and temporaries live at any one point
+in `R`: blocks nested inside one another add up, while blocks side by side share
+space.
+
 Every cycle of calls passes through a routine that calls itself or calls a
-forward routine not yet defined at the call. Every self-recursive and every
-forward-declared routine begins with an activation-capacity check: it traps if
-`SP − need(R) − guard` would fall below `FREE`. `need(main)` plus the guard is
+forward routine not yet defined at the call. **A routine that calls itself must
+be forward-declared**, so every cycle passes through a forward-declared routine.
+Every forward-declared routine begins with an activation-capacity check: it
+traps if `SP − need(R) − guard` would fall below `FREE`.
+
+**Filling in the prologue.** `frame(R)` and `need(R)` are known only when the
+routine ends, after its prologue has been emitted. So the prologue reads them
+from a 4-byte pair the compiler writes into the routine's blob after its code,
+reached by a self-reference. This costs about 2 bytes and 10 T-states per
+routine more than immediate operands, and works for routines too large for the
+routine buffer. `need(main)` plus the guard is
 written into the `LIMITS` record as the stack reserve, so startup's memory check
 guarantees the rest. The guard band is a profile value covering BDOS entry and
 interrupt-mode-1 pushes. See the [CP/M target](cpm-target.md), Section 4.1.
@@ -478,6 +559,10 @@ sub bumpHead()
     end
 end
 ```
+
+Appending at the tail through an identifier pays the cycle walk over the whole
+list (Section 5.9); a list that grows at the tail should keep an identifier to
+the tail's parent or be built at the head.
 
 **Deleting matching nodes.**
 
@@ -543,15 +628,17 @@ compiles and is memory safe by bounds checking, but detects no stale index.
 
 | Mechanism | Bytes | T-states |
 | --- | --- | --- |
-| Identifier access | 6 at the site, about 28 per pool in a helper | about 165 |
+| Identifier access | 6 at the site, about 28 in a shared helper | about 150 |
 | Owning-handle or lease access | 3 | 16 |
 | `select` on an optional handle | 5 plus the arms | about 20 |
-| `move` (store `none`, write the owner link) | 6 to 8 | about 40 |
+| `move` (store `none`; test for `none`; write the owner link) | 10 to 12 | about 60 |
 | Overwrite of an owning location | about 9 | about 40, plus freeing |
 | Freeing one slot | about 6 at the site; a shared helper and descriptors | 200 to 250 per slot |
-| Cycle check | in the identifier store helper | about 60 per level |
-| Activation-capacity check | 5 at the site, a 15-byte helper | 60 to 95, only in forward and self-recursive routines |
-| Pool overhead | 4 bytes per slot, about 6 per pool | — |
+| Cycle check | in the identifier store helper | about 60 per level between the destination and its root |
+| Owner word for a `var` owning parameter | 1 to 3 at the call site | 2 bytes of stack |
+| Activation-capacity check | 5 at the site, a 15-byte helper | 60 to 95, only in forward-declared routines |
+| Pool overhead | 4 bytes per slot, before each record; about 6 per pool | — |
+| Prologue figures | 4 bytes per routine, after its code | about 10 |
 
 Compiler memory: a flow state per owning local per open block, and `need` per
 routine. No effect sets and no alias provenance are needed.

@@ -129,9 +129,9 @@ bound for everything reachable from `main` outside cycles, and startup's memory
 check (step 3) guarantees that part can never overflow. The `STACK=` option can
 only raise it.
 
-Every cycle of calls passes through a routine that calls itself or a forward
-routine not yet defined at the call. Each **self-recursive** and each
-**forward-declared** routine begins with the **activation-capacity check**,
+Every cycle of calls passes through a forward-declared routine, because a
+routine that calls itself must be forward-declared. Each **forward-declared**
+routine begins with the **activation-capacity check**,
 Nucleus's `activation-capacity` trap carried over: a call to the runtime's
 stack-check helper with `need(R)`, which traps if the stack pointer minus
 `need(R)` minus the guard band would fall below `FREE`. No other routine needs

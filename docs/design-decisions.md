@@ -603,15 +603,17 @@ scope gives every owning local an exact end.
 `id` is a keyword only before a pool name in a type. Elsewhere it is an ordinary
 identifier, so `id` remains usable as a field or variable name.
 
-### D30. Direct access to a node is a `var` record parameter
+### D30. Direct access to a node is a record parameter
 
-A `var` parameter of record type, `var n as Node`, accepts any `Node` the caller
-can change: one in program or activation storage, or the node held by one of the
-caller's own owning locals of a pool of `Node`. Inside, the routine has direct,
-unchecked access. For a node, the rules of a lease apply: the argument must be
-the caller's own owning local, and that local may not appear anywhere else in
-the same statement except as `id(n)`. This replaces the separate parameter kind
-`var h as nodes`.
+A record parameter, read-only or `var`, accepts any record of its type in
+program or activation storage, and also the node held by one of the caller's own
+owning locals or owning parameters, or by a temporary. Inside, the routine has
+direct, unchecked access. Passing a node is a lease: that local or parameter may
+not appear anywhere else in the same statement except as `id(h)` or a read of a
+scalar field. A `var` parameter of an owning type carries a hidden owner word so
+that stores through it keep ownership links correct
+([memory safety](memory-safety.md), Section 5.6). This replaces the separate
+parameter kind `var h as nodes`.
 
 
 ### D31. Numeric rules
@@ -643,6 +645,10 @@ the same statement except as `id(n)`. This replaces the separate parameter kind
   comparisons that don't widen are errors.
 - **Counted loops** may use any integer type as the counter, with negative steps;
   Nucleus's loop-range trap rules apply.
+- **Indexes** are `u8` or `u16`. A signed value must be converted explicitly,
+  and the checked conversion traps if it is negative, so a negative index can
+  never wrap into a valid one. Assigning a signed value to a string's `.length`
+  is a mixed-sign error for the same reason.
 - **Constant expressions** are evaluated exactly as at run time: integers exactly
   and then checked to fit, `f32` with round-to-nearest-even and flush-to-zero
   (D7).
