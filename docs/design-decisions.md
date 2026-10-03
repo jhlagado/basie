@@ -292,6 +292,65 @@ while `as` reads as a phrase, especially where modifiers stack up
 (`list as inout own? nodes`), and keeps the BASIC character. The compiler cost
 is the same either way.
 
+
+### D15. One `match` statement
+
+Baton has a single selection statement, `match`, instead of a BASIC-style
+`select` alongside a separate pattern-matching form. Rust's `match` is a
+superset of `SELECT CASE`, so one statement covers both:
+
+- integer and character constants, lists of them, and ranges (`'0' to '9'`),
+  with `case else`;
+- enumerations, with a check that every value is covered unless there is a
+  `case else`;
+- variants whose cases carry data, binding their fields; and
+- optional handles and identifiers (`some`, `none`) and identifier liveness
+  (`live`, `stale`), which is how the memory-safety design tests them.
+
+```nucleus
+match key
+case 'q', 'Q'
+    exit
+case '0' to '9'
+    digit(key - '0')
+case else
+    beep()
+end
+```
+
+There is no fall-through. `match` is a statement; using it as an expression
+waits on expression blocks (O3). Nested patterns and guards are left out to keep
+the compiler small. See the [feature inventory](feature-inventory.md),
+Sections 3 and 4.
+
+**Why.** Two statements would mean two parsers, two rule sets and two things to
+learn, when one does everything both would. The parts share one dispatch and
+one exhaustiveness mechanism, so building them together costs less than adding
+them separately.
+
+### D16. No aliases into pool storage
+
+Pool records are reached only through handles, never through aliases:
+
+- every access through a handle or identifier is one checked operation,
+  resolved after all of its operands are evaluated, so nothing can retire the
+  slot between the check and the access;
+- aggregate fields of pool records are copied out, not passed by alias;
+- `match` on an optional handle binds an identifier, not an alias;
+- a lease on a handle (`h as inout own nodes`) may be taken only from the
+  caller's own owned local, and the callee may not move, retire or overwrite
+  it; and
+- storing an owned value through an identifier path is checked at run time so
+  that it can't create an ownership cycle.
+
+**Why.** Two adversarial reviews showed that aliases into pool slots needed an
+effect system (`frees`), pool provenance on every alias and a statement-level
+staging rule, and each round of fixes opened new holes. Without pool aliases,
+none of that machinery is needed: aliases remain fully expressive for program
+and activation storage, where the `from` rule makes them safe, and pool storage
+is protected by unique ownership and generation checks. The
+[memory safety](memory-safety.md) design is to be revised to match.
+
 ## Open
 
 ### Memory safety
