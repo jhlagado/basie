@@ -1,10 +1,13 @@
 # Baton services, version 1
 
-- Status: draft, not yet reviewed
+- Status: draft, revision 2 (after review)
 - Date: 2026-10-04
 - Related: [input, output and effects](io-and-effects.md),
-  [design decisions](design-decisions.md) (D9, D10, D25, D26),
-  [CP/M target](cpm-target.md), [memory safety](memory-safety.md) §2.1
+  [design decisions](design-decisions.md) (D10, D25, D26, D36, D38),
+  [CP/M target](cpm-target.md), [memory safety](memory-safety.md) §2.1,
+  [review](reviews/2026-10-04-services-review.md)
+- Shared contracts: z80-services `byteGateway/0`; z80-tool-services ABI v1 for
+  named-file semantics (Section 10)
 
 ## 1. What a service is
 
@@ -14,231 +17,384 @@ command line and the machine. The language itself has no operating-system
 calls, port instructions or addresses ([I/O and effects](io-and-effects.md)).
 
 - **Signatures** are ordinary Baton signatures, compiled into the compiler from
-  the runtime's helper table, so services are called like any routine and a
+  the runtime's helper table, so services are called like any routine, and a
   call to a service the profile lacks is a compile-time error.
 - **Failure** uses Nucleus's mechanism: a service that can fail is marked
-  `fails` and reports a `u8` code, normally handled with `else fail` or
-  `handle`. The codes are predeclared constants (Section 7).
+  `fails` and reports a `u8` code (Section 9).
 - **Cost.** Each service is a runtime blob, so a program carries only the
   services it calls. On CP/M 2.2 a call is an ordinary `CALL`.
 - **Safety.** Services are part of the trusted base. A service given an alias
   checks its extent and mode, keeps no address after returning, and restores the
-  DMA address to the runtime's own buffer before it returns.
-- **Library above services.** Formatting numbers, parsing text, string building,
-  pseudo-random numbers and the external-effects frame encoding are written in
-  Baton in the standard library, on top of these services.
+  DMA address to the runtime's own buffer before it returns. Services are
+  runtime helpers for the trap reporter contract ([CP/M target](cpm-target.md)
+  §10.2); only `writeBlock` can trap (`bounds`), and it does so before any
+  transfer.
+- **Library above services.** Formatting, parsing, string building, splitting
+  the command line into words, pseudo-random numbers and the external-effects
+  frame encoding are Baton library routines (D36, Section 8).
 
 The target is CP/M 2.2 (D10). Where CP/M 3 offers more, the service says so;
 everything works on 2.2.
 
-## 2. Console and printer
+## 2. File numbers
 
-The console and the printer are **predeclared file numbers**, `console` and
-`printer`, so the file services of Section 3 work on them too:
+A file, the console and the printer are all identified by a **file number**, of
+the predeclared type `File`.
 
-```nucleus
-writeText(console, "Name? ") else fail
-readLine(console, name) else fail
-writeText(printer, report) else fail
-```
+- A `File` is 4 bytes: the address of its entry in the runtime's file table and
+  a 16-bit generation, checked on every use, exactly as identifiers are
+  ([memory safety](memory-safety.md) §5.11). Generations start at 1, saturate,
+  and are never 0, so a zeroed `File` variable, or one whose file has been
+  closed, fails with `fileClosed` instead of reaching another file.
+- There is no conversion between `File` and any integer, no arithmetic on it, and
+  no way to read one from data. `File` values arise only from the `open`
+  services and the predeclared `console` and `printer`. Two `File` values may be
+  compared with `=` and `<>`.
+- `console` and `printer` are fixed values the runtime recognises before
+  consulting the table; they occupy no table entry and can't be closed
+  (`notAvailable`).
+- The number of files open at once is chosen at link time with `F=n`, 1 to 255,
+  default 4 (D38). The table lives at the end of `BSS`, so the startup memory
+  check covers it; it costs about 176 bytes per entry, and nothing if the
+  program opens no files.
+- A failed `open` allocates no entry and leaves no temporary file.
 
-| On `console` | Meaning | CP/M 2.2 |
+## 3. Console and printer
+
+### 3.1 How the console is driven
+
+Every console byte goes through **BDOS 6**, in both directions, and `readLine`
+alone uses BDOS 10. BDOS functions 1, 2, 9 and 11 are never called. This avoids
+a CP/M 2.2 trap: the BDOS's ordinary output path polls the keyboard for
+Control-S and keeps any other waiting key in a one-byte buffer that BDOS 6 never
+sees, so a key typed during output would vanish.
+
+The consequences:
+
+- output is raw: no tab expansion, no Control-S pause and no Control-P printer
+  echo;
+- Control-C does not interrupt output; it is an ordinary key; and
+- the runtime keeps a one-byte lookahead so that `keyReady` doesn't lose the key
+  it saw.
+
+### 3.2 Console services
+
+| Service, on `console` | Meaning | CP/M 2.2 |
 | --- | --- | --- |
-| `writeByte`, `writeText` | Write bytes unchanged | BDOS 2, or 6 for bytes BDOS 2 would interpret |
-| `readByte` | Read one byte of standard input, with echo; Control-Z gives `endOfFile` | BDOS 1 |
-| `readLine` | Read one edited line, up to the string's capacity, excluding its terminator | BDOS 10, through the runtime's own buffer |
+| `writeByte(console, b)`, `writeText(console, s)` | Write bytes unchanged | BDOS 6 |
+| `readByte(console)` | Read one key and echo it; Control-Z gives `endOfInput`, which is then sticky for the rest of the run | BDOS 6 |
+| `readLine(console, var line)` | Read one edited line, up to the string's capacity, without its terminator (Section 3.3) | BDOS 10, through the runtime's buffer |
+| `readKey() as u8` | Wait for one key, without echo | BDOS 6 `$FF`, repeated; the lookahead first |
+| `keyReady() as boolean` | Whether a key is waiting | BDOS 6 `$FF`; a key found is kept in the lookahead |
 
-`printer` accepts only writes (BDOS 5). Reading from it, or positioning either
-device, fails with `notAvailable`. Neither can be closed.
+On CP/M 3, the `CPM3` profile uses BDOS 6's blocking (`$FD`) and status (`$FE`)
+forms.
 
-Two services are for the console alone:
+Nucleus's `readInputByte()` and `writeOutputByte(b)` remain, as shorthands for
+`readByte(console)` and `writeByte(console, b)`. Nucleus's four storage routines
+are not provided.
 
-| Service | Meaning | CP/M 2.2 |
-| --- | --- | --- |
-| `readKey() as u8` | Wait for one key, without echo or interpretation | BDOS 6 with `$FF`, repeated until a key arrives |
-| `keyReady() as boolean` | Whether a key is waiting | BDOS 11 |
+### 3.3 `readLine` on the console
 
-Nucleus's `readInputByte()` and `writeOutputByte(b)` remain, as shorthand for
-`readByte(console)` and `writeByte(console, b)`.
+- BDOS 10 gives the user CP/M's line editing: backspace (Control-H), delete
+  line (Control-X and Control-U), retype (Control-R), physical end of line
+  (Control-E) and printer echo (Control-P).
+- The line is limited to the string's capacity, at most 253 (D25), though BDOS 10
+  itself allows 255. When the buffer fills, BDOS 10 ends the line without a
+  return key, so the console never reports `lineTooLong`.
+- BDOS 10 echoes the return key as a carriage return without a line feed; the
+  library's `prompt` writes the line feed. (To be confirmed under the
+  full-fidelity harness.)
+- A line whose first character is Control-Z is `endOfInput`, so console scripts
+  can end cleanly.
+- Control-C typed at the start of a line makes CP/M warm-boot immediately; this
+  is one of the exits the runtime can't control (Section 7).
 
-Console output is raw bytes: no newline translation is done, so the library
-writes CR LF where a line ends. Terminal control, including the external-effects
-command frames of Skate's protocol, is bytes written by library routines.
+### 3.4 The printer
 
-`readLine` on the console enforces the string's capacity: the runtime reads into
-its own buffer, limited to the smaller of the capacity and 255, then copies, so
-the BDOS never writes into program storage directly.
+`printer` accepts `writeByte` and `writeText` (BDOS 5). Any other operation on it
+fails with `notAvailable`.
 
-## 3. Files
+## 4. Files
 
-### 3.1 File numbers
+### 4.1 Names
 
-A file is identified by a **file number**, of the predeclared type `File`, a
-16-bit value the program can copy and compare but not do arithmetic on. It
-holds a slot in the runtime's file table and a generation, in the
-same way as an identifier, so a file number used after its file is closed is
-detected and reported as `fileClosed` rather than reaching another file. The
-runtime keeps each open file's FCB and record buffer in its own storage; the
-program never sees them.
+A file name is a CP/M name: up to 8 characters, optionally a dot and up to 3
+more, optionally preceded by a drive letter and colon, such as `B:DATA.TXT`.
+Lower-case letters are converted to upper case. Name characters are restricted
+to `A`–`Z`, `0`–`9` and ``! # $ % & ' ( ) - @ ^ _ ` { } ~``. Anything else is
+`badName`, including spaces, control characters, bytes `$80` and above (which
+would set CP/M attribute bits), `?` and `*` (except in search patterns), a part
+longer than 8 or 3 characters, and any type beginning with `$`, which is
+reserved for temporary files. User numbers can't be named; see Section 6.
 
-The number of files open at once is **chosen by the program** at link time,
-with `BLINK` option `F=n`, from 1 to 255, and is otherwise limited only by
-memory: each entry costs about 170 bytes for its FCB, record buffer and state.
-The default is 4. The linker allocates the table in `BSS` only when the program
-uses a file service ([object format](object-format.md), Section 3.6).
-
-### 3.2 Opening and closing
+### 4.2 Opening and closing
 
 | Service | Meaning |
 | --- | --- |
 | `openRead(name as string[], mode as u8) as File fails` | Open an existing file for reading |
-| `openWrite(name as string[], mode as u8) as File fails` | Create a file, replacing any existing one when it is closed (Section 3.5) |
-| `openUpdate(name as string[]) as File fails` | Open an existing file for random reads and writes, in binary mode |
-| `close(f as File) fails` | Flush and close |
+| `openWrite(name as string[], mode as u8) as File fails` | Create a file that replaces any existing one when it is closed (Section 4.6) |
+| `openAppend(name as string[], mode as u8) as File fails` | Open an existing file, or create it, positioned at its end |
+| `openUpdate(name as string[]) as File fails` | Open an existing file for reading and writing anywhere, in binary mode |
+| `close(f as File) fails` | Write out any buffered data and release the number |
+| `abort(f as File)` | Discard an `openWrite` file's new contents, or close any other file without further writes, and release the number |
+| `flush(f as File) fails` | Write out buffered data and the directory entry, so the data survives if the machine stops |
 
-`mode` is `textMode` or `binaryMode`:
+`mode` is `textMode` or `binaryMode`; any other value fails with `badMode`.
 
-- **Text mode** turns CR LF and lone LF into one newline byte (10) on reading,
-  writes CR LF for each newline, and treats Control-Z as the end of the file, as
-  Skate does.
-- **Binary mode** transfers bytes unchanged. CP/M records whole 128-byte
-  records, so a binary file read to its end includes the padding of its last
-  record; programs that need exact lengths record them in the file's own format.
+`close` always releases the file number, whether it succeeds or fails. A failed
+`close` of an `openWrite` file has deleted the temporary file and left the old
+file untouched.
 
-Names are CP/M 8.3 names with an optional drive, such as `B:DATA.TXT`. Lower
-case is converted to upper case. Wildcards, spaces and the CP/M delimiters
-`<>=,;[]|` are rejected with `badName`.
+### 4.3 Text and binary modes
 
-A program that ends, normally, by failure or by a trap, has its open output
-files closed by the runtime, but a file being replaced (Section 3.5) keeps its
-old contents.
+**Binary mode** transfers bytes unchanged. CP/M records whole 128-byte records,
+so reading a binary file to its end includes the padding of its last record;
+programs that need exact lengths record them in the file's own format. The last
+record of a binary file is padded with zeros when written.
 
-### 3.3 Reading and writing
+**Text mode**, for `readByte`, `readLine`, `writeByte` and `writeText`:
+
+- On reading, CR LF, lone LF and lone CR each become one newline byte (10), and
+  Control-Z ends the file.
+- On writing, a newline byte becomes CR LF, and a CR written immediately before
+  a newline is absorbed, so a program that writes CR LF itself gets one CR LF.
+  The last record is padded with Control-Z.
+- A last line with no terminator is returned as a line; the next read gives
+  `endOfInput`.
+- `readLine` on a line longer than the string's capacity fills the string to
+  capacity, discards the rest of the line, and fails with `lineTooLong`.
+- `readBlock` and `writeBlock` are binary operations; in text mode they fail
+  with `badMode`.
+
+### 4.4 Reading and writing
 
 | Service | Meaning |
 | --- | --- |
-| `readByte(f as File) as u8 fails` | Read one byte; `endOfFile` at the end |
+| `readByte(f as File) as u8 fails` | Read one byte; `endOfInput` at the end |
 | `writeByte(f as File, b as u8) fails` | Write one byte |
-| `readBlock(f as File, var buf as u8[], count as u16) as u16 fails` | Read up to `count` bytes into `buf`, never more than `buf.length`; returns the number read, 0 only at the end |
-| `writeBlock(f as File, buf as u8[], count as u16) fails` | Write the first `count` bytes of `buf`; `count` above `buf.length` traps `bounds` |
-| `readLine(f as File, var line as string[]) fails` | Read one line in text mode, up to the capacity; a longer line fails with `lineTooLong` and leaves the rest unread on a file |
+| `readBlock(f as File, var buf as u8[], count as u16) as u16 fails` | Read up to `count` bytes, never more than `buf.length`; returns the number read, 0 only at the end |
+| `writeBlock(f as File, buf as u8[], count as u16) fails` | Write the first `count` bytes of `buf`; `count` above `buf.length` traps `bounds` before anything is written |
+| `readLine(f as File, var line as string[]) fails` | Read one line in text mode (Section 4.3) |
 | `writeText(f as File, text as string[]) fails` | Write a string's bytes |
 
-### 3.4 Positioning, for binary and update files
+**Failure semantics,** following z80-tool-services:
+
+- A failed write leaves the file's position where it was before the call. Bytes
+  already passed to the BDOS can't be recalled.
+- A `diskFull` or `directoryFull` failure on an `openWrite` file **poisons** it:
+  only `close` and `abort` are then accepted, and `close` discards the new
+  contents.
+- `readBlock` that meets an error after reading some bytes returns the count read
+  so far; the error is reported by the next call.
+
+`readBlock` and `writeBlock` may transfer whole records directly between the
+BDOS and `buf`, but only while at least 128 bytes of `buf` remain, and they
+restore the DMA address before returning.
+
+### 4.5 Positioning
 
 | Service | Meaning |
 | --- | --- |
-| `seek(f as File, position as u32) fails` | Move to a byte position; CP/M 2.2 random records (BDOS 33, 34) |
-| `position(f as File) as u32` | The current byte position |
-| `size(f as File) as u32 fails` | The file's size in bytes, a multiple of 128 on CP/M (BDOS 35) |
+| `seek(f as File, position as u32) fails` | Move to a byte position; binary, append and update files only |
+| `position(f as File) as u32 fails` | The current byte position; `notAvailable` on the console and printer |
+| `size(f as File) as u32 fails` | The file's size in bytes, a multiple of 128 |
 
-### 3.5 Replacing files safely
+- In an update file, any position below 8,388,608 is allowed. Writing past the
+  end extends the file, filling any gap with zeros; reading past the end gives
+  `endOfInput`.
+- In a read or append file, a position from 0 up to and including the size is
+  allowed; beyond it is `seekFailure`.
+- A failed `seek` leaves the position unchanged.
+- `size` of an open file reports the runtime's own record of how far the file
+  extends, since CP/M updates the directory entry only at `close`.
+
+Update files use CP/M's random record functions (BDOS 33 and 34) for every
+transfer, with the record number kept by the runtime, because a sequential read
+after a random one would read the same record again.
+
+### 4.6 Replacing files safely
 
 `openWrite` writes to a temporary file and replaces the named file only when
-`close` succeeds, using the sequence the toolchain uses for its own output
-([toolchain](toolchain.md), Section 6.1): write `NAME.$$$`, delete the old file,
-rename. A program that fails or traps before closing leaves the old file
-intact and the temporary file deleted at exit.
+`close` succeeds:
 
-### 3.6 Directory operations
+1. The temporary is named after the target with the type `$` followed by two
+   hexadecimal digits for the file-table entry, such as `REPORT.$03`, so no two
+   open files share one. Any existing file of that name, left by an earlier
+   interrupted run, is deleted first.
+2. At `close`, the old file is deleted and the temporary renamed to the target.
+3. If the program fails, traps or calls `abort`, the temporary is deleted and the
+   old file is untouched.
+
+Temporaries left by an exit the runtime can't control (Section 7) can be removed
+with `ERA *.$??`.
+
+### 4.7 Directory operations
 
 | Service | Meaning |
 | --- | --- |
 | `exists(name as string[]) as boolean fails` | Whether a file exists |
-| `delete(name as string[]) fails` | Delete a file; deleting a missing file fails with `fileNotFound` |
-| `rename(from as string[], to as string[]) fails` | Rename within a drive; fails with `fileExists` if the new name is taken |
-| `findFirst(pattern as string[], var name as string[]) as boolean fails` | Start a directory search; wildcards allowed here only; `false` when nothing matches |
+| `delete(name as string[]) fails` | Delete a file; `fileNotFound` if it doesn't exist |
+| `rename(from as string[], to as string[]) fails` | Rename within a drive; `fileExists` if the new name is taken |
+| `findFirst(pattern as string[], var name as string[]) as boolean fails` | Start a search; `false` if nothing matches |
 | `findNext(var name as string[]) as boolean fails` | The next match, or `false` |
 
-The search services use the runtime's own DMA buffer, and only one search can be
-in progress at a time; any other file service ends it.
+- `delete`, `rename` and the replacement step of `close` fail with `fileBusy` if
+  the name is open on any file number.
+- Search patterns may use `?` for one character and `*` for the rest of the name
+  or type, in CP/M's sense. Files in other user areas, erased files and the
+  extra directory entries of large files are never returned. Returned names have
+  CP/M's attribute bits removed.
+- `findFirst` and `findNext` fail with `lineTooLong` if `name` has room for fewer
+  than 14 characters.
+- Only one search can be in progress, because CP/M keeps its state. Any other
+  disk service ends it; `findNext` with no search in progress fails with
+  `noSearch`.
 
-## 4. Command line
+### 4.8 Read-only drives and files
+
+On CP/M 2.2, writing to a read-only drive or file is a fatal BDOS error: CP/M
+prints `Bdos Err` and warm-boots without returning to the program. The runtime
+therefore checks first: before `openWrite`, `openAppend`, `openUpdate`, `delete`
+and `rename`, it checks the drive's read-only status (BDOS 29) and the file's
+read-only attribute, and fails with `readOnly`. A bad sector or a changed disk
+the BDOS reports fatally still ends the program outside the runtime's control
+(Section 7).
+
+### 4.9 FCB handling
+
+The runtime owns every FCB and builds it correctly for each call: the extent,
+`S2` and current-record bytes are zero at open and make; the random record bytes
+`r0`–`r2` are kept below 8 megabytes; BDOS 35's use of `r0`–`r2` is saved and
+restored around `size`; attribute bits are never set from a name and are masked
+from names read back; search FCBs use extent 0 and never drive `?`.
+
+## 5. Command line
 
 | Service | Meaning |
 | --- | --- |
-| `argumentCount() as u8` | The number of space-separated words in the command tail |
-| `argument(n as u8, var word as string[]) fails` | Copy word `n`, counting from 0; `noArgument` if there is none, `lineTooLong` if it doesn't fit |
-| `commandTail(var text as string[])` | The whole tail as typed, truncated to the capacity |
+| `commandTail(var text as string[])` | The whole command tail as typed, without its leading separator, truncated to the capacity |
 
-The CP/M 2.2 CCP converts the command line to upper case, so programs can't rely
-on its case. The command tail is preserved for the whole run because startup
-moves the DMA address before any disk operation ([CP/M target](cpm-target.md),
-Section 4).
+The library's `word(text, n, var out)` splits text into space- or
+tab-separated words. The CP/M CCP converts the command line to upper case, so
+programs can't rely on its case. The tail is preserved for the whole run because
+startup moves the DMA address before any disk operation
+([CP/M target](cpm-target.md) §4).
 
-## 5. The machine
+## 6. Drives, users and the machine
 
-| Service | Meaning |
-| --- | --- |
-| `freeMemory() as u16` | Bytes between the end of `bss` and the stack, at the moment of the call |
-| `clock(var now as DateTime) fails` | The date and time on CP/M 3 (BDOS 105); `notAvailable` on CP/M 2.2 |
+| Service | Meaning | CP/M 2.2 |
+| --- | --- | --- |
+| `resetDisks()` | Reset the disk system, after the user changes disks | BDOS 13 |
+| `resetDrive(drive as u8)` | Reset one drive, 0 for A | BDOS 37 |
+| `currentDrive() as u8` | The current drive, 0 for A | BDOS 25 |
+| `selectDrive(drive as u8) fails` | Make a drive current | BDOS 14 |
+| `currentUser() as u8` | The current user number | BDOS 32 |
+| `setUser(user as u8) fails` | Change the user number, 0 to 15 | BDOS 32 |
+| `driveReadOnly(drive as u8) as boolean` | Whether a drive is read-only | BDOS 29 |
+| `freeMemory() as u16` | Bytes between the end of `BSS` and the stack | — |
+| `clock(var now as DateTime) fails` | Date and time on CP/M 3; `notAvailable` on 2.2 | CP/M 3 BDOS 105 |
 
-`DateTime` is a predeclared record of year, month, day, hour, minute and second.
+A program that asks the user to change disks must call `resetDisks` or
+`resetDrive` afterwards; otherwise CP/M marks the drive read-only.
 
 There is no service to end the program early: a program ends by returning from
-`main` or failing out of it, and the CP/M 3 return code follows
-([CP/M target](cpm-target.md), Section 5).
+`main` or failing out of it. Failing out of `main` with a code is the idiom for a
+deep failure; the code is visible as a return code only on CP/M 3.
 
-## 6. Not services
+## 7. When the program ends
 
-These are library routines in Baton, built on the services above:
+- **On a normal return from `main`,** the runtime closes every open file as
+  `close` would, including the replacement of `openWrite` files.
+- **On an unhandled failure or a trap,** the trap or failure is reported first.
+  Then the runtime aborts every `openWrite` file, deleting its temporary, and
+  closes every other file so that its buffered data isn't lost. The clean-up
+  makes only close and delete calls, and depends on no state a trap may have
+  interrupted.
+- **Exits the runtime can't control** skip the clean-up: Control-C at the start
+  of a `readLine` on the console, a fatal BDOS error (a bad sector or a changed
+  disk), and power loss. They may leave temporaries, which never replace the old
+  file.
 
-- writing numbers in decimal and hexadecimal, and `f32` values with a chosen
-  precision; parsing them back, failing on malformed text;
-- string building, comparison and searching (D25);
-- console conveniences such as writing a line with CR LF, and prompts;
-- pseudo-random numbers;
-- the external-effects frame encoding for terminals, video and sound on
-  Triptych, written through `writeOutputByte` and read with `readKey`.
+## 8. Library routines over the services
 
-## 7. Failure codes
+Written in Baton (D36): number formatting and parsing, string building, `word`
+for command-line words, `prompt`, a line read without echo (over `readKey`),
+`readAll(f, var buf)` to read a whole file, a `truncate` that copies a file's
+prefix (CP/M 2.2 has no truncation), pseudo-random numbers, and the
+external-effects frame encoding, written to the console. Free disk space (BDOS 27
+and 31) is left to a later library release.
 
-Predeclared constants, shared by all services so a handler can report any of
-them:
+## 9. Failure codes
+
+Codes 1 to 4 and 254 keep their z80-services `byteGateway/0` meanings, which are
+also Nucleus's. Every service shares one code space:
 
 | Code | Name | Meaning |
 | ---: | --- | --- |
-| 1 | `endOfInput` | Standard input has ended |
-| 2 | `inputFailure` | Standard input failed for another reason |
+| 1 | `endOfInput` | The end of a file or of console input. `endOfFile` is another name for it |
+| 2 | `inputFailure` | Input failed for another reason |
 | 3 | `outputFailure` | The console or printer could not accept a byte |
-| 4 | `endOfFile` | A read reached the end of a file |
+| 4 | `storageFailure` | A disk error the BDOS reported and returned from |
 | 5 | `fileNotFound` | The file does not exist |
 | 6 | `fileExists` | The new name is already taken |
-| 7 | `badName` | The name is not a valid CP/M file name |
+| 7 | `badName` | Not a valid file name (Section 4.1) |
 | 8 | `tooManyFiles` | The file table is full |
-| 9 | `fileClosed` | The file number does not refer to an open file |
+| 9 | `fileClosed` | The file number doesn't refer to an open file |
 | 10 | `diskFull` | No space left on the disk |
 | 11 | `directoryFull` | No directory entries left |
-| 12 | `readOnly` | The file or disk is read-only |
-| 13 | `seekFailure` | The position is beyond the file or the disk |
-| 14 | `lineTooLong` | A line or word didn't fit the string |
-| 15 | `noArgument` | There is no such command-line word |
-| 16 | `notAvailable` | The target doesn't provide this |
-| 17 | `ioFailure` | Another disk or device error |
+| 12 | `readOnly` | The drive or file is read-only |
+| 13 | `seekFailure` | The position is outside what the file allows, or beyond CP/M's 8 megabytes |
+| 14 | `lineTooLong` | A line or name didn't fit the string |
+| 15 | `notAvailable` | The target or device doesn't provide this |
+| 16 | `fileBusy` | The name is open on another file number |
+| 17 | `noSearch` | `findNext` with no search in progress |
+| 18 | `badMode` | An invalid mode, or a block operation on a text file |
+| 19–31 | — | Reserved for future services |
+| 32–47 | — | The standard library, starting with `badNumber` (32) |
+| 48–253 | — | Programs |
+| 254 | `invalid` | z80-services `invalid`, reserved |
+| 255 | — | Reserved |
 
-Codes 1 to 3 keep Nucleus's values for the same conditions, except that
-Nucleus's `storageFailure` (4) is replaced by the file codes. Programs may use
-codes from 32 upwards for their own failures.
+## 10. Alignment with the shared contracts
 
-## 8. Cost
+Baton's services are its language adapter over the shared contracts, as Skate's
+ports and Nucleus's procedures are.
+
+| Baton | Contract | Notes |
+| --- | --- | --- |
+| `readByte(console)`, `writeByte(console)` | `byteGateway/0` input and output roles | Echo, Control-Z and raw bytes are Baton policy, as the contract intends |
+| `readLine(console)` | — | Baton policy above the gateway |
+| `openRead`, `openWrite` + `close`, `abort`, `read`, `write`, `seek` | z80-tool-services ABI v1 `openRead`, `beginWrite` + `commit`, `abort`, `read`, `write`, `seek` | Baton adopts their semantics now: a failed open allocates nothing, a failed write leaves the position unchanged and poisons an update, `close` always releases, seeking to the end is allowed |
+| Failure codes 5–18 | tool-services `notFound` (5), `capacity` (8, 10, 11), `access` (12), `conflict` (6, 16), `invalid` (7, 18) | Baton's codes are finer; the mapping is fixed here so the runtime's table is built once |
+
+**Gaps in the shared contracts.** These are recorded here to be proposed to
+z80-services, and Baton doesn't wait for them: raw keys and key status, the
+printer, a named-file profile with update and append, directory operations, and
+a clock.
+
+**The gateway's storage roles.** The CP/M provider implements `byteGateway/0`'s
+storage roles over two files chosen by the test harness, so that the
+z80-services conformance vectors test the provider. They are not reachable from
+Baton source.
+
+## 11. Cost
 
 **[estimate]** Runtime bytes, paid only by programs that use them:
 
 | Group | Size |
 | --- | --- |
-| Console and printer | 0.2–0.4K |
-| Files: open, close, bytes, blocks, text lines | 1.2–1.8K |
-| Files: positioning and directory operations | 0.4–0.6K |
-| Command line | 0.2K |
-| Machine | 0.1K |
+| Console and printer | 0.3–0.5K |
+| Files: open, close, abort, flush, bytes, blocks, text lines, temporaries, checks | 1.5–2.0K |
+| Files: positioning, append, update growth | 0.4–0.6K |
+| Directory operations | 0.4–0.5K |
+| Command line, drives, users, machine | 0.2–0.3K |
 
-The compiler carries only the signatures in its helper table, about 0.2K.
+The compiler carries the services' signatures in its helper table, about 0.7K.
 
-## 9. Open questions
+## 12. Open questions
 
-1. **Alignment with z80-services.** Each service should map to an operation of
-   the shared z80-services contracts (byte gateway, console and storage), as
-   Skate's ports and Nucleus's procedures do.
-2. **Text-mode `seek`.** Positioning is binary-only above; text files could
-   support saving and restoring a position.
-3. **Typed results** for the file services once variants exist in version 2.
+1. **Positioning in text files,** such as saving and restoring a reading
+   position. A library question, settled in roadmap step 57.
+2. **Typed results** for services, once variants arrive in version 2.
+3. **File attributes** (BDOS 30) for utilities that protect files.
