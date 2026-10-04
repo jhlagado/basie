@@ -5,7 +5,16 @@
 
 A **recoverable error** is an expected unsuccessful result that source code may propagate or handle. A **trap** is a non-recoverable safety failure defined by Chapter 15. Error handling does not intercept, convert, or resume after a trap.
 
-Baton represents a recoverable error with a `u8` code carried beside a routine's ordinary success result. The code has no separate error-set type. Programs give codes stable names with top-level `u8` constants; Chapter 16 also defines the standard service codes. The value zero is permitted, although the standard codes are nonzero.
+Baton represents a recoverable error with a `u8` code carried beside a routine's ordinary success result. The code has no separate error-set type. Programs give codes names with constants (design decision D26). The code space is shared by every routine and divided as follows ([services](../docs/services.md), Section 9):
+
+| Codes | Use |
+| --- | --- |
+| 1–31 | Services; 1 to 18 are defined, the rest reserved (Chapter 16) |
+| 32–47 | The standard library |
+| 48–253 | Programs |
+| 0, 254, 255 | Reserved; 254 is `invalid` |
+
+The compiler does not enforce the ranges; they are a convention that keeps codes from different sources distinct. Enumerations of failure codes, checked at `fail` and `handle`, are planned for version 2.
 
 ## 14.2 Failable signatures
 
@@ -95,7 +104,7 @@ failure-handler ::= "handle" NAME NEWLINE
                     statement-sequence "end" NEWLINE
 ```
 
-The name must resolve to an existing writable `u8` scalar variable, parameter, or local. A scalar local serving as an active counted-loop counter is read-only and cannot be the error destination. The clause declares no binding and opens no scope. This rule preserves the declaration-prefix and scope rules from Chapters 5 and 8.
+The name must resolve to an existing writable `u8` variable, parameter or local. A local serving as an active counted-loop counter is read-only and cannot be the error destination. The clause declares no binding. The handler body is a block with its own scope (Chapter 5).
 
 On success, the call supplies its ordinary result, the assignment occurs when present, and the handler body is skipped. On failure, no success-result store occurs, then the compiler stores the error code in the named `u8` destination and executes the handler body. This ordering also applies when the assignment destination and error destination are the same variable: the variable receives the error code. Normal completion of the body continues after its closing `end`. A `return`, `fail`, `exit`, or `continue` inside the body has its ordinary enclosing context.
 
@@ -123,6 +132,10 @@ Ordinary `return` denotes successful completion only. A result-free failable rou
 `else fail` can exit on failure and continue on success, so it does not by itself make following source unreachable. A `handle` body can complete normally unless it has a non-fallthrough statement on every path.
 
 The fixed `main` routine may declare `fails`. A failure returned from `main` has no source caller and performs the unhandled-error trap in Chapter 15 with the returned code. A successful return from `main` terminates normally.
+
+### 14.7.1 Failure and owning values
+
+`fail` leaves the routine like `return`: every block is left and its owning locals and parameters are freed (Chapter 13, Section 13.10). The failure code is evaluated before anything is freed. A routine whose result is an owning handle returns no handle when it fails, so nothing is transferred. When a call fails, a fresh owning argument already bound to the callee's parameter belongs to the callee and has been freed by it; a moved argument is not restored.
 
 ## 14.8 Lowering boundary
 

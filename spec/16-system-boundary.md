@@ -3,62 +3,46 @@
 
 ## 16.1 Boundary model
 
-Baton 1.0 defines a small portable service boundary for byte-stream input and output, slow bulk storage, successful termination, and trap reporting. Programs invoke typed predefined routines and use predefined constants. The source language exposes no service numbers, ports, firmware entry points, raw addresses, file descriptors, device registers, or machine-specific memory map.
+A Baton program reaches the console, files, the command line and the machine only through **services**: predeclared routines supplied by the runtime library of the target profile. The source language exposes no BDOS or BIOS calls, ports, addresses, device registers or memory map ([I/O and effects](../docs/io-and-effects.md)).
 
-Baton source contains no physical placement, and a target description contains no source-symbol reference. The source manifest selects and orders declarations; the target description supplies bounded execution regions. Neither input can name or rewrite entities owned by the other.
+The services, their signatures, behaviour and failure codes are defined normatively by **Baton Services, revision 2** ([services](../docs/services.md)), which is part of this specification. This chapter states the rules that bind them to the language.
 
-The **Baton System Services 0.1** set is versioned with this language revision. A conforming execution environment supplies every service in Section 16.3 with the stated source contract and the initial stream states stated there. Later additions require a language revision or an explicit extension under Section 1.7 and measured admission under Chapter 2.
+## 16.2 Predeclared names
 
-## 16.2 Predefined error codes
+Before the first source token, the compiler establishes in the program scope:
 
-The compiler establishes these `u8` constants before the first source token:
+- the **service routines** of the profile's helper table, with their signatures ([services](../docs/services.md), Sections 3 to 6);
+- the type **`File`**, and the values **`console`** and **`printer`** of that type (Section 16.3);
+- the **failure-code constants** of [services](../docs/services.md), Section 9, as untyped integer constants: `endOfInput` (1), `inputFailure` (2), `outputFailure` (3), `storageFailure` (4), `fileNotFound` (5), `fileExists` (6), `badName` (7), `tooManyFiles` (8), `fileClosed` (9), `diskFull` (10), `directoryFull` (11), `readOnly` (12), `seekFailure` (13), `lineTooLong` (14), `notAvailable` (15), `fileBusy` (16), `noSearch` (17), `badMode` (18) and `invalid` (254), with `endOfFile` another name for 1; and
+- any further types the services use, such as `DateTime`.
 
-| Name             | Value | Meaning                                                                      |
-| ---------------- | ----: | ---------------------------------------------------------------------------- |
-| `endOfInput`     |     1 | The selected input stream has no further byte.                               |
-| `inputFailure`   |     2 | Standard input could not supply a byte for a reason other than end of input. |
-| `outputFailure`  |     3 | Standard output could not accept a byte.                                     |
-| `storageFailure` |     4 | A bulk-storage read, write, rewind, or seek failed.                          |
+Predeclared names cannot be redeclared or shadowed (Chapter 5, Section 5.10). Service routines are called exactly like source routines; a service that can fail is declared `fails` and follows Chapter 14. A call to a service that the selected profile does not provide is a compile-time error. A program carries only the services it calls.
 
-The names occupy the ordinary program namespace and cannot be redeclared or shadowed. They are named recoverable-error codes, not enumeration members or a distinct error type.
+Nucleus's `readInputByte()` and `writeOutputByte(b)` remain as shorthands for `readByte(console)` and `writeByte(console, b)`. Nucleus's storage-stream routines are not provided.
 
-## 16.3 Predefined routines
+## 16.3 `File`
 
-The compiler establishes these routine signatures before the first source token:
+`File` is a predeclared opaque type that identifies an open file, the console or the printer ([services](../docs/services.md), Section 2):
 
-```nucleus
-sub readInputByte() as u8 fails
-sub writeOutputByte(value as u8) fails
-sub readStorageByte() as u8 fails
-sub rewindStorageInput() fails
-sub writeStorageByte(value as u8) fails
-sub seekStorageOutput(offset as u16) fails
-```
+- A `File` value can be stored in variables, fields, array elements and parameters, copied, and compared with `=` and `<>`. It has no other operations, and no conversion to or from any other type.
+- Its zero value refers to no file; a service given it fails with `fileClosed`. A `File` whose file has been closed also fails with `fileClosed`, never reaching another file.
+- `File` values arise only from the opening services and from `console` and `printer`.
+- `File` is not a handle and is not owned: closing a file is an explicit service call, and files still open when the program ends are closed by the runtime ([services](../docs/services.md), Section 7).
 
-The declarations above state interfaces; they are not source definitions and do not require completing bodies in the compilation unit.
+## 16.4 The standard library
 
-Standard input starts with its cursor before the first supplied byte. `readInputByte` obtains the next byte from standard input. It may block until a byte, end-of-input condition, or input failure is available. It succeeds with the byte and advances the cursor, fails with `endOfInput` at the end, else fails with `inputFailure` for another input error. Failure leaves the cursor unchanged.
+Formatting and parsing numbers, building and comparing strings, splitting the command line into words and similar routines form a **standard library written in Baton** (design decision D36), supplied as source parts such as `STRINGS.BTN` and `FORMAT.BTN` and brought in with `include` (Chapter 4). They are ordinary Baton routines with no special status; their internal routines are `private`. They use failure codes 32 to 47.
 
-Standard output starts empty and is append-only. `writeOutputByte` appends one byte to standard output. It succeeds after the byte has been accepted else fails with `outputFailure`. Successful writes occur in call order; failure leaves the output unchanged.
+## 16.5 Program startup and termination
 
-The bulk-storage routines operate on one logical input stream and one logical output stream selected by the execution environment. Both cursors start at offset zero. The output supplied to a Chapter 21 conformance run starts empty. `readStorageByte` advances the input cursor after a successful byte and reports `endOfInput` or `storageFailure` otherwise. `rewindStorageInput` moves the input cursor to offset zero or reports `storageFailure`.
+The runtime's startup establishes every program variable's initial value and every pool's free state, then calls `main` ([CP/M target](../docs/cpm-target.md), Section 4). Before calling `main` it checks that the memory available covers the program's stack reserve, and otherwise reports that there is not enough memory and returns to the operating system without running the program.
 
-`writeStorageByte` overwrites the existing byte when the output cursor is below the current end, appends when the cursor is exactly at the end, and advances the cursor by one on success. It never inserts a byte or truncates later bytes. `seekStorageOutput` moves that cursor to an existing offset or exactly to the current end; seeking past the end fails with `storageFailure`. Every failed bulk-storage operation is atomic: it leaves its affected cursor and all output contents unchanged.
+A normal return from `main` ends the program successfully. There is no statement to end the program early: a program ends by returning from `main` or failing out of it. A failure returned from `main` performs the `unhandled-error` trap (Chapter 15). On CP/M 3 the program's return code distinguishes success, an unhandled failure, a trap and insufficient memory.
 
-These contracts support streaming programs without exposing a filesystem. Baton 1.0 source cannot open, close, name, enumerate, create, or delete files. A launcher or build tool selects the streams outside the source language.
+## 16.6 Safety of services
 
-## 16.4 Program startup and termination
+Services belong to the trusted base outside the safety property of Chapter 7, Section 7.2. A service given an alias respects its extent and mode, keeps no address after returning, and restores any state the language relies on. Services follow the trap reporter contract, so a trap in a service reports the program's call to it.
 
-The implementation enters its implicit startup path before `main`. Startup establishes explicit program-variable initializers, establishes zero values for the remaining program variables, and then transfers to `main`. These operations are complete before source execution begins and are not source-callable. The environment supplies no command-line arguments or implicit source values. Source code obtains input only through the predefined services.
+## 16.7 Excluded mechanisms
 
-Normal return from `main` terminates successfully. Baton 1.0 has no source statement for process exit status or immediate successful termination. Failure returned from `main` and every safety trap terminate unsuccessfully under Chapter 15.
-
-The external representation of success, recoverable-error codes, and trap reasons is implementation-defined only where the Z80 runtime and backend contract explicitly says so. That representation must preserve the source-level distinction among normal termination, unhandled recoverable error, and each required trap reason.
-
-## 16.5 Portability and implementation
-
-An environment may implement services with CP/M calls, a monitor, port I/O, host callbacks, or another mechanism. It may buffer transfers if buffering preserves call order, failure points, and visible bytes. Those choices do not add source names or expose their addresses.
-
-Arbitrary BIOS calls, machine-code-call declarations, inline assembly, memory peeks and pokes, port access, and callbacks are excluded from the safe source boundary. A later service must have a typed target-independent contract and pass the measured admission rule before it enters the standard set.
-
-The target adapter may place the program in ROM, loaded RAM, or bank-switched ROM while preserving the same startup and source semantics. The target-system specification and Z80 runtime contract govern bank assignment and calls. Source code supplies neither a bank number nor a target address, and a target restriction on cross-bank references does not alter source validity.
+Arbitrary BDOS and BIOS calls, inline machine code, machine-code-call declarations, memory peeks and pokes, port access and callbacks are excluded. A new service needs a typed, target-independent contract, an entry in the helper table, and a revision of the service set.
