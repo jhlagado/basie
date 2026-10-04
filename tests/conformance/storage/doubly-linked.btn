@@ -1,0 +1,84 @@
+// The review's doubly linked list with unlink through identifiers (4.3).
+// spec: 7
+// expect output: 3 2 1\r\n3 1\r\n
+
+include "FORMAT.BTN"
+
+forward pool dnodes
+
+record DNode
+    key as u16
+    next as dnodes?
+    prev as id dnodes?
+end
+
+pool dnodes as DNode[64]
+var first as dnodes?
+var last as id dnodes?
+
+sub pushFront(k as u16)
+    var n = new dnodes(k, none, none)
+    select first
+    case some(f)
+        f.prev = id(n)
+    case none
+        last = id(n)
+    end
+    n.next = move first
+    first = move n
+end
+
+sub unlink(x as id dnodes)
+    var nx = move x.next
+    select nx
+    case some(n)
+        n.prev = x.prev
+    case none
+        last = x.prev
+    end
+    select x.prev
+    case some(p)
+        p.next = move nx
+    case none
+        first = move nx
+    end
+end
+
+sub show() fails
+    var line as string[40]
+    var p = id(first)
+    var started as boolean = false
+    while true
+        select p
+        case some(i)
+            if started
+                appendByte(line, ' ') else fail
+            end
+            started = true
+            appendU16(line, i.key) else fail
+            p = id(i.next)
+        case none
+            writeText(console, line) else fail
+            writeText(console, "\r\n") else fail
+            return
+        end
+    end
+end
+
+sub main() fails
+    pushFront(1)
+    pushFront(2)
+    pushFront(3)
+    show() else fail
+    var p = id(first)
+    select p
+    case some(i)
+        select i.next
+        case some(second)
+            unlink(second)
+        case none
+        end
+    case none
+    end
+    show() else fail
+end

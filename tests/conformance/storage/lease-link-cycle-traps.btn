@@ -1,0 +1,28 @@
+// A store through a var record parameter links the child to the leased slot,
+// so a later attempt to make the parent a child of its child is caught (R1).
+// spec: 7.14, 7.15
+// expect trap: ownership-cycle at 25
+
+forward pool nodes
+
+record Node
+    value as u16
+    next as nodes?
+end
+
+pool nodes as Node[8]
+
+sub attach(var n as Node)
+    n.next = new nodes(2, none)
+end
+
+sub main()
+    var h = new nodes(1, none)
+    attach(h)
+    var i = id(h)
+    select i.next
+    case some(c)
+        c.next = move h
+    case none
+    end
+end

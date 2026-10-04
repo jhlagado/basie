@@ -1,0 +1,38 @@
+// id() of a record nested inside a leased node is none, not the node (2.4).
+// spec: 7.14
+// expect output: none\r\n
+
+forward pool nodes
+forward pool subs
+
+record Sub
+    x as u16
+end
+
+record Node
+    value as u16
+    inner as Sub
+    next as nodes?
+end
+
+pool nodes as Node[8]
+pool subs as Sub[8]
+
+sub poke(var s as Sub) fails
+    var i = id(s)
+    select i
+    case some(j)
+        writeText(console, "some\r\n") else fail
+    case none
+        writeText(console, "none\r\n") else fail
+    end
+end
+
+sub bump(var n as Node) fails
+    poke(n.inner) else fail
+end
+
+sub main() fails
+    var h = new nodes(1)
+    bump(h) else fail
+end

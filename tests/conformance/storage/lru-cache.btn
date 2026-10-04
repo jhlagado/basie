@@ -1,0 +1,121 @@
+// The review's LRU cache on a pool: detach, attach, evict (4.4).
+// spec: 7
+// expect output: 10 1 0 1\r\n
+
+include "FORMAT.BTN"
+
+forward pool entries
+
+record Entry
+    key as u16
+    value as u16
+    next as entries?
+    prev as id entries?
+end
+
+pool entries as Entry[3]
+var mru as entries?
+var lru as id entries?
+var count as u8 = 0
+var hit as u16
+
+sub detach(x as id entries) as entries?
+    var nx = move x.next
+    select nx
+    case some(n)
+        n.prev = x.prev
+    case none
+        lru = x.prev
+    end
+    select x.prev
+    case some(p)
+        var owned = move p.next
+        p.next = move nx
+        return move owned
+    case none
+        var owned = move mru
+        mru = move nx
+        return move owned
+    end
+end
+
+sub attachFront(e as entries)
+    e.prev = none
+    select mru
+    case some(m)
+        m.prev = id(e)
+    case none
+        lru = id(e)
+    end
+    e.next = move mru
+    mru = move e
+end
+
+sub get(k as u16) as boolean
+    var p = id(mru)
+    while true
+        select p
+        case some(i)
+            if i.key = k
+                hit = i.value
+                var e = detach(i)
+                select move e
+                case some(o)
+                    attachFront(move o)
+                case none
+                end
+                return true
+            end
+            p = id(i.next)
+        case none
+            return false
+        end
+    end
+    return false
+end
+
+sub put(k as u16, v as u16)
+    if get(k)
+        select mru
+        case some(m)
+            m.value = v
+        case none
+        end
+        return
+    end
+    if count = 3
+        select lru
+        case some(t)
+            detach(t)
+            count = count - 1
+        case none
+        end
+    end
+    attachFront(new entries(k, v, none, none))
+    count = count + 1
+end
+
+sub flag(b as boolean) as u16
+    if b
+        return 1
+    end
+    return 0
+end
+
+sub main() fails
+    var line as string[20]
+    put(1, 10)
+    put(2, 20)
+    put(3, 30)
+    put(1, 11)
+    put(4, 40)
+    appendU16(line, hit) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, flag(get(1))) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, flag(get(2))) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, flag(get(4))) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

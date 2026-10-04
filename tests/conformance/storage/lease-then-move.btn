@@ -1,0 +1,23 @@
+// A node leased to a ticket in a statement can't be moved in the same statement (R6).
+// spec: 7.14, 10.8
+// expect error: statement-rule at 22:17
+
+forward pool nodes
+
+record Node
+    value as u8
+end
+
+pool nodes as Node[4]
+
+sub show(n as Node, k as u8)
+end
+
+sub eat(n as nodes) as u8
+    return 0
+end
+
+sub main()
+    var h = new nodes(1)
+    show(h, eat(move h))
+end

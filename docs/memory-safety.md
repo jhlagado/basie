@@ -313,7 +313,7 @@ another such parameter passes its own owner word, and so does a field or element
 of the parameter passed on, and a result rooted in the parameter. The cost is 2 bytes of stack
 per such parameter and 1 to 3 bytes at each call site.
 
-**Identifiers inside a lease.** In a routine with a `var` record parameter `n`,
+**Identifiers inside a lease.** (Revision 6.1: so that this rule has an owner word to read, **every** `var` record parameter carries one, not only those of owning types; found when the reference compiler implemented it.) In a routine with a `var` record parameter `n`,
 `id(n)` gives `id P?`, where `P` is the pool of that record type. It is the
 node's identifier only when the owner word **equals `n`'s own address**, which is
 the case exactly when `n` is a whole leased node; otherwise, including when `n`

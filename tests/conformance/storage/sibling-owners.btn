@@ -1,0 +1,30 @@
+// Owners in sibling blocks share a frame slot; each is freed exactly once (2.7).
+// spec: 7.6, 7.12
+// expect output: ok\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+end
+
+pool nodes as Node[2]
+
+sub f(flag as boolean)
+    if flag
+        var a = new nodes(1)
+    else
+        var b = new nodes(2)
+    end
+end
+
+sub main() fails
+    var i as u8
+    for i = 1 to 20
+        f(true)
+        f(false)
+    end
+    var c = new nodes(3)
+    var d = new nodes(4)
+    writeText(console, "ok\r\n") else fail
+end

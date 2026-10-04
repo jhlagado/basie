@@ -1,0 +1,25 @@
+// new may omit trailing fields, which are zeroed: the only way to build a
+// record holding an array of owning handles (R8).
+// spec: 7.10
+// expect output: 1-\r\n
+
+forward pool trees
+
+record Tree
+    key as u8
+    kids as trees?[4]
+end
+
+pool trees as Tree[8]
+
+sub main() fails
+    var t = new trees('1')
+    writeByte(console, t.key) else fail
+    select t.kids[3]
+    case some(k)
+        writeByte(console, k.key) else fail
+    case none
+        writeByte(console, '-') else fail
+    end
+    writeText(console, "\r\n") else fail
+end

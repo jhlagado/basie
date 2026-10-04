@@ -911,8 +911,12 @@ export class Compiler {
       offset += parameterWords(p.type) * 2;
       if (
         p.var &&
-        (isOwningType(p.type) || (p.type.kind === "handle" && !p.type.id))
+        (p.type.kind === "record" || isOwningType(p.type) ||
+          (p.type.kind === "handle" && !p.type.id))
       ) {
+        // Every var record parameter carries the owner word, so that id(n)
+        // can tell a whole leased node from storage outside any pool
+        // (memory safety §5.6, revision 6.1).
         p.ownerOffset = offset;
         offset += 2;
       }
@@ -3759,8 +3763,18 @@ export class Compiler {
         );
       }
       if (p.ownerOffset !== undefined) {
-        r.blob.u8(0x11, 0, 0); // LD DE,0: the owner word (not in a pool slot)
-        r.blob.u8(0xd5);
+        // The owner word: a parameter passes its own on, as does a field or
+        // element of it; a lease passes its slot; anything else is 0.
+        const root = this.lastAddressRoot;
+        const word = root?.lease
+          ? root.slotOffset
+          : root?.ownerOffset !== undefined
+          ? root.ownerOffset
+          : undefined;
+        if (word !== undefined) {
+          r.blob.u8(0xdd, 0x5e, word & 0xff, 0xdd, 0x56, (word + 1) & 0xff); // LD DE,(IX+w)
+        } else r.blob.u8(0x11, 0, 0); // LD DE,0
+        r.blob.u8(0xd5); // PUSH DE
         this.push(2);
       }
       r.blob.u8(0xe5); // PUSH HL

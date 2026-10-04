@@ -72,7 +72,7 @@ words:
 | `u32`, `i32`, `f32`, identifiers, `File` | 2 | high word pushed first, so the low word sits at the lower address and the value is little-endian in memory |
 | aggregate alias (record, `T[N]`, `string[N]`) | 1 | the address |
 | open view `string[]`, `T[]` | 2 | capacity or length word, then the address nearest the return address |
-| `var` parameter of an owning type, or a slot-holder `var h as P?` | +1 | the owner word, pushed before the address |
+| `var` record parameter, `var` parameter of an owning type, or a slot-holder `var h as P?` | +1 | the owner word, pushed before the address |
 
 **Returning.** The callee removes its own arguments. Its epilogue is:
 

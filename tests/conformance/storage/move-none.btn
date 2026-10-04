@@ -1,0 +1,25 @@
+// Moving none stores none and writes no link (R3).
+// spec: 7.11
+// expect output: -\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+var a as nodes?
+var b as nodes?
+
+sub main() fails
+    a = move b
+    select a
+    case some(i)
+        writeByte(console, i.value) else fail
+    case none
+        writeByte(console, '-') else fail
+    end
+    writeText(console, "\r\n") else fail
+end

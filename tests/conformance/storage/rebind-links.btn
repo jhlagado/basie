@@ -1,0 +1,48 @@
+// Binding a parameter and a select-move name clears the owner link, so a
+// later walk from a relinked node ends (R5).
+// spec: 7.15
+// expect output: 9\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[8]
+var head as nodes?
+
+sub g(x as nodes) fails
+    select move head
+    case some(hh)
+        x.next = move hh
+    case none
+    end
+    var ix = id(x)
+    select ix.next
+    case some(jh)
+        jh.next = new nodes('9', none)
+        select jh.next
+        case some(k)
+            writeByte(console, k.value) else fail
+        case none
+        end
+    case none
+    end
+    writeText(console, "\r\n") else fail
+end
+
+sub main() fails
+    head = new nodes('H', new nodes('O', none))
+    var ih = id(head)
+    select ih
+    case some(i)
+        select move i.next
+        case some(o)
+            g(move o) else fail
+        case none
+        end
+    case none
+    end
+end

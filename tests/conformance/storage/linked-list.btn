@@ -1,0 +1,113 @@
+// The review's ordered list: insert in order, delete, walk (4.1).
+// spec: 7
+// expect output: 1 3 5 7\r\n1 5 7\r\n
+
+include "FORMAT.BTN"
+
+forward pool nodes
+
+record Node
+    key as u16
+    next as nodes?
+end
+
+pool nodes as Node[64]
+var head as nodes?
+
+sub insert(k as u16)
+    var n = new nodes(k, none)
+    select head
+    case some(f)
+        if k <= f.key
+            n.next = move head
+            head = move n
+            return
+        end
+    case none
+        head = move n
+        return
+    end
+    var p = id(head)
+    while true
+        select p
+        case some(i)
+            select i.next
+            case some(q)
+                if k <= q.key
+                    n.next = move i.next
+                    i.next = move n
+                    return
+                end
+                p = q
+            case none
+                i.next = move n
+                return
+            end
+        case none
+            return
+        end
+    end
+end
+
+sub delete(k as u16) as boolean
+    select head
+    case some(f)
+        if f.key = k
+            head = move f.next
+            return true
+        end
+    case none
+        return false
+    end
+    var p = id(head)
+    while true
+        select p
+        case some(i)
+            select i.next
+            case some(q)
+                if q.key = k
+                    i.next = move q.next
+                    return true
+                end
+                p = q
+            case none
+                return false
+            end
+        case none
+            return false
+        end
+    end
+    return false
+end
+
+sub show() fails
+    var line as string[40]
+    var p = id(head)
+    var first as boolean = true
+    while true
+        select p
+        case some(i)
+            if not first
+                appendByte(line, ' ') else fail
+            end
+            first = false
+            appendU16(line, i.key) else fail
+            p = id(i.next)
+        case none
+            writeText(console, line) else fail
+            writeText(console, "\r\n") else fail
+            return
+        end
+    end
+end
+
+sub main() fails
+    insert(5)
+    insert(1)
+    insert(7)
+    insert(3)
+    show() else fail
+    var gone as boolean = delete(3)
+    gone = delete(9)
+    show() else fail
+end

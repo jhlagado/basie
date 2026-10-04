@@ -70,7 +70,7 @@ Arguments are evaluated from left to right, and each is bound before the next is
 
 `var` is invalid on a parameter of type `P`, `id P` or `id P?`.
 
-**Owner words.** A `var` parameter of an owning type, and a slot-holder, carries a hidden owner word supplied by the caller (Chapter 7, Section 7.14). It is not visible in source.
+**Owner words.** A `var` record parameter, a `var` parameter of an owning type, and a slot-holder each carry a hidden owner word supplied by the caller (Chapter 7, Section 7.14). It is not visible in source.
 
 There are no optional, named, variadic or default arguments.
 
