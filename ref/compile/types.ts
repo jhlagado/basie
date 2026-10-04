@@ -21,6 +21,8 @@ export type RecordType = {
   owning: boolean;
   /** Pools whose element type this is; used by id(n) on a lease. */
   pools: PoolInfo[];
+  /** The ordinal of its ownership descriptor, once emitted. */
+  descriptorOrdinal?: number;
 };
 
 export type PoolInfo = {
@@ -28,9 +30,56 @@ export type PoolInfo = {
   /** Undefined while only forward-declared. */
   record?: RecordType;
   capacity?: number;
-  /** Program-blob ordinal of the pool's storage. */
+  /** Program-blob ordinal of the pool's info block (rodata). */
   ordinal: number;
+  /** Ordinal of the pool's storage (bss), once declared. */
+  storageOrdinal?: number;
 };
+
+/** One entry of an ownership descriptor (memory safety §5.10). */
+export type OwningEntry = {
+  offset: number;
+  /** For an array of owning elements: its stride and count. */
+  stride?: number;
+  count?: number;
+};
+
+/** The owning-handle fields of a type, flattened to offsets from its start. */
+export function owningEntries(t: Type, base = 0): OwningEntry[] {
+  switch (t.kind) {
+    case "handle":
+      return t.id ? [] : [{ offset: base }];
+    case "record": {
+      const out: OwningEntry[] = [];
+      for (const f of t.fields) {
+        out.push(...owningEntries(f.type, base + f.offset));
+      }
+      return out;
+    }
+    case "array": {
+      const inner = owningEntries(t.element, 0);
+      const out: OwningEntry[] = [];
+      const stride = sizeOf(t.element);
+      for (const e of inner) {
+        if (e.stride === undefined) {
+          out.push({ offset: base + e.offset, stride, count: t.length });
+        } else {
+          // An array inside an array: one entry per outer element.
+          for (let i = 0; i < t.length; i += 1) {
+            out.push({
+              offset: base + i * stride + e.offset,
+              stride: e.stride,
+              count: e.count,
+            });
+          }
+        }
+      }
+      return out;
+    }
+    default:
+      return [];
+  }
+}
 
 export type Type =
   | { kind: "scalar"; name: ScalarName }

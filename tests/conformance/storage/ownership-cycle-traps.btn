@@ -19,10 +19,10 @@ sub main()
     var child as id nodes? = none
     select head
     case some(h)
-        top = id(h)
+        top = h
         select h.next
         case some(c)
-            child = id(c)
+            child = c
         case none
         end
     case none

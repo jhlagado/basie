@@ -1,6 +1,6 @@
 // A record with an owning handle field can't be copied.
 // spec: 6.15
-// expect error: owning-copy at 15:5
+// expect error: owning-copy at 16:5
 
 forward pool nodes
 

@@ -35,7 +35,7 @@ Deno.test("a test can't expect both a failure and a run result", () => {
 Deno.test("tests are pending until the compiler handles them", async () => {
   const outcome = await runTest(
     "x.btn",
-    "// expect output: x\nsub main()\n    select 1\n    end\nend\n",
+    "// expect output: x\nsub main()\n    var x as u32 = 1\n    x = x + 1\nend\n",
   );
   assertEquals(outcome.status, "pending");
 });

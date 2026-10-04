@@ -94,10 +94,10 @@ Each step adds conformance programs and runs them end to end.
 | 39 | Ref | `f32` through helpers, literal conversion, constant folding | | Conversion and rounding tests |
 | 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | | Scope and inference tests |
 | 41 | Ref | `select` on integers, characters and ranges; dispatch shapes | (done: integers, characters, ranges) | Dispatch tests |
-| 42 | Ref | Local aggregates, `var` parameters, arrays of arrays, `assert` | | Tests |
-| 43 | Ref | Pools, handles, `new`, `new?`, `move`, freeing, temporaries | | Memory-safety tests, accepted and rejected |
-| 44 | Ref | The flow check and the statement rule | | Rejected-program tests from the reviews |
-| 45 | Ref | Leases, slot-holders, owner words, `select` on handles, `select move` | | The reviews' counterexamples all rejected or trapped |
+| 42 | Ref | Local aggregates, `var` parameters, arrays of arrays, `assert` | (done) | Tests |
+| 43 | Ref | Pools, handles, `new`, `new?`, `move`, freeing, temporaries | `ref/compile/compiler.ts`, runtime pool helpers (done) | Memory-safety tests, accepted and rejected |
+| 44 | Ref | The flow check and the statement rule | (done) | Rejected-program tests from the reviews |
+| 45 | Ref | Leases, slot-holders, owner words, `select` on handles, `select move` | (done) | The reviews' counterexamples all rejected or trapped |
 | 46 | Ref | The stack bound, prologue figures, activation checks | | Recursion and deep-call tests |
 | 47 | Ref | Branch shrinking and the literal buffer | | Size tests |
 | 48 | Ref | Diagnostics by message number, matching the planned message file | | Diagnostic tests |

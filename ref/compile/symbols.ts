@@ -59,6 +59,12 @@ export type Symbol =
     flow?: Flow;
     /** Set while the local is the counter of an active loop. */
     counting?: boolean;
+    /** A lease: the frame word holds the record's address (memory safety §5.6). */
+    lease?: boolean;
+    /** The IX offset of the owner word of a var owning parameter or lease. */
+    ownerOffset?: number;
+    /** The frame word holding the slot's address, for a leased record. */
+    slotOffset?: number;
   }
   | { kind: "record"; name: string; type: RecordType }
   | { kind: "pool"; name: string; info: PoolInfo; forward: boolean }
@@ -170,6 +176,19 @@ export class Scopes {
   /** Every symbol of the current scope, for block-end freeing. */
   symbolsHere(): Symbol[] {
     return [...this.current.symbols.values()];
+  }
+
+  /** The scopes from the top of the stack down to `depth`, innermost first. */
+  scopesFrom(depth: number): Scope[] {
+    return this.stack.slice(depth).reverse();
+  }
+
+  /** The stack index of the innermost routine scope. */
+  routineDepth(): number {
+    for (let i = this.stack.length - 1; i >= 0; i -= 1) {
+      if (this.stack[i].kind === "routine") return i;
+    }
+    return -1;
   }
 
   /** Symbols of every scope inside the current routine, innermost first. */

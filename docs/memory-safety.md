@@ -133,10 +133,15 @@ end
 pool nodes as Node[64]
 ```
 
-A pool is placed as a `bss` blob. Each slot holds a 2-byte generation and a
-2-byte link, **in the four bytes immediately before the record**, followed by
-the record itself. A handle is the record's address, so the runtime can find
-any slot's generation and link from its handle alone, whatever pool it is in.
+A pool is placed as a `bss` blob. Each slot holds a 2-byte generation, a
+2-byte link and a 2-byte pointer to the pool's info block, **in the six bytes
+immediately before the record**, followed by the record itself. A handle is
+the record's address, so the runtime can find any slot's generation, link and
+pool from its handle alone, whatever pool it is in. (Revision 6.1: the pool
+word was added when the free cascade was implemented, because freeing a child
+found through a parent's descriptor needs the child's own descriptor and free
+list, and nothing else says which pool it is in. The cost is 2 bytes per
+slot.)
 The pool also has a high-water mark and a free-list head and tail. Pool storage
 never moves, and a slot only ever holds its pool's record type. The expected
 style is one pool per record type, shared by every structure that uses it (D23).

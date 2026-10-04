@@ -1,0 +1,34 @@
+// select move takes the value out; some(n) owns it for the arm.
+// spec: 11.7.3
+// expect output: A-\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+var head as nodes?
+
+sub bumpOut() fails
+    select move head
+    case some(n)
+        writeByte(console, n.value) else fail
+    case none
+        writeByte(console, '?') else fail
+    end
+end
+
+sub main() fails
+    head = new nodes('A', none)
+    bumpOut() else fail
+    select head
+    case some(i)
+        writeByte(console, i.value) else fail
+    case none
+        writeByte(console, '-') else fail
+    end
+    writeText(console, "\r\n") else fail
+end

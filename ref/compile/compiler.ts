@@ -24,7 +24,9 @@ import type { Keyword, Position, Punctuation, Token } from "./lexer.ts";
 import { tokenize } from "./lexer.ts";
 import type { Part } from "./source.ts";
 import {
+  type Flow,
   type Parameter,
+  type Scope,
   Scopes,
   type Signature,
   type Symbol,
@@ -38,7 +40,9 @@ import {
   isNumeric,
   isOwningType,
   isScalar,
+  owningEntries,
   parameterWords,
+  type PoolInfo,
   type RecordType,
   sameType,
   scalar,
@@ -66,8 +70,10 @@ type Value =
   | { kind: "literal"; bytes: Uint8Array }
   /** Aggregate storage: its address is in HL. */
   | { kind: "address"; type: Type; readonly: boolean }
-  /** A fresh owning value in HL (later stages). */
-  | { kind: "fresh"; type: Type };
+  /** A fresh owning value in HL: new, move, or an owning result. */
+  | { kind: "fresh"; type: Type }
+  /** The empty handle, typed by its context. */
+  | { kind: "none" };
 
 /** A storage path, before any code is emitted for it. */
 type Place =
@@ -84,6 +90,14 @@ type Designator = {
   readonly: boolean;
   /** The .length of a string[] parameter at this IX offset: set through STR_SETL. */
   setLength?: number;
+  /** The frame word holding the record whose field this is, for owner links. */
+  slotTemp?: number;
+  /** How that record was reached: an owner needs no cycle walk; an identifier does. */
+  slotKind?: "owner" | "identifier" | "lease";
+  /** The designator is a bare name with no suffix. */
+  rootOnly?: boolean;
+  /** The designator's first token, for diagnostics. */
+  at?: Token;
   symbol?: Symbol & { kind: "var" };
   /** Emit code leaving the address in HL (for computed places). */
   compute?: () => void;
@@ -93,6 +107,10 @@ type LoopContext = {
   exit: number;
   next: number;
   counter?: Symbol & { kind: "var" };
+  /** The scope depth of the loop body; exits free the scopes above it. */
+  depth: number;
+  /** Flow states at loop entry, for the back-edge rule. */
+  entryFlow: Map<Symbol, Flow>;
 };
 
 type RoutineState = {
@@ -134,6 +152,15 @@ export class Compiler {
   private mainOrdinal?: number;
   private currentPart = 0;
   private forwardsOpen: (Symbol & { kind: "routine" })[] = [];
+  private forwardPools: {
+    sym: Symbol & { kind: "pool" };
+    at: Token;
+    part: number;
+    private: boolean;
+  }[] = [];
+  /** Owners used directly and moved in the current statement (10.8). */
+  private stmtDirect = new Set<Symbol>();
+  private stmtMoved = new Set<Symbol>();
   private anyForward = false;
   private largestFrame = 0;
   private readonly lineBlobs: BlobLines[] = [];
@@ -349,6 +376,18 @@ export class Compiler {
         );
       }
     }
+    for (const f of this.forwardPools) {
+      if (
+        f.sym.forward &&
+        (next < 0 || (f.private && f.part === this.currentPart))
+      ) {
+        fail(
+          "forward-incomplete",
+          f.at,
+          `forward pool ${f.sym.name} never completed`,
+        );
+      }
+    }
     if (next < 0) {
       const open = this.forwardsOpen.find((r) => r.forward);
       if (open) {
@@ -382,7 +421,7 @@ export class Compiler {
     if (this.isKeyword("const")) this.constDeclaration(isPrivate);
     else if (this.isKeyword("var")) this.programVar(isPrivate);
     else if (this.isKeyword("record")) this.recordDeclaration(isPrivate);
-    else if (this.isKeyword("pool")) throw new NotImplemented("pools");
+    else if (this.isKeyword("pool")) this.poolDeclaration(isPrivate);
     else if (this.isKeyword("forward")) this.forwardDeclaration(isPrivate);
     else if (this.isKeyword("sub")) this.routineDefinition(isPrivate);
     else if (this.isKeyword("assert")) {
@@ -522,11 +561,12 @@ export class Compiler {
       }
       const field = this.expectName();
       this.expectKeyword("as");
+      const typeAt = this.token;
       const ftype = this.parseType();
       if (ftype.kind === "handle" && !ftype.optional) {
         fail(
           "handle-must-be-optional",
-          field,
+          typeAt,
           "a field of handle type must be optional",
         );
       }
@@ -890,7 +930,27 @@ export class Compiler {
 
   private forwardDeclaration(isPrivate: boolean): void {
     const at = this.expectKeyword("forward");
-    if (this.isKeyword("pool")) throw new NotImplemented("forward pool");
+    if (this.isKeyword("pool")) {
+      this.advance();
+      const name = this.expectName();
+      this.expectNewline();
+      const info: PoolInfo = { name: name.text, ordinal: this.nextOrdinal };
+      this.nextOrdinal += 1;
+      const sym: Symbol = {
+        kind: "pool",
+        name: name.text,
+        info,
+        forward: true,
+      };
+      this.scopes.declare(sym, name, isPrivate);
+      this.forwardPools.push({
+        sym,
+        at: name,
+        part: this.currentPart,
+        private: isPrivate,
+      });
+      return;
+    }
     const sub = this.expectKeyword("sub");
     const sig = this.parseHeader(sub);
     this.expectNewline();
@@ -1031,6 +1091,7 @@ export class Compiler {
         readonly: isAggregate(p.type) && !p.var,
         parameter: p,
         flow: p.type.kind === "handle" && !p.type.id ? "value" : undefined,
+        ownerOffset: p.ownerOffset,
       }, at);
     }
     blob.line(at.part, at.line);
@@ -1141,11 +1202,12 @@ export class Compiler {
   // ---- blocks and statements (chapter 10) ------------------------------------------
 
   /** Compile statements until one of the terminators; the block scope is the caller's. */
-  private block(terminators: Keyword[]): void {
+  private block(terminators: Keyword[], bind?: () => void): void {
     this.scopes.open("block");
     const r = this.routine!;
     const frameAtEntry = r.frame;
     r.fallsThrough = true;
+    if (bind) bind();
     while (true) {
       const t = this.token;
       if (t.kind === "newline") {
@@ -1156,6 +1218,7 @@ export class Compiler {
       if (t.kind === "keyword" && terminators.includes(t.text)) break;
       this.statement();
     }
+    this.emitFrees([this.scopes.current]);
     this.scopes.close();
     r.frame = frameAtEntry;
   }
@@ -1164,6 +1227,8 @@ export class Compiler {
     const t = this.token;
     const r = this.routine!;
     r.blob.line(t.part, t.line);
+    this.stmtDirect.clear();
+    this.stmtMoved.clear();
     if (!r.fallsThrough) {
       // Unreachable statements are still compiled; nothing to diagnose.
     }
@@ -1225,15 +1290,36 @@ export class Compiler {
             "a string literal has no definite type; write the type",
           );
         }
+        if (v.kind === "none") {
+          fail(
+            "no-definite-type",
+            at,
+            "none has no definite type; write the type",
+          );
+        }
         actual = (v as { type: Type }).type;
       }
       if (isAggregate(actual)) {
         if (v.kind !== "address") {
           fail("type-mismatch", at, "an aggregate initializer is required");
         }
+        if (isOwningType(actual)) {
+          fail("owning-copy", at, `${typeName(actual)} can't be copied`);
+        }
         const offset = this.allocLocal(sizeOf(actual));
         this.copyToFrame(actual, offset);
         this.declareLocal(name, actual, offset);
+      } else if (actual.kind === "handle" && !actual.id) {
+        this.ownValue(v, actual, at);
+        this.callHelper(Helper.LINK0);
+        const offset = this.allocLocal(2);
+        this.storeRegisters(U16, { kind: "frame", offset });
+        this.declareLocal(
+          name,
+          actual,
+          offset,
+          v.kind === "none" ? "none" : "value",
+        );
       } else {
         this.toRegisters(v, actual, at);
         const offset = this.allocLocal(sizeOf(actual));
@@ -1253,7 +1339,7 @@ export class Compiler {
     const size = sizeOf(type!);
     const offset = this.allocLocal(size);
     this.zeroFrame(offset, size);
-    this.declareLocal(name, type!, offset);
+    this.declareLocal(name, type!, offset, "none");
     this.expectNewline();
   }
 
@@ -1262,14 +1348,19 @@ export class Compiler {
       this.token.kind === "string";
   }
 
-  private declareLocal(name: Token, type: Type, offset: number): void {
+  private declareLocal(
+    name: Token,
+    type: Type,
+    offset: number,
+    flow?: Flow,
+  ): void {
     this.scopes.declare({
       kind: "var",
       name: (name as Token & { kind: "name" }).text,
       type,
       storage: { kind: "frame", offset },
       readonly: false,
-      flow: type.kind === "handle" && !type.id ? "value" : undefined,
+      flow: type.kind === "handle" && !type.id ? (flow ?? "none") : undefined,
     }, name);
   }
 
@@ -1388,15 +1479,38 @@ export class Compiler {
         }
         // Alias rules (7.7): program storage or a from parameter.
         this.checkAliasEscape(v!, at);
+      } else if (sig.result.kind === "handle" && !sig.result.id) {
+        this.ownValue(v!, sig.result, at);
+        this.callHelper(Helper.LINK0);
       } else {
         this.toRegisters(v!, sig.result, at);
       }
+    }
+    // Free the owning locals and parameters of every open scope, keeping
+    // the result safe on the stack.
+    const size = sig.result ? sizeOf(sig.result) : 0;
+    const owners = this.scopes.scopesFrom(this.scopes.routineDepth());
+    const anyOwner = owners.some((sc) =>
+      [...sc.symbols.values()].some((x) =>
+        x.kind === "var" && x.storage.kind === "frame" && !x.lease &&
+        isOwningType(x.type)
+      )
+    );
+    if (anyOwner) {
+      if (size === 1) r.blob.u8(0xf5);
+      else if (size === 2) r.blob.u8(0xe5);
+      else if (size === 4) r.blob.u8(0xd5, 0xe5);
+      this.emitFrees(owners);
+      if (size === 1) r.blob.u8(0xf1);
+      else if (size === 2) r.blob.u8(0xe1);
+      else if (size === 4) r.blob.u8(0xe1, 0xd1);
     }
     if (sig.fails || r.symbol.name === "main") r.blob.u8(0xb7); // OR A: carry clear
     r.blob.jp(r.exitLabel);
   }
 
   private lastAddressRoot?: Symbol & { kind: "var" };
+  private lastDesignator?: Designator;
 
   private checkAliasEscape(_v: Value, at: Token): void {
     const root = this.lastAddressRoot;
@@ -1423,6 +1537,9 @@ export class Compiler {
     const v = this.expression(U8);
     this.toRegisters(v, U8, at);
     this.expectNewline();
+    r.blob.u8(0xf5); // PUSH AF
+    this.emitFrees(this.scopes.scopesFrom(this.scopes.routineDepth()));
+    r.blob.u8(0xf1); // POP AF
     r.blob.u8(0x37); // SCF
     r.blob.jp(r.exitLabel);
     r.fallsThrough = false;
@@ -1451,6 +1568,8 @@ export class Compiler {
     const loop = r.loops.at(-1);
     if (!loop) fail("outside-loop", at, `${word} needs an enclosing loop`);
     this.expectNewline();
+    if (word === "continue") this.checkBackEdge(loop!.entryFlow, at);
+    this.emitFrees(this.scopes.scopesFrom(loop!.depth));
     r.blob.jp(word === "exit" ? loop!.exit : loop!.next);
     r.fallsThrough = false;
   }
@@ -1466,8 +1585,12 @@ export class Compiler {
     let next = r.blob.newLabel();
     this.condition(next);
     this.expectNewline();
+    const entryFlow = this.snapshotFlow();
+    const armFlows: Map<Symbol, Flow>[] = [];
     this.block(["elseif", "else", "end"]);
     anyFalls ||= r.fallsThrough;
+    if (r.fallsThrough) armFlows.push(this.snapshotFlow());
+    this.restoreFlow(entryFlow);
     r.blob.jp(end);
     while (true) {
       if (this.acceptKeyword("elseif")) {
@@ -1477,6 +1600,8 @@ export class Compiler {
         this.expectNewline();
         this.block(["elseif", "else", "end"]);
         anyFalls ||= r.fallsThrough;
+        if (r.fallsThrough) armFlows.push(this.snapshotFlow());
+        this.restoreFlow(entryFlow);
         r.blob.jp(end);
         continue;
       }
@@ -1490,6 +1615,7 @@ export class Compiler {
         next = r.blob.newLabel();
         this.block(["end"]);
         anyFalls ||= r.fallsThrough;
+        if (r.fallsThrough) armFlows.push(this.snapshotFlow());
         break;
       }
       break;
@@ -1498,6 +1624,8 @@ export class Compiler {
     this.expectNewline();
     r.blob.defineLabel(next);
     r.blob.defineLabel(end);
+    if (!hasElse) armFlows.push(entryFlow);
+    this.meetFlow(armFlows);
     r.fallsThrough = anyFalls || !hasElse;
   }
 
@@ -1506,9 +1634,30 @@ export class Compiler {
   private selectStatement(): void {
     const at = this.expectKeyword("select");
     const r = this.routine!;
-    if (this.acceptKeyword("move")) throw new NotImplemented("select move");
+    const isMove = this.acceptKeyword("move");
     const subjectAt = this.token;
-    const v = this.expression();
+    let subjectDesignator: Designator | undefined;
+    let v: Value;
+    if (
+      this.token.kind === "name" &&
+      this.scopes.lookup(this.token.text)?.kind === "var"
+    ) {
+      subjectDesignator = this.designator();
+      if (subjectDesignator.type.kind === "handle") {
+        this.selectHandle(subjectDesignator, isMove, subjectAt, at);
+        return;
+      }
+      v = this.loadDesignator(subjectDesignator);
+    } else {
+      v = this.expression();
+      if (
+        (v.kind === "reg" || v.kind === "fresh") && v.type.kind === "handle"
+      ) {
+        this.selectHandle(undefined, isMove, subjectAt, at, v);
+        return;
+      }
+    }
+    if (isMove) fail("syntax", at, "select move takes an owning handle");
     if (v.kind === "const" && !v.type) {
       fail("no-definite-type", subjectAt, "a select subject needs a type");
     }
@@ -1518,7 +1667,7 @@ export class Compiler {
       ? v.type
       : undefined;
     if (!type || type.kind === "handle") {
-      throw new NotImplemented("select on handles");
+      fail("type-mismatch", subjectAt, "select takes an integer or a handle");
     }
     if (!isInteger(type)) {
       fail(
@@ -1540,12 +1689,15 @@ export class Compiler {
     let sawElse = false;
     let anyArm = false;
     let anyFalls = false;
+    const entryFlow = this.snapshotFlow();
+    const armFlows: Map<Symbol, Flow>[] = [];
     while (true) {
       if (this.token.kind === "newline") {
         this.advance();
         continue;
       }
       if (this.isKeyword("end")) break;
+      this.restoreFlow(entryFlow);
       const caseAt = this.expectKeyword("case");
       if (sawElse) fail("syntax", caseAt, "case else must be last");
       const body = r.blob.newLabel();
@@ -1556,6 +1708,7 @@ export class Compiler {
         r.blob.defineLabel(body);
         this.block(["case", "end"]);
         anyFalls ||= r.fallsThrough;
+        if (r.fallsThrough) armFlows.push(this.snapshotFlow());
         r.blob.jp(end);
         r.blob.defineLabel(next);
         continue;
@@ -1600,6 +1753,7 @@ export class Compiler {
       r.blob.defineLabel(body);
       this.block(["case", "end"]);
       anyFalls ||= r.fallsThrough;
+      if (r.fallsThrough) armFlows.push(this.snapshotFlow());
       r.blob.jp(end);
       r.blob.defineLabel(next);
     }
@@ -1607,8 +1761,663 @@ export class Compiler {
     this.expectKeyword("end");
     this.expectNewline();
     r.blob.defineLabel(end);
+    if (!sawElse) armFlows.push(entryFlow);
+    this.meetFlow(armFlows);
     r.fallsThrough = anyFalls || !sawElse;
   }
+
+  /** select on an optional handle or an identifier (11.7.3). */
+  private selectHandle(
+    d: Designator | undefined,
+    isMove: boolean,
+    subjectAt: Token,
+    at: Token,
+    value?: Value,
+  ): void {
+    const r = this.routine!;
+    const type = (d ? d.type : (value as { type: Type }).type) as Type & {
+      kind: "handle";
+    };
+    if (type.pool.record === undefined) {
+      fail(
+        "pool-incomplete",
+        subjectAt,
+        `pool ${type.pool.name} is only forward-declared`,
+      );
+    }
+    const record = type.pool.record!;
+    const owning = !type.id;
+    if (owning && !type.optional && !isMove) {
+      fail(
+        "type-mismatch",
+        subjectAt,
+        "a non-optional owning handle always holds a value",
+      );
+    }
+    const subjectSym = d?.symbol;
+    const isLocalOwner = owning && d !== undefined && d.rootOnly === true &&
+      d.symbol?.storage.kind === "frame" && !d.symbol.lease;
+    if (isMove) {
+      if (!d || !owning || !type.optional || d.readonly) {
+        fail(
+          "syntax",
+          at,
+          "select move takes a writable optional owning location",
+        );
+      }
+      this.noteMove(d);
+      this.emitMove(d);
+    } else if (d) {
+      if (owning) this.noteDirect(d);
+      this.checkUsable(d);
+      this.loadValue(d);
+    } else {
+      this.toRegisters(value!, type, subjectAt);
+    }
+    const temp = this.allocLocal(owning ? 2 : 4);
+    this.storeRegisters(owning ? U16 : type, { kind: "frame", offset: temp });
+    this.expectNewline();
+    const end = r.blob.newLabel();
+    let sawSome = false, sawNone = false, sawElse = false;
+    let anyFalls = false;
+    const entryFlow = this.snapshotFlow();
+    const armFlows: Map<Symbol, Flow>[] = [];
+    while (true) {
+      if (this.token.kind === "newline") {
+        this.advance();
+        continue;
+      }
+      if (this.isKeyword("end")) break;
+      this.restoreFlow(entryFlow);
+      const caseAt = this.expectKeyword("case");
+      if (sawElse) fail("syntax", caseAt, "case else must be last");
+      const next = r.blob.newLabel();
+      if (this.acceptKeyword("some")) {
+        if (sawSome) fail("syntax", caseAt, "a second some arm");
+        sawSome = true;
+        this.expectPunct("(");
+        const name = this.expectName();
+        this.expectPunct(")");
+        this.expectNewline();
+        this.loadRegisters(owning ? U16 : type, {
+          kind: "frame",
+          offset: temp,
+        });
+        if (owning) r.blob.u8(0x7c, 0xb5); // LD A,H; OR L
+        else this.callHelper(Helper.ID_TEST);
+        r.blob.jpIf(JP_Z, next);
+        const bind = () => {
+          if (isMove) {
+            const offset = this.allocLocal(2);
+            this.loadRegisters(U16, { kind: "frame", offset: temp });
+            this.callHelper(Helper.LINK0);
+            this.storeRegisters(U16, { kind: "frame", offset });
+            this.scopes.declare({
+              kind: "var",
+              name: name.text,
+              type: {
+                kind: "handle",
+                pool: type.pool,
+                id: false,
+                optional: false,
+              },
+              storage: { kind: "frame", offset },
+              readonly: false,
+              flow: "value",
+            }, name);
+          } else if (!owning) {
+            const offset = this.allocLocal(4);
+            this.loadRegisters(type, { kind: "frame", offset: temp });
+            this.storeRegisters(type, { kind: "frame", offset });
+            this.scopes.declare({
+              kind: "var",
+              name: name.text,
+              type: {
+                kind: "handle",
+                pool: type.pool,
+                id: true,
+                optional: false,
+              },
+              storage: { kind: "frame", offset },
+              readonly: false,
+            }, name);
+          } else if (isLocalOwner || value?.kind === "fresh") {
+            this.scopes.declare({
+              kind: "var",
+              name: name.text,
+              type: record,
+              storage: { kind: "frame", offset: temp },
+              readonly: false,
+              lease: true,
+              slotOffset: temp,
+            }, name);
+            if (subjectSym) subjectSym.counting = true;
+          } else {
+            const offset = this.allocLocal(4);
+            this.loadRegisters(U16, { kind: "frame", offset: temp });
+            this.callHelper(Helper.ID_MAKE);
+            const idType: Type = {
+              kind: "handle",
+              pool: type.pool,
+              id: true,
+              optional: false,
+            };
+            this.storeRegisters(idType, { kind: "frame", offset });
+            this.scopes.declare({
+              kind: "var",
+              name: name.text,
+              type: idType,
+              storage: { kind: "frame", offset },
+              readonly: false,
+            }, name);
+          }
+        };
+        this.block(["case", "end"], bind);
+        if (subjectSym) subjectSym.counting = false;
+        anyFalls ||= r.fallsThrough;
+        if (r.fallsThrough) armFlows.push(this.snapshotFlow());
+        r.blob.jp(end);
+        r.blob.defineLabel(next);
+        continue;
+      }
+      const isNone = this.acceptKeyword("none");
+      if (!isNone) this.expectKeyword("else");
+      if (sawNone || sawElse) {
+        fail("syntax", caseAt, "a second none or else arm");
+      }
+      if (isNone) sawNone = true;
+      else sawElse = true;
+      this.expectNewline();
+      this.loadRegisters(owning ? U16 : type, { kind: "frame", offset: temp });
+      if (owning) r.blob.u8(0x7c, 0xb5);
+      else this.callHelper(Helper.ID_TEST);
+      r.blob.jpIf(JP_NZ, next);
+      this.block(["case", "end"]);
+      anyFalls ||= r.fallsThrough;
+      if (r.fallsThrough) armFlows.push(this.snapshotFlow());
+      r.blob.jp(end);
+      r.blob.defineLabel(next);
+    }
+    if (!sawSome) fail("syntax", at, "a handle select needs a some arm");
+    this.expectKeyword("end");
+    this.expectNewline();
+    r.blob.defineLabel(end);
+    if (!sawNone && !sawElse) armFlows.push(entryFlow);
+    this.meetFlow(armFlows);
+    r.fallsThrough = anyFalls || !(sawNone || sawElse);
+  }
+
+  // ---- pools (chapter 7) ---------------------------------------------------------------
+
+  private poolDeclaration(isPrivate: boolean): void {
+    this.expectKeyword("pool");
+    const name = this.expectName();
+    this.expectKeyword("as");
+    const recName = this.token;
+    if (recName.kind !== "name") {
+      fail("pool-needs-record", recName, "a pool holds records");
+    }
+    this.advance();
+    const recSym = this.scopes.lookup(
+      (recName as Token & { kind: "name" }).text,
+    );
+    if (recSym?.kind !== "record") {
+      fail("pool-needs-record", recName, "a pool holds records");
+    }
+    const record = (recSym as Symbol & { kind: "record" }).type;
+    this.expectPunct("[");
+    const capacity = this.constantExpression(U16).value as number;
+    if (capacity < 1) {
+      fail("out-of-range", name, "a pool needs at least one slot");
+    }
+    this.expectPunct("]");
+    this.expectNewline();
+    const existing = this.scopes.lookup(name.text);
+    let sym: Symbol & { kind: "pool" };
+    if (existing?.kind === "pool" && existing.forward) {
+      sym = existing as Symbol & { kind: "pool" };
+      const f = this.forwardPools.find((x) => x.sym === sym)!;
+      if (f.private !== isPrivate) {
+        fail(
+          "forward-mismatch",
+          name,
+          "the pool's visibility must match its forward declaration",
+        );
+      }
+      if (f.private && f.part !== this.currentPart) {
+        fail(
+          "forward-incomplete",
+          name,
+          "a private forward pool is completed in its part",
+        );
+      }
+    } else {
+      sym = {
+        kind: "pool",
+        name: name.text,
+        info: { name: name.text, ordinal: this.nextOrdinal },
+        forward: false,
+      };
+      this.nextOrdinal += 1;
+      this.scopes.declare(sym, name, isPrivate);
+    }
+    const slotSize = record.size + 6;
+    if (6 + capacity * slotSize > 0xffff) {
+      fail("out-of-range", name, "the pool exceeds 65,535 bytes");
+    }
+    const storage = this.newBlob(Kind.bss, `${name.text}.slots`);
+    for (let i = 0; i < 6 + capacity * slotSize; i += 1) storage.bytes.push(0);
+    const info = new Blob(sym.info.ordinal, Kind.rodata, name.text);
+    this.blobs.push(info);
+    info.abs16(storage.ordinal);
+    info.u16(slotSize);
+    info.u16(capacity);
+    if (record.owning) info.abs16(this.descriptorOf(record));
+    else info.u16(0);
+    sym.info.record = record;
+    sym.info.capacity = capacity;
+    sym.info.storageOrdinal = storage.ordinal;
+    sym.forward = false;
+    record.pools.push(sym.info);
+  }
+
+  /** The ownership descriptor of a type (memory safety §5.10), emitted once. */
+  private descriptorOf(type: Type): number {
+    if (type.kind === "record" && type.descriptorOrdinal !== undefined) {
+      return type.descriptorOrdinal;
+    }
+    const entries = owningEntries(type);
+    if (entries.length > 255) {
+      fail(
+        "capacity",
+        this.token,
+        `${typeName(type)} has more than 255 owning fields`,
+      );
+    }
+    const blob = this.newBlob(Kind.rodata, `${typeName(type)}.owners`);
+    blob.u8(entries.length);
+    for (const e of entries) {
+      blob.u8(e.stride === undefined ? 0 : 1);
+      blob.u16(e.offset);
+      if (e.stride !== undefined) {
+        blob.u16(e.stride);
+        blob.u16(e.count!);
+      }
+    }
+    if (type.kind === "record") type.descriptorOrdinal = blob.ordinal;
+    return blob.ordinal;
+  }
+
+  /** new P(args) and new? P(args) (7.10, 9.13). */
+  private newExpression(optional: boolean, at: Token): Value {
+    const r = this.routine!;
+    const name = this.expectName();
+    const sym = this.scopes.lookup(name.text);
+    if (sym?.kind !== "pool") {
+      fail("wrong-class", name, `${name.text} is not a pool`);
+    }
+    const pool = (sym as Symbol & { kind: "pool" }).info;
+    if (!pool.record) {
+      fail(
+        "pool-incomplete",
+        name,
+        `pool ${name.text} is only forward-declared`,
+      );
+    }
+    const record = pool.record!;
+    this.expectPunct("(");
+    r.blob.u8(0x21); // LD HL,info
+    r.blob.abs16(pool.ordinal);
+    this.callHelper(Helper.POOL_TRY);
+    r.blob.u8(0x7c, 0xb5); // LD A,H; OR L
+    const done = r.blob.newLabel();
+    if (optional) r.blob.jpIf(JP_Z, done);
+    else r.blob.callBlobIf(JP_Z, Helper.TRAP_POOL_FULL);
+    const temp = this.allocLocal(2);
+    this.storeRegisters(U16, { kind: "frame", offset: temp });
+    let i = 0;
+    if (!this.isPunct(")")) {
+      do {
+        if (i >= record.fields.length) {
+          fail(
+            "arity",
+            this.token,
+            `${record.name} has ${record.fields.length} fields`,
+          );
+        }
+        const f = record.fields[i];
+        i += 1;
+        const dest: Designator = {
+          place: { kind: "computed" },
+          type: f.type,
+          readonly: false,
+          compute: () => {
+            this.loadRegisters(U16, { kind: "frame", offset: temp });
+            this.addConst(f.offset);
+          },
+          slotTemp: temp,
+          slotKind: "owner",
+        };
+        this.assign(dest, this.token);
+      } while (this.acceptPunct(","));
+    }
+    this.expectPunct(")");
+    this.loadRegisters(U16, { kind: "frame", offset: temp });
+    r.blob.defineLabel(done);
+    void at;
+    return {
+      kind: "fresh",
+      type: { kind: "handle", pool, id: false, optional },
+    };
+  }
+
+  /** move d: the handle out of an owning location, leaving none (9.13). */
+  private moveExpression(at: Token): Value {
+    const d = this.designator();
+    if (d.type.kind !== "handle" || d.type.id) {
+      fail("not-owner", at, "move takes an owning handle location");
+    }
+    if (d.readonly) fail("not-writable", at, "the location is read-only");
+    this.checkUsable(d);
+    this.noteMove(d, at);
+    this.emitMove(d);
+    if (d.rootOnly && d.symbol?.flow !== undefined) {
+      d.symbol.flow = (d.type as { optional: boolean }).optional
+        ? "none"
+        : "maybe";
+    }
+    return { kind: "fresh", type: d.type };
+  }
+
+  /** HL = the handle at d; none is stored there. */
+  private emitMove(d: Designator): void {
+    const r = this.routine!;
+    if (d.place.kind === "computed" || d.place.kind === "alias") {
+      this.emitAddress(d);
+      // LD E,(HL); LD (HL),0; INC HL; LD D,(HL); LD (HL),0; EX DE,HL
+      r.blob.u8(0x5e, 0x36, 0x00, 0x23, 0x56, 0x36, 0x00, 0xeb);
+      return;
+    }
+    this.loadRegisters(U16, d.place);
+    r.blob.u8(0xe5, 0x21, 0x00, 0x00); // PUSH HL; LD HL,0
+    this.storeRegisters(U16, d.place);
+    r.blob.u8(0xe1); // POP HL
+  }
+
+  /** id(x) (7.9, 7.14). */
+  private idExpression(at: Token): Value {
+    const r = this.routine!;
+    this.expectPunct("(");
+    const d = this.designator();
+    this.expectPunct(")");
+    if (d.type.kind === "handle" && !d.type.id) {
+      this.checkUsable(d);
+      this.loadValue(d);
+      this.callHelper(Helper.ID_MAKE);
+      return {
+        kind: "reg",
+        type: {
+          kind: "handle",
+          pool: d.type.pool,
+          id: true,
+          optional: d.type.optional,
+        },
+      };
+    }
+    if (
+      d.type.kind === "record" && d.rootOnly && d.symbol &&
+      (d.symbol.lease || d.symbol.ownerOffset !== undefined)
+    ) {
+      const pools = d.type.pools;
+      if (pools.length !== 1) {
+        fail(
+          "id-ambiguous",
+          at,
+          `${d.type.name} belongs to ${pools.length} pools`,
+        );
+      }
+      const owner = d.symbol.lease
+        ? d.symbol.slotOffset!
+        : d.symbol.ownerOffset!;
+      const alias = d.symbol.storage.offset;
+      const none = r.blob.newLabel();
+      const done = r.blob.newLabel();
+      r.blob.u8(0xdd, 0x6e, owner & 0xff, 0xdd, 0x66, (owner + 1) & 0xff); // LD HL,owner
+      r.blob.u8(0xdd, 0x5e, alias & 0xff, 0xdd, 0x56, (alias + 1) & 0xff); // LD DE,alias
+      r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE
+      r.blob.jpIf(JP_NZ, none);
+      r.blob.u8(0xeb); // EX DE,HL: HL = the record
+      this.callHelper(Helper.ID_MAKE);
+      r.blob.jp(done);
+      r.blob.defineLabel(none);
+      r.blob.u8(0x21, 0, 0, 0x11, 0, 0); // LD HL,0; LD DE,0
+      r.blob.defineLabel(done);
+      return {
+        kind: "reg",
+        type: { kind: "handle", pool: pools[0], id: true, optional: true },
+      };
+    }
+    fail("not-owner", at, "id takes an owning handle or a record parameter");
+  }
+
+  /** Load the value at a designator into the registers for its type. */
+  private loadValue(d: Designator): void {
+    if (d.place.kind === "computed" || d.place.kind === "alias") {
+      this.emitAddress(d);
+      this.loadRegistersIndirect(d.type);
+    } else this.loadRegisters(d.type, d.place);
+  }
+
+  /** A value for an owning location: none, fresh, or a move; HL afterwards. */
+  private ownValue(
+    v: Value,
+    to: Type & { kind: "handle" },
+    at: Position,
+  ): void {
+    const r = this.routine!;
+    if (v.kind === "none") {
+      if (!to.optional) {
+        fail("type-mismatch", at, "none needs an optional handle");
+      }
+      r.blob.u8(0x21, 0, 0);
+      return;
+    }
+    if (v.kind === "fresh") {
+      const f = v.type as Type & { kind: "handle" };
+      if (f.pool !== to.pool || f.id || (f.optional && !to.optional)) {
+        fail(
+          "type-mismatch",
+          at,
+          `a ${typeName(to)} is required, not ${typeName(v.type)}`,
+        );
+      }
+      return;
+    }
+    if (v.kind === "reg" && v.type.kind === "handle" && !v.type.id) {
+      fail(
+        "needs-move",
+        at,
+        "an owning handle is moved, not copied: write move",
+      );
+    }
+    fail("type-mismatch", at, `a ${typeName(to)} is required`);
+  }
+
+  /** HL = the value: free the old value at d, store, and set the owner link. */
+  private storeOwning(d: Designator): void {
+    const r = this.routine!;
+    r.blob.u8(0xe5); // PUSH HL
+    this.push(2);
+    this.emitAddress(d);
+    r.blob.u8(0xeb, 0xe1); // EX DE,HL; POP HL
+    this.pop(2);
+    if (d.slotTemp !== undefined) {
+      r.blob.u8(
+        0xdd,
+        0x4e,
+        d.slotTemp & 0xff,
+        0xdd,
+        0x46,
+        (d.slotTemp + 1) & 0xff,
+      ); // LD BC,(IX+t)
+    } else r.blob.u8(0x01, 0, 0); // LD BC,0
+    this.callHelper(
+      d.slotKind === "identifier" ? Helper.OWN_SETC : Helper.OWN_SET,
+    );
+  }
+
+  /** Store the 4-byte value in DEHL at d. */
+  private store4(d: Designator): void {
+    const r = this.routine!;
+    if (d.place.kind === "static" || d.place.kind === "frame") {
+      this.storeRegisters(d.type, d.place);
+      return;
+    }
+    r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
+    this.push(4);
+    this.emitAddress(d);
+    r.blob.u8(0xd1, 0x73, 0x23, 0x72, 0x23); // POP DE; LD (HL),E; INC HL; LD (HL),D; INC HL
+    r.blob.u8(0xd1, 0x73, 0x23, 0x72); // POP DE; LD (HL),E; INC HL; LD (HL),D
+    this.pop(4);
+  }
+
+  // ---- freeing (7.12) and the flow check (7.17) --------------------------------------
+
+  /** Free the owning locals of these scopes; registers are destroyed. */
+  private emitFrees(scopes: Scope[]): void {
+    const r = this.routine!;
+    for (const scope of scopes) {
+      for (const sym of scope.symbols.values()) {
+        if (sym.kind !== "var" || sym.storage.kind !== "frame" || sym.lease) {
+          continue;
+        }
+        // A slot-holder (var h as P?) is an alias to the caller's location.
+        if (sym.parameter?.var) continue;
+        const t = sym.type;
+        if (t.kind === "handle" && !t.id) {
+          this.loadRegisters(U16, sym.storage);
+          r.blob.u8(0x7c, 0xb5); // LD A,H; OR L
+          r.blob.u8(0xc4); // CALL NZ,POOL_DEL
+          r.blob.abs16(Helper.POOL_DEL);
+          r.helperStack = Math.max(
+            r.helperStack,
+            HELPER_STACK[Helper.POOL_DEL],
+          );
+          r.blob.u8(0x21, 0, 0); // LD HL,0
+          this.storeRegisters(U16, sym.storage);
+        } else if (
+          (t.kind === "record" || t.kind === "array") && isOwningType(t) &&
+          !sym.parameter
+        ) {
+          this.emitAddress({ place: sym.storage, type: t, readonly: false });
+          r.blob.u8(0x11); // LD DE,descriptor
+          r.blob.abs16(this.descriptorOf(t));
+          this.callHelper(Helper.OBJ_FREE);
+        }
+      }
+    }
+  }
+
+  private trackedOwners(): (Symbol & { kind: "var" })[] {
+    const out: (Symbol & { kind: "var" })[] = [];
+    const depth = this.scopes.routineDepth();
+    if (depth < 0) return out;
+    for (const scope of this.scopes.scopesFrom(depth)) {
+      for (const sym of scope.symbols.values()) {
+        if (sym.kind === "var" && sym.flow !== undefined) out.push(sym);
+      }
+    }
+    return out;
+  }
+
+  private snapshotFlow(): Map<Symbol, Flow> {
+    return new Map(this.trackedOwners().map((s) => [s, s.flow!]));
+  }
+
+  private restoreFlow(snap: Map<Symbol, Flow>): void {
+    for (const [sym, flow] of snap) {
+      (sym as Symbol & { kind: "var" }).flow = flow;
+    }
+  }
+
+  /** The meet of several end states (11.4.1). */
+  private meetFlow(snaps: Map<Symbol, Flow>[]): void {
+    if (snaps.length === 0) return;
+    for (const sym of this.trackedOwners()) {
+      const states = snaps.map((m) => m.get(sym)).filter((x) =>
+        x !== undefined
+      ) as Flow[];
+      if (states.length === 0) continue;
+      sym.flow = states.every((x) => x === states[0]) ? states[0] : "maybe";
+    }
+  }
+
+  /** The back-edge rule (12.5.1): non-optional owners hold values again. */
+  private checkBackEdge(entry: Map<Symbol, Flow>, at: Token): void {
+    for (const [sym, flow] of entry) {
+      const v = sym as Symbol & { kind: "var" };
+      if (
+        flow === "value" && v.flow !== "value" && v.type.kind === "handle" &&
+        !v.type.optional
+      ) {
+        fail(
+          "loop-moves-owner",
+          at,
+          `${v.name} may have been moved when the loop repeats`,
+        );
+      }
+    }
+  }
+
+  /** A non-optional owner that may have been moved can't be used (10.8). */
+  private checkUsable(d: Designator): void {
+    const sym = d.symbol;
+    const at = d.at ?? this.token;
+    if (
+      sym && sym.flow === "maybe" && sym.type.kind === "handle" &&
+      !sym.type.optional
+    ) {
+      fail("use-after-move", at, `${sym.name} may have been moved`);
+    }
+    if (sym && this.stmtMoved.has(sym) && !d.rootOnly) {
+      fail(
+        "statement-rule",
+        at,
+        `${sym.name} is moved elsewhere in this statement`,
+      );
+    }
+  }
+
+  private noteDirect(d: Designator): void {
+    const sym = d.symbol;
+    if (!sym || sym.flow === undefined) return;
+    if (this.stmtMoved.has(sym)) {
+      fail(
+        "statement-rule",
+        d.at ?? this.token,
+        `${sym.name} is moved elsewhere in this statement`,
+      );
+    }
+    this.stmtDirect.add(sym);
+  }
+
+  private noteMove(d: Designator, at: Token = d.at ?? this.token): void {
+    const sym = d.symbol;
+    if (!sym || sym.flow === undefined) return;
+    if (sym.counting) {
+      fail("not-writable", at, `${sym.name} is leased in this arm`);
+    }
+    if (this.stmtDirect.has(sym)) {
+      fail(
+        "statement-rule",
+        at,
+        `${sym.name} is used elsewhere in this statement`,
+      );
+    }
+    this.stmtMoved.add(sym);
+  }
+
+  /** Evaluate a boolean condition and jump to `ifFalse` when it is false. */
 
   /** Jump to `body` if the subject at IX+offset lies in low..high. */
   private emitLabelTest(
@@ -1687,13 +2496,16 @@ export class Compiler {
     r.blob.defineLabel(top);
     this.condition(exit);
     this.expectNewline();
-    r.loops.push({ exit, next: top });
+    const entryFlow = this.snapshotFlow();
+    r.loops.push({ exit, next: top, depth: this.scopes.depth, entryFlow });
     this.block(["end"]);
     r.loops.pop();
-    this.expectKeyword("end");
+    const endAt = this.expectKeyword("end");
+    this.checkBackEdge(entryFlow, endAt);
     this.expectNewline();
     r.blob.jp(top);
     r.blob.defineLabel(exit);
+    this.meetFlow([entryFlow, this.snapshotFlow()]);
     r.fallsThrough = true;
   }
 
@@ -1825,11 +2637,14 @@ export class Compiler {
     }
     r.blob.defineLabel(body);
     counter.counting = true;
-    r.loops.push({ exit, next, counter });
+    const entryFlow = this.snapshotFlow();
+    r.loops.push({ exit, next, counter, depth: this.scopes.depth, entryFlow });
     this.block(["end"]);
     r.loops.pop();
     counter.counting = false;
-    this.expectKeyword("end");
+    const endAt = this.expectKeyword("end");
+    this.checkBackEdge(entryFlow, endAt);
+    this.meetFlow([entryFlow, this.snapshotFlow()]);
     this.expectNewline();
     // Next: counter + step, checked against the type before storing (loop-range).
     r.blob.defineLabel(next);
@@ -1935,7 +2750,11 @@ export class Compiler {
         fail("not-writable", at, "an open view can't be assigned as a whole");
       }
       if (isOwningType(d.type)) {
-        throw new NotImplemented("assignment to owning aggregates");
+        fail(
+          "owning-copy",
+          at,
+          `${typeName(d.type)} owns handles and can't be copied`,
+        );
       }
       // Destination address first, then the source, then copy (10.4).
       this.emitAddress(d);
@@ -1943,7 +2762,22 @@ export class Compiler {
       this.push(2);
       const srcAt = this.token;
       const v = this.expression(d.type);
-      if (v.kind !== "address" || !sameType(v.type, d.type)) {
+      if (v.kind === "literal" && d.type.kind === "string") {
+        if (v.bytes.length > d.type.capacity) {
+          fail(
+            "out-of-range",
+            srcAt,
+            "the literal exceeds the string's capacity",
+          );
+        }
+        const bytes = new Array(d.type.size).fill(0);
+        bytes[0] = v.bytes.length;
+        v.bytes.forEach((b, i) => bytes[1 + i] = b);
+        const label = r.blob.newLabel();
+        r.literals.push({ label, bytes });
+        r.blob.u8(0x21); // LD HL,literal
+        r.blob.labelOperand(label);
+      } else if (v.kind !== "address" || !sameType(v.type, d.type)) {
         fail("type-mismatch", srcAt, `a ${typeName(d.type)} is required`);
       }
       r.blob.u8(0xd1); // POP DE
@@ -1953,7 +2787,26 @@ export class Compiler {
       r.blob.u8(0xed, 0xb0); // LDIR
       return;
     }
-    if (d.type.kind === "handle") throw new NotImplemented("handle assignment");
+    if (d.type.kind === "handle") {
+      if (d.symbol && !d.rootOnly) this.noteDirect(d);
+      else if (d.symbol && d.rootOnly) this.noteMove(d);
+      if (d.type.id) {
+        const v = this.expression(d.type);
+        this.toRegisters(v, d.type, at);
+        this.store4(d);
+        return;
+      }
+      const v = this.expression(d.type);
+      this.ownValue(v, d.type, at);
+      this.storeOwning(d);
+      if (d.rootOnly && d.symbol?.flow !== undefined) {
+        d.symbol.flow = v.kind === "none" ? "none" : "value";
+      }
+      return;
+    }
+    if (d.symbol && !d.rootOnly && d.symbol.flow !== undefined) {
+      this.noteDirect(d);
+    }
     if (d.place.kind === "computed") {
       this.emitAddress(d);
       r.blob.u8(0xe5); // PUSH HL
@@ -1988,13 +2841,32 @@ export class Compiler {
           readonly: v.readonly,
           symbol: v,
         };
-      } else if (isAggregate(v.type) && v.parameter) {
+      } else if (
+        v.type.kind === "handle" && v.parameter?.var && !v.type.id
+      ) {
+        // A slot-holder: the frame word holds the location's address.
+        d = {
+          place: { kind: "alias", offset: v.storage.offset, add: 0 },
+          type: v.type,
+          readonly: false,
+          symbol: v,
+          slotTemp: v.ownerOffset,
+          slotKind: "owner",
+        };
+      } else if (isAggregate(v.type) && (v.parameter || v.lease)) {
         d = {
           place: { kind: "alias", offset: v.storage.offset, add: 0 },
           type: v.type,
           readonly: v.readonly,
           symbol: v,
         };
+        if (v.lease) {
+          d.slotTemp = v.slotOffset;
+          d.slotKind = "lease";
+        } else if (v.ownerOffset !== undefined) {
+          d.slotTemp = v.ownerOffset;
+          d.slotKind = "owner";
+        }
       } else {
         d = {
           place: { kind: "frame", offset: v.storage.offset },
@@ -2015,13 +2887,52 @@ export class Compiler {
       fail("wrong-class", name, `${name.text} is not a variable`);
     }
     const root = this.lastAddressRoot;
+    const start = this.pos;
+    d!.at = name;
     const result = this.suffixes(d!);
     this.lastAddressRoot = root;
+    result.rootOnly = this.pos === start;
+    result.at = name;
     return result;
   }
 
   private suffixes(d: Designator): Designator {
     while (true) {
+      if (this.isPunct(".") && d.type.kind === "handle") {
+        const h = d.type;
+        if (h.optional) {
+          fail(
+            "optional-handle",
+            this.token,
+            "an optional handle is tested with select before use",
+          );
+        }
+        if (!h.pool.record) {
+          fail(
+            "pool-incomplete",
+            this.token,
+            `pool ${h.pool.name} is only forward-declared`,
+          );
+        }
+        this.checkUsable(d);
+        const base = d;
+        const temp = this.allocLocal(2);
+        const compute = () => {
+          this.loadValue(base);
+          if (h.id) this.callHelper(Helper.ID_CHK);
+          this.storeRegisters(U16, { kind: "frame", offset: temp });
+        };
+        d = {
+          place: { kind: "computed" },
+          type: h.pool.record!,
+          readonly: false,
+          symbol: d.symbol,
+          compute,
+          slotTemp: temp,
+          slotKind: h.id ? "identifier" : "owner",
+        };
+        continue;
+      }
       if (this.isPunct(".")) {
         const dot = this.advance();
         const field = this.expectName();
@@ -2525,6 +3436,26 @@ export class Compiler {
       }
       case "reg": {
         if (sameType(v.type, to)) return;
+        if (v.type.kind === "handle" && to.kind === "handle") {
+          if (
+            v.type.pool === to.pool && v.type.id === to.id &&
+            (to.optional || !v.type.optional)
+          ) {
+            if (!to.id) {
+              fail(
+                "needs-move",
+                at,
+                "an owning handle is moved, not copied: write move",
+              );
+            }
+            return;
+          }
+          fail(
+            "type-mismatch",
+            at,
+            `a ${typeName(to)} is required, not ${typeName(v.type)}`,
+          );
+        }
         if (
           v.type.kind === "scalar" && to.kind === "scalar" &&
           widens(v.type.name, to.name)
@@ -2557,8 +3488,18 @@ export class Compiler {
         fail("type-mismatch", at, "a string literal is not a value here");
         return;
       case "fresh":
-        if (sameType(v.type, to)) return;
+        if (to.kind === "handle") {
+          this.ownValue(v, to, at);
+          return;
+        }
         fail("type-mismatch", at, `a ${typeName(to)} is required`);
+        return;
+      case "none":
+        if (to.kind !== "handle" || !to.optional) {
+          fail("type-mismatch", at, "none needs an optional handle context");
+        }
+        r.blob.u8(0x21, 0, 0); // LD HL,0
+        if (to.id) r.blob.u8(0x11, 0, 0); // LD DE,0
         return;
     }
     void r;
@@ -2598,7 +3539,13 @@ export class Compiler {
   }
 
   private discard(v: Value): void {
-    void v;
+    if (v.kind === "fresh" && v.type.kind === "handle") {
+      const r = this.routine!;
+      r.blob.u8(0x7c, 0xb5); // LD A,H; OR L
+      r.blob.u8(0xc4); // CALL NZ,POOL_DEL
+      r.blob.abs16(Helper.POOL_DEL);
+      r.helperStack = Math.max(r.helperStack, HELPER_STACK[Helper.POOL_DEL]);
+    }
   }
 
   // ---- calls ----------------------------------------------------------------------
@@ -2733,6 +3680,31 @@ export class Compiler {
     }
     if (isAggregate(t)) {
       const v = this.expression(t);
+      if (
+        v.kind === "reg" && v.type.kind === "handle" && !v.type.id &&
+        !v.type.optional && t.kind === "record" && v.type.pool.record === t
+      ) {
+        // A lease (7.14): the record in the caller's own owning local.
+        const root = this.lastDesignator;
+        if (
+          !root || !root.rootOnly || root.symbol?.storage.kind !== "frame" ||
+          root.symbol.lease
+        ) {
+          fail(
+            "lease",
+            at,
+            "a lease comes from the routine's own owning local or parameter",
+          );
+        }
+        this.noteDirect(root!);
+        if (p.ownerOffset !== undefined) {
+          r.blob.u8(0xe5); // PUSH HL: the owner word is the record itself
+          this.push(2);
+        }
+        r.blob.u8(0xe5); // PUSH HL: the address
+        this.push(2);
+        return p.ownerOffset !== undefined ? 4 : 2;
+      }
       if (v.kind !== "address" || !sameType(v.type, t)) {
         fail("type-mismatch", at, `a ${typeName(t)} is required`);
       }
@@ -2752,7 +3724,55 @@ export class Compiler {
       this.push(2);
       return p.ownerOffset !== undefined ? 4 : 2;
     }
-    if (t.kind === "handle") throw new NotImplemented("handle arguments");
+    if (t.kind === "handle") {
+      if (p.var) {
+        // A slot-holder: the address of an owning location, after its owner word.
+        const d = this.designator();
+        if (
+          d.type.kind !== "handle" || d.type.id || !d.type.optional ||
+          d.type.pool !== t.pool
+        ) {
+          fail("type-mismatch", at, `a ${typeName(t)} location is required`);
+        }
+        if (d.readonly) fail("not-writable", at, "the location is read-only");
+        if (d.slotKind === "identifier") {
+          fail(
+            "slot-holder",
+            at,
+            "a field reached through an identifier can't be a slot-holder",
+          );
+        }
+        this.noteDirect(d);
+        if (d.slotTemp !== undefined) {
+          r.blob.u8(
+            0xdd,
+            0x6e,
+            d.slotTemp & 0xff,
+            0xdd,
+            0x66,
+            (d.slotTemp + 1) & 0xff,
+          );
+        } else r.blob.u8(0x21, 0, 0);
+        r.blob.u8(0xe5); // PUSH HL: the owner word
+        this.push(2);
+        this.emitAddress(d);
+        r.blob.u8(0xe5); // PUSH HL: the location
+        this.push(2);
+        return 4;
+      }
+      const v = this.expression(t);
+      if (t.id) {
+        this.toRegisters(v, t, at);
+        r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
+        this.push(4);
+        return 4;
+      }
+      this.ownValue(v, t, at);
+      this.callHelper(Helper.LINK0);
+      r.blob.u8(0xe5); // PUSH HL
+      this.push(2);
+      return 2;
+    }
     // A scalar or File.
     const v = this.expression(t);
     this.toRegisters(v, t, at);
@@ -2935,9 +3955,20 @@ export class Compiler {
           this.advance();
           return { kind: "const", type: BOOLEAN, value: t.text === "true" };
         }
-        if (t.text === "none") throw new NotImplemented("none");
-        if (t.text === "move") throw new NotImplemented("move");
-        if (t.text === "new") throw new NotImplemented("new");
+        if (t.text === "none") {
+          this.advance();
+          return { kind: "none" };
+        }
+        if (t.text === "move") {
+          this.advance();
+          if (constant) fail("not-constant", t, "move is not constant");
+          return this.moveExpression(t);
+        }
+        if (t.text === "new") {
+          this.advance();
+          if (constant) fail("not-constant", t, "new is not constant");
+          return this.newExpression(this.acceptPunct("?"), t);
+        }
         if (t.text in SCALARS) {
           this.advance();
           return this.conversion(t.text as ScalarName, constant);
@@ -2972,7 +4003,9 @@ export class Compiler {
       name.text === "id" && this.isPunct("(", this.peek()) &&
       !this.scopes.lookup("id")
     ) {
-      throw new NotImplemented("id()");
+      this.advance();
+      if (constant) fail("not-constant", name, "id is not constant");
+      return this.idExpression(name);
     }
     const sym = this.scopes.lookup(name.text);
     if (!sym) fail("undeclared-name", name, `${name.text} is not declared`);
@@ -3015,6 +4048,7 @@ export class Compiler {
           fail("not-constant", name, "a variable is not a constant");
         }
         const d = this.designator();
+        this.lastDesignator = d;
         return this.loadDesignator(d);
       }
       default:
@@ -3027,7 +4061,11 @@ export class Compiler {
       this.emitAddress(d);
       return { kind: "address", type: d.type, readonly: d.readonly };
     }
-    if (d.type.kind === "handle") throw new NotImplemented("handle values");
+    if (d.type.kind === "handle") {
+      this.checkUsable(d);
+      this.loadValue(d);
+      return { kind: "reg", type: d.type };
+    }
     if (d.symbol?.flow === "maybe") {
       fail(
         "use-after-move",

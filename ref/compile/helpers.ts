@@ -42,6 +42,15 @@ export const Helper = {
   DIV16: 0x017,
   DIV16S: 0x018,
   STR_SETL: 0x019,
+  POOL_TRY: 0x01b,
+  POOL_DEL: 0x01c,
+  OBJ_FREE: 0x01d,
+  ID_CHK: 0x01e,
+  ID_TEST: 0x01f,
+  OWN_SET: 0x023,
+  OWN_SETC: 0x024,
+  LINK0: 0x025,
+  ID_MAKE: 0x026,
 } as const;
 
 export const TRAP_REPORTERS: Record<string, number> = {
@@ -95,6 +104,15 @@ export const REGISTER_HELPERS: HelperEntry[] = [
   { name: "DIV16", ordinal: Helper.DIV16, convention: 2, stack: 2 },
   { name: "DIV16S", ordinal: Helper.DIV16S, convention: 2, stack: 8 },
   { name: "STR_SETL", ordinal: Helper.STR_SETL, convention: 2, stack: 4 },
+  { name: "POOL_TRY", ordinal: Helper.POOL_TRY, convention: 2, stack: 10 },
+  { name: "POOL_DEL", ordinal: Helper.POOL_DEL, convention: 2, stack: 8 },
+  { name: "OBJ_FREE", ordinal: Helper.OBJ_FREE, convention: 2, stack: 12 },
+  { name: "ID_CHK", ordinal: Helper.ID_CHK, convention: 2, stack: 4 },
+  { name: "ID_TEST", ordinal: Helper.ID_TEST, convention: 2, stack: 4 },
+  { name: "OWN_SET", ordinal: Helper.OWN_SET, convention: 2, stack: 14 },
+  { name: "OWN_SETC", ordinal: Helper.OWN_SETC, convention: 2, stack: 16 },
+  { name: "LINK0", ordinal: Helper.LINK0, convention: 2, stack: 4 },
+  { name: "ID_MAKE", ordinal: Helper.ID_MAKE, convention: 2, stack: 4 },
 ];
 
 export const HELPER_STACK: Record<number, number> = Object.fromEntries(

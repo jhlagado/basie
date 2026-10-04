@@ -77,11 +77,19 @@ function compare(
   com: Uint8Array,
   lineTable?: Uint8Array,
 ): Outcome {
-  const run = runCom(com, {
-    input: expected.input,
-    tail: expected.tail,
-    files: expected.files,
-  });
+  let run;
+  try {
+    run = runCom(com, {
+      input: expected.input,
+      tail: expected.tail,
+      files: expected.files,
+    });
+  } catch (e) {
+    return {
+      status: "fail",
+      reason: `the program did not finish: ${(e as Error).message}`,
+    };
+  }
   if (expected.trap) {
     const m = run.output.match(/TRAP ([a-z-]+) at ([0-9A-F]{4})\r\n$/);
     if (!m) {

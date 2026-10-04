@@ -1,6 +1,6 @@
 // A non-optional owner can't be used after it may have been moved.
 // spec: 7.17, 10.8
-// expect error: use-after-move at 20:15
+// expect error: use-after-move at 20:5
 
 forward pool nodes
 

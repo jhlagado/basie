@@ -154,6 +154,11 @@ export function parseSource(source: string): Parsed {
           `${blobName}: alignment must be a power of 2 up to 256`,
         );
       }
+      if (blobName.length > 8) {
+        throw new BrlError(
+          `${blobName}: a blob name is at most 8 characters (ATOM's limit)`,
+        );
+      }
       current = [];
       blobs.push({
         ordinal: number(ord),

@@ -339,10 +339,13 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 ### 3.13 Pool capacity
 
+- **Slot header:** 6 bytes (generation, owner link, pool), revision 6.1; a
+  Representation choice. Each slot costs its record size plus 6.
+
 - **Value:** 1 to 65,535 slots (spec §8.11).
-- **Cause:** 16-bit capacity; each slot carries a 4-byte header (generation and
-  link) before the record ([memory safety](memory-safety.md) §5.1). Practical
-  capacity is set by the address space.
+- **Cause:** 16-bit capacity; each slot carries a 6-byte header before the
+  record ([memory safety](memory-safety.md) §5.1). Practical capacity is set by
+  the address space.
 - **Free list:** a handle is an address, so the list needs no index width.
 - **Status:** confirmed.
 
