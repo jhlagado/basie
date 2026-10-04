@@ -1172,7 +1172,7 @@ export class Compiler {
     else if (this.isKeyword("if")) this.ifStatement();
     else if (this.isKeyword("while")) this.whileStatement();
     else if (this.isKeyword("for")) this.forStatement();
-    else if (this.isKeyword("select")) throw new NotImplemented("select");
+    else if (this.isKeyword("select")) this.selectStatement();
     else if (this.isKeyword("return")) this.returnStatement();
     else if (this.isKeyword("fail")) this.failStatement();
     else if (this.isKeyword("assert")) this.assertStatement();
@@ -1499,6 +1499,167 @@ export class Compiler {
     r.blob.defineLabel(next);
     r.blob.defineLabel(end);
     r.fallsThrough = anyFalls || !hasElse;
+  }
+
+  // ---- select (11.7) ----------------------------------------------------------------
+
+  private selectStatement(): void {
+    const at = this.expectKeyword("select");
+    const r = this.routine!;
+    if (this.acceptKeyword("move")) throw new NotImplemented("select move");
+    const subjectAt = this.token;
+    const v = this.expression();
+    if (v.kind === "const" && !v.type) {
+      fail("no-definite-type", subjectAt, "a select subject needs a type");
+    }
+    const type = v.kind === "const"
+      ? v.type!
+      : v.kind === "reg"
+      ? v.type
+      : undefined;
+    if (!type || type.kind === "handle") {
+      throw new NotImplemented("select on handles");
+    }
+    if (!isInteger(type)) {
+      fail(
+        "type-mismatch",
+        subjectAt,
+        "select takes an integer or an optional handle",
+      );
+    }
+    const name = (type as { name: ScalarName }).name;
+    const s = SCALARS[name];
+    if (s.size > 2) throw new NotImplemented("32-bit select");
+    this.expectNewline();
+    // The subject lives in a hidden local for the arms' comparisons.
+    this.toRegisters(v, type, subjectAt);
+    const subject = this.allocLocal(s.size);
+    this.storeRegisters(type, { kind: "frame", offset: subject });
+    const end = r.blob.newLabel();
+    const covered: [number, number][] = [];
+    let sawElse = false;
+    let anyArm = false;
+    let anyFalls = false;
+    while (true) {
+      if (this.token.kind === "newline") {
+        this.advance();
+        continue;
+      }
+      if (this.isKeyword("end")) break;
+      const caseAt = this.expectKeyword("case");
+      if (sawElse) fail("syntax", caseAt, "case else must be last");
+      const body = r.blob.newLabel();
+      const next = r.blob.newLabel();
+      if (this.acceptKeyword("else")) {
+        sawElse = true;
+        this.expectNewline();
+        r.blob.defineLabel(body);
+        this.block(["case", "end"]);
+        anyFalls ||= r.fallsThrough;
+        r.blob.jp(end);
+        r.blob.defineLabel(next);
+        continue;
+      }
+      if (this.isKeyword("some") || this.isKeyword("none")) {
+        fail(
+          "type-mismatch",
+          this.token,
+          "some and none select on a handle, not an integer",
+        );
+      }
+      anyArm = true;
+      // Labels: constants and ranges, tested in turn.
+      do {
+        const labelAt = this.token;
+        const low = this.constantExpression(type).value as number;
+        let high = low;
+        if (this.acceptKeyword("to")) {
+          high = this.constantExpression(type).value as number;
+          if (high < low) {
+            fail(
+              "syntax",
+              labelAt,
+              "a range's low bound exceeds its high bound",
+            );
+          }
+        }
+        for (const [a, b] of covered) {
+          if (low <= b && high >= a) {
+            fail(
+              "duplicate-case",
+              labelAt,
+              "this label overlaps an earlier one",
+            );
+          }
+        }
+        covered.push([low, high]);
+        this.emitLabelTest(subject, name, low, high, body);
+      } while (this.acceptPunct(","));
+      this.expectNewline();
+      r.blob.jp(next);
+      r.blob.defineLabel(body);
+      this.block(["case", "end"]);
+      anyFalls ||= r.fallsThrough;
+      r.blob.jp(end);
+      r.blob.defineLabel(next);
+    }
+    if (!anyArm) fail("syntax", at, "select needs at least one case");
+    this.expectKeyword("end");
+    this.expectNewline();
+    r.blob.defineLabel(end);
+    r.fallsThrough = anyFalls || !sawElse;
+  }
+
+  /** Jump to `body` if the subject at IX+offset lies in low..high. */
+  private emitLabelTest(
+    offset: number,
+    name: ScalarName,
+    low: number,
+    high: number,
+    body: number,
+  ): void {
+    const r = this.routine!;
+    const s = SCALARS[name];
+    const flip = s.signed ? (s.size === 1 ? 0x80 : 0x8000) : 0;
+    const mask = s.size === 1 ? 0xff : 0xffff;
+    // Signed values are compared unsigned after flipping the sign bit.
+    const lo = ((low & mask) ^ flip) & mask;
+    const hi = ((high & mask) ^ flip) & mask;
+    if (s.size === 1) {
+      r.blob.u8(0xdd, 0x7e, offset & 0xff); // LD A,(IX+o)
+      if (flip) r.blob.u8(0xee, 0x80); // XOR $80
+      if (lo === hi) {
+        r.blob.u8(0xfe, lo); // CP n
+        r.blob.jpIf(JP_Z, body);
+        return;
+      }
+      const skip = r.blob.newLabel();
+      r.blob.u8(0xfe, lo); // CP lo: carry if A < lo
+      r.blob.jpIf(JP_C, skip);
+      if (hi < 0xff) {
+        r.blob.u8(0xfe, hi + 1); // CP hi+1: carry if A <= hi
+        r.blob.jpIf(JP_C, body);
+      } else r.blob.jp(body);
+      r.blob.defineLabel(skip);
+      return;
+    }
+    r.blob.u8(0xdd, 0x6e, offset & 0xff, 0xdd, 0x66, (offset + 1) & 0xff); // LD HL,(IX+o)
+    if (flip) r.blob.u8(0x7c, 0xee, 0x80, 0x67); // LD A,H; XOR $80; LD H,A
+    r.blob.u8(0x11); // LD DE,lo
+    r.blob.u16(lo);
+    r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE: HL = v - lo
+    if (lo === hi) {
+      r.blob.u8(0x7c, 0xb5); // LD A,H; OR L
+      r.blob.jpIf(JP_Z, body);
+      return;
+    }
+    const skip = r.blob.newLabel();
+    r.blob.jpIf(JP_C, skip); // v < lo
+    r.blob.u8(0x11); // LD DE,hi-lo+1
+    r.blob.u16(hi - lo + 1);
+    r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE: carry if v-lo <= hi-lo
+    r.blob.jpIf(JP_C, body);
+    r.blob.defineLabel(skip);
   }
 
   /** Evaluate a boolean condition and jump to `ifFalse` when it is false. */

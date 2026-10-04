@@ -93,7 +93,7 @@ Each step adds conformance programs and runs them end to end.
 | 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | | Edge-value tests |
 | 39 | Ref | `f32` through helpers, literal conversion, constant folding | | Conversion and rounding tests |
 | 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | | Scope and inference tests |
-| 41 | Ref | `select` on integers, characters and ranges; dispatch shapes | | Dispatch tests |
+| 41 | Ref | `select` on integers, characters and ranges; dispatch shapes | (done: integers, characters, ranges) | Dispatch tests |
 | 42 | Ref | Local aggregates, `var` parameters, arrays of arrays, `assert` | | Tests |
 | 43 | Ref | Pools, handles, `new`, `new?`, `move`, freeing, temporaries | | Memory-safety tests, accepted and rejected |
 | 44 | Ref | The flow check and the statement rule | | Rejected-program tests from the reviews |
