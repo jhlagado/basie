@@ -127,7 +127,10 @@ export class Scopes {
     this.stack[1] = this.part;
   }
 
-  open(kind: "routine" | "block", routine?: Symbol & { kind: "routine" }): void {
+  open(
+    kind: "routine" | "block",
+    routine?: Symbol & { kind: "routine" },
+  ): void {
     this.stack.push({ kind, symbols: new Map(), routine });
   }
 
@@ -153,7 +156,9 @@ export class Scopes {
       fail(
         here ? "duplicate-name" : "shadowed-name",
         at,
-        here ? `${sym.name} is already declared` : `${sym.name} would hide a visible name`,
+        here
+          ? `${sym.name} is already declared`
+          : `${sym.name} would hide a visible name`,
       );
     }
     const target = isPrivate ? this.part : this.current;

@@ -42,14 +42,23 @@ export type Type =
   | { kind: "handle"; pool: PoolInfo; id: boolean; optional: boolean }
   | { kind: "file" };
 
-export const SCALARS: Record<ScalarName, { size: number; signed: boolean; float?: boolean; min: number; max: number }> = {
+export const SCALARS: Record<
+  ScalarName,
+  { size: number; signed: boolean; float?: boolean; min: number; max: number }
+> = {
   u8: { size: 1, signed: false, min: 0, max: 255 },
   i8: { size: 1, signed: true, min: -128, max: 127 },
   u16: { size: 2, signed: false, min: 0, max: 65535 },
   i16: { size: 2, signed: true, min: -32768, max: 32767 },
   u32: { size: 4, signed: false, min: 0, max: 4294967295 },
   i32: { size: 4, signed: true, min: -2147483648, max: 2147483647 },
-  f32: { size: 4, signed: true, float: true, min: -3.4028234663852886e38, max: 3.4028234663852886e38 },
+  f32: {
+    size: 4,
+    signed: true,
+    float: true,
+    min: -3.4028234663852886e38,
+    max: 3.4028234663852886e38,
+  },
   boolean: { size: 1, signed: false, min: 0, max: 1 },
 };
 
@@ -137,7 +146,10 @@ export function widens(from: ScalarName, to: ScalarName): boolean {
 }
 
 /** The common type of two typed numeric operands (spec §9.7), or undefined. */
-export function commonType(a: ScalarName, b: ScalarName): ScalarName | undefined {
+export function commonType(
+  a: ScalarName,
+  b: ScalarName,
+): ScalarName | undefined {
   if (a === b) return a;
   if (widens(a, b)) return b;
   if (widens(b, a)) return a;
@@ -152,7 +164,8 @@ export function sameType(a: Type, b: Type): boolean {
     case "record":
       return a === b;
     case "array":
-      return a.length === (b as typeof a).length && sameType(a.element, (b as typeof a).element);
+      return a.length === (b as typeof a).length &&
+        sameType(a.element, (b as typeof a).element);
     case "openArray":
       return sameType(a.element, (b as typeof a).element);
     case "string":
