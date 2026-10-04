@@ -75,7 +75,10 @@ The consequences:
   echo;
 - Control-C does not interrupt output; it is an ordinary key; and
 - the runtime keeps a one-byte lookahead so that `keyReady` doesn't lose the key
-  it saw.
+  it saw; and
+- the byte `$FF` is written through the BIOS's `CONOUT` entry instead, because
+  BDOS 6 reads `E = $FF` as a request for input (and, on CP/M 3, `$FD` and `$FE`
+  too, which the `CPM3` profile also sends through the BIOS).
 
 ### 3.2 Console services
 

@@ -532,6 +532,12 @@ and calling-convention code). A library carries a **key table** at the key table
 offset: a `u16` count followed by the key of every version from 1 up to its own,
 in order.
 
+The canonical description for version *v* is 4 bytes per helper defined in
+versions 1 to *v*, in increasing ordinal order: the ordinal (`u16`), the kind
+(`u8`) and the calling-convention code (`u8`). The key is the CRC-16 of those
+bytes (Section 7.6); a version with no helpers has the key `$FFFF`, the CRC of
+nothing.
+
 **Compatibility.** The linker accepts a program and a library together only if:
 
 - their runtime identities are equal;
