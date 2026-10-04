@@ -1,0 +1,33 @@
+// Baton standard library: strings (D25, D36). Each routine fails with
+// lineTooLong rather than exceed the destination's capacity.
+
+sub appendByte(var s as string[], b as u8) fails
+    var at as u8 = s.length
+    if u16(at) = s.capacity
+        fail lineTooLong
+    end
+    s.length = at + 1
+    s[at] = b
+end
+
+sub append(var s as string[], t as string[]) fails
+    var i as u8 = 0
+    while i < t.length
+        appendByte(s, t[i]) else fail
+        i = i + 1
+    end
+end
+
+sub equal(a as string[], b as string[]) as boolean
+    if a.length <> b.length
+        return false
+    end
+    var i as u8 = 0
+    while i < a.length
+        if a[i] <> b[i]
+            return false
+        end
+        i = i + 1
+    end
+    return true
+end

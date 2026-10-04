@@ -1,0 +1,30 @@
+// handle stores the failure code and runs its body; the success store is skipped.
+// spec: 14.6
+// expect output: 48 7\r\n
+
+include "FORMAT.BTN"
+
+const notReady = 48
+
+sub tryIt(ok as boolean) as u8 fails
+    if not ok
+        fail notReady
+    end
+    return 7
+end
+
+sub main() fails
+    var line as string[12]
+    var code as u8 = 0
+    var value as u8 = 0
+    value = tryIt(false) handle code
+        appendU16(line, code) else fail
+    end
+    appendByte(line, ' ') else fail
+    value = tryIt(true) handle code
+        appendByte(line, '!') else fail
+    end
+    appendU16(line, value) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

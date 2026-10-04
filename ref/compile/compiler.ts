@@ -82,6 +82,8 @@ type Designator = {
   place: Place;
   type: Type;
   readonly: boolean;
+  /** The .length of a string[] parameter at this IX offset: set through STR_SETL. */
+  setLength?: number;
   symbol?: Symbol & { kind: "var" };
   /** Emit code leaving the address in HL (for computed places). */
   compute?: () => void;
@@ -1595,8 +1597,7 @@ export class Compiler {
     this.toRegisters(bound, bt, boundAt);
     const boundOffset = this.allocLocal(2);
     if (SCALARS[boundType].size === 1) {
-      r.blob.u8(0x26, 0); // LD H,0 (the value is in A; widen into HL)
-      r.blob.u8(0x6f); // LD L,A
+      this.widen(boundType, SCALARS[boundType].signed ? "i16" : "u16");
     }
     this.storeRegisters(U16, { kind: "frame", offset: boundOffset });
     let step = 1;
@@ -1757,6 +1758,17 @@ export class Compiler {
 
   private assign(d: Designator, at: Token): void {
     const r = this.routine!;
+    if (d.setLength !== undefined) {
+      // s.length = e, through the runtime, which checks and zeroes (D25).
+      const v = this.expression(U8);
+      this.toRegisters(v, U8, at);
+      const o = d.setLength;
+      r.blob.u8(0x5f); // LD E,A
+      r.blob.u8(0xdd, 0x56, (o + 2) & 0xff); // LD D,(IX+o+2): the capacity's low byte
+      r.blob.u8(0xdd, 0x6e, o & 0xff, 0xdd, 0x66, (o + 1) & 0xff); // LD HL,(IX+o)
+      this.callHelper(Helper.STR_SETL);
+      return;
+    }
     if (isAggregate(d.type)) {
       if (d.type.kind === "openString" || d.type.kind === "openArray") {
         fail("not-writable", at, "an open view can't be assigned as a whole");
@@ -1854,10 +1866,14 @@ export class Compiler {
         const field = this.expectName();
         if (d.type.kind === "string" || d.type.kind === "openString") {
           if (field.text === "length") {
-            if (d.type.kind === "openString") {
-              d = this.offsetPlace(d, 0, U8, true);
-            } else d = this.offsetPlace(d, 0, U8, true);
-            d.readonly = true; // .length of a concrete string is read-only
+            if (d.type.kind === "openString" && d.place.kind === "alias") {
+              const offset = d.place.offset;
+              const writable = !d.readonly;
+              d = this.offsetPlace(d, 0, U8, !writable);
+              if (writable) d.setLength = offset;
+            } else {
+              d = this.offsetPlace(d, 0, U8, true); // a concrete string's length is read-only
+            }
             continue;
           }
           if (field.text === "capacity" && d.type.kind === "openString") {

@@ -41,6 +41,7 @@ export const Helper = {
   MUL16: 0x016,
   DIV16: 0x017,
   DIV16S: 0x018,
+  STR_SETL: 0x019,
 } as const;
 
 export const TRAP_REPORTERS: Record<string, number> = {
@@ -93,6 +94,7 @@ export const REGISTER_HELPERS: HelperEntry[] = [
   { name: "MUL16", ordinal: Helper.MUL16, convention: 2, stack: 2 },
   { name: "DIV16", ordinal: Helper.DIV16, convention: 2, stack: 2 },
   { name: "DIV16S", ordinal: Helper.DIV16S, convention: 2, stack: 8 },
+  { name: "STR_SETL", ordinal: Helper.STR_SETL, convention: 2, stack: 4 },
 ];
 
 export const HELPER_STACK: Record<number, number> = Object.fromEntries(

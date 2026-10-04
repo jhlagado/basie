@@ -451,7 +451,8 @@ DIV16S: LD      A,D
         XOR     D
         PUSH    AF              ; bit 7: the quotient is negative
         LD      A,H
-        PUSH    AF              ; bit 7: the remainder is negative
+        OR      A               ; LD sets no flags: the sign flag needs OR
+        PUSH    AF              ; sign flag: the remainder is negative
         BIT     7,H
         JR      Z,.POSL
         XOR     A
@@ -485,4 +486,34 @@ DIV16S: LD      A,D
         SBC     A,A
         SUB     H
         LD      H,A
+        RET
+
+; @blob $019 code STR_SETL helper=2
+; Set a string's length: HL = the string, E = the new length, D = its
+; capacity. A length beyond the capacity traps with bounds. Bytes exposed by
+; a longer length are zeroed (D25). Uses A, BC, DE. Stack: 4.
+STR_SETL:
+        LD      A,E
+        CP      D
+        JR      C,.OK
+        JR      Z,.OK
+        JP      TRAP_BND
+.OK:    LD      C,E             ; the new length
+        LD      A,(HL)          ; the old length
+        CP      C
+        JR      NC,.STORE       ; not growing
+        PUSH    HL
+        LD      B,A
+        LD      A,C
+        SUB     B               ; the bytes to zero
+        LD      D,0
+        LD      E,B
+        ADD     HL,DE
+        INC     HL              ; the first exposed byte
+        LD      B,A
+.ZERO:  LD      (HL),0
+        INC     HL
+        DJNZ    .ZERO
+        POP     HL
+.STORE: LD      (HL),C
         RET

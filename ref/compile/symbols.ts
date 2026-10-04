@@ -161,7 +161,9 @@ export class Scopes {
           : `${sym.name} would hide a visible name`,
       );
     }
-    const target = isPrivate ? this.part : this.current;
+    // A top-level declaration is program-wide unless private (chapter 5).
+    const atTop = this.stack.length === 2;
+    const target = isPrivate ? this.part : atTop ? this.program : this.current;
     target.symbols.set(sym.name, sym);
   }
 

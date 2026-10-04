@@ -1,0 +1,25 @@
+// An open array parameter views any length and reports it as .length.
+// spec: 6.2, 13.4
+// expect output: 3 60\r\n
+
+include "FORMAT.BTN"
+
+sub total(items as u16[]) as u16
+    var sum as u16 = 0
+    var i as u16 = 0
+    while i < items.length
+        sum = sum + items[i]
+        i = i + 1
+    end
+    return sum
+end
+
+sub main() fails
+    var line as string[12]
+    var three as u16[3] = [10, 20, 30]
+    appendU16(line, 3) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, total(three)) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

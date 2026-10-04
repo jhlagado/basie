@@ -65,12 +65,14 @@ export async function compile(
     : await runtimeLibrary();
   const root = new URL("../../", import.meta.url).pathname;
   const libraryDirs = options.libraryDirs ?? [`${root}lib`];
+  let partNames: string[] = [];
   try {
     const stream = loadSource(
       mainPath,
       { ...options, libraryDirs },
       options.mainSource,
     );
+    partNames = stream.parts.map((p) => p.name);
     const compiler = new Compiler(stream.tokens, stream.parts);
     const program = compiler.compile();
     const stamp = 1;
@@ -113,7 +115,7 @@ export async function compile(
           code: e.code,
           line: e.position.line,
           column: e.position.column,
-          part: `part ${e.position.part}`,
+          part: partNames[e.position.part] ?? `part ${e.position.part}`,
           message: e.message,
         }],
       };

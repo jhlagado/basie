@@ -86,10 +86,10 @@ Each step adds conformance programs and runs them end to end.
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
 | 33 | Ref | Lexer and source parts, with `include` | `ref/compile/lexer.ts`, `source.ts` (done) | Token tests |
-| 34 | Ref | Declarations, scopes, `private`, forward declarations | | Scope tests |
-| 35 | Ref | Expressions and statements on `u8`, `u16`, `boolean`: the Nucleus core | Blob output | Nucleus's conformance examples pass |
-| 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | | Nucleus examples |
-| 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | | Nucleus examples |
+| 34 | Ref | Declarations, scopes, `private`, forward declarations | `ref/compile/symbols.ts`, `compiler.ts` (done) | Scope tests |
+| 35 | Ref | Expressions and statements on `u8`, `u16`, `boolean`: the Nucleus core | `ref/compile/compiler.ts`, `emit.ts`; `hello` runs (done) | Nucleus's conformance examples pass |
+| 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | (done: records, arrays, strings, open views, aggregate constants) | Nucleus examples |
+| 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | (done except the stack bound's recursion tests: see step 46) | Nucleus examples |
 | 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | | Edge-value tests |
 | 39 | Ref | `f32` through helpers, literal conversion, constant folding | | Conversion and rounding tests |
 | 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | | Scope and inference tests |
