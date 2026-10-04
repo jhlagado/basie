@@ -7,7 +7,7 @@ This chapter defines how declarations bind names and where those bindings are vi
 
 A scope controls where source text may refer to a declaration. It does not determine storage allocation, initialization, storage duration, or value lifetime; Chapter 7 defines those subjects.
 
-Baton has no implicit declarations, overloads, generic parameters, nested routines, or source-level module namespaces. Formal parameters and named local variables use the declarations defined by Chapters 8 and 13.
+Baton has no implicit declarations, overloads, generic parameters, nested routines, or qualified module names. A `private` top-level declaration is visible only within its own source part (Section 5.11). Formal parameters and named local variables use the declarations defined by Chapters 8 and 13.
 
 ## 5.2 Name identity
 
@@ -19,23 +19,27 @@ An implementation may use a hash or an interned ordinal to locate a candidate bi
 
 Baton uses these scopes:
 
-| Scope        | Bindings                                                                                     | Enclosing scope                                                                               |
-| ------------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Program      | Predefined names, named constants, record types, top-level variables, and routine signatures | None                                                                                          |
-| Routine      | The routine's formal parameters and named local variables                                    | Program scope as visible at the routine's source position                                     |
-| Record field | The fields declared by one record type                                                       | None for ordinary-name lookup; selection uses the field scope associated with the record type |
+| Scope        | Bindings | Enclosing scope |
+| ------------ | -------- | --------------- |
+| Program      | Predefined names, and the named constants, record types, pools, top-level variables and routine signatures not marked `private` | None |
+| Part         | The `private` top-level declarations of one source part | Program scope |
+| Routine      | The routine's formal parameters, and the locals declared directly in its body | The part scope of the routine's part, as visible at the routine's position |
+| Block        | The locals and local constants declared directly in one block | The innermost enclosing block or routine scope |
+| Record field | The fields declared by one record type | None for ordinary-name lookup; selection uses the field scope associated with the record type |
 
-One compilation unit has one program scope. A source-part boundary does not open another scope. Chapter 4 defines how ordered source parts contribute to that unit.
+One compilation has one program scope, and each source part one part scope. A part boundary opens no other scope, and a later part does not see an earlier part's `private` bindings.
 
-Each routine definition has one routine scope. Parameters and locals are binding classes within that scope, not separate nested scopes. Conditional clauses, loops, and other statement blocks do not open name scopes. Local declarations therefore remain in the routine's declaration prefix and cannot appear inside a statement block.
+A **block** is a statement sequence that the grammar delimits (design decision D28): each arm of an `if`, `elseif` or `else`; each `case` and `else` arm of a `select` (Chapter 11); and each loop body (Chapter 12). A routine body is the outermost block of its routine and is the routine scope itself. A block scope begins where the block's statements begin and ends at the keyword that ends the block or starts the next arm.
+
+A local variable or local constant may be declared at any statement position (Chapter 10). Its scope runs from its declaration point (Section 5.5) to the end of the innermost enclosing block. When control leaves that block, by reaching its end or by `exit`, `continue`, `return` or `fail`, the local's lifetime ends, and an owning local is freed (Chapter 7).
 
 Each record type has its own field scope. A field scope is separate from the ordinary scopes and from every other record's field scope.
 
 ## 5.4 One ordinary namespace
 
-Program and routine scopes use one ordinary namespace. A record type, named constant, variable, routine, parameter, or local with a given exact identity prevents another visible ordinary binding from using that identity. Type and value names do not occupy separate namespaces.
+Program, part, routine and block scopes use one ordinary namespace. A record type, pool, named constant, variable, routine, parameter or local with a given exact identity prevents another visible ordinary binding from using that identity. Type and value names do not occupy separate namespaces.
 
-Name lookup first finds the one ordinary binding and then checks whether its declaration class is valid in context. A record type used as an expression, a variable used as a type, or a result-free routine used as a value is invalid. The compiler must not continue searching for another declaration of a more convenient class.
+Name lookup first finds the one ordinary binding and then checks whether its declaration class is valid in context. A record type used as an expression, a variable used as a type, or a result-free routine used as a value is invalid. A pool name is valid both as a type, meaning an owning handle into that pool, and where Chapter 7 admits a pool as an operand, as in `new nodes(...)`. The compiler must not continue searching for another declaration of a more convenient class.
 
 Baton has no overload sets. Two routines with the same identity conflict even when their parameter or result types differ. Enumeration and subrange types are absent and introduce no member or range namespaces.
 
@@ -80,10 +84,11 @@ A completed declaration must precede every use. For routines, the checked signat
 | Predefined name                      | Before the first source token; visible throughout the unit                                                                                        |
 | Named constant or program variable   | After the complete declaration, including its type and any initializer, has been checked                                                          |
 | Record type                          | After the complete record declaration, including every field, has been checked                                                                    |
+| Pool                                 | After the complete pool declaration has been checked; a forward pool declaration (D40) makes the pool name visible as a type, before its record type and capacity are given |
 | Routine definition without a forward | After the complete signature has been checked and before the body begins                                                                          |
 | Forward routine declaration          | After the complete signature has been checked                                                                                                     |
-| Formal parameters                    | Together, after an ordinary header is checked or an abbreviated body header opens its forward; visible in that body's local prefix and statements |
-| Local variable                       | After its complete declaration, including any initializer, has been checked; visible in later local declarations and the body                     |
+| Formal parameters                    | Together, after an ordinary header is checked or an abbreviated body header opens its forward; visible throughout that body |
+| Local variable or local constant     | After its complete declaration, including any initializer, has been checked; visible in the rest of its block, including nested blocks            |
 | Record field                         | After the complete record declaration has been checked; visible only through selection on that record type                                        |
 
 A declaration is not visible in its own type, bound, initializer, or other declaration operand. A record type is not visible in its own field list. These rules reject self-reference by non-routine declarations and prevent declaration cycles without a dependency graph or a second declaration pass.
@@ -103,7 +108,19 @@ Two declarations in the same scope conflict when their exact case-sensitive iden
 
 Lookup never selects a later declaration in preference to an earlier one. Baton has no temporal shadowing, source-level replacement, or latest-definition rule.
 
-A parameter or local must not shadow an ordinary program binding visible at its declaration point. A local must not reuse the identity of a parameter or an earlier local. Because routine bodies contain no nested declaration scopes, no inner-block shadowing case exists.
+A parameter or local must not shadow any ordinary binding visible at its declaration point: a program binding, a part binding, a parameter, or a local of an enclosing block. Baton has no shadowing at any level. Locals in blocks that do not enclose one another may use the same identity, because neither is visible where the other is declared:
+
+```nucleus
+sub show(flag as boolean)
+    if flag
+        var count as u8 = 1
+        ...
+    else
+        var count as u16 = 2     // valid: the first count is out of scope
+        ...
+    end
+end
+```
 
 ```nucleus
 const limit = 10
@@ -137,10 +154,11 @@ The compiler resolves a name at its source position in this order:
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | A reserved word or built-in type token | Use the token established by Chapter 3; perform no ordinary-name lookup                                |
 | A name after `.`                       | Use the selected record's field scope, or require intrinsic `length` when the base is a bounded string |
-| An ordinary name inside a routine      | Search visible parameters and locals in the current routine scope, then the visible program scope      |
-| An ordinary name at top level          | Search the visible program scope                                                                       |
+| `id` before a pool name in a type, or `id(` in an expression | The contextual word of Chapter 3 (design decision D29); otherwise `id` is an ordinary name |
+| An ordinary name inside a routine      | Search the visible locals of the enclosing blocks from the innermost outwards, then the parameters, then the routine's part scope, then the program scope |
+| An ordinary name at top level          | Search the visible part scope, then the program scope                                                   |
 
-The no-shadowing rule ensures that the routine and program searches cannot both produce valid bindings for the same identity. Field names are never found by unqualified ordinary lookup.
+The no-shadowing rule ensures that no two of these searches can produce valid bindings for the same identity, so the search order affects only speed, never the result. Field names are never found by unqualified ordinary lookup.
 
 If lookup finds no binding, the compiler must issue an undeclared-name diagnostic. It must not create a variable, infer a declaration class, or grant visibility to a later declaration. If lookup finds a binding of the wrong class for the context, the compiler must diagnose that class mismatch.
 
@@ -166,9 +184,9 @@ end
 
 ## 5.9 Self-reference and recursive call graphs
 
-After a routine's complete signature has been checked, its program-scope binding is visible in its own body. Name resolution therefore permits a direct self-reference without a forward declaration.
+After a routine's complete signature has been checked, its binding is visible in its own body. A **call** to a routine whose body is not yet complete, which includes a call from a routine to itself, is valid only when the routine has a forward declaration (Chapter 4, Section 4.5). Without one, the call is diagnosed as `recursion-needs-forward`. The rule makes every cycle of calls pass through a forward-declared routine, which carries the activation-capacity check ([memory safety](../docs/memory-safety.md), Section 7; Chapter 13).
 
-Mutual references require forward signatures for every later routine that an earlier body names. In this example, `second` is visible through its forward declaration, while `first` is visible after its own header:
+Mutual references require forward signatures for every later routine that an earlier body names. In this example both calls are valid: `second` through its forward declaration, and `first` because its body is complete before `second`'s begins:
 
 ```nucleus
 forward sub second(value as u16)
@@ -184,7 +202,17 @@ sub second
 end
 ```
 
-Under these rules, those names resolve. Chapter 13 admits recursive calls and defines their call semantics; Chapter 7 defines activation storage and lifetime. Implementation staging must not change the name-resolution result.
+A routine calling itself needs the same form:
+
+```nucleus
+forward sub countDown(n as u8)
+
+sub countDown
+    if n > 0
+        countDown(n - 1)
+    end
+end
+```
 
 ## 5.10 Reserved, predefined, entry, and generated names
 
@@ -192,14 +220,33 @@ Reserved words, built-in type words, and Boolean literals recognized by Chapter 
 
 Chapter 16 defines the complete standard set of predefined source routines and constants. The compiler establishes those ordinary program-scope bindings before the first source token. User declarations and routine-scope declarations cannot redeclare or shadow them. An implementation extension may add names only under the explicit extension rules in Section 1.7.
 
-`main` is not a predefined binding. Its required lowercase source definition creates the ordinary routine binding and must satisfy Section 4.7. A differently cased name such as `Main` is distinct and does not satisfy the entry rule. No other declaration may use the exact identity `main`.
+`main` is not a predefined binding. Its required lowercase source definition creates the ordinary routine binding and must satisfy Section 4.7. `main` cannot be `private`. A differently cased name such as `Main` is distinct and does not satisfy the entry rule. No other declaration may use the exact identity `main`.
 
 Compiler-generated temporaries, labels, and helper names remain outside the source namespace. They cannot collide with a source identifier or become visible to source lookup.
 
-## 5.11 Diagnostics and capacity limits
+## 5.11 Private declarations
 
-The compiler must diagnose an undeclared use, an exact duplicate, forbidden shadowing, a wrong declaration class, an abbreviated body without one incomplete forward, a second completion, and an uncompleted forward declaration. It may stop after the first diagnostic under Chapter 1.
+The word `private` before a top-level declaration places its binding in the part scope of its source part instead of the program scope (design decision D33):
+
+```nucleus
+private const bufferSize = 64
+private sub flushBuffer()
+    ...
+end
+```
+
+1. A `private` binding is visible only within its own part, from its declaration point on, under the ordinary rules of Section 5.5.
+2. A `private` declaration must not use the identity of any binding visible at its declaration point, as for any declaration.
+3. A later part may declare a binding with the same identity as an earlier part's `private` binding, since that binding is not visible there. So two parts of the standard library may each have a private `helper`.
+4. A `private` forward routine declaration must be completed in the same part. A forward declaration that is not `private` may be completed in a later part; the completion is then `private` only if the forward was.
+5. Record fields, parameters and locals cannot be marked `private`; they are already local to their scope.
+
+`private` affects visibility only. A private routine, constant, pool or variable is compiled, linked and freed exactly like a public one, and its name appears in the name stream for reports and the symbol file.
+
+## 5.12 Diagnostics and capacity limits
+
+The compiler must diagnose an undeclared use, an exact duplicate, forbidden shadowing, a wrong declaration class, a call needing a forward declaration, an abbreviated body without one incomplete forward, a second completion, an uncompleted forward declaration, and a `private` forward completed in another part. It may stop after the first diagnostic under Chapter 1.
 
 An implementation may bound identifier length, retained name bytes, ordinary bindings, routine-local bindings, record fields, or unresolved forward signatures. It must document each limit and issue a capacity diagnostic before truncation, wraparound, dropped declarations, or unchecked collision can occur. A capacity failure does not change identifier identity or make an otherwise conforming program invalid.
 
-The implementation may use one bounded ordinary symbol table, a mark for the current routine, and a field table associated with each record type. That layout is non-normative. The observable lookup, collision, visibility, and diagnostic rules above remain the same for any internal representation.
+The implementation may use one bounded ordinary symbol table, a mark for the current part's private names, a stack of marks for the current routine and its open blocks, and a field table associated with each record type. That layout is non-normative. The observable lookup, collision, visibility, and diagnostic rules above remain the same for any internal representation.
