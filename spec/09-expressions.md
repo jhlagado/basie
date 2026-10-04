@@ -3,229 +3,249 @@
 
 ## 9.1 Scope
 
-This chapter defines expression syntax, precedence, associativity, operand and result types, scalar conversions, designator formation, and evaluation order. Chapter 6 defines the type set and compatibility rules. Chapter 7 defines storage identity and aggregate aliases. Chapter 10 defines assignment and the statement contexts that contain expressions. Chapter 13 defines routine signatures, argument passing, and result transfer.
+This chapter defines expression syntax, precedence, associativity, operand and result types, the numeric rules (design decision D31), conversions, designators, handle expressions, and evaluation order. Chapter 6 defines the types and the implicit widenings. Chapter 7 defines storage, aliases, pools and handles. Chapter 10 defines assignment and the statement contexts that contain expressions. Chapter 13 defines calls.
 
-Baton uses one predictive expression grammar for ordinary, initializer, argument, index, condition, and return contexts. A context may restrict the resulting category or supply an expected type, but it does not select another precedence ladder. The grammar requires no backtracking or retained syntax tree.
+Baton uses one predictive expression grammar for every context: initializers, arguments, indexes, conditions, `select` subjects and returns. A context may restrict the result or supply an expected type, but it never selects another precedence ladder. The grammar needs no backtracking and no retained syntax tree.
 
 ## 9.2 Expression grammar
 
-The reusable expression fragment is:
-
 ```text
-expression             ::= or-expression
-or-expression          ::= and-expression { ( "or" | "xor" ) and-expression }
-and-expression         ::= not-expression { "and" not-expression }
-not-expression         ::= "not" not-expression | comparison
-comparison             ::= additive [ comparison-operator additive ]
-comparison-operator    ::= "=" | "<>" | "<" | "<=" | ">" | ">="
-additive               ::= multiplicative
-                           { ( "+" | "-" ) multiplicative }
-multiplicative         ::= unary { ( "*" | "/" | "mod" ) unary }
-unary                  ::= ( "+" | "-" ) unary | postfix-expression
-postfix-expression     ::= primary { postfix-suffix }
-primary                ::= NUMBER | CHARACTER | "true" | "false"
-                         | NAME | conversion | "(" expression ")"
-conversion             ::= ( "u8" | "u16" ) "(" expression ")"
-postfix-suffix         ::= argument-list | "[" expression "]" | "." NAME
-argument-list          ::= "(" [ expression { "," expression } ] ")"
+expression          ::= or-expression
+or-expression       ::= and-expression { ( "or" | "xor" ) and-expression }
+and-expression      ::= not-expression { "and" not-expression }
+not-expression      ::= "not" not-expression | comparison
+comparison          ::= additive [ comparison-operator additive ]
+comparison-operator ::= "=" | "<>" | "<" | "<=" | ">" | ">="
+additive            ::= multiplicative { ( "+" | "-" ) multiplicative }
+multiplicative      ::= unary
+                        { ( "*" | "/" | "mod" | "shl" | "shr" ) unary }
+unary               ::= ( "+" | "-" ) unary | postfix-expression
+postfix-expression  ::= primary { postfix-suffix }
+primary             ::= NUMBER | FLOAT | CHARACTER | "true" | "false"
+                      | "none"
+                      | NAME
+                      | conversion
+                      | "(" expression ")"
+                      | "move" designator
+                      | "id" "(" expression ")"
+                      | "new" [ "?" ] NAME argument-list
+conversion          ::= numeric-type "(" expression ")"
+numeric-type        ::= "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
+designator          ::= NAME { "[" expression "]" | "." NAME }
+postfix-suffix      ::= argument-list | "[" expression "]" | "." NAME
+argument-list       ::= "(" [ expression { "," expression } ] ")"
 ```
 
-Chapter 17 incorporates this fragment into the complete grammar. The semantic restrictions below reject suffix combinations that the compact syntactic loop can recognize but Baton does not admit.
+`id` is the contextual word of Chapter 3: it begins the `id(...)` form only when the next token is `(` and no local, parameter or other visible binding named `id` exists at that point; otherwise it is an ordinary `NAME`. Chapter 17 incorporates this fragment into the complete grammar. The semantic rules below reject suffix combinations that the compact syntax admits but Baton does not.
 
-A string literal is not a general expression primary. Chapter 8 permits it as a bounded-string initializer. A later system or bounded-string operation may accept a string literal in an explicitly defined operand position without turning it into a copyable aggregate value.
+A string literal is not a general expression primary. It is admitted as a static initializer (Chapter 8), as an argument for a read-only `string[]` parameter (Chapter 13), and in the other positions that a later chapter names explicitly.
 
-## 9.3 Names, calls, and postfix operations
+## 9.3 Precedence and associativity
 
-The compiler resolves each `NAME` before interpreting its postfix suffixes. A visible scalar constant, scalar variable, parameter, or local supplies its declared scalar type. A visible aggregate object or alias supplies its exact aggregate type and storage category. A visible routine name must be followed immediately by an argument list; routine names are not values.
-
-An argument-list suffix in an ordinary expression invokes only an infallible source routine named by the primary. Baton has no routine values, indirect calls, callable results, overload resolution, or invocation of an arbitrary parenthesized expression. A second argument-list suffix is invalid. Chapter 13 defines argument and result compatibility, and Chapter 14 gives failable calls their restricted statement, initializer, and assignment positions.
-
-An index suffix requires a fixed-array or bounded-string storage path or typed alias. Its expression must have type `u8` or `u16`. For a fixed array, the result has the array's exact element type; the compiler diagnoses a statically out-of-range index and emits a checked access for a dynamic index unless it proves the index is in range. For a bounded string, the result is a `u8` storage path and the implementation checks the index against the current logical length before every access unless it proves that access safe. A failed check occurs before the element or byte is read or written.
-
-A field suffix on a record storage path or typed record alias resolves the field name only in that record's field scope and produces the field's declared type. A `.length` suffix on a bounded-string storage path or alias produces its read-only `u8` logical length. Other field suffixes on bounded strings are invalid. Selection does not expose an offset, header, or address to source code.
-
-Index and field suffixes may follow an aggregate result from a routine call. The result remains a transient typed alias to the object established by Chapter 13; the suffix does not copy that object. A scalar result cannot be indexed or selected, and a result-free call cannot take another suffix.
-
-## 9.4 Expression categories and storage paths
-
-Expression checking records both a type and one of these source categories:
-
-| Category                         | Permitted use                                                                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Exact integer constant           | Adopts an admitted integer type from context or the rules in Section 9.7.                                                                              |
-| Scalar value                     | May be copied, converted, compared, passed, returned, or stored in a compatible scalar destination.                                                    |
-| Scalar storage path              | Reads as its scalar value in an expression and may be a writable destination when its root is mutable.                                                 |
-| Aggregate storage path           | May be indexed, selected, copied by exact-type assignment, passed as an aggregate argument, or returned under Chapter 7's consumption rules.           |
-| Transient aggregate-alias result | Denotes compatible storage for one containing operation and may be selected, indexed, copied by exact-type assignment, passed, returned, or discarded. |
-| Result-free invocation           | Is valid only as a complete call statement; when failable, its failure is consumed under Chapter 14.                                                   |
-
-A **storage path** begins with a visible program variable, aggregate constant, parameter, or local and continues through zero or more field and index suffixes. Each suffix preserves the root object's identity while selecting a subobject. An aggregate-constant-rooted path is readable but not a direct assignment target. A scalar constant and a routine call are not storage-path roots. A call that returns an aggregate alias may be selected or indexed in a value context, but Chapter 10 does not admit it as an assignment root.
-
-A bare aggregate storage path is valid where a rule requires compatible aggregate storage, an alias, or an aggregate-assignment operand. It is not otherwise a general expression value. Baton has no aggregate comparison, aggregate truth test, automatic argument copy, or automatic result copy.
-
-## 9.5 Explicit integer conversions
-
-`u16(expression)` performs the explicit form of the `u8`-to-`u16` conversion. Its operand must have type `u8` or `u16`. A `u8` operand is widened without changing its value; a `u16` operand is unchanged.
-
-`u8(expression)` performs checked narrowing. Its operand must have type `u8` or `u16`. A `u8` operand is unchanged. A known `u16` value outside 0 through 255 makes the source invalid. For a value known only at runtime, the generated program checks the range and performs the Chapter 15 narrowing trap before producing a result when the value is outside that range.
-
-Both forms evaluate their operand once. They do not reinterpret bits, extract a low byte, wrap, or expose a machine representation. `boolean(expression)`, record conversions, array conversions, string-capacity conversions, and conversions between `u16` and an aggregate-alias carrier are absent.
-
-The type words in these two forms are fixed tokens, not routine names. A user declaration cannot override them, and conversion syntax does not participate in routine lookup.
-
-## 9.6 Precedence and associativity
-
-Precedence from highest to lowest is:
+From highest to lowest:
 
 1. routine invocation, indexing, field selection, and parenthesized grouping;
-2. unary `+` and unary `-`;
-3. multiplication, division, and modulo;
-4. addition and subtraction;
+2. unary `+` and `-`;
+3. `*`, `/`, `mod`, `shl` and `shr`;
+4. binary `+` and `-`;
 5. one comparison;
 6. `not`;
 7. `and`;
 8. `or` and `xor`.
 
-Binary arithmetic, `and`, `or`, and `xor` associate from left to right. Unary `+`, unary `-`, and `not` associate from right to left. A comparison contains at most one comparison operator and therefore has no associativity.
+`move`, `id(...)`, `new` and conversions are primaries and bind tightest. Binary operators at one level associate from left to right. Unary `+`, unary `-` and `not` associate from right to left. A comparison contains at most one comparison operator and has no associativity: `a < b < c` is invalid, and is written `a < b and b < c`.
 
-`not` binds less tightly than comparison. Thus `not left = right` means `not (left = right)`. An integer complement used as a comparison operand requires parentheses, as in `(not mask) = expected`.
+`not` binds less tightly than comparison, so `not left = right` means `not (left = right)`. An integer complement used as a comparison operand needs parentheses: `(not mask) = expected`. Shifts bind as tightly as multiplication, so `a + b shl 2` means `a + (b shl 2)`.
 
-The repeated forms in Section 9.2 preserve left association without a left-recursive predictive grammar. The first handwritten compiler implements the binary levels with one precedence-driven loop and a compact operator table; comparison's single-use rule and Boolean short-circuit emission remain explicit cases in that loop. Separate parsing remains appropriate for primary, postfix, unary, and right-recursive `not`. Another conforming compiler may use a different parser family only if it accepts the same token sequences and produces the same association and evaluation order.
+## 9.4 Names, calls and suffixes
 
-## 9.7 Exact-integer resolution
+The compiler resolves each `NAME` before interpreting its suffixes. A constant, variable, parameter or local supplies its type. A routine name must be followed immediately by an argument list; routines are not values. A pool name is not an expression; it appears only after `new`.
 
-An exact integer literal or exact named integer constant adopts an expected `u8` or `u16` type when its value fits. The expected type may come from a declaration initializer, scalar destination, parameter, result, conversion operand, or a typed operand in the same arithmetic operation. An expected type never narrows an already typed operand implicitly.
+**Calls.** An argument-list suffix invokes the routine named by the primary. Baton has no routine values, indirect calls, overloading or invocation of a parenthesized expression, and a second argument list is invalid. A call to a failing routine is admitted only in the positions Chapter 14 gives it. Chapter 13 defines argument passing and results.
 
-For an integer operation:
+**Indexing.** An index suffix applies to a fixed array, an open array parameter or a bounded string. The index must have type `u8` or `u16`, or be an exact integer that fits `u16`; a signed or 32-bit index must be converted explicitly, and the checked conversion traps if the value is negative or too large, so a negative index never wraps into a valid one. For an array, each index is checked against its own dimension's bound (design decision D32) and the result has the element type. For a bounded string, the result is a `u8` byte, checked against the current length. A failed check traps with `bounds` before any element is read or written. An index the compiler can prove out of range is diagnosed. An array of arrays is indexed one dimension at a time: `screen[r][c]`.
 
-- when one operand has integer type and the other is an exact integer constant, the constant adopts that type when it fits;
-- when the operands have types `u8` and `u16`, the `u8` operand widens and the operation uses `u16`;
-- when both operands are exact integer constants, an expected integer result type applies when both operands fit; otherwise the operation uses `u16`; and
-- when a standalone exact integer literal has no expected type, it uses `u16`.
+**Field selection.** `.NAME` on a record designator resolves `NAME` in that record's field scope. On a bounded string, `.length` gives the current length as `u8`, and on a `string[]` parameter `.capacity` gives its capacity as `u8` (Chapter 6). On a non-optional handle, `.NAME` selects a field of the slot's record, through the access rules of Chapter 7, Section 7.13. An optional handle cannot be selected through; it must first be tested with `select`.
 
-An exact value that does not fit the selected type makes the source invalid. The compiler does not truncate the literal or select a wider intermediate type after the context has fixed a narrower operation.
+**Results.** Index and field suffixes may follow a call whose result is an aggregate alias; the suffix does not copy the object. A scalar result cannot take a suffix, and a result-free call is not an expression.
 
-A character literal has type `u8`. It follows the ordinary implicit widening rule when combined with or supplied to `u16`. `true` and `false` have type `boolean` and never adopt an integer type.
+## 9.5 Categories and designators
+
+Expression checking records a type and one of these categories:
+
+| Category | Use |
+| --- | --- |
+| Exact integer | Adopts an integer or `f32` type from its context (Section 9.7) |
+| Value | A scalar or handle value; copied, converted, compared, passed or stored |
+| Designator | A path to storage, which reads as its value in an expression, and may be written when its root is writable |
+| Aggregate designator | A path to a record, array or string; selected, indexed, copied by exact-type assignment, or passed as an alias |
+| Aggregate result | An alias returned by a call, consumed within the statement (Chapter 7) |
+| Fresh owning value | The result of `new`, `new?`, a `move`, or a call returning an owning type; may be stored in an owning location |
+
+A **designator** begins with a variable, constant, parameter or local, and continues through field and index suffixes, and through field selections on non-optional handles. A bare aggregate designator is valid only where aggregate storage, an alias or an assignment operand is required. Baton has no aggregate comparison and no automatic copy of an aggregate argument or result.
+
+## 9.6 Conversions
+
+A conversion is written with the target type's name: `u8(x)`, `i8(x)`, `u16(x)`, `i16(x)`, `u32(x)`, `i32(x)` or `f32(x)`. The operand must have a numeric type or be an exact integer. The conversion evaluates its operand once and then:
+
+- if the conversion is an implicit widening (Chapter 6, Section 6.4), or the identity, produces the same value in the target type;
+- between integer types otherwise, produces the same value if the target type can represent it, and otherwise traps with `narrowing`;
+- from an integer type to `f32`, rounds `u32` and `i32` values to nearest, ties to even, and is exact for the others;
+- from `f32` to an integer type, truncates toward zero, and traps with `narrowing` if the truncated value does not fit.
+
+A conversion whose operand is known during compilation and does not fit is diagnosed instead of generating a guaranteed trap. Conversions never extract low bytes, reduce modulo a width, or reinterpret bits. There is no conversion to or from `boolean`, between handles and integers, or between aggregate types.
+
+The type words are reserved words, not routine names, and cannot be redeclared.
+
+## 9.7 Operand types and exact integers
+
+**Mixed operands.** For a binary arithmetic, bitwise or comparison operator on two typed numeric operands, if the two types are equal the operation is done in that type. Otherwise, if one operand's type widens implicitly to the other's (Chapter 6, Section 6.4), that operand is widened and the operation is done in the wider type. Otherwise the expression is invalid, and one operand must be converted explicitly (design decision D31). So `u8 + i16` is an `i16` addition, `u16 + f32` an `f32` addition, and `u16 + i16`, `i32 + u32` and `u32 + f32` are invalid.
+
+**Exact integers.** An integer literal, a character literal used where an integer is expected, an untyped integer constant, and an expression built only from them are **exact**: they have a mathematical integer value and no type yet. An exact operand takes its type from:
+
+1. the other operand of the same binary operator, when that operand is typed: the exact value adopts that type, and must be representable in it (for `f32`, exactly representable);
+2. otherwise, the expected type of the context: a declared or destination type, a parameter type, a result type, a conversion's operand position (where it stays exact), an index position (`u16`), or a `select` subject's type for its labels.
+
+An expression made only of exact operands is evaluated exactly, as a constant expression (Chapter 8, Section 8.6), and its value then adopts its context's type. A value that does not fit the type it adopts is invalid; it is never truncated. An exact expression with no expected type where a type is required, as in `var x = 1 + 2`, is invalid (design decision D21). An exact comparison such as `3 < 5` needs no type and is a `boolean` constant.
+
+A character literal has type `u8` when it stands alone; when combined with an exact integer it is exact. A floating-point literal has type `f32` and never adopts an integer type. `true` and `false` have type `boolean`.
 
 ## 9.8 Integer arithmetic
 
-`+`, `-`, `*`, `/`, and `mod` accept integer operands. After literal resolution and implicit widening, both operands have the same type and the result has that type.
+`+`, `-`, `*`, `/` and `mod` take integer operands of one type after Section 9.7, and produce that type.
 
-Addition, subtraction, multiplication, and unary minus use arithmetic modulo 256 for `u8` and modulo 65,536 for `u16`. Unary minus is subtraction from zero in the selected width. Unary plus preserves the operand and its type. These rules define wraparound; overflow is neither undefined nor a narrowing conversion.
+- **Wrapping.** `+`, `-`, `*` and unary `-` wrap modulo 2 to the power of the type's width (design decision D5). Signed types wrap in two's complement: in `i16`, `32767 + 1` is `-32768`, and `-(-32768)` is `-32768`. Unary `-` on an unsigned type is subtraction from zero: in `u8`, `-1` applied to a typed `1` gives `255`. Unary `+` returns its operand.
+- **Division** truncates toward zero, and `mod` gives the remainder with the sign of the dividend: `-7 / 2` is `-3` and `-7 mod 2` is `-1`; `7 / -2` is `-3` and `7 mod -2` is `1`. For any `a` and nonzero `b`, `(a / b) * b + a mod b` equals `a`. The one quotient that does not fit, the most negative value divided by `-1`, wraps to itself: `-32768 / -1` is `-32768` in `i16`, and the matching `mod` is `0`.
+- **Division by zero.** A zero divisor for `/` or `mod` traps with `division-by-zero` (Chapter 15). A divisor that is a constant zero is diagnosed.
 
-Division produces the unsigned integer quotient with any remainder discarded. Modulo produces the unsigned remainder from the same division. A zero divisor for either operation performs the `division-by-zero` trap specified by Chapter 15 at the divisor. When the divisor is a compile-time constant zero, the source is invalid and the compiler issues the same diagnostic at that divisor instead of emitting a guaranteed trap.
+The result type is fixed before evaluation; arithmetic does not widen because a result would overflow. A program that needs a wider result widens an operand first.
 
-The result width is determined before evaluation. Arithmetic does not widen merely because a mathematical result would exceed that width. A program that requires a wider result widens an operand explicitly or supplies a `u16` operand before the operation.
+## 9.9 Floating-point arithmetic
 
-## 9.9 Comparison
+`+`, `-`, `*` and `/` take `f32` operands, after Section 9.7, and produce `f32`; `mod` is not defined for `f32`. Each operation computes the exact result and rounds it to the nearest `f32`, ties to even (design decision D7). A rounded result whose magnitude is below the smallest normal `f32` becomes zero. A rounded result whose magnitude exceeds the largest finite `f32` traps with `float-overflow`. Division by zero traps with `division-by-zero`. Operands that are denormal are not possible, since every `f32` value is zero or normal.
 
-The six comparison operators accept compatible integer operands and produce `boolean`. Literal resolution and `u8`-to-`u16` widening follow Section 9.7. Integer comparison uses unsigned ordering.
+Unary `-` changes the sign; `-0.0` is a value, equal to `0.0` in every comparison. There is no infinity or NaN, so every comparison of `f32` values is ordinary.
 
-Boolean operands support only `=` and `<>`. Both operands must have type `boolean`. Boolean ordering is invalid.
+## 9.10 Shifts
 
-Records, fixed arrays, and bounded strings, including aliases to them, have no comparison operation in Baton 1.0. Equal layout or identity of the referred object does not add an equality operator.
+`a shl n` and `a shr n` shift an integer `a` by `n` bit positions. The result has `a`'s type; if `a` is exact, it takes its type from the context as in Section 9.7. The count `n` must have an unsigned integer type or be an exact non-negative integer; a signed count must be converted explicitly.
 
-Comparison chaining is invalid. `minimum <= value <= maximum` is not two comparisons; after the first comparison, the left side would be Boolean and the grammar permits no second comparison operator. The equivalent valid form is `minimum <= value and value <= maximum`.
+- `shl` shifts left, filling with zeros; bits shifted out are lost, and for a signed type the result wraps in two's complement.
+- `shr` shifts right. For an unsigned type it fills with zeros. For a signed type it copies the sign bit, so `-8 shr 1` is `-4`.
+- A count equal to or greater than the type's width gives 0, except that `shr` of a negative signed value gives `-1`.
+- A count of 0 returns `a` unchanged.
 
-## 9.10 `not`, `and`, `or`, and `xor`
+Shifts are not defined for `f32` or `boolean`.
 
-`not` accepts one `boolean`, `u8`, or `u16` operand. For `boolean`, it exchanges `true` and `false`. For an integer, it complements every bit in the operand's declared width and produces the same integer type.
+## 9.11 Comparison
 
-`and` and `or` accept either two Boolean operands or two compatible integer operands. Mixed Boolean and integer operands are invalid. Integer operands use literal resolution and widening from Section 9.7, combine corresponding bits, evaluate both operands, and produce the resolved integer type.
+The six comparison operators produce `boolean`.
 
-`xor` accepts only two compatible integer operands. It uses the same literal resolution and widening rules, evaluates both operands from left to right, combines corresponding bits by exclusive OR, and produces the resolved integer type. A Boolean operand is invalid. This deliberate restriction avoids placing an eager Boolean operator at the same precedence as short-circuiting Boolean `or`.
+- **Numeric operands** follow Section 9.7: they must have one type after widening, or the comparison is invalid. Integer comparison uses the type's ordering, signed or unsigned. `f32` comparison is ordinary, with `-0.0 = 0.0`.
+- **`boolean` operands** admit only `=` and `<>`.
+- **Identifiers** of the same type admit only `=` and `<>`. Two identifiers are equal when both are `none`, or when both were made from the same slot with the same generation. `none` may be compared with an optional identifier. Comparing identifiers performs no check and never traps; a stale identifier is not equal to `none` by comparison, though `select` treats it as `none`.
+- **Owning handles**, records, arrays and strings have no comparison operators.
 
-Boolean `and` and `or` short-circuit. The left operand is evaluated first:
+## 9.12 `not`, `and`, `or` and `xor`
 
-| Operator | Left value | Right operand | Result                            |
-| -------- | ---------- | ------------- | --------------------------------- |
-| `and`    | `false`    | not evaluated | `false`                           |
-| `and`    | `true`     | evaluated     | the right operand's Boolean value |
-| `or`     | `true`     | not evaluated | `true`                            |
-| `or`     | `false`    | evaluated     | the right operand's Boolean value |
+These operators work logically on `boolean` operands and bit by bit on integer operands, as in Pascal (design decision D31). Mixing a `boolean` and an integer operand is invalid. Integer operands follow Section 9.7 and the result has their common type; `f32` operands are invalid.
 
-An operand that is not evaluated performs no call, storage access, bounds check, conversion check, arithmetic trap, or other source operation. The Boolean and integer meanings are selected by static types and create no parsing ambiguity.
+- `not` on a `boolean` exchanges `true` and `false`; on an integer it complements every bit of the operand's type.
+- `and` and `or` on integers combine corresponding bits and evaluate both operands.
+- `xor` combines by exclusive OR, on integers bit by bit and on `boolean` values logically. It always evaluates both operands.
 
-Shifts, rotations, power, and symbolic Boolean operators are absent. A later proposal for one of these operators requires its own measured admission and a Chapter 3 token amendment when it uses a word.
+`and` and `or` on `boolean` operands **short-circuit**. The left operand is evaluated first; if it is `false` for `and`, or `true` for `or`, the right operand is not evaluated and the result is the left value; otherwise the result is the right operand's value. An operand not evaluated performs no call, access, check or trap, and creates no temporary. A `move` is invalid inside an operand of `and` or `or` (Chapter 10, Section 10.8).
 
-## 9.11 Evaluation order
+## 9.13 Handle expressions
+
+**`none`** is the empty value of an optional handle. It has no type of its own and takes the optional handle type its context expects: a declared or destination type, a parameter type, a `new` argument for an optional handle field, a result, or the other operand of an identifier comparison. With no such context it is invalid.
+
+**`move designator`** hands on the owning handle held in the designator (design decision D19), which must be an owning location: a local, parameter, program variable, or a field or element reached from one of them, from a lease, from a `var` owning-aggregate parameter, or through a handle, of type `P` or `P?`. The expression yields the handle, with the designator's type, and stores `none` in the designator. Its result is a fresh owning value. Moving a non-optional local or parameter changes its flow state to "certainly moved" (Chapter 7, Section 7.17). The designator is resolved when the `move` is evaluated, and the statement rule of Chapter 10, Section 10.8 applies.
+
+**`id(expression)`** makes an identifier (Chapter 7, Section 7.9). Its operand is either an owning-handle designator, of type `P` or `P?`, giving `id P` or `id P?` without changing the operand; or a `var` record parameter whose record type belongs to exactly one pool, giving `id P?` as Chapter 7, Section 7.14 describes. A fresh value is not a valid operand.
+
+**`new P(arguments)`** and **`new? P(arguments)`** allocate a slot of pool `P`, which must be complete (Chapter 7, Section 7.10). The arguments initialize the record's fields in order and follow the rules for assigning to those fields: an owning handle field takes `none`, a fresh value or a `move`; an aggregate field takes an aggregate of its exact type, copied. Trailing arguments may be omitted; their fields are zeroed. `new` has type `P` and traps with `pool-full` when the pool is full. `new?` has type `P?`; when the pool is full it evaluates no argument and yields `none`. In both forms the slot is reserved before any argument is evaluated.
+
+## 9.14 Evaluation order
 
 Baton fixes evaluation order:
 
 - a unary operand is evaluated before its operator;
-- binary operands are evaluated from left to right, subject to Boolean short-circuiting;
-- a postfix base is evaluated before its suffixes, and suffixes are applied from left to right;
-- each index expression is evaluated and checked when its suffix is reached;
-- routine arguments are evaluated from left to right under Chapter 13; and
-- an explicit conversion evaluates its operand before checking or producing the result.
+- binary operands are evaluated left to right, subject to short-circuiting;
+- a postfix base is evaluated before its suffixes, which apply left to right, and each index is evaluated and checked when its suffix is reached;
+- a handle used in a field access is resolved, and an identifier checked, after the access's other operands, immediately before the access (Chapter 7, Section 7.13);
+- routine arguments, and `new` arguments, are evaluated left to right;
+- a conversion evaluates its operand before checking it.
 
-If an earlier operation traps, later operands and suffixes are not evaluated. Field selection performs no source-level read by itself, but evaluation of its base and any preceding index or call remains observable.
+When an operation traps, later operands and suffixes are not evaluated. A backend may reorder operations only when nothing observable, including calls, stores, checks and traps, can distinguish the order.
 
-A backend may reorder operations only when it proves that no result, call, mutation, storage access, check, trap, or other observable behaviour can distinguish the order. The permitted implementation arrangement does not change source semantics.
+## 9.15 Constant expressions
 
-## 9.12 Constant expressions
+The operators and conversions of Sections 9.6 to 9.12 are available in the constant expressions of Chapter 8, Section 8.6, with exactly the run-time rules for types, wrapping, rounding, comparison and short-circuiting. A constant operation that would trap at run time, such as division by zero, a narrowing conversion that does not fit, or an `f32` overflow, is invalid. A short-circuited operand is not evaluated and cannot cause such an error. Calls, designators, `move`, `id`, `new` and `none` are not constant expressions.
 
-The scalar operators and conversions in this chapter are available to the scalar constant expressions defined by Chapter 8. The compiler applies the same literal resolution, width, wraparound, comparison, and short-circuit rules used at runtime.
-
-A constant division by zero is invalid. A checked `u8` conversion of a known value outside 0 through 255 is invalid. A short-circuited constant operand is not evaluated and therefore cannot contribute a fault.
-
-Routine calls and storage paths remain unavailable in constant expressions. The presence of a pure-looking routine or a program variable with a constant initializer does not extend the constant-expression grammar.
-
-## 9.13 Invalid expressions and capacity limits
+## 9.16 Diagnostics and capacity
 
 The compiler must diagnose:
 
-- a name of the wrong declaration class for its expression position;
-- a routine name without its argument list or an argument-list suffix on a non-routine;
-- an invalid field, index, suffix sequence, or aggregate use;
-- an operand-type mismatch or a literal that does not fit its resolved type;
+- a name of the wrong declaration class for its position;
+- a routine name without its argument list, or an argument list on something other than a routine;
+- an invalid field, index, suffix sequence or aggregate use, including selection through an optional handle;
+- mixed operand types that do not widen, and operator and operand-type mismatches;
+- an exact value that does not fit its adopted type, or an exact expression with no type where one is required;
 - a chained comparison;
-- an implicit narrowing or unavailable conversion;
+- an unavailable conversion;
 - a result-free call used as a value;
-- an aggregate used where a scalar value is required; and
-- a statically provable bounds, narrowing, or division failure.
+- `none` without an optional handle context;
+- a `move` of something that is not an owning location, or inside an operand of `and` or `or`;
+- an invalid `id(...)` operand;
+- a `new` of an incomplete pool, or `new` arguments that do not match the record's fields; and
+- a bounds, narrowing, division or overflow failure provable during compilation.
 
-An implementation may bound expression nesting, prefix depth, postfix depth, arguments, and retained expression-checking state. It must publish each limit and issue a capacity diagnostic before a stack, counter, temporary pool, or type record overflows. Capacity exhaustion must not change precedence, omit a check, truncate an argument list, or alter an expression's type.
+An implementation may bound expression nesting, argument counts and expression-checking state. It must publish each limit and diagnose an excess; exhausting a capacity must never change precedence, omit a check, truncate an argument list or alter a type.
 
-## 9.14 Examples
+## 9.17 Examples
 
-For `u16` values `a`, `b`, and `c`, these expressions associate as shown:
+For `i16` values `a`, `b` and `c`:
 
 ```nucleus
-a - b - c       // (a - b) - c
-a / b * c       // (a / b) * c
-- -a            // -( -a ) in u16 arithmetic
-not not flag    // not (not flag)
+a - b - c           // (a - b) - c
+a + b shl 2         // a + (b shl 2)
+- -a                // -(-a), wrapping in i16
+not not flag        // not (not flag)
+-7 / 2              // -3, an exact constant
+-7 mod 2            // -1
 ```
 
-Postfix operations share one left-to-right path:
+Mixed operands:
 
 ```nucleus
-cells[index].value
-entryAt(index).value
-measure(cells[index].value)
+var small as u8 = 200
+var wide as i16 = -5
+var x = small + wide        // i16 addition: u8 widens to i16; x is i16
+var y = wide + 1            // i16; the literal adopts i16
+var z = f32(wide) * 0.5     // f32
+var w as u16 = 40000
+var bad = w + wide          // invalid: u16 and i16 don't widen to each other
+var ok = i32(w) + wide      // i32
 ```
 
-`entryAt` must return an aggregate alias with the selected record type, and `measure` must have a compatible visible signature. The index is checked before field selection or argument transfer.
-
-These forms illustrate comparison and conversion rules:
+Handles:
 
 ```nucleus
-minimum <= value and value <= maximum
-u16(byteValue) + wordValue
-u8(wordValue)
-(not (mask and readyMask)) = 0
+var n = new nodes(1, none)        // nodes
+var spare = new? nodes(2, none)   // nodes?
+var i = id(n)                     // id nodes
+head = move n                     // n now holds none
 ```
 
-The first expression contains two non-chained comparisons. The third performs checked narrowing. In the last expression, parentheses make the integer complement the left comparison operand; without them, `not` would apply to the Boolean comparison result.
-
-Each of these forms is invalid:
+Invalid forms:
 
 ```nucleus
-first < second < third  // comparisons do not chain
-flag + 1               // Boolean is not integer
-recordValue = other    // record equality is absent
-shortText < longText   // strings have no comparison operators
-routineName            // a routine name is not a value
-boolean(value)          // Boolean conversion is absent
+first < second < third      // comparisons don't chain
+flag + 1                    // boolean is not an integer
+recordValue = other         // records have no equality
+x mod 1.5                   // mod is not defined for f32
+cells[signedIndex]          // a signed index must be converted
+var n2 = 0                  // no definite type
+show(maybe.value)           // maybe is optional: test it with select
 ```
