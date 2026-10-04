@@ -35,6 +35,8 @@ export type LinkOptions = {
   rerunnable?: boolean;
   /** Keep the CCP resident (B). */
   keepCcp?: boolean;
+  /** Option V: check that placeholder bytes are zero (L-PLACEHOLDER). */
+  verify?: boolean;
   /** Minimum stack (STACK=n). */
   stack?: number;
   /** Output kind; default ".COM". */
@@ -84,6 +86,8 @@ export type LinkResult = {
   stackReserve: number;
   largestFrame: number;
   recursive: boolean;
+  /** Warnings such as L-FIT-NOMINAL; the link still succeeded. */
+  warnings: string[];
 };
 
 export type BlobInfo = {
@@ -254,26 +258,36 @@ export function link(
       (m, e) => Math.max(m, alignmentBytes(e.align)),
       1,
     );
+    let previous = cursor;
     cursor = roundUp(cursor, largest);
     const start = cursor;
     for (const e of list) {
       const aligned = roundUp(cursor, alignmentBytes(e.align));
-      padding.set(e.ordinal, aligned - cursor);
+      // The first blob's padding includes rounding the section base.
+      padding.set(e.ordinal, aligned - previous);
+      previous = aligned + e.size;
       cursor = aligned;
       e.address = cursor;
       cursor += e.size;
     }
     return { start, end: cursor };
   };
+  const rom = profile.targetClass >= 3;
   const startSection = place("START");
   place("TEXT");
+  // On ROM, DATA and BSS go into RAM and only COPY is stored (§6.1).
+  const romCursor = cursor;
+  if (rom) cursor = profile.ramBase;
   const data = place("DATA");
   let copy = { start: data.end, end: data.end };
   if (separateData && data.end > data.start) {
-    copy = { start: data.end, end: data.end + (data.end - data.start) };
-    cursor = copy.end;
+    const at = rom ? romCursor : data.end;
+    copy = { start: at, end: at + (data.end - data.start) };
   }
-  const imageEnd = cursor;
+  const imageEnd = rom
+    ? copy.end > copy.start ? copy.end : romCursor
+    : Math.max(cursor, copy.end);
+  if (!rom) cursor = imageEnd;
   const bss = place("BSS");
   let filesAddress = cursor;
   let filesSize = 0;
@@ -332,6 +346,26 @@ export function link(
       "BSS and the stack exceed the address space",
     );
   }
+  const warnings: string[] = [];
+  if (rom) {
+    if (free + reserve > profile.ramLimit) {
+      throw new LinkError(
+        "L-FIT-RAM",
+        `DATA, BSS and the stack end at $${
+          hex4(free + reserve)
+        }, beyond the RAM limit $${hex4(profile.ramLimit)}`,
+      );
+    }
+  } else {
+    const top = options.keepCcp ? profile.imageLimit : profile.nominalTop;
+    if (free + reserve > top) {
+      warnings.push(
+        `L-FIT-NOMINAL: the program needs memory to $${
+          hex4(free + reserve)
+        }, above the nominal top $${hex4(top)}`,
+      );
+    }
+  }
 
   // ---- Phase D: write ------------------------------------------------------
   const image = new Uint8Array(imageEnd - profile.imageBase);
@@ -374,6 +408,19 @@ export function link(
     const source = e.owner === "library" ? library.bytes : programBytes;
     const bytes = source.slice(e.streamOffset, e.streamOffset + e.size);
     for (const ref of e.record!.references) {
+      if (options.verify) {
+        const width = ref.form === Form.ABS16 || ref.form === Form.SIZE16
+          ? 2
+          : 1;
+        for (let i = 0; i < width; i += 1) {
+          if (bytes[ref.offset + i] !== 0) {
+            throw new LinkError(
+              "L-PLACEHOLDER",
+              `nonzero placeholder at $${hex4(e.ordinal)}+${ref.offset}`,
+            );
+          }
+        }
+      }
       const v = valueOf(ref, e);
       switch (ref.form) {
         case Form.ABS16:
@@ -391,10 +438,13 @@ export function link(
     }
     image.set(bytes, into - profile.imageBase);
   };
-  for (const section of ["START", "TEXT", "DATA"]) {
+  for (const section of ["START", "TEXT"]) {
     for (const e of sectionBlobs(section)) emit(e, e.address);
   }
-  if (copy.end > copy.start) {
+  for (const e of sectionBlobs("DATA")) {
+    emit(e, rom ? e.address - data.start + copy.start : e.address);
+  }
+  if (!rom && copy.end > copy.start) {
     image.copyWithin(
       copy.start - profile.imageBase,
       data.start - profile.imageBase,
@@ -442,6 +492,7 @@ export function link(
     stackReserve: reserve,
     largestFrame: limits.largestFrame,
     recursive: (limits.flags & 1) !== 0,
+    warnings,
   };
 
   // ---- Phase A helpers ------------------------------------------------------

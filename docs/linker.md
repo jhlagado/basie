@@ -516,6 +516,12 @@ named. The suite includes at least:
 - the largest program the tables allow, and one ordinal beyond it; and
 - linking the same inputs twice and comparing the outputs byte for byte.
 
+The reference linker (`ref/link`) has no fixed tables, so `L-CAP-TABLES` and
+"the largest program the tables allow" apply only to `BLINK.COM`; its version
+of these tests checks the highest program ordinal and the first one beyond it.
+`L-IO` comes from the toolchain's disk layer (`ref/toolchain`) and is tested
+there with injected disk faults.
+
 ## 12. Open questions
 
 1. **Table sizes.** If measurement shows typical programs nearing
