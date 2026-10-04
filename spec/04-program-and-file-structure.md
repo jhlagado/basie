@@ -3,7 +3,7 @@
 
 ## 4.1 Scope
 
-This chapter defines the source presented in one compilation, the order of top-level declarations, the placement of executable statements, the completion of forward routine declarations, and the structural checks performed at end of input. Chapter 3 defines the byte and token streams. Chapters 5, 8, and 13 define scopes, declarations, and routines in detail.
+This chapter defines the source presented in one compilation, how source parts name the parts they depend on with `include`, the order of top-level declarations, the placement of executable statements, the completion of forward routine declarations, and the structural checks performed at end of input. Chapter 3 defines the byte and token streams. Chapters 5, 8, and 13 define scopes, declarations, and routines in detail.
 
 Baton compilation is declaration ordered and streaming. The rules in this chapter require neither backtracking nor a retained whole-program syntax tree.
 
@@ -21,47 +21,72 @@ The complete grammar in Chapter 17 replaces this skeleton. Its declaration produ
 
 Blank and comment-only physical lines contribute no top-level item. If the final item has no physical line ending, Chapter 3 requires the tokenizer to emit its final `NEWLINE` before `EOF`.
 
-## 4.3 Multipart compilation stream
+## 4.3 Source parts
 
-The core Baton 1.0 compiler does not open source files, search directories, or resolve source dependencies. An external packaging layer supplies one ordered logical compilation stream through these transport-neutral events or records:
+A compilation consists of one or more **source parts**, each a file of Baton source. The parts come from two places:
+
+- the **command line**, which names one or more parts in order ([toolchain](../docs/toolchain.md), Section 5); and
+- **`include` lines** at the start of a part, which name the parts it depends on (Section 4.3.2).
+
+The compiler forms one ordered logical token stream from the parts, as described below. A part boundary does not begin a scope, clear declarations, or change declaration order, except that a `private` declaration is visible only within its own part (Chapter 5).
+
+### 4.3.1 The ordered stream
+
+Each source part is tokenized separately under Chapter 3, starting at byte offset zero, line one and column one. Each part must end at delimiter depth zero. When a part's final bytes do not include LF or CRLF, the compiler supplies one zero-width line-ending event at its end; it supplies none when the part already ends with a physical line ending. Chapter 3 applies its ordinary comment, blank-line and `NEWLINE` rules to that event, so a part cannot continue a name, number, literal, comment or delimited expression into the next. Only the end of the last part produces `EOF`.
+
+Each part has a **stable source identity**: its drive and file name in upper case, as `B:STRINGS.BTN`. Two parts with the same identity are the same part. Every diagnostic from a part carries its identity and the Chapter 3 position within it. The source parts of one compilation are numbered from 0 in stream order, and the line stream records each part's identity under its number ([object format](../docs/object-format.md), Section 8).
+
+Program scope, declaration order, forward completion and every other source rule continue across part boundaries exactly as within one part. Declaration before use therefore determines legal part order. The compiler does not infer signatures, construct a dependency graph or reorder declarations.
+
+The compiler may read each part incrementally. It need not hold a whole part, or the whole stream, in memory.
+
+### 4.3.2 `include`
+
+A part may begin with `include` lines, each naming another part it depends on:
 
 ```text
-begin-compilation
-begin-source-part(stable-source-identity, [diagnostic-name])
-source-bytes(bytes)
-end-source-part
-end-compilation
+include-line ::= "include" string-literal NEWLINE
 ```
 
-A compilation contains one or more source parts. `source-bytes` may occur repeatedly within a part; its chunk boundaries have no lexical or semantic effect. The stable source identity is unique within the compilation and remains unchanged for every diagnostic from that part. The optional diagnostic name is display metadata. Neither value is part of the Baton byte stream, creates a token or identifier, opens a scope, or otherwise participates in program semantics.
+```nucleus
+include "STRINGS.BTN"
+include "FORMAT.BTN"
 
-Each source part must end at a logical source boundary with delimiter depth zero. When its final source bytes do not include LF or CRLF, the compiler input layer supplies one zero-width line-ending event at the end of that part. It supplies no additional event when the part already ends with a physical line ending. Chapter 3 applies its ordinary comment, blank-line, and `NEWLINE` rules to that event. The next part therefore cannot continue a name, number, literal, comment, parenthesized expression, bracketed expression, or other token sequence from the preceding part. `end-source-part` does not emit `EOF`; only `end-compilation` does so after the final part.
+sub main() fails
+    ...
+end
+```
 
-Program scope, declaration order, forward completion, and every other source rule continue across source-part boundaries exactly as they do within one part. Declaration before use determines legal part order. An earlier exact forward routine signature permits the later routine references already admitted by Chapters 4, 5, and 13; the compiler does not infer signatures or construct a dependency graph.
+Rules:
 
-The external packaging layer owns physical files, filenames, dependency discovery, dependency ordering, duplicate suppression, and source transport. It must resolve or reject missing physical inputs and must not present duplicate stable source identities. These are packaging failures, not Baton source diagnostics, and the core compiler need not diagnose a host filesystem failure. Baton 1.0 retains no source-level `import`, `include`, `module`, or namespace declaration.
+1. **Position.** `include` lines must come before the part's first declaration. Blank and comment lines may precede or separate them. An `include` after a declaration is an error.
+2. **Names.** The string is a CP/M file name, `[d:]name.type`, with the type required; it is converted to upper case. A name without a drive is looked for first on the drive of the including part, then on the library drive (option `L=`, by default `A:`). The first file found is the part. A name not found on either drive is an error at the `include` line.
+3. **Order.** When the compiler reaches an `include` line, it compiles the named part, including that part's own `include`s first, before reading the rest of the including part. Each included part is therefore compiled before every part that includes it, and the stream order is the depth-first order in which parts are first reached.
+4. **Once only.** A part already in the stream is not compiled again; a later `include` of it has no effect. This applies equally to parts named on the command line: a command-line part already included by an earlier part is skipped.
+5. **Cycles.** An `include` of a part that is still open (one whose `include` lines are being processed, directly or through other parts) is an error, `include-cycle`, at the `include` line.
 
-The compiler may consume each event and byte chunk incrementally. It need not materialize a source part or the complete compilation stream. A later compiler-input or transport specification may assign a concrete binary, serial, tape, image, memory, or host representation, but that representation must preserve this event order, the source bytes, stable identities, optional names, and boundary rule. No MIME syntax, operating system, filesystem, or project-file format is part of the Baton 1.0 contract. A host build tool, serial uploader, tape or image builder, CP/M driver, or memory-resident monitor can implement the packaging layer.
+`include` names files; it does not import names selectively, create a namespace or qualify names. Every non-`private` declaration of an included part is visible to every later part, whether or not that part included it. Chapter 5 defines `private`.
 
-The packaging layer must not add declarations, replace tokens, perform textual macro processing, or make accepted source depend on a part's physical origin. A diagnostic from multipart input must carry the stable source-part identity and the Chapter 3 position within that part, allowing the packaging layer to map it back to a physical source when such a mapping exists.
+The compiler itself opens included files; there is no separate manifest or packaging format.
 
-#### 4.3.1 Flat source manifest
+### 4.3.3 Capacity
 
-The standard authoring convention for this abstract stream is a flat ordered manifest. Each nonblank logical line contains one physical source name. Blank lines are ignored. The build driver processes entries in their written order, resolves every name within one base directory or storage namespace selected for that build, reads the named source, and emits one source part for it. The listed name is the part's diagnostic name. Its stable source identity combines that name with the entry's position, so a driver that permits a duplicate entry can still identify each part.
-
-The manifest has no nesting, glob patterns, variables, conditional entries, dependency discovery, or recursive import meaning. It does not enter the source-byte stream, and the Baton tokenizer never sees it. The build driver defines how physical source names and line endings are encoded; a later compiler-input specification may define concrete multipart framing. Those transport choices do not change the ordered-part contract in Section 4.3.
-
-The driver reports a missing physical source or an unresolvable source name before compilation. It may reject a duplicate manifest entry. If it emits the duplicate instead, the compiler processes both parts in order and ordinarily reports duplicate source declarations. A forgotten dependency ordinarily produces an unknown-name diagnostic; a wrong order produces the applicable declaration-before-use diagnostic; and a forward that no later part completes fails at `EOF`. The compiler does not search for another file or reorder parts in response.
+An implementation may bound the number of parts, the depth of open includes and the length of a part. `BATON.COM` publishes its limits in the [limits register](../docs/limits.md). Exceeding one is a capacity diagnostic.
 
 ## 4.4 Top-level declarations
 
-Only top-level declarations may appear in a compilation unit. The current Baton 1.0 declaration families are:
+Apart from `include` lines at the start of a part (Section 4.3.2), only top-level declarations may appear at top level. The Baton 1.0 declaration families are:
 
-- named constants;
-- type declarations admitted by Chapter 6;
-- top-level variable declarations admitted by Chapters 6 through 8;
+- named constants (Chapter 8);
+- record type declarations (Chapter 6);
+- pool declarations and forward pool declarations (Chapters 7 and 8);
+- top-level variable declarations (Chapters 6 to 8);
 - forward routine declarations; and
-- routine definitions.
+- routine definitions (Chapter 13).
+
+Any top-level declaration may be marked `private` (Chapter 5).
+
+Inside a routine body, constants and variables may also be declared at any statement position, with block scope (Chapter 5, design decision D28). Record types, pools and routines are declared only at top level.
 
 Executable statements must appear inside a routine body. A call, assignment, conditional, loop, or `return` at top level is invalid. Baton has no implicit mainline block formed from loose statements.
 
@@ -73,7 +98,7 @@ This rule applies across source-part boundaries because all parts contribute to 
 
 The types named by a constant, variable, record field, formal parameter, routine result, or forward signature must already be declared at that position. The exact scope and collision rules appear in Chapter 5. Constant-expression restrictions and initialization order appear in Chapter 8.
 
-After a routine's complete signature has been checked, its routine name and signature are available in its body and in later declarations. This permits the body to contain a direct self-call under Chapter 13. A call to another routine whose signature has not appeared requires an earlier forward declaration.
+After a routine's complete signature has been checked, its routine name and signature are available in later declarations. A call to a routine whose definition has not yet been completed, including a call from a routine to itself, requires an earlier forward declaration: every cycle of calls must pass through a forward-declared routine, which carries the activation-capacity check (Chapter 13, and [memory safety](../docs/memory-safety.md), Section 7).
 
 For example, this order satisfies the structural rules:
 
@@ -147,4 +172,4 @@ Documented compiler capacities apply to the complete logical compilation unit. A
 
 An implementation may bound the complete logical source length, source-part count, source-identity or diagnostic-name length, number of declarations, number of unresolved forwards, or other storage required by this chapter. It must document each limit and issue a capacity diagnostic when the limit is exceeded. Under Chapter 1, that diagnostic does not make an otherwise conforming source program invalid.
 
-The first compiler's 16 KiB core gate does not change these structural rules. Project measurements account for the code and immutable data used to enforce them, while writable tables and source maps remain in their separately reported accounts under Chapter 2.
+The compiler's size budget (Chapter 2, design decision D9) does not change these structural rules.

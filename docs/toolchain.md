@@ -330,8 +330,7 @@ statement.
 
 ## 9. Open questions
 
-1. **Source parts named in source.** Whether a part can name the parts it
-   depends on, as ATOM's `%INCLUDE` and Skate's `include` do, instead of the
-   command line listing them all.
+1. **Source parts named in source.** Resolved by design decision D33: a part
+   names the parts it depends on with `include` (spec Section 4.3.2).
 3. **Library search under CP/M 3,** which records the drive `BATON.COM` was
    loaded from at `$0050`.

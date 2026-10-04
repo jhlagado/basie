@@ -12,7 +12,7 @@ Status: **pending** (still Nucleus text), **in progress**, or **applied**.
 | 1. Status and conformance | Baton's status; one language, version 1 scope (D24) | pending |
 | 2. Design constraints | Single pass (D1), budget and two programs (D9), CP/M 2.2 target (D10), memory-safety claim | pending |
 | 3. Source text and lexical rules | `f32` literals and 32-bit literals (D31); keywords `select`, `case`, `move`, `pool`, `new`, `shl`, `shr`, `private`, `include`, `assert`, `some`, `none`; contextual `id` (D29); case sensitivity kept (D34) | applied |
-| 4. Program and file structure | `include` and `private` (D33); declarations anywhere (D28) | pending |
+| 4. Program and file structure | `include` and `private` (D33); declarations anywhere (D28) | applied |
 | 5. Names and scopes | Block scope (D28), `private` visibility (D33), contextual `id` (D29) | pending |
 | 6. Types | Eight numeric types (D3), handle types (D22), owning types, arrays of arrays (D32), open arrays, conversions (D4, D31) | applied |
 | 7. Storage, values and lifetime | Activation storage and local aggregates (D8), pools and handles, the memory-safety rules (memory safety, revision 6) | pending |
