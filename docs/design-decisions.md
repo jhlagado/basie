@@ -797,6 +797,23 @@ compilation, and at most once.
 **Why.** It keeps declaration before use, and with it the single pass, while
 letting records hold handles to their own pool.
 
+### D41. The code-generation contract
+
+Frames live on the hardware stack with `IX` as the frame pointer; arguments
+are pushed left to right and removed by the callee through a shared `RETN`
+helper; results come back in `A`, `HL` or `DEHL`; a failing routine returns
+with carry set and the code in `A`; expressions evaluate left to right into
+those registers with temporaries pushed; every routine blob ends with its
+`frame` and `need` words. The [code generation contract](code-generation.md)
+has the detail. The reference compiler adopts it first; the native compiler and
+the helper table follow it, and its calling-convention codes feed the helper
+table's interface key.
+
+**Why.** Nucleus left the convention private to its implementation and chose
+a bounded activation arena with a depth of 8. Baton's stack bound (memory
+safety §7) assumes ordinary stack frames, and two implementations plus a
+runtime library can only agree if the convention is written down.
+
 ## Open
 
 ### O1. Exclusivity (resolved)
