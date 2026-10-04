@@ -3,7 +3,7 @@
 
 ## 13.1 Scope
 
-This chapter defines routine declarations as callable interfaces, invocation, argument binding, results, `return`, routine completion, recursive calls, and source-level activation behaviour. Chapters 4, 5, and 8 define declaration order, forwards, names, headers, parameters, and local declarations. Chapters 6 and 7 define value copying, aggregate aliases, and lifetime.
+This chapter defines routine declarations as callable interfaces, invocation, parameter kinds including `var` parameters, leases and slot-holders, argument binding, results and the `from` clause, `return`, routine completion, recursive calls, the activation-capacity check, and freeing on exit. Chapters 4, 5, and 8 define declaration order, forwards, names, headers, parameters, and local declarations. Chapters 6 and 7 define value copying, aggregate aliases, and lifetime.
 
 Baton has one routine family. A routine declares no result or one result type. It has no overload, nested declaration, multiple-result form, implicit result variable, routine-name assignment, routine value, indirect call, or callback type.
 
@@ -16,25 +16,25 @@ routine-header       ::= "sub" NAME routine-signature-tail
 routine-signature-tail
                      ::= "(" [ formal-parameter
                          { "," formal-parameter } ] ")"
-                         [ "as" type ] [ "fails" ]
-formal-parameter     ::= NAME "as" type
+                         [ result-clause ] [ "fails" ]
+formal-parameter     ::= [ "var" ] NAME "as" type
+result-clause        ::= "as" [ "var" ] type [ "from" NAME { "," NAME } ]
 
 forward-routine      ::= "forward" routine-header NEWLINE
 routine-definition   ::= "sub" NAME routine-definition-tail
 routine-definition-tail
                      ::= routine-signature-tail NEWLINE routine-body
                        | NEWLINE routine-body
-routine-body         ::= { local-declaration }
-                         statement-sequence "end" NEWLINE
+routine-body         ::= block "end" NEWLINE
 
 routine-invocation   ::= NAME argument-list
 argument-list        ::= "(" [ expression { "," expression } ] ")"
 return-statement     ::= "return" [ expression ]
 ```
 
-Chapter 8 remains authoritative for declaration placement and the local-declaration prefix. The fragments here complete their call and result meaning. Parentheses are required in every complete header and invocation, including a routine with no parameters or arguments. The abbreviated header is available only to the body that completes an earlier forward.
+Chapter 8 remains authoritative for declaration placement; a routine body is a block, in which locals may be declared at any statement position. The fragments here complete their call and result meaning. Parentheses are required in every complete header and invocation, including a routine with no parameters or arguments. The abbreviated header is available only to the body that completes an earlier forward.
 
-An omitted result type declares a result-free routine. A written type declares one result of that exact scalar or aggregate type. The optional `fails` effect is defined by Chapter 14. The header has no separate procedure/function keyword and no result-name declaration.
+An omitted result clause declares a result-free routine. A written type declares one result of that type: a scalar, a handle, or an aggregate returned as an alias (Section 13.6). The optional `fails` effect is defined by Chapter 14. The header has no separate procedure/function keyword and no result-name declaration.
 
 ## 13.3 Visible signatures and invocation
 
@@ -44,25 +44,41 @@ The invocation must supply exactly one argument for each formal parameter, in de
 
 A call expression takes its static result type directly from the signature. A scalar result is a scalar value. An aggregate result is a transient typed alias and may take the field or index suffixes admitted by Chapter 9. It must then be consumed under Section 13.6; a routine name without its argument list is invalid in every expression and statement context.
 
-## 13.4 Argument evaluation and compatibility
+## 13.4 Parameters and arguments
 
-Arguments are evaluated from left to right. Each scalar argument is evaluated and converted if permitted, and its resulting value is retained before evaluation of the next argument. Each aggregate argument evaluates its storage path, including field selection and checked indexing, and establishes the alias value supplied to the parameter.
+Arguments are evaluated from left to right, and each is bound before the next is evaluated. If argument evaluation traps, no later argument is evaluated and the body does not begin; effects of earlier arguments remain.
 
-If argument evaluation traps, no later argument is evaluated and the routine body does not begin. Effects from earlier arguments remain observable.
+**Scalar parameters.** A scalar parameter receives a copy of its argument, which must be compatible with the parameter type under Chapter 6: the same type, an implicit widening, or an exact value that fits. Narrowing must be written explicitly. Within the routine, a scalar parameter is a local copy and may be assigned. `var` is invalid on a scalar parameter.
 
-A scalar argument must have the exact parameter type, be an exact literal that fits it, or use the implicit `u8`-to-`u16` widening. Passing `u16` to `u8` requires explicit checked `u8(...)`. Boolean and integer arguments do not convert between each other.
+**Aggregate parameters.** A record, array or bounded-string parameter is an alias to the caller's object; no copy is made (Chapter 7, Section 7.7).
 
-An argument for a concrete aggregate parameter must be an aggregate storage path or transient alias with exact referent-type identity. An argument for `string[]` may instead have any concrete bounded-string capacity or be another open-string parameter. In every case the call transfers an alias rather than copying the object. An open-string binding also retains the actual capacity so `.length` and indexing use the referent's real bound. Scalar-leaf mutation through the parameter is visible through every other path to the same storage.
+- Without `var` it is a **ticket**: read-only in the routine (design decision D17). Its argument may be any aggregate designator or aggregate result of exactly the parameter's type, including a constant. For a read-only `string[]` parameter, the argument may be a bounded string of any capacity, or a string literal, which the compiler supplies as a constant.
+- With `var`, the routine may write through it. The argument must be a writable designator of exactly the parameter's type, or of any bounded-string capacity for `var s as string[]`; a constant or string literal is invalid.
+- A `string[]` parameter carries its argument's capacity, so `.length`, `.capacity` and indexing use the real bound.
+- An aggregate field of a pool record reached through a handle is copied into a hidden temporary of the caller when passed to a ticket (Chapter 7, Section 7.13); it cannot be passed to a `var` parameter except through a lease.
 
-A string literal is not an aggregate argument. Source that passes fixed text first declares a concrete bounded-string constant and passes that name. This keeps argument evaluation within the ordinary storage-and-alias model.
+**Leases.** A record parameter, ticket or `var`, also accepts the record in the slot owned by one of the caller's own owning locals or parameters, or by a temporary, written as that handle: `bump(h)` (design decision D30). This is a **lease** (Chapter 7, Section 7.14): the handle must not appear elsewhere in the same statement except as `id(h)` or a read of a scalar field, and the callee sees an ordinary record with no handle to move or free.
 
-Baton has no parameter modes, implicit read-only aggregate parameter, write permission, copy-in/copy-out aggregate parameter, or hidden source-level pointer conversion.
+**Handle parameters.**
+
+| Parameter | Argument | Effect |
+| --- | --- | --- |
+| `n as P` | a fresh `P` or `move` of a non-optional owner | the callee owns the slot; it is freed when `n` goes out of scope unless moved on |
+| `n as P?` | `none`, a fresh value or a `move` | as above, or `none` |
+| `var n as P?` | a slot-holder: an owning location of type `P?` (Chapter 7, Section 7.14) | the callee may move into it, out of it, or overwrite it |
+| `i as id P`, `i as id P?` | an identifier of the type, or `id(...)` | a copy of the identifier |
+
+`var` is invalid on a parameter of type `P`, `id P` or `id P?`.
+
+**Owner words.** A `var` parameter of an owning type, and a slot-holder, carries a hidden owner word supplied by the caller (Chapter 7, Section 7.14). It is not visible in source.
+
+There are no optional, named, variadic or default arguments.
 
 ## 13.5 Activation semantics
 
-A successful call begins one logical activation after all arguments have been evaluated. The activation contains that invocation's copied scalar parameters, aggregate-parameter bindings, and scalar locals. Activation-local initialization follows Section 8.12 before the first statement begins.
+A successful call begins one activation after all arguments have been evaluated and bound. The activation holds that call's parameters and the locals of its blocks (Chapter 7, Section 7.6). If the routine is forward-declared, its activation-capacity check (Section 13.9) runs first.
 
-Each simultaneously active invocation has distinct activation state. Calling another routine does not change the caller's scalar parameters, scalar locals, or aggregate-parameter bindings. The callee may change program-lifetime storage that it can name or reach through an aggregate argument, and those mutations remain visible to the caller.
+Each simultaneously active invocation has distinct activation state. Calling another routine does not change the caller's parameters or locals, except through a `var` parameter or slot-holder that the caller passed. The callee may change program-lifetime storage that it can name or reach through an aggregate argument, and those mutations remain visible to the caller.
 
 The caller resumes after the invocation when the callee returns normally. For an expression call, the result is transferred before evaluation continues in the containing expression. For a call statement, any result is discarded after transfer.
 
@@ -72,11 +88,23 @@ A result-free routine uses bare `return`, or reaches its closing `end`. Every `r
 
 A result-bearing routine uses `return expression`. Bare `return` is invalid. The expression is evaluated once before the activation ends and must be compatible with the declared result type. It cannot be a failable invocation: failure must be propagated or handled by an earlier statement, and `return` represents success only.
 
-A scalar result follows the scalar destination rules: exact type, fitting exact literal, or implicit `u8`-to-`u16` widening. Checked narrowing must be written explicitly. The caller receives a copied scalar value.
+A scalar result follows the scalar destination rules of Chapter 6. The caller receives a copied value.
 
-An aggregate result must be an aggregate storage path or transient aggregate-alias result with exact referent-type identity. The storage path is rooted in a visible program variable, aggregate constant, or aggregate parameter. The caller receives a transient alias to the same existing program-lifetime object, not a copy. Section 7.9 establishes the lifetime of every admitted aggregate result without another result check.
+A **handle result** of an owning type `P` or `P?` is a fresh owning value for the caller (Chapter 7, Section 7.11). Its `return` expression must be `none`, a fresh value, or a `move`; returning an owning local or parameter requires `move`, as `return move n`. An identifier result is a copy. A routine cannot return a record or array of an owning type by value.
 
-The caller may consume that transient alias only by discarding it as a complete call statement, passing it directly to a compatible aggregate parameter, forwarding it as an aggregate return, applying an immediate field or index suffix, or using it as an exact-type aggregate-assignment source. It cannot be retained in a source variable. To retain the returned value, the caller assigns the call result into a program object or caller-supplied aggregate destination, causing the copy defined by Section 7.8.
+An **aggregate result** is an alias to an existing object of exactly the result type, not a copy (Chapter 7, Section 7.7). Its root must be program storage, or a parameter named in the routine's `from` clause; it must never be rooted in the routine's own locals (design decision D8). A `from` clause names parameters of aggregate type; it cannot name a slot-holder. Without a `from` clause, every aggregate result must be rooted in program storage.
+
+```nucleus
+sub pick(items as Entry[8], index as u8) as Entry from items
+    return items[index]
+end
+```
+
+At a call, the result lives as long as the arguments passed for the `from` parameters. If any of them is rooted in a local of the caller, the result may be used within the caller but can be returned from it only if that local is itself rooted in a parameter named in the caller's own `from` clause.
+
+The result is read-only unless the result clause says `as var Type`. A `var` result must be rooted in a `var` parameter named in `from`, or in program storage other than a constant.
+
+The caller consumes an aggregate result within the statement: by discarding it, passing it to a compatible parameter, returning it, applying a field or index suffix, or using it as the source of an exact-type assignment, which copies it. It cannot be stored.
 
 If evaluating a later argument or suffix performs another call, the compiler preserves the transient carrier until its containing operation consumes it. Backend liveness or argument staging provides that protection; it does not create a source-visible pointer or extend the result beyond the operation.
 
@@ -84,51 +112,40 @@ If evaluating a later argument or suffix performs another call, the compiler pre
 
 ## 13.7 Value-routine completion
 
-A value routine is invalid when its closing `end` is reachable without executing `return expression`. Baton does not supply an implicit value, result variable, or default return.
+A value routine is invalid when its closing `end` is reachable without executing `return expression`. Baton supplies no implicit value.
 
-The static rule uses a bounded structured fallthrough summary:
+The rule uses a structured summary of whether each statement can **fall through**:
 
-- `return expression` does not fall through;
-- assignment and call statements fall through;
-- an `if` does not fall through only when it has an `else` and every clause body does not fall through;
-- an `if` without `else` may fall through; and
-- every `while` and `for` is treated as able to finish, regardless of a constant condition or its body.
+- `return`, `fail` and an `exit` or `continue` do not fall through; other simple statements and local declarations do;
+- an `if` does not fall through only when it has an `else` and no clause body falls through;
+- a `select` does not fall through only when some arm always executes, which is when an integer selection has `case else`, or a handle selection has both a `some` arm and a `none` or `else` arm, and no arm body falls through; and
+- every `while` and `for` is treated as able to finish, whatever its condition.
 
-A statement sequence can reach its end when control can pass through every statement on a path. Once a statement on a path does not fall through, later statements on that path do not restore fallthrough. This rule permits one streaming summary per nested statement and requires no control-flow graph.
-
-The conservative loop rule is part of Baton 1.0 validity. A value routine whose only non-returning path is an apparently indefinite loop still requires a structurally reachable `return expression` after that loop or another arrangement that satisfies the rules above.
+A block falls through when control can pass through every statement on some path. This needs no control-flow graph.
 
 ## 13.8 Forward definitions and recursion
 
-A forward declaration contains the routine's complete and sole signature, including its parameter names. Its later body begins with `sub NAME` and a logical newline. That name must resolve to exactly one incomplete forward under Chapters 4, 5, and 8. The stored parameter names bind the body; no parameter, result, or `fails` clause is repeated. The forward declaration and body definition denote one routine.
+A forward declaration contains the routine's complete and sole signature, including parameter names, `var` markers, result clause and `fails`. Its body begins with `sub NAME`; the stored parameter names bind the body, and nothing is repeated.
 
-The body does not repeat the signature, so the compiler performs no body-signature comparison. A streaming compiler must retain the forward's parameter names as well as its type and effect metadata until it compiles the body. The current compiler uses the measured retained routine and parameter tables published in the implementation plan.
-
-After its complete signature has been checked, a routine may call itself directly. Mutually recursive routines require an earlier forward signature for every routine called before its definition. Recursive calls use the ordinary argument, activation, result, and lifetime rules; Baton has no separate recursive syntax.
-
-Recursion is admitted in Baton 1.0 and implemented by the current compiler. Standard language mode must not reinterpret or reject recursive source within the implementation's documented compile-time capacities.
+A call to a routine whose body is not yet complete, including a call from a routine to itself, is valid only if the routine was declared `forward` (Chapter 5, Section 5.9; diagnostic `recursion-needs-forward`). Mutually recursive routines need a forward declaration for every routine called before its definition. So every cycle of calls passes through a forward-declared routine. Recursive calls otherwise follow the ordinary rules.
 
 ## 13.9 Activation capacity
 
-Runtime activation capacity is implementation-defined. An implementation may bound the number of simultaneously active routine invocations, the storage consumed by their activation state, or both. It must publish every bound and provide at least the capacity needed by every complete accepted program in Chapter 21 under its stated inputs. Before beginning a call that would exceed a published bound, the program performs the activation-capacity trap specified by Chapter 15; it must not overwrite a live activation, alias one activation's locals with another, or continue with partial parameter binding.
+When the compiler completes a routine `R`, it computes `need(R)`, the most stack `R`'s calls can use outside cycles (Chapter 7, Section 7.18). Every forward-declared routine begins with the **activation-capacity check**: before its locals are initialized or its body begins, it traps with `activation-capacity` if the stack pointer minus `need(R)` minus the profile's guard band would fall below the start of free memory. Startup checks `need(main)` before calling `main`. So no call overflows the stack unchecked, and a routine that is not forward-declared needs no check.
 
-The trap point is after argument evaluation and before the new activation begins. Effects from evaluated arguments remain observable, while the callee performs no local initialization or body statement.
+The check runs after argument evaluation; effects of the arguments remain, and the callee performs nothing.
 
-This runtime limit does not create a non-recursive language profile. A compiler accepts recursive call graphs subject to its ordinary compile-time capacities; active depth is a runtime property.
+## 13.10 Exit and lowering boundary
 
-## 13.10 Cleanup and lowering boundary
+When a routine is left by `return`, `fail`, reaching its `end` or a trap, every block it is in is left: its owning locals and owning parameters that still hold values are freed, and so are the owning handles inside its local aggregates (Chapter 7, Section 7.12). A result is evaluated before anything is freed, so `return move n` hands `n` on and frees nothing. A routine's exits may share one epilogue. There are no destructors, `finally` or `defer` beyond this automatic freeing.
 
-Baton routines have no destructors, `finally`, `defer`, exception unwinding, variable-sized local allocation, or other source-level scope-exit action. A `return` therefore performs no hidden source cleanup before transferring control.
-
-The source semantics permit an all-caller-save implementation. A backend may save live implementation values before a call, place arguments, invoke the callee, capture a result before restoring overlapping state, and restore the caller afterward. Recursive calls may use the same rule for each activation. These operations are backend mechanics, not source-visible registers, clobber declarations, or parameter modes.
-
-The compiler may lower calls and returns to regular semantic operations while parsing. This specification does not define register assignments, save regions, hardware-stack use, helper entry points, or the physical calling convention. The Z80 runtime and backend contract supplies the required target-level effects.
+This specification does not define registers, save areas, the hardware stack layout, helper entry points or the calling convention. A compiler may lower calls and returns while parsing, and may save and restore implementation state around a call, without any source-visible effect.
 
 ## 13.11 Invalid calls and capacity limits
 
-The compiler must diagnose an unavailable or non-routine callee, a missing argument list, wrong arity, an incompatible scalar argument or result, an aggregate argument or result with the wrong referent type, a result-free call used as a value, the wrong `return` form, a value routine whose end is reachable, an abbreviated body without one incomplete forward, and a duplicate or missing forward completion.
+The compiler must diagnose an unavailable or non-routine callee, a missing argument list, wrong arity, an incompatible scalar argument or result, an aggregate argument or result with the wrong type, a constant or literal passed to a `var` parameter, `var` on a parameter type that does not admit it, a lease or slot-holder argument that breaks Section 13.4, a handle argument or result that is not `none`, fresh or a `move` where ownership passes, an aggregate result rooted in a local or in a parameter not named in `from`, a `from` naming a non-aggregate parameter or a slot-holder, a `var` result not rooted as required, a result-free call used as a value, the wrong `return` form, a value routine whose end is reachable, a recursive call without a forward declaration, an abbreviated body without one incomplete forward, and a duplicate or missing forward completion.
 
-An implementation may bound parameters, arguments, active expression-call nesting, retained signatures, fallthrough-summary depth, and compile-time call-graph metadata. It must publish each limit and issue a capacity diagnostic before dropping an argument, corrupting a signature, losing a result, merging live state, or changing a call target. Runtime activation capacity follows Section 13.9 rather than this compile-time capacity rule.
+An implementation may bound parameters, arguments, active expression-call nesting, retained signatures, fallthrough-summary depth, and compile-time call-graph metadata. It must publish each limit and issue a capacity diagnostic before dropping an argument, corrupting a signature, losing a result, merging live state, or changing a call target. Run-time stack capacity follows Section 13.9.
 
 ## 13.12 Examples
 
@@ -161,7 +178,7 @@ sub entryAt(index as u8) as Entry
     return entries[index]
 end
 
-sub update(items as Entry[8], index as u8)
+sub update(var items as Entry[8], index as u8)
     items[index].value = entryAt(index).value
 end
 ```
@@ -171,14 +188,37 @@ end
 To retain the complete returned value, the caller provides destination storage:
 
 ```nucleus
-sub retain(index as u8, destination as Entry)
+sub retain(index as u8, var destination as Entry)
     destination = entryAt(index)
 end
 ```
 
-`destination` remains bound to the caller's object. The assignment materializes the transient result without declaring an aggregate local.
+or declares a local: `var copy = entryAt(index)` copies the entry into activation storage.
 
-Direct and mutual recursion use ordinary signatures:
+Parameters with ownership:
+
+```nucleus
+sub sink(n as nodes)                 // takes ownership; n is freed at its end
+end
+
+sub push(var list as nodes?, v as u16)
+    var n = new nodes(v, move list)
+    list = move n
+end
+
+sub bump(var n as Node)              // a lease when passed a handle
+    n.value = n.value + 1
+end
+
+sub demo()
+    var h = new nodes(1, none)
+    bump(h)                          // lends h's record
+    push(head, 2)                    // head is a slot-holder
+    sink(move h)                     // h now holds none
+end
+```
+
+Mutual recursion needs a forward declaration for the routine called first; `even` calls the forward-declared `odd`, which carries the activation-capacity check:
 
 ```nucleus
 forward sub odd(value as u16) as boolean
