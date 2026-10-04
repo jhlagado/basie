@@ -3,7 +3,7 @@
 
 ## 1.1 Status
 
-This specification is a working draft. Baton 1.0 has not been frozen or released as a standard, and later revisions may change rules recorded here. This revision defines the complete proposed 0.1 source language and supports conformance review, but the project may still correct it before the freeze.
+This specification is a working draft. Baton 1.0 has not been frozen or released as a standard, and later revisions may change rules recorded here. This revision defines the complete proposed Baton 1.0 source language and supports conformance review, but the project may still correct it before the freeze.
 
 The language under design is named **Baton 1.0**. It has one source language: no language levels, selectable language profiles, or compiler-selected subsets of standard syntax exist.
 
@@ -13,7 +13,7 @@ This specification defines the source-language syntax, static semantics, runtime
 
 The separate Baton runtime documents ([CP/M target](../docs/cpm-target.md), [object format](../docs/object-format.md)) defines the packed data representation, direct-code integrity rules, runtime boundary, and target execution obligations. Non-normative implementation plans and design papers record compiler strategies and project constraints; they do not add source-language semantics.
 
-The first implementation is a handwritten Z80 compiler that emits Z80 machine code directly. Project acceptance requires its compiler core and required immutable constants to fit in one 16 KiB bank; generated programs, compiler workspace, and the target runtime have separate budgets. That gate does not create a smaller Baton dialect or alter the meaning of a conforming program. Chapter 2 and the implementation plan carry the detailed budget rules.
+Baton is implemented twice: a reference toolchain in TypeScript, and a native compiler and linker, `BATON.COM` and `BLINK.COM`, that run on CP/M 2.2 and emit Z80 machine code directly. The native compiler has a budget of 24K (Chapter 2). That budget does not create a smaller Baton dialect or alter the meaning of a conforming program.
 
 ## 1.3 Authority
 
@@ -53,7 +53,7 @@ Exceeding one compiler's documented capacity does not affect a program's languag
 
 The complete accepted programs in Chapter 21 form the minimum conformance corpus. A conforming compiler and execution environment must compile and execute each program under its stated inputs without a capacity diagnostic or an `activation-capacity` trap. An implementation may publish smaller limits than another implementation only above this floor. This requirement establishes a minimum useful implementation without creating a language profile or changing the conformance of larger source programs.
 
-A program can use this complete working revision to establish conformance. Such a claim identifies the exact specification revision because the draft may still change before the 0.1 freeze.
+A program can use this complete working revision to establish conformance. Such a claim identifies the exact specification revision because the draft may still change before the 1.0 freeze.
 
 ## 1.6 Conforming compilers
 
@@ -71,7 +71,7 @@ A compiler claiming Baton 1.0 conformance must:
 
 A compiler must not report successful translation and then emit code with semantics that differ from this specification. Diagnostic wording and presentation are implementation-defined unless a later chapter requires a particular machine-readable result.
 
-The first handwritten compiler passes an additional project acceptance gate only if its core plus required immutable constants fit in one 16 KiB bank. A compiler may conform to the language and fail that size gate. Conversely, fitting in the bank does not excuse a compiler that rejects an in-capacity conforming program, accepts invalid source without a diagnostic, or changes program meaning.
+The native compiler passes an additional project acceptance gate only if it fits its 24K budget (Chapter 2). A compiler may conform to the language and fail that size gate. Conversely, fitting the budget does not excuse a compiler that rejects an in-capacity conforming program, accepts invalid source without a diagnostic, or changes program meaning.
 
 ## 1.7 Extensions
 
@@ -100,7 +100,7 @@ A runtime trap is specified behaviour, not undefined behaviour and not evidence 
 
 ## 1.10 Provisional features
 
-Design candidates may be prototyped and measured while Baton 1.0 remains a working draft. Before 0.1 is frozen, the project either admits each candidate to the single normative language or omits it. Baton does not expose candidates as language levels or standard profiles.
+Design candidates may be prototyped and measured while Baton 1.0 remains a working draft. Before 1.0 is frozen, the project either admits each candidate to the single normative language or omits it. Baton does not expose candidates as language levels or standard profiles.
 
 A program that depends on an unadmitted candidate is not yet a conforming Baton 1.0 program. Prototype support for that candidate follows the extension rules in Section 1.7.
 
