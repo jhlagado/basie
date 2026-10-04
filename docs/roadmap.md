@@ -64,7 +64,7 @@ Steps 12 to 23 can run alongside M3 once chapters 3 and 6 exist.
 | 25 | Ref | Linker Phase A: tables, deduplication, every Phase A diagnostic | `ref/link/` (done) | One test per diagnostic |
 | 26 | Ref | Phases B and C: marking, placement passes, pseudo-objects, fit checks | (done) | Placement tests with aligned blobs |
 | 27 | Ref | Phase D: image writing, value checks, `.COM`, `.BIN`, `.HEX`, the line table | (done) | Byte-level tests |
-| 28 | Ref | Phase E: map, symbol file, removal report | | Golden files |
+| 28 | Ref | Phase E: map, symbol file, removal report | `ref/link/reports.ts` (done) | Golden files |
 | 29 | Ref | Publication and failure handling, temporary names, `.BAK` | | Tests with injected disk errors |
 | 30 | RT | Decide the blob-library build: an ATOM blob output mode or a Deno tool over ATOM's output | Decision and tool | Builds a two-blob library |
 | 31 | RT | A minimal `CPM22.BRL`: startup, one trap reporter, `writeOutputByte` | First blob library | Linked with a hand-written object, runs under the harness |

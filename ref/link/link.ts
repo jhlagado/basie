@@ -79,6 +79,23 @@ export type LinkResult = {
   removed: number[];
   pseudo: Map<number, { address: number; size: number }>;
   lineTable?: Uint8Array;
+  /** Every blob, live or removed, for the map. */
+  blobs: BlobInfo[];
+  stackReserve: number;
+  largestFrame: number;
+  recursive: boolean;
+};
+
+export type BlobInfo = {
+  ordinal: number;
+  owner: "library" | "program";
+  kind: number;
+  size: number;
+  align: number;
+  live: boolean;
+  address?: number;
+  /** Padding inserted before this blob. */
+  padding: number;
 };
 
 const WIDTH: Record<number, number> = {
@@ -228,6 +245,7 @@ export function link(
     blobs.filter((e) => inSection(e, section)).sort(order);
 
   let cursor = profile.imageBase;
+  const padding = new Map<number, number>();
   const place = (section: string): { start: number; end: number } => {
     const list = sectionBlobs(section);
     // A section starts aligned to its largest alignment, so that offsets
@@ -239,7 +257,9 @@ export function link(
     cursor = roundUp(cursor, largest);
     const start = cursor;
     for (const e of list) {
-      cursor = roundUp(cursor, alignmentBytes(e.align));
+      const aligned = roundUp(cursor, alignmentBytes(e.align));
+      padding.set(e.ordinal, aligned - cursor);
+      cursor = aligned;
       e.address = cursor;
       cursor += e.size;
     }
@@ -399,6 +419,16 @@ export function link(
   const lineTable = options.lines
     ? buildLineTable(options.lines, output, table, sectionBlobs)
     : undefined;
+  const blobInfo: BlobInfo[] = blobs.map((e) => ({
+    ordinal: e.ordinal,
+    owner: e.owner,
+    kind: e.kind,
+    size: e.size,
+    align: e.align,
+    live: e.live,
+    address: e.live ? e.address : undefined,
+    padding: padding.get(e.ordinal) ?? 0,
+  }));
   return {
     output,
     image,
@@ -408,6 +438,10 @@ export function link(
     removed,
     pseudo,
     lineTable,
+    blobs: blobInfo,
+    stackReserve: reserve,
+    largestFrame: limits.largestFrame,
+    recursive: (limits.flags & 1) !== 0,
   };
 
   // ---- Phase A helpers ------------------------------------------------------

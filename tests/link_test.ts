@@ -306,3 +306,26 @@ Deno.test("a line table is written in address order", () => {
   const t = result.lineTable!;
   assertEquals(new TextDecoder().decode(t.subarray(0, 4)), "BTLT");
 });
+
+Deno.test("the map lists live and removed blobs with totals", async () => {
+  const { writeMap, writeSymbols } = await import("../ref/link/reports.ts");
+  const result = linkProgram();
+  const names = new Map([[0x400, "main"], [0x401, "unused"], [
+    0x402,
+    "greeting",
+  ]]);
+  const map = writeMap(result, {
+    programName: "HELLO",
+    libraryName: "TEST.BRL",
+    runtimeIdentity: 1,
+    profileIdentity: 1,
+    outputKind: ".COM",
+    profile,
+    names,
+  });
+  assertEquals(map.includes("$0104      9  code       0  $0400    main"), true);
+  assertEquals(map.includes("$0401      3  code     unused"), true);
+  assertEquals(map.includes("Program   kept 18, removed 3"), true);
+  const sym = new TextDecoder().decode(writeSymbols(result, names));
+  assertEquals(sym.startsWith("0104 main\r\n010D greeting\r\n"), true);
+});
