@@ -1,0 +1,10 @@
+// Locals may be declared at any statement position.
+// spec: 8.10
+// expect output: AB\r\n
+
+sub main() fails
+    writeText(console, "A") else fail
+    var later as string[4] = "B"
+    writeText(console, later) else fail
+    writeText(console, "\r\n") else fail
+end

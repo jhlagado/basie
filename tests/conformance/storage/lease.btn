@@ -1,0 +1,23 @@
+// Passing an owned node to a var record parameter lends it.
+// spec: 7.14, 13.4
+// expect output: B\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+sub bump(var n as Node)
+    n.value = n.value + 1
+end
+
+sub main() fails
+    var h = new nodes('A', none)
+    bump(h)
+    writeByte(console, h.value) else fail
+    writeText(console, "\r\n") else fail
+end

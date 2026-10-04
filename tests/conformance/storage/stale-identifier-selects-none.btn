@@ -1,0 +1,29 @@
+// select on a stale identifier takes the none arm and never traps.
+// spec: 11.7.3
+// expect output: gone\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+var keep as id nodes?
+
+sub make()
+    var n = new nodes(1, none)
+    keep = id(n)
+end
+
+sub main() fails
+    make()
+    select keep
+    case some(i)
+        writeText(console, "live\r\n") else fail
+    case none
+        writeText(console, "gone\r\n") else fail
+    end
+end

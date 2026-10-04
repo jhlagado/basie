@@ -1,0 +1,10 @@
+// A local is visible only to the end of its block.
+// spec: 5.3
+// expect error: undeclared-name at 9:23
+
+sub main()
+    if true
+        var inner as u8 = 1
+    end
+    var outer as u8 = inner
+end

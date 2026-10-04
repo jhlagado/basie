@@ -1,0 +1,30 @@
+// A var P? parameter lends a place the callee may move into.
+// spec: 7.14
+// expect output: Y\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+var list as nodes?
+
+sub push(var l as nodes?, v as u8)
+    var n = new nodes(v, move l)
+    l = move n
+end
+
+sub main() fails
+    push(list, 'X')
+    push(list, 'Y')
+    select list
+    case some(i)
+        writeByte(console, i.value) else fail
+    case none
+    end
+    writeText(console, "\r\n") else fail
+end

@@ -1,0 +1,17 @@
+// An owning handle is moved, never copied.
+// spec: 7.11
+// expect error: needs-move at 16:23
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+sub main()
+    var a = new nodes(1, none)
+    var b as nodes? = a
+end

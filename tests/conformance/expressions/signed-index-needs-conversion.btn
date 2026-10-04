@@ -1,0 +1,10 @@
+// An index must be u8 or u16; a signed value must be converted.
+// spec: 9.4
+// expect error: index-type at 9:11
+
+var cells as u8[4]
+
+sub main()
+    var i as i8 = 1
+    cells[i] = 0
+end

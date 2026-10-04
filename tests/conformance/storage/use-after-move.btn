@@ -1,0 +1,21 @@
+// A non-optional owner can't be used after it may have been moved.
+// spec: 7.17, 10.8
+// expect error: use-after-move at 20:15
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+sub sink(n as nodes)
+end
+
+sub main()
+    var a = new nodes(1, none)
+    sink(move a)
+    a.value = 2
+end

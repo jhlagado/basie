@@ -1,0 +1,7 @@
+// A bare literal has no definite type, so the type must be written.
+// spec: 8.10
+// expect error: no-definite-type at 6:17
+
+sub main()
+    var count = 0
+end

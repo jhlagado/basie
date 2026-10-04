@@ -1,0 +1,18 @@
+// A forward pool lets a record name its own pool.
+// spec: 8.11
+// expect output: X\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+sub main() fails
+    var n = new nodes('X', none)
+    writeByte(console, n.value) else fail
+    writeText(console, "\r\n") else fail
+end

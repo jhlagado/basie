@@ -1,0 +1,15 @@
+// An aggregate parameter without var is read-only.
+// spec: 13.4
+// expect error: not-writable at 11:5
+
+record Point
+    x as i16
+    y as i16
+end
+
+sub nudge(p as Point)
+    p.x = 1
+end
+
+sub main()
+end

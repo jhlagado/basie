@@ -1,0 +1,13 @@
+// A routine that calls itself must be declared forward.
+// spec: 5.9
+// expect error: recursion-needs-forward at 7:9
+
+sub countDown(n as u8)
+    if n > 0
+        countDown(n - 1)
+    end
+end
+
+sub main()
+    countDown(3)
+end

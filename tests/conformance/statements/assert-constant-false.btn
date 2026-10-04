@@ -1,0 +1,9 @@
+// An assert that is certainly false is a compile-time error.
+// spec: 10.7
+// expect error: assertion-false at 8:5
+
+const limit = 2
+
+sub main()
+    assert limit > 5
+end

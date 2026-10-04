@@ -1,0 +1,9 @@
+// A zero divisor traps.
+// spec: 9.8, 15.2
+// expect trap: division-by-zero at 8
+
+sub main()
+    var a as u16 = 10
+    var b as u16 = 0
+    a = a / b
+end

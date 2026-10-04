@@ -1,0 +1,35 @@
+// Storing a node into its own descendant traps.
+// spec: 7.15, 15.2
+// expect trap: ownership-cycle at 32
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+var head as nodes?
+
+sub main()
+    head = new nodes(1, new nodes(2, none))
+    var top as id nodes? = none
+    var child as id nodes? = none
+    select head
+    case some(h)
+        top = id(h)
+        select h.next
+        case some(c)
+            child = id(c)
+        case none
+        end
+    case none
+    end
+    select child
+    case some(c)
+        c.next = move head
+    case none
+    end
+end

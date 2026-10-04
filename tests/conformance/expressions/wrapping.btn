@@ -1,0 +1,18 @@
+// Integer arithmetic wraps in every type.
+// spec: 9.8
+// expect output: 0 -32768\r\n
+
+include "FORMAT.BTN"
+
+sub main() fails
+    var line as string[30]
+    var u as u8 = 255
+    var s as i16 = 32767
+    u = u + 1
+    s = s + 1
+    appendU16(line, u) else fail
+    appendByte(line, ' ') else fail
+    appendI16(line, s) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

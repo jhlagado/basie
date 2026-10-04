@@ -1,0 +1,20 @@
+// Division truncates toward zero; mod takes the dividend's sign.
+// spec: 9.8
+// expect output: -3 -1 -3 1\r\n
+
+include "FORMAT.BTN"
+
+sub main() fails
+    var line as string[30]
+    var a as i16 = -7
+    var b as i16 = 2
+    appendI16(line, a / b) else fail
+    appendByte(line, ' ') else fail
+    appendI16(line, a mod b) else fail
+    appendByte(line, ' ') else fail
+    appendI16(line, 7 / -b) else fail
+    appendByte(line, ' ') else fail
+    appendI16(line, 7 mod -b) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

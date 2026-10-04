@@ -29,4 +29,4 @@ Status: **pending** (still Nucleus text), **in progress**, or **applied**.
 | 18. Static semantics | Summary of the above | applied |
 | 19. Runtime semantics | Summary of the above | applied |
 | 20. Feature ledger | Version 1 and 2 features (D24), budget (D9) | applied |
-| 21. Conformance examples | New examples for every changed chapter; the corpus in `tests/conformance` | pending |
+| 21. Conformance examples | New examples for every changed chapter; the corpus in `tests/conformance` | applied |

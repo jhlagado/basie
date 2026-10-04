@@ -1,0 +1,14 @@
+// The most negative value divided by -1 wraps to itself.
+// spec: 9.8
+// expect output: -32768\r\n
+
+include "FORMAT.BTN"
+
+sub main() fails
+    var line as string[12]
+    var a as i16 = -32768
+    var b as i16 = -1
+    appendI16(line, a / b) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

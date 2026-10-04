@@ -1,0 +1,10 @@
+// A top-level assert is checked during compilation.
+// spec: 8.7
+// expect error: assertion-false at 7:1
+
+const rows = 4
+const columns = 80
+assert rows * columns <= 256
+
+sub main()
+end

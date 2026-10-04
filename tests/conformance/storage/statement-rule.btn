@@ -1,0 +1,21 @@
+// An owner used in a statement can't also be moved in it.
+// spec: 10.8
+// expect error: statement-rule at 20:19
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+sub eat(n as nodes) as u8
+    return n.value
+end
+
+sub main()
+    var x = new nodes(1, none)
+    x.value = eat(move x)
+end

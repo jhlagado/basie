@@ -1,0 +1,8 @@
+// An f32 result beyond the largest finite value traps.
+// spec: 9.9
+// expect trap: float-overflow at 7
+
+sub main()
+    var x as f32 = 3.0e38
+    x = x * 10.0
+end

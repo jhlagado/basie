@@ -1,0 +1,9 @@
+// A private constant is visible in its own part only; a later part may reuse the name.
+// spec: 5.11
+// expect output: OK\r\n
+
+private const greeting = 1
+
+sub main() fails
+    writeText(console, "OK\r\n") else fail
+end

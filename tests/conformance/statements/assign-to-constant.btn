@@ -1,0 +1,14 @@
+// An aggregate constant can't be assigned to.
+// spec: 8.5, 10.4
+// expect error: not-writable at 13:5
+
+record Point
+    x as i16
+    y as i16
+end
+
+const origin as Point = (0, 0)
+
+sub main()
+    origin.x = 1
+end

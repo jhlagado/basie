@@ -1,0 +1,8 @@
+// A constant zero divisor is a compile-time error.
+// spec: 9.8
+// expect error: division-by-zero at 7:13
+
+sub main()
+    var a as u16 = 10
+    a = a / 0
+end

@@ -1,0 +1,14 @@
+// A field of handle type must be optional.
+// spec: 8.8
+// expect error: handle-must-be-optional at 8:13
+
+forward pool nodes
+
+record Node
+    next as nodes
+end
+
+pool nodes as Node[4]
+
+sub main()
+end

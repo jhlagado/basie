@@ -44,13 +44,13 @@ The **tracks**:
 | 12 | Spec | Fork the Nucleus 0.1 specification into `spec/`, with a change log | `spec/` chapters and change log (done) | Builds as Markdown |
 | 13 | Spec | Lexical rules: new literals (`f32`), keywords (`select`, `move`, `pool`, `new`, `shl`, `shr`, `private`, `include`, `assert`), contextual `id` | Chapter 3 (done) | Conformance programs for each token |
 | 14 | Spec | Types: eight numeric types, handles, owning types, arrays of arrays | Chapter 6 (done) | Conformance programs |
-| 15 | Spec | Storage and lifetime: block scope, activation storage, pools, the memory-safety rules | Chapter 7 | Conformance programs, including rejected programs |
-| 16 | Spec | Declarations: typed and local constants, inference, `pool`, `private` | Chapter 8 | Conformance programs |
-| 17 | Spec | Expressions: the numeric rules (D31), conversions, shifts, bitwise operators | Chapter 9 | Conformance programs, including edge values |
-| 18 | Spec | Statements: declarations anywhere, `select`, `move`, `assert` | Chapters 10 and 11 | Conformance programs |
-| 19 | Spec | Routines: `var` parameters, leases, `from`, forward rules for recursion | Chapter 13 | Conformance programs |
-| 20 | Spec | Errors and traps: the new traps, named failure constants | Chapters 14 and 15 | Conformance programs |
-| 21 | Spec | The system boundary: services and the standard library | Chapter 16 | Conformance programs |
+| 15 | Spec | Storage and lifetime: block scope, activation storage, pools, the memory-safety rules | Chapter 7 (done) | Conformance programs, including rejected programs |
+| 16 | Spec | Declarations: typed and local constants, inference, `pool`, `private` | Chapter 8 (done) | Conformance programs |
+| 17 | Spec | Expressions: the numeric rules (D31), conversions, shifts, bitwise operators | Chapter 9 (done) | Conformance programs, including edge values |
+| 18 | Spec | Statements: declarations anywhere, `select`, `move`, `assert` | Chapters 10 and 11 (done) | Conformance programs |
+| 19 | Spec | Routines: `var` parameters, leases, `from`, forward rules for recursion | Chapter 13 (done) | Conformance programs |
+| 20 | Spec | Errors and traps: the new traps, named failure constants | Chapters 14 and 15 (done) | Conformance programs |
+| 21 | Spec | The system boundary: services and the standard library | Chapter 16 (done) | Conformance programs |
 | 22 | Spec | Complete grammar, checked for single-pass parsing | Chapter 17 | A grammar check like Nucleus's |
 | 23 | Spec | Adversarial review of the specification | Review report and fixes | Findings closed |
 

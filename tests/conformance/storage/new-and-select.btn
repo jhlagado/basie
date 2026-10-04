@@ -1,0 +1,25 @@
+// new allocates; select on an optional handle tests it.
+// spec: 7.10, 11.7.3
+// expect output: H\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+var head as nodes?
+
+sub main() fails
+    head = new nodes('H', none)
+    select head
+    case some(i)
+        writeByte(console, i.value) else fail
+    case none
+        writeByte(console, '-') else fail
+    end
+    writeText(console, "\r\n") else fail
+end

@@ -1,0 +1,10 @@
+// A local must not shadow a name visible at its declaration.
+// spec: 5.6
+// expect error: shadowed-name at 8:13
+
+sub main()
+    var count as u8 = 1
+    if count > 0
+        var count as u8 = 2
+    end
+end

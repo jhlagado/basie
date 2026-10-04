@@ -1,0 +1,9 @@
+// Constants may be declared inside a routine, with block scope.
+// spec: 8.4
+// expect output: *\r\n
+
+sub main() fails
+    const mark = '*'
+    writeByte(console, mark) else fail
+    writeText(console, "\r\n") else fail
+end

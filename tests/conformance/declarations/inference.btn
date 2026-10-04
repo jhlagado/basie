@@ -1,0 +1,17 @@
+// A local without a type takes its initializer's definite type.
+// spec: 8.10
+// expect output: -42\r\n
+
+include "FORMAT.BTN"
+
+sub twice(n as i16) as i16
+    return n * 2
+end
+
+sub main() fails
+    var line as string[12]
+    var d = twice(-21)
+    appendI16(line, d) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

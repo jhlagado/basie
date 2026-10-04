@@ -1,0 +1,23 @@
+// new? yields none when the pool is full.
+// spec: 7.10
+// expect output: full\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[1]
+
+sub main() fails
+    var a = new nodes(1, none)
+    var b = new? nodes(2, none)
+    select b
+    case some(n)
+        writeText(console, "got\r\n") else fail
+    case none
+        writeText(console, "full\r\n") else fail
+    end
+end

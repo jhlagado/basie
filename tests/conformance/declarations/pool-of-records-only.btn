@@ -1,0 +1,8 @@
+// A pool holds records.
+// spec: 8.11
+// expect error: pool-needs-record at 5:17
+
+pool numbers as u16[10]
+
+sub main()
+end

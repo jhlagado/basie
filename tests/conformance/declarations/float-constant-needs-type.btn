@@ -1,0 +1,8 @@
+// An untyped constant must be an integer, character or boolean.
+// spec: 8.4
+// expect error: constant-needs-type at 5:14
+
+const half = 0.5
+
+sub main()
+end

@@ -1,0 +1,14 @@
+// When one operand widens to the other, the wider type is used.
+// spec: 9.7
+// expect output: -50\r\n
+
+include "FORMAT.BTN"
+
+sub main() fails
+    var line as string[12]
+    var small as u8 = 200
+    var delta as i16 = -250
+    appendI16(line, small + delta) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

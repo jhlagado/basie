@@ -1,0 +1,9 @@
+// `include` lines come before a part's first declaration.
+// spec: 4.3.2
+// expect error: include-position at 6:1
+
+const limit = 4
+include "FORMAT.BTN"
+
+sub main()
+end

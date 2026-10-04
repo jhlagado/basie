@@ -1,0 +1,19 @@
+// An access through an identifier whose slot was freed traps.
+// spec: 7.16, 15.2
+// expect trap: stale-handle at 18
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+sub main()
+    var n = new nodes(1, none)
+    var i = id(n)
+    n = new nodes(2, none)
+    i.value = 3
+end

@@ -1,0 +1,9 @@
+// Operands whose types don't widen to each other are an error.
+// spec: 9.7
+// expect error: mixed-operands at 8:17
+
+sub main()
+    var w as u16 = 1
+    var s as i16 = 1
+    var x = w + s
+end

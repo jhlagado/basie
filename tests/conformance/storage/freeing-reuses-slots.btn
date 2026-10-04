@@ -1,0 +1,20 @@
+// An owning local is freed at the end of its block, so its slot can be reused.
+// spec: 7.12
+// expect output: ok\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[1]
+
+sub main() fails
+    var i as u8
+    for i = 1 to 5
+        var n = new nodes(i, none)
+    end
+    writeText(console, "ok\r\n") else fail
+end

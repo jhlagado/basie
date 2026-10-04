@@ -1,0 +1,18 @@
+// new traps with pool-full when no slot is free.
+// spec: 7.10, 15.2
+// expect trap: pool-full at 17
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[2]
+
+sub main()
+    var a = new nodes(1, none)
+    var b = new nodes(2, none)
+    var c = new nodes(3, none)
+end
