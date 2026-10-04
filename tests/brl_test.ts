@@ -9,7 +9,7 @@ import { boot, systemDisk } from "./harness/triptych.ts";
 
 const WORK = "build/test-brl";
 const SOURCE = await Deno.readTextFile("runtime/cpm22/cpm22.asm");
-const built = await buildLibrary(SOURCE, WORK);
+const built = await buildLibrary(SOURCE, WORK, "runtime/cpm22");
 const library = readLibrary(built.file, true);
 
 const CONOUT = 0x007;

@@ -48,7 +48,11 @@ export async function runtimeLibrary(): Promise<
   if (!cachedLibrary) {
     const root = new URL("../../", import.meta.url).pathname;
     const source = await Deno.readTextFile(`${root}runtime/cpm22/cpm22.asm`);
-    const built = await buildLibrary(source, `${root}build/compile-brl`);
+    const built = await buildLibrary(
+      source,
+      `${root}build/compile-brl`,
+      `${root}runtime/cpm22`,
+    );
     cachedLibrary = readLibrary(built.file);
     cachedKeys = built.helperKeys;
   }

@@ -65,6 +65,15 @@ export const Helper = {
   SHL32: 0x033,
   SHR32U: 0x034,
   SHR32S: 0x035,
+  FADD: 0x03a,
+  FSUB: 0x03b,
+  FMUL: 0x03c,
+  FDIV: 0x03d,
+  FCMP: 0x03e,
+  I2F: 0x03f,
+  U2F: 0x040,
+  F2I: 0x041,
+  F2U: 0x042,
 } as const;
 
 export const TRAP_REPORTERS: Record<string, number> = {
@@ -141,6 +150,15 @@ export const REGISTER_HELPERS: HelperEntry[] = [
   { name: "SHL32", ordinal: Helper.SHL32, convention: 2, stack: 2 },
   { name: "SHR32U", ordinal: Helper.SHR32U, convention: 2, stack: 2 },
   { name: "SHR32S", ordinal: Helper.SHR32S, convention: 2, stack: 2 },
+  { name: "FADD", ordinal: Helper.FADD, convention: 2, stack: 12 },
+  { name: "FSUB", ordinal: Helper.FSUB, convention: 2, stack: 12 },
+  { name: "FMUL", ordinal: Helper.FMUL, convention: 2, stack: 12 },
+  { name: "FDIV", ordinal: Helper.FDIV, convention: 2, stack: 12 },
+  { name: "FCMP", ordinal: Helper.FCMP, convention: 2, stack: 10 },
+  { name: "I2F", ordinal: Helper.I2F, convention: 2, stack: 8 },
+  { name: "U2F", ordinal: Helper.U2F, convention: 2, stack: 8 },
+  { name: "F2I", ordinal: Helper.F2I, convention: 2, stack: 6 },
+  { name: "F2U", ordinal: Helper.F2U, convention: 2, stack: 6 },
 ];
 
 export const HELPER_STACK: Record<number, number> = Object.fromEntries(

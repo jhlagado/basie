@@ -91,7 +91,7 @@ Each step adds conformance programs and runs them end to end.
 | 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | (done: records, arrays, strings, open views, aggregate constants) | Nucleus examples |
 | 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | (done except the stack bound's recursion tests: see step 46) | Nucleus examples |
 | 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | runtime 32-bit helpers (done; 32-bit loop counters and select subjects still pending) | Edge-value tests |
-| 39 | Ref | `f32` through helpers, literal conversion, constant folding | | Conversion and rounding tests |
+| 39 | Ref | `f32` through helpers, literal conversion, constant folding | `runtime/cpm22/f32.asm`, verified against IEEE single on 400 vectors (done) | Conversion and rounding tests |
 | 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | | Scope and inference tests |
 | 41 | Ref | `select` on integers, characters and ranges; dispatch shapes | (done: integers, characters, ranges) | Dispatch tests |
 | 42 | Ref | Local aggregates, `var` parameters, arrays of arrays, `assert` | (done) | Tests |
@@ -101,7 +101,7 @@ Each step adds conformance programs and runs them end to end.
 | 46 | Ref | The stack bound, prologue figures, activation checks | | Recursion and deep-call tests |
 | 47 | Ref | Branch shrinking and the literal buffer | | Size tests |
 | 48 | Ref | Diagnostics by message number, matching the planned message file | | Diagnostic tests |
-| 49 | Ref | The whole conformance corpus | Reference toolchain complete | Corpus passes |
+| 49 | Ref | The whole conformance corpus | (done for the current corpus: 77 programs; grows with each later step) | Corpus passes |
 
 ## M5. Runtime and standard library
 

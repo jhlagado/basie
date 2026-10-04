@@ -474,6 +474,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 | Line-table entries | 65,535 | `u16` count | format §11 |
 | Library and file offsets | 4 GB | `u32` | format §7.1 |
 | Blob-library tool | about 240 blobs per build | `tools/brl.ts`: 0x100 shifts within 64K | Section 2, item 6 |
+| ATOM's pending-reference arena | 8K by default; `tools/brl.ts` asks for 20K | ATOM `nativeMemoryLayout`; found when the runtime reached 68 blobs | Tool limit; raise again if a build fails with an output-sink error |
+| ATOM relative jumps | 128 bytes | Z80 `JR`; ATOM reports it at the label reached | The tool now names the error |
 
 All are representation maxima, except the blob-library tool's limit, which
 comes from its method.

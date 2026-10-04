@@ -3564,7 +3564,13 @@ export class Compiler {
   private widen(from: ScalarName, to: ScalarName): void {
     const r = this.routine!;
     const fs = SCALARS[from].size, ts = SCALARS[to].size;
-    if (to === "f32") throw new NotImplemented("f32 conversion");
+    if (to === "f32") {
+      // Exact for 8- and 16-bit types: through the 32-bit value.
+      const signed = SCALARS[from].signed;
+      this.widen(from, signed ? "i32" : "u32");
+      this.callHelper(signed ? Helper.I2F : Helper.U2F);
+      return;
+    }
     if (fs === 1 && ts >= 2) {
       if (SCALARS[from].signed) r.blob.u8(0x6f, 0x07, 0x9f, 0x67); // LD L,A; RLCA; SBC A,A; LD H,A
       else r.blob.u8(0x6f, 0x26, 0x00); // LD L,A; LD H,0
@@ -4214,7 +4220,18 @@ export class Compiler {
   private checkedNarrow(from: ScalarName, to: ScalarName): void {
     const r = this.routine!;
     const fs = SCALARS[from], ts = SCALARS[to];
-    if (fs.float || ts.float) throw new NotImplemented("f32 conversions");
+    if (fs.float && ts.float) return;
+    if (fs.float) {
+      // Truncate toward zero into 32 bits, then narrow further if needed.
+      this.callHelper(ts.signed ? Helper.F2I : Helper.F2U);
+      if (ts.size < 4) this.checkedNarrow32(ts.signed ? "i32" : "u32", to);
+      return;
+    }
+    if (ts.float) {
+      // From u32 or i32: rounded to nearest even by the helper.
+      this.callHelper(fs.signed ? Helper.I2F : Helper.U2F);
+      return;
+    }
     if (fs.size === 4 || ts.size === 4) {
       this.checkedNarrow32(from, to);
       return;
@@ -4318,6 +4335,7 @@ export class Compiler {
     const size = sizeOf(t);
     if (size === 1) r.blob.u8(0xed, 0x44); // NEG
     else if (size === 2) r.blob.u8(0xeb, 0x21, 0, 0, 0xb7, 0xed, 0x52); // EX DE,HL; LD HL,0; OR A; SBC HL,DE
+    else if (isScalar(t, "f32")) r.blob.u8(0x7a, 0xee, 0x80, 0x57); // LD A,D; XOR $80; LD D,A
     else this.callHelper(Helper.NEG32);
     return v;
   }
@@ -4531,7 +4549,6 @@ export class Compiler {
     }
     const lt = leftType as Type & { kind: "scalar" };
     const lsize = SCALARS[lt.name].size;
-    if (SCALARS[lt.name].float) throw new NotImplemented("f32 arithmetic");
     this.pushValue(lsize);
     const rightAt = this.token;
     const rv = right();
@@ -4824,7 +4841,6 @@ export class Compiler {
     const r = this.routine!;
     const name = (type as { name: ScalarName }).name;
     const size = SCALARS[name].size;
-    if (SCALARS[name].float) throw new NotImplemented("f32 arithmetic");
     const commutative = ["+", "*", "and", "or", "xor", "=", "<>"].includes(op);
     if (commutative) return this.emitBinaryImmediate(op, leftValue, type, at);
     // Non-commutative: swap. Right is in A/HL/DEHL; load the left as the left.
@@ -4850,7 +4866,6 @@ export class Compiler {
     const r = this.routine!;
     const name = (type as { name: ScalarName }).name;
     const size = SCALARS[name].size;
-    if (SCALARS[name].float) throw new NotImplemented("f32 arithmetic");
     const bytes = this.encodeScalar(rightValue, name);
     if (size === 4) {
       // The right into the alternates.
@@ -4898,7 +4913,7 @@ export class Compiler {
   ): Value {
     const r = this.routine!;
     const s = SCALARS[type.name];
-    if (s.float) throw new NotImplemented("f32 arithmetic");
+    if (s.float) return this.emitBinaryF32(op, type, at);
     if (s.size === 4) return this.emitBinary32(op, type, at);
     if (s.size === 1) {
       switch (op) {
@@ -5002,6 +5017,62 @@ export class Compiler {
       }
     }
     fail("syntax", at, `unknown operator ${op}`);
+  }
+
+  /** f32: left in DEHL, right in DE'HL', through the runtime (9.9). */
+  private emitBinaryF32(
+    op: string,
+    type: Type & { kind: "scalar" },
+    at: Token,
+  ): Value {
+    const r = this.routine!;
+    switch (op) {
+      case "+":
+        this.callHelper(Helper.FADD);
+        return { kind: "reg", type };
+      case "-":
+        this.callHelper(Helper.FSUB);
+        return { kind: "reg", type };
+      case "*":
+        this.callHelper(Helper.FMUL);
+        return { kind: "reg", type };
+      case "/":
+        this.callHelper(Helper.FDIV);
+        return { kind: "reg", type };
+      case "=":
+      case "<>":
+        this.callHelper(Helper.FCMP);
+        this.boolFromCompare(false, op === "=");
+        return { kind: "reg", type: BOOLEAN };
+      case "<":
+      case ">=":
+        this.callHelper(Helper.FCMP);
+        this.boolFromCompare(op === "<");
+        return { kind: "reg", type: BOOLEAN };
+      case ">":
+      case "<=":
+        r.blob.u8(0xd9); // EXX: compare right with left
+        this.callHelper(Helper.FCMP);
+        this.boolFromCompare(op === ">");
+        return { kind: "reg", type: BOOLEAN };
+    }
+    fail("type-mismatch", at, `${op} is not defined for f32`);
+  }
+
+  /** A boolean in A from a compare helper's flags (carry = less, Z = equal). */
+  private boolFromCompare(less: boolean, equalWanted?: boolean): void {
+    const r = this.routine!;
+    if (equalWanted !== undefined) {
+      const skip = r.blob.newLabel();
+      r.blob.u8(0x3e, 0x00); // LD A,0
+      r.blob.jpIf(equalWanted ? JP_NZ : JP_Z, skip);
+      r.blob.u8(0x3c); // INC A
+      r.blob.defineLabel(skip);
+      return;
+    }
+    r.blob.u8(0x9f); // SBC A,A: $FF if carry
+    if (less) r.blob.u8(0xe6, 0x01); // AND 1
+    else r.blob.u8(0x3c); // INC A
   }
 
   /** 32-bit: left in DEHL, right in DE'HL' (code generation §4). */

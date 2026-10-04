@@ -1436,3 +1436,5 @@ SHR32S: OR      A
         LD      E,A
         LD      D,A
         RET
+
+; @include f32.asm

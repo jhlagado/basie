@@ -12,7 +12,24 @@
  *
  * Usage: deno run -A --config deno.runtime.json tools/brl.ts SOURCE.asm OUT.BRL
  */
-import { assembleAtomProject, materializeAtomGeneration } from "atom-z80";
+import {
+  assembleResolvedAtomProject,
+  materializeAtomGeneration,
+  resolveAtomProject,
+} from "atom-z80";
+
+/**
+ * ATOM's default arenas suit small programs; a whole runtime has hundreds of
+ * labels and forward references across blobs, so the pending arena is
+ * enlarged (capacity audit: a tool limit, not a Baton one).
+ */
+const ATOM_LAYOUT = {
+  symbolStart: 0x4100,
+  symbolEnd: 0xa000,
+  pendingStart: 0xa000,
+  pendingEnd: 0xf000,
+  partDescriptors: 0xf000,
+};
 import { basename, dirname, join } from "@std/path";
 import { crc16 } from "../ref/object/crc.ts";
 import { type Profile, writeLibrary } from "../ref/object/library.ts";
@@ -211,23 +228,30 @@ async function assemble(dir: string, file: string, text: string) {
   await Deno.writeTextFile(join(dir, file), text);
   let result;
   try {
-    result = await assembleAtomProject({
+    const project = await resolveAtomProject({
       root: dir,
       entry: file,
       assembler: undefined,
-      target: undefined,
-      maxInstructions: 10_000_000,
-      maxCycles: 100_000_000,
-      sink: undefined,
+      definitions: {},
+      placement: { defaultBank: 0, banks: {} },
+      limits: { maxParts: 255, maxBank: 0 },
+    });
+    result = await assembleResolvedAtomProject(project, {
+      maxInstructions: 100_000_000,
+      maxCycles: 1_000_000_000,
+      nativeMemoryLayout: ATOM_LAYOUT,
     });
   } catch (e) {
     const d = (e as { diagnostic?: { line: number; column: number } })
       .diagnostic;
+    const native = (e as { native?: { statementDetail?: number } }).native;
     const where = d ? ` at line ${d.line}, column ${d.column}` : "";
-    throw new BrlError(
-      `${file}: ${(e as Error).message}${where}` +
-        (file === "A.ASM" ? "" : " (a relative jump between blobs?)"),
-    );
+    const why = native?.statementDetail === 4
+      ? " (a relative jump out of range, reported at the label it reaches)"
+      : file === "A.ASM"
+      ? ""
+      : " (a relative jump between blobs?)";
+    throw new BrlError(`${file}: ${(e as Error).message}${where}${why}`);
   }
   const image = materializeAtomGeneration(result.generation);
   const symbols = new Map<string, number>();
@@ -246,10 +270,28 @@ export type BuiltLibrary = {
   helperKeys: number[];
 };
 
+/** Inline `; @include FILE` lines, relative to `dir`. */
+export async function expandIncludes(
+  source: string,
+  dir: string,
+): Promise<string> {
+  const out: string[] = [];
+  for (const line of source.split(/\r?\n/)) {
+    const m = line.match(/^;\s*@include\s+(\S+)/);
+    if (m) {
+      const text = await Deno.readTextFile(join(dir, m[1]));
+      out.push(await expandIncludes(text, dir));
+    } else out.push(line);
+  }
+  return out.join("\n");
+}
+
 export async function buildLibrary(
   source: string,
   workDir: string,
+  sourceDir?: string,
 ): Promise<BuiltLibrary> {
+  if (sourceDir) source = await expandIncludes(source, sourceDir);
   const p = parseSource(source);
   const n = p.blobs.length;
   const targets = n + PSEUDO_SYMBOLS.length;
@@ -385,7 +427,11 @@ if (import.meta.main) {
     Deno.exit(2);
   }
   const work = join(dirname(out), `.${basename(out)}.work`);
-  const built = await buildLibrary(await Deno.readTextFile(src), work);
+  const built = await buildLibrary(
+    await Deno.readTextFile(src),
+    work,
+    dirname(src),
+  );
   await Deno.remove(work, { recursive: true });
   await Deno.writeFile(out, built.file);
   console.log(`${out}: ${built.file.length} bytes, ${built.names.size} blobs`);
