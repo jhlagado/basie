@@ -3,196 +3,223 @@
 
 ## 7.1 Scope
 
-This chapter defines source-level storage, object identity, value copying, aggregate aliases, storage duration, and lifetime. Chapter 6 defines the types that occupy storage. Chapter 8 defines declaration syntax, constants, initializers, and when a declaration installs a zero or explicit initial value. Chapter 13 defines routine syntax, result syntax, and calls.
+This chapter defines Baton's storage classes, object identity, copying, aliases, pools and handles, ownership, freeing, and the stack bound. It is the normative form of the [memory-safety design](../docs/memory-safety.md), revision 6, which gives the reasons and patterns. Chapter 6 defines the types, Chapter 8 the declarations and initializers, Chapter 10 the statement rule and the flow check, Chapter 11 handle selection, Chapter 13 parameters and calls, and Chapter 15 the traps.
 
-The rules in this chapter do not expose physical addresses, banks, Z80 registers, stack positions, activation layouts, or compiler workspace. Those are implementation matters. A conforming implementation preserves the source-level identity and lifetime rules regardless of its storage arrangement.
+The rules do not expose physical addresses, registers, stack positions or layouts, except where this chapter names an implementation structure to explain an observable rule. A conforming implementation preserves the source-level identity, lifetime and checking rules whatever its storage arrangement.
 
-## 7.2 Values, objects, subobjects, and aliases
+## 7.2 The safety property
 
-Baton distinguishes four related concepts:
+A program compiled from Baton source cannot:
 
-| Concept               | Source meaning                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Scalar value          | One `u8`, `u16`, or `boolean` value. Scalar values can be copied.                                                                      |
-| Object                | Storage associated with a program variable.                                                                                            |
-| Subobject             | A record field, fixed-array element, or existing bounded-string byte. A bounded string may itself be an object or aggregate subobject. |
-| Typed aggregate alias | A non-owning, fixed binding to an existing record, fixed-array, or bounded-string object or subobject of one of those types.           |
+1. read or write outside the bounds of an object;
+2. read or write storage after its lifetime has ended;
+3. free storage twice, or free storage it does not own;
+4. read storage it never initialized;
+5. treat storage of one type as another;
+6. overflow its stack into other memory; or
+7. leak pool storage.
 
-An object has one identity throughout its lifetime. Writing a new scalar value into an object or subobject changes its contents, not its identity. An alias has the exact aggregate type of its target and does not create another object.
+Each hazard is either rejected during compilation or detected during execution by a trap (Chapter 15): `bounds`, `stale-handle`, `ownership-cycle` and `activation-capacity`. The runtime library, the BIOS and the BDOS are trusted and outside the property. Baton 1.0 has no interrupts or concurrency in source.
 
-Every alias is bound to an object or aggregate subobject when the alias is established. Baton has no null, unbound, or reseatable aggregate alias. Source code cannot inspect, compare, convert, or perform arithmetic on the implementation carrier used for an alias.
+## 7.3 Values, objects, aliases and handles
 
-## 7.3 Owned storage
+| Concept | Meaning |
+| --- | --- |
+| Scalar value | One value of a numeric type or `boolean`. Scalars are copied |
+| Object | Storage of one type, in one of the storage classes of Section 7.4 |
+| Subobject | A record field, an array element, or a byte of a bounded string, inside an object |
+| Alias | An implicit, non-owning binding to an existing aggregate object or subobject, made by passing it to a parameter or returning it as a result (Section 7.7). Never stored, never seen |
+| Handle | An explicit value that refers to a slot of a pool (Section 7.9). The only kind of reference that is a value |
 
-A top-level variable owns one mutable object with program lifetime. A scalar variable owns one scalar cell. A record, fixed-array, or bounded-string variable owns the complete aggregate object, including every contained subobject. An aggregate constant owns one statically initialized program-lifetime aggregate object whose direct named root is read-only.
+An object has one identity throughout its lifetime. Writing into an object changes its contents, not its identity.
 
-Scalar named constants denote values and need not occupy source-observable storage. Aggregate named constants occupy program-lifetime storage containing their complete static values. Their direct named roots are read-only under Section 7.8.
+## 7.4 Storage classes
 
-Aggregate storage occurs only in top-level variable or aggregate-constant objects and inline within other aggregate storage. A record field has storage within its containing record. An array element has storage within its containing array. A bounded string has its counted content within its containing string object. A routine cannot declare owned aggregate storage, and Baton allocates no activation-lifetime aggregate storage.
+| Class | Declared by | Lifetime | Freed |
+| --- | --- | --- | --- |
+| Program storage | top-level `var` and aggregate `const` | the whole run | never |
+| Activation storage | local variables, at any statement position | from the declaration to the end of the enclosing block | at the end of the block |
+| Pool storage | the slots of a top-level `pool` | from `new` until freed | when its owner goes away |
 
-## 7.4 Program lifetime
+There is no general heap: every byte a program uses is declared in the source with a size fixed when the program is linked. Arena storage, freed as a whole at the end of a scope, is planned for version 2 and is not part of Baton 1.0.
 
-Program-lifetime objects exist before the designated entry routine begins. Their lifetime ends when program execution terminates, whether normally or through a specified trap. Chapter 8 defines their initialization and the point at which each initial value is established before the first source read.
+**Zero values.** Where Chapter 8 gives an object no explicit initial value, it starts at its type's zero value:
 
-The zero value of each admitted type is:
+| Type | Zero value |
+| --- | --- |
+| Integer types | 0 |
+| `f32` | +0.0 |
+| `boolean` | `false` |
+| Handle types `P?`, `id P?` | `none` |
+| Record | every field at its zero value |
+| `T[N]` | every element at its zero value |
+| `string[N]` | the empty string |
 
-| Type        | Zero value                                                  |
-| ----------- | ----------------------------------------------------------- |
-| `u8`, `u16` | integer zero                                                |
-| `boolean`   | `false`                                                     |
-| record      | the record whose fields recursively have their zero values  |
-| `T[N]`      | the array whose elements recursively have their zero values |
-| `string[N]` | the empty byte sequence                                     |
+The non-optional handle types `P` and `id P` have no zero value; Chapter 8 admits them only for parameters and initialized locals.
 
-This table defines values, not a byte layout or a universal initialization rule. Chapter 8 specifies which declarations receive a zero value and which require an explicit initializer. An implementation must establish the required semantic value without exposing padding, headers, addresses, or backend-specific representations.
+## 7.5 Program storage
 
-## 7.5 Routine activations
+A top-level variable owns one mutable object of program lifetime, and an aggregate constant one read-only object. Program objects exist before `main` begins, hold their initial values before any source can read them, and live until the program ends normally or by a trap. A pool is program storage as a whole, but each of its slots has its own lifetime (Section 7.9).
 
-Each routine invocation creates a distinct logical activation. An activation contains that invocation's scalar parameters, scalar locals, and aggregate-parameter bindings. It begins when the call establishes the parameters and ends when the routine returns or program execution terminates.
+## 7.6 Activation storage
 
-A scalar parameter receives a copied value. Each scalar local belongs to one activation. Its source lifetime begins when execution reaches its declaration and Chapter 8 has established its initial value; its lifetime ends with the activation. A scalar result is copied from the returned expression to the caller. It is not shared storage in the callee.
+Each call of a routine creates a distinct **activation**, holding the routine's parameters and the local variables of its blocks. Two simultaneously active calls have distinct parameters and locals, including recursive calls.
 
-An aggregate parameter is a typed alias to caller-provided storage. Its binding belongs to the activation, but the target retains program lifetime. An open-string parameter also carries the referent's concrete capacity within the activation. A routine has no other named aggregate binding.
+**Lifetime.** A local's lifetime begins when execution reaches its declaration, which gives it its initial value (Chapter 8), and ends when control leaves its innermost enclosing block by any path: the end of the block, `exit`, `continue`, `return`, `fail` or a trap. A local in a loop body is created afresh on each iteration.
 
-Two simultaneously active invocations have distinct logical parameters and scalar locals. This rule applies even when the implementation assigns the same registers or physical storage to invocations that cannot overlap.
+**Local aggregates.** A local may be a record, array, bounded string or array of arrays (design decision D8). It lives in the activation for the same block lifetime. A local record or array is zeroed in full unless it has an initializer; a local bounded string starts empty, and raising a string's length exposes zero bytes (design decision D25). Zeroing happens after the routine's activation-capacity check, if it has one.
 
-Recursive calls use the same activation rule. An implementation preserves distinct logical activation state at every active depth. Caller-save regions, hardware-stack entries, static-slot save areas, or another re-entry mechanism may implement that rule; none is source storage.
+**Freeing at block end.** When control leaves a block, every owning local of that block is freed (Section 7.12), and so is every owning handle inside a local aggregate of that block, found through its type's ownership descriptor. Freeing a local stores `none` into it, so a later shared exit path frees nothing twice.
 
-These rules divide storage into two practical planes. The aggregate plane contains fixed top-level program-lifetime objects and their aggregate subobjects. The activation plane contains copied scalar parameters, scalar locals, and aggregate-parameter bindings. Calls preserve overlapping activation-plane state; aggregate bytes remain in program storage.
+An implementation may share storage between blocks that are not nested within each other. The **frame** of a routine is the largest total of locals and temporaries live at any one point; it is used in the stack bound of Section 7.18.
 
-Programs declare every aggregate object at top level, pass required objects or subobjects through aggregate parameters, and use scalar locals for per-invocation work. A routine that needs destination or scratch aggregate storage receives it from its caller. This rule keeps every aggregate allocation visible in the program declaration sequence and prevents hidden shared aggregate state inside recursion.
+## 7.7 Aliases
 
-## 7.6 Aggregate parameter binding
+An alias exists only as a parameter, for the length of a call, or as a routine result that the caller uses within one statement. It cannot be stored in a variable, field or array element, and source cannot observe or compare its address.
 
-An aggregate alias binds once when a call establishes an aggregate parameter. The argument is a compatible aggregate storage path rooted in a program variable, aggregate constant, or aggregate parameter, a field or fixed-array element reached from such a root, or a transient aggregate result admitted by Section 7.9. Every admitted source ultimately denotes top-level program storage. A `string[]` binding records both the address of one complete bounded string and its actual capacity; forwarding the view preserves that pair.
+- An aggregate parameter without `var` is a **ticket**: a read-only alias. With `var` it is an alias through which the routine may write (design decision D17; Chapter 13).
+- An aggregate result is read-only unless declared `var`, which is allowed only when it is rooted in a `var` parameter or in program storage. An alias rooted in a constant is never bound to `var`.
+- A returned alias must be rooted in program storage, or in a parameter named in the routine's `from` clause; it is never rooted in the routine's own locals (design decision D8). At a call, the result lives as long as the arguments passed for the `from` parameters, so a result rooted in a caller's local can be used within the caller but returned from it only through the caller's own `from` clause.
+- An alias into a pool slot exists only as a **lease** (Section 7.14). Otherwise an aggregate field of a pool record is copied to be passed (Section 7.13).
 
-The caller evaluates every field selection and checked index used to form the argument once before the call begins. The callee receives the resulting typed alias, and its binding cannot be changed. The target type must satisfy the parameter-compatibility rule in Chapter 6.
+These rules need no run-time check: program storage is never freed; activation storage outlives every call made from its block; and a leased node's owner cannot be reached during the lease.
 
-An alias does not extend the target's lifetime. Scalar-leaf writes and compatible aggregate assignment through an aggregate alias are allowed under the ordinary assignment rules, including when the original target was named by an aggregate constant. Read-only status belongs only to the direct constant-rooted source path; it is not carried in the alias type or checked dynamically.
+**Binding.** The caller evaluates every field selection and checked index forming an argument once, before the call. The binding cannot be changed. Writing through one alias is visible through every other path to the same subobject.
 
-## 7.7 Subobject lifetime and identity
+## 7.8 Copying and aggregate assignment
 
-A subobject begins and ends its lifetime with its containing object. Nested containment does not create a separately managed lifetime. An alias to an aggregate record field or fixed-array element remains valid only while the containing object remains alive.
+Scalar assignment copies a value. Aggregate assignment copies a whole aggregate into a destination of exactly the same concrete type; two bounded strings must have equal capacities. A `string[]` parameter is a view and cannot be a whole-object operand.
 
-Distinct fields of one record, distinct elements of one fixed array, and distinct byte positions in one bounded string are distinct subobjects. An object overlaps each of its own subobjects, and a nested subobject overlaps every containing object on its path. Sibling fields, sibling array elements, and distinct string bytes do not overlap in source semantics.
+The compiler evaluates both paths once and validates both extents before the first destination byte changes; a trap leaves the destination unchanged. Under the type and containment rules, two aggregate designators are either identical or disjoint, so no overlap check is needed; an assignment of an object to itself has no effect.
 
-Two aliases may denote the same object or overlapping objects. Baton provides no alias-identity comparison, but identity is observable through mutation: a scalar write through one path is visible through every other path to that scalar subobject. An implementation must preserve this effect even if it caches a scalar value or uses different carriers for the two paths.
+**Owning types are not copied.** A record or array that contains an owning handle, directly or through nested records and arrays, is an owning type (Chapter 6). An object of owning type cannot be the source of an aggregate assignment, or be passed by copy, unless it is fresh. Its handles move only through `move` (Section 7.11).
 
-## 7.8 Assignment and aggregate mutation
+## 7.9 Pools, slots and handles
 
-Scalar assignment copies a value into a scalar destination. The destination may be a scalar variable, parameter, record field, fixed-array element, or existing bounded-string byte. After the assignment, later changes to the source do not change the destination.
+A pool (Chapter 8, Section 8.11) is a fixed array of **slots**, each able to hold one record of the pool's record type. A slot is **free** or **allocated**. Pool storage never moves, and a slot only ever holds its pool's record type. Each pool has a high-water mark and a first-in, first-out free list.
 
-Aggregate assignment requires a mutable aggregate destination and an aggregate source of the exact same concrete type. It copies the complete packed value into the destination. Two bounded strings are assignment-compatible only when their capacities are equal. An open-string parameter is a view and cannot be a whole-object assignment operand.
+A **handle** names a slot. The four handle types of a pool `P` are (design decision D22):
 
-The compiler evaluates the destination storage path once, then the source storage path or transient aggregate-alias result once, and validates both complete extents before the first destination byte changes. If evaluation or validation traps, no byte of the aggregate destination changes. A source and destination that denote the same object or subobject produce no change.
+| Type | Meaning | Allowed in |
+| --- | --- | --- |
+| `P` | owns a slot; never `none` | parameters, and locals with an initializer |
+| `P?` | owns a slot, or is `none` | anywhere a type is written |
+| `id P` | refers to a slot without owning it | parameters, and locals with an initializer |
+| `id P?` | refers to a slot, or is `none` | anywhere a type is written |
 
-Under the Baton 1.0 type and containment rules, two designators admitted by aggregate assignment are either identical or disjoint. A proper partial overlap would require recursive by-value containment, an overlaid layout, a slice, or arbitrary address formation, all of which are absent. Aggregate assignment therefore needs no runtime overlap check.
+**Owning handles** (`P`, `P?`). Every allocated slot has exactly one owner: one owning handle, held by a local, a parameter, a temporary, a program variable, a field or element of an aggregate, or a field of another slot. An owning handle is never copied; it is handed on only by `move`, or by storing a fresh value.
 
-Aggregate alias binding is not assignment. Once established, an aggregate parameter cannot be rebound. When an aggregate parameter is the destination of aggregate assignment, the copy changes its referent. It does not change the binding.
+**Identifiers** (`id P`, `id P?`). An identifier records its slot and that slot's generation (Section 7.16). It may be copied freely, compared, and stored anywhere. Every access through an identifier checks that the slot is still allocated to the same occupant, and traps with `stale-handle` if it is not.
 
-An assignment whose written target is rooted directly at an aggregate constant name is invalid, whether it names the whole object, a field, an array element, or a bounded-string byte. This is a source-path restriction, not transitive immutability. Passing that constant as an aggregate argument or returning it as an aggregate alias deliberately loses the direct-root marker; a callee may then mutate the target through its ordinary writable parameter. Whether such a write changes bytes, is ignored, or is rejected by the target platform depends on where the implementation places read-only data. Portable programs do not depend on mutation through an alias to an aggregate constant.
+`id(h)` makes an identifier from an owning handle `h`: from `P` it gives `id P`, and from `P?` it gives `id P?`. It may be applied to any owning handle, including one reached through a field, and does not move or change it. Identifiers are made only by `id(...)`; they are never converted from or to integers.
 
-## 7.9 Aggregate results
+An optional handle, owning or not, cannot be used to reach a record directly. It is tested with `select` (Chapter 11), which yields the non-optional value in its `some` arm.
 
-An aggregate routine result is a transient typed alias to existing program-lifetime storage. The result preserves the target's exact aggregate type and denotes the same object.
-
-Program-lifetime storage consists of top-level variable and aggregate-constant objects and their aggregate subobjects. Baton 1.0 has no routine-local aggregate declaration, activation-lifetime aggregate, heap aggregate, or variable-sized local, so every aggregate storage path, aggregate-parameter binding, and transient aggregate-alias result denotes program-lifetime storage. An aggregate result therefore always outlives the callee activation. The compiler retains the exact referent type and transient-result category, but it needs no lifetime-tracking bit, signature annotation, or parameter identity for this purpose.
-
-An aggregate return source is a storage path rooted in a visible program variable, aggregate constant, or aggregate parameter, a field or fixed-array element reached from such a root, or a transient aggregate result forwarded from another call. Field selection and checked indexing continue to denote program-lifetime subobjects because every aggregate subobject has the lifetime of its containing object.
-
-The caller must consume a returned aggregate alias immediately. It may discard the result, forward it as an aggregate argument or aggregate return, select a field or element from it, or use it as an aggregate-assignment source compatible under Section 7.8. Assignment is the materialization operation: it copies the value into program storage or into the referent of an aggregate parameter. A result cannot be stored as a carrier or survive beyond the containing source operation. Code that needs to retain the value assigns it to a program object or caller-supplied destination.
-
-Immediate consumption does not permit a later call to destroy the transient carrier before it is used. When evaluation of another argument, index, or suffix can call a routine, the compiler must stage or preserve the typed carrier as live implementation state. This staging is not a source alias and ends with the containing operation.
-
-Baton has no routine-local aggregate declaration, activation-lifetime aggregate object, aggregate temporary, heap object, or variable-sized local object. Every aggregate result selects storage that already existed before the call.
-
-## 7.10 End of activation bindings
-
-When an activation ends:
-
-- its scalar parameters and scalar locals cease to exist;
-- its aggregate-parameter bindings cease to exist;
-- storage reached through those aliases is unaffected if that storage has a longer lifetime; and
-- a valid returned scalar value or aggregate alias has already been transferred to the caller.
-
-Every aggregate object and subobject remains alive until program termination. Baton 1.0 therefore has no source form that can create a dangling aggregate alias. The compiler checks exact referent types, admitted alias-binding sources, and the immediate-consumption rule for transient results; it does not track a separate aggregate-lifetime fact.
-
-Baton 1.0 has no manual deallocation, destructors, `finally`, `defer`, variable-sized locals, or other scope-exit action. Returning from a routine performs no hidden source-level cleanup. A backend may restore saved implementation state, but that restoration does not run source operations or change the lifetime rules above.
-
-## 7.11 Examples
-
-The following declarations use program-lifetime record-array storage:
+## 7.10 Creating: `new` and `new?`
 
 ```nucleus
-record Entry
-    value as u16
+var n = new nodes(5, "five", none, none)
+var t = new trees(1)                 // trailing fields omitted: zeroed
+```
+
+`new P(arguments)` allocates a slot of pool `P` and initializes the record's fields from the arguments, in field order. Trailing arguments may be omitted, and their fields are zeroed; a record with an array of owning handles, or a nested owning record, is built this way. The result is a fresh owning handle of type `P`. The stores into the new record are initializations, not overwrites, and free nothing.
+
+`new` takes the oldest slot on the free list, or the next never-used slot above the high-water mark. If the pool has no free slot, `new` traps with `pool-full` (design decision D27).
+
+`new? P(arguments)` has type `P?`. When the pool is full, it evaluates **none** of its arguments and yields `none`. In both forms, the slot is reserved before the arguments are evaluated, so exhaustion never consumes a moved argument; a non-optional local moved into a `new?` argument is "may be moved" afterwards, on both arms of the `select` that tests the result.
+
+The pool must be complete (not only forward-declared) at a `new`.
+
+## 7.11 Moving and transfer
+
+An owning handle held in a variable, parameter or field is handed on only by `move x` (design decision D19), which yields the handle and leaves `none` in `x`. Chapter 9 defines `move` as an expression.
+
+A **fresh** owning value, the result of `new`, of `new?`, or of a routine whose result is an owning type, needs no `move`. Binding an owning argument to an owning parameter transfers ownership to the callee; the argument must be fresh or a `move`.
+
+Storing into an owning location (Chapter 10, Section 10.4) requires a right side that is `none`, fresh or a `move`. Copying an owner, as in `a = b` with `b` an owning handle, is invalid.
+
+## 7.12 Freeing
+
+Freeing is automatic; there is no `free` statement (design decision D18). A slot is freed:
+
+- when its owning local or parameter goes out of scope, at the end of its block, on every exit path;
+- when the variable, field or element that owns it is overwritten, including with `none`;
+- when the slot, or the local aggregate, that owns it is freed; and
+- when the statement temporary holding it ends (Chapter 10, Section 10.8).
+
+Freeing `none` does nothing. Freeing through an owning local, parameter, temporary or local aggregate stores `none` into it.
+
+**Freeing what a slot owns.** Freeing a slot frees every slot it owns, and so on, without recursion and in constant stack space: the runtime keeps a work list, pushes each child found in the slot's owning fields **whose owner link equals the slot being freed** (Section 7.15), returns the slot to its pool, and repeats until the list is empty. The slot at the top of the cascade is freed without the link test. The test guarantees that the cascade neither loops nor frees a slot twice. The fields of a freed slot are never read again by source.
+
+**Order of overwrite.** An assignment to an owning location evaluates the right side, then the destination, then frees the old value, then stores (Chapter 10, Section 10.4).
+
+## 7.13 Accessing a pool record
+
+A field of a pool record is reached through a non-optional handle by selection, as `n.value`. Each access is one operation, resolved after all its operands have been evaluated:
+
+| Through | Check |
+| --- | --- |
+| An owning local or parameter | none; an owner is never stale |
+| A lease (Section 7.14) | none |
+| An identifier | the generation check; `stale-handle` if the slot is no longer the one identified |
+
+A path through an identifier may select any chain of record fields and checked indexes under one check, as `i.pos.x` or `i.kids[k]`. A path never continues through a second handle without a new access: `i.next.value` is two accesses, and `i.next` is an optional handle that must be tested with `select` before it can be followed.
+
+Because the handle is resolved after the operands, `i.value = f()` calls `f` first, then checks `i`, then stores; nothing can free the slot between the check and the access.
+
+Scalar fields are read and written in place. An **aggregate field** is copied as a whole: `var s = i.name` copies it out, and `i.name = s` copies it in. Passing an aggregate field reached through an identifier or an owner to a ticket copies it into a hidden temporary of the caller, counted in its frame. It cannot be passed to a `var` parameter, except through a lease.
+
+## 7.14 Leases and slot-holders
+
+**Leases.** A record parameter, a ticket or `var`, accepts any record of its type in program or activation storage, and also the record in the slot owned by one of the caller's own owning locals or parameters, or by a temporary (design decision D30). Passing such a record is a **lease**:
+
+- the owning local or parameter must not appear anywhere else in the same statement, except as `id(h)` or as a read of a scalar field (Chapter 10, Section 10.8); and
+- the callee sees an ordinary record: through a `var` parameter it can read and write fields, but it has no handle to move, overwrite or free the slot.
+
+`select` on the routine's own owning local, parameter or temporary leases the record to the `some` arm in the same way (Chapter 11). A lease needs no run-time check, because only the owner can free the slot and nothing else can reach the owner while the lease lasts.
+
+**Owner words.** A `var` parameter whose type is an owning type, or a slot-holder, carries a hidden owner word supplied by the caller: 0 when the argument is in program or activation storage, and the slot when the argument is a leased record or lies inside one. Every store of an owning handle through the parameter uses the owner word as the stored slot's owner link (Section 7.15). A parameter passed on to another such parameter passes its own owner word, as does a field or element of it, and a result rooted in it.
+
+**Identifiers inside a lease.** In a routine with a `var` record parameter `n` whose record type belongs to exactly one pool `P`, `id(n)` has type `id P?`. It is the record's identifier when `n` is a whole leased record, and `none` otherwise, including when `n` is in program or activation storage or nested inside a record. `id(n)` is invalid if the record type belongs to no pool or to more than one.
+
+**Slot-holders.** A `var` parameter of type `P?` lends a place that holds a handle or `none`; the callee may move into it, move out of it or overwrite it:
+
+```nucleus
+sub push(var list as nodes?, v as u16)
+    var n = new nodes(v, move list)
+    list = move n
 end
-
-var entries as Entry[8]
-
-sub entryAt(index as u8) as Entry
-    return entries[index]
-end
 ```
 
-`entryAt` returns an alias to one `Entry` subobject of `entries`. The bounds check occurs before the result is formed. The target has program lifetime and remains alive after the call.
+The argument must be an owning local or parameter of type `P?`, a program variable, a field or element of a local or program aggregate, or a field or element of a `var` owning-aggregate parameter, including a leased record, in which case it inherits that parameter's owner word. A field of a pool record reached through an identifier cannot be passed as a slot-holder; nor can a local or parameter leased in the same statement. `from` cannot name a slot-holder.
 
-An incoming aggregate alias also supplies a valid aggregate result:
+## 7.15 Owner links and the cycle check
 
-```nucleus
-sub choose(items as Entry[8], index as u8) as Entry
-    return items[index]
-end
-```
+Each allocated slot records its owner link: 0 while it is owned by anything other than a field of a slot, and the owning slot while it is owned by a field of another slot. Every store of an owning handle other than `none` sets the stored slot's link: to the destination slot when the destination is a field of a slot, reached through an owner, an identifier, a lease's owner word, or the slot `new` is initializing; and to 0 otherwise. Binding an owning parameter, binding `some(n)` under `select move`, and holding a fresh value in a temporary all set 0. `new` sets the new slot's link to 0.
 
-The caller-provided array has program lifetime, so the returned element remains available after the `choose` activation ends.
+A slot must never own itself, directly or through a chain. Before storing a handle *b*, other than `none`, into a field of slot *s* that might not be a root, the runtime follows the links upwards from *s* until it reaches 0; if it meets *b*, the program traps with `ownership-cycle`. A store into a location no slot owns, or into a field of a slot reached through an owning local, owning parameter or temporary, cannot create a cycle and needs no walk.
 
-This statement mutates a scalar leaf through the aggregate alias `item` without copying or rebinding the record:
+## 7.16 Generations
 
-```nucleus
-item.value = 7
-```
+Each slot has a 16-bit generation. A never-used slot has generation 0; `new` gives a fresh slot generation 1; freeing advances it. A slot is allocated only while its generation is below `$FFFF`; a slot whose generation reaches `$FFFF` is withdrawn permanently instead of being returned to the free list. No identifier carries generation 0 or `$FFFF`.
 
-The assignment changes the caller's selected `Entry`. It does not create another `Entry`.
+An identifier matches its slot only while the slot is allocated with the identifier's generation. Hence an access through an identifier traps with `stale-handle` exactly when the slot it identified has been freed since the identifier was made, and `select` on an identifier yields `none` in the same case. Because generations never repeat for a slot, a stale identifier never matches a later occupant.
 
-If `first` and `second` are aggregate parameters of type `Entry` and `otherEntries` is another `Entry[8]` object, these assignments copy complete aggregates:
+## 7.17 The flow check
 
-```nucleus
-first = second          // copy one Entry into first's referent
-entries = otherEntries  // copy all eight Entry values
-```
+For each owning local and owning parameter, the compiler tracks whether it certainly holds a value, certainly holds `none`, or may hold either (Chapter 10, Section 10.8; Chapter 11; Chapter 12). Accessing or moving a non-optional owning local that may have been moved is invalid. Every other owning location is treated as possibly holding a value. Because a move stores `none` at run time, no code is needed where flow paths join.
 
-A routine may copy a selected value into caller-supplied storage without declaring an aggregate local:
+## 7.18 The stack
 
-```nucleus
-sub copyEntry(items as Entry[8], index as u8, destination as Entry)
-    destination = items[index]
-end
-```
+Stack overflow is detected without a guard page:
 
-`destination` remains bound to the caller's object. The assignment copies one complete `Entry` from the selected array element into that object.
+- When the compiler completes a routine `R`, it computes `need(R)`: `R`'s frame (Section 7.6), plus the stack use of the runtime helpers it calls, plus the largest `need(c)` of the routines `c` that `R` calls, counting 0 for `R` itself and for forward-declared routines not yet complete.
+- A call from a routine to itself, or to any routine whose body is not complete, is valid only through a forward declaration (Chapter 5, Section 5.9). So every cycle of calls passes through a forward-declared routine.
+- Every forward-declared routine begins with the **activation-capacity check**: it traps with `activation-capacity` if the stack pointer minus `need(R)` minus the profile's guard band would fall below the start of free memory.
+- `need(main)` plus the guard band is the program's stack reserve, which startup checks against the memory available before calling `main` ([CP/M target](../docs/cpm-target.md), Section 4).
 
-A routine may also forward a selected alias without copying:
+Together these guarantee that no call can overflow the stack unchecked.
 
-```nucleus
-sub forwardedEntry(items as Entry[8], index as u8) as Entry
-    return choose(items, index)
-end
-```
+## 7.19 Diagnostics
 
-The forwarded alias still denotes an element of the caller-provided array. No aggregate object or local alias is created by either call.
-
-## 7.12 Implementation independence and capacities
-
-Language lifetime is independent of a value's physical location. Reusing a register or physical address at different times, overlaying non-overlapping locals, bank placement, and hardware-stack reuse do not merge source objects or activations. Conversely, two source paths to the same object retain shared identity even if a backend represents them differently.
-
-An implementation may bound scalar locals, aggregate-parameter bindings, or the metadata used for their exact types and result categories. It must publish each limit. A compile-time excess requires a capacity diagnostic under Chapter 1. An implementation must not share live activation state or lose an alias binding when a limit is reached.
-
-Runtime activation capacity is implementation-defined under Chapter 13. An implementation may bound simultaneous activation depth, activation-storage consumption, or both. Reaching either published limit at runtime performs the activation-capacity trap defined by Chapter 15. The limits and trap do not change the source lifetime of an activation that begins successfully.
-
-Baton 1.0 exposes no raw pointer value, address arithmetic, heap allocation,
-manual deallocation, open slice or view other than the parameter-only
-`string[]` view, variable-sized local, or storage-layout query through this
-chapter. Field byte offsets, array byte offsets, bounded-string encoding,
-address carriers, aggregate-copy lowering, and call-state layouts belong to the
-Z80 runtime and backend contract.
+Chapters 8, 10, 11 and 13 list the compile-time diagnostics for these rules. In summary, the compiler must diagnose: a copy of an owning value or of an object of owning type that is not fresh; a store into an owning location from something other than `none`, a fresh value or a `move`; a use of an optional handle to reach a record without `select`; a stored or retained alias; a returned alias rooted in a local or in a parameter not named in `from`; a lease or slot-holder argument that breaks Section 7.14; a violation of the statement rule or the flow check; a `new` on a forward-only pool; an `id(...)` of a lease whose record type has no single pool; and a recursive call without a forward declaration. The run-time traps are `bounds`, `stale-handle`, `ownership-cycle`, `pool-full` and `activation-capacity` (Chapter 15).
