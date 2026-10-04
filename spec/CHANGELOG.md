@@ -16,7 +16,7 @@ Status: **pending** (still Nucleus text), **in progress**, or **applied**.
 | 5. Names and scopes | Block scope (D28), `private` visibility (D33), contextual `id` (D29) | applied |
 | 6. Types | Eight numeric types (D3), handle types (D22), owning types, arrays of arrays (D32), open arrays, conversions (D4, D31) | applied |
 | 7. Storage, values and lifetime | Activation storage and local aggregates (D8), pools and handles, the memory-safety rules (memory safety, revision 6) | pending |
-| 8. Constants and declarations | Typed and local constants (D20), inference (D21), `pool` declarations, `new` | pending |
+| 8. Constants and declarations | Typed and local constants (D20), inference (D21), `pool` declarations, `new` | applied |
 | 9. Expressions | Numeric rules (D31), conversions (D4), shifts and bitwise operators, `move`, `id()`, unsigned indexes | pending |
 | 10. Statements | Declarations anywhere (D28), `assert` (D37), the statement rule (memory safety §5.8) | pending |
 | 11. Conditional control | `select` (D15), with `some` and `none` and `select move` | pending |
