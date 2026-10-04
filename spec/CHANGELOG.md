@@ -20,7 +20,7 @@ Status: **pending** (still Nucleus text), **in progress**, or **applied**.
 | 9. Expressions | Numeric rules (D31), conversions (D4), shifts and bitwise operators, `move`, `id()`, unsigned indexes | applied |
 | 10. Statements | Declarations anywhere (D28), `assert` (D37), the statement rule (memory safety §5.8) | applied |
 | 11. Conditional control | `select` (D15), with `some` and `none` and `select move` | applied |
-| 12. Loop control | Signed counters and negative steps (D31), back-edge flow rule | pending |
+| 12. Loop control | Signed counters and negative steps (D31), back-edge flow rule | applied |
 | 13. Routines and calls | `var` parameters (D17), leases and owner words (D30), `from` (D8), forward declaration required for self-calls (memory safety §7) | pending |
 | 14. Recoverable errors | Named failure constants (D26), service codes (services §7) | pending |
 | 15. Safety failures and traps | New traps: `stale-handle`, `ownership-cycle`, `pool-full`, `assertion`, `float-overflow`, `float-invalid`; trap reports by address (D11) | pending |

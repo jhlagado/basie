@@ -26,9 +26,9 @@ step-constant         ::= [ "+" | "-" ] step-magnitude
 step-magnitude        ::= NUMBER | NAME
 ```
 
-A `NAME` used as a step magnitude must denote an earlier `u8` or `u16` named constant. The optional sign belongs to the counted-loop header and is not a runtime signed value. A written numeric magnitude follows Chapter 3's admitted integer-literal forms.
+A `NAME` used as a step magnitude must denote an earlier named constant whose value is a non-negative integer: an untyped integer constant, or a typed constant of an integer type. The optional sign belongs to the counted-loop header. A written numeric magnitude follows Chapter 3's integer-literal forms.
 
-Each loop body is a statement sequence and may be empty. A loop opens no name scope, and its `end` closes only that loop.
+Each loop body is a block and may be empty. The body opens a block scope (Chapter 5), entered afresh on each iteration: a local declared in the body is created and initialized on every iteration, and the body's owning locals are freed at the end of every iteration, including one ended by `continue` or `exit` (Chapter 7). The loop's `end` closes only that loop.
 
 ## 12.3 `while`
 
@@ -38,17 +38,19 @@ The loop may execute zero times. Calls, checks, mutations, and traps performed b
 
 An indefinite loop uses `while true`. Baton has no separate unconditional-loop keyword.
 
+A `move` is invalid in a `while` condition. A fresh temporary created in the condition is freed once the condition has been tested (Chapter 10, Section 10.8).
+
 ## 12.4 Counted-loop counter and operands
 
-The counter name must resolve to a scalar local of type `u8` or `u16`. A program variable, parameter, constant, Boolean, aggregate, alias, routine, field path, or indexed path is invalid. The loop introduces no declaration, so the local must appear in the routine's declaration prefix.
+The counter name must resolve to a local variable of an integer type, `u8`, `i8`, `u16`, `i16`, `u32` or `i32` (design decision D31), declared before the loop in an enclosing block. A program variable, parameter, constant, `f32` or `boolean` local, aggregate, handle, routine, field path or indexed path is invalid. The loop introduces no declaration.
 
 The counter becomes read-only to source statements from the beginning of the loop body through its closing `end`. The body may read it and pass its scalar value, but it cannot assign to it. A nested counted loop cannot reuse the same local as its counter because its initialization would be another write. The compiler enforces both restrictions by comparing the resolved local binding with the counters in its active loop contexts; it needs no call-graph analysis because another routine cannot name a caller's local.
 
-The start expression must be assignment-compatible with the counter type. The bound must be an integer expression. A typed `u8` counter may be compared with a `u16` bound through the ordinary widening rule. An exact bound remains mathematical for the loop comparison and need not fit the counter because the bound is never stored in it.
+The start expression must be assignment-compatible with the counter type. The bound must be an integer expression whose type and the counter's type are compatible under the mixed-operand rule of Chapter 9, Section 9.7; the comparison is done in the wider type. An exact bound remains mathematical for the loop comparison and need not fit the counter, because the bound is never stored in it.
 
 The compiler evaluates the start expression and then the bound expression exactly once when the loop begins. It performs both evaluations before storing the converted start in the counter. A bound expression that reads the counter therefore reads its pre-loop value. If either evaluation or the start conversion traps, the counter is not initialized by the loop and the body does not begin.
 
-`step` defaults to mathematical `+1`. A written step is a compile-time signed constant. The compiler resolves a named magnitude under Chapter 5, applies the optional sign, and requires a nonzero magnitude from 1 through 65,535. `step 0` and `step -0` are invalid. The signed step is loop-control metadata; Baton does not acquire a signed runtime scalar type.
+`step` defaults to `+1`. A written step is a compile-time signed constant. The compiler resolves a named magnitude under Chapter 5, applies the optional sign, and requires a nonzero magnitude no greater than the largest value of the counter's type. `step 0` and `step -0` are invalid. A negative step is valid for unsigned counters as well as signed ones: the sign gives the direction, and the counter itself never holds a negative value it cannot represent.
 
 ## 12.5 Counted-loop tests
 
@@ -66,6 +68,12 @@ After normal body completion, and after `continue`, the implementation computes 
 This order prevents the loop machinery from wrapping an unsigned counter at its terminal boundary. Because the body cannot change the counter, the value reaching the increment still satisfies the comparison that admitted the current iteration. The implementation may use that invariant when comparing the remaining distance with the constant step.
 
 After the loop, the counter retains the last value stored. A zero-iteration loop leaves the converted start. `exit` also leaves the current counter value unchanged.
+
+### 12.5.1 Flow states in loops
+
+The flow check (Chapter 10, Section 10.8) treats loops at their **back edges**: the end of the body, every `continue`, and, for `while`, the return to the condition. At each back edge, every non-optional owning local that certainly held a value when the loop began must certainly hold one again; otherwise the program is invalid. The compiler checks this when it reaches each back edge, so the rule needs no look-ahead.
+
+The flow state after a loop is the meet of the state when the loop's test fails and the state at every `exit` from that loop.
 
 ## 12.6 `to`, `until`, and collection traversal
 
@@ -116,13 +124,13 @@ These omissions leave `while` for condition-controlled iteration and one mechani
 
 ## 12.10 Invalid loops and capacity limits
 
-The compiler must diagnose a non-Boolean `while` condition, a counter that is not a scalar local of type `u8` or `u16`, assignment to an active counter, reuse of an active counter by a nested loop, an incompatible start or bound, an unavailable or nonconstant step magnitude, a zero step, a missing header `NEWLINE` or closing `end`, and `exit` or `continue` outside a loop.
+The compiler must diagnose a non-Boolean `while` condition, a `move` in a `while` condition, a back edge that breaks the flow rule of Section 12.5.1, a counter that is not a local of an integer type, assignment to an active counter, reuse of an active counter by a nested loop, an incompatible start or bound, an unavailable or nonconstant step magnitude, a zero step, a missing header `NEWLINE` or closing `end`, and `exit` or `continue` outside a loop.
 
 An implementation may bound loop nesting, retained saved bounds, active counter bindings, active branch targets, and fixup state. It must publish each limit and issue a capacity diagnostic before overflow changes a loop's bound, direction, target, or counter update.
 
 ## 12.11 Examples
 
-With `level`, `index`, `row`, and `position` declared as scalar locals, these counted loops visit ascending, exclusive, and descending ranges:
+With `level`, `index`, `row`, and `position` declared as integer locals, these counted loops visit ascending, exclusive, and descending ranges:
 
 ```nucleus
 for level = 1 to 10
@@ -135,6 +143,11 @@ end
 
 for row = 7 to 0 step -1
     clearRow(row)
+end
+
+var offset as i16
+for offset = -3 to 3
+    plot(centre + offset)
 end
 ```
 
