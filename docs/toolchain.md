@@ -215,7 +215,9 @@ order:
 2. If `MAIN.COM` exists: delete `MAIN.BAK` if it exists and rename `MAIN.COM` to
    `MAIN.BAK`; with option `Z`, delete `MAIN.COM` instead.
 3. Rename `MAIN.$$$` to `MAIN.COM`.
-4. Delete `MAIN.LIN` if it exists, and rename `MAIN.$LT` to `MAIN.LIN`.
+4. Delete `MAIN.LIN` if it exists, and rename `MAIN.$LT` to `MAIN.LIN`. With
+   option `N` there is no new line table, and the old one is still deleted, so
+   trap lookup never uses a table from an earlier build.
 
 Publication is not atomic. If the system stops between steps 2 and 3,
 `MAIN.COM` is missing, but `MAIN.BAK` holds the previous version and `MAIN.$$$`
