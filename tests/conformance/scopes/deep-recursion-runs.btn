@@ -1,0 +1,21 @@
+// Recursion within the stack bound runs; the check costs nothing but the check.
+// spec: 7.18
+// expect output: 500\r\n
+
+include "FORMAT.BTN"
+
+forward sub count(n as u16) as u16
+
+sub count
+    if n = 0
+        return 0
+    end
+    return count(n - 1) + 1
+end
+
+sub main() fails
+    var line as string[8]
+    appendU16(line, count(500)) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

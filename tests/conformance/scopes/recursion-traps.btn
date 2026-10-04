@@ -1,0 +1,16 @@
+// Unbounded recursion traps with activation-capacity at the routine's header,
+// where the forward-declared routine checks its stack bound.
+// spec: 7.18, 13.9
+// expect trap: activation-capacity at 8
+
+forward sub down(n as u16)
+
+sub down
+    var pad as u8[16]
+    pad[0] = 1
+    down(n + 1)
+end
+
+sub main()
+    down(0)
+end
