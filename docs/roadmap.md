@@ -16,6 +16,15 @@ The **tracks**:
 - **RT:** the runtime library (Z80) and the standard library (Baton).
 - **Native:** `BATON.COM` and `BLINK.COM` (Z80).
 
+## Standing rule: the capacity audit
+
+Every step that introduces a table size, field width, buffer or threshold
+updates the [capacity audit](capacity-audit.md) and the
+[limits register](limits.md) in the same commit, classifying the limit and
+recording its trade-off. Steps 35 (deferred references), 64 (the inherited
+Nucleus tables) and 68 (measurement) have specific audit obligations noted
+there.
+
 ## M0. Close the design
 
 | # | Track | Step | Produces | Checked by |

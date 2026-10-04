@@ -1,6 +1,6 @@
 # Baton capacity audit
 
-- Status: working audit, first pass (2026-10-04). Discovery, not rulings
+- Status: **standing practice**, begun 2026-10-04; revised with every limit introduced
 - Related: [limits register](limits.md), [build pipeline](build-pipeline.md),
   [object format](object-format.md), [linker](linker.md),
   [implementation plan](implementation-plan.md)
@@ -23,6 +23,44 @@ specification and implementation, and records for each:
 It looks for **accidental maxima**: a small table, field width, buffer or test
 threshold that has become a restriction without anyone deciding it should be.
 A test sets a minimum, and must not quietly set the maximum as well.
+
+### 1.0 Why this is permanent
+
+Baton inherits Nucleus, which carried many unexamined assumptions, and its
+development is driven largely by an LLM, which tends to choose the value that
+satisfies an acceptance test rather than the best trade-off across the whole
+machine. Every limit is therefore a **trade-off to be argued**, not a number to
+be inherited. The machine is 64K: the operating system, the compiler, its
+workspace, and later the finished program and its own data all share it, so
+nothing is unlimited, and a limit that is merely byte-convenient (255, 256)
+may be perfectly good, while a limit of 8 of anything is almost always a
+mistake that would cripple a real program.
+
+Rules of the practice:
+
+1. Every commit that introduces or changes a table size, field width, buffer,
+   or threshold, anywhere in Baton, updates this audit and the
+   [limits register](limits.md) in the same commit.
+2. Each entry is **classified** (Section 1.3) and says whether its figure is a
+   minimum or a maximum.
+3. Some entries will stay open for a long time. That is acceptable; an open,
+   documented limit is fine, an unexamined one is not.
+4. Decisions are made when the competing budgets can be seen together, usually
+   when a native component is measured, and are recorded in
+   [design decisions](design-decisions.md).
+
+### 1.3 Classification
+
+| Class | Meaning | Who is bound |
+| --- | --- | --- |
+| **Language** | Part of Baton's definition; changing it changes programs' meaning or validity on every implementation | everyone |
+| **Representation** | Set by a format or data layout Baton defines (object format, string header, slot header); changing it is a format revision | every implementation of that format |
+| **Machine** | Set by the 64K address space or by CP/M itself | everyone on this target |
+| **Implementation** | Set by one implementation's tables or budget; another implementation may differ | that implementation only |
+
+Most of the inventory is Implementation. A few entries are Language in effect
+even though they arose from representation, and those need the most care: a
+user meets them as a rule of the language.
 
 ### 1.1 Implementations covered
 
@@ -51,42 +89,109 @@ their source constant names.
 Silent truncation, wrapping, corruption and undocumented failure are never
 acceptable.
 
-## 2. Findings that need a decision
+## 2. Open items and their trade-offs
 
 These are the places where an estimate, a convenient size or an inherited
-value is currently acting as a ceiling. No ruling is made here.
+value is currently acting as a ceiling. Each has a short discussion and, where
+one is defensible now, a **working position**: what we live with for the
+moment, not a ruling. Rulings go to [design decisions](design-decisions.md).
 
-1. **Deferred references per routine (§3.4).** The build pipeline's
-   deferred-reference list (about 256 entries, 1.25K) is both the guaranteed
-   minimum in [limits](limits.md) §5.1 and the rejection point. A routine with
-   more outstanding forward jumps is rejected. The ceiling comes from a
-   workspace estimate. Alternatives to evaluate: spill the list to a scratch
-   file and merge at the end of the routine, as the in-order references already
-   do; or keep forward-jump fixups in the routine buffer, chained through the
-   code, for buffered routines.
-2. **Bounded strings at 253 bytes (§3.10).** Inherited from Nucleus's one-byte
-   length and capacity fields (D25). The [limits](limits.md) open items already
-   list 16-bit lengths as a version 2 question. This needs an explicit
-   decision, not inheritance.
-3. **Every Nucleus compiler table (§4).** Nucleus's capacities are tiny by
-   design: 16 symbols, 4 routines, 5 records, 12 fields, 8 control frames, 32
-   fixups, 8 source parts, 8 activations. Each must be replaced, with a named
-   constant and a workspace budget, before the native compiler compiles
-   anything non-trivial. The fork plan (roadmap step 64) should treat "inherited
-   table unchanged" as a defect.
-4. **No workspace budget for `BATON.COM` (§3.6).** The minimums in
-   [limits](limits.md) §5.1 are not yet backed by a peak-live workspace model
-   that shows they fit together in 32K.
-5. **Several resources have no entry in the limits register:** include depth,
-   type descriptors, total name storage, number of pools, scope nesting,
-   initializer depth, constant-expression nesting and line entries per routine.
-   They are listed below as TBD.
-6. **The blob-library tool's 240-blob ceiling (§3.27).** It comes from the
-   reference-recovery method in `tools/brl.ts`. It is fine for the current
-   runtime but must be lifted (batched builds) before the runtime grows.
-7. **The register mixes minimums and maxima.** [Limits](limits.md) §5 calls
-   its figures "guaranteed minimums", but several tables in §2 to §4 are
-   maxima. Each row should say which it is. This audit separates them.
+### 2.1 Deferred references per routine (Implementation)
+
+**Now:** about 256 outstanding forward references per routine, a 1.25K
+in-memory list, and the only compiler limit that rejects a routine outright
+([build pipeline](build-pipeline.md) §6.2). Minimum equals maximum, and the
+number came from a workspace estimate.
+
+**What it really bounds.** Three things share the list: forward jumps to
+labels not yet defined, addresses of literals in the literal buffer, and jump
+tables. Literals already fall back to inline placement. The jumps are the
+problem: a long routine with many `if`s has many of them.
+
+**Options.**
+
+1. *Spill the list* like the in-order references. Awkward: a deferred entry is
+   patched when its label is defined, so a spilled entry needs a random write.
+2. *Chain fixups through the code.* The classic single-pass method: the
+   operand field of each pending forward jump holds the offset of the previous
+   pending jump to the same label, and defining the label walks the chain.
+   Needs only one word per **label**, and outstanding labels are bounded by
+   nesting depth times a small constant, not by jump count. Needs the routine
+   buffer, or random writes to the byte stream for an unbuffered routine (CP/M
+   random records make that cheap).
+3. *Addend in the field.* Let a self-reference's addend live in the stored
+   bytes instead of the directory record. Then a forward jump is an **in-order**
+   reference (offset, this blob, 0) at emit time, and the compiler patches the
+   field when the label is defined. The deferred list then holds only literals
+   and jump tables. Cost: a format change ([object format](object-format.md)
+   §5), the linker adds the field's value, and placeholder verification no
+   longer applies to those fields.
+
+**Working position.** Option 2 or 3 removes the ceiling altogether rather than
+raising it, so the right move is to design one of them before the reference
+compiler's statement stage (roadmap step 35) rather than keep 256 as a known
+rejection. Prefer 3 if the format is still open then: it also shrinks
+directory records. Decide when step 35 starts.
+
+### 2.2 Bounded strings at 253 bytes (Language in effect; Representation in cause)
+
+**Now:** `string[N]`, 1 ≤ N ≤ 253; one length byte and one capacity byte
+(D25). A user meets this as a language rule: no string longer than 253.
+
+**Trade-offs.**
+
+- *Keep it.* Smallest header, 8-bit length arithmetic on a Z80, `.length` is a
+  `u8`, Nucleus's library and semantics carry over unchanged. Large text goes in
+  `u8[]` buffers with an explicit length variable, which is clumsy.
+- *16-bit length and capacity.* Two more header bytes per string, every length
+  operation is 16-bit (bigger and slower on the Z80), `.length` becomes `u16`
+  and so do the loops over it. Lifts the ceiling to the address space.
+- *Strings as `u8` vectors with a length.* Treat a string as an array of bytes
+  plus a count, unifying it with `u8[]` and open arrays. This is the cleanest
+  model, and the one worth thinking about for the long term; it changes the
+  type system (what `string[]` parameters are) and the standard library.
+
+**Working position.** Live with 253 for version 1: the specification and the
+library are written to it, and a program that needs more has `u8[]`. Record the
+vector model as the version 2 question, with the explicit note that the length
+representation (one byte or two) is to be chosen then, not inherited.
+
+### 2.3 Inherited Nucleus tables (Implementation)
+
+Every Nucleus table in Section 4 is a defect if it survives the fork
+unchanged. **Working position:** at roadmap step 64 the fork is audited
+table by table against Section 4 before any Baton feature is added, and each
+table gets a named constant, a budget and an overflow class.
+
+### 2.4 Workspace budget for `BATON.COM` (Implementation)
+
+The minimums in [limits](limits.md) §5.1 are not backed by a model showing
+they fit together in 32K. **Working position:** build a paper model from
+estimated entry sizes before the native compiler starts, so the native work
+has a budget to meet rather than a figure to discover, then replace estimates
+with measurements at step 68.
+
+### 2.5 Resources missing from the register
+
+Include depth, type descriptors, total name storage, number of pools, scope
+nesting, initializer depth, constant-expression nesting and line entries per
+routine have no entry. Each is listed as TBD in Section 3 with a first
+classification. For include depth the practical cost is small (a file position
+and a name per open level, or a 36-byte FCB if the file stays open), so a
+byte-convenient maximum would be generous; **8** would be the kind of inherited
+value to refuse.
+
+### 2.6 The blob-library tool's 240-blob ceiling (Implementation, tool only)
+
+From the reference-recovery method in `tools/brl.ts`, not from any format.
+Lift by batching builds when the runtime approaches it.
+
+### 2.7 The register mixes minimums and maxima
+
+[Limits](limits.md) §2 lists identifier length (255) and string capacity (253)
+as *language* limits; the first is an implementation maximum and the second a
+representation choice that users meet as a language rule. This pass moves
+identifier length to §5 and marks string capacity as under review.
 
 ## 3. Inventory
 

@@ -32,10 +32,9 @@ Limits fall into four kinds:
 | `f32` | IEEE single, finite values only | D7 |
 | Array length, per dimension | 1 to 65,535 | 16-bit addressing; an array must also fit memory |
 | Array dimensions | no fixed limit; each dimension is a separate bound | D32 |
-| Bounded string capacity | 1 to 253 | One length byte and one capacity byte per string; large text uses `u8[]` buffers (D25) |
+| Bounded string capacity | 1 to 253 | One length byte and one capacity byte per string; large text uses `u8[]` buffers (D25). A representation choice that users meet as a language rule; under review in the [capacity audit](capacity-audit.md) §2.2 |
 | Record or array extent | 65,535 bytes | 16-bit addressing |
 | Failure codes | 256 (`u8`) | D26; 1–31 services, 32–47 the library, 48–253 programs, 254–255 reserved ([services](services.md) §9) |
-| Identifier length | 255 bytes | One length byte, as in Nucleus |
 | Integer literals | the range of the widest integer type, `u32` | D31 |
 | Counted-loop step | nonzero, within the counter type's range | Nucleus §12 |
 | Pool slots | 1 to 65,535 per pool; an identifier holds the slot address | memory safety §5.11 |
@@ -75,8 +74,11 @@ steps 63 and 68.
 
 ### 5.1 Compiler (`BATON.COM`, 32K workspace)
 
+These are minimums unless a row says otherwise. Resources not yet listed (include depth, type descriptors, name storage, pools, scope and initializer nesting) are TBD in the [capacity audit](capacity-audit.md) §3.
+
 | Capacity | Guaranteed minimum | Notes |
 | --- | ---: | --- |
+| Identifier length | 255 bytes | One length byte; the full spelling is the identity (spec §3.5), so this is a capacity, not a language rule |
 | Top-level names (variables, constants, routines, records, pools) | 1,000 | Shared symbol table |
 | Names visible in one routine (parameters and locals) | 128 | Released at the end of each routine |
 | Parameters per routine | 32 | |
@@ -87,7 +89,7 @@ steps 63 and 68.
 | Arguments per call | 32 | |
 | `select` cases per statement | 256 | |
 | Owning locals tracked in one routine | 64 | Flow state per open block |
-| Forward jumps outstanding in one routine | 256 | Deferred references (build pipeline §6.2) |
+| Forward jumps outstanding in one routine | 256 | Deferred references (build pipeline §6.2). **Currently also the maximum**; see the [capacity audit](capacity-audit.md) §2.1 for the options to remove it |
 | Source parts included | 255 | The format limit |
 | Initialised data and constants | no compiler limit | Written to the byte stream, not held in memory |
 | Routine size | no compiler limit | Routines too large for the routine buffer are written unbuffered |
