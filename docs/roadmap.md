@@ -42,8 +42,8 @@ The **tracks**:
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
 | 12 | Spec | Fork the Nucleus 0.1 specification into `spec/`, with a change log | `spec/` chapters and change log (done) | Builds as Markdown |
-| 13 | Spec | Lexical rules: new literals (`f32`), keywords (`select`, `move`, `pool`, `new`, `shl`, `shr`, `private`, `include`, `assert`), contextual `id` | Chapter 3 | Conformance programs for each token |
-| 14 | Spec | Types: eight numeric types, handles, owning types, arrays of arrays | Chapter 6 | Conformance programs |
+| 13 | Spec | Lexical rules: new literals (`f32`), keywords (`select`, `move`, `pool`, `new`, `shl`, `shr`, `private`, `include`, `assert`), contextual `id` | Chapter 3 (done) | Conformance programs for each token |
+| 14 | Spec | Types: eight numeric types, handles, owning types, arrays of arrays | Chapter 6 (done) | Conformance programs |
 | 15 | Spec | Storage and lifetime: block scope, activation storage, pools, the memory-safety rules | Chapter 7 | Conformance programs, including rejected programs |
 | 16 | Spec | Declarations: typed and local constants, inference, `pool`, `private` | Chapter 8 | Conformance programs |
 | 17 | Spec | Expressions: the numeric rules (D31), conversions, shifts, bitwise operators | Chapter 9 | Conformance programs, including edge values |
