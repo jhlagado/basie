@@ -42,6 +42,7 @@ different meaning.
 | Code | Meaning |
 | --- | --- |
 | `conversion-required` | A change of type that needs an explicit conversion |
+| `type-mismatch` | An operand or value of the wrong type |
 | `out-of-range` | A constant value outside its type's range |
 | `constant-needs-type` | An untyped constant that is not an integer, character or boolean |
 | `no-definite-type` | An inferred local whose initializer has no definite type |
@@ -65,6 +66,7 @@ different meaning.
 | Code | Meaning |
 | --- | --- |
 | `needs-move` | An owning handle copied instead of moved |
+| `owning-copy` | A copy of a record or array of an owning type |
 | `use-after-move` | A non-optional owner used when it may have been moved |
 | `statement-rule` | An owner used and moved or overwritten in one statement |
 | `alias-escapes` | A returned alias rooted in a local or a parameter not in `from` |

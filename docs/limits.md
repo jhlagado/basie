@@ -131,6 +131,11 @@ are recorded here so that none survives into Baton by accident:
 
 ## 7. Open items
 
+- **The [capacity audit](capacity-audit.md)** lists every bounded resource with
+  its minimum, its maximum in each implementation, its cause and its overflow
+  behaviour, and the inherited Nucleus tables. Its Section 2 items need
+  decisions, and its TBD resources need entries here.
+
 - **Confirm the guaranteed minimums** by measuring the native compiler and linker
   (roadmap steps 63 and 68). If a minimum can't be met within the budget, the
   register and the budget are revisited together; the minimum is not silently
