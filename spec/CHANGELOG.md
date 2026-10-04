@@ -18,8 +18,8 @@ Status: **pending** (still Nucleus text), **in progress**, or **applied**.
 | 7. Storage, values and lifetime | Activation storage and local aggregates (D8), pools and handles, the memory-safety rules (memory safety, revision 6) | pending |
 | 8. Constants and declarations | Typed and local constants (D20), inference (D21), `pool` declarations, `new` | applied |
 | 9. Expressions | Numeric rules (D31), conversions (D4), shifts and bitwise operators, `move`, `id()`, unsigned indexes | pending |
-| 10. Statements | Declarations anywhere (D28), `assert` (D37), the statement rule (memory safety §5.8) | pending |
-| 11. Conditional control | `select` (D15), with `some` and `none` and `select move` | pending |
+| 10. Statements | Declarations anywhere (D28), `assert` (D37), the statement rule (memory safety §5.8) | applied |
+| 11. Conditional control | `select` (D15), with `some` and `none` and `select move` | applied |
 | 12. Loop control | Signed counters and negative steps (D31), back-edge flow rule | pending |
 | 13. Routines and calls | `var` parameters (D17), leases and owner words (D30), `from` (D8), forward declaration required for self-calls (memory safety §7) | pending |
 | 14. Recoverable errors | Named failure constants (D26), service codes (services §7) | pending |

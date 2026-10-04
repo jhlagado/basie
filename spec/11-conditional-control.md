@@ -3,9 +3,9 @@
 
 ## 11.1 Scope
 
-This chapter defines the Baton `if` statement, its repeated `elseif` clauses, its optional `else` clause, condition evaluation, and clause selection. Chapter 9 defines Boolean expressions. Chapter 10 defines statement sequences. Chapter 17 supplies the complete grammar.
+This chapter defines the Baton `if` statement, with its `elseif` and `else` clauses, and the `select` statement (design decision D15), which chooses among integer constants, ranges, and the states of an optional handle. It also defines how the flow states of owning locals meet at the end of each. Chapter 9 defines Boolean expressions. Chapter 10 defines statement sequences. Chapter 17 supplies the complete grammar.
 
-Baton uses one multiline conditional form. It has no conditional expression, pattern matching, or general multi-way selection statement.
+Both statements are multiline. Baton has no conditional expression and no general pattern matching.
 
 ## 11.2 Syntax
 
@@ -18,7 +18,7 @@ if-statement    ::= "if" expression NEWLINE statement-sequence
                     "end" NEWLINE
 ```
 
-`elseif` is one token. The complete chain has one closing `end`. Each clause body is a statement sequence and may be empty. A clause body opens no declaration scope; Chapter 5's routine scope remains in effect throughout the chain.
+`elseif` is one token. The complete chain has one closing `end`. Each clause body is a block and may be empty. Each body opens its own block scope (Chapter 5, Section 5.3), so a local declared in one clause is not visible in another or after the `end`.
 
 A logical `NEWLINE` terminates each condition header. Physical line endings inside parentheses or brackets remain suppressed under Chapter 3, so a parenthesized condition may span physical lines without changing this grammar.
 
@@ -35,6 +35,10 @@ Execution tests the `if` condition first. If it is `true`, the corresponding bod
 When every written condition is `false`, the `else` body executes if present. With no `else`, the statement performs no body operation. After the selected body completes normally, execution continues with the statement following the closing `end`.
 
 Effects from an evaluated false condition remain observable. Conditions after a selected true clause are not evaluated and perform no calls, storage accesses, checks, or traps.
+
+### 11.4.1 Flow states after `if`
+
+The flow state of each owning local after an `if` statement (Chapter 10, Section 10.8) is the meet of the states at the end of every clause body that can complete normally, together with the state after the last condition when there is no `else`. The meet of two equal states is that state; the meet of different states is "may hold either". A body that always ends with `return`, `fail`, `exit` or `continue` does not contribute.
 
 ## 11.5 Flat and nested forms
 
@@ -72,33 +76,112 @@ Baton conditional headers do not use `then`. The logical newline already separat
 
 Consequently, `then` remains an identifier under Chapter 3. A Boolean variable named `then` may appear as the complete condition in `if then`; the following logical newline terminates that header.
 
-## 11.7 Lowering boundary
+## 11.7 `select`
+
+### 11.7.1 Syntax
+
+```text
+select-statement ::= "select" [ "move" ] expression NEWLINE
+                     case-arm { case-arm }
+                     [ "case" "else" NEWLINE block ]
+                     "end" NEWLINE
+case-arm         ::= "case" case-label { "," case-label } NEWLINE block
+                   | "case" "some" "(" NAME ")" NEWLINE block
+                   | "case" "none" NEWLINE block
+case-label       ::= constant-expression [ "to" constant-expression ]
+```
+
+The expression after `select` is the **subject**. A `select` has at least one `case` arm before any `case else`, and at most one `case else`, which comes last. Each arm's body is a block with its own scope. There is no fall-through: after an arm's body completes, execution continues after the `end`. `select` is a statement, not an expression.
+
+A `select` is either an **integer selection** or a **handle selection**, chosen by the subject's type.
+
+### 11.7.2 Integer selection
+
+The subject has an integer type: `u8`, `i8`, `u16`, `i16`, `u32` or `i32`. A character literal is a `u8` value (Chapter 6), so selections on characters are `u8` selections. `move` is invalid.
+
+Each label is a constant expression, or a range `low to high` of two. Every label value must be representable in the subject's type, and in a range `low` must not exceed `high`. No value may be covered by two labels, in the same arm or in different arms; an overlap is diagnosed as `duplicate-case`. `some` and `none` arms are invalid.
+
+The subject is evaluated once, before any label is compared. If its value is covered by a label, that arm's body executes. Otherwise the `case else` body executes if present; with no `case else`, no body executes. The arms need not cover every value.
+
+```nucleus
+select key
+case 'q', 'Q'
+    exit
+case '0' to '9'
+    digit(key - '0')
+case else
+    beep()
+end
+```
+
+A compiler may implement the comparison by tests, a jump table or a search; the choice is not observable.
+
+### 11.7.3 Handle selection
+
+The subject has an optional handle type, `P?` or `id P?`, or the non-optional identifier type `id P`. A non-optional owning subject of type `P` is invalid, since it always holds a value. The arms are exactly one `case some(NAME)`, and either one `case none` or one `case else`, in any order; the second arm may be omitted. Integer labels are invalid.
+
+- For an identifier subject, `some` means that the slot the identifier names is still live, and `none` means that the identifier is empty or its slot has been freed. The test never traps.
+- For an owning subject, `some` means that it holds a handle, and `none` that it is `none`.
+
+The name in `some(NAME)` is declared in that arm's block scope. What it denotes depends on the subject ([memory safety](../docs/memory-safety.md), Section 5.5):
+
+| Subject | `NAME` in `some(NAME)` |
+| --- | --- |
+| An identifier | An identifier of type `id P` |
+| An owning program variable, or an owning field | An identifier of type `id P` |
+| The routine's own owning local, owning parameter or temporary, without `move` | A lease: direct access to the record for the length of the arm (Chapter 7). The subject cannot be moved, overwritten or passed to a slot-holder within the arm |
+| Any owning location, with `select move` | A non-optional owning local of type `P`, owned by the arm |
+
+**`select move`.** `select move x` requires `x` to be an owning location of type `P?`. It moves the value out of `x`, leaving `none`, before choosing the arm. In `some(n)`, `n` owns the value and is freed at the end of the arm unless it is moved on; this is how a `P?` becomes a `P`. In `none`, nothing was moved. After the `select`, `x` certainly holds `none` if it is a local or parameter.
+
+```nucleus
+select head
+case some(i)          // head is a program variable: i is an identifier
+    show(i.value)
+case none
+    showEmpty()
+end
+
+select move spare
+case some(n)          // n is a nodes, owned by this arm
+    keep(move n)
+case none
+end
+```
+
+A fresh subject is held in the statement's temporary (Chapter 10, Section 10.8) and lives until the end of the last arm.
+
+### 11.7.4 Flow states after `select`
+
+As for `if` (Section 11.4.1), the flow state of each owning local after a `select` is the meet of the states at the end of every arm that can complete normally, together with the state after the subject when no arm need execute: an integer selection without `case else`, or a handle selection with only a `some` arm.
+
+## 11.8 Lowering boundary
 
 The source semantics require ordered condition evaluation and selection of at most one body. A compiler may lower the statement to comparisons, conditional branches, and ordinary branches while parsing it. The internal semantic-operation interface requires no dedicated `if`, `elseif`, or `else` operation.
 
 Branch fixups and active clause state are implementation details. They must preserve the source order above, skip every unselected body, and continue after the one closing `end`.
 
-## 11.8 Excluded conditional mechanisms
+## 11.9 Excluded conditional mechanisms
 
 Baton 1.0 has no:
 
 - one-line `if` form;
 - postfix or statement-modifier condition;
 - conditional expression;
-- `select` or `case` statement;
-- pattern matching;
-- fall-through selection; or
+- general pattern matching, guards or destructuring;
+- selection on strings, records or `f32` values;
+- fall-through between `select` arms; or
 - implicit integer truth test.
 
-A restricted dense nonnegative selection form remains a possible later candidate under Chapter 2. It is not standard syntax unless a later specification revision admits it after measurement.
+Enumerations, and variants whose cases carry data, with exhaustiveness checking, are planned for version 2 as extensions of `select` (design decision D24).
 
-## 11.9 Invalid conditionals and capacity limits
+## 11.10 Invalid conditionals and capacity limits
 
-The compiler must diagnose a non-Boolean condition, `elseif` after `else`, more than one `else`, `else if` used as a flat-clause spelling, a missing logical newline, a missing closing `end`, and any clause token outside its conditional context.
+The compiler must diagnose a non-Boolean condition, `elseif` after `else`, more than one `else`, `else if` used as a flat-clause spelling, a missing logical newline, a missing closing `end`, and any clause token outside its conditional context. For `select` it must diagnose a subject of another type, a label that is not constant or not representable in the subject's type, a reversed range, an overlapping label (`duplicate-case`), a `select` with no `case` arm, `case else` not last or repeated, integer labels in a handle selection, `some` or `none` in an integer selection, a repeated `some` or `none` arm, both `case none` and `case else`, `select move` on a subject that is not an owning location of optional type, and any use of a leased subject that the lease forbids.
 
-An implementation may bound nested conditional depth, clause count, and branch-fixup state. It must publish each limit and issue a capacity diagnostic before overflow changes clause association, skips a selected body, evaluates an unselected condition, or emits an unresolved branch.
+An implementation may bound nested conditional depth, clause count, `select` labels, and branch-fixup state. It must publish each limit and issue a capacity diagnostic before overflow changes clause association, skips a selected body, evaluates an unselected condition, or emits an unresolved branch.
 
-## 11.10 Examples
+## 11.11 Examples
 
 This chain evaluates `ready` first and `waiting` only when `ready` is false:
 
