@@ -275,8 +275,8 @@ Capacity failure must not change token identity. In particular, an overlong name
 | `$2a`                      | `NUMBER(42)`                                  |
 | `0x2a`                     | malformed-number diagnostic                   |
 | `%00101010`                | `NUMBER(42)`                                  |
-| `$10000`                   | malformed-number diagnostic; too many digits  |
-| `%10000000000000000`       | malformed-number diagnostic; too many digits  |
+| `$100000000`               | malformed-number diagnostic; too many digits  |
+| `%1` followed by 32 zeros  | malformed-number diagnostic; too many digits  |
 | `'A'`                      | `CHARACTER(65)`                               |
 | `'\x41'`                   | `CHARACTER(65)`                               |
 | `''`                       | empty-character diagnostic                    |

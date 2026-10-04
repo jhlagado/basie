@@ -76,7 +76,7 @@ Each step adds conformance programs and runs them end to end.
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
-| 33 | Ref | Lexer and source parts, with `include` | `ref/compile/lexer.ts` | Token tests |
+| 33 | Ref | Lexer and source parts, with `include` | `ref/compile/lexer.ts` (lexer done; parts and `include` wait for chapter 4) | Token tests |
 | 34 | Ref | Declarations, scopes, `private`, forward declarations | | Scope tests |
 | 35 | Ref | Expressions and statements on `u8`, `u16`, `boolean`: the Nucleus core | Blob output | Nucleus's conformance examples pass |
 | 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | | Nucleus examples |
