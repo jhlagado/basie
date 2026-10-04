@@ -1,58 +1,41 @@
 # 18. Static semantics
 
+This chapter summarizes the compile-time rules. The chapters cited are normative; where this summary and a cited chapter differ, the cited chapter governs.
 
 ## 18.1 Compilation order
 
-The compiler processes one logical compilation unit in token order across the ordered source parts from Section 4.3. Source-part metadata has no static meaning. Every use requires an earlier visible declaration, except that an exact forward routine signature makes that routine callable before its body. An ordinary header or earlier forward makes the routine's signature visible before its local prefix and body. At `EOF`, every forward must be completed and exactly one `main` definition satisfying Section 4.7 must exist.
+The compiler reads the source parts in stream order (Chapter 4): each part's `include`s first, depth first, once each. Every use needs an earlier visible declaration, except that a forward declaration makes a routine or pool usable before its completion. A call to a routine whose body is not complete, including a call to itself, needs a forward declaration. At the end of the compilation, every forward is completed and exactly one `main` exists.
 
-Top-level declarations occur only in the compilation-unit sequence. Parameters occur only in routine headers. Local declarations form one contiguous prefix before the first statement. Record fields occur only inside their record declaration. Conditional and loop bodies contain statements and open no declaration scope.
+## 18.2 Names and scopes
 
-## 18.2 Names and declaration classes
+Identifiers are case-sensitive. Scopes are the program, each part (`private`), each routine, each block and each record's fields (Chapter 5). There is no shadowing at any level; blocks that do not enclose each other may reuse a name. A name is resolved, then its declaration class is checked for its position. Predeclared services, `File`, `console`, `printer` and failure codes are visible from the start (Chapter 16).
 
-Identifiers use their complete case-sensitive source spelling as identity. Program and routine scopes have one ordinary namespace; record fields have one field scope per record type. No ordinary declaration overloads, redefines, or shadows another visible ordinary declaration with the same exact identity. Definition order never changes which declaration governs a later use. A suffix name uses the statically selected record type's field scope or the bounded-string `length` intrinsic.
+## 18.3 Types
 
-Name-led parsing first resolves the visible binding, then checks its declaration class. A routine name starts a call. A mutable scalar or aggregate storage path starts an assignment. An aggregate constant starts a readable aggregate path but is rejected as a direct-root assignment target. A record type is valid only in a type position. A failable call is parsed as an ordinary call and then checked for exactly one failure consumer under Chapter 14. Failure to find a binding, finding the wrong class, or finding a later declaration is invalid source.
+Every expression and declaration has one static type (Chapter 6). Records and pools are nominal. Implicit widening is admitted only where no value can be lost; every other numeric conversion is explicit and checked. Mixed operands use the wider type when one widens to the other, and are otherwise invalid. Exact integers adopt the type their context or the other operand supplies, and must fit it. An inferred local needs an initializer with a definite type (Chapters 8 and 9).
 
-The standard service names and error constants from Chapter 16 are visible before source declarations. `main` is source-defined and must have no parameters and no result.
+## 18.4 Storage, aliases and ownership
 
-## 18.3 Types and compatibility
+- Aliases exist only as parameters and as results consumed within a statement; a returned alias is rooted in program storage or a `from` parameter, never in a local (Chapter 7, Section 7.7; Chapter 13).
+- Parameters without `var` are read-only, except scalar parameters, which are local copies (Chapter 13).
+- Owning handles and objects of owning type are never copied: ownership passes by a fresh value or `move` (Chapter 7, Section 7.11).
+- Optional handles are reached only through `select` (Chapter 11).
+- Fields, array elements and program variables of handle type are optional; non-optional handle locals have initializers (Chapter 8).
+- Leases and slot-holders follow Chapter 7, Section 7.14.
+- The statement rule and the flow check apply to every owning local and parameter (Chapter 10, Section 10.8; Chapters 11 and 12).
 
-Every expression, storage path, symbol, parameter, local, field, and routine result has one static type. Scalar values have type `u8`, `u16`, or `boolean`. Records are nominal. Fixed-array identity consists of exact element type and length. Concrete bounded-string identity consists of exact capacity. `string[]` is admitted only for parameters and retains the argument's actual capacity.
+## 18.5 Constants and initialization
 
-Scalar compatibility permits exact type, a fitting exact integer literal or named constant, and implicit `u8`-to-`u16` widening. Checked `u8(...)` is the only `u16`-to-`u8` conversion. Boolean and integer types do not convert. Concrete aggregate arguments, results, parameter bindings, and assignments require exact type identity. A `string[]` parameter instead admits any concrete bounded-string capacity or another open-string parameter. Aggregate parameters are fixed aliases, while aggregate results are transient aliases that must be consumed immediately.
+Constant expressions are evaluated exactly as at run time; an operation that would trap is an error (Chapter 8, Section 8.6). Bounds and capacities are constants in their ranges. Static initializers are complete and type-directed. Every object is initialized before it can be read.
 
-The compiler checks every operator, condition, assignment, argument, result, field, index, initializer, and failure code locally. A failable invocation supplies no ordinary expression value until its failure has been consumed under Chapter 14.
+## 18.6 Routines and failure
 
-## 18.4 Storage and aliases
+Calls match their signatures in arity, order, type and parameter kind. Every failing call has exactly one consumer: `else fail` in a failing routine, or `handle` (Chapter 14). A value routine's end must be unreachable without `return` (Chapter 13, Section 13.7).
 
-A program variable or aggregate constant owns program-lifetime storage. A scalar parameter or local owns one activation value. An aggregate parameter is a fixed typed alias established for the activation; `string[]` additionally retains its actual capacity. A returned aggregate alias is transient and cannot establish a source binding. Alias binding is not assignment. A writable aggregate storage path may be an assignment destination whose source has the exact same concrete aggregate type. Direct paths rooted at an aggregate constant are readable but not writable; aliases derived from them do not retain that marker. A routine-local declaration with aggregate type is invalid.
+## 18.7 Control
 
-Field and checked-index selection preserve the root identity and exact selected type. A bounded-string index selects an existing writable `u8` byte when the index is below the string's current length; `.length` yields a read-only `u8` value. Every aggregate object and subobject has program lifetime, so a returned aggregate alias needs no separate lifetime metadata.
-
-## 18.5 Constants, bounds, and initialization
-
-Scalar named constants are top-level values with types inferred from restricted constant initializers. Boolean-valued constants retain type `boolean`; integer-valued constants remain exact at later uses. Aggregate constants have explicit record, fixed-array, or bounded-string types and complete static initializers. Constant evaluation may use literals, earlier scalar constants, admitted pure scalar operators, parentheses, and checked scalar conversions. It may not read storage or call a routine.
-
-Array lengths and string capacities are positive constant values in the ranges set by Chapter 6. Constant fixed-array indices outside their domains are invalid. A bounded-string byte index is checked at runtime against the current logical length, even when the index expression is constant, unless the compiler proves the current length makes it safe at that program point.
-
-Program variables use the zero or complete static initializer forms in Chapter 8. Aggregate constants require the same complete structured form. Scalar locals use zero, an ordinary compatible expression, or a direct compatible failable result followed by `else fail`. Structured aggregate initialization occurs only for top-level variables and aggregate constants. An aggregate assignment materializes a transient result when retention is required.
-
-## 18.6 Routine and failure checking
-
-A call must match the visible signature in arity and parameter order. Scalar arguments copy compatible values. Concrete aggregate parameters bind aliases of the exact referent type; `string[]` binds any complete bounded-string object and preserves its actual capacity. A forward declaration is the sole complete signature. Its abbreviated `sub NAME` body header must resolve to that exact incomplete forward, and the stored forward parameter names bind the body.
-
-Every failable invocation has exactly one failure consumer. `else fail` requires a failable enclosing routine and is admitted only after a complete direct failable call in a scalar-local initializer, assignment right side, or call statement. Same-line `handle NAME` is admitted only after an eligible assignment or call statement and requires an existing writable `u8` destination that is not an active counted-loop counter. Failable invocations are invalid in returns, larger expressions, and argument lists.
-
-A result-bearing routine is invalid if its closing `end` is reachable without `return expression` or, when it declares `fails`, `fail`. Structured fallthrough follows Section 13.7. Loops remain conservatively able to finish. `return` and `fail` do not fall through; a call with `else fail` may succeed and fall through.
-
-## 18.7 Control contexts
-
-An `if` or `elseif` condition and a `while` condition must be Boolean. A counted-loop counter must be a scalar local of type `u8` or `u16`. It is read-only to source statements while that loop is active and cannot be reused as a nested counted-loop counter. Its step is a nonzero signed compile-time constant. A provable counted-loop increment overflow remains valid source and traps only if execution reaches that increment. `exit` and `continue` require an enclosing loop and target the innermost one.
-
-No label, goto, exception region, or hidden cleanup edge changes these contexts. The compiler may summarize active loops and fallthrough with bounded stacks, but capacity exhaustion must produce a diagnostic before it changes a target or validity result.
+Conditions are `boolean`. `select` labels are constants of the subject's type with no overlap (Chapter 11). A counted-loop counter is an integer local declared before the loop and read-only within it (Chapter 12). `exit` and `continue` need an enclosing loop.
 
 ## 18.8 Invalid source and capacities
 
-A grammar, visibility, declaration-class, type, lifetime, constant, flow, failure-consumption, or context violation makes the source invalid. The compiler issues a diagnostic and must not present an executable as a successful translation.
-
-An implementation may bound complete source length, source-part count and metadata length, identifier length, symbols, types, fields, forwards, retained forward parameter-name bytes, parameters, scalar locals, expression depth, statement nesting, fixups, constants, structured-initializer depth and elements, emitted code size, total emitted image size, and other retained compile-time state. It must document every limit that can reject otherwise conforming source and issue a capacity diagnostic before truncation, wraparound, dropped state, or changed semantics. Those limits must still compile every complete accepted Chapter 21 program. Runtime activation capacity is separately implementation-defined, must accommodate the accepted corpus, and traps under Chapter 15 beyond any published activation-depth or activation-storage limit.
+Any violation of these rules makes the source invalid; the compiler reports a diagnostic and produces no program. An implementation may bound its capacities, publishes every limit ([limits register](../docs/limits.md)), and diagnoses an excess without changing meaning. Its limits must compile every accepted program of the conformance suite.

@@ -1,48 +1,23 @@
 # 19. Runtime semantics
 
+This chapter summarizes execution. The chapters cited are normative.
 
-## 19.1 Startup and observable behaviour
+## 19.1 Startup
 
-Execution begins after the implementation has established every program variable's required initial value in declaration order. The environment then calls `main`. Observable behaviour consists of ordered system-service effects, object copies and mutations visible through source paths, normal termination, recoverable-error outcomes consumed by source, and required traps.
+The runtime's startup (Chapter 16, Section 16.5; [CP/M target](../docs/cpm-target.md), Section 4) checks that memory covers the program's stack reserve, establishes the static image of program variables and constants, leaves every pool slot free, and calls `main`.
 
-Normal return from `main` terminates successfully. Failure from `main` and a safety trap terminate unsuccessfully. The source language defines no other program-termination operation.
+## 19.2 Evaluation
 
-## 19.2 Evaluation and assignment
+Expressions are evaluated left to right with short-circuit `and` and `or` (Chapter 9, Section 9.14). Integer arithmetic wraps; `f32` arithmetic rounds to nearest, ties to even, with flush to zero. Conversions that do not fit, out-of-range indexes, division by zero and `f32` overflow trap. Assignments follow the orders of Chapter 10, Section 10.4.
 
-Expressions evaluate in the order specified by Section 9.11. Binary operands are left-to-right except for Boolean short-circuit suppression. Postfix suffixes apply left-to-right, and each index is checked when reached. Arguments evaluate left-to-right before a call begins.
+## 19.3 Storage and lifetime
 
-Integer arithmetic uses the fixed widths and wraparound rules in Chapter 9. Comparisons use unsigned integer order or Boolean equality. Checked narrowing, division, indexing, and counted-loop increment perform their required checks before producing or storing a result.
+Program storage lives for the run. A local lives from its declaration to the end of its block, and a local in a loop body is created on each iteration. Pool slots live from `new` until their owner goes away. Freeing is automatic and cascades through owned slots without recursion. Accesses through identifiers are checked against generations; stores of owning handles into pool records are checked for cycles (Chapter 7).
 
-Scalar assignment evaluates and checks the complete target path, then evaluates the right side, then converts and stores. Aggregate assignment evaluates its complete destination path first and its source second, then validates both complete extents before changing the destination. It copies the common exact-type representation. Self-assignment has no effect. The type rules make two distinct assignment-compatible aggregate subobjects disjoint, so partial overlap cannot arise in Baton 1.0.
+## 19.4 Calls
 
-A failure or trap before a success-result store or aggregate copy leaves the destination unchanged, while effects already completed remain visible. A handled failable scalar assignment then stores its error code in the handler destination; if both destinations name the same scalar, that scalar receives the error code.
+Arguments are evaluated and bound left to right; ownership passes to owning parameters; record arguments held by owners are leased. Forward-declared routines check activation capacity on entry. Leaving a routine by any path frees its owning locals and parameters, after evaluating any result (Chapter 13).
 
-## 19.3 Objects and aliases
+## 19.5 Failure and termination
 
-Program variables exist throughout execution. Each routine call creates a distinct logical activation containing copied scalar parameters, scalar locals, and aggregate-parameter bindings. Aggregate aliases denote existing program objects or aggregate subobjects and preserve identity. Mutation of a scalar leaf is visible through every path to that leaf.
-
-Aggregate arguments and results transfer aliases, not object contents. A returned aggregate alias transiently denotes the original program-lifetime object after the callee activation ends. It may be discarded, forwarded, selected, passed onward, or consumed by aggregate assignment, but it cannot become a stored local binding. Aggregate assignment copies object contents into the destination referent and does not rebind either operand. Bounded-string byte mutation through any alias is visible through every alias to the same object; it replaces an existing byte without changing length or capacity. No runtime type tag accompanies an alias, and the source language provides no operation that inspects its carrier.
-
-## 19.4 Calls, returns, and recursion
-
-A call starts after all arguments have been evaluated and the activation-capacity check succeeds. Parameter binding precedes activation-local initialization. Scalar locals initialize in source order, and the first statement begins after the local prefix.
-
-`return` transfers an optional success result and ends the activation. A result-free routine also returns successfully at its closing `end`. `return` is success-only: a caller propagates a failable value in an earlier local initializer or assignment, or propagates a result-free call as its own statement, before returning successfully. Direct and mutual recursion use the same rules and create distinct active state at each depth. Backend save regions, register files, stacks, and return encodings must preserve these semantics but are not source-visible.
-
-## 19.5 Conditional and loop execution
-
-An `if` chain tests conditions in source order until one is true, executes at most one body, and skips every later condition. A `while` tests before each iteration. A counted `for` evaluates its start and bound once, initializes the counter, tests before the first iteration, and uses the direction and inclusive or exclusive rule from Chapter 12.
-
-Normal completion and `continue` in a counted loop use the increment-and-next-test path. `exit`, `return`, and `fail` can leave the body without running that path. Source statements cannot change the scalar-local counter while the loop is active. A counted-loop next value is tested mathematically before storage, preventing unsigned wrap from creating another iteration; a continuing value outside the counter type performs `loop-range` at runtime even when statically predictable.
-
-## 19.6 Recoverable errors
-
-A failable call returns success or one `u8` error code. On success, the ordinary result, if any, is transferred before surrounding evaluation continues. On failure, `else fail` returns the same code from the caller, while `handle NAME` performs no success-result store, stores the code, and executes its handler. No success result exists on the failure path.
-
-Error propagation ends activations through ordinary return control. It performs no stack unwinding, source cleanup, or handler search. A trap bypasses this channel. Failure reaching the external caller of `main` becomes the `unhandled-error` trap.
-
-## 19.7 System services and traps
-
-The predefined services execute in call order and follow Chapter 16's initial-state, cursor, byte, success, and atomic-failure rules. Standard output appends. Bulk output overwrites below its end and appends at its end without insertion or truncation. Host buffering or target-specific calls may not reorder visible bytes or change a recoverable result into silent success.
-
-A trap stops source execution at the failing operation. The environment reports the required reason and best available location. Earlier completed effects remain; no later source operation or source-level cleanup executes.
+A recoverable failure is a `u8` code returned beside the result and consumed explicitly (Chapter 14). A trap ends the program at once with a report naming the reason and the site's address (Chapter 15). A normal return from `main` ends the program successfully; a failure from `main` is reported as an unhandled error. On CP/M 3, return codes distinguish the cases.

@@ -26,7 +26,7 @@ Status: **pending** (still Nucleus text), **in progress**, or **applied**.
 | 15. Safety failures and traps | New traps: `stale-handle`, `ownership-cycle`, `pool-full`, `assertion`, `float-overflow`, `float-invalid`; trap reports by address (D11) | applied |
 | 16. System boundary | Services (services draft), standard library (D36), file table (D38) | applied |
 | 17. Complete grammar | Every syntax change above | applied |
-| 18. Static semantics | Summary of the above | pending |
-| 19. Runtime semantics | Summary of the above | pending |
-| 20. Feature ledger | Version 1 and 2 features (D24), budget (D9) | pending |
+| 18. Static semantics | Summary of the above | applied |
+| 19. Runtime semantics | Summary of the above | applied |
+| 20. Feature ledger | Version 1 and 2 features (D24), budget (D9) | applied |
 | 21. Conformance examples | New examples for every changed chapter; the corpus in `tests/conformance` | pending |
