@@ -4,6 +4,7 @@
  */
 import { walk } from "@std/fs/walk";
 import { compile, NotImplemented } from "../../ref/compile/index.ts";
+import { lookup, readLineTable } from "../../ref/toolchain/linetable.ts";
 import { runCom } from "../harness/cpm.ts";
 import { type Expectations, parseExpectations } from "./expectations.ts";
 
@@ -56,15 +57,51 @@ export async function runTest(path: string, source: string): Promise<Outcome> {
   if (expected.error || expected.linkError) {
     return { status: "fail", reason: "compiled, but a failure was expected" };
   }
-  return compare(expected, result.com);
+  return compare(expected, result.com, result.lineTable);
 }
 
-function compare(expected: Expectations, com: Uint8Array): Outcome {
+function compare(
+  expected: Expectations,
+  com: Uint8Array,
+  lineTable?: Uint8Array,
+): Outcome {
   const run = runCom(com, {
     input: expected.input,
     tail: expected.tail,
     files: expected.files,
   });
+  if (expected.trap) {
+    const m = run.output.match(/TRAP ([a-z-]+) at ([0-9A-F]{4})\r\n$/);
+    if (!m) {
+      return {
+        status: "fail",
+        reason: `no trap; output ${JSON.stringify(run.output)}`,
+      };
+    }
+    if (m[1] !== expected.trap.reason) {
+      return {
+        status: "fail",
+        reason: `trap ${m[1]}, expected ${expected.trap.reason}`,
+      };
+    }
+    if (!lineTable) return { status: "fail", reason: "no line table" };
+    const where = lookup(readLineTable(lineTable), parseInt(m[2], 16));
+    if (where?.line !== expected.trap.line) {
+      return {
+        status: "fail",
+        reason: `trap at line ${where?.line ?? "?"} (address ${
+          m[2]
+        }), expected line ${expected.trap.line}`,
+      };
+    }
+    if (run.returnCode !== 0xff02) {
+      return {
+        status: "fail",
+        reason: `return code ${run.returnCode} after a trap`,
+      };
+    }
+    return { status: "pass" };
+  }
   if (expected.output !== undefined && run.output !== expected.output) {
     return {
       status: "fail",
@@ -82,10 +119,6 @@ function compare(expected: Expectations, com: Uint8Array): Outcome {
     const data = run.disk.get(name);
     const got = data ? new TextDecoder().decode(data) : undefined;
     if (got !== text) return { status: "fail", reason: `file ${name} differs` };
-  }
-  // Trap expectations are checked once the line table exists.
-  if (expected.trap) {
-    return { status: "pending", reason: "trap checks need the line table" };
   }
   return { status: "pass" };
 }

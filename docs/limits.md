@@ -89,7 +89,8 @@ These are minimums unless a row says otherwise. Resources not yet listed (includ
 | Arguments per call | 32 | |
 | `select` cases per statement | 256 | |
 | Owning locals tracked in one routine | 64 | Flow state per open block |
-| Forward jumps outstanding in one routine | 256 | Deferred references (build pipeline §6.2). **Currently also the maximum**; see the [capacity audit](capacity-audit.md) §2.1 for the options to remove it |
+| Forward jumps outstanding in one routine | no limit | Pending jumps are chained through their operand fields ([capacity audit](capacity-audit.md) §2.1) |
+| Undefined labels in one routine | 256 | One word per label while undefined; bounded by statement nesting |
 | Source parts included | 255 | The format limit |
 | Initialised data and constants | no compiler limit | Written to the byte stream, not held in memory |
 | Routine size | no compiler limit | Routines too large for the routine buffer are written unbuffered |

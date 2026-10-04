@@ -12,6 +12,7 @@ import { Blob, dataBlob, JP_C, JP_NC, JP_NZ, JP_Z } from "./emit.ts";
 import {
   CONSOLE_FILE,
   Helper,
+  HELPER_STACK,
   HELPER_VERSION,
   PREDECLARED_CONSTANTS,
   PRINTER_FILE,
@@ -1112,6 +1113,12 @@ export class Compiler {
 
   private pop(bytes: number): void {
     this.routine!.pushed -= bytes;
+  }
+
+  private callHelper(ordinal: number): void {
+    const r = this.routine!;
+    r.blob.callBlob(ordinal);
+    r.helperStack = Math.max(r.helperStack, HELPER_STACK[ordinal] ?? 2);
   }
 
   private noteCall(callee: Symbol & { kind: "routine" }, at: Token): void {
@@ -3219,6 +3226,9 @@ export class Compiler {
     const rv = right();
     let rtype = this.numericType(rv, rightAt);
     if (rv.kind === "const") {
+      if ((op === "/" || op === "mod") && rv.value === 0) {
+        fail("division-by-zero", rightAt, "division by a constant zero");
+      }
       // Pop the left and operate with an immediate.
       const type = rv.type ? this.resultType(lt, rtype, rightAt) : lt;
       const rc = this.coerceConst(rv, type, rightAt);
@@ -3576,8 +3586,20 @@ export class Compiler {
           return { kind: "reg", type };
         case "*":
         case "/":
-        case "mod":
-          throw new NotImplemented("8-bit multiply and divide helpers");
+        case "mod": {
+          // Widen A and E to HL and DE, use the 16-bit helper, take the low byte.
+          if (s.signed) {
+            r.blob.u8(0x6f, 0x07, 0x9f, 0x67); // LD L,A; RLCA; SBC A,A; LD H,A
+            r.blob.u8(0x7b, 0x07, 0x9f, 0x57); // LD A,E; RLCA; SBC A,A; LD D,A
+          } else {
+            r.blob.u8(0x6f, 0x26, 0x00, 0x16, 0x00); // LD L,A; LD H,0; LD D,0
+          }
+          this.callHelper(
+            op === "*" ? Helper.MUL16 : s.signed ? Helper.DIV16S : Helper.DIV16,
+          );
+          r.blob.u8(op === "mod" ? 0x7b : 0x7d); // LD A,E / LD A,L
+          return { kind: "reg", type };
+        }
         case "=":
           r.blob.u8(0x93, 0xd6, 0x01, 0x9f, 0xe6, 0x01); // SUB E; SUB 1; SBC A,A; AND 1
           return { kind: "reg", type: BOOLEAN };
@@ -3620,9 +3642,13 @@ export class Compiler {
         r.blob.u8(0x7c, 0xaa, 0x67, 0x7d, 0xab, 0x6f);
         return { kind: "reg", type };
       case "*":
+        this.callHelper(Helper.MUL16);
+        return { kind: "reg", type };
       case "/":
       case "mod":
-        throw new NotImplemented("16-bit multiply and divide helpers");
+        this.callHelper(s.signed ? Helper.DIV16S : Helper.DIV16);
+        if (op === "mod") r.blob.u8(0xeb); // EX DE,HL
+        return { kind: "reg", type };
       case "=":
         r.blob.u8(0xb7, 0xed, 0x52, 0x7c, 0xb5, 0xd6, 0x01, 0x9f, 0xe6, 0x01); // OR A; SBC HL,DE; LD A,H; OR L; SUB 1; SBC A,A; AND 1
         return { kind: "reg", type: BOOLEAN };

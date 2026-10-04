@@ -393,3 +393,96 @@ WR_OUT: PUSH    IX
         OR      A
         LD      IY,2
         JP      RETN
+
+; @blob $016 code MUL16 helper=2
+; HL = HL * DE modulo 65536. The low 16 bits are the same for signed and
+; unsigned operands, so one helper serves every 16-bit multiply (D5).
+; Uses A and BC. Stack: 2.
+MUL16:  LD      B,H
+        LD      C,L             ; BC = the left operand
+        LD      HL,0
+        LD      A,16
+.LOOP:  ADD     HL,HL           ; the product so far, doubled
+        EX      DE,HL
+        ADD     HL,HL           ; the right operand's next bit into carry
+        EX      DE,HL
+        JR      NC,.SKIP
+        ADD     HL,BC
+.SKIP:  DEC     A
+        JR      NZ,.LOOP
+        RET
+
+; @blob $017 code DIV16 helper=2
+; Unsigned: HL = HL / DE, DE = HL mod DE. A zero divisor traps with
+; division-by-zero, reporting the program's call (code generation §6).
+; Uses A and BC. Stack: 2.
+DIV16:  LD      A,D
+        OR      E
+        JP      Z,TRAP_DIV      ; the stack holds only the return address
+        LD      B,D
+        LD      C,E             ; BC = the divisor
+        EX      DE,HL           ; DE = the dividend, becoming the quotient
+        LD      HL,0            ; HL = the remainder
+        LD      A,16
+.LOOP:  EX      DE,HL
+        ADD     HL,HL           ; the dividend's top bit into carry
+        EX      DE,HL
+        ADC     HL,HL           ; remainder = remainder * 2 + bit
+        JR      C,.SUB          ; a 17th bit: the subtraction can't borrow
+        SBC     HL,BC           ; carry is clear here
+        JR      NC,.SET
+        ADD     HL,BC           ; too small: restore, quotient bit 0
+        JR      .NEXT
+.SUB:   OR      A
+        SBC     HL,BC
+.SET:   INC     E               ; quotient bit 0 = 1; E is even after the shift
+.NEXT:  DEC     A
+        JR      NZ,.LOOP
+        EX      DE,HL           ; HL = the quotient, DE = the remainder
+        RET
+
+; @blob $018 code DIV16S helper=2
+; Signed: HL = HL / DE truncating toward zero; DE = the remainder, with the
+; dividend's sign (spec §9.8). -32768 / -1 wraps to -32768. Stack: 8.
+DIV16S: LD      A,D
+        OR      E
+        JP      Z,TRAP_DIV      ; before anything is pushed
+        LD      A,H
+        XOR     D
+        PUSH    AF              ; bit 7: the quotient is negative
+        LD      A,H
+        PUSH    AF              ; bit 7: the remainder is negative
+        BIT     7,H
+        JR      Z,.POSL
+        XOR     A
+        SUB     L
+        LD      L,A
+        SBC     A,A
+        SUB     H
+        LD      H,A
+.POSL:  BIT     7,D
+        JR      Z,.POSR
+        XOR     A
+        SUB     E
+        LD      E,A
+        SBC     A,A
+        SUB     D
+        LD      D,A
+.POSR:  CALL    DIV16
+        POP     AF
+        JP      P,.REMOK
+        XOR     A
+        SUB     E
+        LD      E,A
+        SBC     A,A
+        SUB     D
+        LD      D,A
+.REMOK: POP     AF
+        RET     P
+        XOR     A
+        SUB     L
+        LD      L,A
+        SBC     A,A
+        SUB     H
+        LD      H,A
+        RET

@@ -169,18 +169,21 @@ table placed after its arms. The compiler handles the two kinds separately:
   buffer, which spills to a scratch file, `MAIN.$RF`, when it fills. They have
   no limit.
 - **Deferred references** are held in memory, in a list of about 256 entries
-  (5 bytes each, 1.25K).
+  (5 bytes each, 1.25K). Forward jumps are **not** deferred references: a
+  pending jump's operand field holds the offset of the previous pending jump
+  to the same label, and defining the label walks the chain and emits the
+  self-references in order ([capacity audit](capacity-audit.md) §2.1).
 - **At the end of the routine,** the compiler merges the two sorted sequences
   into the directory record, reading the scratch file forward once if it was
   used, and then empties it for the next routine.
 
 When the deferred list fills, further literals are placed inline, which makes
 their references in-order. Jump tables go after the arms they dispatch to, so a
-table costs one deferred reference, not one per entry. The only remaining limit
-is the number of forward jumps outstanding in one routine; a routine with more
-than about 256 is rejected with a capacity diagnostic asking for it to be split.
-This replaces Nucleus's program-wide table of unresolved call sites, and revision
-5's limit of 512 references per routine.
+table costs one deferred reference, not one per entry. So no count of
+references limits a routine; the only per-routine table is the labels not yet
+defined, one word each, bounded by nesting. This replaces Nucleus's
+program-wide table of unresolved call sites, and revision 5's limit of 512
+references per routine.
 
 ### 6.3 Shorter forward branches
 

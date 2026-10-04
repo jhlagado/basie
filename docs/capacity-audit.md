@@ -127,11 +127,18 @@ problem: a long routine with many `if`s has many of them.
    §5), the linker adds the field's value, and placeholder verification no
    longer applies to those fields.
 
-**Working position.** Option 2 or 3 removes the ceiling altogether rather than
-raising it, so the right move is to design one of them before the reference
-compiler's statement stage (roadmap step 35) rather than keep 256 as a known
-rejection. Prefer 3 if the format is still open then: it also shrinks
-directory records. Decide when step 35 starts.
+**Decision (2026-10-05, at step 35).** Option 2. The reference compiler's
+emitter (`ref/compile/emit.ts`) chains pending forward jumps through their
+own operand fields and resolves the chain when the label is defined, so the
+number of outstanding forward jumps is unbounded; only undefined labels cost
+memory (one word each), and those are bounded by statement nesting. The
+native compiler does the same inside its routine buffer and, for a routine
+too large for the buffer, with CP/M random-record writes to the byte stream.
+The deferred list now holds only literal addresses and jump tables, both of
+which already have fallbacks. Option 3 (addend in the field) stays available
+as a format refinement but is not needed. The [limits register](limits.md)
+row "forward jumps outstanding in one routine" becomes "undefined labels in
+one routine", bounded by nesting.
 
 ### 2.2 Bounded strings at 253 bytes (Language in effect; Representation in cause)
 

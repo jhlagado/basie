@@ -38,6 +38,9 @@ export const Helper = {
   TRAP_POOL_FULL: 0x013,
   TRAP_ASSERTION: 0x014,
   PUTDEC: 0x015,
+  MUL16: 0x016,
+  DIV16: 0x017,
+  DIV16S: 0x018,
 } as const;
 
 export const TRAP_REPORTERS: Record<string, number> = {
@@ -87,7 +90,14 @@ export const REGISTER_HELPERS: HelperEntry[] = [
   { name: "RETN", ordinal: Helper.RETN, convention: 2, stack: 4 },
   { name: "STKCHK", ordinal: Helper.STKCHK, convention: 2, stack: 2 },
   { name: "CONOUT", ordinal: Helper.CONOUT, convention: 2, stack: 8 },
+  { name: "MUL16", ordinal: Helper.MUL16, convention: 2, stack: 2 },
+  { name: "DIV16", ordinal: Helper.DIV16, convention: 2, stack: 2 },
+  { name: "DIV16S", ordinal: Helper.DIV16S, convention: 2, stack: 8 },
 ];
+
+export const HELPER_STACK: Record<number, number> = Object.fromEntries(
+  REGISTER_HELPERS.map((h) => [h.ordinal, h.stack]),
+);
 
 /** Predeclared constants (spec §16.2). */
 export const PREDECLARED_CONSTANTS: [string, number][] = [
