@@ -149,6 +149,7 @@ Each stage keeps a working compiler, and the census runs on every commit.
 | 70 | All | Release image: `BATON.COM`, `BATON.MSG`, `BATON.OVL`, `BLINK.COM`, `CPM22.BRL`, the library | Disk image | Boots and builds the examples |
 | 71 | Design | The Baton book in debug80-docs | Book | Verification script like Nucleus's |
 | 72 | All | Version 2 planning: enumerations and variants, expression blocks, routine values | Plan | — |
+| 73 | Design | Debug information for source-level debugging: a binary, CP/M-readable format mapping addresses to statements and lines, and routines to their frame layouts and types, building on the line table (`.LIN`) and symbol file (`.SYM`). D8 is the reference point but is not assumed suitable for CP/M. Low priority: no debugger is planned yet, but the format must exist before one is | Format specification; a `D` link option | Round-trip tests; a host tool that lists source for an address |
 
 ## Running order
 

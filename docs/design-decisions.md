@@ -842,3 +842,16 @@ since defaults would be constant expressions carried by the signature and any
 forward declaration, at perhaps 0.3–0.5K of compiler. Deferred: in a language
 without overloading they add little, they raise questions for owning and `var`
 parameters, and they can be added later without breaking existing programs.
+
+### O7. Debug information (open)
+
+A source-level debugger needs more than the trap lookup's line table: per
+routine, the frame layout and type of each local and parameter; the record,
+array and pool descriptors; statement boundaries within a line; and a way to
+find the source text for a part and line. The format must be binary and
+readable from CP/M in 128-byte records without a parser, as the line table
+(object format §11) and the symbol file already are; D8 is the model for what
+it should carry, not for its encoding. No debugger is planned yet. The format
+is to be specified before one is built (roadmap step 73), and the compiler's
+name and line streams should be kept rich enough that it can be produced
+without a compiler change.
