@@ -87,7 +87,7 @@ Deno.test("the library builds with its references recovered", () => {
   );
   assertEquals(bssLen !== undefined, true);
   assertEquals(library.bytes[0], 0x0e); // LD C,26, never RET
-  assertEquals(built.names.get(CONOUT), "CONOUT");
+  assertEquals(built.names.get(CONOUT), "CON_OUT");
 });
 
 Deno.test("a hand-written program runs under the CP/M harness", () => {

@@ -4,7 +4,9 @@
 ;
 ;   ; @blob ORDINAL KIND NAME [align=N] [helper=CC] [since=V]
 ;
-; and runs to the next one. A blob refers to another by its first label, and
+; and runs to the next one. Labels: a blob's entry is the only global label it
+; needs, written AREA_WHAT with an underscore; everything internal is a private
+; .label, which ATOM scopes to the enclosing global. A blob refers to another by its first label, and
 ; to the linker's pseudo-objects by the names the tool defines: MAIN, IMAGE,
 ; BSS, FREE, REQUIRED, DATA, DATACOPY, OPTIONS, FILES and FILECNT, and the
 ; sizes IMAGELEN, BSSLEN, DATALEN, COPYLEN and FILESLEN. Only whole 16-bit
@@ -24,7 +26,7 @@ PRINTER EQU     2
 ; cpm-target §4. The first byte is LD C, never RET.
 STARTUP:
         LD      C,26
-        LD      DE,DMABUF
+        LD      DE,DMA_BUF
         CALL    BDOS            ; 1. DMA away from the command tail
         LD      HL,OPTIONS
         LD      A,L
@@ -55,7 +57,7 @@ STARTUP:
         LD      E,L
         INC     DE
         LDIR
-.NOBSS: LD      (ENTRYSP),IX
+.NOBSS: LD      (ENTRY_SP),IX
         LD      HL,OPTIONS      ; 7. restore DATA when re-runnable
         BIT     1,L
         JR      Z,.RUN
@@ -75,7 +77,7 @@ STARTUP:
         LD      DE,.FAIL
         CALL    PUTS
         POP     AF
-        CALL    PUTDEC
+        CALL    PUT_DEC
         LD      DE,.CRLF
         CALL    PUTS
         LD      DE,$FF01
@@ -99,15 +101,15 @@ EXIT:   LD      C,108
         BIT     0,L
         JR      NZ,.CCP
         RST     0
-.CCP:   LD      SP,(ENTRYSP)
+.CCP:   LD      SP,(ENTRY_SP)
         RET
 
-; @blob $003 bss ENTRYSP
-ENTRYSP:
+; @blob $003 bss ENTRY_SP
+ENTRY_SP:
         DS      2
 
-; @blob $004 bss DMABUF
-DMABUF: DS      128
+; @blob $004 bss DMA_BUF
+DMA_BUF: DS      128
 
 ; @blob $005 code TRAP
 ; cpm-target §10. DE = the reason, $-terminated; the site's return address is
@@ -143,7 +145,7 @@ TRAP:   PUSH    DE
         DAA
         ADC     A,$40
         DAA
-        JP      CONOUT
+        JP      CON_OUT
 .HEAD:  DB      "TRAP $"
 .AT:    DB      " at $"
 .EOL:   DB      "\r\n$"
@@ -154,16 +156,16 @@ PUTS:   LD      A,(DE)
         CP      '$'
         RET     Z
         PUSH    DE
-        CALL    CONOUT
+        CALL    CON_OUT
         POP     DE
         INC     DE
         JR      PUTS
 
-; @blob $007 code CONOUT helper=1
+; @blob $007 code CON_OUT helper=1
 ; Write the byte in A to the console unchanged (services §3.1). BDOS 6 reads
-; $FF as a request for input, so that byte goes to the BIOS's CONOUT.
+; $FF as a request for input, so that byte goes to the BIOS's CON_OUT.
 ; Preserves HL.
-CONOUT: CP      $FF
+CON_OUT: CP      $FF
         JR      Z,.BIOS
         PUSH    HL
         LD      E,A
@@ -182,9 +184,9 @@ CONOUT: CP      $FF
 .BACK:  POP     HL
         RET
 
-; @blob $008 code TRAPBND helper=2
+; @blob $008 code TRAP_BND helper=2
 ; The bounds reporter. Entered by CALL from a trap site.
-TRAPBND:
+TRAP_BND:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "bounds$"
@@ -208,11 +210,11 @@ RETN:   EX      AF,AF'
         EX      AF,AF'
         RET
 
-; @blob $00A code STKCHK helper=2
+; @blob $00A code STK_CHK helper=2
 ; The activation-capacity check (code generation §7). HL = need(R).
 ; Traps if SP - need - GUARD would fall below FREE. The site reported is the
-; CALL STKCHK in the routine's prologue.
-STKCHK: EX      DE,HL
+; CALL STK_CHK in the routine's prologue.
+STK_CHK: EX      DE,HL
         LD      HL,0
         ADD     HL,SP
         OR      A
@@ -224,78 +226,78 @@ STKCHK: EX      DE,HL
         LD      DE,FREE
         SBC     HL,DE
         RET     NC
-.TRAP:  JP      TRAPACT
+.TRAP:  JP      TRAP_ACT
 
-; @blob $00B code TRAPNAR helper=2
-TRAPNAR:
+; @blob $00B code TRAP_NAR helper=2
+TRAP_NAR:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "narrowing$"
 
-; @blob $00C code TRAPDIV helper=2
-TRAPDIV:
+; @blob $00C code TRAP_DIV helper=2
+TRAP_DIV:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "division-by-zero$"
 
-; @blob $00D code TRAPFOV helper=2
-TRAPFOV:
+; @blob $00D code TRAP_FOV helper=2
+TRAP_FOV:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "float-overflow$"
 
-; @blob $00E code TRAPFIN helper=2
-TRAPFIN:
+; @blob $00E code TRAP_FIN helper=2
+TRAP_FIN:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "float-invalid$"
 
-; @blob $00F code TRAPLOO helper=2
-TRAPLOO:
+; @blob $00F code TRAP_LOO helper=2
+TRAP_LOO:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "loop-range$"
 
-; @blob $010 code TRAPACT helper=2
-TRAPACT:
+; @blob $010 code TRAP_ACT helper=2
+TRAP_ACT:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "activation-capacity$"
 
-; @blob $011 code TRAPSTA helper=2
-TRAPSTA:
+; @blob $011 code TRAP_STA helper=2
+TRAP_STA:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "stale-handle$"
 
-; @blob $012 code TRAPCYC helper=2
-TRAPCYC:
+; @blob $012 code TRAP_CYC helper=2
+TRAP_CYC:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "ownership-cycle$"
 
-; @blob $013 code TRAPPOO helper=2
-TRAPPOO:
+; @blob $013 code TRAP_POO helper=2
+TRAP_POO:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "pool-full$"
 
-; @blob $014 code TRAPASS helper=2
-TRAPASS:
+; @blob $014 code TRAP_AST helper=2
+TRAP_AST:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "assertion$"
 
-; @blob $015 code PUTDEC helper=2
-; Print A in decimal without leading zeros. CONOUT preserves only HL, so
+; @blob $015 code PUT_DEC helper=2
+; Print A in decimal without leading zeros. CON_OUT preserves only HL, so
 ; the remainder lives in L and the printed-a-digit flag in H.
-PUTDEC: LD      H,0
+PUT_DEC: LD      H,0
         LD      B,100
         CALL    .DIGIT
         LD      B,10
         CALL    .DIGIT
         ADD     A,'0'
-        JP      CONOUT
+        JP      CON_OUT
 .DIGIT: LD      D,'0'-1
 .LOOP:  INC     D
         SUB     B
@@ -311,14 +313,14 @@ PUTDEC: LD      H,0
         RET     Z               ; a leading zero: skip it
         LD      A,D
 .SHOW:  LD      H,1
-        CALL    CONOUT
+        CALL    CON_OUT
         LD      A,L
         RET
 
-; @blob $020 code WRTEXT helper=1
+; @blob $020 code WR_TEXT helper=1
 ; writeText(f as File, s as string[]) fails. Stack: IX+4 s address, IX+6
 ; its capacity, IX+8 f's table address, IX+10 f's generation.
-WRTEXT: PUSH    IX
+WR_TEXT: PUSH    IX
         LD      IX,0
         ADD     IX,SP
         LD      A,(IX+8)
@@ -338,7 +340,7 @@ WRTEXT: PUSH    IX
         LD      A,(HL)
         PUSH    BC
         PUSH    HL
-        CALL    CONOUT
+        CALL    CON_OUT
         POP     HL
         POP     BC
         INC     HL
@@ -355,10 +357,10 @@ WRTEXT: PUSH    IX
         LD      IY,8
         JP      RETN
 
-; @blob $021 code WRBYTE helper=1
+; @blob $021 code WR_BYTE helper=1
 ; writeByte(f as File, b as u8) fails. Stack: IX+4 b, IX+6 f address,
 ; IX+8 f generation.
-WRBYTE: PUSH    IX
+WR_BYTE: PUSH    IX
         LD      IX,0
         ADD     IX,SP
         LD      A,(IX+6)
@@ -369,7 +371,7 @@ WRBYTE: PUSH    IX
         CP      CONSOLE
         JR      NZ,.NOTAV
         LD      A,(IX+4)
-        CALL    CONOUT
+        CALL    CON_OUT
         OR      A
         LD      IY,6
         JP      RETN
@@ -379,4 +381,15 @@ WRBYTE: PUSH    IX
 .NOTAV: LD      A,15
 .FAIL:  SCF
         LD      IY,6
+        JP      RETN
+
+; @blob $022 code WR_OUT helper=1
+; writeOutputByte(b as u8) fails: Nucleus's shorthand for writeByte(console, b).
+WR_OUT: PUSH    IX
+        LD      IX,0
+        ADD     IX,SP
+        LD      A,(IX+4)
+        CALL    CON_OUT
+        OR      A
+        LD      IY,2
         JP      RETN

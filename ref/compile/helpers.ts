@@ -72,6 +72,17 @@ export const SERVICES: HelperEntry[] = [
   },
 ];
 
+export const NUCLEUS_SHORTHANDS: HelperEntry[] = [
+  {
+    name: "writeOutputByte",
+    ordinal: 0x022,
+    convention: 1,
+    signature: "sub writeOutputByte(b as u8) fails",
+    stack: 8,
+  },
+];
+SERVICES.push(...NUCLEUS_SHORTHANDS);
+
 export const REGISTER_HELPERS: HelperEntry[] = [
   { name: "RETN", ordinal: Helper.RETN, convention: 2, stack: 4 },
   { name: "STKCHK", ordinal: Helper.STKCHK, convention: 2, stack: 2 },

@@ -4,7 +4,7 @@ import { fail } from "./diagnostics.ts";
 import type { PoolInfo, RecordType, Type } from "./types.ts";
 
 export type Storage =
-  | { kind: "program"; ordinal: number; offset: number }
+  | { kind: "static"; ordinal: number; offset: number }
   /** Frame-relative: IX + offset. */
   | { kind: "frame"; offset: number };
 

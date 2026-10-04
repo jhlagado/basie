@@ -13,11 +13,13 @@ export type Outcome =
   | { status: "fail"; reason: string };
 
 /** Run one test's source against its expectations. */
-export function runTest(path: string, source: string): Outcome {
+export async function runTest(path: string, source: string): Promise<Outcome> {
   const expected = parseExpectations(source);
   let result;
   try {
-    result = compile(path, source);
+    result = await compile(path, {
+      mainSource: new TextEncoder().encode(source),
+    });
   } catch (error) {
     if (error instanceof NotImplemented) {
       return { status: "pending", reason: error.message };
@@ -33,6 +35,15 @@ export function runTest(path: string, source: string): Outcome {
     }
     const first = result.diagnostics[0];
     const want = expected.error;
+    if (
+      first?.code === "include-missing" && !want &&
+      /\b(STRINGS|FORMAT|PARSE|TEXTIO|RANDOM)\.BTN/.test(first.message)
+    ) {
+      return {
+        status: "pending",
+        reason: "the standard library is not written yet",
+      };
+    }
     if (
       want && first && first.code === want.code && first.line === want.line &&
       first.column === want.column
@@ -84,7 +95,7 @@ if (import.meta.main) {
   const counts = { pass: 0, pending: 0, fail: 0 };
   for await (const entry of walk(root, { exts: [".btn"] })) {
     const source = await Deno.readTextFile(entry.path);
-    const outcome = runTest(entry.path, source);
+    const outcome = await runTest(entry.path, source);
     counts[outcome.status] += 1;
     if (outcome.status === "fail") {
       console.log(`FAIL ${entry.path.slice(root.length)}: ${outcome.reason}`);

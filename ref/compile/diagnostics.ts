@@ -11,10 +11,10 @@ export class CompileError extends Error {
   }
 }
 
-export const fail = (
+export function fail(
   code: string,
   position: Position,
   message: string,
-): never => {
+): never {
   throw new CompileError(code, position, message);
-};
+}

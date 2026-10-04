@@ -32,7 +32,29 @@ Deno.test("a test can't expect both a failure and a run result", () => {
   );
 });
 
-Deno.test("tests are pending until the compiler handles them", () => {
-  const outcome = runTest("x.btn", "// expect output: x\nsub main()\nend\n");
+Deno.test("tests are pending until the compiler handles them", async () => {
+  const outcome = await runTest(
+    "x.btn",
+    "// expect output: x\nsub main()\n    select 1\n    end\nend\n",
+  );
   assertEquals(outcome.status, "pending");
+});
+
+Deno.test("the conformance corpus has no failures", async () => {
+  const { walk } = await import("@std/fs/walk");
+  const root = new URL("./conformance/", import.meta.url).pathname;
+  const failures: string[] = [];
+  let passed = 0;
+  for await (const entry of walk(root, { exts: [".btn"] })) {
+    const outcome = await runTest(
+      entry.path,
+      await Deno.readTextFile(entry.path),
+    );
+    if (outcome.status === "fail") {
+      failures.push(`${entry.path.slice(root.length)}: ${outcome.reason}`);
+    }
+    if (outcome.status === "pass") passed += 1;
+  }
+  assertEquals(failures, []);
+  console.log(`  ${passed} conformance programs pass`);
 });

@@ -25,6 +25,15 @@ writes `build/CPM22.BRL` from [`cpm22/cpm22.asm`](cpm22/cpm22.asm).
   `DATACOPY`, `OPTIONS`, `FILES` and `FILECNT`, and their sizes are `IMAGELEN`,
   `BSSLEN`, `DATALEN`, `COPYLEN` and `FILESLEN`.
 
+## Labels
+
+ATOM names are at most 8 characters and case-insensitive. A blob's entry
+point is its only global label, written `AREA_WHAT` with an underscore
+(`TRAP_DIV`, `WR_TEXT`, `STK_CHK`); everything inside a blob is a private
+`.label`, which ATOM scopes to the enclosing global, so `.LOOP` and `.DONE`
+can be reused freely. Prefixes that merely say "runtime" are not used: every
+label in this file is in the runtime.
+
 ## How references are recovered
 
 ATOM produces absolute images, not relocatable objects, so the tool assembles
