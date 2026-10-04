@@ -1168,6 +1168,23 @@ export class Compiler {
     return r.frame;
   }
 
+  /** Push the value in the registers for its size; pop it back. */
+  private pushValue(size: number): void {
+    const r = this.routine!;
+    if (size === 1) r.blob.u8(0xf5); // PUSH AF
+    else if (size === 2) r.blob.u8(0xe5); // PUSH HL
+    else r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
+    this.push(size === 4 ? 4 : 2);
+  }
+
+  private popValue(size: number): void {
+    const r = this.routine!;
+    if (size === 1) r.blob.u8(0xf1); // POP AF
+    else if (size === 2) r.blob.u8(0xe1); // POP HL
+    else r.blob.u8(0xe1, 0xd1); // POP HL; POP DE
+    this.pop(size === 4 ? 4 : 2);
+  }
+
   private push(bytes: number): void {
     const r = this.routine!;
     r.pushed += bytes;
@@ -2813,6 +2830,13 @@ export class Compiler {
       this.push(2);
       const v = this.expression(d.type);
       this.toRegisters(v, d.type, at);
+      if (sizeOf(d.type) === 4) {
+        r.blob.u8(0xc1); // POP BC: the address
+        r.blob.u8(0x7d, 0x02, 0x03, 0x7c, 0x02, 0x03); // LD A,L; LD (BC),A; INC BC; LD A,H; LD (BC),A; INC BC
+        r.blob.u8(0x7b, 0x02, 0x03, 0x7a, 0x02); // LD A,E; LD (BC),A; INC BC; LD A,D; LD (BC),A
+        this.pop(2);
+        return;
+      }
       r.blob.u8(0xd1); // POP DE
       this.pop(2);
       this.storeRegistersIndirect(d.type);
@@ -3364,7 +3388,20 @@ export class Compiler {
         );
         this.addConst(place.add);
         r.blob.u8(0x73, 0x23, 0x72); // LD (HL),E; INC HL; LD (HL),D
-      } else throw new NotImplemented("4-byte stores through aliases");
+      } else {
+        r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
+        r.blob.u8(
+          0xdd,
+          0x6e,
+          place.offset & 0xff,
+          0xdd,
+          0x66,
+          (place.offset + 1) & 0xff,
+        );
+        this.addConst(place.add);
+        r.blob.u8(0xd1, 0x73, 0x23, 0x72, 0x23); // POP DE; LD (HL),E; INC HL; LD (HL),D; INC HL
+        r.blob.u8(0xd1, 0x73, 0x23, 0x72); // POP DE; LD (HL),E; INC HL; LD (HL),D
+      }
       return;
     }
     throw new Error("storeRegisters on a computed place");
@@ -4119,13 +4156,68 @@ export class Compiler {
     return { kind: "reg", type: to };
   }
 
+  /** Conversions to or from a 32-bit type, with the checks of 9.6. */
+  private checkedNarrow32(from: ScalarName, to: ScalarName): void {
+    const r = this.routine!;
+    const fs = SCALARS[from], ts = SCALARS[to];
+    const trapIf = (cc: number) => r.blob.callBlobIf(cc, Helper.TRAP_NARROWING);
+    const deZero = () => {
+      r.blob.u8(0x7a, 0xb3); // LD A,D; OR E
+      trapIf(JP_NZ);
+    };
+    const deSignOfH = () => {
+      r.blob.u8(0x7c, 0x17, 0x9f, 0xbb); // LD A,H; RLA; SBC A,A; CP E
+      trapIf(JP_NZ);
+      r.blob.u8(0xba); // CP D
+      trapIf(JP_NZ);
+    };
+    const hZero = () => {
+      r.blob.u8(0x7c, 0xb7); // LD A,H; OR A
+      trapIf(JP_NZ);
+    };
+    const bit7Clear = (reg: number) => {
+      r.blob.u8(reg, 0x17); // LD A,r; RLA
+      trapIf(JP_C);
+    };
+    const hSignOfL = () => {
+      r.blob.u8(0x7d, 0x17, 0x9f, 0xbc); // LD A,L; RLA; SBC A,A; CP H
+      trapIf(JP_NZ);
+    };
+    if (fs.size === 4 && ts.size === 4) {
+      bit7Clear(0x7a); // D: u32 <-> i32 need the top bit clear
+      return;
+    }
+    if (fs.size === 4) {
+      if (fs.signed && ts.signed) {
+        deSignOfH();
+        if (ts.size === 1) hSignOfL();
+      } else {
+        deZero();
+        if (ts.size === 1) hZero();
+        if (ts.signed) bit7Clear(ts.size === 1 ? 0x7d : 0x7c); // L or H
+      }
+      if (ts.size === 1) r.blob.u8(0x7d); // LD A,L
+      return;
+    }
+    // To 32 bits from a signed 16- or 8-bit type into an unsigned one, or
+    // from an unsigned type that widens (handled by widen()).
+    if (fs.signed && !ts.signed) {
+      bit7Clear(fs.size === 1 ? 0x7f : 0x7c); // A or H
+      if (fs.size === 1) r.blob.u8(0x6f, 0x26, 0x00); // LD L,A; LD H,0
+      r.blob.u8(0x11, 0, 0); // LD DE,0
+      return;
+    }
+    this.widen(from, to);
+  }
+
   /** Narrow the value in registers with a check (9.6). */
   private checkedNarrow(from: ScalarName, to: ScalarName): void {
     const r = this.routine!;
     const fs = SCALARS[from], ts = SCALARS[to];
     if (fs.float || ts.float) throw new NotImplemented("f32 conversions");
     if (fs.size === 4 || ts.size === 4) {
-      throw new NotImplemented("32-bit conversions");
+      this.checkedNarrow32(from, to);
+      return;
     }
     if (fs.size === 2 && ts.size === 1) {
       // HL -> A. u16->u8: H must be 0. i16->i8: H must be sign of L. u16->i8: H=0 and L<128.
@@ -4195,7 +4287,10 @@ export class Compiler {
     const size = sizeOf(t);
     if (size === 1) r.blob.u8(0x2f); // CPL
     else if (size === 2) r.blob.u8(0x7c, 0x2f, 0x67, 0x7d, 0x2f, 0x6f); // LD A,H; CPL; LD H,A; LD A,L; CPL; LD L,A
-    else throw new NotImplemented("32-bit not");
+    else {
+      r.blob.u8(0x7c, 0x2f, 0x67, 0x7d, 0x2f, 0x6f);
+      r.blob.u8(0x7a, 0x2f, 0x57, 0x7b, 0x2f, 0x5f); // LD A,D; CPL; LD D,A; LD A,E; CPL; LD E,A
+    }
     return v;
   }
 
@@ -4223,7 +4318,7 @@ export class Compiler {
     const size = sizeOf(t);
     if (size === 1) r.blob.u8(0xed, 0x44); // NEG
     else if (size === 2) r.blob.u8(0xeb, 0x21, 0, 0, 0xb7, 0xed, 0x52); // EX DE,HL; LD HL,0; OR A; SBC HL,DE
-    else throw new NotImplemented("32-bit negation");
+    else this.callHelper(Helper.NEG32);
     return v;
   }
 
@@ -4428,15 +4523,16 @@ export class Compiler {
     }
     // Left in registers: push it, evaluate the right, pop, operate.
     if (isShift) {
+      const lsz = SCALARS[(leftType as { name: ScalarName }).name].size;
+      this.pushValue(lsz);
       const rv = right();
+      if (rv.kind === "const") this.popValue(lsz);
       return this.emitShift(op, left, rv, leftAt);
     }
     const lt = leftType as Type & { kind: "scalar" };
     const lsize = SCALARS[lt.name].size;
-    if (lsize > 2) throw new NotImplemented("32-bit arithmetic");
-    const pushOp = lsize === 1 ? 0xf5 : 0xe5; // PUSH AF / PUSH HL
-    r.blob.u8(pushOp);
-    this.push(2);
+    if (SCALARS[lt.name].float) throw new NotImplemented("f32 arithmetic");
+    this.pushValue(lsize);
     const rightAt = this.token;
     const rv = right();
     let rtype = this.numericType(rv, rightAt);
@@ -4447,8 +4543,7 @@ export class Compiler {
       // Pop the left and operate with an immediate.
       const type = rv.type ? this.resultType(lt, rtype, rightAt) : lt;
       const rc = this.coerceConst(rv, type, rightAt);
-      r.blob.u8(lsize === 1 ? 0xf1 : 0xe1); // POP AF / POP HL
-      this.pop(2);
+      this.popValue(lsize);
       if ((type as { name: ScalarName }).name !== lt.name) {
         this.widen(lt.name, (type as { name: ScalarName }).name);
       }
@@ -4458,10 +4553,20 @@ export class Compiler {
     const type = this.resultType(lt, rtype, rightAt);
     const tname = (type as { name: ScalarName }).name;
     const tsize = SCALARS[tname].size;
-    if (tsize > 2) throw new NotImplemented("32-bit arithmetic");
     // Right is in registers at rtype; widen it to type.
     if ((rtype as { name: ScalarName }).name !== tname) {
       this.widen((rtype as { name: ScalarName }).name, tname);
+    }
+    if (tsize === 4) {
+      // The right goes to the alternates; the left comes back into DEHL.
+      r.blob.u8(0xd9); // EXX
+      this.popValue(lsize);
+      if (lsize !== 4) this.widen(lt.name, tname);
+      return this.emitBinaryRegisters(
+        op,
+        type as Type & { kind: "scalar" },
+        rightAt,
+      );
     }
     // Bring the left back: it was pushed at lsize.
     if (tsize === 1) {
@@ -4719,15 +4824,18 @@ export class Compiler {
     const r = this.routine!;
     const name = (type as { name: ScalarName }).name;
     const size = SCALARS[name].size;
-    if (size > 2) throw new NotImplemented("32-bit arithmetic");
+    if (SCALARS[name].float) throw new NotImplemented("f32 arithmetic");
     const commutative = ["+", "*", "and", "or", "xor", "=", "<>"].includes(op);
     if (commutative) return this.emitBinaryImmediate(op, leftValue, type, at);
-    // Non-commutative: swap. Right is in A/HL; load left into E/DE then operate as left-right.
+    // Non-commutative: swap. Right is in A/HL/DEHL; load the left as the left.
     const bytes = this.encodeScalar(leftValue, name);
     if (size === 1) {
       r.blob.u8(0x5f, 0x3e, bytes[0]); // LD E,A; LD A,n
-    } else {
+    } else if (size === 2) {
       r.blob.u8(0xeb, 0x21, bytes[0], bytes[1]); // EX DE,HL; LD HL,nn
+    } else {
+      r.blob.u8(0xd9); // EXX: the right to the alternates
+      r.blob.u8(0x21, bytes[0], bytes[1], 0x11, bytes[2], bytes[3]); // LD HL,lo; LD DE,hi
     }
     return this.emitBinaryRegisters(op, type as Type & { kind: "scalar" }, at);
   }
@@ -4742,8 +4850,17 @@ export class Compiler {
     const r = this.routine!;
     const name = (type as { name: ScalarName }).name;
     const size = SCALARS[name].size;
-    if (size > 2) throw new NotImplemented("32-bit arithmetic");
+    if (SCALARS[name].float) throw new NotImplemented("f32 arithmetic");
     const bytes = this.encodeScalar(rightValue, name);
+    if (size === 4) {
+      // The right into the alternates.
+      r.blob.u8(0xd9, 0x21, bytes[0], bytes[1], 0x11, bytes[2], bytes[3], 0xd9);
+      return this.emitBinaryRegisters(
+        op,
+        type as Type & { kind: "scalar" },
+        at,
+      );
+    }
     if (size === 1) {
       switch (op) {
         case "+":
@@ -4782,6 +4899,7 @@ export class Compiler {
     const r = this.routine!;
     const s = SCALARS[type.name];
     if (s.float) throw new NotImplemented("f32 arithmetic");
+    if (s.size === 4) return this.emitBinary32(op, type, at);
     if (s.size === 1) {
       switch (op) {
         case "+":
@@ -4886,6 +5004,74 @@ export class Compiler {
     fail("syntax", at, `unknown operator ${op}`);
   }
 
+  /** 32-bit: left in DEHL, right in DE'HL' (code generation §4). */
+  private emitBinary32(
+    op: string,
+    type: Type & { kind: "scalar" },
+    at: Token,
+  ): Value {
+    const r = this.routine!;
+    const signed = SCALARS[type.name].signed;
+    const boolFromFlags = (less: boolean, equalWanted?: boolean) => {
+      if (equalWanted !== undefined) {
+        // = : A = 1 iff Z; <> : A = 1 iff NZ
+        const skip = r.blob.newLabel();
+        r.blob.u8(0x3e, 0x00); // LD A,0
+        r.blob.jpIf(equalWanted ? JP_NZ : JP_Z, skip);
+        r.blob.u8(0x3c); // INC A
+        r.blob.defineLabel(skip);
+        return;
+      }
+      r.blob.u8(0x9f); // SBC A,A: $FF if carry
+      if (less) r.blob.u8(0xe6, 0x01); // AND 1
+      else r.blob.u8(0x3c); // INC A
+    };
+    switch (op) {
+      case "+":
+        this.callHelper(Helper.ADD32);
+        return { kind: "reg", type };
+      case "-":
+        this.callHelper(Helper.SUB32);
+        return { kind: "reg", type };
+      case "*":
+        this.callHelper(Helper.MUL32);
+        return { kind: "reg", type };
+      case "/":
+        this.callHelper(signed ? Helper.DIV32S : Helper.DIV32U);
+        return { kind: "reg", type };
+      case "mod":
+        this.callHelper(signed ? Helper.DIV32S : Helper.DIV32U);
+        r.blob.u8(0xd9); // EXX: the remainder
+        return { kind: "reg", type };
+      case "and":
+        this.callHelper(Helper.AND32);
+        return { kind: "reg", type };
+      case "or":
+        this.callHelper(Helper.OR32);
+        return { kind: "reg", type };
+      case "xor":
+        this.callHelper(Helper.XOR32);
+        return { kind: "reg", type };
+      case "=":
+      case "<>":
+        this.callHelper(signed ? Helper.CMP32S : Helper.CMP32U);
+        boolFromFlags(false, op === "=");
+        return { kind: "reg", type: BOOLEAN };
+      case "<":
+      case ">=":
+        this.callHelper(signed ? Helper.CMP32S : Helper.CMP32U);
+        boolFromFlags(op === "<");
+        return { kind: "reg", type: BOOLEAN };
+      case ">":
+      case "<=":
+        r.blob.u8(0xd9); // EXX: compare right with left
+        this.callHelper(signed ? Helper.CMP32S : Helper.CMP32U);
+        boolFromFlags(op === ">");
+        return { kind: "reg", type: BOOLEAN };
+    }
+    fail("syntax", at, `unknown operator ${op}`);
+  }
+
   private emitShift(op: string, left: Value, count: Value, at: Token): Value {
     const r = this.routine!;
     const type = this.numericType(left, at);
@@ -4895,7 +5081,6 @@ export class Compiler {
     const name = (type as { name: ScalarName }).name;
     if (!isInteger(type)) fail("type-mismatch", at, "shifts take integers");
     const s = SCALARS[name];
-    if (s.size > 2) throw new NotImplemented("32-bit shifts");
     if (count.kind === "const") {
       if (typeof count.value !== "number" || count.value < 0) {
         fail("type-mismatch", at, "a shift count is unsigned");
@@ -4913,14 +5098,52 @@ export class Compiler {
       this.emitShiftBy(op, s, n, true);
       return { kind: "reg", type };
     }
-    // Variable count: must be unsigned; loop in B.
+    // A variable count, in the registers after the left was pushed (see
+    // binary()): clamp it to the width, then shift in a loop or a helper.
     if (
       count.kind !== "reg" || !isInteger(count.type) ||
       SCALARS[(count.type as { name: ScalarName }).name].signed
     ) {
       fail("type-mismatch", at, "a shift count must be an unsigned integer");
     }
-    throw new NotImplemented("variable shift counts");
+    const csize = SCALARS[(count.type as { name: ScalarName }).name].size;
+    const width = s.size * 8;
+    if (csize >= 2) {
+      // HL (or DEHL) holds the count: anything with a high byte clamps.
+      const small = r.blob.newLabel();
+      r.blob.u8(0x7c); // LD A,H
+      if (csize === 4) r.blob.u8(0xb2, 0xb3); // OR D; OR E
+      r.blob.u8(0xb7, 0x7d); // OR A; LD A,L
+      r.blob.jpIf(JP_Z, small);
+      r.blob.u8(0x3e, width); // LD A,width
+      r.blob.defineLabel(small);
+    }
+    const ok = r.blob.newLabel();
+    r.blob.u8(0xfe, width); // CP width
+    r.blob.jpIf(JP_C, ok);
+    r.blob.u8(0x3e, width); // LD A,width
+    r.blob.defineLabel(ok);
+    r.blob.u8(0x4f); // LD C,A: the clamped count
+    this.popValue(s.size);
+    if (s.size === 4) {
+      r.blob.u8(0x79); // LD A,C
+      this.callHelper(
+        op === "shl" ? Helper.SHL32 : s.signed ? Helper.SHR32S : Helper.SHR32U,
+      );
+      return { kind: "reg", type };
+    }
+    const done = r.blob.newLabel();
+    const loop = r.blob.newLabel();
+    r.blob.u8(0x41); // LD B,C
+    if (s.size === 1) r.blob.u8(0x6f, 0x79, 0xb7, 0x7d); // LD L,A; LD A,C; OR A; LD A,L
+    else r.blob.u8(0x79, 0xb7); // LD A,C; OR A
+    r.blob.jpIf(JP_Z, done);
+    r.blob.defineLabel(loop);
+    this.emitShiftBy(op, s, 1, false);
+    r.blob.u8(0x05); // DEC B
+    r.blob.jpIf(JP_NZ, loop);
+    r.blob.defineLabel(done);
+    return { kind: "reg", type };
   }
 
   private emitShiftBy(
@@ -4930,6 +5153,13 @@ export class Compiler {
     _c: boolean,
   ): void {
     const r = this.routine!;
+    if (s.size === 4) {
+      r.blob.u8(0x3e, Math.min(n, 32)); // LD A,n
+      this.callHelper(
+        op === "shl" ? Helper.SHL32 : s.signed ? Helper.SHR32S : Helper.SHR32U,
+      );
+      return;
+    }
     if (n >= s.size * 8) {
       if (op === "shr" && s.signed) {
         if (s.size === 1) r.blob.u8(0x07, 0x9f); // RLCA; SBC A,A

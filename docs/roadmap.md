@@ -90,7 +90,7 @@ Each step adds conformance programs and runs them end to end.
 | 35 | Ref | Expressions and statements on `u8`, `u16`, `boolean`: the Nucleus core | `ref/compile/compiler.ts`, `emit.ts`; `hello` runs (done) | Nucleus's conformance examples pass |
 | 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | (done: records, arrays, strings, open views, aggregate constants) | Nucleus examples |
 | 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | (done except the stack bound's recursion tests: see step 46) | Nucleus examples |
-| 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | | Edge-value tests |
+| 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | runtime 32-bit helpers (done; 32-bit loop counters and select subjects still pending) | Edge-value tests |
 | 39 | Ref | `f32` through helpers, literal conversion, constant folding | | Conversion and rounding tests |
 | 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | | Scope and inference tests |
 | 41 | Ref | `select` on integers, characters and ranges; dispatch shapes | (done: integers, characters, ranges) | Dispatch tests |

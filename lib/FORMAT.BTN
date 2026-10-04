@@ -28,3 +28,30 @@ sub appendI16(var s as string[], v as i16) fails
         appendU16(s, u16(v)) else fail
     end
 end
+
+sub appendU32(var s as string[], v as u32) fails
+    var digits as u8[10]
+    var count as u8 = 0
+    var n as u32 = v
+    while true
+        digits[count] = u8(n mod 10) + '0'
+        count = count + 1
+        n = n / 10
+        if n = 0
+            exit
+        end
+    end
+    while count > 0
+        count = count - 1
+        appendByte(s, digits[count]) else fail
+    end
+end
+
+sub appendI32(var s as string[], v as i32) fails
+    if v < 0
+        appendByte(s, '-') else fail
+        appendU32(s, u32(not v) + 1) else fail
+    else
+        appendU32(s, u32(v)) else fail
+    end
+end

@@ -51,6 +51,20 @@ export const Helper = {
   OWN_SETC: 0x024,
   LINK0: 0x025,
   ID_MAKE: 0x026,
+  ADD32: 0x028,
+  SUB32: 0x029,
+  CMP32U: 0x02a,
+  CMP32S: 0x02b,
+  NEG32: 0x02c,
+  MUL32: 0x02d,
+  DIV32U: 0x02e,
+  DIV32S: 0x02f,
+  AND32: 0x030,
+  OR32: 0x031,
+  XOR32: 0x032,
+  SHL32: 0x033,
+  SHR32U: 0x034,
+  SHR32S: 0x035,
 } as const;
 
 export const TRAP_REPORTERS: Record<string, number> = {
@@ -113,6 +127,20 @@ export const REGISTER_HELPERS: HelperEntry[] = [
   { name: "OWN_SETC", ordinal: Helper.OWN_SETC, convention: 2, stack: 16 },
   { name: "LINK0", ordinal: Helper.LINK0, convention: 2, stack: 4 },
   { name: "ID_MAKE", ordinal: Helper.ID_MAKE, convention: 2, stack: 4 },
+  { name: "ADD32", ordinal: Helper.ADD32, convention: 2, stack: 6 },
+  { name: "SUB32", ordinal: Helper.SUB32, convention: 2, stack: 6 },
+  { name: "CMP32U", ordinal: Helper.CMP32U, convention: 2, stack: 8 },
+  { name: "CMP32S", ordinal: Helper.CMP32S, convention: 2, stack: 8 },
+  { name: "NEG32", ordinal: Helper.NEG32, convention: 2, stack: 2 },
+  { name: "MUL32", ordinal: Helper.MUL32, convention: 2, stack: 4 },
+  { name: "DIV32U", ordinal: Helper.DIV32U, convention: 2, stack: 4 },
+  { name: "DIV32S", ordinal: Helper.DIV32S, convention: 2, stack: 10 },
+  { name: "AND32", ordinal: Helper.AND32, convention: 2, stack: 6 },
+  { name: "OR32", ordinal: Helper.OR32, convention: 2, stack: 6 },
+  { name: "XOR32", ordinal: Helper.XOR32, convention: 2, stack: 6 },
+  { name: "SHL32", ordinal: Helper.SHL32, convention: 2, stack: 2 },
+  { name: "SHR32U", ordinal: Helper.SHR32U, convention: 2, stack: 2 },
+  { name: "SHR32S", ordinal: Helper.SHR32S, convention: 2, stack: 2 },
 ];
 
 export const HELPER_STACK: Record<number, number> = Object.fromEntries(

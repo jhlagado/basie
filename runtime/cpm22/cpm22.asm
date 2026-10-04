@@ -1082,3 +1082,357 @@ ID_MAKE:
         LD      D,(HL)
         POP     HL
         RET
+
+; ---------------------------------------------------------------------------
+; 32-bit arithmetic (code generation §4): the left operand in DEHL, the right
+; in DE'HL', the result in DEHL. Comparisons leave carry = left < right and
+; Z = equal. Every helper may destroy every register but IX and SP.
+; ---------------------------------------------------------------------------
+
+; @blob $027 bss MATH_VAR
+MATH_VAR:
+        DS      8
+
+; @blob $028 code ADD32 helper=2
+; Stack: 6.
+ADD32:  EXX
+        PUSH    DE
+        PUSH    HL
+        EXX
+        POP     BC
+        ADD     HL,BC
+        POP     BC
+        EX      DE,HL
+        ADC     HL,BC
+        EX      DE,HL
+        RET
+
+; @blob $029 code SUB32 helper=2
+; Stack: 6.
+SUB32:  EXX
+        PUSH    DE
+        PUSH    HL
+        EXX
+        POP     BC
+        OR      A
+        SBC     HL,BC
+        POP     BC
+        EX      DE,HL
+        SBC     HL,BC
+        EX      DE,HL
+        RET
+
+; @blob $02A code CMP32U helper=2
+; Unsigned compare. Stack: 8.
+CMP32U: EXX
+        PUSH    DE
+        PUSH    HL
+        EXX
+        POP     BC
+        OR      A
+        SBC     HL,BC           ; the low difference
+        EX      DE,HL
+        POP     BC
+        SBC     HL,BC           ; the high difference; carry = borrow
+        PUSH    AF
+        LD      A,H
+        OR      L
+        OR      D
+        OR      E               ; 0 when equal
+        POP     BC              ; C = the flags, bit 0 the borrow
+        OR      A               ; Z from A; carry clear
+        RET     Z               ; equal: Z set, carry clear
+        LD      A,C
+        RRCA                    ; carry = the borrow; Z untouched
+        RET
+
+; @blob $02B code CMP32S helper=2
+; Signed compare: flip both sign bits, then compare unsigned. Stack: 8.
+CMP32S: LD      A,D
+        XOR     $80
+        LD      D,A
+        EXX
+        LD      A,D
+        XOR     $80
+        LD      D,A
+        EXX
+        JP      CMP32U
+
+; @blob $02C code NEG32 helper=2
+; DEHL = -DEHL. Stack: 2.
+NEG32:  XOR     A
+        SUB     L
+        LD      L,A
+        LD      A,0
+        SBC     A,H
+        LD      H,A
+        LD      A,0
+        SBC     A,E
+        LD      E,A
+        LD      A,0
+        SBC     A,D
+        LD      D,A
+        RET
+
+; @blob $02D code MUL32 helper=2
+; DEHL = DEHL * DE'HL' modulo 2^32. Uses IY and MATH_VAR. Stack: 4.
+MUL32:  LD      IY,MATH_VAR
+        LD      (IY+0),L
+        LD      (IY+1),H
+        LD      (IY+2),E
+        LD      (IY+3),D        ; the left operand, to be doubled
+        EXX
+        LD      (IY+4),L
+        LD      (IY+5),H
+        LD      (IY+6),E
+        LD      (IY+7),D        ; the right operand, to be halved
+        EXX
+        LD      HL,0
+        LD      DE,0
+        LD      B,32
+.LOOP:  SRL     (IY+7)
+        RR      (IY+6)
+        RR      (IY+5)
+        RR      (IY+4)          ; carry = the next bit of the right operand
+        JR      NC,.SKIP
+        PUSH    BC
+        LD      C,(IY+0)
+        LD      B,(IY+1)
+        ADD     HL,BC
+        LD      C,(IY+2)
+        LD      B,(IY+3)
+        EX      DE,HL
+        ADC     HL,BC
+        EX      DE,HL
+        POP     BC
+.SKIP:  SLA     (IY+0)
+        RL      (IY+1)
+        RL      (IY+2)
+        RL      (IY+3)
+        DJNZ    .LOOP
+        RET
+
+; @blob $02E code DIV32U helper=2
+; Unsigned: DEHL = DEHL / DE'HL', and DE'HL' = the remainder. A zero divisor
+; traps with division-by-zero. Uses IY and MATH_VAR. Stack: 4.
+DIV32U: EXX
+        LD      A,H
+        OR      L
+        OR      D
+        OR      E
+        EXX
+        JP      Z,TRAP_DIV
+        LD      IY,MATH_VAR
+        LD      (IY+0),L
+        LD      (IY+1),H
+        LD      (IY+2),E
+        LD      (IY+3),D        ; the dividend, becoming the quotient
+        EXX
+        LD      (IY+4),L
+        LD      (IY+5),H
+        LD      (IY+6),E
+        LD      (IY+7),D        ; the divisor
+        EXX
+        LD      HL,0
+        LD      DE,0            ; DEHL = the remainder
+        LD      B,32
+.LOOP:  SLA     (IY+0)
+        RL      (IY+1)
+        RL      (IY+2)
+        RL      (IY+3)          ; the dividend's top bit into carry
+        ADC     HL,HL           ; remainder = remainder * 2 + bit
+        RL      E
+        RL      D
+        PUSH    BC
+        LD      C,(IY+4)
+        LD      B,(IY+5)
+        OR      A
+        SBC     HL,BC
+        LD      C,(IY+6)
+        LD      B,(IY+7)
+        EX      DE,HL
+        SBC     HL,BC
+        EX      DE,HL
+        JR      NC,.FITS
+        LD      C,(IY+4)        ; too small: restore
+        LD      B,(IY+5)
+        ADD     HL,BC
+        LD      C,(IY+6)
+        LD      B,(IY+7)
+        EX      DE,HL
+        ADC     HL,BC
+        EX      DE,HL
+        POP     BC
+        JR      .NEXT
+.FITS:  POP     BC
+        INC     (IY+0)          ; quotient bit 0 = 1; it is even after the shift
+.NEXT:  DJNZ    .LOOP
+        EXX
+        EX      DE,HL           ; the remainder into DE'HL' (swapped back below)
+        EXX
+        PUSH    DE
+        PUSH    HL              ; the remainder
+        LD      L,(IY+0)
+        LD      H,(IY+1)
+        LD      E,(IY+2)
+        LD      D,(IY+3)        ; the quotient
+        EXX
+        POP     HL
+        POP     DE
+        EXX
+        RET
+
+; @blob $02F code DIV32S helper=2
+; Signed: truncating quotient in DEHL, remainder with the dividend's sign in
+; DE'HL'. Stack: 10.
+DIV32S: EXX
+        LD      A,H
+        OR      L
+        OR      D
+        OR      E
+        EXX
+        JP      Z,TRAP_DIV
+        LD      A,D
+        EXX
+        XOR     D
+        EXX
+        PUSH    AF              ; sign: the quotient is negative
+        LD      A,D
+        OR      A
+        PUSH    AF              ; sign: the remainder is negative
+        BIT     7,D
+        CALL    NZ,NEG32
+        EXX
+        BIT     7,D
+        CALL    NZ,NEG32
+        EXX
+        CALL    DIV32U
+        POP     AF
+        JP      P,.REMOK
+        EXX
+        CALL    NEG32
+        EXX
+.REMOK: POP     AF
+        RET     P
+        JP      NEG32
+
+; @blob $030 code AND32 helper=2
+; Stack: 6.
+AND32:  EXX
+        PUSH    DE
+        PUSH    HL
+        EXX
+        POP     BC
+        LD      A,L
+        AND     C
+        LD      L,A
+        LD      A,H
+        AND     B
+        LD      H,A
+        POP     BC
+        LD      A,E
+        AND     C
+        LD      E,A
+        LD      A,D
+        AND     B
+        LD      D,A
+        RET
+
+; @blob $031 code OR32 helper=2
+; Stack: 6.
+OR32:   EXX
+        PUSH    DE
+        PUSH    HL
+        EXX
+        POP     BC
+        LD      A,L
+        OR      C
+        LD      L,A
+        LD      A,H
+        OR      B
+        LD      H,A
+        POP     BC
+        LD      A,E
+        OR      C
+        LD      E,A
+        LD      A,D
+        OR      B
+        LD      D,A
+        RET
+
+; @blob $032 code XOR32 helper=2
+; Stack: 6.
+XOR32:  EXX
+        PUSH    DE
+        PUSH    HL
+        EXX
+        POP     BC
+        LD      A,L
+        XOR     C
+        LD      L,A
+        LD      A,H
+        XOR     B
+        LD      H,A
+        POP     BC
+        LD      A,E
+        XOR     C
+        LD      E,A
+        LD      A,D
+        XOR     B
+        LD      D,A
+        RET
+
+; @blob $033 code SHL32 helper=2
+; DEHL shifted left by A bits; 32 or more gives 0. Stack: 2.
+SHL32:  OR      A
+        RET     Z
+        CP      32
+        JR      NC,.ZERO
+        LD      B,A
+.LOOP:  ADD     HL,HL
+        RL      E
+        RL      D
+        DJNZ    .LOOP
+        RET
+.ZERO:  LD      HL,0
+        LD      DE,0
+        RET
+
+; @blob $034 code SHR32U helper=2
+; DEHL shifted right by A bits, zero-filled. Stack: 2.
+SHR32U: OR      A
+        RET     Z
+        CP      32
+        JR      NC,.ZERO
+        LD      B,A
+.LOOP:  SRL     D
+        RR      E
+        RR      H
+        RR      L
+        DJNZ    .LOOP
+        RET
+.ZERO:  LD      HL,0
+        LD      DE,0
+        RET
+
+; @blob $035 code SHR32S helper=2
+; DEHL shifted right by A bits, sign-filled; 32 or more gives 0 or -1. Stack: 2.
+SHR32S: OR      A
+        RET     Z
+        CP      32
+        JR      NC,.FILL
+        LD      B,A
+.LOOP:  SRA     D
+        RR      E
+        RR      H
+        RR      L
+        DJNZ    .LOOP
+        RET
+.FILL:  LD      A,D
+        RLA
+        SBC     A,A
+        LD      L,A
+        LD      H,A
+        LD      E,A
+        LD      D,A
+        RET
