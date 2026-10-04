@@ -29,6 +29,7 @@ function linkHi(trap: boolean, options: LinkOptions = {}) {
     0,
     0, // LD A,'I' / CALL CONOUT
     ...(trap ? [0xcd, 0, 0] : []), // CALL TRAPBND
+    0xb7, // OR A: main returns with carry clear
     0xc9,
   ];
   const refs = [

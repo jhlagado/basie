@@ -16,6 +16,9 @@
 
 BDOS    EQU     $0005
 CCPSIZE EQU     $0800
+GUARD   EQU     64              ; the profile's guard band
+CONSOLE EQU     1               ; the fixed File values
+PRINTER EQU     2
 
 ; @blob $001 startup STARTUP
 ; cpm-target §4. The first byte is LD C, never RET.
@@ -64,8 +67,21 @@ STARTUP:
         LD      DE,DATA
         LDIR
 .RUN:   CALL    MAIN            ; 8. main
+        JR      C,.FAILED
         LD      DE,$0000
         JP      EXIT            ; 9. exit
+.FAILED:                        ; main failed: A = the code (cpm-target §5)
+        PUSH    AF
+        LD      DE,.FAIL
+        CALL    PUTS
+        POP     AF
+        CALL    PUTDEC
+        LD      DE,.CRLF
+        CALL    PUTS
+        LD      DE,$FF01
+        JP      EXIT
+.FAIL:  DB      "FAIL $"
+.CRLF:  DB      "\r\n$"
 .NOMEM: LD      C,9
         LD      DE,.MSG
         CALL    BDOS
@@ -172,3 +188,195 @@ TRAPBND:
         LD      DE,.WHY
         JP      TRAP
 .WHY:   DB      "bounds$"
+
+; @blob $009 code RETN helper=2
+; The shared epilogue (code generation §3). IY = bytes of arguments to drop.
+; Preserves A, F, HL and DE: results and the failure flag.
+RETN:   EX      AF,AF'
+        LD      SP,IX
+        POP     IX
+        EXX
+        POP     DE              ; the return address
+        PUSH    IY
+        POP     BC              ; the argument bytes
+        LD      HL,0
+        ADD     HL,SP
+        ADD     HL,BC
+        LD      SP,HL
+        PUSH    DE
+        EXX
+        EX      AF,AF'
+        RET
+
+; @blob $00A code STKCHK helper=2
+; The activation-capacity check (code generation §7). HL = need(R).
+; Traps if SP - need - GUARD would fall below FREE. The site reported is the
+; CALL STKCHK in the routine's prologue.
+STKCHK: EX      DE,HL
+        LD      HL,0
+        ADD     HL,SP
+        OR      A
+        SBC     HL,DE
+        JR      C,.TRAP
+        LD      DE,GUARD
+        SBC     HL,DE
+        JR      C,.TRAP
+        LD      DE,FREE
+        SBC     HL,DE
+        RET     NC
+.TRAP:  JP      TRAPACT
+
+; @blob $00B code TRAPNAR helper=2
+TRAPNAR:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "narrowing$"
+
+; @blob $00C code TRAPDIV helper=2
+TRAPDIV:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "division-by-zero$"
+
+; @blob $00D code TRAPFOV helper=2
+TRAPFOV:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "float-overflow$"
+
+; @blob $00E code TRAPFIN helper=2
+TRAPFIN:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "float-invalid$"
+
+; @blob $00F code TRAPLOO helper=2
+TRAPLOO:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "loop-range$"
+
+; @blob $010 code TRAPACT helper=2
+TRAPACT:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "activation-capacity$"
+
+; @blob $011 code TRAPSTA helper=2
+TRAPSTA:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "stale-handle$"
+
+; @blob $012 code TRAPCYC helper=2
+TRAPCYC:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "ownership-cycle$"
+
+; @blob $013 code TRAPPOO helper=2
+TRAPPOO:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "pool-full$"
+
+; @blob $014 code TRAPASS helper=2
+TRAPASS:
+        LD      DE,.WHY
+        JP      TRAP
+.WHY:   DB      "assertion$"
+
+; @blob $015 code PUTDEC helper=2
+; Print A in decimal without leading zeros. CONOUT preserves only HL, so
+; the remainder lives in L and the printed-a-digit flag in H.
+PUTDEC: LD      H,0
+        LD      B,100
+        CALL    .DIGIT
+        LD      B,10
+        CALL    .DIGIT
+        ADD     A,'0'
+        JP      CONOUT
+.DIGIT: LD      D,'0'-1
+.LOOP:  INC     D
+        SUB     B
+        JR      NC,.LOOP
+        ADD     A,B             ; the remainder
+        LD      L,A
+        LD      A,D
+        CP      '0'
+        JR      NZ,.SHOW
+        LD      A,H
+        OR      A
+        LD      A,L
+        RET     Z               ; a leading zero: skip it
+        LD      A,D
+.SHOW:  LD      H,1
+        CALL    CONOUT
+        LD      A,L
+        RET
+
+; @blob $020 code WRTEXT helper=1
+; writeText(f as File, s as string[]) fails. Stack: IX+4 s address, IX+6
+; its capacity, IX+8 f's table address, IX+10 f's generation.
+WRTEXT: PUSH    IX
+        LD      IX,0
+        ADD     IX,SP
+        LD      A,(IX+8)
+        LD      H,(IX+9)
+        OR      H
+        JR      Z,.CLOSED
+        LD      A,(IX+8)
+        CP      CONSOLE
+        JR      NZ,.NOTAV       ; only the console exists yet
+        LD      L,(IX+4)
+        LD      H,(IX+5)
+        LD      B,(HL)          ; the length
+        INC     HL
+.NEXT:  LD      A,B
+        OR      A
+        JR      Z,.DONE
+        LD      A,(HL)
+        PUSH    BC
+        PUSH    HL
+        CALL    CONOUT
+        POP     HL
+        POP     BC
+        INC     HL
+        DEC     B
+        JR      .NEXT
+.DONE:  OR      A               ; success: carry clear
+        LD      IY,8
+        JP      RETN
+.CLOSED:
+        LD      A,9             ; fileClosed
+        JR      .FAIL
+.NOTAV: LD      A,15            ; notAvailable
+.FAIL:  SCF
+        LD      IY,8
+        JP      RETN
+
+; @blob $021 code WRBYTE helper=1
+; writeByte(f as File, b as u8) fails. Stack: IX+4 b, IX+6 f address,
+; IX+8 f generation.
+WRBYTE: PUSH    IX
+        LD      IX,0
+        ADD     IX,SP
+        LD      A,(IX+6)
+        LD      H,(IX+7)
+        OR      H
+        JR      Z,.CLOSED
+        LD      A,(IX+6)
+        CP      CONSOLE
+        JR      NZ,.NOTAV
+        LD      A,(IX+4)
+        CALL    CONOUT
+        OR      A
+        LD      IY,6
+        JP      RETN
+.CLOSED:
+        LD      A,9
+        JR      .FAIL
+.NOTAV: LD      A,15
+.FAIL:  SCF
+        LD      IY,6
+        JP      RETN

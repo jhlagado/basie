@@ -40,7 +40,7 @@ wider register than their type keep their meaning only in the low bytes.
 | --- | --- |
 | `SP` | the hardware stack; frames live on it |
 | `IX` | frame pointer of the current routine; callee-saved |
-| `IY` | reserved for runtime helpers; compiled code never uses it and never relies on it |
+| `IY` | the argument size on entry to `RETN`; otherwise reserved for runtime helpers, and compiled code never relies on it |
 | `A`, `BC`, `DE`, `HL`, `AF'`, `BC'`, `DE'`, `HL'` | scratch; destroyed by any call |
 
 Nothing but `IX` and `SP` survives a call. Interrupts are not handled by
@@ -69,7 +69,7 @@ words:
 | --- | ---: | --- |
 | `u8`, `i8`, `boolean` | 1 | the byte in the low half; the high byte is 0 |
 | `u16`, `i16`, 2-byte handles | 1 | the value |
-| `u32`, `i32`, `f32`, identifiers, `File` | 2 | low word pushed first, so it sits at the lower address |
+| `u32`, `i32`, `f32`, identifiers, `File` | 2 | high word pushed first, so the low word sits at the lower address and the value is little-endian in memory |
 | aggregate alias (record, `T[N]`, `string[N]`) | 1 | the address |
 | open view `string[]`, `T[]` | 2 | capacity or length word, then the address nearest the return address |
 | `var` parameter of an owning type, or a slot-holder `var h as P?` | +1 | the owner word, pushed before the address |
@@ -86,10 +86,12 @@ RET
 ```
 
 which the runtime provides as a shared helper, `RETN`, entered with the result
-registers intact and the argument size in `BC`, so each routine's epilogue is
-`LD BC,n` / `JP RETN` (or `LD SP,IX` / `POP IX` / `RET` when `n` is 0). All
-exits from a routine share one epilogue; owning locals are freed before it
-([memory safety](memory-safety.md) §5.3).
+registers and flags intact and the argument size in `IY`, so each routine's
+epilogue is `LD IY,n` / `JP RETN` (7 bytes), or `LD SP,IX` / `POP IX` / `RET`
+when `n` is 0. `RETN` uses only the alternate registers and `IY`, so it
+preserves `A`, `HL`, `DE` and the carry flag. All exits from a routine share
+one epilogue; owning locals are freed before it ([memory
+safety](memory-safety.md) §5.3).
 
 **Results** are returned in the registers of Section 1: `A`, `HL` or `DEHL`.
 An aggregate result is its address in `HL`. A `var` result is the same address;
@@ -98,7 +100,10 @@ the `var` marker is compile-time only.
 **Failure.** A routine declared `fails` returns with the carry flag **set** and
 the code in `A` on failure, and the carry **clear** on success, with the result
 in its registers. `RETN` preserves the carry and `A`. A routine not declared
-`fails` leaves the carry undefined.
+`fails` leaves the carry undefined, except `main`, which always returns with
+the carry clear on success, because startup cannot know whether `main` was
+declared `fails` and reports `FAIL` with the code in `A` when it returns with
+the carry set.
 
 ## 4. Expression evaluation
 
@@ -135,9 +140,10 @@ code never tail-calls a helper.
 
 Every routine's blob ends with a 4-byte pair after its code: `frame(R)` and
 `need(R)` ([memory safety](memory-safety.md) §7). A forward-declared routine
-begins with `CALL STKCHK`, the activation-capacity helper, which reads
-`need(R)` through the routine's return address and traps if
-`SP − need(R) − guard < FREE`. `need(main)` + the guard band is the `LIMITS`
+begins with `LD HL,(pair+2)` / `CALL STKCHK`: it loads `need(R)` through a
+self-reference to the pair and calls the activation-capacity helper, which
+traps if `SP − need(R) − guard < FREE`, reporting the `CALL` as the site, which
+the line table maps to the routine's header. `need(main)` + the guard band is the `LIMITS`
 record's stack reserve.
 
 `frame(R)` counts locals, temporaries, hidden string copies and expression
