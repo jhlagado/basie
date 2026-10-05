@@ -28,6 +28,8 @@ export type Diagnostic = {
   /** The part's name, as the line table records it. */
   part: string;
   message: string;
+  /** The arguments for ^1 and ^2 in BASIE.MSG's text, where supplied. */
+  args?: string[];
 };
 
 export type CompileResult =
@@ -175,6 +177,7 @@ export async function compile(
           part: e.partName ?? partNames[e.position.part] ??
             `part ${e.position.part}`,
           message: e.message,
+          ...(e.args ? { args: e.args } : {}),
         }],
       };
     }

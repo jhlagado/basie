@@ -7,7 +7,8 @@
  * of memory reads BLINK.COM from the harness's disk and starts it. The streams it writes are
  * checked against the reference compiler's by
  * tests/native_equivalence_test.ts; constructs not yet generated are
- * refused with Error 95 (65.4).
+ * refused with Error 191 (65.4). Diagnostics are printed by the
+ * reference's numbers, with their text from BASIE.MSG (step 66).
  */
 import { assertEquals, assertNotEquals } from "@std/assert";
 import { buildBasie } from "../native/compiler/build.ts";
@@ -21,11 +22,19 @@ const LIBRARY = (await buildRuntime()).file;
 
 type Files = Record<string, string | Uint8Array>;
 
-/** Run BASIE with the tail and the files, the CPM22 library on A: too. */
+/** BASIE's message file, beside it on A:. */
+const MSG = messageFile();
+
+/**
+ * Run BASIE with the tail and the files, BASIE.MSG on A:, and the CPM22
+ * library there too unless `library` is false.
+ */
 function build(tail: string, files: Files = {}, library = true) {
+  const tools: Files = { "BASIE.MSG": MSG };
+  if (library) tools["CPM22.BRL"] = LIBRARY;
   return runCom(basie, {
     tail,
-    files: library ? { "CPM22.BRL": LIBRARY, ...files } : files,
+    files: { ...tools, ...files },
     maxSteps: 50_000_000,
   });
 }
@@ -41,8 +50,16 @@ const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\n" +
 
 const MAIN = { "MAIN.BSI": PROGRAM };
 
-/** The bad-option report of the reference's L-COMMAND. */
-const bad = (word: string) => `${word}: a bad or repeated option\r\n`;
+/** The bad-option report of the reference's L-COMMAND, as BLINK prints it. */
+const bad = (word: string) =>
+  `Error 224: ${word}: a bad or repeated option\r\n`;
+
+/** A file not found (L-MISSING), as BLINK reports one. */
+const missing = (name: string) => `Error 225: ${name} not found\r\n`;
+
+/** NAME's diagnostic that `value` is not declared, at line 2 and column. */
+const undeclared = (name: string, column: number) =>
+  `${name}.BSI 2:${column}: 27: value is not declared\r\n`;
 
 Deno.test("BASIE with no part prints its usage", () => {
   assertEquals(run(""), USAGE);
@@ -73,7 +90,7 @@ Deno.test("a failed compilation deletes its streams unless K keeps them", () => 
   // A stale stream from an earlier build goes too.
   const stale = { ...bad, "MAIN.$NM": "old" };
   let result = build("MAIN [M]", stale);
-  assertEquals(result.output, "MAIN.BSI 2:1 Error 57\r\n");
+  assertEquals(result.output, undeclared("MAIN", 1));
   assertEquals(result.returnCode, 0xff11);
   for (const name of streams) assertEquals(result.disk.has(name), false, name);
   result = build("MAIN [M,K]", bad);
@@ -84,9 +101,9 @@ Deno.test("a failed compilation deletes its streams unless K keeps them", () => 
 });
 
 Deno.test("BASIE reports a part it can't find", () => {
-  assertEquals(run("MAIN"), "MAIN.BSI not found\r\n");
-  assertEquals(run("B:MAIN"), "B:MAIN.BSI not found\r\n");
-  assertEquals(run("MAIN.TXT", MAIN), "MAIN.TXT not found\r\n");
+  assertEquals(run("MAIN"), missing("MAIN.BSI"));
+  assertEquals(run("B:MAIN"), missing("B:MAIN.BSI"));
+  assertEquals(run("MAIN.TXT", MAIN), missing("MAIN.TXT"));
 });
 
 Deno.test("BASIE compiles a program from a file", () => {
@@ -103,17 +120,60 @@ Deno.test("BASIE compiles a program of several parts", () => {
     "MAIN.BSI": "sub main()\nresult = 12\nend\n",
   };
   assertEquals(run("DATA, MAIN [C]", files), "");
-  assertEquals(run("MAIN,DATA", files), "MAIN.BSI 2:1 Error 57\r\n");
+  assertEquals(
+    run("MAIN,DATA", files),
+    "MAIN.BSI 2:1: 27: result is not declared\r\n",
+  );
   const later = { ...files, "MAIN.BSI": "sub main()\nresult = missing\nend\n" };
-  assertEquals(run("DATA,MAIN", later), "MAIN.BSI 2:10 Error 57\r\n");
+  assertEquals(
+    run("DATA,MAIN", later),
+    "MAIN.BSI 2:10: 27: missing is not declared\r\n",
+  );
 });
 
 Deno.test("BASIE reports a diagnostic with its part, line and column", () => {
   const files = { "MAIN.BSI": "sub main()\n    value = 1\nend\n" };
-  assertEquals(run("MAIN", files), "MAIN.BSI 2:5 Error 57\r\n");
+  assertEquals(run("MAIN", files), undeclared("MAIN", 5));
   const parts = [..."ABCDEFGHI"];
   const empty = Object.fromEntries(parts.map((p) => [`${p}.BSI`, "\n"]));
-  assertEquals(run(parts.join(","), empty), "More than 8 source parts\r\n");
+  assertEquals(
+    run(parts.join(","), empty),
+    "Error 190: A compiler capacity was exceeded: source parts\r\n",
+  );
+});
+
+Deno.test("without BASIE.MSG a diagnostic is its number and arguments", () => {
+  const bare = (tail: string, files: Files) =>
+    runCom(basie, {
+      tail,
+      files: { "CPM22.BRL": LIBRARY, ...files },
+      maxSteps: 50_000_000,
+    }).output;
+  const files = { "MAIN.BSI": "sub main()\n    value = 1\nend\n" };
+  assertEquals(
+    bare("MAIN", files),
+    "MAIN.BSI 2:5: 27: Message 27: value\r\n",
+  );
+  assertEquals(bare("OTHER", files), "Error 225: Message 225: OTHER.BSI\r\n");
+  assertEquals(bare("MAIN [Q]", files), "Error 224: Message 224: Q\r\n");
+  // A file that is not a message file is no message file.
+  assertEquals(
+    bare("OTHER", { ...files, "BASIE.MSG": "not a message file" }),
+    "Error 225: Message 225: OTHER.BSI\r\n",
+  );
+  // It is looked for on L's drive, then on A:.
+  assertEquals(
+    bare("OTHER [L=B]", { ...files, "B:BASIE.MSG": MSG }),
+    missing("OTHER.BSI"),
+  );
+  assertEquals(
+    bare("OTHER [L=B]", { ...files, "BASIE.MSG": MSG }),
+    missing("OTHER.BSI"),
+  );
+  assertEquals(
+    bare("OTHER [L=B]", { ...files, "C:BASIE.MSG": MSG }),
+    "Error 225: Message 225: OTHER.BSI\r\n",
+  );
 });
 
 Deno.test("the source may fill memory to 1K below the BDOS entry", () => {
@@ -128,7 +188,7 @@ Deno.test("the source may fill memory to 1K below the BDOS entry", () => {
   assertEquals(run("MAIN [C]", { "MAIN.BSI": fill(room) }), "");
   assertEquals(
     run("MAIN", { "MAIN.BSI": fill(room + 1) }),
-    "Source too large\r\n",
+    "Error 190: A compiler capacity was exceeded: source size\r\n",
   );
 });
 
@@ -147,7 +207,7 @@ Deno.test("BASIE accepts every option of toolchain §5.3, in any case", () => {
   assertEquals(result.disk.has("MAIN.$NM"), true);
   // X links only: nothing is compiled, and BLINK, not on this disk, is run.
   const linked = build("MAIN [X]", MAIN);
-  assertEquals(linked.output, "BLINK.COM not found\r\n");
+  assertEquals(linked.output, missing("BLINK.COM"));
   assertEquals(linked.disk.has("MAIN.$DR"), false);
 });
 
@@ -215,12 +275,13 @@ const KEYS = new DataView(LIBRARY.buffer).getUint32(32, true);
 Deno.test("BASIE reads the library before any source, and refuses one it doesn't suit", () => {
   // The library is checked first: its absence is reported before the
   // missing part's.
-  assertEquals(build("MAIN", {}, false).output, "CPM22.BRL not found\r\n");
+  assertEquals(build("MAIN", {}, false).output, missing("CPM22.BRL"));
   assertEquals(build("MAIN", MAIN, false).returnCode, 0xff11);
-  assertEquals(run("MAIN [P=OTHER]", MAIN), "OTHER.BRL not found\r\n");
-  const format = "CPM22.BRL: bad magic or unsupported version\r\n";
-  const compat = "Program and library are not compatible\r\n";
-  const short = "CPM22.BRL: missing trailer, bad CRC or wrong length\r\n";
+  assertEquals(run("MAIN [P=OTHER]", MAIN), missing("OTHER.BRL"));
+  const format = "Error 200: CPM22.BRL: bad magic or unsupported version\r\n";
+  const compat = "Error 201: Program and library are not compatible\r\n";
+  const short =
+    "Error 214: CPM22.BRL: missing trailer, bad CRC or wrong length\r\n";
   const cases: [Uint8Array, string][] = [
     [patched(0, 0x42, 0x53, 0x49, 0x50), format], // BSIP, a program directory
     [patched(4, 2), format], // major version 2
@@ -274,7 +335,7 @@ Deno.test("BASIE looks for the library on L's drive or the first part's, then A:
   );
   assertEquals(
     build("B:MAIN", { ...onB, "C:CPM22.BRL": LIBRARY }, false).output,
-    "CPM22.BRL not found\r\n",
+    missing("CPM22.BRL"),
   );
   // on L's drive, and then on A:.
   assertEquals(
@@ -285,7 +346,7 @@ Deno.test("BASIE looks for the library on L's drive or the first part's, then A:
   assertEquals(run("MAIN [L=C,C]", MAIN), "");
   assertEquals(
     build("MAIN [L=C]", { ...MAIN, "B:CPM22.BRL": LIBRARY }, false).output,
-    "CPM22.BRL not found\r\n",
+    missing("CPM22.BRL"),
   );
 });
 
@@ -354,7 +415,7 @@ function chain(tail: string, files: Files = {}, tools = true) {
       ? {
         "CPM22.BRL": LIBRARY,
         "BLINK.COM": BLINK,
-        "BASIE.MSG": messageFile(),
+        "BASIE.MSG": MSG,
         ...files,
       }
       : files,
@@ -388,7 +449,7 @@ Deno.test("a failed build never runs BLINK", () => {
   const result = chain("HELLO", {
     "HELLO.BSI": "sub main()\nvalue = 1\nend\n",
   });
-  assertEquals(result.output, "HELLO.BSI 2:1 Error 57\r\n");
+  assertEquals(result.output, undeclared("HELLO", 1));
   assertEquals(result.returnCode, 0xff11);
   assertEquals(result.disk.has("HELLO.COM"), false);
   for (const t of STREAMS) assertEquals(result.disk.has(`HELLO.${t}`), false);
@@ -448,7 +509,7 @@ Deno.test("BASIE looks for BLINK.COM on L's drive or the current one, then A:", 
   const files = {
     "HELLO.BSI": HELLO,
     "CPM22.BRL": LIBRARY,
-    "BASIE.MSG": messageFile(),
+    "BASIE.MSG": MSG,
   };
   let result = chain("HELLO [L=B]", { ...files, "B:BLINK.COM": BLINK }, false);
   assertEquals(result.output, "");
@@ -457,7 +518,7 @@ Deno.test("BASIE looks for BLINK.COM on L's drive or the current one, then A:", 
   assertEquals(result.output, "");
   // Without it, the streams stay for a later BLINK.
   result = chain("HELLO", files, false);
-  assertEquals(result.output, "BLINK.COM not found\r\n");
+  assertEquals(result.output, missing("BLINK.COM"));
   assertEquals(result.returnCode, 0xff12);
   for (const t of ["$DR", "$BY", "$LN"]) {
     assertEquals(result.disk.has(`HELLO.${t}`), true);

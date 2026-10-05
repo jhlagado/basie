@@ -285,6 +285,7 @@ export class Compiler {
         "syntax",
         this.token,
         `expected '${text}', found ${this.describe(this.token)}`,
+        [`'${text}'`],
       );
     }
     return this.advance();
@@ -296,6 +297,7 @@ export class Compiler {
         "syntax",
         this.token,
         `expected '${text}', found ${this.describe(this.token)}`,
+        [`'${text}'`],
       );
     }
     return this.advance();
@@ -307,6 +309,7 @@ export class Compiler {
         "syntax",
         this.token,
         `expected a name, found ${this.describe(this.token)}`,
+        ["a name"],
       );
     }
     return this.advance() as Token & { kind: "name" };
@@ -318,6 +321,7 @@ export class Compiler {
         "syntax",
         this.token,
         `expected the end of the line, found ${this.describe(this.token)}`,
+        ["the end of the line"],
       );
     }
     this.advance();
@@ -415,8 +419,9 @@ export class Compiler {
       if (open) {
         fail(
           "forward-incomplete",
-          open.declaredAt,
+          open.signature.at ?? open.declaredAt,
           `forward ${open.name} never completed`,
+          [open.name],
         );
       }
       return;
@@ -618,6 +623,7 @@ export class Compiler {
           "duplicate-name",
           field,
           `field ${field.text} is already declared`,
+          [field.text],
         );
       }
       seen.add(field.text);
@@ -673,9 +679,9 @@ export class Compiler {
         this.advance();
         base = { kind: "file" };
       } else if (!sym) {
-        fail("undeclared-name", t, `${t.text} is not declared`);
+        fail("undeclared-name", t, `${t.text} is not declared`, [t.text]);
       } else {
-        fail("wrong-class", t, `${t.text} is not a type`);
+        fail("wrong-class", t, `${t.text} is not a type`, [t.text]);
       }
     } else {
       fail("syntax", t, `expected a type, found ${this.describe(t)}`);
@@ -691,9 +697,10 @@ export class Compiler {
         const inner = this.parseArrayTail(base!);
         return { kind: "openArray", element: inner };
       }
+      const lengthAt = this.token;
       const n = this.constantExpression(U16).value as number;
       if (n < 1 || n > 0xffff) {
-        fail("out-of-range", t, "an array length is 1 to 65,535");
+        fail("out-of-range", lengthAt, "an array length is 1 to 65,535");
       }
       this.expectPunct("]");
       dims.push(n);
@@ -732,7 +739,7 @@ export class Compiler {
     const name = this.expectName();
     const sym = this.scopes.lookup(name.text);
     if (sym?.kind !== "pool") {
-      fail("wrong-class", name, `${name.text} is not a pool`);
+      fail("wrong-class", name, `${name.text} is not a pool`, [name.text]);
     }
     const optional = this.acceptPunct("?");
     return {
@@ -898,7 +905,7 @@ export class Compiler {
     const name = this.expectName();
     if (name.text === "id") {
       // `id (` is always the conversion (3.5), so no routine can be named id.
-      fail("wrong-class", name, "a routine can't be named id");
+      fail("wrong-class", name, "a routine can't be named id", ["id"]);
     }
     this.expectPunct("(");
     const parameters: Parameter[] = [];
@@ -931,6 +938,7 @@ export class Compiler {
           type: ptype,
           var: isVar,
           offset: 0,
+          at: pname,
         });
       } while (this.acceptPunct(","));
     }
@@ -977,6 +985,7 @@ export class Compiler {
     }
     return {
       name: name.text,
+      at: name,
       parameters,
       result,
       varResult,
@@ -1026,7 +1035,7 @@ export class Compiler {
       part: this.currentPart,
       pendingNeeds: [],
     };
-    this.scopes.declare(sym, at, isPrivate);
+    this.scopes.declare(sym, sig.at ?? at, isPrivate);
     this.forwardsOpen.push(sym);
     this.anyForward = true;
     this.blobs.splice(this.blobs.indexOf(blob), 1); // the body's blob is created later
@@ -1048,6 +1057,7 @@ export class Compiler {
           "forward-mismatch",
           name,
           `${name.text} has no incomplete forward declaration`,
+          [name.text],
         );
       }
       sym = existing as Symbol & { kind: "routine" };
@@ -1072,8 +1082,9 @@ export class Compiler {
       if (existing?.kind === "routine" && existing.forward) {
         fail(
           "forward-mismatch",
-          sub,
+          sig.at ?? sub,
           `${sig.name} was declared forward; complete it with 'sub ${sig.name}'`,
+          [sig.name],
         );
       }
       sym = {
@@ -1089,7 +1100,7 @@ export class Compiler {
         part: this.currentPart,
         pendingNeeds: [],
       };
-      this.scopes.declare(sym, sub, isPrivate);
+      this.scopes.declare(sym, sig.at ?? sub, isPrivate);
     }
     this.expectNewline();
     const blob = wasForward
@@ -1109,7 +1120,7 @@ export class Compiler {
       ) {
         fail(
           "bad-main",
-          sub,
+          sym.signature.at ?? sub,
           "main takes no parameters, returns nothing and can't be private",
         );
       }
@@ -1150,7 +1161,7 @@ export class Compiler {
         parameter: p,
         flow: p.type.kind === "handle" && !p.type.id ? "value" : undefined,
         ownerOffset: p.ownerOffset,
-      }, at);
+      }, p.at ?? at);
     }
     blob.line(at.part, at.line);
     // Prologue.
@@ -1173,13 +1184,14 @@ export class Compiler {
     blob.u8(0xf9); // LD SP,HL
     // Body.
     this.block(["end"]);
-    this.expectKeyword("end");
+    const endAt = this.expectKeyword("end");
     this.expectNewline();
     if (sym.signature.result && state.fallsThrough) {
       fail(
         "missing-return",
-        this.token,
+        endAt,
         `${sym.name} can reach its end without returning a value`,
+        [sym.name],
       );
     }
     // The success exit: carry clear for fails routines and main.
@@ -1270,6 +1282,7 @@ export class Compiler {
           "recursion-needs-forward",
           at,
           `${callee.name} is not complete; declare it forward`,
+          [callee.name],
         );
       }
       return; // counts 0, per memory safety §7
@@ -1468,7 +1481,11 @@ export class Compiler {
   private nameStatement(): void {
     const name = this.token as Token & { kind: "name" };
     const sym = this.scopes.lookup(name.text);
-    if (!sym) fail("undeclared-name", name, `${name.text} is not declared`);
+    if (!sym) {
+      fail("undeclared-name", name, `${name.text} is not declared`, [
+        name.text,
+      ]);
+    }
     if (sym!.kind === "routine") {
       this.advance();
       const v = this.call(sym as Symbol & { kind: "routine" }, name);
@@ -1477,13 +1494,19 @@ export class Compiler {
       return;
     }
     if (sym!.kind !== "var" && sym!.kind !== "aggregateConst") {
-      fail("wrong-class", name, `${name.text} can't start a statement`);
+      fail("wrong-class", name, `${name.text} can't start a statement`, [
+        name.text,
+      ]);
     }
     const d = this.designator();
     this.expectPunct("=");
-    if (d.readonly) fail("not-writable", name, `${name.text} is read-only`);
+    if (d.readonly) {
+      fail("not-writable", name, `${name.text} is read-only`, [name.text]);
+    }
     if (d.symbol?.counting) {
-      fail("not-writable", name, `${name.text} is a loop counter`);
+      fail("not-writable", name, `${name.text} is a loop counter`, [
+        name.text,
+      ]);
     }
     this.assign(d, name);
     this.nameStatementTail(name, undefined);
@@ -1545,6 +1568,7 @@ export class Compiler {
         "failure-unconsumed",
         at,
         `${callee?.name ?? "the call"} fails; add else fail or handle`,
+        callee ? [callee.name] : undefined,
       );
     }
     this.expectNewline();
@@ -1654,8 +1678,9 @@ export class Compiler {
     if (!r.symbol.signature.fails) {
       fail("not-failable", at, "fail needs a routine declared fails");
     }
+    const codeAt = this.token;
     const v = this.expression(U8);
-    this.toRegisters(v, U8, at);
+    this.toRegisters(v, U8, codeAt);
     this.expectNewline();
     r.blob.u8(0xf5); // PUSH AF
     this.emitFrees(this.scopes.scopesFrom(this.scopes.routineDepth()));
@@ -1689,7 +1714,9 @@ export class Compiler {
     const at = this.expectKeyword(word);
     const r = this.routine!;
     const loop = r.loops.at(-1);
-    if (!loop) fail("outside-loop", at, `${word} needs an enclosing loop`);
+    if (!loop) {
+      fail("outside-loop", at, `${word} needs an enclosing loop`, [word]);
+    }
     this.expectNewline();
     if (word === "continue") this.checkBackEdge(loop!.entryFlow, at);
     else loop!.exitFlows.push(this.snapshotFlow());
@@ -2184,7 +2211,7 @@ export class Compiler {
     const name = this.expectName();
     const sym = this.scopes.lookup(name.text);
     if (sym?.kind !== "pool") {
-      fail("wrong-class", name, `${name.text} is not a pool`);
+      fail("wrong-class", name, `${name.text} is not a pool`, [name.text]);
     }
     const pool = (sym as Symbol & { kind: "pool" }).info;
     if (!pool.record) {
@@ -2692,7 +2719,9 @@ export class Compiler {
     }
     const counter = sym as Symbol & { kind: "var" };
     if (counter.counting) {
-      fail("not-writable", name, `${name.text} is already a loop counter`);
+      fail("not-writable", name, `${name.text} is already a loop counter`, [
+        name.text,
+      ]);
     }
     const ctype = counter.type as Type & { kind: "scalar" };
     const big = SCALARS[ctype.name].size === 4;
@@ -3132,8 +3161,9 @@ export class Compiler {
         return;
       }
       if (d.type.id) {
+        const srcAt = this.token;
         const v = this.expression(d.type);
-        this.toRegisters(v, d.type, at);
+        this.toRegisters(v, d.type, srcAt);
         this.store4(d);
         return;
       }
@@ -3152,8 +3182,9 @@ export class Compiler {
       this.emitAddress(d);
       r.blob.u8(0xe5); // PUSH HL
       this.push(2);
+      const srcAt = this.token;
       const v = this.expression(d.type);
-      this.toRegisters(v, d.type, at);
+      this.toRegisters(v, d.type, srcAt);
       this.recheck(d);
       if (sizeOf(d.type) === 4) {
         r.blob.u8(0xc1); // POP BC: the address
@@ -3167,8 +3198,9 @@ export class Compiler {
       this.storeRegistersIndirect(d.type);
       return;
     }
+    const srcAt = this.token;
     const v = this.expression(d.type);
-    this.toRegisters(v, d.type, at);
+    this.toRegisters(v, d.type, srcAt);
     this.storeRegisters(d.type, d.place);
   }
 
@@ -3178,7 +3210,11 @@ export class Compiler {
   private designator(): Designator {
     const name = this.expectName();
     const sym = this.scopes.lookup(name.text);
-    if (!sym) fail("undeclared-name", name, `${name.text} is not declared`);
+    if (!sym) {
+      fail("undeclared-name", name, `${name.text} is not declared`, [
+        name.text,
+      ]);
+    }
     let d: Designator;
     if (sym!.kind === "var") {
       const v = sym as Symbol & { kind: "var" };
@@ -3233,7 +3269,9 @@ export class Compiler {
         readonly: true,
       };
     } else {
-      fail("wrong-class", name, `${name.text} is not a variable`);
+      fail("wrong-class", name, `${name.text} is not a variable`, [
+        name.text,
+      ]);
     }
     const root = this.lastAddressRoot;
     const start = this.pos;
@@ -4131,6 +4169,7 @@ export class Compiler {
           "arity",
           this.token,
           `${callee.name} takes ${sig.parameters.length} arguments`,
+          [callee.name, String(sig.parameters.length)],
         );
       }
       pushedHere += this.argument(p, callee);
@@ -4140,6 +4179,7 @@ export class Compiler {
         "arity",
         this.token,
         `${callee.name} takes ${sig.parameters.length} arguments`,
+        [callee.name, String(sig.parameters.length)],
       );
     }
     this.advance();
@@ -4163,6 +4203,7 @@ export class Compiler {
           "failure-unconsumed",
           at,
           `${callee.name} fails; add else fail or handle`,
+          [callee.name],
         );
       }
     }
@@ -4598,7 +4639,11 @@ export class Compiler {
       return this.idExpression(name);
     }
     const sym = this.scopes.lookup(name.text);
-    if (!sym) fail("undeclared-name", name, `${name.text} is not declared`);
+    if (!sym) {
+      fail("undeclared-name", name, `${name.text} is not declared`, [
+        name.text,
+      ]);
+    }
     switch (sym!.kind) {
       case "const":
         this.advance();
@@ -4608,7 +4653,9 @@ export class Compiler {
         this.advance();
         const callee = sym as Symbol & { kind: "routine" };
         if (!callee.signature.result) {
-          fail("no-value", name, `${name.text} returns nothing`);
+          fail("no-value", name, `${name.text} returns nothing`, [
+            name.text,
+          ]);
         }
         const v = this.call(callee, name);
         if (v.kind === "address") {
@@ -4649,7 +4696,9 @@ export class Compiler {
         return this.loadDesignator(d);
       }
       default:
-        fail("wrong-class", name, `${name.text} is not a value`);
+        fail("wrong-class", name, `${name.text} is not a value`, [
+          name.text,
+        ]);
     }
   }
 

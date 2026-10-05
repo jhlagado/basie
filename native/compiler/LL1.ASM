@@ -34,7 +34,6 @@ LL_CAP EQU  64                 ; Grammar stack capacity in symbols.
 LL_DEPTH EQU  PR_SP+2          ; Symbols on the stack (byte).
 LL_STACK EQU  LL_DEPTH+1       ; The stack; LL_STACK+0 is the bottom.
 LL_WEND EQU  LL_STACK+LL_CAP   ; End of compiler workspace (marker).
-DG_LLCAP EQU  87               ; Grammar stack overflow; DG_LEAK is also 87.
 
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY
 ; Parse the program: push GR_START and expand, match and act until the
@@ -125,6 +124,14 @@ LL_PARSE:
     JR   .NEXTALT                  ; No: try the next alternative.
 .NOMATCH:                      ; No production fits the lookahead.
     POP  AF                        ; A is the row's diagnostic.
+    CP   DG_STMT                   ; Where a statement is due,
+    JR   NZ,.REPORT                ; a local declared
+    LD   B,A                       ; (keeping it)
+    LD   A,C                       ; is
+    CP   TK_VAR                    ; one the reference takes
+    LD   A,B                       ; but this compiler
+    JP   Z,TR_OPER                 ; does not yet (DG_NYI).
+.REPORT:                       ; A is the diagnostic.
     JP   DG_ISSUE                  ; Report it at the lookahead token.
 .MATCH:                        ; B selects the production.
     POP  AF                        ; Discard the row's diagnostic.

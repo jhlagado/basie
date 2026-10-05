@@ -116,11 +116,11 @@ AC_IMAGE:
 
 ;@ROUTINE NORETURN
 ; Island StrayClause: a routine body begins with else or elseif, which
-; belongs to no if. Raise DG_END, end expected.
+; belongs to no if: a statement was expected, as the reference says.
 
 AC_STRAY:
     CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_END                    ; Expected `end`.
+    DB   DG_STMT                   ; Expected a statement.
 
 ; ----------------------------------------------------------------- types
 
@@ -157,26 +157,29 @@ AC_NAMED:
     LD   (AC_DVAL),BC              ; Record the payload: the record's type ID.
     AND  SY_TYPE+SY_AGGR           ; Keep the type-name and aggregate flags.
     CP   SY_TYPE                   ; A type name, not an aggregate object?
-    JP   NZ,AG_EFORM               ; No: raise DG_BOUND.
+    LD   A,DG_CLASS                ; No: wrong-class,
+    JP   NZ,DG_NAMED               ; naming it.
     LD   A,C                       ; The record's type ID.
     JR   AC_USE                    ; Make it current.
 
 ;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
-; Return in HL the constant bound just parsed: it must be known, fit a u16
-; and be nonzero, or DG_BOUND (DG_RANGE for a value too wide) is raised.
+; Return in HL the constant bound just parsed: it must be known
+; (not-constant), fit a u16 and be nonzero (out-of-range), each reported
+; at the bound.
 
 AC_COUNT:
     LD   A,(EX_RMETA)              ; The bound's metadata.
     LD   D,A                       ; Keep it.
     AND  SY_KNOWN                  ; Was it folded to a constant?
-    JP   Z,AG_EFORM                ; No: raise DG_BOUND.
+    LD   A,DG_KNOWN                ; No: not-constant,
+    JP   Z,AG_EVAL                 ; at the bound.
     LD   E,SY_U16                  ; It must fit a u16.
     LD   A,D                       ; Recover the metadata.
     CALL EX_FITS                   ; Check the value against u16.
     LD   HL,(EX_RVAL)              ; The bound's value.
     LD   A,H                       ; Is it zero?
     OR   L                         ; Test both bytes.
-    JP   Z,AG_EFORM                ; A zero bound is not allowed.
+    JP   Z,AG_EBND                 ; A zero bound is out of range.
     RET                            ; HL is the bound.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
@@ -188,10 +191,10 @@ AC_STR:
     CALL AC_COUNT                  ; HL is the capacity N.
     LD   A,H                       ; Over 255?
     OR   A                         ; Test the high byte.
-    JP   NZ,AG_ESTR                ; Raise DG_SIZE.
+    JP   NZ,AG_EBND                ; Out of range, at the capacity.
     LD   A,L                       ; The capacity.
     CP   254                       ; The length byte must count N+1 bytes.
-    JP   NC,AG_ESTR                ; Raise DG_SIZE.
+    JP   NC,AG_EBND                ; Out of range, at the capacity.
     LD   A,L                       ; The capacity again.
     LD   (AG_NAUX),A               ; The candidate's capacity byte.
     LD   (AG_NDIM),HL              ; And its capacity word.
@@ -226,7 +229,7 @@ AC_DIM:
     LD   HL,AG_DCNT                ; The bounds waiting:
     LD   A,(HL)                    ; is there room
     CP   AG_DCAP                   ; for another?
-    JP   NC,AG_EFORM               ; No: raise DG_BOUND.
+    JP   NC,AG_EMETA               ; No: the capacity of a type.
     INC  (HL)                      ; Count it.
     ADD  A,A                       ; Its word
     LD   L,A                       ; in
@@ -266,7 +269,7 @@ AC_ARRAY:
     LD   (AG_NDIM),BC              ; The candidate's count.
     LD   A,(AG_CTYPE)              ; The element type.
     CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EFORM                ; Has no fixed size: raise DG_BOUND.
+    JP   Z,AG_EVIEW                ; Has no fixed size: a mismatch.
     CP   AG_FILE                   ; A File
     JP   Z,TR_OPER                 ; is never an element here (DG_NYI).
     LD   (AG_NAUX),A               ; The candidate's element type.
@@ -276,7 +279,7 @@ AC_ARRAY:
     LD   HL,0                      ; Sum the extent from zero.
 .SIZELOOP:                     ; Add one element per iteration.
     ADD  HL,DE                     ; One more element.
-    JP   C,AG_EDATA                ; Past 64K: raise DG_DATA.
+    JP   C,AG_EWIDE                ; Past 64K: out of range.
     CALL AG_FITRW                  ; Past 1 KiB: raise DG_DATA.
     DEC  BC                        ; One element fewer to add.
     LD   A,B                       ; Any left?
@@ -311,7 +314,8 @@ AC_VALUE:
     LD   A,(EX_RMETA)              ; The metadata.
     LD   D,A                       ; Keep it.
     AND  SY_KNOWN                  ; Did it fold?
-    JP   Z,EX_ETYPE                ; No: raise DG_CLASH.
+    LD   A,DG_KNOWN                ; No: not-constant,
+    JP   Z,EX_EVAL                 ; at the value.
     LD   A,D                       ; Recover the metadata.
     AND  SY_TMASK                  ; Its type.
     CP   SY_BOOL                   ; Boolean?
@@ -384,7 +388,7 @@ AC_VAR:
 
 AC_OBJ:
     CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EFORM                ; Cannot be an object: raise DG_BOUND.
+    JP   Z,AG_EVIEW                ; Cannot be an object: a mismatch.
     LD   (AC_DINFO),A              ; The object's type ID.
     CALL AG_SIZE                   ; HL is its extent.
     LD   (AG_OSIZE),HL             ; The object's size...
@@ -398,13 +402,13 @@ AC_OBJ:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; SaveAggregateConstantType: begin an aggregate constant. Only aggregate
-; types may be declared with `as`; a scalar raises DG_CLASH.
+; SaveAggregateConstantType: begin an aggregate constant. A typed scalar
+; constant is not yet compiled (DG_NYI).
 
 AC_ROOBJ:
     LD   A,(AG_CTYPE)              ; The declared type.
     CP   AG_FIRST                  ; A scalar?
-    JP   C,EX_ETYPE                ; Raise DG_CLASH.
+    JP   C,TR_OPER                 ; Refused for now.
     JR   AC_OBJ                    ; Begin the object.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
@@ -500,7 +504,7 @@ AC_FIELD:
 AC_PLACE:
     LD   A,(AG_CTYPE)              ; The field's type.
     CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EFORM                ; Has no size: raise DG_BOUND.
+    JP   Z,AG_EVIEW                ; Has no size: a mismatch.
     CP   AG_FILE                   ; A File
     JP   Z,TR_OPER                 ; is never a field here (DG_NYI).
     LD   A,(AG_FCNT)               ; The field's index...
@@ -523,7 +527,7 @@ AC_PLACE:
     CALL AG_SIZE                   ; HL is its extent.
     POP  DE                        ; Recover the offset.
     ADD  HL,DE                     ; The record's new size.
-    JP   C,AG_EDATA                ; Past 64K: raise DG_DATA.
+    JP   C,AG_EWIDE                ; Past 64K: out of range.
     CALL AG_FITRW                  ; Past 1 KiB: raise DG_DATA.
     LD   (AG_CSIZE),HL             ; Commit it.
     LD   HL,AG_CFCNT               ; Count...

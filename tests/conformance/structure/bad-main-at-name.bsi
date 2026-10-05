@@ -1,0 +1,7 @@
+// main with a parameter is reported at main's name, the construct the
+// diagnostic names, not at `sub`.
+// spec: 4.4
+// expect error: bad-main at 6:5
+
+sub main(count as u8)
+end

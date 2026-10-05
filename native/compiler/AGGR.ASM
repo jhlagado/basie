@@ -191,15 +191,16 @@ AG_FITRW:
 
 ; Failure exits shared with the type and declaration actions. None returns.
 
-AG_EFORM:                      ; A type or bound that is not admitted.
+AG_EVIEW:                      ; An open string where it can't be.
     CALL DG_RAISE                  ; Report it.
-    DB   DG_BOUND                  ; Diagnostic: invalid type form or bound.
-AG_EDATA:                      ; An extent overflowed sixteen bits.
+    DB   DG_CLASH                  ; Diagnostic: a parameter type only.
+AG_EWIDE:                      ; An extent past 65,535 bytes.
     CALL DG_RAISE                  ; Report it.
-    DB   DG_DATA                   ; Diagnostic: program data too large.
-AG_ESTR:                       ; A string capacity above 253.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_SIZE                   ; Diagnostic: string capacity too large.
+    DB   DG_RANGE                  ; Diagnostic: out-of-range.
+AG_EBND:                       ; A bound out of range, or not a constant:
+    LD   A,DG_RANGE                ; out-of-range,
+AG_EVAL:                       ; or A,
+    JP   EX_EVAL                   ; at the bound's first token.
 
 ;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE
 ; Address the six-byte entry of record field index A in HL. A is preserved.
@@ -370,17 +371,15 @@ AG_CHAR:                       ; HL is the source.
     POP  DE                        ; Restore DE.
     RET                            ; A is the byte.
 
-; Initializer and literal failures. None returns.
+; Initializer and literal failures, reported as the reference's
+; staticInitializer reports them. None returns.
 
 AG_ELONG:                      ; A string literal longer than its string.
     CALL DG_RAISE                  ; Report it.
-    DB   DG_LONG                   ; Diagnostic: string too long.
-AG_EINIT:                      ; The wrong bracket or token for the type.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_SHAPE                  ; Diagnostic: initializer shape mismatch.
-AG_ECNT:                       ; Too few or too many items.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_ITEMS                  ; Diagnostic: wrong number of items.
+    DB   DG_RANGE                  ; Diagnostic: out-of-range.
+AG_ECNT:                       ; Anything but a comma between two items.
+    CALL DG_RAISE                  ; Report it: the comma
+    DB   DG_COMMA                  ; is expected (syntax).
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
 ; Peek at the next token kind, preserving BC for the item loops.
@@ -400,15 +399,14 @@ AG_TAKE:
     POP  BC                        ; Discard the token value; restore BC.
     RET                            ; Return the kind in A.
 
-;@ROUTINE IN A,ZERO OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
-; Consume the comma between two items. A is the peeked token, with zero set
-; when it was the closing bracket: a close before the last item is too few
-; items, and anything but a comma is the wrong shape. BC is preserved.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
+; Consume the comma between two items: anything else, a close before the
+; last item among them, is syntax, the comma expected. BC is preserved.
 
 AG_COMMA:
-    JR   Z,AG_ECNT                 ; Closed early: too few items.
+    CALL AG_PEEK                   ; The token after the item.
     CP   TK_COMMA                  ; Does a comma separate the items?
-    JR   NZ,AG_EINIT               ; No: the initializer is malformed.
+    JR   NZ,AG_ECNT                ; No: one is expected.
     JR   AG_TAKE                   ; Consume the comma.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
@@ -432,7 +430,8 @@ AG_PARSE:
     JR   Z,AG_REC                  ; Parse its field list.
     CP   AG_KARR                   ; An array?
     JP   Z,AG_ARRAY                ; Parse its element list.
-    JR   AG_EINIT                  ; Defensive: no other kind is interned.
+    CALL DG_RAISE                  ; Defensive: no other kind is interned.
+    DB   DG_BUG                    ; Diagnostic: internal.
 
 .SCALAR:                       ; u8, u16 or Boolean.
     LD   E,A                       ; E is the destination type for EX_FITS.
@@ -441,7 +440,8 @@ AG_PARSE:
     POP  DE                        ; Restore the destination type.
     CALL EX_FITS                   ; Check assignment compatibility.
     AND  SY_KNOWN                  ; Was the value known at compile time?
-    JP   Z,EX_ETYPE                ; No: a static initializer must be.
+    LD   A,DG_KNOWN                ; No: a static initializer must be,
+    JP   Z,EX_EVAL                 ; reported at the value (not-constant).
     LD   A,L                       ; Fetch the value's low byte.
     PUSH DE                        ; Keep the type across the put.
     PUSH HL                        ; Keep the value.
@@ -479,15 +479,15 @@ AG_PARSE:
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
 ; Consume the opening bracket A of a record or array initializer and open
-; one nesting level. Any other token is the wrong shape; a fifth level
-; raises DG_INITS. BC is preserved.
+; one nesting level. Any other token is syntax, the bracket expected; a
+; fifth level raises DG_INITS. BC is preserved.
 
 AG_ENTER:
     PUSH AF                        ; Keep the expected bracket.
     CALL AG_PEEK                   ; Fetch the next token kind.
     POP  DE                        ; D is the expected bracket.
     CP   D                         ; Does the initializer open with it?
-    JP   NZ,AG_EINIT               ; No: the shape is wrong for the type.
+    JR   NZ,AG_EWANT               ; No: the bracket is expected.
     CALL AG_TAKE                   ; Consume the bracket.
     LD   A,(AG_LEVEL)              ; Fetch the nesting depth.
     CP   AG_LCAP                   ; Is another level allowed?
@@ -530,12 +530,10 @@ AG_REC:
     INC  B                         ; Step to the next field.
     DEC  C                         ; One fewer field to initialize.
     JR   Z,.CLOSE                  ; All fields done: expect the close.
-    CALL AG_PEEK                   ; Fetch the token after the item.
-    CP   TK_RPAR                   ; Zero if the record closes too soon.
     CALL AG_COMMA                  ; Require and consume a comma.
     JR   .LOOP                     ; Parse the next field.
 .CLOSE:                        ; Every field has its item.
-    LD   BC,TK_RPAR<<8|TK_RBRAC    ; Expect ')'; ']' is the wrong shape.
+    LD   D,TK_RPAR                 ; Expect ')'.
     JR   AG_CLOSE                  ; Close the list and return.
 
 ; Parse an array initializer, [ item, item, ... ], with exactly one item for
@@ -569,32 +567,34 @@ AG_ARRAY:
     LD   A,D                       ; Is the count exhausted?
     OR   E                         ; Test both bytes.
     JR   Z,.CLOSE                  ; Yes: expect the close.
-    PUSH DE                        ; AG_PEEK clobbers DE.
-    CALL AG_PEEK                   ; Fetch the token after the item.
-    POP  DE                        ; Restore the count.
-    CP   TK_RBRAC                  ; Zero if the array closes too soon.
     PUSH DE                        ; AG_COMMA clobbers DE.
     CALL AG_COMMA                  ; Require and consume a comma.
     POP  DE                        ; Restore the count.
     JR   .LOOP                     ; Parse the next element.
 .CLOSE:                        ; Every element has its item.
-    LD   BC,TK_RBRAC<<8|TK_RPAR    ; Expect ']'; ')' is the wrong shape.
+    LD   D,TK_RBRAC                ; Expect ']'.
 
-;@ROUTINE IN BC OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,BC,DE,HL
-; Close an initializer list: B is the expected closing bracket and C the
-; other one. The wrong bracket is the wrong shape and anything else (a
-; comma or another item) is too many items. Closes one nesting level.
+;@ROUTINE IN D OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,BC,DE,HL
+; Close an initializer list: D is the closing bracket, which must follow
+; the last item; anything else, another item among them, is syntax, the
+; bracket expected. Closes one nesting level.
 
 AG_CLOSE:
+    PUSH DE                        ; Keep the bracket.
     CALL AG_PEEK                   ; Fetch the token after the last item.
-    CP   B                         ; Is it the expected close?
-    JR   Z,.TAKE                   ; Yes: consume it.
-    CP   C                         ; Is it the other kind of bracket?
-    JP   Z,AG_EINIT                ; Yes: the shape is wrong.
-    JP   AG_ECNT                   ; Otherwise there are too many items.
-.TAKE:                         ; The list closes correctly.
+    POP  DE                        ; D is the bracket.
+    CP   D                         ; Is it the expected close?
+    JR   NZ,AG_EWANT               ; No: it is expected.
     CALL PR_TAKE                   ; Consume the bracket.
     JP   AG_LEAVE                  ; Close the nesting level and return.
+
+;@ROUTINE IN D NORETURN
+; Raise syntax at the current token: token kind D expected.
+
+AG_EWANT:
+    LD   A,D                       ; The kind
+    OR   DG_TOKEN                  ; expected,
+    JP   DG_ISSUE                  ; at the token.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Zero the AG_OSIZE bytes of the object at the staging cursor before an

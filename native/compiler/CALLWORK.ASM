@@ -82,19 +82,21 @@ RO_MFLAG EQU  RO_BASE+$0B      ; Byte: main's flags, as main has no routine reco
 RO_CARGS EQU  RO_BASE+$0C      ; Byte: the routine's argument bytes, removed by RETN.
 RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
 RO_LCNT EQU  RO_BASE+$0E       ; Byte: string literals of the routine (RO_LTAB).
+RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FAILS).
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's
 ; Designator holds them, and the position of the index being parsed. The
 ; fourteen bytes are kept on the machine stack across a nested parse.
-RO_PLACE EQU  RO_BASE+$0F      ; First byte of the path's block.
+RO_PLACE EQU  RO_BASE+$11      ; First byte of the path's block.
 RO_PKIND EQU  RO_PLACE+0       ; Byte: GA_BLOB, GA_FRAME, GA_ALIAS or GA_HELD.
 RO_PRO EQU  RO_PLACE+1         ; Byte: nonzero when the path is read-only.
 RO_PBASE EQU  RO_PLACE+2       ; Word: a static place's blob, an alias's word at IX+n.
 RO_PADD EQU  RO_PLACE+4        ; Word: bytes on from the base, or a frame place's offset.
 RO_OTYPE EQU  RO_PLACE+6       ; Byte: type of the path, operand or parameter in hand.
 RO_PPUSH EQU  RO_PLACE+7       ; Byte: nonzero when an index's computed base is pushed.
-RO_IPOS EQU  RO_PLACE+8        ; Six bytes: the position of the index's first token.
-RO_PWORD EQU  7                ; Words in the block, RO_PLACE to RO_STEND.
-RO_STEND EQU  RO_PLACE+14      ; End of the routine state; the tables follow.
+RO_IPOS EQU  RO_PLACE+8        ; Word: the offset of the index's first token.
+RO_PROOT EQU  RO_PLACE+10      ; Word: the root's symbol record, for its name.
+RO_PWORD EQU  6                ; Words in the block, RO_PLACE to RO_STEND.
+RO_STEND EQU  RO_PLACE+12      ; End of the routine state; the tables follow.
 GA_BLOB EQU  0                 ; Place: static, in a blob.
 GA_FRAME EQU  1                ; Place: the frame, at IX+offset.
 GA_ALIAS EQU  2                ; Place: through an address word in the frame.
@@ -143,7 +145,7 @@ SRC_WEND EQU  SRC_LEFT+1       ; End of the source cursor.
 ; returns straight to the caller from any depth of the parse.
 PR_SP EQU  SRC_WEND            ; Word: SP that DG_ISSUE restores.
 SRC_DLEN EQU  5                ; Bytes in one part descriptor: identity, start, end.
-SRC_CAP EQU  8                 ; Source parts a compilation accepts; DG_FILES beyond.
+SRC_CAP EQU  8                 ; Source parts a compilation accepts; DG_PARTS beyond.
 SRC_CNT EQU  $07               ; SRC_LEFT bits 0..2: parts still to come.
 SRC_STEP EQU  8                ; One ordinal step; TK_ATEND adds SRC_STEP-1.
 SRC_ORD EQU  $38               ; SRC_LEFT bits 3..5: ordinal of the current part.
@@ -155,8 +157,3 @@ RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
 RO_FWIDE EQU  $10              ; Service flag: a u32 makes it one not yet called.
 
-DG_PROCS EQU  84               ; Diagnostic: more than RO_RCAP routines (AC_SIG).
-DG_PARAM EQU  85               ; Diagnostic: more than RO_PCAP parameters (RO_ENROL).
-DG_LITS EQU  86                ; Diagnostic: more than RO_LCAP literals in a routine (GA_LIT).
-DG_LEAK EQU  87                ; Diagnostic: a call's failure is not handled.
-DG_FILES EQU  88               ; Diagnostic: part count outside 1 to SRC_CAP.

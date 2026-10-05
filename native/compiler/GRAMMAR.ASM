@@ -63,42 +63,42 @@ GR_BOOL EQU  73                    ; Action ordinal of TypeBoolean (AC_TYPE).
 ; Row directory: offset from GR_ROWS, diagnostic when nothing is predicted.
 
 GR_ROWX:
-    DB   0,DG_TOP                  ; GR_ROW0-GR_ROWS; compilation-unit
-    DB   8,DG_TOP                  ; GR_ROW1-GR_ROWS; top-level-list
-    DB   17,DG_TOP                 ; GR_ROW2-GR_ROWS; top-level-declaration
-    DB   29,DG_TOP                 ; GR_ROW3-GR_ROWS; const-declaration
+    DB   0,DG_DECL                 ; GR_ROW0-GR_ROWS; compilation-unit
+    DB   8,DG_DECL                 ; GR_ROW1-GR_ROWS; top-level-list
+    DB   17,DG_DECL                ; GR_ROW2-GR_ROWS; top-level-declaration
+    DB   29,DG_DECL                ; GR_ROW3-GR_ROWS; const-declaration
     DB   31,DG_EQ                  ; GR_ROW4-GR_ROWS; const-declaration-tail
-    DB   35,DG_TOP                 ; GR_ROW5-GR_ROWS; assert-declaration
-    DB   37,DG_TOP                 ; GR_ROW6-GR_ROWS; program-var-declaration
+    DB   35,DG_DECL                ; GR_ROW5-GR_ROWS; assert-declaration
+    DB   37,DG_DECL                ; GR_ROW6-GR_ROWS; program-var-declaration
     DB   39,DG_EQ                  ; GR_ROW7-GR_ROWS; program-initializer-opt
-    DB   43,DG_TOP                 ; GR_ROW8-GR_ROWS; record-declaration
+    DB   43,DG_DECL                ; GR_ROW8-GR_ROWS; record-declaration
     DB   45,DG_EMPTY               ; GR_ROW9-GR_ROWS; record-fields
-    DB   47,DG_VALUE               ; GR_ROW10-GR_ROWS; record-field-tail
-    DB   51,DG_VALUE               ; GR_ROW11-GR_ROWS; record-field
+    DB   47,DG_NAME                ; GR_ROW10-GR_ROWS; record-field-tail
+    DB   51,DG_NAME                ; GR_ROW11-GR_ROWS; record-field
     DB   53,DG_FORW                ; GR_ROW12-GR_ROWS; forward-declaration
     DB   55,DG_SUB                 ; GR_ROW13-GR_ROWS; sub-definition
     DB   57,DG_LPAR                ; GR_ROW14-GR_ROWS; sub-definition-tail
     DB   61,DG_RPAR                ; GR_ROW15-GR_ROWS; parameter-list
     DB   65,DG_RPAR                ; GR_ROW16-GR_ROWS; parameter-tail
-    DB   69,DG_VALUE               ; GR_ROW17-GR_ROWS; parameter
+    DB   69,DG_NAME                ; GR_ROW17-GR_ROWS; parameter
     DB   71,DG_EOL                 ; GR_ROW18-GR_ROWS; result-opt
     DB   76,DG_EOL                 ; GR_ROW19-GR_ROWS; fails-opt
-    DB   80,DG_VALUE               ; GR_ROW20-GR_ROWS; routine-body
-    DB   94,DG_VALUE               ; GR_ROW21-GR_ROWS; local-list
+    DB   80,DG_STMT                ; GR_ROW20-GR_ROWS; routine-body
+    DB   94,DG_STMT                ; GR_ROW21-GR_ROWS; local-list
     DB   106,DG_VAR                ; GR_ROW22-GR_ROWS; local-declaration
     DB   108,DG_EOL                ; GR_ROW23-GR_ROWS; local-initializer-opt
-    DB   112,DG_VALUE              ; GR_ROW24-GR_ROWS; statement-sequence
-    DB   125,DG_VALUE              ; GR_ROW25-GR_ROWS; statement
+    DB   112,DG_STMT               ; GR_ROW24-GR_ROWS; statement-sequence
+    DB   125,DG_STMT               ; GR_ROW25-GR_ROWS; statement
     DB   140,DG_RET                ; GR_ROW26-GR_ROWS; return-statement
     DB   142,DG_EOL                ; GR_ROW27-GR_ROWS; return-value-opt
     DB   156,DG_KFAIL              ; GR_ROW28-GR_ROWS; fail-statement
-    DB   158,DG_LEAK               ; GR_ROW29-GR_ROWS; name-statement-tail
+    DB   158,DG_EOL                ; GR_ROW29-GR_ROWS; name-statement-tail
     DB   162,DG_LOOP               ; GR_ROW30-GR_ROWS; transfer-statement
     DB   166,DG_IF                 ; GR_ROW31-GR_ROWS; if-statement
-    DB   168,DG_VALUE              ; GR_ROW32-GR_ROWS; if-tail
+    DB   168,DG_STMT               ; GR_ROW32-GR_ROWS; if-tail
     DB   174,DG_VALUE              ; GR_ROW33-GR_ROWS; while-statement
     DB   176,DG_FOR                ; GR_ROW34-GR_ROWS; for-statement
-    DB   178,DG_VALUE              ; GR_ROW35-GR_ROWS; for-bound
+    DB   178,DG_UPTO               ; GR_ROW35-GR_ROWS; for-bound
     DB   182,DG_EOL                ; GR_ROW36-GR_ROWS; for-step-opt
     DB   186,DG_TYPE               ; GR_ROW37-GR_ROWS; type
     DB   192,DG_TYPE               ; GR_ROW38-GR_ROWS; type-atom

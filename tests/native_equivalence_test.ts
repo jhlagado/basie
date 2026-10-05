@@ -15,7 +15,11 @@ import { assertEquals } from "@std/assert";
 import { buildBasie } from "../native/compiler/build.ts";
 import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
-import { messageFile } from "../ref/compile/messages.ts";
+import {
+  formatMessage,
+  messageFile,
+  MESSAGES,
+} from "../ref/compile/messages.ts";
 import { parseExpectations } from "./conformance/expectations.ts";
 
 const { compile } = await import("../ref/compile/index.ts");
@@ -328,8 +332,8 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
       continue;
     }
     // The one refusal allowed: an exact value outside 0..65535, which the
-    // native compiler cannot fold (Error 61; native compiler plan §5).
-    if (/ Error 61\r\n$/.test(run.output)) continue;
+    // native compiler cannot fold (native-exact; native compiler plan §5).
+    if (/: 192: /.test(run.output)) continue;
     assertEquals(run.output, "", body);
     same(body, run.disk.get("RANDOM.$DR"), ref.objects.directory);
     same(body, run.disk.get("RANDOM.$BY"), ref.objects.bytes);
@@ -419,7 +423,9 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 });
 
 // Programs both compilers refuse: the native compiler may refuse more than
-// the reference, never less.
+// the reference, never less. Each is refused with the reference's
+// diagnostic: its number and code, at its part, line and column, and, where
+// both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
   "a routine calls itself without a forward":
     "sub f(n as u8)\nf(n)\nend\nsub main()\nend\n",
@@ -601,6 +607,9 @@ const REFUSED: Record<string, string> = {
   "a field of a File": "var f as File\nvar x as u8\nsub main()\nx = f.a\nend\n",
 };
 
+/** The code of a message number, from the message table. */
+const codeOf = (n: number) => MESSAGES.find((m) => m.number === n)?.code;
+
 for (const [what, text] of Object.entries(REFUSED)) {
   Deno.test(`both compilers refuse ${what}`, async () => {
     const source = new TextEncoder().encode(text);
@@ -608,12 +617,43 @@ for (const [what, text] of Object.entries(REFUSED)) {
       shrink: false,
       mainSource: source,
     });
-    assertEquals(ref.ok, false, "the reference accepts it");
+    if (ref.ok || !("diagnostics" in ref)) {
+      throw new Error("the reference accepts it");
+    }
+    const want = ref.diagnostics[0];
     const run = runCom(basie, {
       tail: "REFUSED",
-      files: { "REFUSED.BSI": source, "CPM22.BRL": LIBRARY },
+      files: {
+        "REFUSED.BSI": source,
+        "CPM22.BRL": LIBRARY,
+        "BASIE.MSG": messageFile(),
+      },
       maxSteps: 50_000_000,
     });
-    assertEquals(/ Error \d+\r\n$/.test(run.output), true, run.output);
+    // As the reference toolchain prints it: PART LINE:COLUMN: N: text.
+    const m = run.output.match(/^REFUSED\.BSI (\d+):(\d+): (\d+): (.*)\r\n$/);
+    if (!m) throw new Error(`not a diagnostic: ${JSON.stringify(run.output)}`);
+    const number = Number(m[3]);
+    assertEquals(
+      {
+        code: codeOf(number),
+        number,
+        line: Number(m[1]),
+        column: Number(m[2]),
+      },
+      {
+        code: want.code,
+        number: want.number,
+        line: want.line,
+        column: want.column,
+      },
+      want.message,
+    );
+    // The native compiler supplied arguments when its text is not the
+    // template's with none; then they must be the reference's, if it
+    // supplies them too.
+    if (want.args && m[4] !== formatMessage(number, [])) {
+      assertEquals(m[4], formatMessage(number, want.args));
+    }
   });
 }

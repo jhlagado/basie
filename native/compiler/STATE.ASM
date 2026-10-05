@@ -55,15 +55,14 @@ TK_PTR EQU  PR_BASE+$13        ; Word: address of a name's first byte.
 TK_LEN EQU  PR_BASE+$15        ; Byte: length of a name or decoded string.
 
 ; The diagnostic (PARSER.ASM, DG_ISSUE). The shell prints it after a
-; failed compilation. DG_POS..DG_COL is a copy of the token's position.
+; failed compilation, counting its line and column from DG_POS.
 
 DG_CODE EQU  PR_BASE+$16       ; Byte: diagnostic number, zero for none.
 DG_PART EQU  PR_BASE+$17       ; Byte: SRC_ID of the part at fault.
-DG_POS EQU  PR_BASE+$18        ; Word: offset of the token at fault.
-DG_LINE EQU  PR_BASE+$1A       ; Word: its line.
-DG_COL EQU  PR_BASE+$1C        ; Word: its column.
+DG_POS EQU  PR_BASE+$18        ; Word: the offset in the part of the fault.
 
 PR_STEND EQU  PR_BASE+$1B      ; End of the first block.
+
 
 ; The emitter's state (EMIT.ASM) for the routine being written: its frame
 ; accounting, as the reference compiler's RoutineState keeps it, and its
@@ -82,6 +81,11 @@ EM_LLEN EQU  4                 ; Bytes in one label.
 EM_LCAP EQU  32                ; Labels in one routine; DG_LABEL beyond.
 EM_LLIM EQU  EM_LTAB+EM_LLEN*EM_LCAP ; Exclusive end of the labels.
 EM_NONE EQU  $FFFF             ; The offset of a label not yet defined.
+; A diagnostic's argument text (DG_NAMED, MESSAGE.ASM), over the
+; emitter's labels, which no failed compilation needs; DG_ARG1 and
+; DG_ARG2 (SHELL.ASM) point at the arguments.
+DG_ABUF EQU  EM_LTAB           ; DG_ALEN bytes: a zero-terminated argument.
+DG_ALEN EQU  33                ; A name is cut to 32 characters.
 ; Routine generation (GENCALL.ASM): ordinals and what the program's entry
 ; and limits records need, kept for the whole compilation.
 RG_ORD EQU  EM_LLIM            ; Word: the next ordinal to give a blob.
@@ -137,7 +141,10 @@ AC_DLEN EQU  SY_LIM+$11        ; Byte: length of the spelling.
 AC_DPOS EQU  SY_LIM+$12        ; Six bytes: the declared name's position.
 EX_VPOS EQU  SY_LIM+$18        ; Six bytes: the latest value's position.
 EX_LPOSP EQU  SY_LIM+$1E       ; Word: popped left value's position record.
-EX_STACK EQU  SY_LIM+$20       ; First operand-stack entry.
+EX_START EQU  SY_LIM+$20       ; Word: the offset of the last expression's first token.
+TK_ENDP EQU  SY_LIM+$22        ; Word: the offset of the last `end` (TOKEN.ASM).
+AC_SPOS EQU  SY_LIM+$24        ; Word: the offset of the name statement's first token.
+EX_STACK EQU  SY_LIM+$26       ; First operand-stack entry.
 EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
 EX_STLEN EQU  13               ; Bytes in one entry.
 EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
@@ -301,51 +308,62 @@ TK_XOR EQU  53                 ; Keyword xor.
 TK_MOD EQU  54                 ; Keyword mod.
 TK_ASSRT EQU  55               ; Keyword assert.
 
-; Diagnostic numbers, as DG_CODE reports them and the shell prints them.
-; Only the numbers some path raises are named; the gaps are Nucleus
-; diagnostics this compiler cannot produce.
+; Diagnostic codes, as DG_CODE reports them. Below DG_TOKEN and from 190
+; to 199 a code is the reference compiler's number for the diagnostic
+; (ref/compile/messages.ts, docs/diagnostics.md), printed with its text
+; from BASIE.MSG (MESSAGE.ASM); the comment gives the reference's code.
+; DG_TOKEN plus a token kind, or a pseudo-kind for a phrase, is `syntax`,
+; naming what was expected; DG_CAP plus an index is `capacity`, naming
+; the limit this compiler reached.
 
-DG_LEX EQU  1                  ; A byte or literal the tokenizer refuses.
-DG_INUSE EQU  36               ; An active loop counter written or reused.
-DG_TOP EQU  37                 ; No main, or not a top-level declaration.
-DG_SINK EQU  40                ; The transcript is full.
-DG_REACH EQU  41               ; A relative branch out of range.
-DG_UNMET EQU  54               ; A forward routine never defined.
-DG_DUP EQU  55                 ; A name declared twice.
-DG_SYMS EQU  56                ; The symbol table is full.
-DG_UNDEF EQU  57               ; A name not declared.
-DG_VALUE EQU  58               ; A scalar value expected.
-DG_TYPE EQU  59                ; A type expected.
-DG_CLASH EQU  60               ; Operand types do not agree.
-DG_RANGE EQU  61               ; An exact value outside its type.
-DG_ZERO EQU  62                ; Division by an exact zero.
-DG_TRUNC EQU  63               ; An exact u8(...) that loses bits.
-DG_CHAIN EQU  64               ; Comparisons chained without and/or.
-DG_DEEP EQU  65                ; Expressions or calls nested too deep.
-DG_ANDOR EQU  66               ; and/or nested too deep.
-DG_BUG EQU  67                 ; An internal inconsistency.
-DG_NEST EQU  68                ; Control statements nested too deep.
-DG_LABEL EQU  69               ; Control labels exhausted.
-DG_FIXUP EQU  70               ; The branch fixup table is full.
-DG_LOOP EQU  72                ; exit or continue outside a loop.
-DG_COUNT EQU  73               ; An invalid for-loop counter.
-DG_STEP EQU  74                ; An invalid for-loop step.
-DG_FLOW EQU  75                ; A value routine can end without return.
-DG_META EQU  76                ; Type, record or field tables full.
-DG_INITS EQU  77               ; Initializers nested too deep.
-DG_SHAPE EQU  78               ; An initializer of the wrong shape.
-DG_ITEMS EQU  79               ; Too many or too few initializer items.
-DG_LONG EQU  80                ; A string literal longer than its type.
-DG_DATA EQU  81                ; An object larger than the initializer staging.
-; Bounded string capacity is at most 253; use u8[N] plus a scalar length for
-; an unterminated, caller-managed buffer.
-DG_SIZE EQU  90                ; A string capacity above 253.
-DG_FALSE EQU  91               ; An assert that is exactly false.
-DG_CONST EQU  94               ; Assignment to a read-only object.
-DG_EMPTY EQU  82               ; A record with no fields.
-DG_NYI EQU  95                 ; A construct this compiler does not yet compile.
-DG_BLOB EQU  96                ; A routine or object too large for the blob buffers.
-DG_BOUND EQU  83               ; An array or string bound out of range.
+DG_LEXB EQU  1                 ; bad-byte: a byte the source may not hold.
+DG_CR EQU  2                   ; lone-cr.
+DG_LEX EQU  3                  ; bad-character: a byte no token begins with.
+DG_FORM EQU  4                 ; malformed-number.
+DG_ESC EQU  5                  ; bad-escape.
+DG_NONE EQU  6                 ; empty-character.
+DG_LONGC EQU  7                ; long-character.
+DG_OPEN EQU  8                 ; unterminated-literal.
+DG_SHUT EQU  9                 ; unmatched-delimiter.
+DG_AJAR EQU  11                ; open-delimiter.
+DG_MAIN EQU  25                ; missing-main.
+DG_UNDEF EQU  27               ; undeclared-name.
+DG_BADMN EQU  26               ; bad-main.
+DG_DUP EQU  28                 ; duplicate-name.
+DG_HIDE EQU  29                ; shadowed-name: a local or parameter hides a name.
+DG_CLASS EQU  30               ; wrong-class: a name of the wrong kind.
+DG_RECUR EQU  31               ; recursion-needs-forward.
+DG_FWDNO EQU  32               ; forward-mismatch.
+DG_UNMET EQU  33               ; forward-incomplete.
+DG_CONV EQU  40                ; conversion-required.
+DG_CLASH EQU  41               ; type-mismatch.
+DG_RANGE EQU  42               ; out-of-range: a value or bound outside its type.
+DG_INFER EQU  44               ; no-definite-type: an initializer to infer from.
+DG_FALSE EQU  45               ; assertion-false.
+DG_EMPTY EQU  48               ; empty-record.
+DG_KNOWN EQU  51               ; not-constant.
+DG_MIXED EQU  70               ; mixed-operands.
+DG_CHAIN EQU  71               ; chained-comparison.
+DG_INDEX EQU  72               ; index-type.
+DG_ZERO EQU  73                ; division-by-zero.
+DG_CONST EQU  74               ; not-writable.
+DG_FIELD EQU  76               ; no-such-field.
+DG_NOIDX EQU  77               ; not-indexable.
+DG_VOID EQU  78                ; no-value: a routine without a result.
+DG_TRUNC EQU  79               ; narrowing: an exact u8() that loses bits.
+DG_PAST EQU  81                ; bounds: a constant index out of range.
+DG_LOOP EQU  82                ; outside-loop.
+DG_COUNT EQU  83               ; loop-counter.
+DG_STEP EQU  84                ; loop-step.
+DG_FLOW EQU  85                ; missing-return.
+DG_ALIAS EQU  104              ; alias-escapes: a result rooted in the frame.
+DG_ARITY EQU  111              ; arity: too many arguments.
+DG_SAFE EQU  112               ; not-failable.
+DG_LEAK EQU  113               ; failure-unconsumed.
+DG_DEST EQU  114               ; handle-destination.
+DG_NYI EQU  191                ; native-unsupported: not yet compiled natively.
+DG_EXACT EQU  192              ; native-exact: an exact value beyond 16 bits.
+DG_BUG EQU  199                ; internal.
 
 ; Ordinary token mismatches encode the token ordinal directly. Named-value
 ; mismatches retain their context-specific diagnostic codes above.
@@ -363,6 +381,41 @@ DG_FOR EQU  DG_TOKEN+TK_FOR    ; for expected.
 DG_FORW EQU  DG_TOKEN+TK_FORW  ; forward expected.
 DG_RET EQU  DG_TOKEN+TK_RET    ; return expected.
 DG_IF EQU  DG_TOKEN+TK_IF      ; if expected.
+DG_COMMA EQU  DG_TOKEN+TK_COMMA ; A comma expected.
+DG_NAME EQU  DG_TOKEN+TK_NAME  ; A name expected.
+
+; Pseudo-kinds, above the token kinds and below DG_CAP-DG_TOKEN: what a
+; syntax diagnostic expected that is no single token (MESSAGE.ASM's
+; phrases, the reference compiler's words).
+TK_XEXPR EQU  56               ; An expression.
+TK_XTYPE EQU  57               ; A type.
+TK_XDECL EQU  58               ; A declaration.
+TK_XSTMT EQU  59               ; A statement.
+TK_XUPTO EQU  60               ; to or until.
+DG_VALUE EQU  DG_TOKEN+TK_XEXPR ; Expected an expression.
+DG_TYPE EQU  DG_TOKEN+TK_XTYPE ; Expected a type.
+DG_DECL EQU  DG_TOKEN+TK_XDECL ; Expected a declaration.
+DG_STMT EQU  DG_TOKEN+TK_XSTMT ; Expected a statement.
+DG_UPTO EQU  DG_TOKEN+TK_XUPTO ; Expected to or until.
+
+; The limits of this compiler: `capacity`, with the limit's name
+; (MS_CAPS, in this order) as its argument.
+DG_CAP EQU  200                ; The first.
+DG_SYMS EQU  DG_CAP+0          ; The symbol table (SY_CAP).
+DG_PROCS EQU  DG_CAP+1         ; The routine records (RO_RCAP).
+DG_PARAM EQU  DG_CAP+2         ; One routine's parameters (RO_PCAP).
+DG_LITS EQU  DG_CAP+3          ; One routine's string literals (RO_LCAP).
+DG_META EQU  DG_CAP+4          ; Types, records and fields.
+DG_NEST EQU  DG_CAP+5          ; Control statements open at once (CT_FCAP).
+DG_DEEP EQU  DG_CAP+6          ; The operand stack, or calls inside calls.
+DG_LABEL EQU  DG_CAP+7         ; One routine's labels (EM_LCAP).
+DG_INITS EQU  DG_CAP+8         ; Nested initializers (AG_LCAP).
+DG_DATA EQU  DG_CAP+9          ; The initializer staging (AG_ICAP).
+DG_BLOB EQU  DG_CAP+10         ; The blob writer's buffers.
+DG_LLCAP EQU  DG_CAP+11        ; The grammar stack (LL_CAP).
+DG_PARTS EQU  DG_CAP+12        ; Source parts (SRC_CAP).
+DG_ROOM EQU  DG_CAP+13         ; Memory for the source.
+
 
 ; Scalar types and symbol information. An expression's metadata byte and a
 ; symbol's class/type byte share the low bits: the type in SY_TMASK. The

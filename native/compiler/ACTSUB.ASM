@@ -53,8 +53,7 @@ AC_EARLY:
     LD   A,(RO_CUR)                ; The routine being declared.
     INC  A                         ; $FF, main, becomes zero.
     RET  NZ                        ; Not main: the declaration may follow.
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_EOF                    ; Expected the end of the program.
+    JP   TR_OPER                   ; Not yet compiled natively.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; RequireMain, at the end of the program: main must have a body (DG_TOP),
@@ -84,10 +83,20 @@ AC_MAIN:
     JR   .LOOP                     ; Check it.
 .NOMAIN:                       ; The program has no main.
     CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_TOP                    ; Expected a declaration.
+    DB   DG_MAIN                   ; missing-main, at its end.
 .PARTIAL:                      ; A forward has no body.
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_UNMET                  ; Unmet forward declaration.
+    LD   A,C                       ; Its record:
+    CALL RO_SUBAT                  ; HL.
+    LD   A,DG_UNMET                ; forward-incomplete,
+    CALL DG_SETN                   ; naming it,
+    LD   A,C                       ; at
+    CALL RO_SUBAT                  ; its
+    LD   E,(HL)                    ; name,
+    INC  HL                        ; which
+    LD   D,(HL)                    ; may be
+    EX   DE,HL                     ; in another part.
+    LD   A,DG_UNMET                ; forward-incomplete.
+    JP   DG_SRC                    ; No return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; RetainSubName: keep the routine's name and position unchecked. The grammar
@@ -128,16 +137,17 @@ AC_CLEAR:
 AC_SIG:
     CALL AC_RESUB                  ; The routine's name is current again.
     CALL AC_EARLY                  ; Nothing may follow main.
+    CALL .FRESH                    ; Reject a name already in use.
     CALL EX_MAIN                   ; Is the name `main`?
     JR   C,.MAIN                   ; Yes: open main.
     LD   A,(RO_RCNT)               ; The routines so far.
     CP   RO_RCAP                   ; Room for another?
     JR   NC,.FULL                  ; No: raise DG_PROCS.
-    CALL RO_FRESH                  ; Reject a name already in use.
     LD   HL,KW_ID                  ; `id (` is always the conversion
     LD   B,2                       ; (spec 3.5), so no routine
     CALL TK_MATCH                  ; may be named id:
-    JP   C,EX_ETYPE                ; raise DG_CLASH.
+    LD   A,DG_CLASS                ; raise wrong-class,
+    JP   C,DG_NAMED                ; naming it.
     LD   A,(RO_RCNT)               ; The new routine's index.
     LD   (RO_CUR),A                ; It is the routine being declared.
     CALL RO_SUBAT                  ; HL addresses its record.
@@ -150,7 +160,6 @@ AC_SIG:
     LD   (RO_CFLAG),A              ; The routine's flags: none yet.
     RET                            ; Back to the engine.
 .MAIN:                         ; Open main's signature.
-    CALL RO_FRESH                  ; Reject a symbol or routine called main.
     LD   A,$FF                     ; Main is being declared.
     LD   (RO_CUR),A                ; Mark it.
     CALL AC_CLEAR                  ; No parameters or result.
@@ -160,6 +169,26 @@ AC_SIG:
 .FULL:                         ; The routine table is full.
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_PROCS                  ; Too many routines.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Reject the current name, a routine's being declared, if it is already
+; taken, naming it: a routine declared forward is completed by `sub NAME`
+; alone (DG_FWDNO); any other routine, a program-wide symbol or a
+; predeclared name is a duplicate (DG_DUP).
+
+.FRESH:                        ; The routine's name is current.
+    CALL SY_FIND                   ; A program-wide symbol?
+    JP   C,EX_EDUP                 ; A duplicate.
+    CALL RO_FIND                   ; A routine?
+    LD   A,DG_DUP                  ; If not, a duplicate
+    JP   NZ,RO_FRESH               ; of a predeclared name, or free.
+    CALL RO_SUBAT                  ; HL is the routine's record.
+    LD   DE,RO_RFLAG               ; Its flags:
+    ADD  HL,DE                     ; one declared forward
+    BIT  3,(HL)                    ; (RO_FFWD)
+    JP   Z,EX_EDUP                 ; is completed by `sub NAME` alone;
+    LD   A,DG_FWDNO                ; another, a duplicate.
+    JP   DG_NAMED                  ; Raise it, named.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; BeginForward: build the signature as AC_SIG does and mark it forward and
@@ -192,8 +221,7 @@ AC_PARAM:
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 .MAIN:                         ; Main has a parameter.
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_RPAR                   ; Expected ")".
+    JR   AC_EMAIN                  ; Raise bad-main.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitParameter: append the retained name with the current type.
@@ -204,13 +232,21 @@ AC_JOIN:
     JP   RO_ENROL                  ; Append the parameter and return.
 
 ;@ROUTINE OUT A CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
-; AllowSubResult: main has no result (DG_EOL).
+; AllowSubResult: main has no result (bad-main).
 
 AC_GIVES:
     LD   A,(RO_CUR)                ; The routine declared.
     INC  A                         ; Is it main?
-    JR   Z,AC_ELINE                ; Yes: raise DG_EOL.
-    RET                            ; Another routine may return a value.
+    RET  NZ                        ; Another routine may return a value.
+
+;@ROUTINE NORETURN
+; Raise bad-main at main's name (AC_DPOS): main takes no parameters and
+; returns nothing.
+
+AC_EMAIN:
+    LD   A,DG_BADMN                ; bad-main,
+    LD   HL,AC_DPOS                ; at main's name.
+    JP   DG_AT                     ; No return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; SaveSubResult: the current type is the result type; not a view
@@ -219,7 +255,7 @@ AC_GIVES:
 AC_GIVEN:
     LD   A,(AG_CTYPE)              ; The result type.
     CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EFORM                ; Cannot be returned: raise DG_BOUND.
+    JP   Z,AG_EVIEW                ; Cannot be returned: a mismatch.
     CP   AG_FILE                   ; A File
     JP   Z,TR_OPER                 ; is refused for now.
     LD   (RO_CTYPE),A              ; The routine's result type.
@@ -235,13 +271,6 @@ AC_FAILS:
     LD   (RO_CFLAG),A              ; Keep them.
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
-
-;@ROUTINE NORETURN
-; Raise DG_EOL: the signature should have ended.
-
-AC_ELINE:
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_EOL                    ; Expected the end of the line.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; BeginForwardBody: `sub NAME` without a signature opens the body of an
@@ -269,7 +298,7 @@ AC_IMPL:
     INC  HL                        ; Step to RO_RFLAG.
     LD   A,(HL)                    ; Its flags.
     BIT  2,A                       ; RO_FOPEN: still waiting for a body?
-    JP   Z,EX_EDUP                 ; No: a second body is a duplicate.
+    JR   Z,.MISSING                ; No: no forward is incomplete.
     AND  $FF-RO_FOPEN              ; The body is here.
     LD   (HL),A                    ; In the record...
     LD   (RO_CFLAG),A              ; ...and the signature.
@@ -279,8 +308,8 @@ AC_IMPL:
     LD   (RO_CARGS),A              ; them.
     JR   AC_BEGIN                  ; Open the body.
 .MISSING:                      ; No forward to complete.
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_UNDEF                  ; Undefined name.
+    CALL DG_RNAME                  ; Abandon the build, naming it:
+    DB   DG_FWDNO                  ; forward-mismatch.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginSubBody: after a full signature, open main's body, or publish the
@@ -430,7 +459,7 @@ AC_END:
     JR   Z,.CLOSE                  ; Then falling off the end is a return.
     LD   A,(CT_FALLS)              ; Can control reach the end?
     OR   A                         ; Zero means every path returned.
-    JP   NZ,EX_EFLOW               ; Raise DG_FLOW: a path returns no value.
+    JR   NZ,.FLOW                  ; Then a path returns no value.
 .CLOSE:                        ; Close the routine.
     CALL RG_CLOSE                  ; Write its blob; HL is its need.
     LD   A,(RO_CUR)                ; Was it main?
@@ -452,6 +481,13 @@ AC_END:
     LD   A,(RO_GLOBS)              ; Keep only the global symbols.
     LD   (SY_CNT),A                ; Parameters and locals go out of scope.
     RET                            ; Back to the engine.
+.FLOW:                         ; missing-return, at the routine's end
+    LD   A,(RO_CUR)                ; naming
+    CALL RO_SUBAT                  ; the routine,
+    LD   A,DG_FLOW                 ; whose record's name
+    CALL DG_SETN                   ; is argument 1.
+    LD   HL,TK_ENDP                ; Its closing end
+    JP   DG_AT                     ; is where.
 
 ; ----------------------------------------------------------------- failure
 
@@ -462,7 +498,7 @@ AC_END:
 AC_FAIL:
     LD   A,(RO_CFLAG)              ; The routine's flags.
     AND  RO_FFAIL                  ; Failable?
-    JR   Z,AC_ELEAK                ; No: raise DG_LEAK.
+    JR   Z,AC_ESAFE                ; No: raise not-failable at `fail`.
     LD   A,SY_U8                   ; The code is a u8.
     JP   AC_WANT                   ; Expect it.
 
@@ -502,12 +538,29 @@ AC_VALOK:
     JP   AC_SAFE                   ; Reject a pending failure.
 
 ;@ROUTINE NORETURN
-; Raise DG_LEAK: a failure is unhandled, or fail or `else fail` is used
-; where nothing can fail.
+; Raise not-failable at the current token: fail where nothing can fail.
 
-AC_ELEAK:
+AC_ESAFE:
     CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_LEAK                   ; Failure not handled.
+    DB   DG_SAFE                   ; not-failable.
+
+;@ROUTINE NORETURN
+; Raise syntax, the end of the line expected: what follows a pending
+; failure that no `else fail` or handler can consume where it stands, as
+; the reference finds the statement's end there.
+
+AC_ELINE:
+    CALL DG_RAISE                  ; Abandon the build.
+    DB   DG_EOL                    ; Expected the end of the line.
+
+;@ROUTINE NORETURN
+; Raise not-failable at the statement's start (AC_SPOS): `else fail` or a
+; handler after a statement whose calls cannot fail.
+
+AC_EMOOT:
+    LD   A,DG_SAFE                 ; not-failable,
+    LD   HL,AC_SPOS                ; at the statement.
+    JP   DG_AT                     ; No return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; A failure is pending after a local initializer: only `else fail` may
@@ -517,7 +570,7 @@ AC_ELEAK:
 AC_RELAY:
     CALL PR_PEEK                   ; What follows the initializer?
     CP   TK_ELSE                   ; `else fail`?
-    JR   NZ,AC_ELEAK               ; No: the failure is unhandled.
+    JR   NZ,AC_ELINE               ; No: the declaration should have ended.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; `else fail` follows a call whose failure goes to the exit (RO_FAILS has
@@ -530,9 +583,9 @@ AC_PASS:
     CALL PR_NEED                   ; Consume `fail`.
     CALL PR_PEEK                   ; What follows?
     CP   TK_HANDL                  ; A handler as well?
-    JR   Z,AC_ELEAK                ; Would have nothing to handle.
+    JR   Z,AC_ELINE                ; The statement should have ended.
     CP   TK_ELSE                   ; Another else?
-    JR   Z,AC_ELEAK                ; Likewise; fall into AC_DROP.
+    JR   Z,AC_ELINE                ; Likewise; fall into AC_DROP.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; The pending failure is handled. Returns A zero.
@@ -556,9 +609,9 @@ AC_ROUTE:
     JR   NZ,.PENDING               ; Attach its handling.
     CALL PR_PEEK                   ; What follows the statement?
     CP   TK_ELSE                   ; `else fail`
-    JR   Z,AC_ELEAK                ; with nothing to pass on,
+    JR   Z,AC_EMOOT                ; with nothing to pass on,
     CP   TK_HANDL                  ; or a handler
-    JR   Z,AC_ELEAK                ; with nothing to handle.
+    JR   Z,AC_EMOOT                ; with nothing to handle.
     RET                            ; Back to the engine.
 .PENDING:                      ; A is $80 and the failure's label.
     AND  $7F                       ; The label:
@@ -603,13 +656,23 @@ AC_FIND:
 
 AC_ONERR:
     CALL AC_FIND                   ; The variable's class and type, and payload.
-    CALL EX_CLASS                  ; A scalar? A is its class, Z for a constant.
-    JP   Z,EX_ETYPE                ; A constant cannot receive the code.
-    CP   SY_LOCAL                  ; A local?
-    CALL Z,CT_GUARD                ; Reject an active for counter (BC).
+    AND  SY_TYPE+SY_AGGR           ; A type name or an aggregate,
+    JR   NZ,.DEST                  ; or
+    LD   A,D                       ; a
+    AND  SY_CMASK                  ; constant
+    JR   Z,.DEST                   ; cannot receive the code.
+    CP   SY_LOCAL                  ; A local
+    JR   NZ,.TYPE                  ; that counts
+    CALL CT_COUNT                  ; a for loop,
+    JR   C,.DEST                   ; neither.
+.TYPE:                         ; A variable.
     CALL EX_DTYPE                  ; Its type.
     CP   SY_U8                     ; Error codes are u8.
-    JP   NZ,EX_ETYPE               ; Anything else raises DG_CLASH.
+    JR   Z,.U8                     ; Anything else is no destination.
+.DEST:                         ; Not a writable u8 variable.
+    CALL DG_RAISE                  ; Raise the diagnostic below:
+    DB   DG_DEST                   ; handle-destination.
+.U8:                           ; The variable takes the code.
     LD   B,CT_FDEST                ; The failure
     CALL CT_DEF                    ; lands here.
     LD   B,CT_FMODE                ; The temporaries
@@ -645,4 +708,4 @@ AC_SAFE:
     LD   A,(RO_PEND)               ; Is a failure pending?
     OR   A                         ; Zero means none.
     RET  Z                         ; Nothing to handle.
-    JP   AC_ELEAK                  ; Raise DG_LEAK.
+    JP   AC_ELINE                  ; The statement should have ended.

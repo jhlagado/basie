@@ -76,8 +76,11 @@ SY_AT:
 
 ;@ROUTINE IN D,BC OUT A,CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Write a provisional record for the current NAME token with class/type D
-; and payload word BC. A duplicate name raises DG_DUP and a full table
-; DG_SYMS; neither returns. The record stays invisible until SY_CMT.
+; and payload word BC. A name already a symbol raises DG_DUP, or DG_HIDE
+; when a local or parameter would hide a symbol of another class (the
+; reference's scopes: a local hides a parameter or a program-wide name),
+; and a full table raises DG_SYMS; none returns. The record stays
+; invisible until SY_CMT.
 
 SY_NEW:
     PUSH BC                        ; Keep the payload across the lookup.
@@ -85,7 +88,7 @@ SY_NEW:
     CALL SY_FIND                   ; Is the name already an ordinary symbol?
     POP  DE                        ; Restore the class/type in D.
     POP  BC                        ; Restore the payload.
-    JP   C,EX_EDUP                 ; A second declaration is a duplicate.
+    JR   C,.TAKEN                  ; Then it is a duplicate or hidden.
     LD   A,(SY_CNT)                ; The provisional slot follows the committed.
     CP   SY_CAP                    ; Is there a free slot for it?
     JR   NC,.FULL                  ; No: the table is full.
@@ -104,6 +107,23 @@ SY_NEW:
 .FULL:                         ; Every slot is in use.
     LD   A,DG_SYMS                 ; Diagnostic: too many symbols.
     JR   DG_ISSUE                  ; Report it; no return.
+.TAKEN:                        ; HL is the symbol of that name.
+    INC  HL                        ; Its class
+    INC  HL                        ; and type
+    INC  HL                        ; follow the name.
+    LD   A,(HL)                    ; Of the same class
+    XOR  D                         ; as the new one,
+    AND  SY_CMASK                  ; it is
+    LD   A,DG_DUP                  ; a duplicate;
+    JR   Z,.NAMED                  ; so is any
+    LD   A,D                       ; program-wide
+    AND  SY_CMASK                  ; name's,
+    CP   SY_LOCAL                  ; but a local's or parameter's
+    LD   A,DG_HIDE                 ; would hide
+    JR   NC,.NAMED                 ; another's,
+    LD   A,DG_DUP                  ; a duplicate otherwise.
+.NAMED:                        ; A is the diagnostic.
+    JR   DG_NAMED                  ; Name it; no return.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Record A as the aggregate type ordinal of the provisional symbol, then
@@ -148,9 +168,9 @@ SY_GET:
     OR   A                         ; Clear carry for success.
     RET                            ; Return class/type and payload.
 
-; Report the current NAME as undefined. This is the last line of the file:
-; it falls into DG_ISSUE, the first routine of PARSER.ASM, so the include
-; order in BASIE.ASM must keep PARSER.ASM next.
+; Report the current NAME as undefined, naming it. This is the last line
+; of the file: it falls into DG_NAMED, the first routine of PARSER.ASM, so
+; the include order in BASIE.ASM must keep PARSER.ASM next.
 
 SY_UNDEF:
-    LD   A,DG_UNDEF                ; Diagnostic: undefined name; DG_ISSUE follows.
+    LD   A,DG_UNDEF                ; Diagnostic: undefined name; DG_NAMED follows.

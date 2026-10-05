@@ -1,0 +1,13 @@
+// A routine with a result that can reach its end without returning a
+// value is reported at that end, its closing `end`, not at the next line.
+// spec: 13.5
+// expect error: missing-return at 10:1
+
+sub sign(n as u8) as u8
+  if n = 0
+    return 0
+  end
+end
+
+sub main()
+end

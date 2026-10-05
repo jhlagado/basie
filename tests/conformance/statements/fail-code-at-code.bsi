@@ -1,0 +1,11 @@
+// A failure code that doesn't fit u8 is reported at the code, the value
+// the diagnostic names, not at `fail`.
+// spec: 14.2
+// expect error: out-of-range at 7:8
+
+sub check() fails
+  fail 300
+end
+
+sub main()
+end

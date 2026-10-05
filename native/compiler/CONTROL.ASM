@@ -229,15 +229,26 @@ CT_LOOP:
     JR   .NEXT                     ; CT_KTRAP is not.
 
 ;@ROUTINE IN BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; BC is a local's offset from IX. Raise DG_INUSE if that local is the
-; counter of any open for loop, so the body can neither assign it nor
-; count with it again (the reference's counting).
+; BC is the offset from IX of a local, the current name. Raise
+; not-writable, naming it, if that local is the counter of any open for
+; loop, so the body can neither assign it nor count with it again (the
+; reference's counting).
 
 CT_GUARD:
+    CALL CT_COUNT                  ; Carry if the local counts a loop.
+    RET  NC                        ; It doesn't.
+    LD   A,DG_CONST                ; not-writable,
+    JP   DG_NAMED                  ; naming it.
+
+;@ROUTINE IN BC OUT CARRY CLOBBERS A,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; Carry if the local at offset BC from IX is the counter of an open for
+; loop.
+
+CT_COUNT:
     LD   A,(CT_DEPTH)              ; How many frames are open?
 .NEXT:                         ; Check the frame below index A.
     OR   A                         ; Was that the outermost?
-    RET  Z                         ; Then the local is free.
+    RET  Z                         ; Then the local is free; carry is clear.
     DEC  A                         ; A is the next frame outward.
     PUSH AF                        ; Keep the index.
     CALL CT_FRAME                  ; HL addresses frame A.
@@ -257,8 +268,9 @@ CT_GUARD:
     POP  AF                        ; The index again.
     JR   .NEXT                     ; Check further out.
 .ACTIVE:                       ; The local counts an open loop.
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_INUSE                  ; Counter in use.
+    POP  AF                        ; The index is not needed.
+    SCF                            ; Report it.
+    RET                            ; Carry.
 
 ;@ROUTINE OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B
 ; If the arm just ended can complete (CT_FALLS), mark the innermost frame,

@@ -1,0 +1,10 @@
+// A value of the wrong type in an assignment is reported at the value,
+// not at the target.
+// spec: 10.4
+// expect error: type-mismatch at 9:11
+
+var count as u8
+
+sub main()
+  count = console
+end

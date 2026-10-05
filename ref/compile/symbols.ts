@@ -18,10 +18,14 @@ export type Parameter = {
   offset: number;
   /** IX offset of the hidden owner word, for var owning parameters. */
   ownerOffset?: number;
+  /** Where the parameter is named, for a diagnostic about its name. */
+  at?: Position;
 };
 
 export type Signature = {
   name: string;
+  /** Where the routine is named, for a diagnostic about its name. */
+  at?: Position;
   parameters: Parameter[];
   result?: Type;
   varResult: boolean;
@@ -169,6 +173,7 @@ export class Scopes {
         here
           ? `${sym.name} is already declared`
           : `${sym.name} would hide a visible name`,
+        [sym.name],
       );
     }
     // A top-level declaration is program-wide unless private (chapter 5).

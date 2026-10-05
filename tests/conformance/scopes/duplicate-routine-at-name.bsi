@@ -1,0 +1,11 @@
+// A routine named after a service is a duplicate, reported at the
+// routine's name: a diagnostic's position is the first byte of the
+// construct it names (docs/diagnostics.md), not the `sub` before it.
+// spec: 5.10, 16
+// expect error: duplicate-name at 7:5
+
+sub size()
+end
+
+sub main()
+end

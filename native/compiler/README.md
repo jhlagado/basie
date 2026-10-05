@@ -25,8 +25,15 @@ and each routine and top-level declaration is written as a blob (design
 decision D45; [native compiler](../../docs/native-compiler.md) §2 and §3,
 65.4). `tests/native_equivalence_test.ts` compiles every claimed program in
 `tests/native/programs` with both compilers and compares the four streams
-byte for byte. A construct not yet generated this way is refused with Error
-95 (`DG_NYI`).
+byte for byte. A construct not yet generated this way is refused with
+`native-unsupported`, 191 (`DG_NYI`).
+
+Diagnostics carry the reference compiler's numbers (`ref/compile/messages.ts`,
+docs/diagnostics.md) and are printed as the reference toolchain prints
+them, `MAIN.BSI 12:5: 27: count is not declared`, the text read from
+`BASIE.MSG` (`MESSAGE.ASM`, design decision D39); without the file the text
+is `Message N` and the arguments. The test's both-refuse list checks the
+number, code, position and arguments against the reference's.
 
 | File | Area | Contents |
 | --- | --- | --- |
@@ -48,7 +55,8 @@ byte for byte. A construct not yet generated this way is refused with Error
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, prologues (checked for a forward routine) and exits (through `RETN` when there are arguments), the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
 | `PREDEF.ASM` | `HP_` | The predeclared names: constants, `console` and `printer`, and the services with their signatures, ordinals and stack figures, generated from the reference's helper table and `ref/compile/helpers.ts` by `deno task helpers` (`tests/helper_table_test.ts` checks it is current) |
-| `SHELL.ASM` | `SH_` | The CP/M shell: its course, source parts, streams on the spool drive (deleted after a failure unless option `K`), diagnostics and return codes; on success it chains to `BLINK` |
+| `SHELL.ASM` | `SH_` | The CP/M shell: its course, source parts, streams on the spool drive (deleted after a failure unless option `K`), diagnostics with their part, line and column, and return codes; on success it chains to `BLINK` |
+| `MESSAGE.ASM` | `MS_` | Diagnostics by the reference's numbers, their text and arguments from `BASIE.MSG`, or the number and arguments without it |
 | `COMMAND.ASM` | `CL_` | The command line: the parts' names and every option of toolchain §5.3, checked as `BLINK` checks them (one-shot code, for an overlay at step 66) |
 | `LIBRARY.ASM` | `LB_` | The library check (header, version, helper-table key) and the compilation stamp (one-shot code, for an overlay at step 66) |
 | `CHAIN.ASM` | `CH_` | The chain to `BLINK.COM`: its tail, and the loader copied to the top of memory (one-shot code, for an overlay at step 66) |

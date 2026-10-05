@@ -19,15 +19,18 @@
 ;
 ;  The library is looked for on option L's drive, else the first part's,
 ;  then on A: (toolchain §7.3). Failure, which does not return, is
-;  reported with the reference's texts: `CPM22.BRL not found` (L-MISSING),
-;  `CPM22.BRL: bad magic or unsupported version` (L-FORMAT), `CPM22.BRL:
-;  missing trailer, bad CRC or wrong length` for a library that ends too
-;  soon (L-TRUNCATED), `Program and library are not compatible`
-;  (L-COMPAT), or `CPM22.BRL read error`. A record is read into the blob
-;  writer's buffer, which is not in use until the streams open.
+;  reported as BLINK reports it, by the reference's numbers and with the
+;  library's name as the argument (MS_FAIL): L-MISSING (`Error 225:
+;  CPM22.BRL not found`), L-FORMAT for bad magic or version, L-TRUNCATED
+;  for a library that ends too soon, L-COMPAT, which names nothing, and
+;  L-IO for a read error. A record is read into the blob writer's
+;  buffer, which is not in use until the streams open.
 
 LB_BUF EQU  BL_CODE            ; A record read from the library or an old directory.
 LB_RAND EQU  33                ; BDOS read random: the record number is in the FCB.
+LB_NFORM EQU  200              ; L-FORMAT: bad magic or version.
+LB_NCOMP EQU  201              ; L-COMPAT: another helper table.
+LB_NTRUN EQU  214              ; L-TRUNCATED: the library ends too soon.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Find the library and read its first record and the record of its key
@@ -45,9 +48,8 @@ LB_CHECK:                      ; CL_LIB is the library's name.
     LD   A,1                       ; Then A:.
     CALL .TRY                      ; Open it there.
     JR   NC,.FOUND                 ; Found.
-    CALL LB_NAME                   ; NAME.BRL,
-    LD   HL,SH_FMSG                ; not found (L-MISSING).
-    JP   SH_FAIL                   ; Fail.
+    LD   HL,SH_NMISS               ; NAME.BRL not found (L-MISSING).
+    JP   LB_FAIL                   ; Fail.
 .FOUND:                        ; The FCB is open.
     LD   DE,LB_BUF                 ; Records are read
     LD   C,SH_DMA                  ; into the buffer.
@@ -102,12 +104,11 @@ LB_CHECK:                      ; CL_LIB is the library's name.
     SBC  HL,DE                     ; own.
     RET  Z                         ; The library suits the compiler.
 .COMPAT:                       ; The helper tables differ.
-    LD   HL,LB_CMSG                ; L-COMPAT.
-    JP   SH_FAIL                   ; Fail.
+    LD   HL,LB_NCOMP               ; L-COMPAT, which names nothing.
+    JP   MS_FAIL                   ; Fail.
 .FORMAT:                       ; Bad magic or version.
-    CALL LB_NAME                   ; NAME.BRL,
-    LD   HL,LB_FMSG                ; L-FORMAT.
-    JP   SH_FAIL                   ; Fail.
+    LD   HL,LB_NFORM               ; NAME.BRL: L-FORMAT.
+    JP   LB_FAIL                   ; Fail.
 
 ;@ROUTINE IN A OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open the library on drive A (0 the current one). Carry if it isn't there.
@@ -140,32 +141,38 @@ LB_READ:                       ; C is the read, DE the FCB.
     CALL SH_BDOS                   ; Read the record; A is the status.
     OR   A                         ; Zero: read.
     RET  Z                         ; The record is in LB_BUF.
-    PUSH AF                        ; Keep the status.
-    CALL LB_NAME                   ; NAME.BRL,
-    POP  AF                        ; then,
-    DEC  A                         ; for the end of the file,
-    LD   HL,LB_SMSG                ; L-TRUNCATED.
-    JP   Z,SH_FAIL                 ; Fail.
+    DEC  A                         ; For the end of the file,
+    LD   HL,LB_NTRUN               ; NAME.BRL: L-TRUNCATED.
+    JR   Z,LB_FAIL                 ; Fail.
     LD   A,SH_RDISK                ; Otherwise a disk error's
     LD   (SH_RLOW),A               ; return code,
-    LD   HL,SH_RMSG                ; and a read error.
-    JP   SH_FAIL                   ; Fail.
+    LD   HL,SH_NIO                 ; and NAME.BRL: L-IO.
 
-;@ROUTINE CLOBBERS A,B,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Print the library's file name, NAME.BRL, without padding or drive, as
-; BLINK names it in its diagnostics.
+;@ROUTINE IN HL NORETURN
+; Report diagnostic HL, its argument the library's file name, NAME.BRL,
+; without padding or drive, as BLINK names it in its diagnostics, and
+; fail.
 
-LB_NAME:                       ; CL_LIB is the name.
+LB_FAIL:                       ; HL is the message number.
+    LD   DE,DG_ABUF                ; The name is spelled here:
+    LD   (DG_ARG1),DE              ; argument 1.
+    PUSH HL                        ; Keep the number.
     LD   HL,CL_LIB                 ; Its eight characters,
     LD   B,8                       ; less their padding.
 .CHAR:                         ; B characters remain at HL.
     LD   A,(HL)                    ; The next.
-    CP   ' '                       ; Padding
-    CALL NZ,SH_CHAR                ; is left out.
     INC  HL                        ; Move on.
-    DJNZ .CHAR                     ; Until the name is printed.
-    LD   HL,LB_TYPE                ; Then the type.
-    JP   SH_PRINT                  ; Print it and return.
+    CP   ' '                       ; Padding
+    JR   Z,.PAD                    ; is left out.
+    LD   (DE),A                    ; Anything else is kept.
+    INC  DE                        ; The next place.
+.PAD:                          ; The character is done.
+    DJNZ .CHAR                     ; Until the name is spelled.
+    LD   HL,LB_TYPE                ; Then the type, with its dot
+    LD   BC,5                      ; and terminator.
+    LDIR                           ; Spelled.
+    POP  HL                        ; The number.
+    JP   MS_FAIL                   ; Print it and fail.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Choose the compilation stamp (object format §4.1) and write it into the
@@ -246,10 +253,4 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
 LB_MAGIC:                      ; A library's magic.
     DB   "BSIR"                    ; Basie runtime library.
 LB_TYPE:                       ; The library's type, after its name.
-    DB   ".BRL",0                  ; Printed with the dot; copied without it.
-LB_FMSG:                       ; Follows the name of a library of another format.
-    DB   ": bad magic or unsupported version",0 ; L-FORMAT.
-LB_SMSG:                       ; Follows the name of a library that ends too soon.
-    DB   ": missing trailer, bad CRC or wrong length",0 ; L-TRUNCATED.
-LB_CMSG:                       ; A library the compiler is not built for.
-    DB   "Program and library are not compatible",0 ; L-COMPAT.
+    DB   ".BRL",0                  ; Spelled with the dot; copied without it.

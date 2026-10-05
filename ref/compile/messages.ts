@@ -187,6 +187,21 @@ const TABLE: [number, string, string, Group][] = [
   [115, "move-position", "move can't appear in ^1", OWN],
   // 190-199: capacity and internal
   [190, "capacity", "A compiler capacity was exceeded: ^1", CAP],
+  // The native compiler's own refusals of programs the reference accepts
+  // (native compiler plan §3): constructs not yet brought across, and the
+  // exact values its 16-bit folding cannot hold.
+  [
+    191,
+    "native-unsupported",
+    "The native compiler doesn't compile this yet",
+    CAP,
+  ],
+  [
+    192,
+    "native-exact",
+    "The native compiler holds exact values from 0 to 65,535 only",
+    CAP,
+  ],
   [199, "internal", "Internal compiler error: ^1", CAP],
   // 200-239: linker (linker §9)
   [200, "L-FORMAT", "^1: bad magic or unsupported version", LINK],

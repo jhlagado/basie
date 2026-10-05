@@ -1,0 +1,7 @@
+// A program without main is reported at its end: just after its last
+// line, at the start of the line that would follow it.
+// spec: 4.4
+// expect error: missing-main at 8:1
+
+sub helper()
+end

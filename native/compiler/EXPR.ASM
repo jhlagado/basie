@@ -85,14 +85,13 @@ EX_MAIN:
     JP   TK_MATCH                  ; Carry if the token spells it.
 
 ;@ROUTINE OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,BC,DE,HL
-; Check a declaration's NAME token and retain its spelling in AC_DNAME and
-; its position in AC_DPOS, for the symbol written once the declaration is
-; complete. `main` raises DG_DUP. EX_KEEP retains the name unchecked.
+; Retain a declaration's NAME token, its spelling in AC_DNAME and its
+; position in AC_DPOS, for the symbol written once the declaration is
+; complete, which is checked then (EX_PREP). `main` is a name like any
+; other until main is declared.
 
 EX_DECL:
-    CALL EX_MAIN                   ; Is the name `main`?
-    JR   C,EX_EDUP                 ; Yes: it is already taken.
-EX_KEEP:                       ; Retain the name without checks.
+EX_KEEP:                       ; Retain the name.
     LD   HL,AC_DNAME               ; Address the retained-name record.
     CALL TK_KEEP                   ; Keep the spelling's address and length.
     LD   HL,TK_POS                 ; The token's offset, line and column...
@@ -102,20 +101,8 @@ EX_KEEP:                       ; Retain the name without checks.
     RET                            ; Return to the declaration action.
 
 EX_EDUP:                       ; A name that is already declared.
-    CALL DG_RAISE                  ; Report it; no return.
+    CALL DG_RNAME                  ; Report it, named; no return.
     DB   DG_DUP                    ; Diagnostic: duplicate name.
-
-;@ROUTINE OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,BC,DE,HL
-; Check that the current NAME is neither an ordinary symbol nor `main`;
-; either raises DG_DUP. The routine parser checks parameter names with it.
-
-EX_FRESH:
-    CALL SY_FIND                   ; Is the name an ordinary symbol?
-    JR   C,EX_EDUP                 ; Yes: it is already taken.
-    CALL EX_MAIN                   ; Is it `main`?
-    JR   C,EX_EDUP                 ; Yes: it is already taken.
-    OR   A                         ; Clear carry for success.
-    RET                            ; The name is free.
 
 ;@ROUTINE OUT A,HL
 ; Make the retained declaration name (AC_DNAME) the current NAME token
@@ -131,23 +118,28 @@ EX_RENEW:
 
 ;@ROUTINE IN D,BC OUT A,CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Write the provisional symbol for the retained declaration name, with
-; class/type D and payload BC. The name is checked against symbols,
-; routines and services (RO_FRESH) with its declaration position as the
-; diagnostic's. BC and DE are preserved.
+; class/type D and payload BC. The name is checked against routines and
+; services (RO_FRESH: a duplicate, or hidden by a local) and symbols
+; (SY_NEW), with its declaration position as the diagnostic's. BC and DE
+; are preserved.
 
 EX_PREP:
     CALL EX_RENEW                  ; Make the declared name current again.
     PUSH BC                        ; Keep the payload across the checks.
     PUSH DE                        ; Keep the class/type too.
-    LD   HL,AC_DPOS                ; A duplicate is reported where the...
+    LD   HL,AC_DPOS                ; A collision is reported where the...
     LD   DE,TK_POS                 ; ...name was declared.
     CALL PR_COPY                   ; Copy the six-byte position.
-    CALL RO_FRESH                  ; Raise DG_DUP for any collision.
-    JR   NC,.CLEAR                 ; RO_FRESH returns only carry clear.
-    POP  DE                        ; Unreachable: restore the class/type.
-    POP  BC                        ; Unreachable: restore the payload.
-    RET                            ; Unreachable: return the carry.
-.CLEAR:                        ; The name is free.
+    POP  DE                        ; The class/type in D:
+    PUSH DE                        ; a local
+    LD   A,D                       ; would hide
+    AND  SY_CMASK                  ; a routine's or a service's
+    CP   SY_LOCAL                  ; name;
+    LD   A,DG_HIDE                 ; another
+    JR   NC,.CHECK                 ; declaration
+    LD   A,DG_DUP                  ; would repeat it.
+.CHECK:                        ; A is the diagnostic.
+    CALL RO_FRESH                  ; Raise it for a routine or a service.
     POP  DE                        ; Restore the class/type in D.
     POP  BC                        ; Restore the payload.
     JP   SY_NEW                    ; Write the provisional symbol.
@@ -280,6 +272,9 @@ EX_EBIG:                       ; Report DG_RANGE at the current token.
 EX_ETYPE:                      ; An operand of the wrong type.
     CALL DG_RAISE                  ; Report it.
     DB   DG_CLASH                  ; Diagnostic: type mismatch.
+EX_EXACT:                      ; An exact value the native compiler can't hold.
+    CALL DG_RAISE                  ; Report it.
+    DB   DG_EXACT                  ; Diagnostic: native-exact.
 EX_EZERO:                      ; Division by a known zero.
     CALL DG_RAISE                  ; Report it.
     DB   DG_ZERO                   ; Diagnostic: division by zero.
@@ -473,7 +468,7 @@ EX_ARITH:
     LD   A,C                       ; Is the width exact?
     OR   A                         ; Typed widths wrap.
     JR   NZ,.CONST                 ; Keep the wrapped value.
-    JP   EX_ELEFT                  ; An exact value out of range: refuse it.
+    JP   EX_EXACT                  ; An exact value beyond 16 bits: refuse it.
 .DIVMOD:                       ; Division and remainder.
 ; The divisor check above proves DE nonzero here. Constant unsigned
 ; division uses a bounded subtraction loop.

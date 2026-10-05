@@ -177,20 +177,23 @@ PR_PARSE:
     DJNZ .WIPE                     ; Clear the whole workspace.
     JP   LL_PARSE                  ; Parse the program and return.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Reject a routine name that is an ordinary symbol, an earlier routine,
-; main or a service or error constant: DG_DUP does not return. The current
-; token is the name.
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Reject the current name if it is a routine's or a predeclared name, as
+; diagnostic A, which names it: DG_DUP for a declaration of the program's,
+; DG_HIDE for a local or parameter. Neither returns. A is kept.
 
 RO_FRESH:
-    CALL SY_FIND                   ; Is it an ordinary symbol?
-    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    PUSH AF                        ; Keep the diagnostic.
     CALL RO_FIND                   ; Is it a routine already?
-    JP   Z,EX_EDUP                 ; Raise DG_DUP.
-    CALL RO_LIB                    ; Is it a predefined name?
-    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    JR   Z,.TAKEN                  ; Then it is taken.
+    CALL RO_LIB                    ; Is it a predeclared name?
+    JR   C,.TAKEN                  ; Then it is taken.
+    POP  AF                        ; The diagnostic, not raised.
     OR   A                         ; Report success with carry clear.
     RET                            ; The name is free.
+.TAKEN:                        ; The diagnostic is on the stack.
+    POP  AF                        ; Raise it,
+    JP   DG_NAMED                  ; naming the name.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Reject the current name if it repeats a parameter already in the
@@ -207,7 +210,7 @@ RO_NODUP:
     LD   A,B                       ; Select entry B.
     CALL RO_PARAM                  ; HL addresses it; the name comes first.
     CALL TK_SAME                   ; Does its spelling match the token?
-    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    JP   C,EX_EDUP                 ; Raise DG_DUP, naming it.
     INC  B                         ; Next entry.
     DEC  C                         ; One entry fewer.
     JR   NZ,.LOOP                  ; Continue through the signature.
@@ -215,13 +218,16 @@ RO_NODUP:
     RET                            ; The name is new to the signature.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Reject a parameter name that collides with an ordinary declaration, a
-; routine, main, a predefined name, the routine whose signature is being
-; parsed, or an earlier parameter of that signature.
+; Reject a parameter name that would hide a program-wide name, a routine,
+; a predeclared name or the routine whose signature is being parsed
+; (DG_HIDE), or that repeats an earlier parameter of that signature
+; (DG_DUP). Both name it.
 
 RO_VET:
-    CALL EX_FRESH                  ; Not a symbol and not main.
-    CALL RO_FRESH                  ; Not a routine or a predefined name.
+    CALL SY_FIND                   ; A program-wide symbol?
+    LD   A,DG_HIDE                 ; Then the parameter would hide it.
+    JP   C,DG_NAMED                ; Raise it, named.
+    CALL RO_FRESH                  ; Not a routine or a predeclared name.
     LD   A,(RO_CUR)                ; The routine being declared is not counted yet.
     CALL RO_SUBAT                  ; So address its entry and compare it directly.
     LD   E,(HL)                    ; Read the address of its spelling.
@@ -232,7 +238,8 @@ RO_VET:
     LD   B,A                       ; TK_MATCH takes it in B.
     EX   DE,HL                     ; And the spelling in HL.
     CALL TK_MATCH                  ; Is the parameter named as the routine?
-    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    LD   A,DG_HIDE                 ; Then it would hide it:
+    JP   C,DG_NAMED                ; raise it, named.
     JR   RO_NODUP                  ; Check the earlier parameters.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL

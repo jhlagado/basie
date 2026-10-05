@@ -24,10 +24,10 @@
 ;  combined only with L. W is BLINK's alone.
 ;
 ;  Failure. A malformed part list prints the usage line (SH_USAGE). An
-;  unknown, repeated or malformed option prints the option, from its first
-;  character to the next comma, bracket or the end, and the reference's
-;  text for it (L-COMMAND), as BLINK does: `S=Q: a bad or repeated option`.
-;  Neither returns. The option bytes' equates (CL_I...) and the kinds
+;  unknown, repeated or malformed option is reported as BLINK reports it,
+;  L-COMMAND with the option as its argument, from its first character to
+;  the next comma, bracket or the end: `Error 224: S=Q: a bad or repeated
+;  option`. Neither returns. The option bytes' equates (CL_I...) and the kinds
 ;  (CL_K...) are with the shell's workspace, in SHELL.ASM.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -435,6 +435,8 @@ CL_EOPT:                       ; CL_POS is the option's first character.
 ; or repeated option (L-COMMAND), and fail.
 
 CL_EBAD:                       ; HL is the word's first character.
+    LD   (DG_ARG1),HL              ; The word is argument 1.
+.SCAN:                         ; HL walks the word.
     LD   A,(HL)                    ; The next character.
     OR   A                         ; The end of the tail,
     JR   Z,.ENDWORD                ; or
@@ -442,12 +444,12 @@ CL_EBAD:                       ; HL is the word's first character.
     JR   Z,.ENDWORD                ; or
     CP   ']'                       ; a bracket
     JR   Z,.ENDWORD                ; ends the word.
-    CALL SH_CHAR                   ; Print the character.
     INC  HL                        ; The next.
-    JR   CL_EBAD                   ; Until the word ends.
-.ENDWORD:                      ; The word is printed.
-    LD   HL,CL_EMSG                ; Then the message,
-    JP   SH_FAIL                   ; and fail.
+    JR   .SCAN                     ; Until the word ends.
+.ENDWORD:                      ; HL is just past the word.
+    LD   (HL),0                    ; End it there: the tail is not read again.
+    LD   HL,CL_NBAD                ; L-COMMAND,
+    JP   MS_FAIL                   ; and fail.
 
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse the options at HL, just after '[': options separated by commas,
@@ -615,5 +617,3 @@ CL_TBSI:                       ; The type of a part that names none.
     DB   "BSI"                     ; Copied into the FCB's type field.
 CL_MARKS:                      ; The marks a CP/M name may contain (services §4.1).
     DB   "!#$%&'()-@^_`{}~"        ; Sixteen, the count .CHAR's CPIR searches.
-CL_EMSG:                       ; Follows a bad option (L-COMMAND).
-    DB   ": a bad or repeated option",0 ; The reference's text.

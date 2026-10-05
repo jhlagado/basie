@@ -132,6 +132,8 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | Number | Code | Message |
 | ---: | --- | --- |
 | 190 | `capacity` | A compiler capacity was exceeded: ^1 |
+| 191 | `native-unsupported` | The native compiler doesn't compile this yet |
+| 192 | `native-exact` | The native compiler holds exact values from 0 to 65,535 only |
 | 199 | `internal` | Internal compiler error: ^1 |
 
 ## Linker

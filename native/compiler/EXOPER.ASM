@@ -311,10 +311,26 @@ EX_AND:
     JR   .LOOP                     ; Look for another `and`.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse a complete expression: a chain of `and` operands joined by `or`
-; and `xor`, reducing left to right; `xor` takes integers only.
+; Parse a complete expression and leave its first token's offset in
+; EX_START, where a diagnostic about the whole value is reported, as the
+; reference reports one at the value's first token. A nested expression
+; leaves its own there, but the enclosing one's is set again as it ends.
 
 EX_PARSE:
+    CALL PR_PEEK                   ; The expression's first token:
+    LD   HL,(TK_POS)               ; its offset,
+    PUSH HL                        ; kept across the parse.
+    CALL EX_LOR                    ; A and HL are the result.
+    EX   (SP),HL                   ; HL is the offset, the value kept.
+    LD   (EX_START),HL             ; It is the value's.
+    POP  HL                        ; The value again.
+    RET                            ; A and carry are the result's.
+
+;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; Parse a chain of `and` operands joined by `or` and `xor`, reducing left
+; to right; `xor` takes integers only.
+
+EX_LOR:
     CALL EX_AND                    ; Parse the first operand.
 EX_ORS:                        ; A/HL is the result so far.
     PUSH AF                        ; Keep its metadata.
@@ -450,10 +466,13 @@ EX_LOGIC:
     RET                            ; Carry is clear.
 
 ;@ROUTINE IN A,E,HL OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
-; Check result A/HL against destination type E for assignment, passing or
-; initialization. An exact constant must fit E and may not become a
-; Boolean; the only implicit conversion is u8 to u16; anything else raises
-; DG_CLASH. Returns E with the result's SY_KNOWN in A, the metadata in D.
+; Check result A/HL, the expression just parsed, against destination type
+; E for assignment, passing or initialization, as the reference's
+; toRegisters does, reporting at the value's first token (EX_START). An
+; exact constant must fit E (DG_RANGE) and may not become a Boolean
+; (DG_CLASH); the only implicit conversion is u8 to u16, and a u16 for a
+; u8 needs an explicit one (DG_CONV); anything else raises DG_CLASH.
+; Returns E with the result's SY_KNOWN in A, the metadata in D.
 
 EX_FITS:
     LD   D,A                       ; Keep the metadata.
@@ -461,12 +480,13 @@ EX_FITS:
     JR   NZ,.TYPED                 ; Yes: compare the types.
     LD   A,E                       ; An exact constant: what is the target?
     CP   SY_BOOL                   ; A Boolean?
-    JP   Z,EX_ETYPE                ; A number is not a Boolean.
+    JR   Z,EX_EFIT                 ; A number is not a Boolean.
     CP   SY_U8                     ; A u8?
     JR   NZ,.EXACT                 ; No: any word fits u16.
     LD   A,H                       ; Does the constant exceed a byte?
     OR   A                         ; Test its high byte.
-    JP   NZ,EX_ERNG                ; Yes: it is out of range.
+    LD   A,DG_RANGE                ; Then it is out of range,
+    JR   NZ,EX_EVAL                ; reported at the value.
 .EXACT:                        ; The constant fits.
     LD   A,D                       ; Keep its known flag...
     AND  SY_KNOWN                  ; ...alone...
@@ -475,16 +495,30 @@ EX_FITS:
 .TYPED:                        ; A is the result's type.
     CP   E                         ; The destination's type?
     JR   Z,.SAME                   ; Yes: it fits.
-    CP   SY_U8                     ; Otherwise only u8...
-    JP   NZ,EX_ETYPE               ; ...may convert implicitly...
-    LD   A,E                       ; ...and only...
-    CP   SY_U16                    ; ...to u16.
-    JP   NZ,EX_ETYPE               ; Anything else is a mismatch.
+    CP   SY_BOOL                   ; A Boolean fits nothing else,
+    JR   Z,EX_EFIT                 ; a mismatch.
+    LD   A,E                       ; A number: a u8 widens
+    CP   SY_U16                    ; to a u16;
+    JR   Z,.SAME                   ; it fits.
+    CP   SY_U8                     ; A u16 for a u8 needs a conversion,
+    LD   A,DG_CONV                 ; reported at the value,
+    JR   Z,EX_EVAL                 ; and a number
+    JR   EX_EFIT                   ; is no Boolean.
 .SAME:                         ; The result fits.
     LD   A,D                       ; Keep its known flag...
     AND  SY_KNOWN                  ; ...alone...
     OR   E                         ; ...with the destination type.
     RET                            ; Return it with carry clear.
+
+;@ROUTINE NORETURN
+; Raise DG_CLASH, or diagnostic A at EX_EVAL, at the first token of the
+; expression just parsed (EX_START).
+
+EX_EFIT:                       ; A value of the wrong type.
+    LD   A,DG_CLASH                ; Diagnostic: type mismatch.
+EX_EVAL:                       ; A is the diagnostic.
+    LD   HL,EX_START               ; At the value's first token.
+    JP   DG_AT                     ; Report it; no return.
 
 ;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a run-time expression with expected type A, generating its code.
@@ -551,6 +585,3 @@ EX_STORE:
 EX_EFLOW:                      ; A result or exit the routine does not allow.
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_FLOW                   ; Diagnostic: invalid control flow.
-.FORWARD:                      ; Unreachable: nothing jumps here.
-    CALL DG_RAISE                  ; Unreachable: report an unmet forward.
-    DB   DG_UNMET                  ; Diagnostic: forward never defined.

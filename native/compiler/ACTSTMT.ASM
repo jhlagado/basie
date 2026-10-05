@@ -96,7 +96,7 @@ AC_LINIT:
     LD   B,A                       ; It must be
     LD   A,(AG_CTYPE)              ; the local's
     CP   B                         ; type,
-    JP   NZ,EX_ETYPE               ; else DG_CLASH.
+    JP   NZ,EX_EFIT                ; else DG_CLASH at it.
     LD   A,AC_LCOPY                ; Its address is in HL,
     JR   .KIND                     ; copied when the local is committed.
 .IMAGE:                        ; A static initializer.
@@ -133,6 +133,10 @@ AC_FILE:
 ; SaveLocalType declares it, and it is committed as a typed local is.
 
 AC_INFER:
+    CALL PR_PEEK                   ; A string literal
+    CP   TK_TEXT                   ; has no definite type:
+    LD   A,DG_INFER                ; no-definite-type,
+    JP   Z,DG_ISSUE                ; at it.
     CALL PR_PEEK                   ; A name
     CP   TK_NAME                   ; may begin
     JR   NZ,.SCALAR                ; a File.
@@ -146,7 +150,9 @@ AC_INFER:
     CALL EX_RUN                    ; A and HL describe it.
     CALL AC_STASH                  ; Keep them for AC_ADOPT and AC_BIND.
     AND  SY_TMASK                  ; Its type:
-    JP   Z,EX_ETYPE                ; an exact value has none (DG_CLASH).
+    JR   NZ,.DECLARE               ; an exact value has none:
+    LD   A,DG_INFER                ; no-definite-type,
+    JP   EX_EVAL                   ; at it.
 .DECLARE:                      ; A is the local's type.
     LD   (AG_CTYPE),A              ; It is the declaration's.
     JP   AC_LOCAL                  ; Declare the local; return.
@@ -194,8 +200,10 @@ AC_ADOPT:
     OR   A                         ; Zero means none.
     JP   NZ,AC_RELAY               ; Require `else fail`.
     CALL PR_PEEK                   ; What follows?
-    CP   TK_ELSE                   ; An else...
-    JP   Z,AC_ELEAK                ; ...with nothing to handle.
+    CP   TK_ELSE                   ; An else, with nothing to handle,
+    LD   A,DG_SAFE                 ; is not-failable,
+    LD   HL,AC_DPOS                ; at the local's name.
+    JP   Z,DG_AT                   ; No return.
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 
@@ -281,9 +289,11 @@ AC_BIND:
 
 AC_STMT:
     CALL PR_TAKE                   ; Consume the name.
+    LD   HL,(TK_POS)               ; The statement's offset,
+    LD   (AC_SPOS),HL              ; where its failure handling is reported.
     CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ORDINARY              ; No.
-    JP   M,EX_ETYPE                ; A constant is not a statement: DG_CLASH.
+    JP   M,.CLASS                  ; A constant can't start a statement.
     CALL RO_SVC                    ; A service: parse and generate the call.
     JP   AC_ROUTE                  ; Attach its failure handling.
 .ORDINARY:                     ; Not predeclared.
@@ -303,7 +313,11 @@ AC_STMT:
 .CHECKED:                      ; The variable may be written.
     LD   A,(AC_DINFO)              ; The class...
     AND  SY_CMASK                  ; ...is zero for a constant...
-    JP   Z,EX_ETYPE                ; ...which cannot be assigned.
+    JR   NZ,.WRITE                 ; ...which can't start a statement.
+.CLASS:                        ; The name is current:
+    CALL DG_RNAME                  ; raise the diagnostic below, named:
+    DB   DG_CLASS                  ; wrong-class.
+.WRITE:                        ; A variable.
     CALL PR_EQUAL                  ; Require "=".
     CALL EX_DTYPE                  ; The variable's type...
     CALL EX_RUN                    ; ...is expected of the value; A is its metadata.
@@ -370,11 +384,12 @@ AC_RETOP:
 .AGGR:                         ; A is the aggregate result type.
     LD   D,A                       ; Keep it.
     LD   A,(RO_OTYPE)              ; The value's type...
-    CP   D                         ; ...must be the same type.
-    JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
+    CP   D                         ; ...must be the same type,
+    JP   NZ,EX_EFIT                ; else DG_CLASH at the value.
     LD   A,(RO_ESC)                ; Is its root in the frame?
     OR   A                         ; Its storage would escape:
-    JP   NZ,EX_ETYPE               ; raise DG_CLASH.
+    LD   A,DG_ALIAS                ; alias-escapes,
+    JP   NZ,EX_EVAL                ; at the value.
     CALL AC_SAFE                   ; No failure may be pending.
 .RETURN:                       ; The result is in the registers.
     CALL RG_RET                    ; OR A if it can fail, then JP exit.
@@ -665,7 +680,7 @@ AC_STEP:
     LD   D,A                       ; Keep it.
     AND  SY_TMASK                  ; Its type.
     CP   SY_BOOL                   ; A Boolean
-    JP   Z,EX_ETYPE                ; is no bound: raise DG_CLASH.
+    JR   Z,.MIXED                  ; is no bound for a number.
     OR   A                         ; Typed?
     JR   NZ,.TYPED                 ; Its type stands.
     LD   A,H                       ; An exact value: does it
@@ -694,6 +709,9 @@ AC_STEP:
     LD   A,SY_U16                  ; The word
     LD   HL,(AC_BOUND)             ; goes to its slot.
     JP   GX_FPUT                   ; Store it and return.
+.MIXED:                        ; A Boolean bound for a number:
+    LD   A,DG_MIXED                ; mixed-operands,
+    JP   EX_EVAL                   ; at the bound.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginForBody: open a for frame with its mode, counter, bound and step,

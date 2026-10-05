@@ -54,7 +54,7 @@ SRC_INIT:
 
 ;@ROUTINE IN A,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Begin a compilation of A parts whose descriptors start at HL. One to eight
-; parts are accepted (SRC_CAP); any other count reports DG_FILES at part
+; parts are accepted (SRC_CAP); any other count reports DG_PARTS at part
 ; zero, line one, column one, and does not return.
 
 SRC_OPEN:
@@ -72,7 +72,7 @@ SRC_OPEN:
     CALL SRC_INIT                  ; Part zero, offset zero, line and column one.
     CALL TK_MARK                   ; Take that position as the diagnostic's.
     CALL DG_RAISE                  ; Report the bad part count; no return.
-    DB   DG_FILES                  ; Diagnostic: too many or too few parts.
+    DB   DG_PARTS                  ; Diagnostic: too many or too few parts.
 
 ;@ROUTINE IN HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Make the part described at HL current and retain the address of the

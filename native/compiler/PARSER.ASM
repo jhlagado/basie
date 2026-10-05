@@ -10,7 +10,13 @@
 ;
 ;  Principal entries:
 ;    DG_ISSUE  record diagnostic A at the current token and abandon the build
+;    DG_AT     the same at the offset in the word at HL
+;    DG_HERE   the same at the offset HL
+;    DG_SRC    the same at the source address HL, in any part
+;    DG_NAMED  DG_ISSUE with argument 1 the current name's spelling
 ;    DG_RAISE  DG_ISSUE with the code in the byte after the CALL
+;    DG_RNAME  DG_NAMED with the code in the byte after the CALL
+;    DG_SETN   make argument 1 the name of a name record
 ;    PR_COPY   copy a six-byte offset/line/column position
 ;    PR_PEEK   return the next token without consuming it
 ;    PR_TAKE   consume and return the next token
@@ -21,9 +27,10 @@
 ;
 ;  Failure. PR_BUILD (ROUTINES.ASM) saves SP in PR_SP before parsing.
 ;  DG_ISSUE stores the code in DG_CODE, the source part in DG_PART and the
-;  current token's position in DG_POS, DG_LINE and DG_COL, then reloads SP
-;  from PR_SP and returns carry set. A diagnostic therefore unwinds every
-;  nested parse at once, back to PR_BUILD's caller. No routine returns
+;  current token's offset in DG_POS, then reloads SP from PR_SP and returns
+;  carry set; the shell counts the line and column from the offset. A
+;  diagnostic therefore unwinds every nested parse at once, back to
+;  PR_BUILD's caller. No routine returns
 ;  failure to its caller, so the carry outputs in the contracts of the
 ;  parsing routines are always clear when they return.
 ;
@@ -33,25 +40,90 @@
 ;  stay those of the most recently read token until the next TK_NEXT, so
 ;  one buffered kind and word are enough for names, numbers and positions.
 ;
-;  A diagnostic code below $80 is a numbered error (DG_ in STATE.ASM).
-;  DG_TOKEN ($80) plus a token kind reports that token as expected.
+;  A diagnostic's code is the reference compiler's number for it, or one
+;  of the families MESSAGE.ASM maps (DG_ in STATE.ASM): DG_TOKEN ($80)
+;  plus a token kind reports that token as expected.
 
-;@ROUTINE NORETURN
+;@ROUTINE IN A NORETURN
+; DG_ISSUE, with argument 1 the current name's spelling (TK_PTR, TK_LEN),
+; cut to DG_ALEN-1 bytes, for a message such as "^1 is not declared".
+; SY_UNDEF, the last line of SYMBOLS.ASM, falls into it, so the include
+; order in BASIE.ASM must keep this file next.
+
+DG_NAMED:
+    LD   HL,TK_PTR                 ; The current name's record: its spelling and
+    CALL DG_SETN                   ; length; argument 1 is it. Fall into DG_ISSUE.
+
+;@ROUTINE IN A NORETURN
 ; Record diagnostic A at the current token and abandon the build: SP is
 ; reloaded from PR_SP and the RET leaves PR_BUILD with carry set.
 
 DG_ISSUE:
-    LD   (DG_CODE),A               ; Record the diagnostic number.
-    LD   A,(SRC_ID)                ; Fetch the 1-based id of the part being read.
-    LD   (DG_PART),A               ; Record it for the shell's NAME prefix.
-    LD   HL,TK_POS                 ; Source: the current token's offset, line, column.
-    LD   DE,DG_POS                 ; Destination: the diagnostic's position fields.
-    PUSH BC                        ; BC survives the copy; no caller now reads it.
-    CALL PR_COPY                   ; Record the token's position.
-    POP  BC                        ; Restore BC.
+    LD   HL,TK_POS                 ; The current token's offset, line and column.
+
+;@ROUTINE IN A,HL NORETURN
+; Record diagnostic A at the position whose offset is the word at HL (a
+; position record's first word), in the current part, and abandon the
+; build as DG_ISSUE does.
+
+DG_AT:
+    LD   E,(HL)                    ; The offset's low byte,
+    INC  HL                        ; then
+    LD   D,(HL)                    ; its high byte.
+    EX   DE,HL                     ; HL is the offset; fall into DG_HERE.
+
+;@ROUTINE IN A,HL NORETURN
+; Record diagnostic A at offset HL of the current part and abandon the
+; build. The shell counts the line and column from the offset.
+
+DG_HERE:
+    LD   E,A                       ; E is the code,
+    LD   A,(SRC_ID)                ; D the 1-based id
+    LD   D,A                       ; of the part being read.
+
+;@ROUTINE IN D,E,HL NORETURN
+; Record diagnostic E at offset HL of part D and abandon the build: SP is
+; reloaded from PR_SP and the RET leaves PR_BUILD with carry set.
+
+DG_PLACE:
+    LD   (DG_POS),HL               ; Where it is,
+    LD   (DG_CODE),DE              ; its code and, after it, DG_PART.
     LD   SP,(PR_SP)                ; Discard every frame above PR_BUILD's.
     SCF                            ; Carry reports the failure.
     RET                            ; Return from PR_BUILD.
+
+;@ROUTINE IN A,HL NORETURN
+; Record diagnostic A at the source address HL, in the current part or an
+; earlier one (the parts lie in memory in order, from SRC_DESC's
+; descriptors back), and abandon the build.
+
+DG_SRC:
+    PUSH AF                        ; Keep the code.
+    EX   DE,HL                     ; DE is the address.
+    LD   HL,(SRC_DESC)             ; After the current part's descriptor.
+.BACK:                         ; HL is after a descriptor.
+    LD   BC,-SRC_DLEN              ; Step back
+    ADD  HL,BC                     ; to it.
+    PUSH HL                        ; Keep it.
+    LD   A,(HL)                    ; Its part's id,
+    INC  HL                        ; and
+    LD   C,(HL)                    ; the part's
+    INC  HL                        ; start,
+    LD   B,(HL)                    ; BC.
+    LD   H,D                       ; The address
+    LD   L,E                       ; less
+    AND  A                         ; the start,
+    SBC  HL,BC                     ; the offset; carry if before the part.
+    EX   (SP),HL                   ; The descriptor again, the offset kept.
+    JR   NC,.FOUND                 ; In this part.
+    POP  BC                        ; In an earlier one:
+    JR   .BACK                     ; step back again.
+.FOUND:                        ; A is the part's id.
+    POP  HL                        ; The offset.
+    LD   D,A                       ; The part,
+    POP  AF                        ; and
+    LD   E,A                       ; the code.
+    JR   DG_PLACE                  ; Record them.
 
 ;@ROUTINE NORETURN
 ; Raise the diagnostic whose code is the byte after the CALL: `CALL DG_RAISE`
@@ -59,8 +131,80 @@ DG_ISSUE:
 
 DG_RAISE:
     POP  HL                        ; The return address points at the inline code.
-    LD   A,(HL)                    ; Fetch the diagnostic number.
+    LD   A,(HL)                    ; Fetch the diagnostic's code.
     JR   DG_ISSUE                  ; Record it and abandon the build.
+
+;@ROUTINE NORETURN
+; DG_RAISE for a message that names the current name (DG_NAMED).
+
+DG_RNAME:
+    POP  HL                        ; The return address points at the inline code.
+    LD   A,(HL)                    ; Fetch the diagnostic's code.
+    JR   DG_NAMED                  ; Name it, record it and abandon the build.
+
+;@ROUTINE IN A,HL CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Make argument 1 the name at offset HL of the current part, its letters,
+; digits and underscores, through TK_PTR and TK_LEN (DG_SETN); with none
+; there it stays zero. A is kept.
+
+DG_WORD:
+    PUSH AF                        ; Keep the code.
+    EX   DE,HL                     ; DE is the offset.
+    LD   HL,(SRC_PTR)              ; The next byte's address
+    LD   BC,(SRC_POS)              ; less its offset
+    OR   A                         ; is the
+    SBC  HL,BC                     ; part's start,
+    ADD  HL,DE                     ; and the name is at the offset.
+    LD   (TK_PTR),HL               ; It becomes the current name,
+    LD   B,0                       ; of B bytes:
+.LENGTH:                       ; HL is the next byte.
+    LD   A,(HL)                    ; Does it
+    CALL TK_ALNUM                  ; continue a name?
+    JR   NC,.ENDED                 ; No.
+    INC  HL                        ; Yes: one
+    INC  B                         ; more.
+    JR   .LENGTH                   ; Go on.
+.ENDED:                        ; B is the name's length.
+    LD   A,B                       ; It is
+    LD   (TK_LEN),A                ; the current name's.
+    POP  AF                        ; The code.
+    INC  B                         ; Is there
+    DEC  B                         ; a name?
+    RET  Z                         ; No: no argument.
+    LD   HL,TK_PTR                 ; Yes: it is argument 1;
+                                   ; fall into DG_SETN.
+
+;@ROUTINE IN HL CLOBBERS BC,DE,HL
+; Make argument 1 the name of the record at HL, a spelling's address and
+; its length (a symbol's, a routine's, TK_PTR and TK_LEN), copied to
+; DG_ABUF, cut to DG_ALEN-1 bytes and zero-terminated. A and the flags
+; are kept.
+
+DG_SETN:
+    PUSH AF                        ; Keep the code.
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; the
+    LD   D,(HL)                    ; spelling,
+    INC  HL                        ; A its
+    LD   A,(HL)                    ; length,
+    CP   DG_ALEN                   ; if it fits the buffer
+    JR   C,.FITS                   ; with its terminator;
+    LD   A,DG_ALEN-1               ; else as much as does.
+.FITS:                         ; A is the bytes to copy, at least one.
+    LD   B,A                       ; Count them in B.
+    EX   DE,HL                     ; HL walks the spelling.
+    LD   DE,DG_ABUF                ; Its copy is argument 1.
+    LD   (DG_ARG1),DE              ; Point argument 1 at it.
+.COPY:                         ; B bytes remain.
+    LD   A,(HL)                    ; The next byte
+    LD   (DE),A                    ; is copied.
+    INC  HL                        ; Move
+    INC  DE                        ; on.
+    DJNZ .COPY                     ; Until the name is copied.
+    XOR  A                         ; Terminate
+    LD   (DE),A                    ; the copy.
+    POP  AF                        ; The code again.
+    RET                            ; Argument 1 is set.
 
 ;@ROUTINE IN DE,HL OUT BC,DE,HL CLOBBERS PARITY,HALFCARRY
 ; Copy one six-byte offset/line/column record from HL to DE. LDIR leaves
@@ -84,7 +228,7 @@ PR_NEED:
     RET  Z                         ; Yes: return the kind and payload.
     LD   A,E                       ; No: report the expected kind...
     OR   DG_TOKEN                  ; ...as a token diagnostic.
-    JR   DG_ISSUE                  ; Abandon the build.
+    JP   DG_ISSUE                  ; Abandon the build.
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Return the next token's kind in A and payload in BC without consuming it.
@@ -148,7 +292,7 @@ PR_EQUAL:
 
 PR_ETERM:
     LD   A,DG_VALUE                ; The missing-value diagnostic.
-    JR   DG_ISSUE                  ; Abandon the build.
+    JP   DG_ISSUE                  ; Abandon the build.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,HL
 ; Clear the state one compilation accumulates: the diagnostic, the

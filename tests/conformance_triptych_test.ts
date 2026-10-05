@@ -129,7 +129,7 @@ Deno.test({
       assertEquals(cpm.command("HELLO"), "Hello\r\n");
       assertEquals(
         cpm.command("BASIE BAD", 400_000),
-        "BAD.BSI 2:1 Error 57\r\n",
+        "BAD.BSI 2:1: 27: value is not declared\r\n",
       );
       assertEquals(cpm.command("BASIE HELLO [O=HI.COM,K]", 400_000), "");
       assertEquals(cpm.command("HI"), "Hello\r\n");

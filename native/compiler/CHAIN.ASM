@@ -20,8 +20,8 @@
 ;  CL_READ checked them all and C and T never chain. It is never longer
 ;  than the tail it comes from. BLINK.COM is looked for on option L's
 ;  drive, else the current one, then on A: (§7.3). If it is not there,
-;  BASIE reports it with L-MISSING's text and fails with $FF12, a link
-;  error, leaving the streams for a later BLINK.
+;  BASIE reports it as L-MISSING and fails with $FF12, a link error,
+;  leaving the streams for a later BLINK.
 ;
 ;  The loader refers to nothing of BASIE's, which BLINK overwrites, and to
 ;  itself only by relative jumps, so it runs wherever it is copied. A read
@@ -74,9 +74,9 @@ CH_RUN:                        ; The streams are closed, or X was given.
     LD   A,CH_RLINK                ; A link
     LD   (SH_RLOW),A               ; error's code,
     LD   HL,CH_NAME                ; and BLINK.COM
-    CALL SH_PRINT                  ; is
-    LD   HL,SH_FMSG                ; not found
-    JP   SH_FAIL                   ; (L-MISSING): fail.
+    LD   (DG_ARG1),HL              ; not found
+    LD   HL,SH_NMISS               ; (L-MISSING).
+    JP   MS_FAIL                   ; Fail.
 .FOUND:                        ; SH_FCB holds BLINK.COM, open.
     LD   HL,SH_TAIL+1              ; The old tail, upper-cased and ended.
     LD   DE,CH_TAIL+1              ; The new one begins

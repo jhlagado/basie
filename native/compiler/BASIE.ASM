@@ -56,6 +56,7 @@
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.
 %INCLUDE "PREDEF.ASM"              ; Predeclared constants and services.
 %INCLUDE "SHELL.ASM"               ; The CP/M shell.
+%INCLUDE "MESSAGE.ASM"             ; Diagnostics from BASIE.MSG.
 %INCLUDE "COMMAND.ASM"             ; The shell's command line.
 %INCLUDE "LIBRARY.ASM"             ; The library check and the stamp.
 %INCLUDE "CHAIN.ASM"               ; The chain to BLINK.

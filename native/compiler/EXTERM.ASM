@@ -85,6 +85,8 @@ EX_NAME:
     CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ORDINARY              ; No: an ordinary name.
     JP   M,.PREDEF                 ; A constant: its value.
+    OR   A                         ; A service without a result
+    JP   Z,RO_EVOID                ; has no value (no-value).
     CALL RO_SVC                    ; A service: call it;
     JP   RO_VALUE                  ; its result is the value.
 .PREDEF:                       ; A is SY_KNOWN and the constant's type.
@@ -242,7 +244,7 @@ EX_PLUS:
 ; Parse unary minus: negate the operand at its own type. An exact constant
 ; other than zero would be a negative exact value, which the reference
 ; keeps until its context types it; the native compiler has no negative
-; exact values, so it refuses one with DG_RANGE.
+; exact values, so it refuses one (DG_EXACT).
 
 EX_MINUS:
     CALL EX_PLUS                   ; Consume '-' and parse the operand.
@@ -251,7 +253,7 @@ EX_MINUS:
     JR   NZ,EX_NEG                 ; Yes: negate at its type.
     LD   A,H                       ; An exact constant: is it zero?
     OR   L                         ; Then its negation is zero.
-    JP   NZ,EX_ERNG                ; Otherwise refuse it.
+    JP   NZ,EX_EXACT               ; Otherwise refuse it.
     LD   A,D                       ; Exact zero, unchanged.
     RET                            ; OR cleared carry.
 

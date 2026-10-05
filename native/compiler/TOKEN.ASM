@@ -223,6 +223,10 @@ TK_WORD:                       ; The current byte is a letter.
     INC  HL                        ; Next byte of the keyword.
     DJNZ .BYTELOOP                 ; Until the whole keyword agrees.
     LD   A,(HL)                    ; HL is at the kind byte after the keyword.
+    CP   TK_END                    ; An `end`
+    JP   NZ,TK_DONE                ; (any other keyword returns now)
+    LD   HL,(TK_POS)               ; keeps its offset, where the end of a
+    LD   (TK_ENDP),HL              ; routine is reported (AC_END).
     JP   TK_DONE                   ; Return the keyword's kind.
 .SKIP:                         ; B bytes of this keyword remain at HL.
     LD   E,B                       ; DE: the bytes still to pass.
@@ -255,14 +259,14 @@ TK_DIGIT:                      ; The current byte is a decimal digit.
     LD   A,H                       ; HL*10+C fits only up to HL = 6553 ($1999).
     CP   $19                       ; Compare the high byte with $19.
     JR   C,.APPEND                 ; HL below $1900: always fits.
-    JR   NZ,TK_ERR                 ; HL $1A00 or more: too large.
+    JR   NZ,TK_WIDE                ; HL $1A00 or more: too large.
     LD   A,L                       ; The high byte is $19: the low byte decides.
     CP   $99                       ; Compare the low byte with $99.
     JR   C,.APPEND                 ; HL below $1999: fits.
-    JR   NZ,TK_ERR                 ; HL above $1999: too large.
+    JR   NZ,TK_WIDE                ; HL above $1999: too large.
     LD   A,C                       ; HL is 6553: the result is 65530 plus the digit.
     CP   6                         ; Digits 0..5 stay within 65535.
-    JR   NC,TK_ERR                 ; 65536 or more: too large.
+    JR   NC,TK_WIDE                ; 65536 or more: too large.
 .APPEND:                       ; HL*10+C cannot overflow now.
     LD   D,0                       ; DE: the digit, as a word.
     LD   E,C                       ; C is free once the digit is in E.
@@ -280,17 +284,38 @@ TK_DIGIT:                      ; The current byte is a decimal digit.
 
 ; The literal has ended at the byte in A, which is not consumed. An integer
 ; cannot be followed immediately by a name byte: forms such as 0x2a and
-; 12u8 are one malformed number, not a misleading number and name. TK_RADIX
-; joins here too.
+; 12u8 are one malformed number, not a misleading number and name
+; (malformed-number). A decimal point and a digit, or an exponent, make it
+; a floating-point literal, not yet compiled (DG_NYI); a point without a
+; digit after it is malformed. TK_RADIX joins here too.
 
 TK_TRAIL:                      ; A: the byte after the literal; HL: its value.
+    CP   '.'                       ; A decimal point?
+    JR   Z,.POINT                  ; A float, or malformed.
     CALL TK_ALNUM                  ; Carry if a letter, digit or underscore.
-    JP   C,TK_BAD                  ; Then the literal is malformed.
+    JR   NC,TK_NUMOK               ; Anything else ends the number.
+    OR   $20                       ; An exponent,
+    CP   'e'                       ; e or E,
+    JR   NZ,TK_ENUM                ; or else a malformed number.
+.FLOAT:                        ; A floating-point literal.
+    JP   TR_OPER                   ; Not yet compiled natively.
+.POINT:                        ; A decimal point follows the digits.
+    LD   DE,(SRC_PTR)              ; The byte
+    INC  DE                        ; after it:
+    LD   A,(DE)                    ; a digit
+    SUB  '0'                       ; makes
+    CP   10                        ; a float;
+    JR   C,.FLOAT                  ; anything else is malformed.
+TK_ENUM:                       ; A malformed number.
+    CALL DG_RAISE                  ; Raise the diagnostic below.
+    DB   DG_FORM                   ; malformed-number, at the number.
 TK_NUMOK:                      ; HL is a complete, valid value.
     LD   B,H                       ; BC: the payload.
     LD   C,L                       ; Completes the copy.
     LD   A,TK_NUM                  ; The token kind.
     JP   TK_DONE                   ; Return the number.
+TK_WIDE:                       ; A number beyond sixteen bits,
+    JP   EX_EXACT                  ; which the reference takes as a u32.
 
 ;@ROUTINE IN B OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a character literal: one printable byte between apostrophes, with no
@@ -299,26 +324,43 @@ TK_NUMOK:                      ; HL is a complete, valid value.
 
 TK_APOS:                       ; The current byte is the opening apostrophe.
     CALL SRC_TAKE                  ; Consume it.
-    JR   C,TK_ERR                  ; Cannot fail: TK_NEXT has seen the byte.
     CALL SRC_TAKE                  ; The character itself.
-    JR   C,TK_ERR                  ; The part ended: unterminated.
-    CP   $20                       ; Printable bytes begin at space.
-    JR   C,TK_ERR                  ; Control bytes, line ends included, are refused.
+    JR   C,TK_EOPEN                ; The part ended: unterminated.
+    CP   $20                       ; Printable bytes begin at space;
+    JR   C,TK_ECTL                 ; a line end leaves it unterminated.
     CP   $7F                       ; And end before DEL.
-    JR   NC,TK_ERR                 ; DEL and the bytes above are refused.
+    JR   NC,TK_EBYTE               ; DEL and the bytes above are refused.
     CP   '\''                      ; An apostrophe here would close an empty literal.
-    JR   Z,TK_ERR                  ; Then the literal is empty.
-    CP   '\\'                      ; A backslash would begin an escape.
-    JR   Z,TK_ERR                  ; Character literals have no escapes.
+    LD   E,DG_NONE                 ; Then the literal is empty:
+    JR   Z,TK_ECODE                ; empty-character.
+    CP   '\\'                      ; A backslash would begin an escape,
+    JP   Z,TR_OPER                 ; which this compiler takes in strings only.
     LD   C,A                       ; C: the payload byte; B is already zero.
     CALL SRC_TAKE                  ; The closing apostrophe.
-    JR   C,TK_ERR                  ; The part ended: unterminated.
+    JR   C,TK_EOPEN                ; The part ended: unterminated.
     CP   '\''                      ; Exactly one byte is allowed.
-    JR   NZ,TK_ERR                 ; More than one byte, or unclosed.
+    LD   E,DG_LONGC                ; More than one,
+    JR   NZ,TK_ECODE               ; or unclosed: long-character.
     LD   A,TK_CHAR                 ; The token kind.
     JP   TK_DONE                   ; Return the character.
-TK_ERR:                        ; Error exit within JR range of the scanners.
-    JP   TK_BAD                    ; Raise the lexical diagnostic.
+
+; Literal failures, within JR range of the scanners, each raised at the
+; literal's start: E is the code (TK_ECODE). A control byte is bad-byte,
+; but a line end leaves the literal unterminated, as the reference finds.
+
+TK_ECTL:                       ; A control byte in a literal.
+    CP   10                        ; A line end
+    JR   Z,TK_EOPEN                ; ends it unterminated;
+    CP   13                        ; so does
+    JR   Z,TK_EOPEN                ; a CR.
+TK_EBYTE:                      ; A byte no literal may hold.
+    LD   E,DG_LEXB                 ; bad-byte.
+    JR   TK_ECODE                  ; Raise it.
+TK_EOPEN:                      ; The part or the line ended inside it.
+    LD   E,DG_OPEN                 ; unterminated-literal.
+TK_ECODE:                      ; E is the diagnostic.
+    LD   A,E                       ; At the literal's start,
+    JP   DG_ISSUE                  ; raise it.
 
 ;@ROUTINE IN A OUT A,CARRY CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
 ; Carry reports whether A is a hexadecimal digit of either case, and A then
@@ -352,26 +394,26 @@ TK_HEX:                        ; A: the byte to classify.
 
 TK_QUOTE:                      ; The current byte is the opening quote.
     CALL SRC_TAKE                  ; Consume it.
-    JR   C,TK_ERR                  ; Cannot fail: TK_NEXT has seen the byte.
     LD   C,0                       ; C counts the decoded bytes.
 TK_QNEXT:                      ; Take the next byte of the body.
     CALL SRC_TAKE                  ; Consume it; C survives.
-    JR   C,TK_ERR                  ; The part ended: unterminated.
+    JR   C,TK_EOPEN                ; The part ended: unterminated.
     CP   '"'                       ; The closing quote ends the body.
     JR   Z,TK_QDONE                ; The literal is complete.
-    CP   $20                       ; Printable bytes begin at space.
-    JR   C,TK_ERR                  ; Control bytes: a string cannot cross a line end.
+    CP   $20                       ; Printable bytes begin at space;
+    JR   C,TK_ECTL                 ; a line end leaves it unterminated.
     CP   $7F                       ; And end before DEL.
-    JR   NC,TK_ERR                 ; DEL and the bytes above are refused.
+    JR   NC,TK_EBYTE               ; DEL and the bytes above are refused.
     CP   '\\'                      ; A backslash begins an escape.
     JR   Z,TK_QESC                 ; An escape follows.
 TK_QCNT:                       ; One more decoded byte.
     INC  C                         ; Count it.
-    JR   Z,TK_ERR                  ; 256 bytes: too long for TK_LEN.
-    JR   TK_QNEXT                  ; Take the next byte.
+    JR   NZ,TK_QNEXT               ; Take the next byte.
+    LD   A,DG_RANGE                ; 256 bytes: too long for TK_LEN,
+    JP   DG_ISSUE                  ; and for any string (out-of-range).
 TK_QESC:                       ; The backslash is consumed; the escape follows.
     CALL SRC_TAKE                  ; The escape letter.
-    JR   C,TK_ERR                  ; The part ended: unterminated.
+    JR   C,TK_EOPEN                ; The part ended: unterminated.
     CP   'x'                       ; \x takes two hexadecimal digits.
     JR   Z,.HEX                    ; Check them.
     LD   HL,TK_ESC                 ; The single-letter escapes.
@@ -381,16 +423,16 @@ TK_QESC:                       ; The backslash is consumed; the escape follows.
     JR   Z,TK_QCNT                 ; A known escape decodes to one byte.
     INC  HL                        ; Next letter.
     DJNZ .LOOP                     ; Until the table is exhausted.
-    JR   TK_ERR                    ; An unknown escape.
+.BAD:                          ; An unknown or incomplete escape:
+    LD   E,DG_ESC                  ; bad-escape.
+    JR   TK_ECODE                  ; Raise it.
 .HEX:                          ; Exactly two digits must follow.
     CALL SRC_TAKE                  ; The first digit.
-    JR   C,TK_ERR                  ; The part ended: unterminated.
     CALL TK_HEX                    ; Only its validity matters here.
-    JR   NC,TK_ERR                 ; Not a hexadecimal digit.
+    JR   NC,.BAD                   ; Not a hexadecimal digit.
     CALL SRC_TAKE                  ; The second digit.
-    JR   C,TK_ERR                  ; The part ended: unterminated.
     CALL TK_HEX                    ; Only its validity matters here.
-    JR   NC,TK_ERR                 ; Not a hexadecimal digit.
+    JR   NC,.BAD                   ; Not a hexadecimal digit.
     JR   TK_QCNT                   ; \xHH decodes to one byte.
 TK_QDONE:                      ; The closing quote is consumed; C is the length.
     LD   B,0                       ; BC: the payload; B was the escape count.
@@ -466,7 +508,16 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
 .NAME:                         ; Only a name remains possible.
     CALL TK_ALPHA                  ; Names begin with a letter.
     JP   C,TK_WORD                 ; A name or a keyword.
-    JR   TK_FAULT                  ; No token begins with this byte.
+    CP   $20                       ; A control byte,
+    JR   C,.FAULT                  ; or DEL
+    CP   $7F                       ; and above,
+    JR   NC,.FAULT                 ; is bad-byte;
+    JP   TK_BAD                    ; any other begins no token.
+.FAULT:                        ; A byte the source may not contain.
+    LD   B,DG_LEXB                 ; bad-byte, at it.
+.SHUT:                         ; B is the diagnostic.
+    LD   A,B                       ; Raise it
+    JP   DG_ISSUE                  ; at the token.
 
 .SKIP:                         ; A: a space or a tab.
     CALL SRC_TAKE                  ; Discard it.
@@ -480,7 +531,7 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
     JR   NZ,.DIVIDE                ; No: a division sign.
     CALL SRC_TAKE                  ; Consume the second '/'.
     CALL TK_REM                    ; Skip to the line end.
-    JR   TK_AGAIN                  ; The line end is scanned next.
+    JP   TK_AGAIN                  ; The line end is scanned next.
 .DIVIDE:                       ; A lone '/', already consumed.
     LD   A,TK_SLASH                ; The token kind.
     JP   TK_DONE                   ; Return the division sign.
@@ -530,7 +581,7 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
     CALL SRC_TAKE                  ; Consume it; C survives.
     LD   A,(TK_NEST)               ; The current depth.
     INC  A                         ; One level deeper.
-    JR   Z,TK_FAULT                ; 256 open brackets: refused.
+    JR   Z,TK_DEEP                 ; 256 open brackets: refused.
     LD   (TK_NEST),A               ; Line ends are whitespace while nonzero.
     LD   A,C                       ; Return the bracket's kind.
     JP   TK_DONE                   ; Return the opening bracket.
@@ -539,16 +590,17 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
     LD   C,TK_RBRAC                ; The token kind; fall into the close path.
 .CLOSE:                        ; C: the kind of the closing bracket.
     LD   A,(TK_NEST)               ; The current depth.
-    OR   A                         ; Zero when nothing is open.
-    JR   Z,TK_FAULT                ; No: an unbalanced close.
-    DEC  A                         ; One level out; the parser checks the kind.
+    SUB  1                         ; One level out; the parser checks the kind.
+    LD   B,DG_SHUT                 ; Below zero: an unbalanced close,
+    JR   C,.SHUT                   ; unmatched-delimiter.
     LD   (TK_NEST),A               ; Line ends count again at depth zero.
     CALL SRC_TAKE                  ; Consume the bracket; C survives.
     LD   A,C                       ; Return the bracket's kind.
     JP   TK_DONE                   ; Return the closing bracket.
 
-TK_FAULT:                      ; Error exit within JR range of TK_NEXT.
-    JP   TK_BAD                    ; Raise the lexical diagnostic.
+TK_DEEP:                       ; Brackets open 256 deep:
+    LD   A,DG_NEST                 ; this compiler's capacity,
+    JP   DG_ISSUE                  ; nesting.
 
 ; HL is at the KW_PUNCT descriptor for the byte in A, not yet consumed. Bit
 ; 7 of a descriptor introduces a based number, and its low seven bits are
@@ -570,15 +622,19 @@ TK_BASED:                      ; C: the descriptor of $ or %.
 ; Line ends. TK_LF and TK_CRLF consume LF or CR LF; TK_BREAK then counts the
 ; line and decides whether the parser sees it as a token.
 
+TK_ECR:                        ; A carriage return without a line feed.
+    LD   A,DG_CR                   ; lone-cr,
+    JP   DG_ISSUE                  ; at the line's end.
+
 TK_LF:                         ; A: LF.
     CALL SRC_TAKE                  ; Consume it.
     JR   TK_BREAK                  ; Count the line.
 TK_CRLF:                       ; A: CR.
     CALL SRC_TAKE                  ; Consume it.
     CALL SRC_PEEK                  ; Only LF may follow.
-    JR   C,TK_FAULT                ; A bare CR at the end of the part.
+    JR   C,TK_ECR                  ; A bare CR at the end of the part.
     CP   10                        ; Only LF completes CR LF.
-    JR   NZ,TK_FAULT               ; A bare CR within the text.
+    JR   NZ,TK_ECR                 ; A bare CR within the text.
     CALL SRC_TAKE                  ; Consume the LF.
 TK_BREAK:                      ; The line end is consumed.
     CALL SRC_EOL                   ; Next line; the column returns to one.
@@ -600,8 +656,9 @@ TK_BREAK:                      ; The line end is consumed.
 
 TK_ATEND:                      ; SRC_PEEK reported the end of the part.
     LD   A,(TK_NEST)               ; The bracket depth.
-    OR   A                         ; Nonzero if a bracket is still open.
-    JR   NZ,TK_FAULT               ; A bracket is left open at the end of a part.
+    OR   A                         ; Nonzero if a bracket is still open:
+    LD   A,DG_AJAR                 ; open-delimiter,
+    JP   NZ,DG_ISSUE               ; at the part's end.
     LD   A,(SRC_LEFT)              ; Pending flag, ordinal and count of later parts.
     BIT  7,A                       ; Set once the boundary line end is returned.
     JR   NZ,.NEXTPART              ; Yes: move on to the next part.
@@ -694,7 +751,10 @@ TK_RADIX:                      ; B, C: the digit limit plus one.
     JP   Z,TK_NUMOK                ; Nothing follows, so nothing can trail.
     JP   TK_TRAIL                  ; Refuse a name byte straight after.
 .BAD:                          ; A bare prefix, or too many digits.
-    JP   TK_BAD                    ; Raise the lexical diagnostic.
+    LD   A,B                       ; Were digits taken?
+    CP   C                         ; Then there were too many for 16 bits,
+    JP   NZ,EX_EXACT               ; which the reference takes as a u32;
+    JP   TK_ENUM                   ; with none the number is malformed.
 
 ; The single-letter string escapes \0 \n \r \t \' \" and \\, searched by
 ; TK_QESC. AGGR's decoder translates them separately.

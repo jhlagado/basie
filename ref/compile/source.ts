@@ -161,15 +161,19 @@ export function loadSource(
     );
   }
   load(mainPath, bytes);
+  // The end of the program is just after its last token: after a line
+  // end, at the start of the next line.
   const last = tokens.at(-1);
-  const at = last
-    ? {
+  const at = !last
+    ? { part: 0, offset: 0, line: 1, column: 1 }
+    : last.kind === "newline" && last.end > last.offset
+    ? { part: last.part, offset: last.end, line: last.line + 1, column: 1 }
+    : {
       part: last.part,
       offset: last.end,
       line: last.line,
-      column: last.column,
-    }
-    : { part: 0, offset: 0, line: 1, column: 1 };
+      column: last.column + last.end - last.offset,
+    };
   tokens.push({ ...at, end: at.offset, kind: "eof" });
   return { parts, tokens };
 }

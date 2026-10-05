@@ -1,0 +1,9 @@
+// A forward declaration that is never completed is reported at the name
+// it declares, not at `forward`.
+// spec: 13.3
+// expect error: forward-incomplete at 6:13
+
+forward sub helper()
+
+sub main()
+end
