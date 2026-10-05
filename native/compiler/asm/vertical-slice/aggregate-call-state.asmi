@@ -1,0 +1,174 @@
+; Packed aggregate-call and Stage 8 routine state. Four direct routine entries,
+; sixteen retained parameter positions, and four nested parser call frames are
+; bounded independently. Source bytes remain resident, so names use
+; pointer/length pairs. Types are the Stage 6 one-byte ordinals.
+
+Stage7StateBase             .equ AggregateWorkspaceEnd
+Stage7RoutineCount          .equ Stage7StateBase+$00
+Stage7ParameterCount        .equ Stage7StateBase+$01
+Stage7CurrentRoutine        .equ Stage7StateBase+$02
+Stage7CurrentResultType     .equ Stage7StateBase+$03
+Stage7CurrentParameterStart .equ Stage7StateBase+$04
+Stage7CurrentParameterCount .equ Stage7StateBase+$05
+Stage7GlobalSymbolCount     .equ Stage7StateBase+$06
+Stage7PathType              .equ Stage7StateBase+$07
+Stage7PathExtent            .equ Stage7StateBase+$08 ; word
+Stage7PathOffset            .equ Stage7StateBase+$0A ; word
+Stage7ArgumentIndex         .equ Stage7StateBase+$0C
+Stage7ArgumentCount         .equ Stage7StateBase+$0D
+Stage7CallResultType        .equ Stage7StateBase+$0E
+Stage7CallLabel             .equ Stage7StateBase+$0F
+Stage7CallOffset            .equ Stage7StateBase+$10
+Stage7CallDepth             .equ Stage7StateBase+$12
+Stage7CurrentFlags          .equ Stage7StateBase+$13
+Stage8FailureOffset         .equ Stage7StateBase+$14
+Stage8DirectFailable        .equ Stage7StateBase+$16
+Stage8CallModePointer       .equ Stage7StateBase+$17
+Stage8ForwardMainFlags      .equ Stage7StateBase+$19
+; Number of already-evaluated destination carriers below a failable result.
+; A local handler discards these before entering its statement body.
+Stage8RetainedCarriers      .equ Stage7StateBase+$1A
+; These values span expression parsing, so nested calls must not overlay them.
+Stage8ServiceId             .equ Stage7StateBase+$1B
+Stage8CallFlags             .equ Stage7StateBase+$1C
+Stage7OpenStringCapacityOffset .equ Stage7StateBase+$1D
+Stage7StateEnd              .equ Stage7StateBase+$1E
+
+Stage7RoutineTableBase      .equ Stage7StateEnd
+Stage7RoutineEntrySize      .equ 8
+Stage7RoutineCapacity       .equ 4
+Stage7RoutineTableLimit     .equ Stage7RoutineTableBase+Stage7RoutineEntrySize*Stage7RoutineCapacity
+Stage7RoutineNamePointer    .equ 0
+Stage7RoutineNameLength     .equ 2
+Stage7RoutineParameterStart .equ 3
+Stage7RoutineParameterCount .equ 4
+Stage7RoutineResultType     .equ 5
+Stage7RoutineLabel          .equ 6
+Stage7RoutineFlags          .equ 7
+
+Stage7ParameterTableBase    .equ Stage7RoutineTableLimit
+Stage7ParameterEntrySize    .equ 4
+Stage7ParameterCapacity     .equ 16
+Stage7ParameterTableLimit   .equ Stage7ParameterTableBase+Stage7ParameterEntrySize*Stage7ParameterCapacity
+Stage7ParameterNamePointer  .equ 0
+Stage7ParameterNameLength   .equ 2
+Stage7ParameterType         .equ 3
+
+Stage7CallFrameBase         .equ Stage7ParameterTableLimit
+Stage7CallFrameSize         .equ 8
+Stage7CallFrameCapacity     .equ 4
+Stage7CallFrameLimit        .equ Stage7CallFrameBase+Stage7CallFrameSize*Stage7CallFrameCapacity
+Stage7CallFrameLabel        .equ 0
+Stage7CallFrameResult       .equ 1
+Stage7CallFrameParameter    .equ 2
+Stage7CallFrameRemaining    .equ 3
+Stage7CallFrameArgumentCount .equ 4
+Stage7CallFrameOffset       .equ 5
+Stage7CallFrameFlags        .equ 7
+
+Stage7CompilerWorkspaceEnd  .equ Stage7CallFrameLimit
+
+; The memory-backed multipart adapter retains only the next external
+; descriptor and one packed multipart byte. Bit 7 records a pending boundary
+; newline, bits 3..5 retain the current manifest ordinal, and bits 0..2 retain
+; the number of later parts. SourcePartCapacity=8 makes every field exact.
+; Source bytes and the descriptor table remain outside compiler workspace.
+SourcePartDescriptorCursor  .equ Stage7CompilerWorkspaceEnd
+SourcePartsRemaining        .equ SourcePartDescriptorCursor+2
+SourceMultipartWorkspaceEnd .equ SourcePartsRemaining+1
+SourcePartDescriptorSize    .equ 5
+SourcePartCapacity          .equ 8
+SourcePartsRemainingMask    .equ $07
+SourcePartOrdinalShift      .equ 3
+SourcePartOrdinalStep       .equ 8
+SourcePartOrdinalMask       .equ $38
+SourcePartPendingNewline    .equ $80
+
+; Emission begins only after parsing has published the semantic transcript, so
+; its consecutive call fields overlay the no-longer-live declaration prefix.
+Stage8EmitFieldBase         .equ Stage7StateBase
+Stage8EmitCallFlags         .equ Stage8EmitFieldBase+$00
+Stage8EmitResultType        .equ Stage8EmitFieldBase+$01
+Stage8EmitCallMode          .equ Stage8EmitFieldBase+$02
+Stage8EmitHandlerLabel      .equ Stage8EmitFieldBase+$03
+Stage8EmitRetainedCarriers  .equ Stage8EmitFieldBase+$04
+
+Stage7RoutineLabelBase      .equ 28
+; Label 27 is the callable body of main. The startup wrapper calls this label
+; just like a source call, while labels 28..31 retain ordinary routines.
+Stage7MainLabel             .equ 27
+Stage7ControlLabelLimit     .equ Stage7MainLabel
+Stage7MainRoutine           .equ $FE
+Stage7NoResult              .equ 0
+Stage7RoutineFails          .equ 1
+Stage7RoutineMain           .equ 2
+Stage8RoutineIncomplete     .equ 4
+; Target bank ordinals occupy unused routine/symbol metadata bits. The first
+; banked profile is deliberately bounded to four banks.
+TargetBankCapacity          .equ 4
+TargetBankShift             .equ 4
+TargetBankMask              .equ $30
+
+Stage8CallModeInfallible       .equ 0
+Stage8CallModePropagateRoutine .equ 1
+Stage8CallModePropagateMain    .equ 2
+Stage8CallModeHandle           .equ 3
+
+; Stage 7 semantic operations extend the dense production dispatch range.
+SemanticBeginGeneralRoutine .equ 82
+SemanticBindParameter       .equ 83
+SemanticCallGeneral         .equ 84
+SemanticReturnAggregate     .equ 85
+SemanticEndGeneralRoutine   .equ 86
+SemanticLoadProgramAlias    .equ 87
+SemanticLoadParameterAlias  .equ 88
+SemanticSelectField         .equ 89
+SemanticSelectIndex         .equ 90
+SemanticLoadIndirect8       .equ 91
+SemanticLoadIndirect16      .equ 92
+SemanticStoreIndirect8      .equ 93
+SemanticStoreIndirect16     .equ 94
+SemanticCopyAggregate       .equ 95
+SemanticStringLength        .equ 96
+SemanticStringIndex         .equ 97
+SemanticFailRoutine         .equ 98
+SemanticFailMain            .equ 99
+SemanticReturnFailableScalar .equ 100
+SemanticReturnFailableAggregate .equ 101
+SemanticEndFailableRoutine  .equ 102
+SemanticSkipHandler          .equ 103
+SemanticBeginHandler         .equ 104
+SemanticEndHandler           .equ 105
+SemanticBeginCallableMain    .equ 106
+SemanticLoadReadOnlyAlias    .equ 107
+SemanticOpenStringLength     .equ 108
+SemanticOpenStringIndex      .equ 109
+SemanticPrepareOpenArgument  .equ 110
+Stage8ServiceReadInput       .equ 0
+Stage8ServiceWriteOutput     .equ 1
+Stage8ServiceReadStorage     .equ 2
+Stage8ServiceRewindStorage   .equ 3
+Stage8ServiceWriteStorage    .equ 4
+Stage8ServiceSeekStorage     .equ 5
+Stage8PredefinedConstantBase .equ 6
+
+; One completed call selector carries the target kind, successful-result
+; retention choice, and dense target ID. Source labels occupy 27..31 and
+; service IDs occupy 0..5, so both fit without widening the transcript.
+Stage8CallableServiceFlag    .equ $80
+Stage8CallableKeepFlag       .equ $40
+Stage8CallableSourceMask     .equ $3F
+Stage8CallableServiceMask    .equ $07
+
+; Service selectors use their otherwise-free middle bits for the fixed
+; signature: optional scalar parameter type in bits 3..4 and a successful u8
+; result in bit 5. Every service is failable.
+Stage8ServiceArgumentMask    .equ $18
+Stage8ServiceArgumentU16     .equ $10
+Stage8ServiceResultU8        .equ $20
+
+DiagnosticRoutineCapacity  .equ 84
+DiagnosticParameterCapacity .equ 85
+DiagnosticTransientAlias   .equ 86
+DiagnosticFailureContext   .equ 87
+DiagnosticSourcePartCapacity .equ 88
