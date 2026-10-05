@@ -1,0 +1,33 @@
+// A field reached through an identifier can't be passed to a var parameter
+// (7.13; review finding B2).
+// spec: 7.13
+// expect error: not-writable at 23:14
+include "FORMAT.BSI"
+record Inner
+    w as u16
+end
+record Box
+    inner as Inner
+end
+pool boxes as Box[1]
+var gb as boxes?
+sub bump(var x as Inner)
+    gb = none
+    gb = new boxes()
+    x.w = 3
+end
+sub main() fails
+    gb = new boxes()
+    select gb
+    case some(j)
+        bump(j.inner)
+    case none
+    end
+    var line as string[20]
+    select gb
+    case some(j)
+        appendU16(line, j.inner.w) else fail
+    case none
+    end
+    writeText(console, line) else fail
+end

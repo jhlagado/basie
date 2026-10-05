@@ -3314,6 +3314,43 @@ export class Compiler {
     return offset >= -128 && offset + size - 1 <= 127;
   }
 
+  /**
+   * An aggregate field reached through an identifier, passed as an argument:
+   * the callee could free the slot, so it gets a copy in a frame temporary of
+   * the caller (7.13). HL = the field on entry and the copy on exit. A `var`
+   * parameter can't take one, and nor can any parameter take a field that
+   * owns handles, since a copy would duplicate its owners.
+   */
+  private passCopy(type: Type, p: Parameter, at: Token): void {
+    if (p.var) {
+      fail(
+        "not-writable",
+        at,
+        "a field reached through an identifier can't be passed to a var parameter",
+      );
+    }
+    if (isOwningType(type)) {
+      fail(
+        "owning-copy",
+        at,
+        `${
+          typeName(type)
+        } owns handles: a field reached through an identifier can't be passed`,
+      );
+    }
+    const r = this.routine!;
+    const size = sizeOf(type);
+    const temp = this.allocLocal(size);
+    r.blob.u8(0xe5); // PUSH HL: the field
+    this.push(2);
+    this.ixAddress(temp);
+    r.blob.u8(0xeb, 0xe1, 0xd5); // EX DE,HL; POP HL; PUSH DE
+    r.blob.u8(0x01); // LD BC,size
+    r.blob.u16(size);
+    r.blob.u8(0xed, 0xb0, 0xe1); // LDIR; POP HL: the copy
+    this.pop(2);
+  }
+
   /** HL = IX + offset, for the far forms. */
   private ixAddress(offset: number): void {
     const r = this.routine!;
@@ -3843,18 +3880,22 @@ export class Compiler {
       }
       this.push(2);
       this.emitAddress(d);
+      if (d.rechecks) this.passCopy(d.type, p, at);
       r.blob.u8(0xe5);
       this.push(2);
       return 4;
     }
     if (isAggregate(t)) {
+      this.lastDesignator = undefined;
       const v = this.expression(t);
+      const last = this.lastDesignator as Designator | undefined;
+      const viaId = v.kind === "address" && last?.rechecks ? last : undefined;
       if (
         v.kind === "reg" && v.type.kind === "handle" && !v.type.id &&
         !v.type.optional && t.kind === "record" && v.type.pool.record === t
       ) {
         // A lease (7.14): the record in the caller's own owning local.
-        const root = this.lastDesignator;
+        const root = last;
         if (
           !root || !root.rootOnly || root.symbol?.storage.kind !== "frame" ||
           root.symbol.lease
@@ -3884,6 +3925,7 @@ export class Compiler {
           "a read-only object can't be passed to a var parameter",
         );
       }
+      if (viaId) this.passCopy(t, p, at);
       if (p.ownerOffset !== undefined) {
         // The owner word: a parameter passes its own on, as does a field or
         // element of it; a lease passes its slot; anything else is 0.

@@ -1,0 +1,50 @@
+// A field that owns handles, reached through an identifier, can't be passed:
+// a copy would duplicate its owner (7.13; review finding B2).
+// spec: 7.13
+// expect error: owning-copy at 47:14
+include "FORMAT.BSI"
+forward pool nodes
+record Node
+    v as u16
+    next as nodes?
+end
+pool nodes as Node[1]
+record Holder
+    h as nodes?
+    w as u16
+end
+record Box
+    inner as Holder
+end
+pool boxes as Box[1]
+var gb as boxes?
+sub look(x as Holder) fails
+    gb = none
+    gb = new boxes()
+    select gb
+    case some(bi)
+        bi.inner.h = new nodes(9, none)
+        bi.inner.w = 555
+    case none
+    end
+    var line as string[20]
+    appendU16(line, x.w) else fail
+    appendByte(line, ' ') else fail
+    select x.h
+    case some(k)
+        appendU16(line, k.v) else fail
+    case none
+        appendByte(line, 'N') else fail
+    end
+    writeText(console, line) else fail
+end
+sub main() fails
+    gb = new boxes()
+    select gb
+    case some(bi)
+        bi.inner.h = new nodes(7, none)
+        bi.inner.w = 1
+        look(bi.inner) else fail
+    case none
+    end
+end

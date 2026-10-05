@@ -1,0 +1,42 @@
+// An aggregate field reached through an identifier is passed as a copy: the
+// callee frees and reuses the slot, and still sees the value passed
+// (7.13; review finding B2).
+// spec: 7.13
+// expect output: 1
+include "FORMAT.BSI"
+record Inner
+    w as u16
+end
+record Box
+    inner as Inner
+    name as string[8]
+end
+pool boxes as Box[1]
+var gb as boxes?
+sub look(x as Inner, s as string[]) fails
+    gb = none
+    gb = new boxes()
+    select gb
+    case some(bi)
+        bi.inner.w = 555
+    case none
+    end
+    var line as string[20]
+    appendU16(line, x.w) else fail
+    writeText(console, line) else fail
+end
+sub main() fails
+    gb = new boxes()
+    var i as id boxes? = none
+    select gb
+    case some(bi)
+        bi.inner.w = 1
+        i = bi
+    case none
+    end
+    select i
+    case some(j)
+        look(j.inner, j.name) else fail
+    case none
+    end
+end

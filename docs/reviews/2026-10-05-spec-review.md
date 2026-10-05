@@ -46,7 +46,7 @@ fixes it names the finding, as B1, A3 and so on).
 | # | Severity | Finding | Right |
 | --- | --- | --- | --- |
 | B1 | critical (closed) | `j.w = f()` through an identifier checks `j` before calling `f`, so `f` can free and reuse the slot and the store lands in the new occupant. 7.13 and 9.14 say the right side comes first, but 10.4 step 1 and 15.4 say the target path does, with no exception, and the compiler follows them. | 7.13: check the identifier after the right side |
-| B2 | critical | An aggregate field reached through an identifier is passed as an alias into the slot, not copied (7.13), and `var` is accepted. The callee can free and reuse the slot. Copying an owning-type field would itself duplicate an owner. | Copy non-owning fields; forbid passing owning-type fields reached through identifiers; reject `var` |
+| B2 | critical (closed) | An aggregate field reached through an identifier is passed as an alias into the slot, not copied (7.13), and `var` is accepted. The callee can free and reuse the slot. Copying an owning-type field would itself duplicate an owner. | Copy non-owning fields; forbid passing owning-type fields reached through identifiers; reject `var` |
 | B3 | critical | A typed constant combined with a literal is computed in `u16`: `const a as u8 = 200` then `a * 2` gives 400, and `var b as u8 = a + 100` is rejected. | 8.4: the constant behaves like a `u8` |
 | B4 | major | `id(n)` compares only the owner word, so a record at offset 0 of a node shares the node's address and `id(n)` names the wrong pool. | Also compare the slot's pool word |
 | B5 | major | "A routine whose result is an owning type" is called fresh, and owning aggregates may be copied "unless fresh". Aggregate results are aliases, so no aggregate is ever fresh. | Say "owning handle type" |
@@ -60,7 +60,7 @@ fixes it names the finding, as B1, A3 and so on).
 | B13 | major | "Parameters without `var` are read-only, except scalar parameters" excludes handle parameters, which `move n` needs. | Add handle parameters |
 | B14 | major | Open views (`string[]`, `T[]`) are accepted as local initializers and results, and then crash the compiler. | Diagnose them |
 | B15 | major | String literals: chapter 9 admits them only in initializers and read-only arguments, chapter 17 in every argument; the compiler also accepts `s = "abc"` and literals in `new`. | Name every position |
-| B16 | major | Whether an aggregate field reached through an owning local is copied or aliased is unclear; the compiler aliases. | Lease semantics for owner paths |
+| B16 | major (closed) | Whether an aggregate field reached through an owning local is copied or aliased is unclear; the compiler aliases. | Lease semantics for owner paths |
 | B17 | minor | Chapter 6 omits handle fields, exact indexes, arrays of arrays and handles, and `T[]` identity. | Add |
 | B18 | minor | Homes of `P` and `id P` omit routine results. | Add |
 | B19 | minor | The example in 8.15 uses `step`, a reserved word. | Rename |

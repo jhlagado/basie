@@ -167,7 +167,10 @@ A path through an identifier may select any chain of record fields and checked i
 
 An identifier on an assignment's target path is checked twice: when the path is resolved, before the right side, and again after the right side, immediately before the store. So in `i.value = f()`, if `f` frees the slot, the second check traps with `stale-handle` and nothing is stored; nothing can free the slot between the last check and the store.
 
-Scalar fields are read and written in place. An **aggregate field** is copied as a whole: `var s = i.name` copies it out, and `i.name = s` copies it in. Passing an aggregate field reached through an identifier or an owner to a ticket copies it into a hidden temporary of the caller, counted in its frame. It cannot be passed to a `var` parameter, except through a lease.
+Scalar fields are read and written in place. An **aggregate field** is copied as a whole: `var s = i.name` copies it out, and `i.name = s` copies it in. Passed as an argument, an aggregate field is treated by how it was reached:
+
+- **Through an identifier:** the callee could free the slot, so the field is copied into a hidden temporary of the caller, counted in its frame, and the callee sees the copy. It can't be passed to a `var` parameter, and a field of an owning type can't be passed at all, since a copy would duplicate its owning handles.
+- **Through an owner or a lease:** the field is passed as an alias, to a ticket or a `var` parameter. The path starts at the routine's own non-optional owning local or parameter, which the callee can't reach, so nothing can free the slot during the call.
 
 ## 7.14 Leases and slot-holders
 
