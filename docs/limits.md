@@ -126,8 +126,8 @@ roadmap step 63, and rescaled for the current image:
 Table space is the memory from the end of BLINK's image (`FREEMEM`, which is
 `$0100` plus the image's length) to the stack margin, 768 bytes below the BDOS
 entry. It therefore grows by every byte the image loses. With the image at
-10,887 bytes, `FREEMEM` is `$2B87` and table space is `$E406` − `$0300` −
-`$2B87` = 46,463 bytes (45.4K). At step 63 the image was 12,262 bytes and the
+10,888 bytes, `FREEMEM` is `$2B88` and table space is `$E406` − `$0300` −
+`$2B88` = 46,462 bytes (45.4K). At step 63 the image was 12,262 bytes and the
 same method gives 45,088 bytes (44.0K; this section said 44.7K then). The blob
 count is the step-63 measurement scaled by the ratio of the two, 1.030,
 since tables of few references cost the same bytes per blob; it is an estimate

@@ -85,7 +85,7 @@ routine, top-level variable and top-level constant.
 The [toolchain](toolchain.md) leaves about 48K for these tables on a CP/M 2.2
 system with 62K of memory. Typical and large programs fit; the largest
 programs the address space allows do not, and fail with `L-CAP-TABLES`.
-Measured (roadmap step 63; [limits](limits.md) §5.2): `BLINK.COM` was then 12.0K and the tables held about 5,450 blobs with few references. After the compression pass that followed option R, `BLINK.COM` is 10.6K (10,887 bytes) and leaves about 45.4K for the tables on a 57K CP/M 2.2 system, so about 5,600 blobs by the same measure (an estimate until the capacity run is repeated). Programs as compiled reach the image limit before the tables fill: a 54K image of 1,044 blobs links.
+Measured (roadmap step 63; [limits](limits.md) §5.2): `BLINK.COM` was then 12.0K and the tables held about 5,450 blobs with few references. After the compression pass that followed option R, and again after the fixes that followed the commentary pass, `BLINK.COM` is 10.6K (10,888 bytes) and leaves about 45.4K for the tables on a 57K CP/M 2.2 system, so about 5,600 blobs by the same measure (an estimate until the capacity run is repeated). Programs as compiled reach the image limit before the tables fill: a 54K image of 1,044 blobs links.
 
 ## 3. Roots
 
