@@ -2,4 +2,4 @@
 ; This part comes first in the image: the program starts at $0100.
 
         ORG     $0100
-        JP      START
+        JP      LK_START

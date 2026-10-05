@@ -1,0 +1,97 @@
+# The native linker
+
+`BLINK.COM`, the Basie linker for CP/M 2.2, in ATOM source ([linker](../../docs/linker.md),
+design decision D44). `tests/blink_test.ts` runs it under the CP/M harness against
+the reference linker and pins the image's digest, so a change to the code
+updates the digest and the size in the same commit.
+
+```text
+deno task census:blink       size by file, against the 12K target and 14K budget
+```
+
+## Files
+
+`BLINK.ASM` includes the others in image order and then holds the driver. ATOM
+assembles each included file before its includer, so the list is the layout.
+
+| File | Areas | Contents |
+| --- | --- | --- |
+| `HEAD.ASM` | | The jump to `LK_START` at `$0100` |
+| `CPM.ASM` | `CPM_`, `CON_`, `RC_` | BDOS calls, console output, return codes |
+| `FILE.ASM` | `FD_`, `FIL_` | Buffered files over CP/M's random-record calls |
+| `CRC.ASM` | `CRC_` | CRC-16/CCITT-FALSE |
+| `MSG.ASM` | `DG_`, `MSG_` | Diagnostics, with their text from `BASIE.MSG` |
+| `TAIL.ASM` | `CMD_`, `OP_`, `OF_`, `OX_`, `FN_` | The command tail and its options |
+| `PHASEA.ASM` | `RD_`, `DG_`, `TAB_`, `EDGE_`, `PA_`, `DIR_`, `PB_`, `TB_` | Reading a directory, the tables, Phases A and B, the table dump |
+| `PHASECD.ASM` | `WK_`, `REF_`, `PC_`, `PD_`, `SRC_`, `OUT_`, `HEX_` | Walking the directories, Phases C and D, Intel HEX |
+| `LINES.ASM` | `LN_`, `LT_` | The line stream and the line table |
+| `PUBLISH.ASM` | `PUB_` | Publication and clean-up |
+| `PHASEE.ASM` | `PE_`, `REP_`, `NM_`, `MAP_`, `SY_` | Phase E: the map and the symbol file |
+| `BLINK.ASM` | `LK_`, `LIB_` | The driver and the library's header |
+
+ATOM refuses a source file over 64K, so a module that its commentary pushes
+past that is split at routine boundaries into consecutive files.
+
+## Names
+
+The sources follow ATOM's and Skate's label convention (`../atom/docs/labels.md`,
+the [compiler's naming guide](../../tools/atomize/README.md)): globals are
+`AREA_WHAT` in at most eight characters, made of words; only what other
+routines use is global, and loop heads, exits and single-caller helpers are
+private to the routine that owns them; markers keep names that say what they
+mark. `FREEMEM`, the end of the image where the tables begin, is such a marker.
+
+Besides the approved short forms of that guide, the linker uses FD (file
+descriptor), CRC, DIR (directory), LIB (library), PRG (program), SEC (section),
+HEX (Intel HEX) and BSS, which are the specification's own terms.
+
+| Prefix | Area |
+| --- | --- |
+| `LK_` | The driver (`BLINK.ASM`) and a helper several areas share |
+| `LIB_` | The library: its file, header, table, drive, name and the map's totals for it |
+| `PRG_` | The program table and the map's totals for the program |
+| `CPM_`, `CON_`, `RC_` | BDOS calls, console output, CP/M 3 return codes |
+| `FD_`, `FIL_` | File descriptor layout, and the file routines |
+| `CRC_` | The CRC |
+| `DG_` | Diagnostics: printing them, their arguments, and the exits that report one and stop |
+| `MSG_` | The message file `BASIE.MSG` and the words printed around a message |
+| `CMD_`, `FN_` | The command tail, the first part, and a parsed file name |
+| `OP_`, `OF_`, `OX_` | Option values, and the option flags in `OP_FLAGS` and `OP_EXTRA` |
+| `RD_` | Reading a directory: the reader, the record being read and its file |
+| `REF_` | Reading a blob's references |
+| `E_`, `EF_`, `K_` | Table entry fields, entry flags, blob kinds |
+| `TAB_` | The library and program tables as one: finding an entry, positions |
+| `EDGE_` | The edge lists |
+| `PS_` | Pseudo-objects: their ordinals and their table |
+| `DIR_` | The program's directory file `NAME.$DR` and its header |
+| `PA_`, `PB_` | Phase A (read and check) and Phase B (mark) |
+| `TB_` | Option W's table dump |
+| `PF_` | Fields of the library's profile block |
+| `S_`, `WK_` | Sections, and walking the directories pass by pass |
+| `PC_`, `FT_`, `DATA_`, `BSS_`, `IMG_` | Phase C (place): the cursor, the file table and the extents it computes |
+| `PD_`, `SRC_`, `OUT_` | Phase D (write): the blob byte sources and the output image |
+| `HEX_` | The Intel HEX writer |
+| `LN_`, `LT_` | The line stream `NAME.$LN` and the line table `NAME.$LT` |
+| `PUB_` | Publication, abandoning a failed link and deleting the intermediates |
+| `PE_`, `REP_`, `MAP_`, `SY_`, `NM_`, `KIND_` | Phase E: report text, the map, the symbol file, the name readers |
+
+A workspace variable takes the prefix of the area that writes it.
+
+## Renaming
+
+`tools/labels/` holds the tools of Skate's rename, pointed at `BLINK.ASM`, and
+`tools/labels/maps/blink.json` records what each earlier name became:
+
+```text
+deno run --config deno.runtime.json -A tools/labels/fingerprint.ts $PWD > build/baseline.json
+deno run --config deno.runtime.json -A tools/labels/list.ts $PWD native/linker/*.ASM
+deno run --config deno.runtime.json -A tools/labels/demote.ts $PWD
+deno run --config deno.runtime.json -A tools/labels/apply.ts $PWD MAPS-DIR [--dry]
+deno run --config deno.runtime.json -A tools/labels/verify.ts $PWD build/baseline.json MAPS-DIR
+```
+
+`list.ts` prints each definition as KEEP or as PRIV under the global that would
+own it; `demote.ts` counts the globals that could still be private; `apply.ts`
+rewrites the sources and the files a map lists under `others`, refusing a name
+defined twice in one scope; `verify.ts` must print `VERIFIED`. Give a new map
+its own file in a fresh directory, since `apply.ts` applies every map it finds.

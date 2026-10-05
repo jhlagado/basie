@@ -7,166 +7,166 @@
 ; a library name (both empty here), the part names, then 5-byte entries in
 ; address order, then $FF x 5, the entry count, the image's CRC and a CRC.
 
-LN_FD:  DS      FDSIZE
-LN_TY:  DB      "$LN"
-LN_TXT: DS      13
-LT_FD:  DS      FDSIZE
-LT_TY:  DB      "$LT"
-LT_TXT: DS      13
+LN_FD:  DS      FD_SIZE
+LN_TYPE:  DB      "$LN"
+LN_TEXT: DS      13
+LT_FD:  DS      FD_SIZE
+LT_TYPE:  DB      "$LT"
+LT_TEXT: DS      13
 LN_ON:  DB      0               ; 1 while a line table is being written
 LN_TAG: DB      0               ; the tag of the next line-stream record
 LN_CRC: DW      0               ; the line stream's CRC, as read
 LT_CRC: DW      0               ; the line table's CRC, as written
 IMG_CRC: DW     0               ; the image's CRC, as written
-LN_N:   DW      0               ; entries written
-LN_OFF: DW      0               ; an entry's offset in its blob
+LT_CNT:   DW      0             ; entries written
+LN_POS: DW      0               ; an entry's offset in its blob
 LN_PART: DB     0               ; and its part
 
 ; A = the next byte of the line stream, added to its CRC.
-LNB:    PUSH    IX
+LN_BYTE:    PUSH    IX
         LD      IX,LN_FD
-        CALL    F_GETB
+        CALL    FIL_GETB
         POP     IX
         JR      C,.SHORT
         PUSH    HL
         LD      HL,LN_CRC
-        CALL    CRC_UPD
+        CALL    CRC_FOLD
         POP     HL
         RET
-.SHORT: LD      HL,LN_TXT
-        LD      (R_NAME),HL
-        JP      R_SHORT
+.SHORT: LD      HL,LN_TEXT
+        LD      (RD_NAME),HL
+        JP      DG_SHORT
 
 ; HL = the next word of the line stream.
-LNW:    CALL    LNB
+LN_WORD:    CALL    LN_BYTE
         LD      L,A
-        CALL    LNB
+        CALL    LN_BYTE
         LD      H,A
         RET
 
 ; Write A to the line table, adding it to its CRC. Preserves A, BC, DE, HL.
-LTB:    PUSH    HL
+LT_BYTE:    PUSH    HL
         LD      HL,LT_CRC
-        CALL    CRC_UPD
+        CALL    CRC_FOLD
         POP     HL
         PUSH    AF
         PUSH    IX
         LD      IX,LT_FD
-        CALL    F_PUTB
+        CALL    FIL_PUTB
         POP     IX
         JR      C,.FULL
         POP     AF
         RET
 .FULL:  POP     AF
-        LD      HL,LT_TXT
-        LD      (R_NAME),HL
-        JP      DISKERR
+        LD      HL,LT_TEXT
+        LD      (RD_NAME),HL
+        JP      DG_DISK
 
 ; Write HL to the line table, low byte first.
-LTW:    LD      A,L
-        CALL    LTB
+LT_WORD:    LD      A,L
+        CALL    LT_BYTE
         LD      A,H
-        JR      LTB
+        JR      LT_BYTE
 
 ; Open the line stream and the line table, and write the table's header:
 ; the part names, from the stream's part records. Leaves LN_TAG holding the
 ; tag of the first blob-lines record, or $FF.
 LN_OPEN:
-        LD      A,(O_FLAGS)
+        LD      A,(OP_FLAGS)
         AND     OF_N
         RET     NZ              ; option N: no line table
         LD      A,1
         LD      (LN_ON),A
         LD      IX,LN_FD
-        LD      A,(DR_FD+FD_FCB)
-        LD      HL,O_NAME
-        LD      DE,LN_TY
-        CALL    F_INIT
-        LD      HL,O_NAME
-        LD      DE,LN_TXT
-        LD      BC,LN_TY
-        CALL    FILETXT
-        CALL    F_OPEN
-        LD      HL,LN_TXT
-        LD      (R_NAME),HL
+        LD      A,(DIR_FD+FD_FCB)
+        LD      HL,CMD_NAME
+        LD      DE,LN_TYPE
+        CALL    FIL_INIT
+        LD      HL,CMD_NAME
+        LD      DE,LN_TEXT
+        LD      BC,LN_TYPE
+        CALL    FIL_TEXT
+        CALL    FIL_OPEN
+        LD      HL,LN_TEXT
+        LD      (RD_NAME),HL
         LD      HL,225          ; L-MISSING
-        JP      C,ERRFILE
+        JP      C,DG_FILE
         CALL    .HEAD
         ; first pass: count the parts
         LD      BC,0
-.COUNT: CALL    LNB
+.COUNT: CALL    LN_BYTE
         CP      $FF
         JR      Z,.COUNTED
         CP      1
-        JR      Z,.CPART
+        JR      Z,.ONEPART
         CP      2
         JP      NZ,.BAD
         PUSH    BC
-        CALL    LN_SKIP         ; a blob-lines record
+        CALL    .SKIPREC        ; a blob-lines record
         POP     BC
         JR      .COUNT
-.CPART: INC     BC
-        CALL    LNB             ; the part's number
-        CALL    LNB             ; its name's length
+.ONEPART: INC     BC
+        CALL    LN_BYTE         ; the part's number
+        CALL    LN_BYTE         ; its name's length
         LD      D,A
-.CSKIP: LD      A,D
+.SKIPNAME: LD      A,D
         OR      A
         JR      Z,.COUNT
-        CALL    LNB
+        CALL    LN_BYTE
         DEC     D
-        JR      .CSKIP
+        JR      .SKIPNAME
 .COUNTED:
         PUSH    BC
         ; the line table, NAME.$LT on the output drive
         LD      IX,LT_FD
-        CALL    OUTNAME
-        LD      DE,LT_TY
-        CALL    F_INIT
-        CALL    OUTNAME
-        LD      DE,LT_TXT
-        LD      BC,LT_TY
-        CALL    FILETXT
-        LD      HL,LT_TXT
-        LD      (R_NAME),HL
+        CALL    OUT_PICK
+        LD      DE,LT_TYPE
+        CALL    FIL_INIT
+        CALL    OUT_PICK
+        LD      DE,LT_TEXT
+        LD      BC,LT_TYPE
+        CALL    FIL_TEXT
+        LD      HL,LT_TEXT
+        LD      (RD_NAME),HL
         XOR     A
-        CALL    F_MAKE
-        JP      C,DISKERR
+        CALL    FIL_MAKE
+        JP      C,DG_DISK
         LD      A,1
         LD      (LT_MADE),A
         LD      HL,$FFFF
         LD      (LT_CRC),HL
         LD      HL,0
-        LD      (LN_N),HL
+        LD      (LT_CNT),HL
         LD      HL,.MAGIC
         LD      B,4
-.MAG:   LD      A,(HL)
-        CALL    LTB
+.PUTMAGIC:   LD      A,(HL)
+        CALL    LT_BYTE
         INC     HL
-        DJNZ    .MAG
+        DJNZ    .PUTMAGIC
         LD      A,1             ; version 1.0
-        CALL    LTB
+        CALL    LT_BYTE
         XOR     A
-        CALL    LTB
+        CALL    LT_BYTE
         POP     BC
         LD      A,C             ; the part count
-        CALL    LTB
+        CALL    LT_BYTE
         XOR     A               ; no output name, no library name
-        CALL    LTB
-        CALL    LTB
+        CALL    LT_BYTE
+        CALL    LT_BYTE
         ; second pass: from the start again, copying the part names
         CALL    .HEAD
-.NAMES: CALL    LNB
+.NAMES: CALL    LN_BYTE
         CP      1
         JR      NZ,.FIRST
-        CALL    LNB             ; the part's number
-        CALL    LNB
+        CALL    LN_BYTE         ; the part's number
+        CALL    LN_BYTE
         LD      D,A             ; the name's length
-        CALL    LTB
+        CALL    LT_BYTE
 .NAME:  LD      A,D
         OR      A
         JR      Z,.NAMES
-        CALL    LNB
-        CALL    LTB
+        CALL    LN_BYTE
+        CALL    LT_BYTE
         DEC     D
         JR      .NAME
 .FIRST: LD      (LN_TAG),A
@@ -175,41 +175,41 @@ LN_OPEN:
 .HEAD:  LD      IX,LN_FD
         XOR     A
         LD      HL,0
-        CALL    F_SEEK
-        JP      C,R_SHORT
+        CALL    FIL_SEEK
+        JP      C,DG_SHORT
         LD      HL,$FFFF
         LD      (LN_CRC),HL
-        LD      HL,.SMAGIC
+        LD      HL,.SRCMAGIC
         LD      B,4
-.SMAG:  CALL    LNB
+.GETMAGIC:  CALL    LN_BYTE
         CP      (HL)
         JR      NZ,.BAD
         INC     HL
-        DJNZ    .SMAG
-        CALL    LNB
+        DJNZ    .GETMAGIC
+        CALL    LN_BYTE
         CP      1
         JR      NZ,.BAD
-        CALL    LNB
+        CALL    LN_BYTE
         OR      A
         JR      NZ,.BAD
-        CALL    LNW
-        LD      DE,(PRGH+6)
+        CALL    LN_WORD
+        LD      DE,(DIR_HEAD+6)
         OR      A
         SBC     HL,DE
         RET     Z
         LD      HL,202          ; L-STAMP
-        JP      ERRPLAIN
-.BAD:   LD      HL,LN_TXT
-        LD      (R_NAME),HL
+        JP      DG_PLAIN
+.BAD:   LD      HL,LN_TEXT
+        LD      (RD_NAME),HL
         LD      HL,200          ; L-FORMAT
-        JP      ERRFILE
+        JP      DG_FILE
 .MAGIC: DB      "BSIT"
-.SMAGIC: DB     "BSIL"
+.SRCMAGIC: DB     "BSIL"
 
 ; Skip the rest of a blob-lines record (after its tag).
-LN_SKIP:
-        CALL    LNW             ; the ordinal
-        CALL    LNW             ; the entry count
+.SKIPREC:
+        CALL    LN_WORD         ; the ordinal
+        CALL    LN_WORD         ; the entry count
 .NEXT:  LD      A,H
         OR      L
         RET     Z
@@ -219,26 +219,26 @@ LN_SKIP:
         DEC     HL
         JR      .NEXT
 
-; Read one entry of a blob-lines record into LN_OFF and LN_PART, returning
+; Read one entry of a blob-lines record into LN_POS and LN_PART, returning
 ; HL = its source offset.
 LN_ENTRY:
-        CALL    LNB             ; control
+        CALL    LN_BYTE         ; control
         LD      B,A
         AND     $7F
         CP      127
         JR      NZ,.DELTA
-        CALL    LNW             ; an absolute offset
+        CALL    LN_WORD         ; an absolute offset
         JR      .OFF
 .DELTA: LD      L,A
         LD      H,0
-        LD      DE,(LN_OFF)
+        LD      DE,(LN_POS)
         ADD     HL,DE
-.OFF:   LD      (LN_OFF),HL
+.OFF:   LD      (LN_POS),HL
         BIT     7,B
         JR      Z,.SRC
-        CALL    LNB
+        CALL    LN_BYTE
         LD      (LN_PART),A
-.SRC:   JP      LNW
+.SRC:   JP      LN_WORD
 
 ; Write the line-table entries for the blob being emitted, at address DE:
 ; one per statement for a program code blob whose record begins at offset 0,
@@ -246,8 +246,8 @@ LN_ENTRY:
 ; every TEXT pass for each program code blob, emitted or not, so the line
 ; stream stays in step with the directory; A = 1 when the blob is emitted.
 LN_BLOB:
-        LD      (LN_EMIT),A
-        LD      (LN_ADDR),DE
+        LD      (.EMITTED),A
+        LD      (.ADDR),DE
         LD      A,(LN_ON)
         OR      A
         RET     Z
@@ -257,111 +257,111 @@ LN_BLOB:
         LD      A,(WK_KIND)
         CP      K_CODE
         JR      NZ,.START
-        CALL    LN_REC      ; HL = its entry count
-        LD      (LN_LEFT),HL
+        CALL    .RECORD     ; HL = its entry count
+        LD      (.LEFT),HL
         LD      HL,0
-        LD      (LN_OFF),HL
-        LD      A,(LN_EMIT)
+        LD      (LN_POS),HL
+        LD      A,(.EMITTED)
         OR      A
         JR      Z,.SKIPALL
-        LD      HL,(LN_LEFT)
+        LD      HL,(.LEFT)
         LD      A,H
         OR      L
         JR      Z,.ONLY
         CALL    LN_ENTRY        ; the first entry: at offset 0?
         PUSH    HL
-        LD      HL,(LN_OFF)
+        LD      HL,(LN_POS)
         LD      A,H
         OR      L
-        JR      Z,.ZERO1
-        CALL    .STARTENT
-.ZERO1:
+        JR      Z,.ATZERO
+        CALL    .STARTER
+.ATZERO:
         POP     HL
         CALL    .ENTRY
-.MORE:  LD      HL,(LN_LEFT)
+.MORE:  LD      HL,(.LEFT)
         DEC     HL
-        LD      (LN_LEFT),HL
+        LD      (.LEFT),HL
         LD      A,H
         OR      L
         JR      Z,.DONE
         CALL    LN_ENTRY
         CALL    .ENTRY
         JR      .MORE
-.DONE:  JR      LN_ADV
+.DONE:  JR      LN_NEXT
 .SKIPALL:
-        LD      HL,(LN_LEFT)
+        LD      HL,(.LEFT)
 .SKIP:  LD      A,H
         OR      L
-        JR      Z,LN_ADV
+        JR      Z,LN_NEXT
         PUSH    HL
         CALL    LN_ENTRY
         POP     HL
         DEC     HL
         JR      .SKIP
 .ONLY:
-        CALL    .STARTENT
-        JR      LN_ADV
-.START: LD      A,(LN_EMIT)     ; any other emitted blob: a start entry
+        CALL    .STARTER
+        JR      LN_NEXT
+.START: LD      A,(.EMITTED)    ; any other emitted blob: a start entry
         OR      A
         RET     Z
-.STARTENT:
-        LD      HL,(LN_ADDR)
-        CALL    LTW
+.STARTER:
+        LD      HL,(.ADDR)
+        CALL    LT_WORD
         LD      A,$FF
-        CALL    LTB
-        LD      HL,(D_PREV)     ; the blob's ordinal
-        CALL    LTW
+        CALL    LT_BYTE
+        LD      HL,(RD_PREV)    ; the blob's ordinal
+        CALL    LT_WORD
         JR      .COUNT
-; An entry: address = the blob's + LN_OFF, part, source HL.
+; An entry: address = the blob's + LN_POS, part, source HL.
 .ENTRY: PUSH    HL
-        LD      HL,(LN_ADDR)
-        LD      DE,(LN_OFF)
+        LD      HL,(.ADDR)
+        LD      DE,(LN_POS)
         ADD     HL,DE
-        CALL    LTW
+        CALL    LT_WORD
         LD      A,(LN_PART)
-        CALL    LTB
+        CALL    LT_BYTE
         POP     HL
-        CALL    LTW
-.COUNT: LD      HL,(LN_N)
+        CALL    LT_WORD
+.COUNT: LD      HL,(LT_CNT)
         INC     HL
-        LD      (LN_N),HL
+        LD      (LT_CNT),HL
         RET
 
-LN_EMIT: DB     0
-LN_ADDR: DW     0
-LN_LEFT: DW     0
+.EMITTED: DB     0
+.ADDR: DW     0
+.LEFT: DW     0
 
 ; The next blob-lines record must be the current blob's: HL = its count.
-LN_REC:
+.RECORD:
         LD      A,(LN_TAG)
         CP      2
         JR      NZ,.BAD
-        CALL    LNW
-        LD      DE,(D_PREV)
+        CALL    LN_WORD
+        LD      DE,(RD_PREV)
         OR      A
         SBC     HL,DE
         JR      NZ,.BAD
-        JP      LNW
-.BAD:   JR      LN_OOS
+        JP      LN_WORD
+.BAD:   JR      LN_FAIL
 
 ; The line stream is out of step with the directory, or damaged.
-LN_OOS: LD      HL,LN_TXT
-        LD      (R_NAME),HL
+LN_FAIL: LD      HL,LN_TEXT
+        LD      (RD_NAME),HL
         LD      HL,214          ; L-TRUNCATED
-        JP      ERRFILE
+        JP      DG_FILE
 
 ; Read the next record's tag into LN_TAG, skipping part records.
-LN_ADV:
-        CALL    LNB
+LN_NEXT:
+        CALL    LN_BYTE
         CP      1
         JR      NZ,.SET
-        CALL    LNB
-        CALL    LNB
+        CALL    LN_BYTE
+        CALL    LN_BYTE
         LD      D,A
 .NAME:  LD      A,D
         OR      A
-        JR      Z,LN_ADV
-        CALL    LNB
+        JR      Z,LN_NEXT
+        CALL    LN_BYTE
         DEC     D
         JR      .NAME
 .SET:   LD      (LN_TAG),A
@@ -375,31 +375,31 @@ LN_CLOSE:
         RET     Z
         LD      A,(LN_TAG)
         CP      $FF
-        JR      NZ,LN_OOS
+        JR      NZ,LN_FAIL
         LD      HL,(LN_CRC)     ; the stored CRC, read without adding it
         PUSH    HL
         LD      IX,LN_FD
-        CALL    R_RAW
+        CALL    RD_RAW
         LD      E,A
-        CALL    R_RAW
+        CALL    RD_RAW
         LD      D,A
         POP     HL
         OR      A
         SBC     HL,DE
-        JR      NZ,LN_OOS
+        JR      NZ,LN_FAIL
         LD      B,5
 .MARK:  LD      A,$FF
-        CALL    LTB
+        CALL    LT_BYTE
         DJNZ    .MARK
-        LD      HL,(LN_N)
-        CALL    LTW
+        LD      HL,(LT_CNT)
+        CALL    LT_WORD
         LD      HL,(IMG_CRC)
-        CALL    LTW
+        CALL    LT_WORD
         LD      HL,(LT_CRC)
-        CALL    LTW
+        CALL    LT_WORD
         LD      IX,LT_FD
-        CALL    F_CLOSE
+        CALL    FIL_SHUT
         RET     NC
-        LD      HL,LT_TXT
-        LD      (R_NAME),HL
-        JP      DISKERR
+        LD      HL,LT_TEXT
+        LD      (RD_NAME),HL
+        JP      DG_DISK

@@ -1,25 +1,25 @@
 ; CRC-16/CCITT-FALSE (object format §7.6): polynomial $1021, initial $FFFF,
-; no reflection. Several CRCs run at once, each a word: CRC_V for the
+; no reflection. Several CRCs run at once, each a word: CRC_VAL for the
 ; directory being read, and others the callers keep.
 
-CRC_V:  DW      $FFFF
+CRC_VAL:  DW      $FFFF
 
-; Start CRC_V.
+; Start CRC_VAL.
 CRC_NEW:
         LD      HL,$FFFF
-        LD      (CRC_V),HL
+        LD      (CRC_VAL),HL
         RET
 
-; Add A to CRC_V. Preserves BC, DE and HL.
+; Add A to CRC_VAL. Preserves BC, DE and HL.
 CRC_ADD:
         PUSH    HL
-        LD      HL,CRC_V
-        CALL    CRC_UPD
+        LD      HL,CRC_VAL
+        CALL    CRC_FOLD
         POP     HL
         RET
 
 ; Add A to the CRC word at HL. Preserves A, BC, DE and HL.
-CRC_UPD:
+CRC_FOLD:
         PUSH    AF
         PUSH    BC
         PUSH    DE

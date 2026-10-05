@@ -3,27 +3,27 @@
 ;
 ;     BLINK MAIN [M,F=6]
 ;
-; The tail is copied, upper-cased, to T_BUF and parsed there.
+; The tail is copied, upper-cased, to CMD_BUF and parsed there.
 
-O_DRV:  DB      0               ; the first part's drive: 0 current, 1 A:
-O_NAME: DS      8,' '           ; the first part's name
-O_FLAGS:
+CMD_DISK:  DB      0            ; the first part's drive: 0 current, 1 A:
+CMD_NAME: DS      8,' '         ; the first part's name
+OP_FLAGS:
         DB      0               ; option flags, as OF_ below
-O_LIB:  DB      "CPM22   "      ; P=: the library's name
-O_LDRV: DB      0               ; L=: the library's drive, or 0
-O_SDRV: DB      0               ; S=: the spool drive, or 0
-O_ODRV: DB      0               ; O=: the output drive, name and type
-O_ONAM: DS      8,' '
-O_OTYP: DB      "COM"
-O_OSET: DB      0               ; 1 when O= was given
-O_KIND: DB      1               ; the output kind: 1 .COM, 2 .BIN, 4 .HEX
-O_FILES:
+LIB_FILE:  DB      "CPM22   "   ; P=: the library's name
+LIB_DISK: DB      0             ; L=: the library's drive, or 0
+OP_SPOOL: DB      0             ; S=: the spool drive, or 0
+OUT_DISK: DB      0             ; O=: the output drive, name and type
+OUT_NAME: DS      8,' '
+OUT_TYPE: DB      "COM"
+OUT_SET: DB      0              ; 1 when O= was given
+OUT_KIND: DB      1             ; the output kind: 1 .COM, 2 .BIN, 4 .HEX
+OP_FILES:
         DB      0               ; F=: file-table entries, or 0
-O_STACK:
+OP_STACK:
         DW      0               ; STACK=: bytes, or 0
-O_SEEN: DW      0               ; one bit per option, to refuse repeats
-O_FLAGS2:
-        DB      0               ; more flags: OF2_W
+OP_SEEN: DW      0              ; one bit per option, to refuse repeats
+OP_EXTRA:
+        DB      0               ; more flags: OX_W
 
 OF_K    EQU     $01             ; keep intermediate files
 OF_M    EQU     $02             ; write the map
@@ -33,23 +33,23 @@ OF_R    EQU     $10             ; re-runnable image
 OF_B    EQU     $20             ; keep the CCP resident
 OF_Z    EQU     $40             ; no .BAK
 OF_V    EQU     $80             ; verify placeholders and the library CRC
-OF2_W   EQU     $01             ; write the link tables to NAME.$TB (testing)
+OX_W   EQU     $01              ; write the link tables to NAME.$TB (testing)
 
-; T_BUF, the tail upper-cased and zero-terminated, and T_BAD, the text of a
+; CMD_BUF, the tail upper-cased and zero-terminated, and CMD_BAD, the text of a
 ; bad option for its message, are in two of Phase D's FDs (PHASECD.ASM).
 
-F_DRV:  DB      0               ; a parsed file name
-F_NM:   DS      8
-F_TY:   DS      3
-F_HASTY:
+FN_DISK:  DB      0             ; a parsed file name
+FN_NAME:   DS      8
+FN_TYPE:   DS      3
+FN_TYPED:
         DB      0
 
 ; Parse the command tail. Returns A = 0 and carry clear when it is empty;
 ; A = 1 and carry clear when it parsed; carry after printing a diagnostic.
-PARSE:  LD      HL,TAIL
+CMD_READ:  LD      HL,CPM_TAIL
         LD      B,(HL)
         INC     HL
-        LD      DE,T_BUF
+        LD      DE,CMD_BUF
         LD      A,B
         OR      A
         JR      Z,.COPIED
@@ -66,70 +66,70 @@ PARSE:  LD      HL,TAIL
 .COPIED:
         XOR     A
         LD      (DE),A
-        LD      HL,T_BUF
-        CALL    T_SKIP
+        LD      HL,CMD_BUF
+        CALL    .SKIP
         LD      A,(HL)
         OR      A
         RET     Z               ; empty: A = 0, carry clear
-        CALL    T_PART
+        CALL    .PART
         RET     C
-        LD      A,(F_DRV)
-        LD      (O_DRV),A
+        LD      A,(FN_DISK)
+        LD      (CMD_DISK),A
         PUSH    HL
-        LD      HL,F_NM
-        LD      DE,O_NAME
+        LD      HL,FN_NAME
+        LD      DE,CMD_NAME
         LD      BC,8
         LDIR
         POP     HL
-.PARTS: CALL    T_SKIP          ; further parts: the linker doesn't need them
+.PARTS: CALL    .SKIP           ; further parts: the linker doesn't need them
         LD      A,(HL)
         CP      ','
-        JR      NZ,.OPTS
+        JR      NZ,.OPTSTART
         INC     HL
-        CALL    T_SKIP
-        CALL    T_PART
+        CALL    .SKIP
+        CALL    .PART
         RET     C
         JR      .PARTS
-.OPTS:  OR      A
+.OPTSTART:  OR      A
         JR      Z,.DONE
         CP      '['
-        JP      NZ,T_ERRW
+        JP      NZ,.BADWORD
         INC     HL
-.OPT:   CALL    T_SKIP
-        CALL    T_OPTION
+.OPTLOOP:   CALL    .SKIP
+        CALL    .OPTION
         RET     C
-        CALL    T_SKIP
+        CALL    .SKIP
         LD      A,(HL)
         INC     HL
         CP      ','
-        JR      Z,.OPT
+        JR      Z,.OPTLOOP
         CP      ']'
-        JP      NZ,T_ERRB
-        CALL    T_SKIP
+        JP      NZ,.BRACKET
+        CALL    .SKIP
         LD      A,(HL)
         OR      A
-        JP      NZ,T_ERRW
+        JP      NZ,.BADWORD
 .DONE:  LD      A,1
         OR      A
         RET
 
 ; Parse a part's file name at HL; carry after a diagnostic naming it.
-T_PART: LD      (.AT),HL
-        CALL    T_FILE
+.PART: LD      (.AT),HL
+        CALL    .FILENAME
         RET     NC
         LD      HL,(.AT)
-        JP      T_ERRAT
+        JP      .REPORT
 .AT:    DW      0
 
 ; Skip spaces at HL.
-T_SKIP: LD      A,(HL)
+.SKIP: LD      A,(HL)
         CP      ' '
         RET     NZ
         INC     HL
-        JR      T_SKIP
+        JR      .SKIP
 
 ; Parse one option at HL into the O_ fields. Carry after a diagnostic.
-T_OPTION:
+.OPTION:
         LD      (.START),HL
         LD      A,(HL)
         INC     HL
@@ -138,92 +138,92 @@ T_OPTION:
         CP      '='
         JR      Z,.VALUE
         CP      'T'             ; STACK=
-        JR      NZ,.FLAG
+        JR      NZ,.NOVALUE
         LD      A,C
         CP      'S'
-        JR      NZ,.FLAG
+        JR      NZ,.NOVALUE
         LD      DE,.STACKW
         LD      B,5
-.SW:    LD      A,(DE)
+.SPELL:    LD      A,(DE)
         CP      (HL)
         JP      NZ,.BAD
         INC     DE
         INC     HL
-        DJNZ    .SW
+        DJNZ    .SPELL
         LD      A,15
         CALL    .ONCE
         RET     C
-        CALL    T_DEC
+        CALL    .DECIMAL
         JP      C,.BAD
-        LD      (O_STACK),DE
+        LD      (OP_STACK),DE
         OR      A
         RET
-.FLAG:  LD      A,C
+.NOVALUE:  LD      A,C
         CP      'W'
         JR      NZ,.TABLE
-        LD      A,(O_FLAGS2)    ; W: write the tables, for testing
-        AND     OF2_W
+        LD      A,(OP_EXTRA)    ; W: write the tables, for testing
+        AND     OX_W
         JP      NZ,.BAD
-        LD      A,OF2_W
-        LD      (O_FLAGS2),A
+        LD      A,OX_W
+        LD      (OP_EXTRA),A
         OR      A
         RET
 .TABLE: LD      DE,.FLAGS       ; letter, then its flag bit
         LD      B,8
-.FL:    LD      A,(DE)
+.LOOKFLAG:    LD      A,(DE)
         CP      C
-        JR      Z,.SETF
+        JR      Z,.SETFLAG
         INC     DE
         INC     DE
-        DJNZ    .FL
+        DJNZ    .LOOKFLAG
         JP      .BAD
-.SETF:  INC     DE
+.SETFLAG:  INC     DE
         LD      A,(DE)
         LD      B,A
-        LD      A,(O_FLAGS)
+        LD      A,(OP_FLAGS)
         AND     B
         JP      NZ,.BAD         ; repeated
-        LD      A,(O_FLAGS)
+        LD      A,(OP_FLAGS)
         OR      B
-        LD      (O_FLAGS),A
+        LD      (OP_FLAGS),A
         OR      A
         RET
 .VALUE: INC     HL              ; past '='
         LD      A,C
         CP      'P'
-        JR      Z,.P
+        JR      Z,.LIBRARY
         CP      'L'
-        JR      Z,.L
+        JR      Z,.LIBDISK
         CP      'S'
-        JR      Z,.S
+        JR      Z,.SPOOL
         CP      'O'
-        JR      Z,.O
+        JR      Z,.OUTPUT
         CP      'F'
-        JP      Z,.F
+        JP      Z,.FILES
         JP      .BAD
-.P:     LD      A,8
+.LIBRARY:     LD      A,8
         CALL    .ONCE
         RET     C
-        CALL    T_FILE
+        CALL    .FILENAME
         JP      C,.BAD
-        LD      A,(F_DRV)       ; a library name has no drive or type
+        LD      A,(FN_DISK)     ; a library name has no drive or type
         LD      B,A
-        LD      A,(F_HASTY)
+        LD      A,(FN_TYPED)
         OR      B
         JP      NZ,.BAD
         PUSH    HL
-        LD      HL,F_NM
-        LD      DE,O_LIB
+        LD      HL,FN_NAME
+        LD      DE,LIB_FILE
         LD      BC,8
         LDIR
         POP     HL
         OR      A
         RET
-.L:     LD      A,9
-        LD      DE,O_LDRV
+.LIBDISK:     LD      A,9
+        LD      DE,LIB_DISK
         JR      .DRIVE
-.S:     LD      A,10
-        LD      DE,O_SDRV
+.SPOOL:     LD      A,10
+        LD      DE,OP_SPOOL
 .DRIVE: CALL    .ONCE
         RET     C
         LD      A,(HL)
@@ -236,45 +236,45 @@ T_OPTION:
         INC     HL
         OR      A
         RET
-.O:     LD      A,11
+.OUTPUT:     LD      A,11
         CALL    .ONCE
         RET     C
-        CALL    T_FILE
+        CALL    .FILENAME
         JP      C,.BAD
         LD      A,1
-        LD      (O_OSET),A
-        LD      A,(F_DRV)
-        LD      (O_ODRV),A
+        LD      (OUT_SET),A
+        LD      A,(FN_DISK)
+        LD      (OUT_DISK),A
         PUSH    HL
-        LD      HL,F_NM
-        LD      DE,O_ONAM
+        LD      HL,FN_NAME
+        LD      DE,OUT_NAME
         LD      BC,8
         LDIR
-        LD      A,(F_HASTY)
+        LD      A,(FN_TYPED)
         OR      A
-        JR      Z,.OTYPED
-        LD      BC,3            ; HL = F_TY, just after F_NM
-        LD      DE,O_OTYP
+        JR      Z,.TYPED
+        LD      BC,3            ; HL = FN_TYPE, just after FN_NAME
+        LD      DE,OUT_TYPE
         LDIR
-.OTYPED:                        ; the type names the kind; others are bad
+.TYPED:                         ; the type names the kind; others are bad
         LD      HL,.KINDS
         LD      C,1
 .KIND:  PUSH    HL
-        LD      DE,O_OTYP
+        LD      DE,OUT_TYPE
         LD      B,3
-.KCH:   LD      A,(DE)
+.TYPECHAR:   LD      A,(DE)
         CP      (HL)
         INC     DE
         INC     HL
-        JR      NZ,.KNO
-        DJNZ    .KCH
+        JR      NZ,.NEXTKIND
+        DJNZ    .TYPECHAR
         POP     HL
         LD      A,C
-        LD      (O_KIND),A
+        LD      (OUT_KIND),A
         POP     HL
         OR      A
         RET
-.KNO:   POP     HL
+.NEXTKIND:   POP     HL
         INC     HL
         INC     HL
         INC     HL
@@ -284,16 +284,16 @@ T_OPTION:
         POP     HL
         JR      .BAD
 .KINDS: DB      "COMBINHEX"
-.F:     LD      A,12
+.FILES:     LD      A,12
         CALL    .ONCE
         RET     C
-        CALL    T_DEC
+        CALL    .DECIMAL
         JR      C,.BAD
         LD      A,D
         OR      A
         JR      NZ,.BAD         ; at most 255
         LD      A,E
-        LD      (O_FILES),A
+        LD      (OP_FILES),A
         OR      A
         RET
 ; Mark option number A seen; carry with the diagnostic if it already was.
@@ -306,7 +306,7 @@ T_OPTION:
         DEC     A
         JR      NZ,.SHIFT
 .MASK:  EX      DE,HL
-        LD      HL,(O_SEEN)
+        LD      HL,(OP_SEEN)
         LD      A,H
         AND     D
         LD      B,A
@@ -320,7 +320,7 @@ T_OPTION:
         LD      A,L
         OR      E
         LD      L,A
-        LD      (O_SEEN),HL
+        LD      (OP_SEEN),HL
         POP     DE
         POP     HL
         OR      A
@@ -329,20 +329,20 @@ T_OPTION:
         POP     HL
         POP     BC              ; leave the option parser
 .BAD:   LD      HL,(.START)
-        JP      T_ERRAT
+        JP      .REPORT
 .START: DW      0
 .STACKW:
         DB      "TACK="
 .FLAGS: DB      'K',OF_K,'M',OF_M,'Y',OF_Y,'N',OF_N
         DB      'R',OF_R,'B',OF_B,'Z',OF_Z,'V',OF_V
 
-; Parse a file name, [d:]name[.type], at HL into F_DRV, F_NM, F_TY and
-; F_HASTY, leaving HL after it. Carry if it is malformed.
-T_FILE: XOR     A
-        LD      (F_DRV),A
-        LD      (F_HASTY),A
+; Parse a file name, [d:]name[.type], at HL into FN_DISK, FN_NAME, FN_TYPE and
+; FN_TYPED, leaving HL after it. Carry if it is malformed.
+.FILENAME: XOR     A
+        LD      (FN_DISK),A
+        LD      (FN_TYPED),A
         PUSH    HL
-        LD      HL,F_NM
+        LD      HL,FN_NAME
         LD      B,11
 .BLANK: LD      (HL),' '
         INC     HL
@@ -360,36 +360,36 @@ T_FILE: XOR     A
         CCF
         RET     C
         INC     A
-        LD      (F_DRV),A
+        LD      (FN_DISK),A
         INC     HL
         INC     HL
-.NAME:  LD      DE,F_NM
+.NAME:  LD      DE,FN_NAME
         LD      B,8
-        CALL    .PART
+        CALL    .FIELD
         RET     C
         OR      A
         SCF
         RET     Z               ; an empty name
         LD      A,(HL)
         CP      '.'
-        JR      NZ,.END
+        JR      NZ,.ENDNAME
         INC     HL
         LD      A,1
-        LD      (F_HASTY),A
-        LD      DE,F_TY
+        LD      (FN_TYPED),A
+        LD      DE,FN_TYPE
         LD      B,3
-        CALL    .PART
+        CALL    .FIELD
         RET     C
         OR      A
         SCF
         RET     Z               ; an empty type
-.END:   OR      A
+.ENDNAME:   OR      A
         RET
 ; Copy up to B name characters from HL to DE. A = the number copied; carry
 ; if there are more than B.
-.PART:  LD      C,0
+.FIELD:  LD      C,0
 .CHAR:  LD      A,(HL)
-        CALL    T_NAMEC
+        CALL    .NAMECHAR
         JR      C,.STOP
         LD      A,C
         CP      B
@@ -406,7 +406,7 @@ T_FILE: XOR     A
         RET
 
 ; Carry unless A may appear in a CP/M name (services §4.1).
-T_NAMEC:
+.NAMECHAR:
         CP      'A'
         JR      C,.OTHER
         CP      'Z'+1
@@ -437,13 +437,13 @@ T_NAMEC:
 
 ; DE = a decimal number of 1 to 5 digits at HL, 1 to 65535. Carry if it is
 ; malformed or out of range.
-T_DEC:  LD      DE,0
+.DECIMAL:  LD      DE,0
         LD      B,0             ; digits
 .DIGIT: LD      A,(HL)
         SUB     '0'
-        JR      C,.END
+        JR      C,.ENDNUM
         CP      10
-        JR      NC,.END
+        JR      NC,.ENDNUM
         INC     B
         LD      C,A
         PUSH    HL
@@ -468,7 +468,7 @@ T_DEC:  LD      DE,0
 .OVER:  POP     HL
         SCF
         RET
-.END:   LD      A,B
+.ENDNUM:   LD      A,B
         OR      A
         SCF
         RET     Z               ; no digits
@@ -484,28 +484,28 @@ T_DEC:  LD      DE,0
 
 ; Report L-COMMAND for the word at HL (to the next comma, bracket or the
 ; end), then return carry.
-T_ERRW: JR      T_ERRAT
+.BADWORD: JR      .REPORT
 ; The same for a missing or misplaced bracket at HL - 1.
-T_ERRB: DEC     HL
-T_ERRAT:
-        LD      DE,T_BAD
+.BRACKET: DEC     HL
+.REPORT:
+        LD      DE,CMD_BAD
         LD      B,30
-.COPY:  LD      A,(HL)
+.COPYWORD:  LD      A,(HL)
         OR      A
-        JR      Z,.END
+        JR      Z,.ENDWORD
         CP      ','
-        JR      Z,.END
+        JR      Z,.ENDWORD
         CP      ']'
-        JR      Z,.END
+        JR      Z,.ENDWORD
         LD      (DE),A
         INC     HL
         INC     DE
-        DJNZ    .COPY
-.END:   XOR     A
+        DJNZ    .COPYWORD
+.ENDWORD:   XOR     A
         LD      (DE),A
-        LD      HL,T_BAD
-        LD      (M_ARG1),HL
+        LD      HL,CMD_BAD
+        LD      (DG_ARG1),HL
         LD      HL,224          ; L-COMMAND
-        CALL    ERROR
+        CALL    DG_ERROR
         SCF
         RET

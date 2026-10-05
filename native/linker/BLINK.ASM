@@ -18,89 +18,89 @@
 ; and diagnostics, checking the blob library's header and, with option V,
 ; its whole-file CRC. The link phases follow in later steps.
 
-LIB_FD: DS      FDSIZE
-LIB_TY: DB      "BRL"
-LIB_TXT:
+LIB_FD: DS      FD_SIZE
+LIB_TYPE: DB      "BRL"
+LIB_TEXT:
         DS      13              ; the library's name as text, for messages
 LIB_LEN:
         DS      3               ; the library's length, from its header
 
-START:  LD      HL,(TOP)
+LK_START:  LD      HL,(CPM_TOP)
         LD      SP,HL
-        CALL    PARSE
-        JR      C,FAILED
+        CALL    CMD_READ
+        JR      C,LK_FAIL
         OR      A
         JR      NZ,.NAMED
         LD      HL,223          ; L-USAGE
-        CALL    ERROR
-        JR      FAILED
+        CALL    DG_ERROR
+        JR      LK_FAIL
 .NAMED: LD      A,1             ; from here a failure cleans up (toolchain §6.2)
-        LD      (LINKING),A
-        CALL    OPENLIB
-        JR      C,FAILED
-        CALL    LIBHEAD
-        JR      C,FAILED
-        LD      A,(O_FLAGS)
+        LD      (LK_BUSY),A
+        CALL    LIB_OPEN
+        JR      C,LK_FAIL
+        CALL    LIB_READ
+        JR      C,LK_FAIL
+        LD      A,(OP_FLAGS)
         AND     OF_V
         JR      Z,.DONE
-        CALL    LIBCRC
-        JR      C,FAILED
-.DONE:  CALL    LIBNAME         ; the library's name, for messages
-        CALL    PHASEA
-        CALL    PHASEB
-        LD      A,(O_FLAGS2)
-        AND     OF2_W
-        CALL    NZ,DUMP
-        CALL    PHASEC
-        CALL    PHASED
-        CALL    PUBLISH
-        CALL    PHASEE
-        CALL    CLEANUP
+        CALL    LIB_CHK
+        JR      C,LK_FAIL
+.DONE:  CALL    LIB_ARG         ; the library's name, for messages
+        CALL    PA_RUN
+        CALL    PB_RUN
+        LD      A,(OP_EXTRA)
+        AND     OX_W
+        CALL    NZ,TB_WRITE
+        CALL    PC_RUN
+        CALL    PD_RUN
+        CALL    PUB_RUN
+        CALL    PE_RUN
+        CALL    PUB_TIDY
         LD      DE,RC_OK
-        JP      EXITRC
+        JP      CPM_EXIT
 
-FAILED: LD      A,(LINKING)
+LK_FAIL: LD      A,(LK_BUSY)
         OR      A
-        CALL    NZ,ABANDON
+        CALL    NZ,PUB_UNDO
         LD      DE,RC_LINK
-        JP      EXITRC
+        JP      CPM_EXIT
 
-LINKING: DB     0
+LK_BUSY: DB     0
 
 ; Open NAME.BRL: on the drive option L gives, else the first part's drive,
 ; then A: (toolchain §5.3). Carry after a diagnostic.
-OPENLIB:
+LIB_OPEN:
         LD      IX,LIB_FD
-        LD      A,(O_LDRV)
+        LD      A,(LIB_DISK)
         OR      A
         JR      NZ,.ONLY
-        LD      A,(O_DRV)
+        LD      A,(CMD_DISK)
         CALL    .TRY
         RET     NC
         LD      A,1
 .ONLY:  CALL    .TRY
         RET     NC
-        CALL    LIBNAME
+        CALL    LIB_ARG
         LD      HL,225          ; L-MISSING
-        CALL    ERROR
+        CALL    DG_ERROR
         SCF
         RET
-.TRY:   LD      HL,O_LIB
-        LD      DE,LIB_TY
-        CALL    F_INIT
-        JP      F_OPEN
+.TRY:   LD      HL,LIB_FILE
+        LD      DE,LIB_TYPE
+        CALL    FIL_INIT
+        JP      FIL_OPEN
 
 ; Read the library's header into LIBH and check its magic and version.
 ; Carry after a diagnostic.
-LIBHEAD:
-        LD      HL,LIBH
+LIB_READ:
+        LD      HL,LIB_HEAD
         LD      B,64            ; the header and the profile block
-.READ:  CALL    F_GETB
+.READ:  CALL    FIL_GETB
         JR      C,.SHORT
         LD      (HL),A
         INC     HL
         DJNZ    .READ
-        LD      HL,LIBH
+        LD      HL,LIB_HEAD
         LD      DE,.MAGIC
         LD      B,4
 .CHECK: LD      A,(DE)
@@ -109,15 +109,15 @@ LIBHEAD:
         INC     HL
         INC     DE
         DJNZ    .CHECK
-        LD      A,(LIBH+4)      ; version 1.0
+        LD      A,(LIB_HEAD+4)  ; version 1.0
         CP      1
         JR      NZ,.BAD
-        LD      A,(LIBH+5)
+        LD      A,(LIB_HEAD+5)
         OR      A
         JR      NZ,.BAD
-        LD      HL,(LIBH+28)    ; the file length
+        LD      HL,(LIB_HEAD+28) ; the file length
         LD      (LIB_LEN),HL
-        LD      A,(LIBH+30)
+        LD      A,(LIB_HEAD+30)
         LD      (LIB_LEN+2),A
         OR      A
         RET
@@ -125,18 +125,18 @@ LIBHEAD:
         JR      .SAY
 .SHORT: LD      HL,214          ; L-TRUNCATED
 .SAY:   PUSH    HL
-        CALL    LIBNAME
+        CALL    LIB_ARG
         POP     HL
-        CALL    ERROR
+        CALL    DG_ERROR
         SCF
         RET
 .MAGIC: DB      "BSIR"
 
 ; Check the CRC of the library's first LIB_LEN - 2 bytes against its last
 ; two (object format §7.6). Carry after a diagnostic.
-LIBCRC: XOR     A
+LIB_CHK: XOR     A
         LD      HL,0
-        CALL    F_SEEK
+        CALL    FIL_SEEK
         JR      C,.BAD
         CALL    CRC_NEW
         LD      HL,(LIB_LEN)
@@ -151,7 +151,7 @@ LIBCRC: XOR     A
         OR      L
         OR      C
         JR      Z,.STORED
-        CALL    F_GETB
+        CALL    FIL_GETB
         JR      C,.BAD
         CALL    CRC_ADD
         LD      A,L
@@ -165,22 +165,22 @@ LIBCRC: XOR     A
         DEC     C
         JR      .LOOP
 .STORED:
-        CALL    F_GETW
+        CALL    FIL_GETW
         JR      C,.BAD
-        LD      DE,(CRC_V)
+        LD      DE,(CRC_VAL)
         OR      A
         SBC     HL,DE
         RET     Z
-.BAD:   CALL    LIBNAME
+.BAD:   CALL    LIB_ARG
         LD      HL,214          ; L-TRUNCATED
-        CALL    ERROR
+        CALL    DG_ERROR
         SCF
         RET
 
-; Write the library's file name as text into LIB_TXT and make it argument 1.
-LIBNAME:
-        LD      DE,LIB_TXT
-        LD      HL,O_LIB
+; Write the library's file name as text into LIB_TEXT and make it argument 1.
+LIB_ARG:
+        LD      DE,LIB_TEXT
+        LD      HL,LIB_FILE
         LD      B,8
 .NAME:  LD      A,(HL)
         CP      ' '
@@ -192,8 +192,8 @@ LIBNAME:
 .TYPE:  LD      HL,.EXT
         LD      BC,5
         LDIR
-        LD      HL,LIB_TXT
-        LD      (M_ARG1),HL
+        LD      HL,LIB_TEXT
+        LD      (DG_ARG1),HL
         RET
 .EXT:   DB      ".BRL",0
 

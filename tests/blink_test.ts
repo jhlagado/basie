@@ -27,6 +27,20 @@ function run(tail: string, files: Record<string, Uint8Array> = {}) {
 const error = (n: number, args: string[] = []) =>
   `Error ${n}: ${formatMessage(n, args)}\r\n`;
 
+Deno.test("BLINK.COM is the recorded image", async () => {
+  const digest = await crypto.subtle.digest("SHA-256", blink);
+  const hex = [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+  // Design decision D44: renames and commentary leave the image byte-identical.
+  // A change to the linker's code updates this digest and size in the same
+  // commit, so that no byte changes by accident.
+  assertEquals(hex, BLINK_DIGEST);
+  assertEquals(blink.length, 10_887);
+});
+
+const BLINK_DIGEST =
+  "4d318baf2a9cffd75c76bba915806c85f62dfedbda097e0212318840c6341e79";
+
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
 });

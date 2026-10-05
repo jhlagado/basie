@@ -9,111 +9,111 @@
 ; The reports' FDs share memory with Phase D's, which are finished with by
 ; publication: the library's byte section, the byte stream, the line stream
 ; and the line table (publication leaves LT_MADE clear).
-MAP_FD  EQU     LIBB_FD
-MAP_TY: DB      "MAP"
-SYM_FD  EQU     BY_FD
-SYM_TY: DB      "SYM"
+MAP_FD  EQU     SRC_LIB
+MAP_TYPE: DB      "MAP"
+SY_FD  EQU     SRC_PROG
+SY_TYPE: DB      "SYM"
 NM_FD   EQU     LN_FD
-NM_TY:  DB      "$NM"
-LNM_FD  EQU     LT_FD           ; the library again, for its name section
+NM_TYPE:  DB      "$NM"
+NM_LIB  EQU     LT_FD           ; the library again, for its name section
 REP_FD: DW      0               ; the report being written
 MAP_ON: DB      0
-SYM_ON: DB      0
-SYMROWS: DW     0
-PREVEND: DW     0               ; the end of the last live blob listed
+SY_ON: DB      0
+SY_COUNT: DW     0
+MAP_PREV: DW     0              ; the end of the last live blob listed
 NM_HAVE: DS     2               ; per owner: 1 while names remain
-NM_PORD: DS     4               ; per owner: the pending record's ordinal
-NM_PNAM EQU     OUT_FD          ; per owner: its name, zero-terminated (64)
-NAMEBUF EQU     OUT_FD+64       ; the current blob's name, or empty (33)
-NUMBUF  EQU     OUT_FD+97       ; a number's digits (10); all three in
+NM_ORD: DS     4                ; per owner: the pending record's ordinal
+NM_PEND EQU     OUT_FD          ; per owner: its name, zero-terminated (64)
+NM_BUF EQU     OUT_FD+64        ; the current blob's name, or empty (33)
+REP_BUF  EQU     OUT_FD+97      ; a number's digits (10); all three in
                                 ; Phase D's output FD, free after publication
-KINDS:  DB      "code   rodata data   bss    startup"
+KIND_TAB:  DB      "code   rodata data   bss    startup"
 
 ; ---- writing text ------------------------------------------------------------
 
 ; Write A to the report being written.
-MTB:    PUSH    IX
+REP_BYTE:    PUSH    IX
         LD      IX,(REP_FD)
-        CALL    F_PUTB
+        CALL    FIL_PUTB
         POP     IX
         RET     NC
-        JP      REPFAIL
+        JP      REP_FAIL
 
 ; Write the zero-terminated string at HL. Preserves BC and DE.
-MTS:    LD      A,(HL)
+REP_STR:    LD      A,(HL)
         OR      A
         RET     Z
-        CALL    MTB
+        CALL    REP_BYTE
         INC     HL
-        JR      MTS
+        JR      REP_STR
 
 ; Write the inline zero-terminated string after the CALL.
-MTI:    EX      (SP),HL
-        CALL    MTS
+REP_LIT:    EX      (SP),HL
+        CALL    REP_STR
         INC     HL
         EX      (SP),HL
         RET
 
 ; Start a line of the summary: CR LF, then the inline zero-terminated label
 ; after the CALL, padded with spaces to 19 columns.
-MTL:    CALL    MTCRLF
+REP_LINE:    CALL    REP_CRLF
         EX      (SP),HL
         LD      B,19
 .CH:    LD      A,(HL)
         INC     HL
         OR      A
         JR      Z,.PAD
-        CALL    MTB
+        CALL    REP_BYTE
         DEC     B
         JR      .CH
 .PAD:   LD      A,' '
-        CALL    MTB
+        CALL    REP_BYTE
         DJNZ    .PAD
         EX      (SP),HL
         RET
 
 ; Two spaces, between the columns of a blob's row.
-MT2:    CALL    MTI
+REP_GAP:    CALL    REP_LIT
         DB      "  ",0
         RET
 
-MTCRLF: LD      A,13
-        CALL    MTB
+REP_CRLF: LD      A,13
+        CALL    REP_BYTE
         LD      A,10
-        JR      MTB
+        JR      REP_BYTE
 
 ; Write "$" and HL in four hex digits.
-MTHEX4: LD      A,'$'
-        CALL    MTB
+REP_HEX: LD      A,'$'
+        CALL    REP_BYTE
 ; Write HL in four hex digits.
-MTH4:   LD      A,H
-        CALL    .H2
+REP_WORD:   LD      A,H
+        CALL    .HEX2
         LD      A,L
-.H2:    PUSH    AF
+.HEX2:    PUSH    AF
         RRCA
         RRCA
         RRCA
         RRCA
-        CALL    .H1
+        CALL    .HEX1
         POP     AF
-.H1:    CALL    HEXDIG
-        JR      MTB
+.HEX1:    CALL    LK_DIGIT
+        JR      REP_BYTE
 
 ; Write the unsigned value HL in decimal, unpadded.
-MTU0:   LD      B,0
+REP_NUM:   LD      B,0
 ; Write the unsigned value HL in decimal, right-aligned in B columns.
-MTU16:  XOR     A
-        JR      MTDEC
+REP_PAD:  XOR     A
+        JR      REP_DEC
 ; Write A:HL, below, unpadded.
-MTD0:   LD      B,0
+REP_SIGN:   LD      B,0
 ; Write the 24-bit two's-complement value A:HL in decimal, right-aligned in
 ; B columns (0: no padding). Preserves IX.
-MTDEC:  PUSH    IX
-        CALL    MTDEC0
+REP_DEC:  PUSH    IX
+        CALL    .DIGITS
         POP     IX
         RET
-MTDEC0: PUSH    BC
-        LD      DE,NUMBUF
+.DIGITS: PUSH    BC
+        LD      DE,REP_BUF
         BIT     7,A
         JR      Z,.POS
         LD      C,A             ; negate A:HL
@@ -183,7 +183,7 @@ MTDEC0: PUSH    BC
         XOR     A
         LD      (DE),A
         POP     BC              ; B = the width: pad on the left
-        LD      HL,NUMBUF
+        LD      HL,REP_BUF
         PUSH    HL
         LD      C,0             ; the length
 .LEN:   LD      A,(HL)
@@ -196,11 +196,11 @@ MTDEC0: PUSH    BC
         CP      B
         JR      NC,.TEXT
         LD      A,' '
-        CALL    MTB
+        CALL    REP_BYTE
         INC     C
         JR      .PAD
 .TEXT:  POP     HL
-        JP      MTS
+        JP      REP_STR
 .POWERS:
         DB      $A0,$86,$01     ; 100000
         DB      $10,$27,$00     ; 10000
@@ -211,34 +211,34 @@ MTDEC0: PUSH    BC
 
 
 ; Write the kind name of kind A, padded to 7 characters.
-MTKIND: LD      L,A
+REP_KIND: LD      L,A
         ADD     A,A
         ADD     A,A
         ADD     A,A
         SUB     L               ; A * 7
         LD      E,A
         LD      D,0
-        LD      HL,KINDS
+        LD      HL,KIND_TAB
         ADD     HL,DE
         LD      B,7
 .CH:    LD      A,(HL)
-        CALL    MTB
+        CALL    REP_BYTE
         INC     HL
         DJNZ    .CH
         RET
 
 ; A report could not be written: delete it, say so, and stop.
-REPFAIL:
+REP_FAIL:
         LD      IX,(REP_FD)
-        CALL    F_DEL
+        CALL    FIL_DEL
         LD      HL,222          ; L-IO
-        LD      DE,REP_TXT
-        LD      (M_ARG1),DE
-        CALL    ERROR
-        CALL    CLEANUP
+        LD      DE,REP_TEXT
+        LD      (DG_ARG1),DE
+        CALL    DG_ERROR
+        CALL    PUB_TIDY
         LD      DE,RC_DISK
-        JP      EXITRC
-REP_TXT: DS     13
+        JP      CPM_EXIT
+REP_TEXT: DS     13
 
 ; ---- names -------------------------------------------------------------------
 
@@ -246,19 +246,19 @@ REP_TXT: DS     13
 ; record, if it has names at all.
 NM_RESET:
         LD      (NM_OWN),A
-        CALL    NM_SLOT         ; HL = its have flag
+        CALL    NM_FLAG         ; HL = its have flag
         LD      (HL),0
         LD      A,(NM_OWN)
         OR      A
         JR      NZ,.PROG
-        LD      HL,(LIBH+24)    ; the library's name section, or 0
-        LD      A,(LIBH+26)
+        LD      HL,(LIB_HEAD+24) ; the library's name section, or 0
+        LD      A,(LIB_HEAD+26)
         LD      B,A
         OR      H
         OR      L
         RET     Z
         LD      A,B
-        LD      IX,LNM_FD
+        LD      IX,NM_LIB
         JR      .SEEK
 .PROG:  LD      A,(NM_OPEN)
         OR      A
@@ -266,13 +266,13 @@ NM_RESET:
         LD      IX,NM_FD
         XOR     A
         LD      HL,0
-.SEEK:  CALL    F_SEEK
+.SEEK:  CALL    FIL_SEEK
         RET     C
         LD      B,8             ; the header: magic, version, stamp
-.HEAD:  CALL    F_GETB
+.HEAD:  CALL    FIL_GETB
         RET     C
         DJNZ    .HEAD
-        CALL    NM_SLOT
+        CALL    NM_FLAG
         LD      (HL),1
         JR      NM_READ
 
@@ -280,7 +280,7 @@ NM_OWN: DB      0
 NM_OPEN: DB     0               ; 1 when NAME.$NM was found
 
 ; HL = the have flag of NM_OWN.
-NM_SLOT:
+NM_FLAG:
         LD      HL,NM_HAVE
         LD      A,(NM_OWN)
         ADD     A,L
@@ -290,7 +290,7 @@ NM_SLOT:
         RET
 
 ; IX = the FD of NM_OWN's names.
-NM_IX:  LD      IX,LNM_FD
+NM_PICK:  LD      IX,NM_LIB
         LD      A,(NM_OWN)
         OR      A
         RET     Z
@@ -300,32 +300,32 @@ NM_IX:  LD      IX,LNM_FD
 ; Read NM_OWN's next record into its pending slot; at the end (ordinal 0)
 ; its have flag clears.
 NM_READ:
-        CALL    NM_IX
-        CALL    F_GETW
+        CALL    NM_PICK
+        CALL    FIL_GETW
         JR      C,.END
         LD      A,H
         OR      L
         JR      Z,.END
-        PUSH    HL              ; the ordinal into NM_PORD + owner * 2
+        PUSH    HL              ; the ordinal into NM_ORD + owner * 2
         LD      A,(NM_OWN)
         ADD     A,A
         LD      E,A
         LD      D,0
-        LD      HL,NM_PORD
+        LD      HL,NM_ORD
         ADD     HL,DE
         POP     DE
         LD      (HL),E
         INC     HL
         LD      (HL),D
-        CALL    NM_PSLOT        ; HL = the name buffer
-        CALL    NM_IX
-        CALL    F_GETB          ; the length
+        CALL    NM_SLOT         ; HL = the name buffer
+        CALL    NM_PICK
+        CALL    FIL_GETB        ; the length
         JR      C,.END
         LD      B,A
 .CH:    LD      A,B
         OR      A
         JR      Z,.DONE
-        CALL    F_GETB
+        CALL    FIL_GETB
         JR      C,.END
         LD      (HL),A
         INC     HL
@@ -333,13 +333,13 @@ NM_READ:
         JR      .CH
 .DONE:  LD      (HL),0
         RET
-.END:   CALL    NM_SLOT
+.END:   CALL    NM_FLAG
         LD      (HL),0
         RET
 
 ; HL = NM_OWN's pending name buffer.
-NM_PSLOT:
-        LD      HL,NM_PNAM
+NM_SLOT:
+        LD      HL,NM_PEND
         LD      A,(NM_OWN)
         OR      A
         RET     Z
@@ -347,18 +347,18 @@ NM_PSLOT:
         ADD     HL,DE
         RET
 
-; NAMEBUF = the name of the blob just read (D_PREV) of owner WK_OWN, taken
+; NAMEBUF = the name of the blob just read (RD_PREV) of owner WK_OWN, taken
 ; from its reader if the pending record is this blob's, else empty.
 NM_GET: PUSH    IX              ; a walk's callback keeps IX on its directory
-        CALL    NM_GET0
+        CALL    .FETCH
         POP     IX
         RET
-NM_GET0:
+.FETCH:
         LD      A,(WK_OWN)
         LD      (NM_OWN),A
         XOR     A
-        LD      (NAMEBUF),A
-        CALL    NM_SLOT
+        LD      (NM_BUF),A
+        CALL    NM_FLAG
         LD      A,(HL)
         OR      A
         RET     Z
@@ -366,17 +366,17 @@ NM_GET0:
         ADD     A,A
         LD      E,A
         LD      D,0
-        LD      HL,NM_PORD
+        LD      HL,NM_ORD
         ADD     HL,DE
         LD      E,(HL)
         INC     HL
         LD      D,(HL)
-        LD      HL,(D_PREV)
+        LD      HL,(RD_PREV)
         OR      A
         SBC     HL,DE
         RET     NZ
-        CALL    NM_PSLOT
-        LD      DE,NAMEBUF
+        CALL    NM_SLOT
+        LD      DE,NM_BUF
 .COPY:  LD      A,(HL)
         LD      (DE),A
         INC     HL
@@ -387,64 +387,64 @@ NM_GET0:
 
 ; ---- Phase E -----------------------------------------------------------------
 
-PHASEE: LD      A,(O_FLAGS)
+PE_RUN: LD      A,(OP_FLAGS)
         AND     OF_M
         LD      (MAP_ON),A
-        LD      A,(O_FLAGS)
+        LD      A,(OP_FLAGS)
         AND     OF_Y
-        LD      (SYM_ON),A
+        LD      (SY_ON),A
         LD      A,(MAP_ON)
         LD      B,A
-        LD      A,(SYM_ON)
+        LD      A,(SY_ON)
         OR      B
         RET     Z
-        LD      (WK_NM),A       ; walks reset the name readers
+        LD      (WK_NAMES),A    ; walks reset the name readers
         ; the names: NAME.$NM if it exists, and the library's section
         LD      IX,NM_FD
-        LD      A,(DR_FD+FD_FCB)
-        LD      HL,O_NAME
-        LD      DE,NM_TY
-        CALL    F_INIT
-        CALL    F_OPEN
+        LD      A,(DIR_FD+FD_FCB)
+        LD      HL,CMD_NAME
+        LD      DE,NM_TYPE
+        CALL    FIL_INIT
+        CALL    FIL_OPEN
         LD      A,0
-        JR      C,.NOMN
+        JR      C,.NONAMES
         INC     A
-.NOMN:  LD      (NM_OPEN),A
-        LD      IX,LNM_FD
+.NONAMES:  LD      (NM_OPEN),A
+        LD      IX,NM_LIB
         LD      A,(LIB_FD+FD_FCB)
-        LD      HL,O_LIB
-        LD      DE,LIB_TY
-        CALL    F_INIT
-        CALL    F_OPEN
+        LD      HL,LIB_FILE
+        LD      DE,LIB_TYPE
+        CALL    FIL_INIT
+        CALL    FIL_OPEN
         ; the reports
         LD      A,(MAP_ON)
         OR      A
         JR      Z,.NOMAP
         LD      IX,MAP_FD
-        LD      DE,MAP_TY
-        CALL    REPOPEN
-.NOMAP: LD      A,(SYM_ON)
+        LD      DE,MAP_TYPE
+        CALL    .CREATE
+.NOMAP: LD      A,(SY_ON)
         OR      A
         JR      Z,.NOSYM
-        LD      IX,SYM_FD
-        LD      DE,SYM_TY
-        CALL    REPOPEN
+        LD      IX,SY_FD
+        LD      DE,SY_TYPE
+        CALL    .CREATE
 .NOSYM: LD      A,(MAP_ON)
         OR      A
-        CALL    NZ,SUMMARY
+        CALL    NZ,.SUMMARY
         ; the live blobs, in address order
         LD      A,(MAP_ON)
         OR      A
-        JR      Z,.HEAD2
+        JR      Z,.LISTING
         LD      HL,MAP_FD
         LD      (REP_FD),HL
-        CALL    MTI
+        CALL    REP_LIT
         DB      "LIVE BLOBS",13,10
         DB      "Address  Size  Kind     Pad  Ordinal  Name",13,10,0
-.HEAD2: LD      HL,(PR_BASE)
-        LD      (PREVEND),HL
+.LISTING: LD      HL,(PF_BASE)
+        LD      (MAP_PREV),HL
         LD      HL,0
-        LD      (SYMROWS),HL
+        LD      (SY_COUNT),HL
         LD      A,S_START
         CALL    .LIVE
         LD      A,S_TEXT
@@ -452,175 +452,175 @@ PHASEE: LD      A,(O_FLAGS)
         LD      A,S_DATA
         CALL    .LIVE
         LD      HL,(IMG_END)    ; BSS's padding counts from the image's
-        LD      (PREVEND),HL    ; end, past COPY
+        LD      (MAP_PREV),HL   ; end, past COPY
         LD      A,S_BSS
         CALL    .LIVE
         LD      A,(MAP_ON)
         OR      A
-        CALL    NZ,REMOVED
-        LD      A,(SYM_ON)
+        CALL    NZ,MAP_DEAD
+        LD      A,(SY_ON)
         OR      A
         JR      Z,.CLOSE
-        LD      HL,SYM_FD
+        LD      HL,SY_FD
         LD      (REP_FD),HL
-        CALL    SYMALIAS
-        LD      HL,(SYMROWS)    ; no rows: one empty line
+        CALL    SY_ALIAS
+        LD      HL,(SY_COUNT)   ; no rows: one empty line
         LD      A,H
         OR      L
-        CALL    Z,MTCRLF
+        CALL    Z,REP_CRLF
         LD      A,$1A
-        CALL    MTB
-        LD      IX,SYM_FD
-        CALL    F_CLOSE
-        JP      C,REPFAIL
+        CALL    REP_BYTE
+        LD      IX,SY_FD
+        CALL    FIL_SHUT
+        JP      C,REP_FAIL
 .CLOSE: LD      A,(MAP_ON)
         OR      A
         RET     Z
         LD      HL,MAP_FD
         LD      (REP_FD),HL
         LD      IX,MAP_FD
-        CALL    F_CLOSE
-        JP      C,REPFAIL
+        CALL    FIL_SHUT
+        JP      C,REP_FAIL
         RET
 ; The live passes of section A.
-.LIVE:  LD      HL,MAPLIVE
-        JP      SECTION
+.LIVE:  LD      HL,.LIVEBLOB
+        JP      WK_PASS
 
 ; Create report IX of type DE, NAME.TYP on the output drive.
-REPOPEN:
+.CREATE:
         PUSH    DE
-        CALL    OUTNAME
+        CALL    OUT_PICK
         POP     DE
         PUSH    DE
-        CALL    F_INIT
-        CALL    OUTNAME
+        CALL    FIL_INIT
+        CALL    OUT_PICK
         POP     BC
-        LD      DE,REP_TXT
-        CALL    FILETXT
+        LD      DE,REP_TEXT
+        CALL    FIL_TEXT
         LD      (REP_FD),IX
         LD      A,$1A           ; a text file's last record: Control-Z
-        CALL    F_MAKE
-        JP      C,REPFAIL
+        CALL    FIL_MAKE
+        JP      C,REP_FAIL
         RET
 
 ; The map's summary (linker §8.1).
-SUMMARY:
+.SUMMARY:
         LD      HL,MAP_FD
         LD      (REP_FD),HL
-        CALL    MTI
+        CALL    REP_LIT
         DB      "BASIE LINK MAP: ",0
-        LD      HL,O_NAME
+        LD      HL,CMD_NAME
         LD      B,8
 .NAME:  LD      A,(HL)
         CP      ' '
         JR      Z,.NAMED
-        CALL    MTB
+        CALL    REP_BYTE
         INC     HL
         DJNZ    .NAME
-.NAMED: CALL    MTCRLF
-        CALL    MTL
+.NAMED: CALL    REP_CRLF
+        CALL    REP_LINE
         DB      "Library",0
-        LD      HL,LIB_TXT
-        CALL    MTS
-        CALL    MTL
+        LD      HL,LIB_TEXT
+        CALL    REP_STR
+        CALL    REP_LINE
         DB      "Runtime, profile",0
-        LD      HL,(LIBH+6)
-        CALL    MTU0
-        CALL    MTI
+        LD      HL,(LIB_HEAD+6)
+        CALL    REP_NUM
+        CALL    REP_LIT
         DB      ", ",0
-        LD      HL,(LIBH+10)
-        CALL    MTU0
-        CALL    MTL
+        LD      HL,(LIB_HEAD+10)
+        CALL    REP_NUM
+        CALL    REP_LINE
         DB      "Output",0
         LD      A,'.'
-        CALL    MTB
-        LD      HL,O_OTYP
+        CALL    REP_BYTE
+        LD      HL,OUT_TYPE
         LD      B,3
 .TYPE:  LD      A,(HL)
-        CALL    MTB
+        CALL    REP_BYTE
         INC     HL
         DJNZ    .TYPE
-        CALL    MTL
+        CALL    REP_LINE
         DB      "Image",0
-        LD      HL,(PR_BASE)
-        CALL    MTHEX4
-        CALL    MTI
+        LD      HL,(PF_BASE)
+        CALL    REP_HEX
+        CALL    REP_LIT
         DB      " to ",0
         LD      HL,(IMG_END)
-        CALL    MTHEX4
-        CALL    MTI
+        CALL    REP_HEX
+        CALL    REP_LIT
         DB      ", ",0
         LD      HL,(IMG_END)
-        LD      DE,(PR_BASE)
+        LD      DE,(PF_BASE)
         OR      A
         SBC     HL,DE
-        CALL    MTU0
-        CALL    MTI
+        CALL    REP_NUM
+        CALL    REP_LIT
         DB      " bytes",0
-        CALL    MTL
+        CALL    REP_LINE
         DB      "BSS",0
-        LD      HL,(PSEUDO+8)
-        CALL    MTHEX4
-        CALL    MTI
+        LD      HL,(PS_TAB+8)
+        CALL    REP_HEX
+        CALL    REP_LIT
         DB      ", ",0
-        LD      HL,(PSEUDO+10)
-        CALL    MTU0
-        CALL    MTI
+        LD      HL,(PS_TAB+10)
+        CALL    REP_NUM
+        CALL    REP_LIT
         DB      " bytes",0
-        CALL    MTL
+        CALL    REP_LINE
         DB      "Stack reserve",0
-        LD      HL,(RESERVE)
-        CALL    MTU0
-        CALL    MTI
+        LD      HL,(PC_STACK)
+        CALL    REP_NUM
+        CALL    REP_LIT
         DB      " bytes; largest frame ",0
-        LD      HL,(LIMITS+2)
-        CALL    MTU0
-        LD      A,(LIMITS+4)
+        LD      HL,(PA_LIMIT+2)
+        CALL    REP_NUM
+        LD      A,(PA_LIMIT+4)
         AND     1
         JR      Z,.NOREC
-        CALL    MTI
+        CALL    REP_LIT
         DB      "; recursion present",0
-.NOREC: CALL    MTL
+.NOREC: CALL    REP_LINE
         DB      "Required top",0
-        CALL    REQUIRED        ; A:HL
-        CALL    MTHEX4          ; its low 16 bits, as the reference prints
-        CALL    MTL
+        CALL    .REQUIRED       ; A:HL
+        CALL    REP_HEX         ; its low 16 bits, as the reference prints
+        CALL    REP_LINE
         DB      "Image limit",0
-        LD      HL,(PR_LIMIT)
-        CALL    MTHEX4
-        CALL    MTI
+        LD      HL,(PF_LIMIT)
+        CALL    REP_HEX
+        CALL    REP_LIT
         DB      ", margin ",0
-        LD      HL,(PR_LIMIT)
+        LD      HL,(PF_LIMIT)
         LD      DE,(IMG_END)
         XOR     A
         SBC     HL,DE
         SBC     A,0
-        CALL    MTD0
-        CALL    MTL
+        CALL    REP_SIGN
+        CALL    REP_LINE
         DB      "Nominal top",0
-        LD      HL,(PR_TOP)
-        CALL    MTHEX4
-        CALL    MTI
+        LD      HL,(PF_TOP)
+        CALL    REP_HEX
+        CALL    REP_LIT
         DB      ", margin ",0
-        LD      HL,(PR_TOP)     ; nominal top - required, 24-bit
+        LD      HL,(PF_TOP)     ; nominal top - required, 24-bit
         CALL    .MINUSREQ
-        CALL    MTD0
-        CALL    MTL
+        CALL    REP_SIGN
+        CALL    REP_LINE
         DB      "Under a debugger",0
-        CALL    MTI
+        CALL    REP_LIT
         DB      "margin ",0
-        LD      HL,(PR_TOP)
-        LD      DE,(PROF+18)    ; the debugger margin
+        LD      HL,(PF_TOP)
+        LD      DE,(PF_BLOCK+18) ; the debugger margin
         OR      A
         SBC     HL,DE
         CALL    .MINUSREQ
-        CALL    MTD0
-        CALL    MTCRLF
-        JP      MTCRLF
+        CALL    REP_SIGN
+        CALL    REP_CRLF
+        JP      REP_CRLF
 ; A:HL = HL - REQUIRED, as a 24-bit signed value.
 .MINUSREQ:
         PUSH    HL
-        CALL    REQUIRED
+        CALL    .REQUIRED
         LD      C,A
         EX      DE,HL           ; C:DE = required
         POP     HL
@@ -630,113 +630,113 @@ SUMMARY:
         RET
 
 ; A:HL = REQUIRED: FREE plus the stack reserve, which may reach $10000.
-REQUIRED:
-        LD      HL,(FREEADR)
-        LD      DE,(RESERVE)
+.REQUIRED:
+        LD      HL,(PC_FREE)
+        LD      DE,(PC_STACK)
         XOR     A
         ADD     HL,DE
         ADC     A,0
         RET
 
 ; A blob of a live pass: keep the names in step, and list it if selected.
-MAPLIVE:
+.LIVEBLOB:
         CALL    NM_GET
-        CALL    SELECT
-        JP      NZ,REFSKIP
-        LD      HL,(WK_ENT)
+        CALL    WK_MATCH
+        JP      NZ,REF_SKIP
+        LD      HL,(WK_ENTRY)
         LD      DE,E_ADDR
         ADD     HL,DE
         LD      E,(HL)
         INC     HL
         LD      D,(HL)          ; DE = the address
-        LD      (MP_ADDR),DE
+        LD      (.BLOBADDR),DE
         LD      A,(MAP_ON)
         OR      A
         JR      Z,.SYM
         LD      HL,MAP_FD
         LD      (REP_FD),HL
-        LD      HL,(MP_ADDR)
-        CALL    MTHEX4
-        CALL    MT2
-        LD      HL,(D_SIZE)
+        LD      HL,(.BLOBADDR)
+        CALL    REP_HEX
+        CALL    REP_GAP
+        LD      HL,(RD_SIZE)
         LD      B,5
-        CALL    MTU16
-        CALL    MT2
+        CALL    REP_PAD
+        CALL    REP_GAP
         LD      A,(WK_KIND)
-        CALL    MTKIND
-        CALL    MT2
-        LD      HL,(MP_ADDR)    ; the padding paid
-        LD      DE,(PREVEND)
+        CALL    REP_KIND
+        CALL    REP_GAP
+        LD      HL,(.BLOBADDR)  ; the padding paid
+        LD      DE,(MAP_PREV)
         OR      A
         SBC     HL,DE
         LD      B,3
-        CALL    MTU16
-        CALL    MT2
-        LD      HL,(D_PREV)
-        CALL    MTHEX4
-        CALL    MT2
-        CALL    MT2
-        LD      HL,NAMEBUF
-        CALL    MTS
-        CALL    MTCRLF
-.SYM:   LD      HL,(MP_ADDR)
-        LD      DE,(D_SIZE)
+        CALL    REP_PAD
+        CALL    REP_GAP
+        LD      HL,(RD_PREV)
+        CALL    REP_HEX
+        CALL    REP_GAP
+        CALL    REP_GAP
+        LD      HL,NM_BUF
+        CALL    REP_STR
+        CALL    REP_CRLF
+.SYM:   LD      HL,(.BLOBADDR)
+        LD      DE,(RD_SIZE)
         ADD     HL,DE
-        LD      (PREVEND),HL
-        LD      A,(SYM_ON)
+        LD      (MAP_PREV),HL
+        LD      A,(SY_ON)
         OR      A
-        JP      Z,REFSKIP
-        LD      A,(NAMEBUF)
+        JP      Z,REF_SKIP
+        LD      A,(NM_BUF)
         OR      A
-        JP      Z,REFSKIP
-        LD      HL,SYM_FD
+        JP      Z,REF_SKIP
+        LD      HL,SY_FD
         LD      (REP_FD),HL
-        LD      HL,(MP_ADDR)
-        CALL    SYMROW
-        JP      REFSKIP
+        LD      HL,(.BLOBADDR)
+        CALL    SY_ROW
+        JP      REF_SKIP
 
-MP_ADDR: DW     0
+.BLOBADDR: DW     0
 
 ; A symbol row: address HL, the name in NAMEBUF to 16 characters.
-SYMROW: CALL    MTH4
+SY_ROW: CALL    REP_WORD
         LD      A,' '
-        CALL    MTB
-        LD      HL,NAMEBUF
+        CALL    REP_BYTE
+        LD      HL,NM_BUF
         LD      B,16
 .CH:    LD      A,(HL)
         OR      A
         JR      Z,.END
-        CALL    MTB
+        CALL    REP_BYTE
         INC     HL
         DJNZ    .CH
-.END:   CALL    MTCRLF
-        LD      HL,(SYMROWS)
+.END:   CALL    REP_CRLF
+        LD      HL,(SY_COUNT)
         INC     HL
-        LD      (SYMROWS),HL
+        LD      (SY_COUNT),HL
         RET
 
 ; The symbol file's alias rows: each live named alias, in address order.
 ; Aliases are rare, so each is found by a scan of the table, and its name by
 ; a scan of its owner's names.
-SYMALIAS:
+SY_ALIAS:
         LD      HL,0
-        LD      (SA_LAST),HL
+        LD      (.LAST),HL
         XOR     A
-        LD      (SA_ANY),A
+        LD      (.ANY),A
 .ROUND: LD      HL,$FFFF
-        LD      (SA_BEST),HL
+        LD      (.BEST),HL
         XOR     A
-        LD      (SA_FOUND),A
+        LD      (.FOUND),A
         LD      HL,0            ; scan for the lowest address above the last
 .SCAN:  PUSH    HL
-        CALL    ENTRYAT
+        CALL    TAB_AT
         JR      C,.SCANNED
         LD      A,(HL)
-        AND     F_ALIAS+F_DEF
-        CP      F_ALIAS+F_DEF
+        AND     EF_ALIAS+EF_DEF
+        CP      EF_ALIAS+EF_DEF
         JR      NZ,.NEXT
         PUSH    HL
-        CALL    ALIVE           ; carry unless its base is live
+        CALL    .ALIVE          ; carry unless its base is live
         POP     HL
         JR      C,.NEXT
         INC     HL
@@ -745,38 +745,38 @@ SYMALIAS:
         LD      E,(HL)
         INC     HL
         LD      D,(HL)          ; DE = its address
-        LD      A,(SA_ANY)
+        LD      A,(.ANY)
         OR      A
         JR      Z,.FIRST
-        LD      HL,(SA_LAST)    ; above the last one written
+        LD      HL,(.LAST)      ; above the last one written
         OR      A
         SBC     HL,DE
         JR      NC,.NEXT
-.FIRST: LD      HL,(SA_BEST)
+.FIRST: LD      HL,(.BEST)
         OR      A
         SBC     HL,DE
         JR      C,.NEXT
-        LD      (SA_BEST),DE
+        LD      (.BEST),DE
         POP     HL
         PUSH    HL
-        LD      (SA_POS),HL
+        LD      (.POS),HL
         LD      A,1
-        LD      (SA_FOUND),A
+        LD      (.FOUND),A
 .NEXT:  POP     HL
         INC     HL
         JR      .SCAN
 .SCANNED:
         POP     HL
-        LD      A,(SA_FOUND)
+        LD      A,(.FOUND)
         OR      A
         RET     Z
-        LD      HL,(SA_BEST)
-        LD      (SA_LAST),HL
+        LD      HL,(.BEST)
+        LD      (.LAST),HL
         LD      A,1
-        LD      (SA_ANY),A
-        LD      HL,(SA_POS)     ; its name, by a scan of its owner's names
-        CALL    POS2ORD
-        LD      (D_PREV),HL
+        LD      (.ANY),A
+        LD      HL,(.POS)       ; its name, by a scan of its owner's names
+        CALL    TAB_ORD
+        LD      (RD_PREV),HL
         LD      A,H
         CP      $04
         LD      A,0
@@ -785,33 +785,33 @@ SYMALIAS:
 .OWN:   LD      (WK_OWN),A
         CALL    NM_RESET
 .FIND:  CALL    NM_GET
-        LD      A,(NAMEBUF)
+        LD      A,(NM_BUF)
         OR      A
         JR      NZ,.ROW
-        CALL    NM_SLOT         ; not this record: the next, until the end
+        CALL    NM_FLAG         ; not this record: the next, until the end
         LD      A,(HL)
         OR      A
         JP      Z,.ROUND
         CALL    NM_READ
         JR      .FIND
-.ROW:   LD      HL,(SA_BEST)
-        CALL    SYMROW
+.ROW:   LD      HL,(.BEST)
+        CALL    SY_ROW
         JP      .ROUND
 
-SA_LAST: DW     0
-SA_BEST: DW     0
-SA_POS: DW      0
-SA_FOUND: DB    0
-SA_ANY: DB      0
+.LAST: DW     0
+.BEST: DW     0
+.POS: DW      0
+.FOUND: DB    0
+.ANY: DB      0
 
 ; Carry unless the alias entry at HL has a live base.
-ALIVE:  LD      DE,E_ADDR
+.ALIVE:  LD      DE,E_ADDR
         ADD     HL,DE
         LD      E,(HL)
         INC     HL
         LD      D,(HL)
         EX      DE,HL
-        CALL    ENT_MAKE
+        CALL    TAB_FIND
         RET     C
         BIT     5,(HL)
         SCF
@@ -820,52 +820,52 @@ ALIVE:  LD      DE,E_ADDR
         RET
 
 ; The removed blobs, in directory order, then the totals.
-REMOVED:
+MAP_DEAD:
         LD      HL,MAP_FD
         LD      (REP_FD),HL
-        CALL    MTI
+        CALL    REP_LIT
         DB      13,10,"REMOVED BLOBS",13,10
         DB      "Ordinal  Size  Kind     Name",13,10,0
         LD      HL,0
-        LD      (TOT_LK),HL
-        LD      (TOT_LR),HL
-        LD      (TOT_PK),HL
-        LD      (TOT_PR),HL
-        LD      HL,MAPDEAD
-        LD      (WK_CB),HL
-        CALL    WALK2
-        CALL    MTI
+        LD      (LIB_KEPT),HL
+        LD      (LIB_GONE),HL
+        LD      (PRG_KEPT),HL
+        LD      (PRG_GONE),HL
+        LD      HL,MAP_ADD
+        LD      (WK_EACH),HL
+        CALL    WK_BOTH
+        CALL    REP_LIT
         DB      13,10,"TOTALS",13,10
         DB      "Program   kept ",0
-        LD      HL,(TOT_PK)
-        CALL    MTU0
-        CALL    MTI
+        LD      HL,(PRG_KEPT)
+        CALL    REP_NUM
+        CALL    REP_LIT
         DB      ", removed ",0
-        LD      HL,(TOT_PR)
-        CALL    MTU0
-        CALL    MTI
+        LD      HL,(PRG_GONE)
+        CALL    REP_NUM
+        CALL    REP_LIT
         DB      13,10,"Library   kept ",0
-        LD      HL,(TOT_LK)
-        CALL    MTU0
-        CALL    MTI
+        LD      HL,(LIB_KEPT)
+        CALL    REP_NUM
+        CALL    REP_LIT
         DB      ", removed ",0
-        LD      HL,(TOT_LR)
-        CALL    MTU0
-        JP      MTCRLF
+        LD      HL,(LIB_GONE)
+        CALL    REP_NUM
+        JP      REP_CRLF
 
-TOT_LK: DW      0
-TOT_LR: DW      0
-TOT_PK: DW      0
-TOT_PR: DW      0
+LIB_KEPT: DW      0
+LIB_GONE: DW      0
+PRG_KEPT: DW      0
+PRG_GONE: DW      0
 
 ; A blob of the removed pass: count it, and list it when it is not live.
-MAPDEAD:
+MAP_ADD:
         CALL    NM_GET
-        LD      HL,(WK_ENT)
+        LD      HL,(WK_ENTRY)
         BIT     5,(HL)
-        LD      HL,TOT_LK       ; the right total: owner, kept or removed
+        LD      HL,LIB_KEPT     ; the right total: owner, kept or removed
         JR      NZ,.KEPT
-        LD      HL,TOT_LR
+        LD      HL,LIB_GONE
 .KEPT:  LD      A,(WK_OWN)
         OR      A
         JR      Z,.ADD
@@ -877,27 +877,27 @@ MAPDEAD:
         INC     HL
         LD      D,(HL)
         PUSH    HL
-        LD      HL,(D_SIZE)
+        LD      HL,(RD_SIZE)
         ADD     HL,DE
         EX      DE,HL
         POP     HL
         LD      (HL),D
         DEC     HL
         LD      (HL),E
-        LD      HL,(WK_ENT)
+        LD      HL,(WK_ENTRY)
         BIT     5,(HL)
-        JP      NZ,REFSKIP
-        LD      HL,(D_PREV)
-        CALL    MTHEX4
-        CALL    MT2
-        LD      HL,(D_SIZE)
+        JP      NZ,REF_SKIP
+        LD      HL,(RD_PREV)
+        CALL    REP_HEX
+        CALL    REP_GAP
+        LD      HL,(RD_SIZE)
         LD      B,5
-        CALL    MTU16
-        CALL    MT2
+        CALL    REP_PAD
+        CALL    REP_GAP
         LD      A,(WK_KIND)
-        CALL    MTKIND
-        CALL    MT2
-        LD      HL,NAMEBUF
-        CALL    MTS
-        CALL    MTCRLF
-        JP      REFSKIP
+        CALL    REP_KIND
+        CALL    REP_GAP
+        LD      HL,NM_BUF
+        CALL    REP_STR
+        CALL    REP_CRLF
+        JP      REF_SKIP

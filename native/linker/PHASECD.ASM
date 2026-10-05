@@ -10,59 +10,59 @@
 ; followed by COPY, DATA written again byte for byte (linker §7.3). ROM
 ; targets (class 3 and above) are refused in Phase A.
 
-PROF    EQU     LIBH+42         ; the profile block's fields (object format §5)
-PR_CLASS EQU    PROF+0
-PR_KINDS EQU    PROF+1
-PR_BASE EQU     PROF+2
-PR_LIMIT EQU    PROF+4
-PR_TOP  EQU     PROF+6
-PR_OPTS EQU     PROF+16
-PR_FILE EQU     PROF+20
+PF_BLOCK    EQU     LIB_HEAD+42 ; the profile block's fields (object format §5)
+PF_CLASS EQU    PF_BLOCK+0
+PF_KINDS EQU    PF_BLOCK+1
+PF_BASE EQU     PF_BLOCK+2
+PF_LIMIT EQU    PF_BLOCK+4
+PF_TOP  EQU     PF_BLOCK+6
+PF_OPTS EQU     PF_BLOCK+16
+PF_FILE EQU     PF_BLOCK+20
 
-S_TEXT  EQU     2               ; sections, for SEL_SEC: kinds 3 and 4
+S_TEXT  EQU     2               ; sections, for WK_SEC: kinds 3 and 4
 S_BSS   EQU     3               ; are the sections of their blobs, and DATA
 S_START EQU     4               ; is TEXT with OF_R's bit
 S_DATA  EQU     S_TEXT+OF_R
 
-CURSOR: DW      0               ; the next free address
-SEL_SEC: DB     0               ; the pass's section
-SEL_CLS: DB     0               ; and alignment class
+PC_NEXT: DW      0              ; the next free address
+WK_SEC: DB     0                ; the pass's section
+WK_CLASS: DB     0              ; and alignment class
 IMG_END: DW     0
-SEC_BEG: DW     0               ; Phase C: the section's start
-SEC_SET: DB     0               ; nonzero once its first blob is placed
-DAT_BEG: DW     0
-DAT_END: DW     0
+PC_BEG: DW     0                ; Phase C: the section's start
+PC_BEGUN: DB     0              ; nonzero once its first blob is placed
+DATA_BEG: DW     0
+DATA_END: DW     0
 BSS_BEG: DW     0
-EM_DLT: DW      0               ; Phase D: COPY's distance from DATA
-FREEADR: DW     0
-RESERVE: DW     0
-FILEADR: DW     0
-FILESIZ: DW     0
-NFILES: DB      0
-OUTPOS: DW      0               ; Phase D: the address written up to
+PD_DELTA: DW      0             ; Phase D: COPY's distance from DATA
+PC_FREE: DW     0
+PC_STACK: DW     0
+FT_ADDR: DW     0
+FT_SIZE: DW     0
+FT_COUNT: DB      0
+OUT_POS: DW      0              ; Phase D: the address written up to
 WK_OWN: DB      0               ; the directory being walked: 0 library
-WK_CB:  DW      0               ; the routine called for each blob
+WK_EACH:  DW      0             ; the routine called for each blob
 WK_KIND: DB     0
-WK_NM:  DB      0               ; nonzero: walks reset the name readers
-WK_OFF: DW      0               ; the blob's byte-stream offset
-WK_ENT: DW      0               ; the blob's entry
+WK_NAMES:  DB      0            ; nonzero: walks reset the name readers
+WK_POS: DW      0               ; the blob's byte-stream offset
+WK_ENTRY: DW      0             ; the blob's entry
 SRC_FD: DW      0               ; Phase D: the byte stream being copied
-SRCBASE: DS     3               ; the byte stream's start in its file
-PSEUDO: DS      40              ; MAIN to FILECOUNT: address, size
+.BASE: DS     3                 ; the byte stream's start in its file
+PS_TAB: DS      40              ; MAIN to FILECOUNT: address, size
 
 ; ---- walking a directory ---------------------------------------------------
 
 ; Walk the library's directory, then the program's.
-WALK2:  XOR     A
-        CALL    WALK
+WK_BOTH:  XOR     A
+        CALL    .WALK
         LD      A,1
 ; Walk the library's directory (A = 0) or the program's (A = 1), calling
-; WK_CB for each blob with WK_ENT, WK_KIND, D_SIZE, D_NREFS and WK_OFF set
+; WK_EACH for each blob with WK_ENTRY, WK_KIND, RD_SIZE, REF_CNT and WK_POS set
 ; and the directory at its first reference. The callback consumes the
-; references, with REFSKIP or by copying the blob. In Phase E (WK_NM) the
+; references, with REFSKIP or by copying the blob. In Phase E (WK_NAMES) the
 ; owner's name reader starts again with each walk.
-WALK:   LD      (WK_OWN),A
-        LD      HL,WK_NM
+.WALK:   LD      (WK_OWN),A
+        LD      HL,WK_NAMES
         INC     (HL)
         DEC     (HL)
         CALL    NZ,NM_RESET
@@ -70,63 +70,63 @@ WALK:   LD      (WK_OWN),A
         OR      A
         JR      NZ,.PROG
         LD      IX,LIB_FD
-        LD      A,(LIBH+14)
-        LD      HL,(LIBH+12)
-        CALL    F_SEEK
-        JP      C,R_SHORT
+        LD      A,(LIB_HEAD+14)
+        LD      HL,(LIB_HEAD+12)
+        CALL    FIL_SEEK
+        JP      C,DG_SHORT
         LD      HL,0
         JR      .GO
-.PROG:  LD      IX,DR_FD
+.PROG:  LD      IX,DIR_FD
         XOR     A
         LD      HL,20           ; past the program header
-        CALL    F_SEEK
-        JP      C,R_SHORT
-        LD      HL,(PRGH+16)
+        CALL    FIL_SEEK
+        JP      C,DG_SHORT
+        LD      HL,(DIR_HEAD+16)
         DEC     HL
-.GO:    LD      (D_PREV),HL
+.GO:    LD      (RD_PREV),HL
         LD      HL,0
-        LD      (WK_OFF),HL
-.REC:   CALL    R_U8
+        LD      (WK_POS),HL
+.REC:   CALL    RD_BYTE
         CP      $FF
         RET     Z
-        LD      (D_HEADER),A
+        LD      (RD_HEAD),A
         AND     7
         CP      6
         JR      Z,.CTRL
         LD      (WK_KIND),A
-        LD      A,(D_HEADER)
+        LD      A,(RD_HEAD)
         BIT     3,A
         JR      Z,.IMPL
-        CALL    R_U16
+        CALL    RD_WORD
         JR      .ORD
-.IMPL:  LD      HL,(D_PREV)
+.IMPL:  LD      HL,(RD_PREV)
         INC     HL
-.ORD:   LD      (D_PREV),HL
-        CALL    ENT_MAKE
-        LD      (WK_ENT),HL
-        CALL    R_U16
-        LD      (D_SIZE),HL
-        CALL    R_U8
+.ORD:   LD      (RD_PREV),HL
+        CALL    TAB_FIND
+        LD      (WK_ENTRY),HL
+        CALL    RD_WORD
+        LD      (RD_SIZE),HL
+        CALL    RD_BYTE
         LD      L,A
         LD      H,0
         CP      255
         JR      NZ,.CNT
-        CALL    R_U16
-.CNT:   LD      (D_NREFS),HL
+        CALL    RD_WORD
+.CNT:   LD      (REF_CNT),HL
         PUSH    IX
-        LD      HL,(WK_CB)
+        LD      HL,(WK_EACH)
         CALL    .CALL
         POP     IX
         LD      A,(WK_KIND)
         CP      K_BSS
         JR      Z,.REC
-        LD      HL,(WK_OFF)
-        LD      DE,(D_SIZE)
+        LD      HL,(WK_POS)
+        LD      DE,(RD_SIZE)
         ADD     HL,DE
-        LD      (WK_OFF),HL
+        LD      (WK_POS),HL
         JR      .REC
 .CALL:  JP      (HL)
-.CTRL:  LD      A,(D_HEADER)
+.CTRL:  LD      A,(RD_HEAD)
         RRCA
         RRCA
         RRCA
@@ -137,71 +137,71 @@ WALK:   LD      (WK_OWN),A
         DEC     A
         JR      Z,.SKIP
         LD      B,5             ; limits (bank never passes Phase A)
-.SKIP:  CALL    R_U8
+.SKIP:  CALL    RD_BYTE
         DJNZ    .SKIP
         JR      .REC
 
 ; Read and discard the current blob's references.
-REFSKIP:
-        LD      HL,(D_NREFS)
+REF_SKIP:
+        LD      HL,(REF_CNT)
 .NEXT:  LD      A,H
         OR      L
         RET     Z
         PUSH    HL
-        CALL    REFREAD
+        CALL    REF_READ
         POP     HL
         DEC     HL
         JR      .NEXT
 
-; Read one reference: D_LSTOFF = its offset, D_FORM its form, HL its target,
+; Read one reference: REF_LAST = its offset, REF_FORM its form, HL its target,
 ; DE its addend. Offsets accumulate from REFSTART.
-REFREAD:
-        CALL    R_U8
+REF_READ:
+        CALL    RD_BYTE
         LD      B,A
         AND     $3F
         CP      63
         JR      NZ,.DELTA
-        CALL    R_U16
+        CALL    RD_WORD
         JR      .OFF
 .DELTA: LD      L,A
         LD      H,0
-        LD      A,(D_HAVLST)
+        LD      A,(REF_ANY)
         OR      A
         JR      Z,.OFF
-        LD      DE,(D_LSTOFF)
+        LD      DE,(REF_LAST)
         ADD     HL,DE
-.OFF:   LD      (D_LSTOFF),HL
+.OFF:   LD      (REF_LAST),HL
         LD      A,1
-        LD      (D_HAVLST),A
+        LD      (REF_ANY),A
         XOR     A
         BIT     7,B
         JR      Z,.FORM
-        CALL    R_U8
-.FORM:  LD      (D_FORM),A
-        CALL    R_U16
+        CALL    RD_BYTE
+.FORM:  LD      (REF_FORM),A
+        CALL    RD_WORD
         PUSH    HL
         LD      DE,0
         BIT     6,B
         JR      Z,.NOADD
-        CALL    R_U16
+        CALL    RD_WORD
         EX      DE,HL
 .NOADD: POP     HL
         RET
 
 ; Before a blob's references: no previous offset yet.
-REFSTART:
+REF_NEW:
         XOR     A
-        LD      (D_HAVLST),A
+        LD      (REF_ANY),A
         RET
 
 ; Whether the blob just read belongs to this pass: live, of the pass's
 ; class, and in its section. Z when it does.
-SELECT: LD      HL,(WK_ENT)
+WK_MATCH: LD      HL,(WK_ENTRY)
         BIT     5,(HL)
         JR      Z,.NO
         LD      DE,E_LAYOUT
         ADD     HL,DE
-        LD      A,(SEL_CLS)
+        LD      A,(WK_CLASS)
         CP      (HL)
         RET     NZ
         LD      A,(WK_KIND)     ; the blob's section: code and rodata
@@ -209,10 +209,10 @@ SELECT: LD      HL,(WK_ENT)
         JR      NC,.KIND
         LD      A,S_TEXT
 .KIND:  JR      NZ,.SEC
-        LD      A,(O_FLAGS)
+        LD      A,(OP_FLAGS)
         AND     OF_R
         OR      S_TEXT
-.SEC:   LD      HL,SEL_SEC
+.SEC:   LD      HL,WK_SEC
         CP      (HL)
         RET
 .NO:    OR      1               ; NZ
@@ -221,29 +221,29 @@ SELECT: LD      HL,(WK_ENT)
 ; Make the passes of section A, calling HL for each blob: for each class
 ; from 7 down that has a live blob (linker §10), the library's directory
 ; then the program's. DATA has passes only under option R.
-SECTION:
-        LD      (SEL_SEC),A
-        LD      (WK_CB),HL
+WK_PASS:
+        LD      (WK_SEC),A
+        LD      (WK_EACH),HL
         CP      S_DATA
         JR      NZ,.GO
-        LD      A,(O_FLAGS)
+        LD      A,(OP_FLAGS)
         AND     OF_R
         RET     Z
 .GO:    LD      A,7
-.CLASS: LD      (SEL_CLS),A
-        CALL    PRESENT
-        CALL    NZ,WALK2
-        LD      A,(SEL_CLS)
+.CLASS: LD      (WK_CLASS),A
+        CALL    .PRESENT
+        CALL    NZ,WK_BOTH
+        LD      A,(WK_CLASS)
         SUB     1
         JR      NC,.CLASS
         RET
 
-; NZ when alignment class SEL_CLS has a live blob.
-PRESENT:
-        LD      A,(SEL_CLS)
+; NZ when alignment class WK_CLASS has a live blob.
+.PRESENT:
+        LD      A,(WK_CLASS)
         INC     A
         LD      B,A
-        LD      A,(CLASSES)
+        LD      A,(PB_CLASS)
 .SHIFT: RRCA
         DJNZ    .SHIFT
         RLCA                    ; back one: bit 0 is the class's
@@ -252,18 +252,18 @@ PRESENT:
 
 ; ---- Phase C -----------------------------------------------------------------
 
-PHASEC: XOR     A               ; the CRCs were checked in Phase A
-        LD      (CRC_ON),A
-        LD      HL,(PR_BASE)
-        LD      (CURSOR),HL
+PC_RUN: XOR     A               ; the CRCs were checked in Phase A
+        LD      (RD_CRC),A
+        LD      HL,(PF_BASE)
+        LD      (PC_NEXT),HL
         LD      A,S_START
-        CALL    PLACESEC
+        CALL    .PLACESEC
         LD      A,S_TEXT
-        CALL    PLACESEC
+        CALL    .PLACESEC
         LD      A,S_DATA        ; empty, at TEXT's end, without R
-        CALL    PLACESEC
-        LD      (DAT_BEG),HL
-        LD      (DAT_END),DE
+        CALL    .PLACESEC
+        LD      (DATA_BEG),HL
+        LD      (DATA_END),DE
         EX      DE,HL           ; COPY follows DATA: the image ends at
         PUSH    HL              ; DATA's end plus its size
         OR      A
@@ -271,110 +271,110 @@ PHASEC: XOR     A               ; the CRCs were checked in Phase A
         POP     DE
         ADD     HL,DE
         LD      (IMG_END),HL
-        LD      (CURSOR),HL
+        LD      (PC_NEXT),HL
         LD      A,S_BSS
-        CALL    PLACESEC
+        CALL    .PLACESEC
         LD      (BSS_BEG),HL
         ; the file table, after BSS, when the program uses files
-        LD      A,(O_FILES)
+        LD      A,(OP_FILES)
         OR      A
-        JR      NZ,.NF
+        JR      NZ,.SETCOUNT
         LD      A,4
-.NF:    LD      (NFILES),A
-        LD      HL,(CURSOR)
-        LD      (FILEADR),HL
+.SETCOUNT:    LD      (FT_COUNT),A
+        LD      HL,(PC_NEXT)
+        LD      (FT_ADDR),HL
         LD      HL,0
-        LD      A,(USEFILES)
+        LD      A,(PB_FILES)
         OR      A
         JR      Z,.NOFILES
-        LD      A,(NFILES)
+        LD      A,(FT_COUNT)
         LD      B,A
-        LD      DE,(PR_FILE)
+        LD      DE,(PF_FILE)
 .MUL:   ADD     HL,DE
         DJNZ    .MUL
 .NOFILES:
-        LD      (FILESIZ),HL
-        LD      DE,(CURSOR)
+        LD      (FT_SIZE),HL
+        LD      DE,(PC_NEXT)
         ADD     HL,DE
-        LD      (FREEADR),HL
+        LD      (PC_FREE),HL
         ; aliases of live blobs: their address and effective size
         LD      HL,0
 .ALIAS: PUSH    HL
-        CALL    ENTRYAT
+        CALL    TAB_AT
         JR      C,.ADONE
         BIT     6,(HL)
-        CALL    NZ,ALIASAT
+        CALL    NZ,.SETALIAS
         POP     HL
         INC     HL
         JR      .ALIAS
 .ADONE: POP     HL
         ; the stack reserve: the compiler's, or STACK= when larger
-        LD      HL,(LIMITS)
-        LD      DE,(O_STACK)
+        LD      HL,(PA_LIMIT)
+        LD      DE,(OP_STACK)
         PUSH    HL
         OR      A
         SBC     HL,DE
         POP     HL
         JR      NC,.RES
         EX      DE,HL
-.RES:   LD      (RESERVE),HL
-        CALL    PSEUDOS
+.RES:   LD      (PC_STACK),HL
+        CALL    .PSEUDOS
         ; fit checks (linker §6.4)
-        LD      HL,(PR_LIMIT)
+        LD      HL,(PF_LIMIT)
         LD      DE,(IMG_END)
         OR      A
         SBC     HL,DE
         LD      HL,216          ; L-FIT-IMAGE
-        JP      C,ERRPLAIN
-        LD      HL,(FREEADR)
-        LD      DE,(RESERVE)
+        JP      C,DG_PLAIN
+        LD      HL,(PC_FREE)
+        LD      DE,(PC_STACK)
         ADD     HL,DE
         LD      HL,217          ; L-FIT-MEMORY: past $FFFF
-        JP      C,ERRPLAIN
-        LD      HL,(FREEADR)
+        JP      C,DG_PLAIN
+        LD      HL,(PC_FREE)
         ADD     HL,DE
         EX      DE,HL           ; DE = the memory needed
-        LD      HL,(PR_TOP)
-        LD      A,(O_FLAGS)
+        LD      HL,(PF_TOP)
+        LD      A,(OP_FLAGS)
         AND     OF_B
         JR      Z,.TOP
-        LD      HL,(PR_LIMIT)
+        LD      HL,(PF_LIMIT)
 .TOP:   OR      A
         SBC     HL,DE
         RET     NC
         LD      HL,219          ; L-FIT-NOMINAL: a warning only
-        JP      WARNING
+        JP      DG_WARN
 
 ; Place section A: HL = its start, DE = its end. The first blob placed is
 ; of the largest class present, so the section starts at its address, which
 ; is the cursor rounded up to that class (linker §6.3).
-PLACESEC:
-        LD      HL,(CURSOR)
-        LD      (SEC_BEG),HL
-        LD      HL,SEC_SET
+.PLACESEC:
+        LD      HL,(PC_NEXT)
+        LD      (PC_BEG),HL
+        LD      HL,PC_BEGUN
         LD      (HL),0
-        LD      HL,PLACE
-        CALL    SECTION
-        LD      HL,(SEC_BEG)
-        LD      DE,(CURSOR)
+        LD      HL,.PLACE
+        CALL    WK_PASS
+        LD      HL,(PC_BEG)
+        LD      DE,(PC_NEXT)
         RET
 
 ; Place the blob just read, if it is in the pass, and skip its references.
-PLACE:  CALL    SELECT
-        JP      NZ,REFSKIP
-        LD      HL,(WK_ENT)     ; the alignment
+.PLACE:  CALL    WK_MATCH
+        JP      NZ,REF_SKIP
+        LD      HL,(WK_ENTRY)   ; the alignment
         LD      DE,E_LAYOUT
         ADD     HL,DE
         LD      A,(HL)
-        CALL    ALIGNUP         ; HL = CURSOR rounded up
-        LD      A,(SEC_SET)     ; the section starts at its first blob
+        CALL    .ALIGN          ; HL = CURSOR rounded up
+        LD      A,(PC_BEGUN)    ; the section starts at its first blob
         OR      A
         JR      NZ,.SET
         DEC     A
-        LD      (SEC_SET),A
-        LD      (SEC_BEG),HL
+        LD      (PC_BEGUN),A
+        LD      (PC_BEG),HL
 .SET:   EX      DE,HL           ; DE = the address
-        LD      HL,(WK_ENT)
+        LD      HL,(WK_ENTRY)
         INC     HL
         LD      C,(HL)
         INC     HL
@@ -385,12 +385,12 @@ PLACE:  CALL    SELECT
         LD      (HL),D
         EX      DE,HL
         ADD     HL,BC
-        LD      (CURSOR),HL
-        JP      REFSKIP
+        LD      (PC_NEXT),HL
+        JP      REF_SKIP
 
 ; HL = CURSOR rounded up to alignment code A: 2^A bytes, 256 for 7.
-ALIGNUP:
-        LD      HL,(CURSOR)
+.ALIGN:
+        LD      HL,(PC_NEXT)
         OR      A
         RET     Z
         LD      B,A
@@ -415,7 +415,7 @@ ALIGNUP:
 
 ; The alias entry at HL: when its base is live, its address is the base's
 ; plus its offset, and its size the base's less its offset.
-ALIASAT:
+.SETALIAS:
         PUSH    HL
         INC     HL
         LD      C,(HL)
@@ -427,7 +427,7 @@ ALIASAT:
         LD      D,(HL)          ; DE = the base ordinal
         EX      DE,HL
         PUSH    BC
-        CALL    ENT_MAKE
+        CALL    TAB_FIND
         POP     BC
         POP     DE              ; DE = the alias entry
         RET     C
@@ -436,7 +436,7 @@ ALIASAT:
         INC     HL
         LD      A,(HL)          ; the base's size less the offset
         SUB     C
-        LD      (PSEUDO),A      ; scratch
+        LD      (PS_TAB),A      ; scratch
         INC     HL
         LD      A,(HL)
         SBC     A,B
@@ -451,7 +451,7 @@ ALIASAT:
         LD      B,A             ; BC = the alias's address
         EX      DE,HL           ; HL = the alias entry
         INC     HL
-        LD      A,(PSEUDO)
+        LD      A,(PS_TAB)
         LD      (HL),A
         INC     HL
         POP     AF
@@ -463,11 +463,11 @@ ALIASAT:
         RET
 
 ; The pseudo-objects' addresses and sizes (object format §3.6).
-PSEUDOS:
-        LD      HL,PSEUDO
-        LD      (PS_PTR),HL
-        LD      HL,(ENTRYORD)   ; MAIN
-        CALL    ENT_MAKE
+.PSEUDOS:
+        LD      HL,PS_TAB
+        LD      (.ROWPTR),HL
+        LD      HL,(PA_MAIN)    ; MAIN
+        CALL    TAB_FIND
         INC     HL
         LD      C,(HL)
         INC     HL
@@ -477,29 +477,29 @@ PSEUDOS:
         INC     HL
         LD      D,(HL)
         CALL    .PUT            ; address DE, size BC
-        LD      DE,(PR_BASE)    ; IMAGE
+        LD      DE,(PF_BASE)    ; IMAGE
         LD      HL,(IMG_END)
         CALL    .SPAN
-        LD      HL,(FILEADR)    ; BSS: to the end of the file table
-        LD      BC,(FILESIZ)
+        LD      HL,(FT_ADDR)    ; BSS: to the end of the file table
+        LD      BC,(FT_SIZE)
         ADD     HL,BC
         LD      DE,(BSS_BEG)
         CALL    .SPAN
-        LD      DE,(FREEADR)    ; FREE
+        LD      DE,(PC_FREE)    ; FREE
         LD      BC,0
         CALL    .PUT
-        LD      HL,(RESERVE)    ; REQUIRED: FREE plus the reserve
+        LD      HL,(PC_STACK)   ; REQUIRED: FREE plus the reserve
         LD      B,H
         LD      C,L
         ADD     HL,DE
         EX      DE,HL
         CALL    .PUT
-        LD      HL,(DAT_END)    ; DATA, then DATACOPY: COPY, at DATA's
-        LD      DE,(DAT_BEG)    ; end, of DATA's size (empty, at TEXT's
+        LD      HL,(DATA_END)   ; DATA, then DATACOPY: COPY, at DATA's
+        LD      DE,(DATA_BEG)   ; end, of DATA's size (empty, at TEXT's
         CALL    .SPAN           ; end, without R)
-        LD      DE,(DAT_END)
+        LD      DE,(DATA_END)
         CALL    .PUT
-        LD      A,(O_FLAGS)     ; OPTIONS: 1 keep the CCP (B), 2 re-runnable
+        LD      A,(OP_FLAGS)    ; OPTIONS: 1 keep the CCP (B), 2 re-runnable
         XOR     OF_N            ; (R), 4 a line table (not N): bits 5, 4
         RRCA                    ; and 3 of the flags, reversed
         RRCA
@@ -512,19 +512,19 @@ PSEUDOS:
         LD      B,D             ; BC = 0
         LD      C,D
         CALL    .PUT
-        LD      DE,(FILEADR)    ; FILES
-        LD      BC,(FILESIZ)
+        LD      DE,(FT_ADDR)    ; FILES
+        LD      BC,(FT_SIZE)
         CALL    .PUT
         LD      BC,0            ; FILECOUNT
         LD      D,B
         LD      E,B
-        LD      A,(USEFILES)
+        LD      A,(PB_FILES)
         OR      A
         JR      Z,.PUT
-        LD      A,(NFILES)
+        LD      A,(FT_COUNT)
         LD      E,A
 ; The next row: address DE, size BC. Preserves BC and DE.
-.PUT:   LD      HL,(PS_PTR)
+.PUT:   LD      HL,(.ROWPTR)
         LD      (HL),E
         INC     HL
         LD      (HL),D
@@ -533,7 +533,7 @@ PSEUDOS:
         INC     HL
         LD      (HL),B
         INC     HL
-        LD      (PS_PTR),HL
+        LD      (.ROWPTR),HL
         RET
 ; The next row: address DE, size HL - DE.
 .SPAN:  OR      A
@@ -542,90 +542,90 @@ PSEUDOS:
         LD      C,L
         JR      .PUT
 
-PS_PTR: DW      0
+.ROWPTR: DW      0
 
 ; ---- Phase D -----------------------------------------------------------------
 
-OUT_FD: DS      FDSIZE
+OUT_FD: DS      FD_SIZE
 TB_FD   EQU     OUT_FD          ; option W's dump, made before Phase D
-OUT_TY: DB      "$$$"
-OUT_TXT: DS     13
-LIBB_FD: DS     FDSIZE          ; the library again, for its byte section
-BY_FD:  DS      FDSIZE
-T_BUF   EQU     BY_FD           ; the command tail (130 bytes) and a bad
-T_BAD   EQU     LIBB_FD         ; option's text (32), used only in parsing
-BY_TY:  DB      "$BY"
-BY_TXT: DS      13
+OUT_TEMP: DB      "$$$"
+OUT_TEXT: DS     13
+SRC_LIB: DS     FD_SIZE         ; the library again, for its byte section
+SRC_PROG:  DS      FD_SIZE
+CMD_BUF   EQU     SRC_PROG      ; the command tail (130 bytes) and a bad
+CMD_BAD   EQU     SRC_LIB       ; option's text (32), used only in parsing
+SRC_TYPE:  DB      "$BY"
+SRC_TEXT: DS      13
 
-PHASED: ; NAME.$$$ on the output drive, under the output name
+PD_RUN: ; NAME.$$$ on the output drive, under the output name
         LD      IX,OUT_FD
-        CALL    OUTNAME         ; HL = name, A = drive
-        LD      DE,OUT_TY
-        CALL    F_INIT
-        LD      HL,OUT_TXT
-        LD      (R_NAME),HL
+        CALL    OUT_PICK        ; HL = name, A = drive
+        LD      DE,OUT_TEMP
+        CALL    FIL_INIT
+        LD      HL,OUT_TEXT
+        LD      (RD_NAME),HL
         XOR     A               ; .COM: the last record padded with zeros
-        CALL    F_MAKE
-        JP      C,DISKERR
+        CALL    FIL_MAKE
+        JP      C,DG_DISK
         LD      A,1
         LD      (OUT_MADE),A
         ; the library's byte section, through a second FD
-        LD      IX,LIBB_FD
-        LD      A,(O_LDRV)
+        LD      IX,SRC_LIB
+        LD      A,(LIB_DISK)
         OR      A
-        JR      NZ,.LD
+        JR      NZ,.LIBDISK
         LD      A,(LIB_FD+FD_FCB)
-.LD:    LD      HL,O_LIB
-        LD      DE,LIB_TY
-        CALL    F_INIT
-        CALL    F_OPEN
-        JP      C,R_SHORT
+.LIBDISK:    LD      HL,LIB_FILE
+        LD      DE,LIB_TYPE
+        CALL    FIL_INIT
+        CALL    FIL_OPEN
+        JP      C,DG_SHORT
         ; the program's byte stream, NAME.$BY on the spool drive
-        LD      IX,BY_FD
-        LD      A,(DR_FD+FD_FCB)
-        LD      HL,O_NAME
-        LD      DE,BY_TY
-        CALL    F_INIT
-        LD      HL,O_NAME
-        LD      DE,BY_TXT
-        LD      BC,BY_TY
-        CALL    FILETXT
-        LD      HL,BY_TXT
-        LD      (R_NAME),HL
-        CALL    F_OPEN
+        LD      IX,SRC_PROG
+        LD      A,(DIR_FD+FD_FCB)
+        LD      HL,CMD_NAME
+        LD      DE,SRC_TYPE
+        CALL    FIL_INIT
+        LD      HL,CMD_NAME
+        LD      DE,SRC_TEXT
+        LD      BC,SRC_TYPE
+        CALL    FIL_TEXT
+        LD      HL,SRC_TEXT
+        LD      (RD_NAME),HL
+        CALL    FIL_OPEN
         LD      HL,225          ; L-MISSING
-        JP      C,ERRFILE
-        CALL    BYHEAD
+        JP      C,DG_FILE
+        CALL    SRC_HEAD
         LD      HL,$FFFF
         LD      (IMG_CRC),HL
         CALL    LN_OPEN
-        LD      HL,(PR_BASE)
-        LD      (OUTPOS),HL
-        LD      (HX_ADDR),HL
+        LD      HL,(PF_BASE)
+        LD      (OUT_POS),HL
+        LD      (HEX_ADDR),HL
         LD      A,S_START
-        CALL    EMITSEC
+        CALL    .SECTION
         LD      A,S_TEXT
-        CALL    EMITSEC
+        CALL    .SECTION
         LD      A,S_DATA
-        CALL    EMITSEC
-        LD      HL,(DAT_END)    ; COPY: the DATA passes again, with the
-        LD      DE,(DAT_BEG)    ; output DATA's size further on
+        CALL    .SECTION
+        LD      HL,(DATA_END)   ; COPY: the DATA passes again, with the
+        LD      DE,(DATA_BEG)   ; output DATA's size further on
         OR      A
         SBC     HL,DE
-        LD      (EM_DLT),HL
+        LD      (PD_DELTA),HL
         LD      A,S_DATA
-        CALL    EMITSEC
+        CALL    .SECTION
         ; .COM and .BIN: zeros to the end of the record; .HEX: the last
         ; data record, the end record, then $1A. Padding is in the CRC.
-        LD      A,(O_KIND)
+        LD      A,(OUT_KIND)
         CP      4
         LD      C,0
         JR      NZ,.PAD
-        CALL    HX_FLUSH
-        LD      HL,HX_END
+        CALL    HEX_OUT
+        LD      HL,HEX_END
         LD      B,13
 .END:   LD      A,(HL)
-        CALL    OUTR
+        CALL    OUT_RAW
         INC     HL
         DJNZ    .END
         LD      C,$1A
@@ -633,93 +633,93 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         OR      A
         JR      Z,.PADDED
         LD      A,C
-        CALL    OUTR
+        CALL    OUT_RAW
         JR      .PAD
 .PADDED:
         LD      IX,OUT_FD
-        CALL    F_CLOSE
-        JP      C,DISKERR
+        CALL    FIL_SHUT
+        JP      C,DG_DISK
         JP      LN_CLOSE
 
 ; Write section A.
-EMITSEC:
-        LD      HL,EMIT
-        JP      SECTION
+.SECTION:
+        LD      HL,PD_BLOB
+        JP      WK_PASS
 
 ; HL = the output's 8-character name and A its drive: option O's, else the
 ; first part's.
-OUTNAME:
-        LD      A,(O_OSET)
+OUT_PICK:
+        LD      A,(OUT_SET)
         OR      A
         JR      Z,.PART
-        LD      HL,O_ONAM
-        LD      A,(O_ODRV)
+        LD      HL,OUT_NAME
+        LD      A,(OUT_DISK)
         OR      A
         RET     NZ
-        LD      A,(O_DRV)
+        LD      A,(CMD_DISK)
         RET
-.PART:  LD      HL,O_NAME
-        LD      A,(O_DRV)
+.PART:  LD      HL,CMD_NAME
+        LD      A,(CMD_DISK)
         RET
 
 ; Check NAME.$BY's header (object format §6): magic BSIB, version 1.0, and
 ; the directory's compilation stamp.
-BYHEAD: LD      HL,.MAGIC
+SRC_HEAD: LD      HL,.MAGIC
         LD      B,4
-.MAG:   CALL    R_RAW
+.COMPARE:   CALL    RD_RAW
         CP      (HL)
         JR      NZ,.BAD
         INC     HL
-        DJNZ    .MAG
-        CALL    R_RAW
+        DJNZ    .COMPARE
+        CALL    RD_RAW
         CP      1
         JR      NZ,.BAD
-        CALL    R_RAW
+        CALL    RD_RAW
         OR      A
         JR      NZ,.BAD
-        CALL    R_RAW
+        CALL    RD_RAW
         LD      L,A
-        CALL    R_RAW
+        CALL    RD_RAW
         LD      H,A
-        LD      DE,(PRGH+6)
+        LD      DE,(DIR_HEAD+6)
         OR      A
         SBC     HL,DE
         RET     Z
         LD      HL,202          ; L-STAMP
-        JP      ERRPLAIN
+        JP      DG_PLAIN
 .BAD:   LD      HL,200          ; L-FORMAT
-        JP      ERRFILE
+        JP      DG_FILE
 .MAGIC: DB      "BSIB"
 
 ; Copy the blob just read to the output, if it is in the pass, patching its
 ; references; otherwise skip its references.
-EMIT:   CALL    SELECT
+PD_BLOB:   CALL    WK_MATCH
         JR      Z,.SEL
         ; not in the pass; but a program code blob's line record is still
         ; read in the code pass, to keep the line stream in step
-        LD      A,(SEL_SEC)
+        LD      A,(WK_SEC)
         CP      S_TEXT
-        JP      NZ,REFSKIP
-        LD      A,(SEL_CLS)
+        JP      NZ,REF_SKIP
+        LD      A,(WK_CLASS)
         OR      A
-        JP      NZ,REFSKIP
+        JP      NZ,REF_SKIP
         LD      A,(WK_OWN)
         OR      A
-        JP      Z,REFSKIP
+        JP      Z,REF_SKIP
         LD      A,(WK_KIND)
         CP      K_CODE
-        JP      NZ,REFSKIP
+        JP      NZ,REF_SKIP
         XOR     A
         CALL    LN_BLOB
-        JP      REFSKIP
+        JP      REF_SKIP
 .SEL:   ; padding up to the blob's address, or in COPY its copy's
-        LD      HL,(WK_ENT)
+        LD      HL,(WK_ENTRY)
         LD      DE,E_ADDR
         ADD     HL,DE
         LD      E,(HL)
         INC     HL
         LD      D,(HL)          ; DE = the address
-        LD      HL,(EM_DLT)
+        LD      HL,(PD_DELTA)
         LD      A,H
         OR      L
         ADD     HL,DE           ; keeps Z
@@ -727,115 +727,115 @@ EMIT:   CALL    SELECT
         LD      A,1
         CALL    Z,LN_BLOB       ; its line-table entries, but not in COPY
         POP     DE
-        LD      HL,(OUTPOS)
+        LD      HL,(OUT_POS)
 .PAD:   LD      A,L
         CP      E
         JR      NZ,.ZERO
         LD      A,H
         CP      D
-        JR      Z,.SRC
+        JR      Z,.SOURCE
 .ZERO:  XOR     A
-        CALL    OUTB
+        CALL    .OUTBYTE
         INC     HL
         JR      .PAD
-.SRC:   LD      BC,(D_SIZE)     ; the output position moves past the blob
+.SOURCE:   LD      BC,(RD_SIZE) ; the output position moves past the blob
         ADD     HL,BC
-        LD      (OUTPOS),HL
+        LD      (OUT_POS),HL
         ; the blob's bytes: the library's byte section or the program's stream
         LD      A,(WK_OWN)
         OR      A
-        JR      NZ,.PSRC
-        LD      HL,LIBB_FD
+        JR      NZ,.PROGRAM
+        LD      HL,SRC_LIB
         LD      (SRC_FD),HL
-        LD      HL,(LIBH+16)
-        LD      A,(LIBH+18)
+        LD      HL,(LIB_HEAD+16)
+        LD      A,(LIB_HEAD+18)
         JR      .SEEK
-.PSRC:  LD      HL,BY_FD
+.PROGRAM:  LD      HL,SRC_PROG
         LD      (SRC_FD),HL
         LD      HL,8            ; past the stream's header
         XOR     A
-.SEEK:  LD      DE,(WK_OFF)
+.SEEK:  LD      DE,(WK_POS)
         ADD     HL,DE
         ADC     A,0
         PUSH    IX
         LD      IX,(SRC_FD)
-        CALL    F_SEEK
+        CALL    FIL_SEEK
         POP     IX
-        JP      C,R_SHORT
+        JP      C,DG_SHORT
         LD      HL,0            ; HL = the bytes copied so far
-        LD      (D_REFEND),HL
-        CALL    REFSTART
-.REF:   LD      HL,(D_NREFS)
+        LD      (REF_END),HL
+        CALL    REF_NEW
+.REF:   LD      HL,(REF_CNT)
         LD      A,H
         OR      L
         JR      Z,.REST
         DEC     HL
-        LD      (D_NREFS),HL
-        CALL    REFREAD         ; HL = target, DE = addend
+        LD      (REF_CNT),HL
+        CALL    REF_READ        ; HL = target, DE = addend
         PUSH    DE
         PUSH    HL
-        LD      HL,(D_LSTOFF)   ; copy up to the reference
-        CALL    COPYTO
+        LD      HL,(REF_LAST)   ; copy up to the reference
+        CALL    .COPYTO
         POP     HL
         POP     DE
-        CALL    VALUE           ; HL = the value
-        CALL    PATCH
+        CALL    .VALUE          ; HL = the value
+        CALL    .PATCH
         JR      .REF
-.REST:  LD      HL,(D_SIZE)
-        JR      COPYTO
+.REST:  LD      HL,(RD_SIZE)
+        JR      .COPYTO
 
-; Copy source bytes to the output until D_REFEND reaches HL.
-COPYTO: LD      DE,(D_REFEND)
+; Copy source bytes to the output until REF_END reaches HL.
+.COPYTO: LD      DE,(REF_END)
 .LOOP:  LD      A,L
         CP      E
         JR      NZ,.ONE
         LD      A,H
         CP      D
         RET     Z
-.ONE:   CALL    SRCB
-        CALL    OUTB
+.ONE:   CALL    .SRCBYTE
+        CALL    .OUTBYTE
         INC     DE
-        LD      (D_REFEND),DE
+        LD      (REF_END),DE
         JR      .LOOP
 
 ; Write the reference's value HL in its form, in place of its placeholder.
-PATCH:  LD      A,(D_FORM)
+.PATCH:  LD      A,(REF_FORM)
         CP      1
         JR      Z,.LO
         CP      2
         JR      Z,.HI
         CALL    .SKIP2          ; ABS16 and SIZE16: two bytes
         LD      A,L
-        CALL    OUTB
+        CALL    .OUTBYTE
         LD      A,H
-        CALL    OUTB
+        CALL    .OUTBYTE
         RET
 .LO:    CALL    .SKIP1
         LD      A,L
-        JP      OUTB
+        JP      .OUTBYTE
 .HI:    CALL    .SKIP1
         LD      A,H
-        JP      OUTB
+        JP      .OUTBYTE
 .SKIP2: CALL    .SKIP1
-.SKIP1: CALL    SRCB            ; the placeholder byte
+.SKIP1: CALL    .SRCBYTE        ; the placeholder byte
         PUSH    AF
-        LD      DE,(D_REFEND)
+        LD      DE,(REF_END)
         INC     DE
-        LD      (D_REFEND),DE
+        LD      (REF_END),DE
         POP     AF
         OR      A
         RET     Z
-        LD      A,(O_FLAGS)     ; nonzero: an error under option V
+        LD      A,(OP_FLAGS)    ; nonzero: an error under option V
         AND     OF_V
         RET     Z
         LD      HL,221          ; L-PLACEHOLDER
-        JP      ERRPLAIN
+        JP      DG_PLAIN
 
-; HL = the value of a reference to target HL with addend DE, in D_FORM's
+; HL = the value of a reference to target HL with addend DE, in REF_FORM's
 ; form (linker §7.4). The value is the target's address plus the addend,
 ; signed, and must lie in 0 to $FFFF; a reference to a blob, or to MAIN, must
 ; also stay within its target: address <= value <= address + size.
-VALUE:  LD      A,H
+.VALUE:  LD      A,H
         CP      $FF
         JR      NZ,.ENT
         LD      A,L
@@ -848,7 +848,7 @@ VALUE:  LD      A,H
         PUSH    DE
         LD      E,A
         LD      D,0
-        LD      HL,PSEUDO
+        LD      HL,PS_TAB
         ADD     HL,DE
         POP     DE
         LD      C,(HL)
@@ -867,7 +867,7 @@ VALUE:  LD      A,H
         XOR     A
         JR      .FORMS
 .ENT:   PUSH    DE
-        CALL    ENT_MAKE
+        CALL    TAB_FIND
         POP     DE
         INC     HL
         LD      C,(HL)
@@ -879,31 +879,31 @@ VALUE:  LD      A,H
         LD      H,(HL)
         LD      L,A             ; HL = the address
         LD      A,1             ; checked
-.FORMS: LD      (V_CHK),A
-        LD      A,(D_FORM)
+.FORMS: LD      (.CHECKED),A
+        LD      A,(REF_FORM)
         CP      3
         JR      Z,.SIZE
         LD      A,D
         AND     $80
-        LD      (V_NEG),A
+        LD      (.NEGATIVE),A
         ADD     HL,DE           ; HL = the value
         LD      A,0
         RLA                     ; A = the carry
-        LD      (V_CY),A
-        LD      A,(V_NEG)
+        LD      (.CARRY),A
+        LD      A,(.NEGATIVE)
         OR      A
         JR      Z,.POS
-        LD      A,(V_CY)        ; a negative addend: no carry means below 0
+        LD      A,(.CARRY)      ; a negative addend: no carry means below 0
         OR      A
         JR      Z,.RANGE
-        LD      A,(V_CHK)       ; and below the target when checked
+        LD      A,(.CHECKED)    ; and below the target when checked
         OR      A
         RET     Z
         JR      .RANGE
-.POS:   LD      A,(V_CY)        ; carry: past $FFFF
+.POS:   LD      A,(.CARRY)      ; carry: past $FFFF
         OR      A
         JR      NZ,.RANGE
-        LD      A,(V_CHK)
+        LD      A,(.CHECKED)
         OR      A
         RET     Z
         PUSH    HL              ; checked: the addend no more than the size
@@ -914,60 +914,60 @@ VALUE:  LD      A,H
         POP     HL
         RET     NC
 .RANGE: LD      HL,220          ; L-RANGE
-        JP      ERRPLAIN
+        JP      DG_PLAIN
 .SIZE:  LD      H,B             ; SIZE16: the size plus the addend
         LD      L,C
         ADD     HL,DE
         RET
 
-V_CHK:  DB      0
-V_NEG:  DB      0
-V_CY:   DB      0
+.CHECKED:  DB      0
+.NEGATIVE:  DB      0
+.CARRY:   DB      0
 
 ; A = the next byte of the byte stream being copied.
-SRCB:   PUSH    IX
+.SRCBYTE:   PUSH    IX
         LD      IX,(SRC_FD)
-        CALL    F_GETB
+        CALL    FIL_GETB
         POP     IX
-        JP      C,R_SHORT
+        JP      C,DG_SHORT
         RET
 
 ; Write image byte A to the output: as itself, or into a .HEX record.
 ; Preserves BC, DE, HL, IX.
-OUTB:   PUSH    HL
-        LD      HL,O_KIND
+.OUTBYTE:   PUSH    HL
+        LD      HL,OUT_KIND
         BIT     2,(HL)
         POP     HL
-        JR      NZ,HX_PUT
+        JR      NZ,HEX_PUT
 ; Write A to the output file, adding it to the image's CRC. Preserves BC,
 ; DE, HL, IX.
-OUTR:   PUSH    HL
+OUT_RAW:   PUSH    HL
         LD      HL,IMG_CRC
-        CALL    CRC_UPD
+        CALL    CRC_FOLD
         POP     HL
         PUSH    IX
         LD      IX,OUT_FD
-        CALL    F_PUTB
+        CALL    FIL_PUTB
         POP     IX
         RET     NC
-        JP      DISKERR
+        JP      DG_DISK
 
 ; ---- Intel HEX (linker §7.6) -------------------------------------------------
 
-HX_ADDR: DW     0               ; the address of the record being filled
-HX_CNT: DB      0               ; its bytes so far
-HX_BUF: DS      16
-HX_END: DB      ":00000001FF",13,10
+HEX_ADDR: DW     0              ; the address of the record being filled
+HEX_CNT: DB      0              ; its bytes so far
+HEX_BUF: DS      16
+HEX_END: DB      ":00000001FF",13,10
 
 ; Add image byte A to the record, writing it when full. Preserves BC, DE,
 ; HL, IX.
-HX_PUT: PUSH    HL
+HEX_PUT: PUSH    HL
         PUSH    DE
-        LD      HL,HX_CNT
+        LD      HL,HEX_CNT
         LD      E,(HL)
         INC     (HL)
         LD      D,0
-        LD      HL,HX_BUF
+        LD      HL,HEX_BUF
         ADD     HL,DE
         LD      (HL),A
         LD      A,E
@@ -977,51 +977,51 @@ HX_PUT: PUSH    HL
         RET     NZ
 ; Write the record, if it has any bytes: colon, count, address, type 00,
 ; data and checksum in hex, then CR LF. Preserves BC, DE, HL, IX.
-HX_FLUSH:
-        LD      A,(HX_CNT)
+HEX_OUT:
+        LD      A,(HEX_CNT)
         OR      A
         RET     Z
         PUSH    HL
         PUSH    BC
         LD      B,A
         LD      A,':'
-        CALL    OUTR
+        CALL    OUT_RAW
         LD      C,0             ; the sum
         LD      A,B
-        CALL    HX_HEX
-        LD      HL,(HX_ADDR)
+        CALL    .HEXBYTE
+        LD      HL,(HEX_ADDR)
         LD      A,H
-        CALL    HX_HEX
+        CALL    .HEXBYTE
         LD      A,L
-        CALL    HX_HEX
+        CALL    .HEXBYTE
         XOR     A
-        CALL    HX_HEX
+        CALL    .HEXBYTE
         LD      A,L             ; the next record's address
         ADD     A,B
         LD      L,A
         ADC     A,H
         SUB     L
         LD      H,A
-        LD      (HX_ADDR),HL
-        LD      HL,HX_BUF
+        LD      (HEX_ADDR),HL
+        LD      HL,HEX_BUF
 .DATA:  LD      A,(HL)
-        CALL    HX_HEX
+        CALL    .HEXBYTE
         INC     HL
         DJNZ    .DATA
         XOR     A               ; B = 0 now
-        LD      (HX_CNT),A
+        LD      (HEX_CNT),A
         SUB     C
-        CALL    HX_HEX
+        CALL    .HEXBYTE
         LD      A,13
-        CALL    OUTR
+        CALL    OUT_RAW
         LD      A,10
-        CALL    OUTR
+        CALL    OUT_RAW
         POP     BC
         POP     HL
         RET
 
 ; Write A in two hex digits and add it to C. Preserves B, DE, HL, IX.
-HX_HEX: PUSH    AF
+.HEXBYTE: PUSH    AF
         ADD     A,C
         LD      C,A
         POP     AF
@@ -1030,7 +1030,7 @@ HX_HEX: PUSH    AF
         RRCA
         RRCA
         RRCA
-        CALL    .NIB
+        CALL    .NIBBLE
         POP     AF
-.NIB:   CALL    HEXDIG
-        JP      OUTR
+.NIBBLE:   CALL    LK_DIGIT
+        JP      OUT_RAW
