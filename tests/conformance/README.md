@@ -29,3 +29,11 @@ A test states either errors (compile or link) or a run result, not both.
 `deno task conformance` runs every test. Until the reference compiler handles a
 test, it is reported as **pending**, not failed, so the corpus can be written
 ahead of the compiler.
+
+`deno task test` also runs every test that needs no typed input under real
+CP/M 2.2 on the Triptych machine (`tests/conformance_triptych_test.ts`), and
+expects the same results. Real CP/M reads files through their FCBs'
+allocation maps and lets its BIOS use the program's registers, which the
+minimal harness doesn't model. A program that waits for console input must
+say so with an `input:` line (a Control-Z, `\x1a`, to end it), because real
+CP/M waits where the minimal harness would report the end of input.

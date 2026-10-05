@@ -1,6 +1,7 @@
 // truncate fails with fileExists, changing nothing, when NAME.~ exists;
-// readSecret gives endOfInput when input ends at once.
+// readSecret gives endOfInput on a Control-Z at the start.
 // spec: 16.4; standard library 5
+// input: \x1a
 // file KEEP.TXT: keep me
 // file KEEP.~: mine
 // expect output: E E\r\n
