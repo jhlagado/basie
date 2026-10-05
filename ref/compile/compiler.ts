@@ -1580,8 +1580,8 @@ export class Compiler {
     const sig = r.symbol.signature;
     if (sig.result) {
       if (isAggregate(sig.result)) {
-        if (v!.kind !== "address") {
-          fail("type-mismatch", at, "an aggregate result is required");
+        if (v!.kind !== "address" || !sameType(v!.type, sig.result)) {
+          fail("type-mismatch", at, `a ${typeName(sig.result)} is required`);
         }
         // Alias rules (7.7): program storage or a from parameter.
         this.checkAliasEscape(v!, at);
