@@ -75,7 +75,7 @@ An integer literal is exact and has no fixed integer type until an expected inte
 
 Chapter 9 defines the treatment of an integer literal with no expected type and the result types of operators. This chapter does not assign an expression-wide default type.
 
-A character literal has type `u8` and its value is the decoded byte from Chapter 3. Basie has no separate character type. The ordinary `u8`-to-`u16` widening rule permits a character literal where a `u16` value is expected.
+A character literal is an exact integer whose value is the decoded byte from Chapter 3, so it adopts any integer type that holds the value, as `var a as i8 = 'A'` does. Where nothing else gives it a type, as in `var c = 'A'`, it is `u8` (Chapter 9, Section 9.7). Basie has no separate character type.
 
 **Implicit widening** is admitted only where every source value is preserved (design decisions D4 and D31):
 

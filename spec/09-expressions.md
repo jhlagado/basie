@@ -101,14 +101,14 @@ The type words are reserved words, not routine names, and cannot be redeclared.
 
 **Mixed operands.** For a binary arithmetic, bitwise or comparison operator on two typed numeric operands, if the two types are equal the operation is done in that type. Otherwise, if one operand's type widens implicitly to the other's (Chapter 6, Section 6.4), that operand is widened and the operation is done in the wider type. Otherwise the expression is invalid, and one operand must be converted explicitly (design decision D31). So `u8 + i16` is an `i16` addition, `u16 + f32` an `f32` addition, and `u16 + i16`, `i32 + u32` and `u32 + f32` are invalid.
 
-**Exact integers.** An integer literal, a character literal used where an integer is expected, an untyped integer constant, and an expression built only from them are **exact**: they have a mathematical integer value and no type yet. An exact operand takes its type from:
+**Exact integers.** An integer literal, a character literal, an untyped integer constant, and an expression built only from them are **exact**: they have a mathematical integer value and no type yet. An exact operand takes its type from:
 
 1. the other operand of the same binary operator, when that operand is typed: the exact value adopts that type, and must be representable in it (for `f32`, exactly representable);
 2. otherwise, the expected type of the context: a declared or destination type, a parameter type, a result type, a conversion's operand position (where it stays exact), an index position (`u16`), or a `select` subject's type for its labels.
 
 An expression made only of exact operands is evaluated exactly, as a constant expression (Chapter 8, Section 8.6), and its value then adopts its context's type. A value that does not fit the type it adopts is invalid; it is never truncated. An exact expression with no expected type where a type is required, as in `var x = 1 + 2`, is invalid (design decision D21). An exact comparison such as `3 < 5` needs no type and is a `boolean` constant.
 
-A character literal has type `u8` when it stands alone; when combined with an exact integer it is exact. A floating-point literal has type `f32` and never adopts an integer type. `true` and `false` have type `boolean`.
+A character literal is exact, with its byte's value; only where an exact value would have no type at all, as the initializer of an inferred local, does it take `u8`. An untyped constant initialized with a character literal is exact in the same way, so substituting one for the other never changes validity. A floating-point literal has type `f32` and never adopts an integer type. `true` and `false` have type `boolean`.
 
 ## 9.8 Integer arithmetic
 

@@ -62,7 +62,13 @@ const GUARD_BAND = 64;
 /** What an expression left behind. */
 type Value =
   /** A compile-time constant; nothing emitted. `type` undefined = exact. */
-  | { kind: "const"; type?: Type; value: number | boolean }
+  | {
+    kind: "const";
+    type?: Type;
+    value: number | boolean;
+    /** An exact character literal: u8 where nothing else types it (9.7). */
+    char?: boolean;
+  }
   /** In the registers for its type. */
   | { kind: "reg"; type: Type }
   /** A string literal, for a string[] argument or initializer. */
@@ -1336,7 +1342,7 @@ export class Compiler {
       if (type) {
         actual = type;
       } else {
-        if (v.kind === "const" && !v.type) {
+        if (v.kind === "const" && !v.type && !v.char) {
           fail(
             "no-definite-type",
             at,
@@ -1357,7 +1363,7 @@ export class Compiler {
             "none has no definite type; write the type",
           );
         }
-        actual = (v as { type: Type }).type;
+        actual = v.kind === "const" && v.char ? U8 : (v as { type: Type }).type;
         this.refuseOpenView(actual, at, "a local");
       }
       if (isAggregate(actual)) {
@@ -4343,11 +4349,8 @@ export class Compiler {
         return { kind: "const", type: scalar("f32"), value: t.value };
       case "character":
         this.advance();
-        return {
-          kind: "const",
-          value: t.value,
-          type: this.characterType(expected),
-        };
+        // Exact, like an integer literal with the byte's value (9.7).
+        return { kind: "const", value: t.value, char: true };
       case "string":
         this.advance();
         return { kind: "literal", bytes: t.bytes };
@@ -4394,12 +4397,6 @@ export class Compiler {
       default:
         fail("syntax", t, `unexpected ${t.kind} in an expression`);
     }
-  }
-
-  /** A character literal is u8 alone, exact beside an exact operand (9.7). */
-  private characterType(expected: Type | undefined): Type | undefined {
-    void expected;
-    return U8;
   }
 
   private nameExpression(constant: boolean): Value {

@@ -217,7 +217,7 @@ An initializer for an owning handle follows the transfer rules of Chapter 7: a f
 - a variable, parameter, typed constant or field, or an element or selection of one;
 - the result of a routine call, a `new` or `new?` expression, or `id(...)`;
 - an explicit conversion; or
-- `true`, `false`, a floating-point literal, a character literal standing alone, or a comparison, which Chapter 9 types as `boolean`, `f32` or `u8`; or
+- `true`, `false`, a floating-point literal or a comparison, which Chapter 9 types as `boolean` or `f32`, or a character literal, which an inferred local takes as `u8`; or
 - an expression whose type Chapter 9 determines from operands that have definite types.
 
 An exact integer has no definite type: an integer literal, an untyped integer constant, or an expression built only from them. A local initialized with one must state its type. So must a local initialized with a string literal or `none`. An open view (`string[]` or `T[]`) is never a local's type, so a `string[]` or `T[]` parameter can't initialize an inferred local (Chapter 6, Section 6.8):

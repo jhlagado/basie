@@ -1,0 +1,26 @@
+// A character literal is exact, like an integer literal with its byte's
+// value, so it fits any integer type holding that value; where nothing
+// else types it, it is u8 (6.4, 9.7; review finding B10).
+// spec: 6.4, 9.7
+// expect output: 65 66 67 65\r\n
+
+include "FORMAT.BSI"
+
+const C = 'A'
+
+sub main() fails
+    var line as string[30]
+    var a as i8 = 'A'
+    var b as i8 = a + 1
+    var w as u16 = 'C'
+    var c = 'A'
+    appendI16(line, i16(a)) else fail
+    appendByte(line, ' ') else fail
+    appendI16(line, i16(b)) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, w) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, c) else fail
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end
