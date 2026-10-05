@@ -214,7 +214,15 @@ it is generated, with forward branches left long; correctness never depends on
 the buffer.
 
 The estimated cost is a routine buffer of 2K to 4K, about 5 bytes per recorded
-branch and 300 to 500 bytes of compiler code. `JR` is a byte shorter than `JP`;
+branch and 300 to 500 bytes of compiler code.
+
+**Measured gain (2026-10-05, reference compiler):** 1.2% of total image size
+across the 62 accepted conformance programs (75,413 to 74,535 bytes; 0.8% to
+1.8% per program). The earlier hypothesis of 10% to 15% was wrong: branches are
+a small share of the code. The larger costs are the expression scheme (left
+operands pushed and popped) and frame access through `IX`, so code-generation
+improvements there are worth more than shrinking. The native compiler should
+weigh shrinking's 300 to 500 bytes of compiler code against a 1% gain. `JR` is a byte shorter than `JP`;
 taken, it costs 12 T-states against 10, and not taken, 7 against 10.
 
 ### 6.4 Literals

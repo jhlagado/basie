@@ -99,7 +99,7 @@ Each step adds conformance programs and runs them end to end.
 | 44 | Ref | The flow check and the statement rule | (done) | Rejected-program tests from the reviews |
 | 45 | Ref | Leases, slot-holders, owner words, `select` on handles, `select move` | (done; the reviews' counterexamples and examples are conformance programs in `storage/`) | The reviews' counterexamples all rejected or trapped |
 | 46 | Ref | The stack bound, prologue figures, activation checks | (done) | Recursion and deep-call tests |
-| 47 | Ref | Branch shrinking and the literal buffer | | Size tests |
+| 47 | Ref | Branch shrinking and the literal buffer | `ref/compile/emit.ts` (done; measured 1.2% smaller images) | Size tests |
 | 48 | Ref | Diagnostics by message number, matching the planned message file | | Diagnostic tests |
 | 49 | Ref | The whole conformance corpus | (done for the current corpus: 77 programs; grows with each later step) | Corpus passes |
 

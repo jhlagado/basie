@@ -169,6 +169,7 @@ export class Compiler {
     private readonly tokens: Token[],
     private readonly parts: Part[],
     predeclare = true,
+    private readonly shrink = true,
   ) {
     if (predeclare) this.predeclare();
   }
@@ -337,7 +338,7 @@ export class Compiler {
     const bytes: number[] = [];
     const names: { ordinal: number; name: string }[] = [];
     for (const b of this.blobs) {
-      b.finish();
+      b.finish(this.shrink);
       records.push({
         type: "blob",
         kind: b.kind,

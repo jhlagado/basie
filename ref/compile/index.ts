@@ -26,6 +26,8 @@ export type CompileResult =
   | {
     ok: true;
     com: Uint8Array;
+    /** The exact image size, before padding to 128-byte records. */
+    imageSize: number;
     lineTable?: Uint8Array;
     addresses: Map<number, number>;
   }
@@ -36,6 +38,8 @@ export type CompileOptions = SourceOptions & {
   library?: Library;
   /** The source of the main part, when not read from disk. */
   mainSource?: Uint8Array;
+  /** Shrink forward jumps to JR (default on; off to measure the gain). */
+  shrink?: boolean;
 };
 
 let cachedLibrary: Library | undefined;
@@ -77,7 +81,12 @@ export async function compile(
       options.mainSource,
     );
     partNames = stream.parts.map((p) => p.name);
-    const compiler = new Compiler(stream.tokens, stream.parts);
+    const compiler = new Compiler(
+      stream.tokens,
+      stream.parts,
+      true,
+      options.shrink ?? true,
+    );
     const program = compiler.compile();
     const stamp = 1;
     const dir = {
@@ -107,6 +116,7 @@ export async function compile(
     });
     return {
       ok: true,
+      imageSize: result.image.length,
       com: result.output,
       lineTable: result.lineTable,
       addresses: result.addresses,

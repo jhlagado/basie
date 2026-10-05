@@ -25,6 +25,8 @@ export class Blob {
   references: Reference[] = [];
   lines: LineEntry[] = [];
   private labels: Label[] = [];
+  /** Local jumps that may shrink from JP to JR (build pipeline §6.3). */
+  private jumps: { site: number; label: number; opcode: number }[] = [];
 
   constructor(
     public readonly ordinal: number,
@@ -128,24 +130,89 @@ export class Blob {
   }
 
   /** Every label must be defined before the blob is finished. */
-  finish(): void {
+  finish(shrink = true): void {
     for (const l of this.labels) {
       if (l.offset === undefined && l.chain !== NO_LABEL) {
         throw new Error("a label was used but never defined");
       }
     }
+    if (shrink && this.jumps.length > 0) this.shrinkJumps();
     this.references.sort((a, b) => a.offset - b.offset);
+  }
+
+  /**
+   * Turn local JPs into JRs where the distance allows (build pipeline §6.3).
+   * Start with every candidate short and drop those that don't fit; removing
+   * a shrink only lengthens distances, so the loop ends. Then rewrite once:
+   * drop a byte per shrunk jump, re-encode, and move every offset the blob
+   * records (references, self-reference addends, line entries).
+   */
+  private shrinkJumps(): void {
+    const target = (j: { label: number }) => this.labels[j.label].offset!;
+    let short = new Set(this.jumps.filter((j) => target(j) !== undefined));
+    const mapWith = (set: Set<typeof this.jumps[number]>) => {
+      const sites = [...set].map((j) => j.site).sort((a, b) => a - b);
+      return (o: number) => {
+        // o moves back by one for each shrunk jump whose dropped byte (site+2) is before it
+        let lo = 0, hi = sites.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (sites[mid] + 2 < o) lo = mid + 1;
+          else hi = mid;
+        }
+        return o - lo;
+      };
+    };
+    while (true) {
+      const map = mapWith(short);
+      const fails = [...short].filter((j) => {
+        const d = map(target(j)) - (map(j.site) + 2);
+        return d < -128 || d > 127;
+      });
+      if (fails.length === 0) break;
+      for (const j of fails) short.delete(j);
+    }
+    if (short.size === 0) return;
+    const map = mapWith(short);
+    const shrunkSites = new Set([...short].map((j) => j.site));
+    // Drop the references held in shrunk operand fields.
+    this.references = this.references.filter((r) =>
+      !shrunkSites.has(r.offset - 1)
+    );
+    for (const r of this.references) {
+      r.offset = map(r.offset);
+      if (r.target === this.ordinal) r.addend = map(r.addend);
+    }
+    for (const l of this.lines) l.offset = map(l.offset);
+    for (const l of this.labels) {
+      if (l.offset !== undefined) l.offset = map(l.offset);
+    }
+    const out: number[] = [];
+    const bySite = new Map([...short].map((j) => [j.site, j]));
+    for (let i = 0; i < this.bytes.length; i += 1) {
+      const j = bySite.get(i);
+      if (j) {
+        out.push(JR_FOR[j.opcode], (target(j) - (out.length + 2)) & 0xff);
+        i += 2;
+        continue;
+      }
+      out.push(this.bytes[i]);
+    }
+    this.bytes = out;
+    short = new Set();
   }
 
   // ---- Z80 instructions used by the compiler ----------------------------------
 
-  /** JP label (3 bytes). */
+  /** JP label (3 bytes, or 2 as JR once shrunk). */
   jp(label: number): void {
+    this.jumps.push({ site: this.offset, label, opcode: 0xc3 });
     this.u8(0xc3);
     this.labelOperand(label);
   }
   /** JP cc,label. cc is the opcode: Z $ca, NZ $c2, C $da, NC $d2. */
   jpIf(cc: number, label: number): void {
+    if (cc in JR_FOR) this.jumps.push({ site: this.offset, label, opcode: cc });
     this.u8(cc);
     this.labelOperand(label);
   }
@@ -174,6 +241,15 @@ export class Blob {
     this.lines.push({ offset: this.offset, part, source });
   }
 }
+
+/** The JR opcode for each JP that has one: JP, JP NZ, JP Z, JP NC, JP C. */
+const JR_FOR: Record<number, number> = {
+  0xc3: 0x18,
+  0xc2: 0x20,
+  0xca: 0x28,
+  0xd2: 0x30,
+  0xda: 0x38,
+};
 
 export const JP_Z = 0xca;
 export const JP_NZ = 0xc2;
