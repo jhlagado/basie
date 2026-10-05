@@ -404,7 +404,7 @@ GA_COPY:                       ; BC is the size; the source is in HL.
     CALL EM_POP2                   ; Two bytes fewer pushed.
     POP  HL                        ; The size.
 
-;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append LD BC,n and LDIR: copy n bytes from HL to DE at run time.
 
 GA_LDIR:                       ; HL is the count.

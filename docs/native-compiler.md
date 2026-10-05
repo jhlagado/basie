@@ -252,7 +252,7 @@ a tool, run by the tests over every module, is planned with the first
 compression pass, so that contracts stay true as code changes.
 
 **Names to revisit,** each a byte-identical rename: tails of routines that are
-global only because their code spans several labels (`TK_TRAIL`, `RO_SEL`,
+global only because their code spans several labels (`TK_TRAIL`, `RO_SEL` (gone at 65.4 h),
 `RG_FORK` and others), which become private when their routines are made one
 scope; names in the wrong area (`EM_LDDE` in `GENCTRL.ASM`, `EX_EFLOW` used by
 the actions, `TG_` routines in `ROUTINES.ASM`); vague or figurative words
