@@ -1,0 +1,27 @@
+// select on a slot-holder binds an identifier, not a lease: the arm frees the
+// slot through the program variable the slot-holder names, and the next
+// access traps (11.7.3; review finding C5).
+// spec: 11.7.3
+// expect trap: stale-handle at 18
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+var head as nodes?
+sub f(var list as nodes?) fails
+    select list
+    case some(n)
+        head = none
+        var m = new nodes(66, none)
+        n.value = 90
+        writeByte(console, m.value) else fail
+    case none
+    end
+end
+sub main() fails
+    head = new nodes(65, none)
+    f(head) else fail
+    writeText(console, "\r\n") else fail
+end

@@ -1847,8 +1847,12 @@ export class Compiler {
       );
     }
     const subjectSym = d?.symbol;
+    // Only the routine's own owning local or parameter gives a lease (D15,
+    // D16). A slot-holder names a location the arm could overwrite, so its
+    // subject binds an identifier, as a program variable or field does.
     const isLocalOwner = owning && d !== undefined && d.rootOnly === true &&
-      d.symbol?.storage.kind === "frame" && !d.symbol.lease;
+      d.symbol?.storage.kind === "frame" && !d.symbol.lease &&
+      !d.symbol.parameter?.var;
     if (isMove) {
       if (!d || !owning || !type.optional || d.readonly) {
         fail(

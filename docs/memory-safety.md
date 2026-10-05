@@ -266,8 +266,9 @@ end
 
 - For an identifier subject, `some` means the slot is still live, and `none`
   means the identifier is empty or stale. The test never traps (D15).
-- For an owning subject that is a **program variable or a field**, `some(i)`
-  binds an identifier.
+- For an owning subject that is a **program variable, a field or a
+  slot-holder**, `some(i)` binds an identifier. A slot-holder may name a
+  program variable that the arm itself could overwrite, so it gets no lease.
 - For an owning subject that is the **caller's own owning local, parameter or
   temporary**, `some(n)`
   gives direct access to the node, a lease for the length of the arm. The local

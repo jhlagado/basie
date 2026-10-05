@@ -130,8 +130,8 @@ The name in `some(NAME)` is declared in that arm's block scope. What it denotes 
 | Subject | `NAME` in `some(NAME)` |
 | --- | --- |
 | An identifier | An identifier of type `id P` |
-| An owning program variable, or an owning field | An identifier of type `id P` |
-| The routine's own owning local, owning parameter or temporary, without `move` | A lease: direct access to the record for the length of the arm (Chapter 7). The subject cannot be moved, overwritten or passed to a slot-holder within the arm |
+| An owning program variable, an owning field, or a slot-holder (a `var` handle parameter, which may name either) | An identifier of type `id P` |
+| The routine's own owning local, owning parameter (not a slot-holder) or temporary, without `move` | A lease: direct access to the record for the length of the arm (Chapter 7). The subject cannot be moved, overwritten or passed to a slot-holder within the arm |
 | Any owning location, with `select move` | A non-optional owning local of type `P`, owned by the arm |
 
 **`select move`.** `select move x` requires `x` to be an owning location of type `P?`. It moves the value out of `x`, leaving `none`, before choosing the arm. In `some(n)`, `n` owns the value and is freed at the end of the arm unless it is moved on; this is how a `P?` becomes a `P`. In `none`, nothing was moved. After the `select`, `x` certainly holds `none` if it is a local or parameter.
