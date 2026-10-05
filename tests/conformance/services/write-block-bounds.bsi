@@ -1,0 +1,9 @@
+// writeBlock with a count beyond the buffer traps before writing anything.
+// spec: 16; services 4.4
+// expect trap: bounds at 8
+
+sub main() fails
+    var buf as u8[10]
+    var f = openWrite("X.BIN", binaryMode) else fail
+    writeBlock(f, buf, 11) else fail
+end

@@ -6,7 +6,7 @@
     "test": "deno test --config deno.runtime.json --allow-read=.,../atom,../triptych,../z80-tool-services --allow-write=build --allow-env tests/",
     "fmt": "deno fmt tests tools ref",
     "lint": "deno lint tests tools ref",
-    "conformance": "deno run --config deno.runtime.json --allow-read=.,../atom tests/conformance/runner.ts",
+    "conformance": "deno run --config deno.runtime.json --allow-read=.,../atom,../z80-tool-services --allow-write=build --allow-env tests/conformance/runner.ts",
     "census": "deno run --config deno.runtime.json --allow-read=/ tools/census.ts"
   },
   "fmt": {

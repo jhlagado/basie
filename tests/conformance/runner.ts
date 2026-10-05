@@ -137,8 +137,26 @@ function compare(
   }
   for (const [name, text] of Object.entries(expected.expectFiles)) {
     const data = run.disk.get(name);
-    const got = data ? new TextDecoder().decode(data) : undefined;
-    if (got !== text) return { status: "fail", reason: `file ${name} differs` };
+    let got = data ? new TextDecoder().decode(data) : undefined;
+    // A text file ends at its first Control-Z, the padding of its last
+    // record; an expectation that holds none compares only that far.
+    if (got !== undefined && !text.includes("\x1a")) {
+      const end = got.indexOf("\x1a");
+      if (end >= 0) got = got.slice(0, end);
+    }
+    if (got !== text) {
+      return {
+        status: "fail",
+        reason: `file ${name}: ${JSON.stringify(got)}, expected ${
+          JSON.stringify(text)
+        }`,
+      };
+    }
+  }
+  for (const name of expected.absentFiles) {
+    if (run.disk.has(name)) {
+      return { status: "fail", reason: `file ${name} should not exist` };
+    }
   }
   return { status: "pass" };
 }

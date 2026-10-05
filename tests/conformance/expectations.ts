@@ -10,6 +10,8 @@ export type Expectations = {
   tail: string;
   files: Record<string, string>;
   expectFiles: Record<string, string>;
+  /** Files that must not exist after the run. */
+  absentFiles: string[];
   spec: string[];
 };
 
@@ -49,6 +51,7 @@ export function parseExpectations(source: string): Expectations {
     tail: "",
     files: {},
     expectFiles: {},
+    absentFiles: [],
     spec: [],
   };
   let output: string[] | undefined;
@@ -72,6 +75,8 @@ export function parseExpectations(source: string): Expectations {
       result.input += unescape(m[1]);
     } else if ((m = body.match(/^tail: ?(.*)$/))) {
       result.tail = unescape(m[1]);
+    } else if ((m = body.match(/^expect no file (\S+)$/))) {
+      result.absentFiles.push(m[1].toUpperCase());
     } else if ((m = body.match(/^expect file (\S+): ?(.*)$/))) {
       result.expectFiles[m[1].toUpperCase()] =
         (result.expectFiles[m[1].toUpperCase()] ?? "") + unescape(m[2]);

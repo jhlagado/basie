@@ -1,0 +1,11 @@
+// openAppend on a text file writes from its first Control-Z.
+// spec: 16; services 4.2
+// file LOG.TXT: first\r\n\x1a
+// expect file LOG.TXT: first\r\nsecond\r\n
+
+sub main() fails
+    var f = openAppend("LOG.TXT", textMode) else fail
+    writeText(f, "second") else fail
+    writeByte(f, 10) else fail
+    close(f) else fail
+end

@@ -1,0 +1,12 @@
+// After a failure, an unclosed openWrite file is aborted: the old file stays.
+// spec: 16; services 7
+// file KEEP.TXT: old\r\n
+// expect output: FAIL 48\r\n
+// expect file KEEP.TXT: old\r\n
+// expect return: $FF01
+
+sub main() fails
+    var f = openWrite("KEEP.TXT", textMode) else fail
+    writeText(f, "new") else fail
+    fail 48
+end

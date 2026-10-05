@@ -55,8 +55,9 @@ the predeclared type `File`.
   (`notAvailable`).
 - The number of files open at once is chosen at link time with `F=n`, 1 to 255,
   default 4 (D38). The table lives at the end of `BSS`, so the startup memory
-  check covers it; it costs about 176 bytes per entry, and nothing if the
-  program opens no files.
+  check covers it; it costs 184 bytes per entry (the profile's file-entry size:
+  a 56-byte header and a 128-byte record buffer), and nothing if the program
+  opens no files.
 - A failed `open` allocates no entry and leaves no temporary file.
 
 ## 3. Console and printer
@@ -143,7 +144,8 @@ reserved for temporary files. User numbers can't be named; see Section 6.
 | `abort(f as File)` | Discard an `openWrite` file's new contents, or close any other file without further writes, and release the number |
 | `flush(f as File) fails` | Write out buffered data and the directory entry, so the data survives if the machine stops |
 
-`mode` is `textMode` or `binaryMode`; any other value fails with `badMode`.
+`mode` is `textMode` (0) or `binaryMode` (1), predeclared constants; any other
+value fails with `badMode`.
 
 `close` always releases the file number, whether it succeeds or fails. A failed
 `close` of an `openWrite` file has deleted the temporary file and left the old
@@ -238,7 +240,7 @@ with `ERA *.$??`.
 | --- | --- |
 | `exists(name as string[]) as boolean fails` | Whether a file exists |
 | `delete(name as string[]) fails` | Delete a file; `fileNotFound` if it doesn't exist |
-| `rename(from as string[], to as string[]) fails` | Rename within a drive; `fileExists` if the new name is taken |
+| `rename(oldName as string[], newName as string[]) fails` | Rename within a drive; `fileExists` if the new name is taken |
 | `findFirst(pattern as string[], var name as string[]) as boolean fails` | Start a search; `false` if nothing matches |
 | `findNext(var name as string[]) as boolean fails` | The next match, or `false` |
 

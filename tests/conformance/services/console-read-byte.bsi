@@ -1,0 +1,26 @@
+// readByte on the console echoes each key; Control-Z ends console input, for good.
+// spec: 16; services 3.2
+// input: ab
+// expect output: ab[1][1]\r\n
+
+include "FORMAT.BSI"
+
+sub main() fails
+    var line as string[12]
+    var code as u8
+    var b as u8
+    b = readByte(console) else fail
+    b = readByte(console) else fail
+    b = readByte(console) handle code
+        appendByte(line, '[') else fail
+        appendU16(line, code) else fail
+        appendByte(line, ']') else fail
+    end
+    b = readByte(console) handle code
+        appendByte(line, '[') else fail
+        appendU16(line, code) else fail
+        appendByte(line, ']') else fail
+    end
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

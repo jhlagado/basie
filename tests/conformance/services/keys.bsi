@@ -1,0 +1,17 @@
+// keyReady holds a waiting key for the next read; readKey doesn't echo.
+// spec: 16; services 3.2
+// input: xy
+// expect output: T<x><y>\r\n
+
+sub main() fails
+    if keyReady()
+        writeByte(console, 'T') else fail
+    end
+    var a = readKey()
+    var b = readKey()
+    writeByte(console, '<') else fail
+    writeByte(console, a) else fail
+    writeText(console, "><") else fail
+    writeByte(console, b) else fail
+    writeText(console, ">\r\n") else fail
+end

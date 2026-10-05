@@ -1,0 +1,12 @@
+// commandTail gives the tail as typed, without its leading separator.
+// spec: 16; services 5
+// tail: HELLO WORLD
+// expect output: [HELLO WORLD]\r\n
+
+sub main() fails
+    var text as string[40]
+    commandTail(text)
+    writeText(console, "[") else fail
+    writeText(console, text) else fail
+    writeText(console, "]\r\n") else fail
+end

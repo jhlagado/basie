@@ -18,7 +18,8 @@ Expectations are `//` comments before the first line of code:
 | `// input: TEXT` | Console input supplied to the program, with the same escapes |
 | `// tail: TEXT` | The command tail |
 | `// file NAME: TEXT` | A file present on the disk before the run |
-| `// expect file NAME: TEXT` | A file's contents after the run |
+| `// expect file NAME: TEXT` | A file's contents after the run ; without a `\x1a`, it compares up to the file's first Control-Z, the padding of a text file |
+| `// expect no file NAME` | The file must not exist after the run |
 | `// spec: SECTION` | The specification section the test checks; informational |
 
 A test states either errors (compile or link) or a run result, not both.

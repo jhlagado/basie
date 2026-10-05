@@ -1,0 +1,34 @@
+// Text files: CR LF, lone LF and lone CR all read as one newline; writing a
+// newline gives CR LF; openWrite replaces the file at close.
+// spec: 16; services 4.3, 4.6
+// file IN.TXT: one\r\ntwo\nthree\rfour\x1a
+// file OUT.TXT: old contents
+// expect file OUT.TXT: one\r\ntwo\r\nthree\r\nfour\r\n
+// expect output: 4\r\n
+
+include "FORMAT.BSI"
+
+sub main() fails
+    var line as string[40]
+    var count as u16 = 0
+    var code as u8
+    var src = openRead("IN.TXT", textMode) else fail
+    var dst = openWrite("OUT.TXT", textMode) else fail
+    while true
+        readLine(src, line) handle code
+            if code = endOfInput
+                exit
+            end
+            fail code
+        end
+        writeText(dst, line) else fail
+        writeByte(dst, 10) else fail
+        count = count + 1
+    end
+    close(src) else fail
+    close(dst) else fail
+    var report as string[8]
+    appendU16(report, count) else fail
+    writeText(console, report) else fail
+    writeText(console, "\r\n") else fail
+end

@@ -38,6 +38,8 @@ export type CpmOptions = {
   /** Files present before the run, keyed by 8.3 name such as "DATA.TXT". */
   files?: Record<string, Uint8Array | string>;
   maxSteps?: number;
+  /** Drives (0 for A) that BDOS 29 reports read-only. */
+  readOnlyDrives?: number[];
 };
 
 /** Assemble an ATOM source file and return its image. */
@@ -106,6 +108,8 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
   let cycles = 0;
   let returnCode: number | undefined;
   let search: string[] = [];
+  let drive = 0;
+  let user = 0;
 
   for (let steps = 0; steps < maxSteps; steps += 1) {
     if (cpu.pc === 0x0000 || cpu.pc === 0xff03) {
@@ -121,7 +125,11 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
     }
     cycles += runtime.step().cycles ?? 0;
   }
-  throw new Error(`Program did not finish in ${maxSteps} steps`);
+  throw new Error(
+    `Program did not finish in ${maxSteps} steps; PC $${
+      cpu.pc.toString(16).padStart(4, "0")
+    }; output so far ${JSON.stringify(output.slice(-120))}`,
+  );
 
   function finish(exit: CpmRun["exit"], steps: number): CpmRun {
     return { output, exit, steps, cycles, returnCode, disk };
@@ -154,9 +162,9 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
         output += `\u0000L${String.fromCharCode(cpu.e)}`;
         return;
       case 6: // direct console I/O
-        if (cpu.e === 0xff) {
-          return result(inputAt < input.length ? nextInput() : 0);
-        }
+        // Once the scripted input is used up, the "user" types Control-Z,
+        // so a program waiting for a key ends instead of spinning.
+        if (cpu.e === 0xff) return result(nextInput());
         output += String.fromCharCode(cpu.e);
         return;
       case 9: { // print string to "$"
@@ -168,6 +176,11 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
       case 10: { // read console buffer: DE -> max, count, text
         const max = mem[de];
         let count = 0;
+        if (inputAt >= input.length && max > 0) {
+          mem[de + 1] = 1; // input used up: a line holding Control-Z
+          mem[de + 2] = 0x1a;
+          return;
+        }
         while (count < max && inputAt < input.length) {
           const ch = input.charCodeAt(inputAt++);
           if (ch === 13 || ch === 10) break;
@@ -220,7 +233,29 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
         disk.delete(from);
         return result(0);
       }
-      case 25: // current disk: A
+      case 13: // reset disk system: the DMA returns to $0080
+        dma = 0x0080;
+        return result(0);
+      case 14: // select disk
+        drive = cpu.e & 0x0f;
+        return result(0);
+      case 25: // current disk
+        return result(drive);
+      case 29: { // read-only vector
+        const v = (options.readOnlyDrives ?? []).reduce(
+          (a, d) => a | (1 << d),
+          0,
+        );
+        cpu.l = v & 0xff;
+        cpu.h = v >> 8;
+        cpu.a = cpu.l;
+        return;
+      }
+      case 32: // get or set the user number
+        if (cpu.e === 0xff) return result(user);
+        user = cpu.e & 0x0f;
+        return result(0);
+      case 37: // reset drive
         return result(0);
       case 26: // set DMA address
         dma = de;

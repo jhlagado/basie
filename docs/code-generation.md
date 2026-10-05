@@ -124,7 +124,7 @@ registers, as the helper table states for each.
 | Storage | Addressed by |
 | --- | --- |
 | program variable, aggregate constant, pool | an `ABS16` reference to its blob, optionally with an addend for a field or constant index |
-| local, parameter | `IX+d`, `d` from −128 to +127; a frame larger than that uses `LD HL,d` / `ADD HL,SP`-style computation for the far part, which the compiler counts in the frame |
+| local, parameter | `IX+d`, `d` from −128 to +127; a slot beyond that range is reached through a computed address (`PUSH IX; POP HL; LD DE,d; ADD HL,DE`), with the registers the access must keep saved around it and the pushes counted in the frame's stack figure |
 | field of a record reached by address | the address plus a constant offset |
 | element with a variable index | address + index × stride, computed in `HL`, with the bounds check first |
 | pool record through a handle | the handle; through an identifier, after the generation check |

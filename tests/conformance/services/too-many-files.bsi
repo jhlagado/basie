@@ -1,0 +1,21 @@
+// The file table holds four files by default; a fifth open fails.
+// spec: 16; services 2
+// file A.TXT: x
+// expect output: 8\r\n
+
+include "FORMAT.BSI"
+
+sub main() fails
+    var line as string[8]
+    var code as u8 = 0
+    var a = openRead("A.TXT", textMode) else fail
+    var b = openRead("A.TXT", textMode) else fail
+    var c = openRead("A.TXT", textMode) else fail
+    var d = openRead("A.TXT", textMode) else fail
+    var e as File
+    e = openRead("A.TXT", textMode) handle code
+    end
+    appendU16(line, code) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

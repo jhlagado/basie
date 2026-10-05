@@ -108,16 +108,56 @@ export const SERVICES: HelperEntry[] = [
   },
 ];
 
-export const NUCLEUS_SHORTHANDS: HelperEntry[] = [
-  {
-    name: "writeOutputByte",
-    ordinal: 0x022,
-    convention: 1,
-    signature: "sub writeOutputByte(b as u8) fails",
-    stack: 8,
-  },
+/** [ordinal, signature, stack bytes] for every other service (services.md). */
+const MORE_SERVICES: [number, string, number][] = [
+  [0x022, "sub writeOutputByte(b as u8) fails", 8],
+  [0x06d, "sub readByte(f as File) as u8 fails", 24],
+  [0x06e, "sub readInputByte() as u8 fails", 12],
+  [0x06f, "sub readKey() as u8", 8],
+  [0x070, "sub keyReady() as boolean", 8],
+  [0x071, "sub readLine(f as File, var line as string[]) fails", 24],
+  [0x072, "sub openRead(name as string[], mode as u8) as File fails", 24],
+  [0x073, "sub openWrite(name as string[], mode as u8) as File fails", 24],
+  [0x074, "sub openAppend(name as string[], mode as u8) as File fails", 24],
+  [0x075, "sub openUpdate(name as string[]) as File fails", 24],
+  [0x076, "sub close(f as File) fails", 32],
+  [0x077, "sub abort(f as File)", 24],
+  [0x078, "sub flush(f as File) fails", 24],
+  [
+    0x079,
+    "sub readBlock(f as File, var buf as u8[], count as u16) as u16 fails",
+    24,
+  ],
+  [0x07a, "sub writeBlock(f as File, buf as u8[], count as u16) fails", 24],
+  [0x07b, "sub seek(f as File, position as u32) fails", 24],
+  [0x07c, "sub position(f as File) as u32 fails", 8],
+  [0x07d, "sub size(f as File) as u32 fails", 24],
+  [0x07e, "sub exists(name as string[]) as boolean fails", 16],
+  [0x07f, "sub delete(name as string[]) fails", 16],
+  [0x080, "sub rename(oldName as string[], newName as string[]) fails", 16],
+  [
+    0x081,
+    "sub findFirst(pattern as string[], var name as string[]) as boolean fails",
+    16,
+  ],
+  [0x082, "sub findNext(var name as string[]) as boolean fails", 16],
+  [0x084, "sub commandTail(var text as string[])", 4],
+  [0x085, "sub resetDisks()", 8],
+  [0x086, "sub resetDrive(drive as u8)", 8],
+  [0x087, "sub currentDrive() as u8", 8],
+  [0x088, "sub selectDrive(drive as u8) fails", 8],
+  [0x089, "sub currentUser() as u8", 8],
+  [0x08a, "sub setUser(user as u8) fails", 8],
+  [0x08b, "sub driveReadOnly(drive as u8) as boolean", 8],
+  [0x08c, "sub freeMemory() as u16", 4],
 ];
-SERVICES.push(...NUCLEUS_SHORTHANDS);
+for (const [ordinal, signature, stack] of MORE_SERVICES) {
+  const name = signature.match(/^sub (\w+)/)![1];
+  SERVICES.push({ name, ordinal, convention: 1, signature, stack });
+}
+export const NUCLEUS_SHORTHANDS = SERVICES.filter((x) =>
+  x.name === "writeOutputByte" || x.name === "readInputByte"
+);
 
 export const REGISTER_HELPERS: HelperEntry[] = [
   { name: "RETN", ordinal: Helper.RETN, convention: 2, stack: 4 },
@@ -187,6 +227,8 @@ export const PREDECLARED_CONSTANTS: [string, number][] = [
   ["noSearch", 17],
   ["badMode", 18],
   ["invalid", 254],
+  ["textMode", 0],
+  ["binaryMode", 1],
 ];
 
 /** The fixed File values the runtime recognises before consulting its table. */

@@ -1,0 +1,43 @@
+// exists, rename, delete and a directory search.
+// spec: 16; services 4.7
+// file A.TXT: a
+// file B.TXT: b
+// file C.DAT: c
+// expect output: T F A.TXT B.TXT; Z.TXT\r\n
+// expect no file C.DAT
+// expect file Z.TXT: a
+
+include "STRINGS.BSI"
+
+sub flag(b as boolean) as u8
+    if b
+        return 'T'
+    end
+    return 'F'
+end
+
+sub main() fails
+    var line as string[60]
+    var name as string[14]
+    var there = exists("A.TXT") else fail
+    appendByte(line, flag(there)) else fail
+    appendByte(line, ' ') else fail
+    there = exists("Q.TXT") else fail
+    appendByte(line, flag(there)) else fail
+    var more = findFirst("*.TXT", name) else fail
+    while more
+        appendByte(line, ' ') else fail
+        append(line, name) else fail
+        more = findNext(name) else fail
+    end
+    delete("C.DAT") else fail
+    rename("A.TXT", "Z.TXT") else fail
+    appendByte(line, ';') else fail
+    more = findFirst("Z*.*", name) else fail
+    if more
+        appendByte(line, ' ') else fail
+        append(line, name) else fail
+    end
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

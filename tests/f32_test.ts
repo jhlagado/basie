@@ -48,7 +48,6 @@ const float = (u: number) => {
   return v.getFloat32(0, true);
 };
 const MIN_NORMAL = 1.1754943508222875e-38;
-const MAX = 3.4028234663852886e38;
 /** The expected bits: Basie's rules are fround with flush to zero. */
 function expect(c: Case): number | undefined {
   const flushIn = (x: number) =>

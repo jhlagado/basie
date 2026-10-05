@@ -208,24 +208,51 @@ export function parseSource(source: string): Parsed {
 const h = (n: number) =>
   "$" + (n & 0xffff).toString(16).toUpperCase().padStart(4, "0");
 
-/** Source for one variant; step is the per-index shift. */
-function variant(p: Parsed, step: number): string {
+/**
+ * ATOM source parts are limited to 65,535 bytes, so a variant is split at
+ * blob boundaries into parts below PART_LIMIT. Each part includes the one
+ * before it, and ATOM assembles a dependency before its importer, so the
+ * parts assemble in order (a capacity of the tool, not of Basie).
+ */
+const PART_LIMIT = 48_000;
+
+/** Source for one variant, as ordered parts; step is the per-index shift. */
+function variant(p: Parsed, step: number): string[] {
   const n = p.blobs.length;
-  const out: string[] = [];
+  const head: string[] = [];
   PSEUDO_SYMBOLS.forEach(([name], j) => {
-    out.push(`${name} EQU ${h(PSEUDO_BASE + (n + 1 + j) * step)}`);
+    head.push(`${name} EQU ${h(PSEUDO_BASE + (n + 1 + j) * step)}`);
   });
-  out.push(p.prelude, "        ORG     $0000");
+  head.push(p.prelude, "        ORG     $0000");
+  const parts: string[][] = [head];
+  let size = head.join("\n").length;
   p.blobs.forEach((b, i) => {
-    if (step) out.push(`        DS      ${h(step)}`);
-    if (b.align > 1) out.push(`        ALIGN   ${b.align}`);
-    out.push(b.text, `Z__${(i + 1).toString(16).padStart(3, "0")}:`);
+    const lines: string[] = [];
+    if (step) lines.push(`        DS      ${h(step)}`);
+    if (b.align > 1) lines.push(`        ALIGN   ${b.align}`);
+    lines.push(b.text, `Z__${(i + 1).toString(16).padStart(3, "0")}:`);
+    const text = lines.join("\n");
+    if (size + text.length > PART_LIMIT) {
+      parts.push([]);
+      size = 0;
+    }
+    parts.at(-1)!.push(text);
+    size += text.length + 1;
   });
-  return out.join("\n") + "\n";
+  return parts.map((lines) => lines.join("\n") + "\n");
 }
 
-async function assemble(dir: string, file: string, text: string) {
-  await Deno.writeTextFile(join(dir, file), text);
+async function assemble(dir: string, file: string, parts: string[]) {
+  // Part k includes part k-1; the entry file includes the last part.
+  const stem = file.replace(/\.ASM$/, "");
+  const names = parts.map((_, k) =>
+    `${stem}${k.toString().padStart(2, "0")}.ASM`
+  );
+  for (let k = 0; k < parts.length; k += 1) {
+    const header = k === 0 ? "" : `%INCLUDE "${names[k - 1]}"\n`;
+    await Deno.writeTextFile(join(dir, names[k]), header + parts[k]);
+  }
+  await Deno.writeTextFile(join(dir, file), `%INCLUDE "${names.at(-1)}"\n`);
   let result;
   try {
     const project = await resolveAtomProject({

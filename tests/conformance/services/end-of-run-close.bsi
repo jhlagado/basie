@@ -1,0 +1,10 @@
+// A file still open when main returns is closed, and an openWrite file
+// replaces its target (services 7).
+// spec: 16; services 7
+// expect file KEEP.TXT: kept\r\n
+
+sub main() fails
+    var f = openWrite("KEEP.TXT", textMode) else fail
+    writeText(f, "kept") else fail
+    writeByte(f, 10) else fail
+end

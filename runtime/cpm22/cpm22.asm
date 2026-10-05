@@ -14,7 +14,7 @@
 ;
 ; @library CPM22 runtime=1 helpers=1 profile=1
 ; @profile class=1 kinds=7 base=$0100 limit=$DC00 top=$E406 ccp=$0800
-; @profile guard=64 options=3 rst=0 debugger=8192 file=176
+; @profile guard=64 options=3 rst=0 debugger=8192 file=184
 
 BDOS    EQU     $0005
 CCPSIZE EQU     $0800
@@ -94,8 +94,19 @@ STARTUP:
 .MSG:   DB      "Not enough memory\r\n$"
 
 ; @blob $002 code EXIT
-; cpm-target §5. DE = return code.
-EXIT:   LD      C,108
+; cpm-target §5. DE = return code. A program that opened files has set
+; EXIT_HK, which closes them first (services §7): A = 0 after a normal
+; return, $FF after a failure or a trap.
+EXIT:   PUSH    DE
+        LD      HL,(EXIT_HK)
+        LD      A,H
+        OR      L
+        JR      Z,.NOHOOK
+        LD      A,D
+        CALL    .HOOK
+.NOHOOK:
+        POP     DE
+        LD      C,108
         CALL    BDOS
         LD      HL,OPTIONS
         BIT     0,L
@@ -103,6 +114,12 @@ EXIT:   LD      C,108
         RST     0
 .CCP:   LD      SP,(ENTRY_SP)
         RET
+.HOOK:  JP      (HL)
+
+; @blob $08D bss EXIT_HK
+; A routine EXIT calls first, or 0. The file services set it.
+EXIT_HK:
+        DS      2
 
 ; @blob $003 bss ENTRY_SP
 ENTRY_SP:
@@ -316,83 +333,6 @@ PUT_DEC: LD      H,0
         CALL    CON_OUT
         LD      A,L
         RET
-
-; @blob $020 code WR_TEXT helper=1
-; writeText(f as File, s as string[]) fails. Stack: IX+4 s address, IX+6
-; its capacity, IX+8 f's table address, IX+10 f's generation.
-WR_TEXT: PUSH    IX
-        LD      IX,0
-        ADD     IX,SP
-        LD      A,(IX+8)
-        LD      H,(IX+9)
-        OR      H
-        JR      Z,.CLOSED
-        LD      A,(IX+8)
-        CP      CONSOLE
-        JR      NZ,.NOTAV       ; only the console exists yet
-        LD      L,(IX+4)
-        LD      H,(IX+5)
-        LD      B,(HL)          ; the length
-        INC     HL
-.NEXT:  LD      A,B
-        OR      A
-        JR      Z,.DONE
-        LD      A,(HL)
-        PUSH    BC
-        PUSH    HL
-        CALL    CON_OUT
-        POP     HL
-        POP     BC
-        INC     HL
-        DEC     B
-        JR      .NEXT
-.DONE:  OR      A               ; success: carry clear
-        LD      IY,8
-        JP      RETN
-.CLOSED:
-        LD      A,9             ; fileClosed
-        JR      .FAIL
-.NOTAV: LD      A,15            ; notAvailable
-.FAIL:  SCF
-        LD      IY,8
-        JP      RETN
-
-; @blob $021 code WR_BYTE helper=1
-; writeByte(f as File, b as u8) fails. Stack: IX+4 b, IX+6 f address,
-; IX+8 f generation.
-WR_BYTE: PUSH    IX
-        LD      IX,0
-        ADD     IX,SP
-        LD      A,(IX+6)
-        LD      H,(IX+7)
-        OR      H
-        JR      Z,.CLOSED
-        LD      A,(IX+6)
-        CP      CONSOLE
-        JR      NZ,.NOTAV
-        LD      A,(IX+4)
-        CALL    CON_OUT
-        OR      A
-        LD      IY,6
-        JP      RETN
-.CLOSED:
-        LD      A,9
-        JR      .FAIL
-.NOTAV: LD      A,15
-.FAIL:  SCF
-        LD      IY,6
-        JP      RETN
-
-; @blob $022 code WR_OUT helper=1
-; writeOutputByte(b as u8) fails: Nucleus's shorthand for writeByte(console, b).
-WR_OUT: PUSH    IX
-        LD      IX,0
-        ADD     IX,SP
-        LD      A,(IX+4)
-        CALL    CON_OUT
-        OR      A
-        LD      IY,2
-        JP      RETN
 
 ; @blob $016 code MUL16 helper=2
 ; HL = HL * DE modulo 65536. The low 16 bits are the same for signed and
@@ -1438,3 +1378,5 @@ SHR32S: OR      A
         RET
 
 ; @include f32.asm
+
+; @include services.asm

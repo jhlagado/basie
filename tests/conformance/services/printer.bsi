@@ -1,0 +1,17 @@
+// The printer accepts writeByte and writeText (BDOS 5); reading it is notAvailable.
+// spec: 16; services 3.4
+// expect output: \x00LH\x00Li15\r\n
+
+include "FORMAT.BSI"
+
+sub main() fails
+    var line as string[8]
+    var code as u8 = 0
+    writeText(printer, "Hi") else fail
+    var b as u8
+    b = readByte(printer) handle code
+    end
+    appendU16(line, code) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

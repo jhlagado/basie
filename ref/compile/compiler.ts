@@ -1277,7 +1277,6 @@ export class Compiler {
     if (!type && !this.isPunct("=")) {
       fail("syntax", this.token, "a local without a type needs an initializer");
     }
-    const r = this.routine!;
     if (this.acceptPunct("=")) {
       if (
         type &&
@@ -2204,8 +2203,8 @@ export class Compiler {
       const alias = d.symbol.storage.offset;
       const none = r.blob.newLabel();
       const done = r.blob.newLabel();
-      r.blob.u8(0xdd, 0x6e, owner & 0xff, 0xdd, 0x66, (owner + 1) & 0xff); // LD HL,owner
-      r.blob.u8(0xdd, 0x5e, alias & 0xff, 0xdd, 0x56, (alias + 1) & 0xff); // LD DE,alias
+      this.ixWord(owner, "HL");
+      this.ixWord(alias, "DE");
       r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE
       r.blob.jpIf(JP_NZ, none);
       r.blob.u8(0xeb); // EX DE,HL: HL = the record
@@ -2274,14 +2273,7 @@ export class Compiler {
     r.blob.u8(0xeb, 0xe1); // EX DE,HL; POP HL
     this.pop(2);
     if (d.slotTemp !== undefined) {
-      r.blob.u8(
-        0xdd,
-        0x4e,
-        d.slotTemp & 0xff,
-        0xdd,
-        0x46,
-        (d.slotTemp + 1) & 0xff,
-      ); // LD BC,(IX+t)
+      this.ixWord(d.slotTemp, "BC");
     } else r.blob.u8(0x01, 0, 0); // LD BC,0
     this.callHelper(
       d.slotKind === "identifier" ? Helper.OWN_SETC : Helper.OWN_SET,
@@ -2457,7 +2449,7 @@ export class Compiler {
     const lo = ((low & mask) ^ flip) & mask;
     const hi = ((high & mask) ^ flip) & mask;
     if (s.size === 1) {
-      r.blob.u8(0xdd, 0x7e, offset & 0xff); // LD A,(IX+o)
+      this.ixByte(offset);
       if (flip) r.blob.u8(0xee, 0x80); // XOR $80
       if (lo === hi) {
         r.blob.u8(0xfe, lo); // CP n
@@ -2474,7 +2466,7 @@ export class Compiler {
       r.blob.defineLabel(skip);
       return;
     }
-    r.blob.u8(0xdd, 0x6e, offset & 0xff, 0xdd, 0x66, (offset + 1) & 0xff); // LD HL,(IX+o)
+    this.ixWord(offset, "HL");
     if (flip) r.blob.u8(0x7c, 0xee, 0x80, 0x67); // LD A,H; XOR $80; LD H,A
     r.blob.u8(0x11); // LD DE,lo
     r.blob.u16(lo);
@@ -2627,14 +2619,7 @@ export class Compiler {
     // Test: counter <= bound (or <, >=, >) in 16-bit, counter widened.
     r.blob.defineLabel(test);
     this.loadCounterWide(counter, signed);
-    r.blob.u8(
-      0xdd,
-      0x5e,
-      boundOffset & 0xff,
-      0xdd,
-      0x56,
-      (boundOffset + 1) & 0xff,
-    ); // LD E,(IX+b); LD D,(IX+b+1)
+    this.ixWord(boundOffset, "DE");
     // continue while: step>0: inclusive ? HL<=DE : HL<DE; step<0: inclusive ? HL>=DE : HL>DE
     this.compare16ToFlags(signed);
     // after compare16ToFlags: carry set iff HL < DE; zero set iff equal (for unsigned);
@@ -2694,7 +2679,8 @@ export class Compiler {
       this.loadRegisters(counter.type, counter.storage);
       return;
     }
-    r.blob.u8(0xdd, 0x6e, off & 0xff); // LD L,(IX+d)
+    this.ixByte(off);
+    r.blob.u8(0x6f); // LD L,A
     if (signed) {
       r.blob.u8(0x7d, 0x07, 0x9f, 0x67); // LD A,L; RLCA; SBC A,A; LD H,A
     } else r.blob.u8(0x26, 0); // LD H,0
@@ -2707,7 +2693,8 @@ export class Compiler {
       this.storeRegisters(counter.type, counter.storage);
       return;
     }
-    r.blob.u8(0xdd, 0x75, off & 0xff); // LD (IX+d),L
+    r.blob.u8(0x7d); // LD A,L
+    this.ixStoreA(off);
   }
 
   /** After ADD HL,DE in a counted loop: trap loop-range unless HL fits the type. */
@@ -2762,8 +2749,9 @@ export class Compiler {
       this.toRegisters(v, U8, at);
       const o = d.setLength;
       r.blob.u8(0x5f); // LD E,A
-      r.blob.u8(0xdd, 0x56, (o + 2) & 0xff); // LD D,(IX+o+2): the capacity's low byte
-      r.blob.u8(0xdd, 0x6e, o & 0xff, 0xdd, 0x66, (o + 1) & 0xff); // LD HL,(IX+o)
+      this.ixByte(o + 2); // the capacity's low byte
+      r.blob.u8(0x57); // LD D,A
+      this.ixWord(o, "HL");
       this.callHelper(Helper.STR_SETL);
       return;
     }
@@ -3078,7 +3066,7 @@ export class Compiler {
     };
   }
 
-  private indexArray(d: Designator, at: Token): Designator {
+  private indexArray(d: Designator, _at: Token): Designator {
     const arr = d.type as Type & { kind: "array" | "openArray" };
     const element = arr.element;
     const stride = sizeOf(element);
@@ -3165,14 +3153,7 @@ export class Compiler {
       r.blob.u16(arr.length);
     } else {
       const p = base.place as { kind: "alias"; offset: number };
-      r.blob.u8(
-        0xdd,
-        0x5e,
-        (p.offset + 2) & 0xff,
-        0xdd,
-        0x56,
-        (p.offset + 3) & 0xff,
-      ); // LD DE,(IX+off+2)
+      this.ixWord(p.offset + 2, "DE");
     }
     r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE
     r.blob.callBlobIf(JP_NC, Helper.TRAP_BOUNDS);
@@ -3265,14 +3246,7 @@ export class Compiler {
         this.addSigned(p.offset);
         return;
       case "alias":
-        r.blob.u8(
-          0xdd,
-          0x6e,
-          p.offset & 0xff,
-          0xdd,
-          0x66,
-          (p.offset + 1) & 0xff,
-        ); // LD L,(IX+o); LD H,(IX+o+1)
+        this.ixWord(p.offset, "HL");
         this.addConst(p.add);
         return;
       case "computed":
@@ -3287,6 +3261,139 @@ export class Compiler {
     r.blob.u8(0x11); // LD DE,n
     r.blob.u16(n & 0xffff);
     r.blob.u8(0x19); // ADD HL,DE
+  }
+
+  // ---- frame access (code generation §5) --------------------------------------------
+  //
+  // (IX+d) reaches d from -128 to +127. A slot outside that range (a frame
+  // larger than 128 bytes) is reached through a computed address. Each
+  // helper preserves the registers its callers keep live: a word load into
+  // DE or BC keeps HL, a store keeps its value, and so on.
+
+  private ixNear(offset: number, size: number): boolean {
+    return offset >= -128 && offset + size - 1 <= 127;
+  }
+
+  /** HL = IX + offset, for the far forms. */
+  private ixAddress(offset: number): void {
+    const r = this.routine!;
+    r.blob.u8(0xdd, 0xe5, 0xe1); // PUSH IX; POP HL
+    r.blob.u8(0x11); // LD DE,offset
+    r.blob.u16(offset & 0xffff);
+    r.blob.u8(0x19); // ADD HL,DE
+  }
+
+  /** A = the byte at IX+offset. Preserves HL, DE and BC. */
+  private ixByte(offset: number): void {
+    const r = this.routine!;
+    if (this.ixNear(offset, 1)) {
+      r.blob.u8(0xdd, 0x7e, offset & 0xff); // LD A,(IX+d)
+      return;
+    }
+    r.blob.u8(0xe5, 0xd5); // PUSH HL; PUSH DE
+    this.push(6);
+    this.ixAddress(offset);
+    r.blob.u8(0x7e, 0xd1, 0xe1); // LD A,(HL); POP DE; POP HL
+    this.pop(6);
+  }
+
+  /** A register pair = the word at IX+offset. Loading DE or BC keeps HL. */
+  private ixWord(offset: number, reg: "HL" | "DE" | "BC"): void {
+    const r = this.routine!;
+    if (this.ixNear(offset, 2)) {
+      const [lo, hi] = reg === "HL"
+        ? [0x6e, 0x66]
+        : reg === "DE"
+        ? [0x5e, 0x56]
+        : [0x4e, 0x46];
+      r.blob.u8(0xdd, lo, offset & 0xff, 0xdd, hi, (offset + 1) & 0xff);
+      return;
+    }
+    if (reg === "HL") {
+      r.blob.u8(0xd5); // PUSH DE
+      this.push(4);
+      this.ixAddress(offset);
+      r.blob.u8(0x5e, 0x23, 0x56, 0xeb, 0xd1); // LD E,(HL); INC HL; LD D,(HL); EX DE,HL; POP DE
+      this.pop(4);
+    } else if (reg === "DE") {
+      r.blob.u8(0xe5); // PUSH HL
+      this.push(4);
+      this.ixAddress(offset);
+      r.blob.u8(0x5e, 0x23, 0x56, 0xe1); // LD E,(HL); INC HL; LD D,(HL); POP HL
+      this.pop(4);
+    } else {
+      r.blob.u8(0xe5, 0xd5); // PUSH HL; PUSH DE
+      this.push(6);
+      this.ixAddress(offset);
+      r.blob.u8(0x4e, 0x23, 0x46, 0xd1, 0xe1); // LD C,(HL); INC HL; LD B,(HL); POP DE; POP HL
+      this.pop(6);
+    }
+  }
+
+  /** The byte at IX+offset = A. Preserves A, HL and DE. */
+  private ixStoreA(offset: number): void {
+    const r = this.routine!;
+    if (this.ixNear(offset, 1)) {
+      r.blob.u8(0xdd, 0x77, offset & 0xff); // LD (IX+d),A
+      return;
+    }
+    r.blob.u8(0xe5, 0xd5); // PUSH HL; PUSH DE
+    this.push(6);
+    this.ixAddress(offset);
+    r.blob.u8(0x77, 0xd1, 0xe1); // LD (HL),A; POP DE; POP HL
+    this.pop(6);
+  }
+
+  /** The word at IX+offset = HL. Preserves HL and DE. */
+  private ixStoreHL(offset: number): void {
+    const r = this.routine!;
+    if (this.ixNear(offset, 2)) {
+      r.blob.u8(0xdd, 0x75, offset & 0xff, 0xdd, 0x74, (offset + 1) & 0xff);
+      return;
+    }
+    r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
+    this.push(6);
+    this.ixAddress(offset);
+    r.blob.u8(0xd1, 0x73, 0x23, 0x72, 0xeb, 0xd1); // POP DE; LD (HL),E; INC HL; LD (HL),D; EX DE,HL; POP DE
+    this.pop(6);
+  }
+
+  /** The four bytes at IX+offset = DEHL (HL low). Preserves DEHL. */
+  private ixStoreDEHL(offset: number): void {
+    const r = this.routine!;
+    if (this.ixNear(offset, 4)) {
+      r.blob.u8(0xdd, 0x75, offset & 0xff, 0xdd, 0x74, (offset + 1) & 0xff);
+      r.blob.u8(
+        0xdd,
+        0x73,
+        (offset + 2) & 0xff,
+        0xdd,
+        0x72,
+        (offset + 3) & 0xff,
+      );
+      return;
+    }
+    r.blob.u8(0xd5, 0xe5, 0xd5, 0xe5); // PUSH DE; PUSH HL; PUSH DE; PUSH HL
+    this.push(10);
+    this.ixAddress(offset);
+    r.blob.u8(0xd1, 0x73, 0x23, 0x72, 0x23); // POP DE (low); LD (HL),E; INC HL; LD (HL),D; INC HL
+    r.blob.u8(0xd1, 0x73, 0x23, 0x72); // POP DE (high); LD (HL),E; INC HL; LD (HL),D
+    r.blob.u8(0xe1, 0xd1); // POP HL; POP DE
+    this.pop(10);
+  }
+
+  /** The byte at IX+offset = n. Preserves every register but F. */
+  private ixStoreImm(offset: number, n: number): void {
+    const r = this.routine!;
+    if (this.ixNear(offset, 1)) {
+      r.blob.u8(0xdd, 0x36, offset & 0xff, n & 0xff); // LD (IX+d),n
+      return;
+    }
+    r.blob.u8(0xe5, 0xd5); // PUSH HL; PUSH DE
+    this.push(6);
+    this.ixAddress(offset);
+    r.blob.u8(0x36, n & 0xff, 0xd1, 0xe1); // LD (HL),n; POP DE; POP HL
+    this.pop(6);
   }
 
   // ---- loads and stores -------------------------------------------------------------
@@ -3311,12 +3418,12 @@ export class Compiler {
     }
     if (place.kind === "frame") {
       const o = place.offset;
-      if (size === 1) r.blob.u8(0xdd, 0x7e, o & 0xff); // LD A,(IX+o)
+      if (size === 1) this.ixByte(o);
       else if (size === 2) {
-        r.blob.u8(0xdd, 0x6e, o & 0xff, 0xdd, 0x66, (o + 1) & 0xff);
+        this.ixWord(o, "HL");
       } else {
-        r.blob.u8(0xdd, 0x6e, o & 0xff, 0xdd, 0x66, (o + 1) & 0xff);
-        r.blob.u8(0xdd, 0x5e, (o + 2) & 0xff, 0xdd, 0x56, (o + 3) & 0xff);
+        this.ixWord(o, "HL");
+        this.ixWord(o + 2, "DE");
       }
       return;
     }
@@ -3359,50 +3466,25 @@ export class Compiler {
     }
     if (place.kind === "frame") {
       const o = place.offset;
-      if (size === 1) r.blob.u8(0xdd, 0x77, o & 0xff); // LD (IX+o),A
-      else if (size === 2) {
-        r.blob.u8(0xdd, 0x75, o & 0xff, 0xdd, 0x74, (o + 1) & 0xff);
-      } else {
-        r.blob.u8(0xdd, 0x75, o & 0xff, 0xdd, 0x74, (o + 1) & 0xff);
-        r.blob.u8(0xdd, 0x73, (o + 2) & 0xff, 0xdd, 0x72, (o + 3) & 0xff);
-      }
+      if (size === 1) this.ixStoreA(o);
+      else if (size === 2) this.ixStoreHL(o);
+      else this.ixStoreDEHL(o);
       return;
     }
     if (place.kind === "alias") {
       // Value in registers; address through the alias word. Save the value.
       if (size === 1) {
-        r.blob.u8(
-          0xdd,
-          0x6e,
-          place.offset & 0xff,
-          0xdd,
-          0x66,
-          (place.offset + 1) & 0xff,
-        );
+        this.ixWord(place.offset, "HL");
         this.addConst(place.add);
         r.blob.u8(0x77); // LD (HL),A
       } else if (size === 2) {
         r.blob.u8(0xeb); // EX DE,HL: value in DE
-        r.blob.u8(
-          0xdd,
-          0x6e,
-          place.offset & 0xff,
-          0xdd,
-          0x66,
-          (place.offset + 1) & 0xff,
-        );
+        this.ixWord(place.offset, "HL");
         this.addConst(place.add);
         r.blob.u8(0x73, 0x23, 0x72); // LD (HL),E; INC HL; LD (HL),D
       } else {
         r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
-        r.blob.u8(
-          0xdd,
-          0x6e,
-          place.offset & 0xff,
-          0xdd,
-          0x66,
-          (place.offset + 1) & 0xff,
-        );
+        this.ixWord(place.offset, "HL");
         this.addConst(place.add);
         r.blob.u8(0xd1, 0x73, 0x23, 0x72, 0x23); // POP DE; LD (HL),E; INC HL; LD (HL),D; INC HL
         r.blob.u8(0xd1, 0x73, 0x23, 0x72); // POP DE; LD (HL),E; INC HL; LD (HL),D
@@ -3422,9 +3504,8 @@ export class Compiler {
   }
 
   private storeBytesToFrame(bytes: number[], offset: number): void {
-    const r = this.routine!;
     for (let i = 0; i < bytes.length; i += 1) {
-      r.blob.u8(0xdd, 0x36, (offset + i) & 0xff, bytes[i]); // LD (IX+o),n
+      this.ixStoreImm(offset + i, bytes[i]);
     }
   }
 
@@ -3432,7 +3513,7 @@ export class Compiler {
     const r = this.routine!;
     if (size <= 4) {
       for (let i = 0; i < size; i += 1) {
-        r.blob.u8(0xdd, 0x36, (offset + i) & 0xff, 0);
+        this.ixStoreImm(offset + i, 0);
       }
       return;
     }
@@ -3773,7 +3854,7 @@ export class Compiler {
           ? root.ownerOffset
           : undefined;
         if (word !== undefined) {
-          r.blob.u8(0xdd, 0x5e, word & 0xff, 0xdd, 0x56, (word + 1) & 0xff); // LD DE,(IX+w)
+          this.ixWord(word, "DE");
         } else r.blob.u8(0x11, 0, 0); // LD DE,0
         r.blob.u8(0xd5); // PUSH DE
         this.push(2);
@@ -3802,14 +3883,7 @@ export class Compiler {
         }
         this.noteDirect(d);
         if (d.slotTemp !== undefined) {
-          r.blob.u8(
-            0xdd,
-            0x6e,
-            d.slotTemp & 0xff,
-            0xdd,
-            0x66,
-            (d.slotTemp + 1) & 0xff,
-          );
+          this.ixWord(d.slotTemp, "HL");
         } else r.blob.u8(0x21, 0, 0);
         r.blob.u8(0xe5); // PUSH HL: the owner word
         this.push(2);

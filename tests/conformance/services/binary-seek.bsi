@@ -1,0 +1,37 @@
+// Binary files: blocks, positions, sizes and seeking in an update file.
+// spec: 16; services 4.4, 4.5
+// expect output: 200 256 7 50 200\r\n
+
+include "FORMAT.BSI"
+
+sub main() fails
+    var line as string[40]
+    var buf as u8[200]
+    var i as u16
+    for i = 0 until 200
+        buf[i] = u8(i mod 256)
+    end
+    var f = openWrite("DATA.BIN", binaryMode) else fail
+    writeBlock(f, buf, 200) else fail
+    var at = position(f) else fail
+    appendU32(line, at) else fail
+    close(f) else fail
+    var g = openUpdate("DATA.BIN") else fail
+    appendByte(line, ' ') else fail
+    var length = size(g) else fail
+    appendU32(line, length) else fail
+    seek(g, 7) else fail
+    var b = readByte(g) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, b) else fail
+    seek(g, 50) else fail
+    var n = readBlock(g, buf, 150) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, buf[0]) else fail
+    appendByte(line, ' ') else fail
+    at = position(g) else fail
+    appendU32(line, at) else fail
+    close(g) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

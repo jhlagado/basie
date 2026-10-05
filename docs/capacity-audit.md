@@ -191,7 +191,9 @@ value to refuse.
 ### 2.6 The blob-library tool's 240-blob ceiling (Implementation, tool only)
 
 From the reference-recovery method in `tools/brl.ts`, not from any format.
-Lift by batching builds when the runtime approaches it.
+Lift by batching builds when the runtime approaches it. With the services in
+place the runtime is 141 blobs (11,220 bytes of library), so about 100 remain;
+the standard library is Basie source and does not count against it.
 
 ### 2.7 The register mixes minimums and maxima
 
@@ -372,8 +374,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.16 Open files
 
 - **Value:** 1 to 255, chosen with `F=n`, default 4 (D38).
-- **Cause:** a one-byte count; the table lives in BSS at 176 bytes per entry
-  ([services](services.md) §2). The `FILECOUNT` pseudo-object carries the
+- **Cause:** a one-byte count; the table lives in BSS at 184 bytes per entry,
+  a 56-byte header and a 128-byte record buffer ([services](services.md) §2).
+  The default table is 736 bytes. The `FILECOUNT` pseudo-object carries the
   count.
 - **Constant:** linker option `files`; runtime entry size is the profile's
   `fileEntrySize`.
@@ -503,6 +506,7 @@ comes from its method.
 | Item | Value | Status |
 | --- | --- | --- |
 | Activation size, local aggregates, parameter area | memory; summed into `need(R)` | no fixed limit by design |
+| Frame slot reach | any 16-bit offset: slots within IX−128..IX+127 use `(IX+d)`, slots beyond it a computed address | confirmed; a 200-byte local array once wrapped `(IX+d)` and corrupted the frame |
 | Recursion depth | memory; each cycle passes a checked forward-declared routine | confirmed |
 | Stack reserve | `need(main)` + guard band, raised by `STACK=` | confirmed |
 | Guard band | profile value, 64 bytes in `CPM22` | confirmed |
