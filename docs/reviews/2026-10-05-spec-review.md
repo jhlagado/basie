@@ -95,7 +95,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C13 | major (closed) | `clock` and `DateTime` are in services revision 2 but have no layout and no implementation. | Define and implement, or remove |
 | C14 | major (closed) | Whether an unreachable end of a loop body counts as a back edge. | Only when it can complete |
 | C15 | major (closed) | Handle parameters without `var` can be assigned, against 10.4. | Scalar and handle parameters are local copies |
-| C16 | major | "When the compiler proves" makes validity depend on cleverness. | Only constant operands |
+| C16 | major (closed) | "When the compiler proves" makes validity depend on cleverness. | Only constant operands |
 | C17 | major | Typed `case` labels use conversion rules rather than representability. | Pick one rule |
 | C18 | major (closed) | File-table generations saturate at $FFFF and the entry is reused, so a stale `File` can match a new file. | Withdraw the entry, as pool slots are |
 | C19 | major | The reference compiler lacks 32-bit `select` and counted loops (one crashes). | Implement or record |

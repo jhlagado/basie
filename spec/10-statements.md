@@ -110,7 +110,7 @@ All four are complete simple statements. No label, condition, target name, or tr
 
 `assert condition` evaluates a `boolean` condition when execution reaches it (design decision D37). If the condition is `true`, execution continues with the next statement. If it is `false`, the program traps with reason `assertion` (Chapter 15), and the trap report gives the site's address like any other trap.
 
-There is no message operand; the line table names the source line. A condition that is a constant expression evaluating to `false` is diagnosed during compilation as `assertion-false`, as for other traps the compiler can prove. A constant `true` condition generates no code.
+There is no message operand; the line table names the source line. A condition that is a constant expression evaluating to `false` is diagnosed during compilation as `assertion-false`, as for other checks whose operands are all constant (Chapter 15, Section 15.3). A constant `true` condition generates no code.
 
 The condition is evaluated once, with the order, short-circuiting and traps of Chapter 9. A `move` inside the condition is invalid.
 

@@ -32,9 +32,9 @@ A conforming implementation may use more detailed internal causes, but it must p
 
 **Reports.** A trap report names the reason and the address of the trap site, the call instruction inside the statement that trapped, as `TRAP bounds at 1A3F` (design decision D11). The line table turns the address into a source position ([toolchain](../docs/toolchain.md), Section 8). An unhandled failure is reported as `FAIL` followed by the code in decimal. The [CP/M target](../docs/cpm-target.md), Sections 5 and 10, defines the exact output and return codes.
 
-## 15.3 Compile-time proof
+## 15.3 Checks with constant operands
 
-When the compiler proves a bounds, narrowing, division, `f32` overflow or assertion failure from source constants, the source is invalid and compilation produces a diagnostic. It must not emit an executable whose first relevant action is a guaranteed trap. Counted-loop `loop-range` failure is different: it remains a runtime trap because earlier control flow in the loop body may prevent execution from reaching the increment. When the compiler proves an operation safe, it may omit the runtime check.
+When every operand of a bounds, narrowing, division, `f32` overflow or assertion check is a constant expression (Chapter 8, Section 8.6) and the check fails, the source is invalid and compilation produces a diagnostic, whether or not control can reach the operation. No other reasoning makes a program invalid: a failure that only data-flow analysis could foresee, such as `i = 4` followed by `a[i]`, remains a runtime trap, so every conforming compiler accepts the same programs. Counted-loop `loop-range` failure is always a runtime trap. A compiler may omit a runtime check by any reasoning that shows the check can't fail.
 
 If validity depends on runtime data, the program remains conforming and the check is part of its specified execution. Optimization must preserve the trap reason, ordering, and prior observable effects.
 
