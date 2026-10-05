@@ -517,7 +517,8 @@ PC_RUN:                        ; Phase B has marked the live blobs.
 
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The alias entry at HL: when its base is live, its address is the base's
-; plus its offset, and its size the base's less its offset.
+; plus its offset, its size the base's less its offset, and it is marked
+; live, which Phase B never does for an alias.
 
 .SETALIAS:                     ; HL is an alias entry.
     PUSH HL                        ; Keep it.
@@ -554,6 +555,7 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     ADC  A,B                       ; with the carry,
     LD   B,A                       ; BC = the alias's address.
     EX   DE,HL                     ; HL = the alias entry.
+    SET  5,(HL)                    ; EF_LIVE: placed, for the symbol file.
     INC  HL                        ; Its size field
     LD   A,(PS_TAB)                ; takes the effective size,
     LD   (HL),A                    ; low byte,

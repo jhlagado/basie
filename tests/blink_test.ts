@@ -19,6 +19,7 @@ if (!hello.ok) throw new Error("hello didn't compile");
 const HELLO_DR = hello.objects.directory;
 const HELLO_BY = hello.objects.bytes;
 const HELLO_LN = hello.objects.lines;
+const HELLO_NM = hello.objects.names;
 
 function run(tail: string, files: Record<string, Uint8Array> = {}) {
   return runCom(blink, { tail, files, maxSteps: 200_000_000 }).output;
@@ -35,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 10_887);
+  assertEquals(blink.length, 10_839);
 });
 
 const BLINK_DIGEST =
-  "4d318baf2a9cffd75c76bba915806c85f62dfedbda097e0212318840c6341e79";
+  "0b1e3f2641159eb6df6f23331e5e24f4d4d43cf33dda8105232afdc7e47a59cc";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
@@ -405,8 +406,13 @@ type Objects = {
  * under `rerunnable`, and compare the output file, the line table and, for
  * .COM, the map and the symbol file.
  */
-function compareLink(objects: Objects, tail: string, rerunnable: boolean) {
-  const lib = readLibrary(library);
+function compareLink(
+  objects: Objects,
+  tail: string,
+  rerunnable: boolean,
+  libraryFile = library,
+) {
+  const lib = readLibrary(libraryFile);
   const dir = readProgramDirectory(objects.directory);
   const lines = readLineStream(objects.lines);
   const hex = tail.includes(".HEX");
@@ -424,7 +430,7 @@ function compareLink(objects: Objects, tail: string, rerunnable: boolean) {
     tail,
     files: {
       "BASIE.MSG": MSG,
-      "CPM22.BRL": library,
+      "CPM22.BRL": libraryFile,
       "PROG.$DR": objects.directory,
       "PROG.$BY": objects.bytes,
       "PROG.$LN": objects.lines,
@@ -450,7 +456,13 @@ function compareLink(objects: Objects, tail: string, rerunnable: boolean) {
     run.disk.get("PROG.MAP")!.subarray(0, map.length),
   );
   assertEquals(got, map);
-  const symbols = writeSymbols(result, names);
+  // Blobs first, then aliases, each in address order (linker §8.2).
+  const aliases = new Set(
+    [...lib.records, ...dir.records].flatMap((r) =>
+      r.type === "alias" ? [r.alias] : []
+    ),
+  );
+  const symbols = writeSymbols(result, names, aliases);
   assertEquals(run.disk.get("PROG.SYM")!.subarray(0, symbols.length), symbols);
   return result;
 }
@@ -593,4 +605,125 @@ Deno.test("BLINK refuses a ROM profile (class 3), which it doesn't implement", (
     }),
     error(206),
   );
+});
+
+// ---- faults found by the commentary pass (native/linker/README.md) --------
+
+const { writeNameStream } = await import(
+  "../ref/object/streams.ts"
+);
+type DirRecord = import("../ref/object/types.ts").DirectoryRecord;
+type Named = { ordinal: number; name: string };
+
+const reference = (offset: number, form: number, target: number) => ({
+  offset,
+  form: form as 0,
+  target,
+  addend: 0,
+});
+
+/** A blob record; bss blobs have no bytes in the stream. */
+const blobRecord = (
+  kind: number,
+  ordinal: number,
+  size: number,
+  references: ReturnType<typeof reference>[] = [],
+  root = false,
+  align = 0,
+): DirRecord => ({
+  type: "blob",
+  kind: kind as 0,
+  ordinal,
+  size,
+  root,
+  align,
+  references,
+});
+
+const aliasRecord = (
+  alias: number,
+  base: number,
+  offset: number,
+): DirRecord => ({
+  type: "alias",
+  alias,
+  base,
+  offset,
+});
+
+/**
+ * hello.bsi with `added` records after its last blob, `bytes` after its
+ * byte stream and `names` after its name records.
+ */
+function extendHello(
+  added: DirRecord[],
+  bytes: ArrayLike<number> = [],
+  names: Named[] = [],
+  lines = HELLO_LN,
+): Objects {
+  const dir = readProgramDirectory(HELLO_DR);
+  const last = dir.records.findLastIndex((r) => r.type === "blob");
+  const records = [
+    ...dir.records.slice(0, last + 1),
+    ...added,
+    ...dir.records.slice(last + 1),
+  ];
+  const own = readByteStream(HELLO_BY).data;
+  const stream = new Uint8Array(own.length + bytes.length);
+  stream.set(own);
+  stream.set(Array.from(bytes), own.length);
+  const ownNames = [...readNameStream(HELLO_NM).names].map((
+    [ordinal, name],
+  ) => ({ ordinal, name }));
+  return {
+    directory: writeProgramDirectory(dir.header, records, stream.length),
+    bytes: writeByteStream(dir.header.stamp, stream),
+    lines,
+    names: writeNameStream(dir.header.stamp, [...ownNames, ...names]),
+  };
+}
+
+Deno.test("BLINK lists aliases in the map and the symbol file as the reference does", () => {
+  // R refers to three aliases of B, two of them at one address, the second
+  // by SIZE16 before its ALIAS record; D and its alias are dead. Every name
+  // record after an alias's must still reach its blob.
+  const [r, b, a1, a2, d, a3, a4, e] = [
+    0x401,
+    0x402,
+    0x403,
+    0x404,
+    0x405,
+    0x406,
+    0x407,
+    0x408,
+  ];
+  const objects = extendHello(
+    [
+      blobRecord(Kind.rodata, r, 6, [
+        reference(0, Form.ABS16, a1),
+        reference(2, Form.SIZE16, a2),
+        reference(4, Form.ABS16, a3),
+      ], true),
+      blobRecord(Kind.data, b, 8),
+      aliasRecord(a1, b, 2),
+      aliasRecord(a2, b, 2),
+      blobRecord(Kind.data, d, 3),
+      aliasRecord(a3, b, 5),
+      aliasRecord(a4, d, 1),
+      blobRecord(Kind.rodata, e, 2, [], true),
+    ],
+    new Array(6 + 8 + 3 + 2).fill(0),
+    [
+      { ordinal: r, name: "reader" },
+      { ordinal: b, name: "bee" },
+      { ordinal: a1, name: "bee_two" },
+      { ordinal: a2, name: "bee_too" },
+      { ordinal: d, name: "dee" },
+      { ordinal: a3, name: "a_rather_long_alias_name" },
+      { ordinal: a4, name: "dee_one" },
+      { ordinal: e, name: "eee" },
+    ],
+  );
+  const result = compareLink(objects, "PROG [M,Y]", false);
+  assertEquals(result.addresses.get(a2), result.addresses.get(b)! + 2);
 });

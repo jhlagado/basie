@@ -482,8 +482,8 @@ NM_SLOT:                       ; NM_OWN is 0 or 1.
 ;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Set NM_BUF to the name of the blob just read (RD_PREV) of owner WK_OWN,
 ; taken from its reader if the pending record is this blob's, else empty.
-; The reader moves on only past a match, so a name record no blob takes,
-; such as an alias's, holds back the names after it until the next walk.
+; The reader moves on past a match, and past an alias's record, which the
+; walks never meet; any other record waits for its blob.
 
 NM_GET:                        ; A walk's callback keeps IX on its directory.
     PUSH IX                        ; Keep it.
@@ -515,7 +515,15 @@ NM_GET:                        ; A walk's callback keeps IX on its directory.
     LD   HL,(RD_PREV)              ; The blob's ordinal.
     OR   A                         ; Clear carry for the subtraction.
     SBC  HL,DE                     ; Are they the same?
-    RET  NZ                        ; Not this blob's name.
+    JR   Z,.MINE                   ; This blob's name.
+    EX   DE,HL                     ; HL is the pending ordinal.
+    CALL TAB_FIND                  ; Its entry; carry if it has none.
+    RET  C                         ; Not a blob's or an alias's.
+    BIT  6,(HL)                    ; An alias's name?
+    RET  Z                         ; A later blob's: it waits.
+    CALL NM_READ                   ; Pass it: the walks skip ALIAS records.
+    JR   .FETCH                    ; Try the next.
+.MINE:                         ; The pending record is this blob's.
     CALL NM_SLOT                   ; HL is the pending name.
     LD   DE,NM_BUF                 ; Copy it to NM_BUF.
 .COPY:                         ; HL walks the slot, DE the buffer.

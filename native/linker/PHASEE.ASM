@@ -386,72 +386,55 @@ SY_ROW:                        ; HL is the address.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the symbol file's alias rows: each live named alias, in address
-; order. Aliases are rare, so each is found by a scan of the table, and its
-; name by a scan of its owner's names. Each round takes the lowest address
-; above the last written, so of two aliases at one address only one is
-; written.
+; order, and at one address in ordinal order. Aliases are rare, so each
+; round scans the table for the lowest live alias, writes it and clears its
+; live bit; its name is found by a scan of its owner's names.
 
 SY_ALIAS:                      ; The symbol file is the report.
-    LD   HL,0                      ; No alias
-    LD   (.LAST),HL                ; written
-    XOR  A                         ; yet.
-    LD   (.ANY),A                  ; .LAST is not yet valid.
-.ROUND:                        ; Find the next alias to write.
-    LD   HL,$FFFF                  ; The best address so far:
-    LD   (.BEST),HL                ; none.
-    XOR  A                         ; None
-    LD   (.FOUND),A                ; found.
-    LD   HL,0                      ; Scan for the lowest address above the last.
+    LD   HL,0                      ; None found yet:
+    LD   (.POS),HL                 ; position 0 is never an alias.
 .SCAN:                         ; HL walks every position.
     PUSH HL                        ; Keep it.
     CALL TAB_AT                    ; HL is its entry; carry past the end.
     JR   C,.SCANNED                ; Every entry is seen.
     LD   A,(HL)                    ; Its flags:
-    AND  EF_ALIAS+EF_DEF           ; a defined
-    CP   EF_ALIAS+EF_DEF           ; alias?
+    AND  EF_ALIAS+EF_LIVE          ; an alias that Phase C placed
+    CP   EF_ALIAS+EF_LIVE          ; and that is not yet written?
     JR   NZ,.NEXT                  ; No.
-    PUSH HL                        ; Keep the entry.
-    CALL .ALIVE                    ; Carry unless its base is live.
-    POP  HL                        ; HL is the entry.
-    JR   C,.NEXT                   ; A dead alias.
     INC  HL                        ; Its address,
     INC  HL                        ; three
     INC  HL                        ; bytes on:
     LD   E,(HL)                    ; low byte,
     INC  HL                        ; then
     LD   D,(HL)                    ; DE = its address.
-    LD   A,(.ANY)                  ; After the first round,
-    OR   A                         ; it must lie above the last written.
-    JR   Z,.FIRST                  ; The first round.
-    LD   HL,(.LAST)                ; Above the last one written?
+    LD   HL,(.POS)                 ; The first found
+    LD   A,H                       ; is the best
+    OR   L                         ; so far.
+    JR   Z,.BEST                   ; The first.
+    LD   HL,(.ADDR)                ; Is it below the best so far?
     OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; No carry if not above.
-    JR   NC,.NEXT                  ; Written already, or below.
-.FIRST:                        ; A candidate.
-    LD   HL,(.BEST)                ; Is it at or below the best so far?
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Carry if above it.
-    JR   C,.NEXT                   ; Not better.
-    LD   (.BEST),DE                ; The best address,
+    SBC  HL,DE                     ; Carry or zero if not:
+    JR   C,.NEXT                   ; above it,
+    JR   Z,.NEXT                   ; or at it, after it in the table.
+.BEST:                         ; The best so far.
+    LD   (.ADDR),DE                ; Its address,
     POP  HL                        ; and its position,
     PUSH HL                        ; still kept,
     LD   (.POS),HL                 ; for its name.
-    LD   A,1                       ; An alias
-    LD   (.FOUND),A                ; was found.
 .NEXT:                         ; The position is on the stack.
     POP  HL                        ; HL is the position.
     INC  HL                        ; The next.
     JR   .SCAN                     ; Go on.
 .SCANNED:                      ; The position is on the stack.
     POP  HL                        ; Drop it.
-    LD   A,(.FOUND)                ; Was an alias found?
-    OR   A                         ; Zero if not.
+    LD   HL,(.POS)                 ; Was an alias found?
+    LD   A,H                       ; Position 0
+    OR   L                         ; if not.
     RET  Z                         ; Every alias is written.
-    LD   HL,(.BEST)                ; Its address
-    LD   (.LAST),HL                ; is the last written,
-    LD   A,1                       ; and
-    LD   (.ANY),A                  ; valid from now on.
-    LD   HL,(.POS)                 ; Its name, by a scan of its owner's names:
+    PUSH HL                        ; Keep the position.
+    CALL TAB_AT                    ; HL is its entry.
+    RES  5,(HL)                    ; Written: no longer live.
+    POP  HL                        ; Its name, by a scan of its owner's names:
     CALL TAB_ORD                   ; HL is its ordinal,
     LD   (RD_PREV),HL              ; which NM_GET matches.
     LD   A,H                       ; Its owner:
@@ -470,45 +453,18 @@ SY_ALIAS:                      ; The symbol file is the report.
     CALL NM_FLAG                   ; Not this record: the next, until the end.
     LD   A,(HL)                    ; Names left?
     OR   A                         ; Zero at the end.
-    JP   Z,.ROUND                  ; An unnamed alias: no row.
+    JR   Z,SY_ALIAS                ; An unnamed alias: no row.
     CALL NM_READ                   ; The next record.
     JR   .FIND                     ; Try it.
 .ROW:                          ; NM_BUF is the alias's name.
-    LD   HL,(.BEST)                ; Its address,
+    LD   HL,(.ADDR)                ; Its address,
     CALL SY_ROW                    ; and its name.
-    JP   .ROUND                    ; The next alias.
+    JR   SY_ALIAS                  ; The next alias.
 
-.LAST:                         ; The address of the last alias written.
-    DW   0                         ; Valid once .ANY is set.
-.BEST:                         ; The lowest address found in this round.
-    DW   0                         ; $FFFF to begin with.
+.ADDR:                         ; The lowest address found in this round.
+    DW   0                         ; Valid once .POS is set.
 .POS:                          ; Its table position.
-    DW   0                         ; For its ordinal.
-.FOUND:                        ; Nonzero when this round found an alias.
-    DB   0                         ; Zero ends the rows.
-.ANY:                          ; Nonzero once an alias has been written.
-    DB   0                         ; .LAST is then valid.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
-; Carry unless the alias entry at HL has a live base, taking its address
-; field as the base ordinal. That holds only while the base is dead: for a
-; live base, Phase C's .SETALIAS has replaced it with the alias's address,
-; which is then looked up as if it were an ordinal.
-
-.ALIVE:                        ; HL is an alias entry.
-    LD   DE,E_ADDR                 ; Its address field:
-    ADD  HL,DE                     ; the base ordinal, or,
-    LD   E,(HL)                    ; once placed,
-    INC  HL                        ; the alias's
-    LD   D,(HL)                    ; address.
-    EX   DE,HL                     ; HL is the field's value.
-    CALL TAB_FIND                  ; Its entry; carry if it has none.
-    RET  C                         ; Not a blob: not live.
-    BIT  5,(HL)                    ; Live?
-    SCF                            ; Carry
-    RET  Z                         ; if not.
-    OR   A                         ; Clear carry:
-    RET                            ; live.
+    DW   0                         ; 0 until an alias is found.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the map's removed blobs, in directory order, then the totals.
