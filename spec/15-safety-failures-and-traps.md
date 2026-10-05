@@ -40,7 +40,7 @@ If validity depends on runtime data, the program remains conforming and the chec
 
 ## 15.4 Ordering details
 
-Chapter 9's left-to-right rules determine which of several possible failures occurs first. Assignment checks its target path before its right side; aggregate assignment validates both complete extents before changing the destination. Calls evaluate every argument before the activation-capacity check. An access through an identifier evaluates its other operands before the generation check. `new` checks for a free slot before evaluating its arguments. A counted loop checks the mathematical next value before storing it. Boolean short-circuiting suppresses every check in an operand that is not evaluated.
+Chapter 9's left-to-right rules determine which of several possible failures occurs first. Assignment checks its target path before its right side, and checks each identifier on that path again after it; aggregate assignment validates both complete extents before changing the destination. Calls evaluate every argument before the activation-capacity check. An access through an identifier evaluates its other operands before the generation check. `new` checks for a free slot before evaluating its arguments. A counted loop checks the mathematical next value before storing it. Boolean short-circuiting suppresses every check in an operand that is not evaluated.
 
 A recoverable service error follows Chapter 14 and is not a trap while a source caller can consume it. Only failure reaching the end of `main` becomes `unhandled-error`. A trap raised within a failable routine bypasses its failure channel and every `handle` body.
 

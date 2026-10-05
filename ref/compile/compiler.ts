@@ -93,6 +93,12 @@ type Designator = {
   slotTemp?: number;
   /** How that record was reached: an owner needs no cycle walk; an identifier does. */
   slotKind?: "owner" | "identifier" | "lease";
+  /**
+   * Frame temporaries holding each identifier on the path as address and
+   * generation, so an assignment can check them again after its right side
+   * (7.13): the right side may free the slot.
+   */
+  rechecks?: number[];
   /** The designator is a bare name with no suffix. */
   rootOnly?: boolean;
   /** The designator's first token, for diagnostics. */
@@ -2792,6 +2798,7 @@ export class Compiler {
       } else if (v.kind !== "address" || !sameType(v.type, d.type)) {
         fail("type-mismatch", srcAt, `a ${typeName(d.type)} is required`);
       }
+      this.recheck(d);
       r.blob.u8(0xd1); // POP DE
       this.pop(2);
       r.blob.u8(0x01); // LD BC,size
@@ -2825,6 +2832,7 @@ export class Compiler {
       this.push(2);
       const v = this.expression(d.type);
       this.toRegisters(v, d.type, at);
+      this.recheck(d);
       if (sizeOf(d.type) === 4) {
         r.blob.u8(0xc1); // POP BC: the address
         r.blob.u8(0x7d, 0x02, 0x03, 0x7c, 0x02, 0x03); // LD A,L; LD (BC),A; INC BC; LD A,H; LD (BC),A; INC BC
@@ -2916,6 +2924,7 @@ export class Compiler {
   }
 
   private suffixes(d: Designator): Designator {
+    const checks = (d.rechecks ?? []).slice();
     while (true) {
       if (this.isPunct(".") && d.type.kind === "handle") {
         const h = d.type;
@@ -2935,12 +2944,19 @@ export class Compiler {
         }
         this.checkUsable(d);
         const base = d;
-        const temp = this.allocLocal(2);
+        // An identifier keeps its generation beside the address (7.13).
+        const temp = this.allocLocal(h.id ? 4 : 2);
         const compute = () => {
           this.loadValue(base);
           if (h.id) this.callHelper(Helper.ID_CHK);
           this.storeRegisters(U16, { kind: "frame", offset: temp });
+          if (h.id) {
+            this.routine!.blob.u8(0xeb); // EX DE,HL
+            this.storeRegisters(U16, { kind: "frame", offset: temp + 2 });
+            this.routine!.blob.u8(0xeb); // EX DE,HL
+          }
         };
+        if (h.id) checks.push(temp);
         d = {
           place: { kind: "computed" },
           type: h.pool.record!,
@@ -3009,8 +3025,28 @@ export class Compiler {
         this.expectPunct("]");
         continue;
       }
+      if (checks.length > 0) d.rechecks = checks;
       return d;
     }
+  }
+
+  /**
+   * Check again every identifier on an assignment's target path, after its
+   * right side and before the store (7.13): the right side may have freed a
+   * slot the path goes through. Preserves every register the store needs.
+   */
+  private recheck(d: Designator): void {
+    if (!d.rechecks) return;
+    const r = this.routine!;
+    r.blob.u8(0xf5, 0xe5, 0xd5); // PUSH AF; PUSH HL; PUSH DE
+    this.push(6);
+    for (const temp of d.rechecks) {
+      this.ixWord(temp, "HL");
+      this.ixWord(temp + 2, "DE");
+      this.callHelper(Helper.ID_CHK);
+    }
+    r.blob.u8(0xd1, 0xe1, 0xf1); // POP DE; POP HL; POP AF
+    this.pop(6);
   }
 
   private offsetPlace(

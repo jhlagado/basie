@@ -1,0 +1,36 @@
+// The right side frees the slot an assignment target goes through: the
+// identifier is checked again before the store (7.13; review finding B1).
+// spec: 7.13, 10.4
+// expect trap: stale-handle at 32
+include "FORMAT.BSI"
+record Box
+    w as u16
+    arr as u16[4]
+end
+pool boxes as Box[1]
+var gb as boxes?
+sub churn() as u16
+    gb = none
+    gb = new boxes()
+    return 7
+end
+sub show() fails
+    var line as string[20]
+    select gb
+    case some(j)
+        appendU16(line, j.w) else fail
+        appendByte(line, ' ') else fail
+        appendU16(line, j.arr[2]) else fail
+    case none
+    end
+    writeText(console, line) else fail
+end
+sub main() fails
+    gb = new boxes()
+    select gb
+    case some(j)
+        j.w = churn()
+    case none
+    end
+    show() else fail
+end

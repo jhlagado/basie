@@ -19,7 +19,7 @@ fixes it names the finding, as B1, A3 and so on).
 
 | # | Severity | Finding | Right |
 | --- | --- | --- | --- |
-| B1 | critical | `j.w = f()` through an identifier checks `j` before calling `f`, so `f` can free and reuse the slot and the store lands in the new occupant. 7.13 and 9.14 say the right side comes first, but 10.4 step 1 and 15.4 say the target path does, with no exception, and the compiler follows them. | 7.13: check the identifier after the right side |
+| B1 | critical (closed) | `j.w = f()` through an identifier checks `j` before calling `f`, so `f` can free and reuse the slot and the store lands in the new occupant. 7.13 and 9.14 say the right side comes first, but 10.4 step 1 and 15.4 say the target path does, with no exception, and the compiler follows them. | 7.13: check the identifier after the right side |
 | B2 | critical | An aggregate field reached through an identifier is passed as an alias into the slot, not copied (7.13), and `var` is accepted. The callee can free and reuse the slot. Copying an owning-type field would itself duplicate an owner. | Copy non-owning fields; forbid passing owning-type fields reached through identifiers; reject `var` |
 | B3 | critical | A typed constant combined with a literal is computed in `u16`: `const a as u8 = 200` then `a * 2` gives 400, and `var b as u8 = a + 100` is rejected. | 8.4: the constant behaves like a `u8` |
 | B4 | major | `id(n)` compares only the owner word, so a record at offset 0 of a node shares the node's address and `id(n)` names the wrong pool. | Also compare the slot's pool word |

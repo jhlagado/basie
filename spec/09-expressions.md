@@ -173,7 +173,7 @@ Basie fixes evaluation order:
 - a unary operand is evaluated before its operator;
 - binary operands are evaluated left to right, subject to short-circuiting;
 - a postfix base is evaluated before its suffixes, which apply left to right, and each index is evaluated and checked when its suffix is reached;
-- a handle used in a field access is resolved, and an identifier checked, after the access's other operands, immediately before the access (Chapter 7, Section 7.13);
+- a handle used in a field access is resolved, and an identifier checked, after the access's other operands, immediately before the access; an identifier on an assignment's target path is checked again after the right side (Chapter 7, Section 7.13);
 - routine arguments, and `new` arguments, are evaluated left to right;
 - a conversion evaluates its operand before checking it.
 

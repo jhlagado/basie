@@ -70,10 +70,11 @@ A local used as the counter of an enclosing counted loop is read-only until that
 
 **Order for ordinary destinations.** When the destination is not of an owning type, the compiler evaluates an assignment in this order:
 
-1. evaluate the target path from left to right, including every index expression and bounds check;
+1. evaluate the target path from left to right, including every index expression and bounds check, and the generation check of each identifier on the path;
 2. evaluate the right-hand expression;
-3. apply the destination compatibility and checked-conversion rules; and
-4. store the scalar result, or copy the aggregate into the selected destination.
+3. apply the destination compatibility and checked-conversion rules;
+4. check each identifier on the target path again, since the right side may have freed its slot (Chapter 7, Section 7.13); and
+5. store the scalar result, or copy the aggregate into the selected destination.
 
 The target path is evaluated once. If target evaluation traps, the right-hand expression is not evaluated. If the right-hand expression or a checked conversion traps, the destination is not changed, although effects from the earlier target evaluation remain.
 

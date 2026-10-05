@@ -165,7 +165,7 @@ A field of a pool record is reached through a non-optional handle by selection, 
 
 A path through an identifier may select any chain of record fields and checked indexes under one check, as `i.pos.x` or `i.kids[k]`. A path never continues through a second handle without a new access: `i.next.value` is two accesses, and `i.next` is an optional handle that must be tested with `select` before it can be followed.
 
-Because the handle is resolved after the operands, `i.value = f()` calls `f` first, then checks `i`, then stores; nothing can free the slot between the check and the access.
+An identifier on an assignment's target path is checked twice: when the path is resolved, before the right side, and again after the right side, immediately before the store. So in `i.value = f()`, if `f` frees the slot, the second check traps with `stale-handle` and nothing is stored; nothing can free the slot between the last check and the store.
 
 Scalar fields are read and written in place. An **aggregate field** is copied as a whole: `var s = i.name` copies it out, and `i.name = s` copies it in. Passing an aggregate field reached through an identifier or an owner to a ticket copies it into a hidden temporary of the caller, counted in its frame. It cannot be passed to a `var` parameter, except through a lease.
 
