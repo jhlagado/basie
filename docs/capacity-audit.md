@@ -450,8 +450,13 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 - **Intermediate width:** exact integers range from −2^31 to 2^32 − 1
   (spec §8.6); `f32` is exact as at run time.
+- **Native compiler at 65.4 (c):** exact values are folded in sixteen bits,
+  unsigned; a result or operand outside 0 to 65,535, a negative one
+  included, is refused with `DG_RANGE` rather than folded differently.
+  Typed operations wrap at their width, as the spec says.
 - **Nesting and evaluation stack:** TBD.
-- **Status:** TBD.
+- **Status:** TBD; the native compiler's exact range is a defect to remove
+  when 32-bit types arrive (step 67).
 
 ### 3.24 Loop counters
 
