@@ -75,3 +75,42 @@ fixes it names the finding, as B1, A3 and so on).
 | B28 | minor | A record with an `id P?` field has no static initializer, which 8.9 doesn't say. | Say so |
 | B29 | minor | The type grammar reads `u8[25][40]` backwards. | Note the binding |
 | B30 | minor | Fences tagged `nucleus`; planning text in 6.12; memory safety says 4-byte slot headers, revision 6.1 says 6. | Fix |
+
+## Group C: chapters 10 to 21
+
+| # | Severity | Finding | Right |
+| --- | --- | --- | --- |
+| C1 | critical | Counted loops store the next value before testing it, so any loop ending at the edge of its counter's type traps with `loop-range` (every descending `u16` loop, `for c = 7 to 0 step -1` on `u8`, `0 to 255`), and the counter ends one step past the bound. | 12.5: test the next value wide, then store |
+| C2 | critical | A `move` in an `elseif` condition is not seen by the `else` body, which can then read and write through `none`. | Each clause starts in the state after its own condition |
+| C3 | critical | The state after a loop ignores `exit` paths, so a value moved before `exit` is used after the loop. | 12.6: meet the exits too |
+| C4 | critical | `move` in a `while` condition is accepted; the second test moves `none`. | 10.8: reject |
+| C5 | critical | `select` on a slot-holder gives a lease with direct access, but the slot-holder can name a program variable the arm can free: a use after free. | A slot-holder subject binds an identifier |
+| C6 | critical | For an owning destination the spec evaluates the right side before the target path, which single-pass code can't do; the compiler evaluates a called index first and loses it. | Target path, right side, recheck, free, store |
+| C7 | major | Exact loop bounds outside the counter's type are rejected, though 12.4 says they need not fit. | Compare mathematically |
+| C8 | major | Named steps that are negative or `f32` are accepted. | Require a non-negative integer constant |
+| C9 | major | `handle` on a local declaration is accepted. | Reject |
+| C10 | major | 14.4 allows `else fail` only on scalar local declarations; the grammar and compiler allow any expression initializer. | Any expression initializer |
+| C11 | major | `move` in `assert` conditions and `and`/`or` operands is accepted. | Reject |
+| C12 | major | `File` comparison is specified but rejected. | Implement |
+| C13 | major | `clock` and `DateTime` are in services revision 2 but have no layout and no implementation. | Define and implement, or remove |
+| C14 | major | Whether an unreachable end of a loop body counts as a back edge. | Only when it can complete |
+| C15 | major | Handle parameters without `var` can be assigned, against 10.4. | Scalar and handle parameters are local copies |
+| C16 | major | "When the compiler proves" makes validity depend on cleverness. | Only constant operands |
+| C17 | major | Typed `case` labels use conversion rules rather than representability. | Pick one rule |
+| C18 | major | File-table generations saturate at $FFFF and the entry is reused, so a stale `File` can match a new file. | Withdraw the entry, as pool slots are |
+| C19 | major | The reference compiler lacks 32-bit `select` and counted loops (one crashes). | Implement or record |
+| C20 | minor | "in any order" for `case` arms contradicts `case else` last. | Fix wording |
+| C21 | minor | 14.6 examples call `readStorageByte`, which doesn't exist. | Use `readInputByte` |
+| C22 | minor | `head = move head.next` compiles under no declaration. | Use `h.next` |
+| C23 | minor | Three places say a trap frees slots; 15.1 says it frees none. | Exclude traps |
+| C24 | minor | 16.2 omits `textMode` and `binaryMode`. | Add |
+| C25 | minor | `File` is absent from chapter 6 and the assignment and parameter rules. | Classify it |
+| C26 | minor | `as var` results as `var` arguments are accepted but unstated. | State |
+| C27 | minor | `var x as T[]` taking `T[N]` is missing from 13.4. | Add |
+| C28 | minor | Nothing produces `float-invalid`. | Drop or name one |
+| C29 | minor | Chapter 21 omits `library` and `services`, and misses `loop-range` and loop-boundary programs. | Update |
+| C30 | minor | 14.2's header fragment lacks the `var` and `from` result clause. | Align with 13.2 |
+| C31 | minor | `left = right = 0` is valid when `left` is boolean. | Better example |
+| C32 | minor | An untyped constant `select` subject is unspecified. | State |
+| C33 | minor | Stale text: a Skate reference, `nucleus` fences, a wrong services section, a "to be confirmed", an empty forward reference, `abort` of a zero `File`. | Fix |
+| C34 | minor | "Source routine" excludes services. | "routine or service" |
