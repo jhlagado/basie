@@ -481,8 +481,10 @@ OUT_ANY:
         RET
 
 ; @blob $05B code FL_FREE
-; Release an entry: state free, generation advanced (saturating), so the
-; old File value no longer matches.
+; Release an entry: state free, generation advanced, so the old File value
+; no longer matches. An entry that reaches generation $FFFF is withdrawn:
+; FL_ALLOC never hands it out again, so no File value can match it (services
+; §2), as pool slots are withdrawn (memory safety §5.11).
 FL_FREE:
         LD      (IY+2),0
         LD      L,(IY+0)
@@ -490,7 +492,7 @@ FL_FREE:
         INC     HL
         LD      A,H
         OR      L
-        RET     Z
+        RET     Z               ; already withdrawn
         LD      (IY+0),L
         LD      (IY+1),H
         RET
@@ -508,8 +510,12 @@ FL_ALLOC:
         LD      IY,FILES
 .SCAN:  LD      A,(IY+2)
         OR      A
-        JR      Z,.FOUND
-        LD      DE,ENTSZ
+        JR      NZ,.SKIP
+        LD      A,(IY+0)
+        AND     (IY+1)
+        INC     A
+        JR      NZ,.FOUND       ; free, and not withdrawn at generation $FFFF
+.SKIP:  LD      DE,ENTSZ
         ADD     IY,DE
         INC     C
         DJNZ    .SCAN

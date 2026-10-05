@@ -43,8 +43,9 @@ the predeclared type `File`.
 
 - A `File` is 4 bytes: the address of its entry in the runtime's file table and
   a 16-bit generation, checked on every use, exactly as identifiers are
-  ([memory safety](memory-safety.md) §5.11). Generations start at 1, saturate,
-  and are never 0, so a zeroed `File` variable, or one whose file has been
+  ([memory safety](memory-safety.md) §5.11). Generations start at 1 and are
+  never 0. An entry whose generation reaches $FFFF is withdrawn and never used
+  again, as a pool slot is, so no stale `File` can match a later file; and a zeroed `File` variable, or one whose file has been
   closed, fails with `fileClosed` instead of reaching another file.
 - There is no conversion between `File` and any integer, no arithmetic on it, and
   no way to read one from data. `File` values arise only from the `open`
