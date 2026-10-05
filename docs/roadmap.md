@@ -123,7 +123,7 @@ M5 starts alongside M4: each compiler step needs its helpers.
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
-| 59 | Native | Skeleton `BLINK.COM`: command tail, file I/O, CRC, message output | | Runs under the harness |
+| 59 | Native | Skeleton `BLINK.COM`: command tail, file I/O, CRC, message output | `native/linker/` (done: 2.6K; checks the library header and, with V, its CRC; `tests/blink_test.ts`) | Runs under the harness |
 | 60 | Native | Phase A and B | | Same tables as the reference, dumped and compared |
 | 61 | Native | Phase C and D, the line table | | Byte-identical images on the linker suite |
 | 62 | Native | Phase E and publication | | Byte-identical maps and files |

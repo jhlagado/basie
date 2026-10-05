@@ -216,6 +216,9 @@ const TABLE: [number, string, string, Group][] = [
   [220, "L-RANGE", "A reference value is out of range", LINK],
   [221, "L-PLACEHOLDER", "Nonzero placeholder bytes", LINK],
   [222, "L-IO", "^1: read or write failed, or the disk is full", LINK],
+  [223, "L-USAGE", "Usage: BLINK NAME [options]", LINK],
+  [224, "L-COMMAND", "^1: a bad or repeated option", LINK],
+  [225, "L-MISSING", "^1 not found", LINK],
 ];
 
 export const MESSAGES: Message[] = TABLE.map(([number, code, text, group]) => ({
