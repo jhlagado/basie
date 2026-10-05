@@ -74,6 +74,13 @@ SY_HERE:                       ; HL is a record found.
 ; return the bit's mask in A. BC and DE are kept.
 
 SY_BIT:                        ; A is the symbol's index.
+    LD   HL,SY_PRIV                ; The private bits; fall into SY_BITAT.
+
+;@ROUTINE IN A,HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Address in HL the byte of the bit table at HL that holds bit A, and
+; return the bit's mask in A. BC and DE are kept.
+
+SY_BITAT:                      ; A is the bit's index, HL the table.
     PUSH BC                        ; Keep BC
     PUSH DE                        ; and DE.
     LD   C,A                       ; Keep the index.
@@ -92,8 +99,7 @@ SY_BIT:                        ; A is the symbol's index.
     AND  $1F                       ; the byte's,
     LD   E,A                       ; DE
     LD   D,0                       ; from
-    LD   HL,SY_PRIV                ; the bits'
-    ADD  HL,DE                     ; start.
+    ADD  HL,DE                     ; the table's start.
     LD   A,B                       ; A is the mask.
     POP  DE                        ; Restore DE
     POP  BC                        ; and BC.

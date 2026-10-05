@@ -25,12 +25,15 @@
 ;  The routine table (RO_RTAB) holds 32 routines of twelve bytes, laid out
 ;  in CALLWORK.ASM: the name, the parameters, the result type, the flags
 ;  (RO_FFAIL, RO_FOPEN while a forward awaits its body, RO_FFWD for one
-;  declared forward), the blob's ordinal, the need once the body is
-;  complete and the bytes of the arguments.
+;  declared forward, RO_FVRES for a var result, RO_FPRIV), the blob's
+;  ordinal, the need once the body is complete and the bytes of the
+;  arguments.
 ;
 ;  The parameter table (RO_PTAB) holds 64 parameters of four bytes: the
 ;  spelling's address and length, then the type, AG_VIEW for an open
-;  string. A routine's parameters are consecutive entries.
+;  string, AG_OPEN plus the element's for an open array, with AG_VAR for
+;  a var parameter. A routine's parameters are consecutive entries;
+;  RO_FROM marks those a result's from clause names.
 
 ;@ROUTINE IN A OUT HL CLOBBERS CARRY,HALFCARRY,DE
 ; Return in HL the address of routine-table entry A, RO_RTAB plus twelve
@@ -194,12 +197,22 @@ RO_FRESH:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Reject the current name if it repeats a parameter already in the
-; signature being parsed (RO_CPCNT entries from RO_CPIDX).
+; signature being parsed (DG_DUP, naming it).
 
 RO_NODUP:
+    CALL RO_PFIND                  ; Is it one of them?
+    RET  NC                        ; No: it is new to the signature.
+    JP   EX_EDUP                   ; Raise DG_DUP, naming it.
+
+;@ROUTINE OUT A,B,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE
+; Find the current name among the parameters of the signature being
+; parsed (RO_CPCNT entries from RO_CPIDX): carry returns its index in B
+; and its record in HL.
+
+RO_PFIND:
     LD   A,(RO_CPCNT)              ; Parameters so far in this signature.
     OR   A                         ; Are there any?
-    RET  Z                         ; The first parameter repeats nothing.
+    RET  Z                         ; None: not found, carry clear.
     LD   C,A                       ; C counts the entries left.
     LD   A,(RO_CPIDX)              ; The signature's first parameter.
     LD   B,A                       ; B is the index being compared.
@@ -207,12 +220,11 @@ RO_NODUP:
     LD   A,B                       ; Select entry B.
     CALL RO_PARAM                  ; HL addresses it; the name comes first.
     CALL TK_SAME                   ; Does its spelling match the token?
-    JP   C,EX_EDUP                 ; Raise DG_DUP, naming it.
+    RET  C                         ; Found: B and HL.
     INC  B                         ; Next entry.
     DEC  C                         ; One entry fewer.
     JR   NZ,.LOOP                  ; Continue through the signature.
-    OR   A                         ; Report success with carry clear.
-    RET                            ; The name is new to the signature.
+    RET                            ; Not found: carry clear.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Reject a parameter name that would hide a program-wide name, a routine,
@@ -274,30 +286,59 @@ RO_ENROL:
     DB   DG_PARAM                  ; Too many parameters.
 
 ;@ROUTINE IN A OUT B CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Return in B the bytes an argument of type A takes (parameterWords): four
-; for an open string's view, a File or a long scalar, two for anything
-; else. A is kept.
+; Return in B the bytes an argument of type A, AG_VAR for var, takes
+; (parameterWords): four for a view, a File or a long scalar, and for a
+; var record, whose owner word follows its address; two for anything
+; else. A, C, DE and HL are kept.
 
 RO_WORDS:
+    PUSH AF                        ; Keep the type.
     LD   B,4                       ; Two words
+    AND  $7F                       ; (without AG_VAR)
     CP   AG_VIEW                   ; for a view
-    RET  Z                         ; of a string,
+    JR   Z,.DONE                   ; of a string,
     CP   AG_FILE                   ; or a File,
-    RET  Z                         ; or
+    JR   Z,.DONE                   ; or
     CP   SY_U32                    ; a u32,
     JR   C,.WORD                   ; an i32
-    CP   SY_F32+1                  ; or an f32;
-    RET  C                         ; otherwise
-.WORD:                         ; one word.
-    LD   B,2                       ; Two bytes.
-    RET                            ; B is the bytes.
+    CP   SY_F32+1                  ; or an f32,
+    JR   C,.DONE                   ; or
+    CP   AG_OPEN                   ; an open
+    JR   C,.TABLE                  ; array;
+    CP   AG_OLIM                   ; otherwise
+    JR   C,.DONE                   ; one word.
+.WORD:                         ; One word:
+    LD   B,2                       ; two bytes.
+.DONE:                         ; B is the bytes.
+    POP  AF                        ; The type.
+    RET                            ; Done.
+.TABLE:                        ; A record, array or string.
+    POP  AF                        ; The type
+    PUSH AF                        ; with
+    LD   B,2                       ; AG_VAR?
+    OR   A                         ; If not,
+    JP   P,.DONE                   ; one word;
+    AND  $7F                       ; if so,
+    PUSH DE                        ; (DE
+    PUSH HL                        ; and HL kept) a record's
+    CALL AG_DESC                   ; descriptor:
+    LD   A,(HL)                    ; its kind,
+    POP  HL                        ; HL
+    POP  DE                        ; and DE again:
+    CP   AG_KREC                   ; a record's?
+    JR   NZ,.DONE                  ; No: one word.
+    LD   B,4                       ; Yes: and the owner word.
+    JR   .DONE                     ; B is the bytes.
 
 ;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make parameter A, whose argument is at displacement C from IX, a symbol
 ; whose payload is that offset: the argument is used in place (design
-; decision D41). The current token is replaced by the parameter's name.
+; decision D41). An aggregate's class adds SY_PVAR when it is var and
+; SY_PFROM when the result's from clause names it (RO_FROM). The current
+; token is replaced by the parameter's name.
 
 RO_BIND:
+    PUSH AF                        ; Keep the index.
     CALL RO_PARAM                  ; HL addresses the parameter's entry.
     LD   E,(HL)                    ; Read the address of its spelling.
     INC  HL                        ; High byte.
@@ -311,10 +352,25 @@ RO_BIND:
     LD   A,B                       ; the parameter's spelling
     LD   (TK_LEN),A                ; becomes the token.
     LD   B,0                       ; BC is the displacement, the payload.
+    POP  AF                        ; The index:
+    PUSH BC                        ; (the payload kept)
+    LD   HL,RO_FROM                ; its bit
+    CALL SY_BITAT                  ; in RO_FROM.
+    AND  (HL)                      ; Set?
+    LD   D,SY_AGGR+SY_PARAM        ; An aggregate parameter's class,
+    JR   Z,.VAR                    ; and if so
+    INC  D                         ; SY_PFROM.
+.VAR:                          ; E is the type, with AG_VAR:
+    SLA  E                         ; then
+    JR   NC,.PLAIN                 ; SY_PVAR,
+    INC  D                         ; which
+    INC  D                         ; is two.
+.PLAIN:                        ; E is the type, doubled.
+    SRL  E                         ; The type.
+    POP  BC                        ; The payload.
     LD   A,E                       ; Classify the parameter.
     CP   AG_FIRST                  ; Is it an aggregate?
-    LD   D,SY_AGGR+SY_PARAM        ; An aggregate parameter's class.
-    JR   NC,.SYMBOL                ; Use it.
+    JR   NC,.SYMBOL                ; Its class is D.
     OR   SY_PARAM                  ; A scalar's: its type, class parameter.
     LD   D,A                       ; The symbol's class byte.
 .SYMBOL:                       ; D is the class, E the type.

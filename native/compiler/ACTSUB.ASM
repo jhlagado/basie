@@ -348,13 +348,16 @@ AC_PROTO:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; RetainParameter: main takes no parameters (DG_RPAR). Otherwise the name
-; must not collide (RO_VET) and is kept in AC_DNAME until its type is known.
+; must not collide (RO_VET) and is kept in AC_DNAME until its type is
+; known, its offset in AC_SPOS.
 
 AC_PARAM:
     LD   A,(RO_CUR)                ; The routine declared.
     INC  A                         ; Is it main?
     JR   Z,.MAIN                   ; Yes: no parameters.
     CALL RO_VET                    ; Reject a colliding parameter name.
+    LD   HL,(TK_POS)               ; Its offset
+    LD   (AC_SPOS),HL              ; for AC_JOIN.
     LD   HL,AC_DNAME               ; Keep the name...
     CALL TK_KEEP                   ; ...for AC_JOIN.
     OR   A                         ; Clear carry.
@@ -362,13 +365,36 @@ AC_PARAM:
 .MAIN:                         ; Main has a parameter.
     JR   AC_EMAIN                  ; Raise bad-main.
 
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; MarkVarParameter: the parameter being parsed is var.
+
+AC_VARP:
+    LD   A,1                       ; Nonzero
+    LD   (RO_VARP),A               ; until AC_JOIN.
+    RET                            ; Back to the engine.
+
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; CommitParameter: append the retained name with the current type.
+; CommitParameter: append the retained name with the current type, a var
+; parameter's with AG_VAR: only an aggregate may be var (var-parameter,
+; at the name).
 
 AC_JOIN:
     CALL EX_RENEW                  ; The parameter's name is current again.
     LD   A,(AG_CTYPE)              ; Its type.
-    JP   RO_ENROL                  ; Append the parameter and return.
+    LD   HL,RO_VARP                ; Is it var?
+    DEC  (HL)                      ; Zero if it was,
+    LD   (HL),0                    ; (cleared)
+    JP   NZ,RO_ENROL               ; else append it; return.
+    CP   AG_FIRST                  ; A scalar
+    JR   C,.EVAR                   ; or
+    CP   AG_FILE                   ; a File
+    JR   Z,.EVAR                   ; is never var.
+    OR   AG_VAR                    ; Marked var,
+    JP   RO_ENROL                  ; it is appended; return.
+.EVAR:                         ; var on a scalar or a File:
+    LD   A,DG_VARP                 ; var-parameter,
+    LD   HL,AC_SPOS                ; at its name.
+    JP   DG_AT                     ; No return.
 
 ;@ROUTINE OUT A CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
 ; AllowSubResult: main has no result (bad-main).
@@ -387,19 +413,70 @@ AC_EMAIN:
     LD   HL,AC_DPOS                ; at main's name.
     JP   DG_AT                     ; No return.
 
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; MarkVarResult: the routine's aggregate result is writable (RO_FVRES).
+
+AC_VARR:
+    LD   HL,RO_CFLAG               ; The routine's flags
+    SET  4,(HL)                    ; gain RO_FVRES.
+    RET                            ; Back to the engine.
+
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; SaveSubResult: the current type is the result type; not a view
-; (DG_BOUND), nor yet a File (DG_NYI).
+; (DG_CLASH), nor yet a File (DG_NYI).
 
 AC_GIVEN:
-    LD   A,(AG_CTYPE)              ; The result type.
-    CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EVIEW                ; Cannot be returned: a mismatch.
+    LD   A,(AG_CTYPE)              ; The result type:
+    CALL AG_NOVW                   ; not a view.
     CP   AG_FILE                   ; A File
     JP   Z,TR_OPER                 ; is refused for now.
     LD   (RO_CTYPE),A              ; The routine's result type.
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; FromClause: after a result type, `from` and the names of aggregate
+; parameters in which the result may be rooted (from-clause otherwise,
+; naming it), each marked in RO_FROM; a name other than `from` is the
+; line's end expected, at it.
+
+AC_FROM:
+    CALL PR_PEEK                   ; A name next?
+    CP   TK_NAME                   ; If not,
+    RET  NZ                        ; there is no from clause.
+    CALL PR_TAKE                   ; Take it:
+    LD   HL,KW_FROM                ; it must
+    LD   B,4                       ; be
+    CALL TK_MATCH                  ; `from`,
+    JR   NC,.EOL                   ; else the line should end.
+.NEXT:                         ; A parameter's name follows.
+    CALL RO_NAME                   ; Consume it.
+    CALL RO_PFIND                  ; A parameter of the signature,
+    JR   NC,.EFROM                 ; B its index, HL its record?
+    LD   DE,RO_PTYPE               ; Its type
+    ADD  HL,DE                     ; less
+    LD   A,(HL)                    ; AG_VAR
+    AND  $7F                       ; must be
+    CP   AG_FIRST                  ; an aggregate,
+    JR   C,.EFROM                  ; not a scalar
+    CP   AG_FILE                   ; nor
+    JR   Z,.EFROM                  ; a File.
+    LD   A,B                       ; Its bit
+    LD   HL,RO_FROM                ; in RO_FROM
+    CALL SY_BITAT                  ; is
+    OR   (HL)                      ; set.
+    LD   (HL),A                    ; Kept.
+    CALL PR_PEEK                   ; A comma
+    CP   TK_COMMA                  ; brings
+    RET  NZ                        ; another;
+    CALL PR_TAKE                   ; take it,
+    JR   .NEXT                     ; and the name.
+.EOL:                          ; Not `from`:
+    CALL DG_RAISE                  ; the line's end
+    DB   DG_EOL                    ; expected, at the name.
+.EFROM:                        ; No aggregate parameter of the name:
+    CALL DG_RNAME                  ; from-clause,
+    DB   DG_FROM                   ; naming it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; MarkSubFails: the routine can fail.

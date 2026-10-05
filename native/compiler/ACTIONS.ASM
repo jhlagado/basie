@@ -202,7 +202,39 @@ AC_STR:
 
 AC_REUSE:
     CALL AG_REUSE                  ; A is the type's ID, new or shared.
-    JR   AC_USE                    ; Make it current.
+            JR   AC_USE                    ; Make it current.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; BeginType: keep the offset of the type's first token (AG_TPOS), where a
+; view out of place or an open dimension inside is reported.
+
+AC_TYPE0:
+    LD   HL,(TK_POS)               ; The type's first token,
+    LD   (AG_TPOS),HL              ; kept.
+    RET                            ; Back to the engine.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; MakeOpenArrayType: `[]`, the outermost dimension open (AG_OPENF), the
+; type an open array of what the dimensions after it make (parseType).
+; One after a bound is syntax at the type's start; a second, an expression
+; expected at its `]`.
+
+AC_OPENA:
+    LD   A,(AG_DCNT)               ; A bound before it?
+    OR   A                         ; Then it is not
+    JR   NZ,.INNER                 ; the outermost.
+    LD   HL,AG_OPENF               ; Open
+    OR   (HL)                      ; already?
+    JR   NZ,.TWICE                 ; A bound was expected.
+    INC  (HL)                      ; Open now.
+    RET                            ; Back to the engine.
+.INNER:                        ; Only the outermost may be open:
+    LD   A,DG_TYPE                 ; syntax,
+    LD   HL,AG_TPOS                ; at the type.
+    JP   DG_AT                     ; No return.
+.TWICE:                        ; `[]` again:
+    CALL DG_RAISE                  ; an expression
+    DB   DG_VALUE                  ; expected, at the `]`.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; MakeOpenStringType: `string[]`, a parameter-only view of a string of any
@@ -210,7 +242,7 @@ AC_REUSE:
 
 AC_OPEN:
     LD   A,AG_VIEW                 ; The open-string view.
-    JR   AC_USE                    ; Make it current.
+    JP   AC_USE                    ; Make it current.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; SaveArrayBound: keep an array dimension's bound (AC_COUNT) until the
@@ -240,15 +272,16 @@ AC_DIM:
 ; MakeArrayTypes: once a type's dimensions are parsed, build its arrays
 ; from the innermost, the last bound kept, out (parseType): each an array
 ; of its bound's elements of the current type, interned and made current.
-; The element may not be a view (DG_BOUND), nor here a File (DG_NYI); the
-; extent must fit the 1 KiB data image (DG_DATA). Nothing is done without
-; dimensions.
+; The element may not be a view (DG_CLASH), nor here a File (DG_NYI); the
+; extent must fit the 1 KiB data image (DG_DATA). Then an open outermost
+; dimension makes the type an open array of them, AG_OPEN plus the
+; element's ID. Nothing is done without dimensions.
 
 AC_ARRAY:
     LD   HL,AG_DCNT                ; Any bounds
     LD   A,(HL)                    ; waiting?
     OR   A                         ; None:
-    RET  Z                         ; the type is complete.
+    JR   Z,.OPEN                   ; perhaps an open array.
     DEC  (HL)                      ; The last one is used:
     DEC  A                         ; its index,
     ADD  A,A                       ; and its word
@@ -260,11 +293,7 @@ AC_ARRAY:
     INC  HL                        ; the
     LD   B,(HL)                    ; count.
     LD   (AG_NDIM),BC              ; The candidate's count.
-    LD   A,(AG_CTYPE)              ; The element type.
-    CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EVIEW                ; Has no fixed size: a mismatch.
-    CP   AG_FILE                   ; A File
-    JP   Z,TR_OPER                 ; is never an element here (DG_NYI).
+    CALL .ITEM                     ; The element type, A.
     LD   (AG_NAUX),A               ; The candidate's element type.
     CALL AG_SIZE                   ; HL is one element's extent.
     LD   D,H                       ; Keep it...
@@ -283,6 +312,21 @@ AC_ARRAY:
     LD   (AG_NKIND),A              ; The candidate's kind.
     CALL AC_REUSE                  ; Intern it and make it current.
     JR   AC_ARRAY                  ; The next dimension out.
+.OPEN:                         ; Every bound is built.
+    LD   HL,AG_OPENF               ; Was the outermost open?
+    OR   (HL)                      ; (A is zero.)
+    RET  Z                         ; No: the type is complete.
+    LD   (HL),0                    ; Yes, this once:
+    CALL .ITEM                     ; the element type
+    ADD  A,AG_OPEN                 ; makes the open array's ID,
+    LD   (AG_CTYPE),A              ; the current type.
+    RET                            ; Back to the engine.
+.ITEM:                         ; The current type as an element:
+    LD   A,(AG_CTYPE)              ; not
+    CALL AG_NOVW                   ; a view,
+    CP   AG_FILE                   ; nor a File
+    JP   Z,TR_OPER                 ; here (DG_NYI).
+    RET                            ; A is it.
 
 ; -------------------------------------------------------- scalar constants
 
@@ -409,8 +453,7 @@ AC_VAR:
 ; optional initializer.
 
 AC_OBJ:
-    CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EVIEW                ; Cannot be an object: a mismatch.
+    CALL AG_NOVW                   ; Not a view.
     LD   (AC_DINFO),A              ; The object's type ID.
     CALL AG_SIZE                   ; HL is its extent.
     LD   (AG_OSIZE),HL             ; The object's size...
@@ -529,9 +572,8 @@ AC_FIELD:
 ; the record by the field's extent within 1 KiB (DG_DATA).
 
 AC_PLACE:
-    LD   A,(AG_CTYPE)              ; The field's type.
-    CP   AG_VIEW                   ; An open string?
-    JP   Z,AG_EVIEW                ; Has no size: a mismatch.
+    LD   A,(AG_CTYPE)              ; The field's type:
+    CALL AG_NOVW                   ; not a view.
     CP   AG_FILE                   ; A File
     JP   Z,TR_OPER                 ; is never a field here (DG_NYI).
     LD   A,(AG_FCNT)               ; The field's index...

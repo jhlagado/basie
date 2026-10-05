@@ -151,7 +151,7 @@ GA_LOAD:                       ; RO_PLACE is the place.
     CALL GX_SIZE                   ; size:
     LD   DE,GX_DLDA                ; a byte for the frame,
     LD   BC,$3A7E                  ; LD A,(nn) or LD A,(HL),
-    JR   C,GA_ACC                  ; for a byte;
+            JR   C,GA_ACC                  ; for a byte;
     JR   NZ,.LONG                  ; a long's two words;
     LD   DE,GX_DLDHL               ; a word for the frame,
     LD   BC,$2A00                  ; LD HL,(nn), or the sequence.
@@ -173,18 +173,21 @@ GA_LOAD:                       ; RO_PLACE is the place.
 ; Store the registers, of type RO_OTYPE, into the scalar at a place that
 ; is not computed (storeRegisters): LD (nn),A or LD (nn),HL for a static
 ; place, (IX+d) near or far for the frame, and a long as a File is
-; (GA_STF). A computed place takes the address first (RO_LET).
+; (GA_STF); through an alias, GA_STAL. A computed place takes the address
+; first (RO_LET).
 
 GA_STORE:                      ; RO_PLACE is the place.
+    LD   A,(RO_PKIND)              ; Through
+    CP   GA_ALIAS                  ; an alias?
+    JP   Z,GA_STAL                 ; Its address word first.
     LD   A,(RO_OTYPE)              ; Its type's
     CALL GX_SIZE                   ; size:
     LD   DE,GX_DSTA                ; a byte for the frame,
     LD   BC,$3200                  ; or LD (nn),A,
-    JR   C,GA_ACC                  ; for a byte;
+            JR   C,GA_ACC                  ; for a byte;
     JR   NZ,GA_STF                 ; a long as a File;
     LD   DE,GX_DSTHL               ; a word for the frame,
-    LD   B,$22                     ; or LD (nn),HL.
-
+    LD   B,$22                     ; or LD (nn),HL; fall into GA_ACC.
 ;@ROUTINE IN B,C,DE OUT ZERO CLOBBERS A,BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
 ; Append an access to the scalar at the place: opcode B with an operand
 ; referring to a static place; frame access DE (GENEXPR.ASM) for a frame
@@ -274,10 +277,66 @@ GA_QUAD:                       ; B, C and DE are the forms.
     LD   BC,(RO_PBASE)             ; to the blob.
     JP   GX_ABSD                   ; Append it and return.
 
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Store the registers, of type RO_OTYPE, through an alias place
+; (storeRegisters): the value is kept while the address word is loaded,
+; LD L,(IX+n), LD H,(IX+n+1), and the bytes on are added (GA_ADDC): a
+; byte, then LD (HL),A; a word, EX DE,HL first, then LD (HL),E, INC HL,
+; LD (HL),D, or with more than three bytes on, which go through DE, PUSH
+; HL first and POP DE before; a long, PUSH DE, PUSH HL first, then POP DE
+; and the low word, INC HL, POP DE and the high word.
+
+GA_STAL:                       ; The value is in the registers.
+    LD   A,(RO_OTYPE)              ; Its size:
+    CALL GX_SIZE                   ; a byte
+    JR   C,.ADDR                   ; is in A;
+    JR   NZ,.LONG                  ; a word
+    LD   HL,(RO_PADD)              ; with
+    LD   A,H                       ; at most
+    OR   A                         ; three
+    JR   NZ,.FAR                   ; bytes
+    LD   A,L                       ; on
+    CP   4                         ; goes
+    JR   NC,.FAR                   ; to DE:
+    CALL EM_OP                     ; EX DE,HL;
+    DB   $EB                       ; then
+    CALL .ADDR                     ; the address,
+    CALL EM_SEQ                    ; LD (HL),E, INC HL, LD (HL),D.
+    DB   3,$73,$23,$72             ; Stored.
+    RET                            ; Done.
+.FAR:                          ; A word beyond:
+    CALL GX_PUSHW                  ; PUSH HL, two bytes pushed;
+    CALL .ADDR                     ; the address,
+    CALL EM_SEQ                    ; POP DE, LD (HL),E, INC HL, LD (HL),D,
+    DB   4,$D1,$73,$23,$72         ; stored;
+    JP   EM_POP2                   ; two bytes popped; return.
+.LONG:                         ; Four bytes:
+    LD   A,$D5                     ; PUSH DE,
+    CALL GX_PUSHA                  ; PUSH HL,
+    CALL GX_PUSHW                  ; four bytes pushed;
+    CALL .ADDR                     ; the address, then the low word,
+    CALL EM_SEQ                    ; INC HL, POP DE, the high word:
+    DB   9,$D1,$73,$23,$72,$23,$D1,$73,$23,$72 ; POP DE, LD (HL),E, INC HL...
+    LD   A,4                       ; four bytes
+    JP   EM_POP                    ; popped; return.
+.ADDR:                         ; LD L,(IX+n), LD H,(IX+n+1),
+    LD   HL,(RO_PBASE)             ; the alias's
+    LD   A,SY_U16                  ; address
+    CALL GX_FLOAD                  ; word,
+    LD   HL,(RO_PADD)              ; and the bytes
+    CALL GA_ADDC                   ; on.
+    LD   A,(RO_OTYPE)              ; A byte
+    CALL GX_SIZE                   ; is
+    RET  NC                        ; stored
+    LD   A,$77                     ; by LD (HL),A.
+    JP   EM_BYTE                   ; Appended; return.
+
+
 ;@ROUTINE IN D,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Address an element of the array RO_OTYPE at a run-time index
 ; (indexArray): the index, metadata D and value HL, into HL as a u16;
-; LD DE,length, OR A, SBC HL,DE, CALL NC,TRAP_BND, ADD HL,DE (boundsCheck);
+; LD DE,length, or an open array's word, LD E,(IX+n+2), LD D,(IX+n+3),
+; then OR A, SBC HL,DE, CALL NC,TRAP_BND, ADD HL,DE (boundsCheck);
 ; the index scaled by the element's size (GA_SCALE); then the base's
 ; address, pushed already when RO_PPUSH says so, otherwise addressed now
 ; with the scaled index pushed meanwhile; POP DE, ADD HL,DE. The place is
@@ -286,7 +345,18 @@ GA_QUAD:                       ; B, C and DE are the forms.
 GA_ITEM:                       ; D and HL are the index.
     LD   E,SY_U16                  ; The index
     CALL GX_TOREG                  ; into HL as a word.
-    LD   A,(RO_OTYPE)              ; The array's
+    LD   A,(RO_OTYPE)              ; An open array's
+    SUB  AG_OPEN                   ; element
+    JR   C,.FIXED                  ; is its ID's
+    PUSH AF                        ; rest:
+    LD   HL,(RO_PBASE)             ; its word
+    INC  HL                        ; above
+    INC  HL                        ; its address,
+    LD   DE,GX_DLDDE               ; into DE
+    CALL GX_FACC                   ; (ixWord).
+    JR   .CHECK                    ; Check the index.
+.FIXED:                        ; An array's
+    LD   A,(RO_OTYPE)              ; type's
     CALL AG_DESC                   ; descriptor:
     INC  HL                        ; its element type
     LD   A,(HL)                    ; is kept,
@@ -297,6 +367,7 @@ GA_ITEM:                       ; D and HL are the index.
     LD   D,(HL)                    ; high byte.
     EX   DE,HL                     ; The length:
     CALL GA_LDDE                   ; LD DE,length.
+.CHECK:                        ; DE is the bound; the element type stacked.
     CALL EM_SEQ                    ; OR A, SBC HL,DE:
     DB   3,$B7,$ED,$52             ; no borrow when the index is past it,
     LD   A,$D4                     ; so CALL NC

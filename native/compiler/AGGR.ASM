@@ -57,6 +57,20 @@ AG_DESC:
     ADD  HL,DE                     ; Address the descriptor.
     RET                            ; Return it in HL.
 
+;@ROUTINE IN A OUT CARRY CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
+; Carry when type A is a view, an open string or an open array, a
+; parameter type only. A is kept.
+
+AG_ISVW:                       ; A is the type.
+    CP   AG_VIEW                   ; An open string
+    SCF                            ; is
+    RET  Z                         ; one;
+    CP   AG_OPEN                   ; below the open arrays
+    CCF                            ; nothing
+    RET  NC                        ; is,
+    CP   AG_OLIM                   ; nor above them.
+    RET                            ; Carry for an open array.
+
 ;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE
 ; Address the extent word of dynamic type ID A in HL. A returns twice the
 ; table index.
@@ -185,11 +199,21 @@ AG_FITRW:
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_DATA                   ; Diagnostic: program data too large.
 
+;@ROUTINE IN A OUT CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; Refuse a view, type A, where only a parameter may have one
+; (refuseOpenView): type-mismatch at the type's first token (AG_TPOS). A
+; is kept.
+
+AG_NOVW:                       ; A is the type.
+    CALL AG_ISVW                   ; A view?
+    RET  NC                        ; No; otherwise refused.
+
 ; Failure exits shared with the type and declaration actions. None returns.
 
-AG_EVIEW:                      ; An open string where it can't be.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_CLASH                  ; Diagnostic: a parameter type only.
+AG_EVIEW:                      ; A view where it can't be.
+    LD   A,DG_CLASH                ; type-mismatch,
+    LD   HL,AG_TPOS                ; at the type.
+    JP   DG_AT                     ; No return.
 AG_EWIDE:                      ; An extent past 65,535 bytes.
     CALL DG_RAISE                  ; Report it.
     DB   DG_RANGE                  ; Diagnostic: out-of-range.

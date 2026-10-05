@@ -37,5 +37,6 @@ HP_LSHL EQU  $0233             ; SHL32: ordinal $33, 2 bytes of stack.
 HP_LSHRU EQU  $0234            ; SHR32U: ordinal $34, 2 bytes of stack.
 HP_LSHRS EQU  $0235            ; SHR32S: ordinal $35, 2 bytes of stack.
 HP_ASSRT EQU  $0214            ; TRAP_AST: ordinal $14, 2 bytes of stack.
+HP_SETL EQU  $0419             ; STR_SETL: ordinal $19, 4 bytes of stack.
 HP_VER EQU  1                  ; The helper-table version compiled in.
 HP_KEY EQU  $5524              ; Its interface key.

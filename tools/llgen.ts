@@ -5,7 +5,8 @@
  *
  * The JSON holds the productions, with `a:` semantic actions and `x:`
  * islands (hand-written parsers) among the grammar symbols; the island's
- * FIRST sets (`externals`); the token kind of each terminal; the
+ * FIRST sets (`externals`, "Empty" among them for an island that may
+ * consume nothing); the token kind of each terminal; the
  * diagnostic of each nonterminal; the routine of each action, in ordinal
  * order; and the equates other modules read. The generator computes the
  * FIRST and FOLLOW sets, the prediction rows, which must be LL(1), and
@@ -82,8 +83,11 @@ export function buildTables(g: GrammarFile): Tables {
     for (const s of seq) {
       if (s.startsWith("a:")) continue;
       if (s.startsWith("x:")) {
-        for (const t of g.externals[actionName(s)]) set.add(t);
-        return { set, empty: false };
+        // An island whose FIRST set lists "Empty" may consume nothing.
+        const island = g.externals[actionName(s)];
+        for (const t of island) if (t !== "Empty") set.add(t);
+        if (!island.includes("Empty")) return { set, empty: false };
+        continue;
       }
       if (!isRow(s)) {
         set.add(s);

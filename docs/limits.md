@@ -123,13 +123,13 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | String literals in one routine | 16 (`RO_LCAP`), each placed after the routine's need word; `DG_LITS` (Error 190, `literals`) beyond | measured at step 68 |
 | Dimensions of one array type | 8 (`AG_DCAP`); `DG_META` (Error 190, `types`) beyond | the type descriptors of step 67 |
 | One array type or object | 1,024 bytes (`AG_ICAP`), the initializer staging, even without an initializer; `DG_DATA` beyond | writing initializers to the blob as they are parsed |
-| Constructs compiled | those of the claimed programs of 65.4 and step 67 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 191, `native-unsupported`), among them the type `f32`, a counted loop whose bound or step is 32-bit and whose counter is narrower (the reference's `NotImplemented` too), `File` fields, elements, results and program-variable initializers, `var` parameters, `assert` statements, and an aggregate constant declared in a routine's body (its rodata blob would begin inside the routine's) | step 67 |
+| Constructs compiled | those of the claimed programs of 65.4 and step 67 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 191, `native-unsupported`), among them the type `f32`, a counted loop whose bound or step is 32-bit and whose counter is narrower (the reference's `NotImplemented` too), `File` fields, elements, results and program-variable initializers, and an aggregate constant declared in a routine's body (its rodata blob would begin inside the routine's) | step 67 |
 | `File` values | `console`, `printer`, a service's result or a File variable, and only where a File is expected (an argument, an assignment, a File local's initializer); a File as an operand, as in `x = f + 1`, is refused (`type-mismatch`, Error 41, as the reference refuses it) | step 67 |
 | `BLINK.COM` when `BASIE` chains to it | must end below the loader `BASIE` leaves under the BDOS entry, 77 bytes with its FCB; `BLINK` is 10.6K | — |
 | Option `T`, trap lookup (toolchain §8) | read and checked, then refused as not yet available | a later step |
 | Floating-point literals | refused (`DG_NYI`, Error 191) | the decimal-to-`f32` overlay (toolchain §7.3) |
 | Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; six today: `COMMAND` 978 bytes, `START` 544, `NAMES` 947, `CHAIN` 285, `DIAG` 970 and `PARTS` 884, each loaded into the overlay area when needed | — |
-| Overlay area | 1,024 bytes after the 17,367-byte resident image, the largest overlay in whole records; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
+| Overlay area | 1,024 bytes after the 18,165-byte resident image, the largest overlay in whole records; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
 | A name in a diagnostic | its first 32 characters (`DG_ALEN`) | — |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)

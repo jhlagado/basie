@@ -1,0 +1,45 @@
+// var parameters run (67e): each result is checked, and the narrowing at
+// the end traps only when every one is right.
+include "STRINGS.BSI"
+
+record Acc
+    total as u16
+    count as u8
+end
+
+var check as u16
+var out as u8
+
+sub add(var a as Acc, v as u16)
+    a.total = a.total + v
+    a.count = a.count + 1
+end
+
+sub addAll(var a as Acc, vs as u16[])
+    var i as u16
+    for i = 0 until vs.length
+        add(a, vs[i])
+    end
+end
+
+sub main() fails
+    var acc as Acc
+    var vs as u16[4] = [10, 20, 30, 40]
+    var s as string[16]
+    var t as string[16]
+    addAll(acc, vs)
+    check = acc.total - 100 + u16(acc.count) - 4
+    append(s, "Basie") else fail
+    appendByte(s, '!') else fail
+    check = check + u16(s.length) - 6
+    copyFrom(t, s, 1, 3) else fail
+    toUpper(t)
+    if not equal(t, "ASI")
+        check = check + 1
+    end
+    check = check + find(s, "si") - 2
+    clear(s)
+    check = check + u16(s.length)
+    assert check = 0
+    out = u8(256 - check)
+end

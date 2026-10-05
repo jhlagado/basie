@@ -9,18 +9,18 @@
 ;  from MM_WBASE ($5000).
 ;
 ;    Offset  Size  Block
-;    +$BF0     44  routine state: counts, the signature being parsed, the
+;    +$BF3     56  routine state: counts, the signature being parsed, the
 ;                  body's block, the declaration's part and visibility,
-;                  the private symbols, the call being checked and the
-;                  path in hand (RO_BASE)
-;    +$C1C    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$D9C    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$E9C     96  the routine's string literals: 16 of six bytes (RO_LTAB)
-;    +$EFC      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;                  the private symbols, the from parameters, the call
+;                  being checked and the path in hand (RO_BASE)
+;    +$C2B    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$DAB    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$EAB     96  the routine's string literals: 16 of six bytes (RO_LTAB)
+;    +$F0B      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE)
-;    +$F01      2  PR_SP, the stack DG_ISSUE restores
-;    +$F03     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$F44         LL_WEND, the end of the compiler workspace, 3,908 bytes
+;    +$F10      2  PR_SP, the stack DG_ISSUE restores
+;    +$F12     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$F53         LL_WEND, the end of the compiler workspace, 3,923 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
@@ -38,7 +38,7 @@
 ;    +3  byte  RO_RPIDX  parameter record of its first parameter
 ;    +4  byte  RO_RPCNT  number of parameters
 ;    +5  byte  RO_RTYPE  result type ordinal, zero for none
-;    +6  byte  RO_RFLAG  RO_FFAIL, RO_FOPEN and RO_FFWD
+;    +6  byte  RO_RFLAG  RO_FFAIL, RO_FOPEN, RO_FFWD, RO_FVRES and RO_FPRIV
 ;    +7  word  RO_RORD   its blob's ordinal
 ;    +9  word  RO_RNEED  its need, zero until its body is complete
 ;    +11 byte  RO_RARGS  the bytes of its arguments, which RETN removes
@@ -53,7 +53,7 @@
 ;  appended in order, so a routine's are RO_RPCNT records from RO_RPIDX:
 ;    +0 word  RO_PNAME  address of the name in the source
 ;    +2 byte  RO_PNLEN  length of the name
-;    +3 byte  RO_PTYPE  type ordinal
+;    +3 byte  RO_PTYPE  type ordinal, AG_VAR for a var parameter
 ;  RO_ENROL appends one; RO_BIND, RO_DISP and RO_CALL read them through
 ;  RO_PARAM.
 ;
@@ -92,20 +92,24 @@ RO_BODY EQU  RO_BASE+$11       ; Byte: the body's first symbol plus one, zero ou
 AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
 AC_PRIV EQU  RO_BASE+$13       ; Byte: nonzero while a private declaration is parsed.
 SY_PRIV EQU  RO_BASE+$14       ; SY_CAP/8 bytes: a bit for each private symbol.
+RO_FROM EQU  SY_PRIV+SY_CAP/8  ; 8 bytes: a bit for each of RO_PCAP parameters, in from.
+RO_VARP EQU  RO_FROM+8         ; Byte: nonzero for a var parameter being parsed.
+RO_CRO EQU  RO_VARP+1          ; Byte: nonzero when the last call's result is read-only.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's
 ; Designator holds them, and the position of the index being parsed. The
-; fourteen bytes are kept on the machine stack across a nested parse.
-RO_PLACE EQU  SY_PRIV+SY_CAP/8 ; First byte of the path's block.
+; sixteen bytes are kept on the machine stack across a nested parse.
+RO_PLACE EQU  RO_CRO+1         ; First byte of the path's block.
 RO_PKIND EQU  RO_PLACE+0       ; Byte: GA_BLOB, GA_FRAME, GA_ALIAS or GA_HELD.
 RO_PRO EQU  RO_PLACE+1         ; Byte: nonzero when the path is read-only.
 RO_PBASE EQU  RO_PLACE+2       ; Word: a static place's blob, an alias's word at IX+n.
 RO_PADD EQU  RO_PLACE+4        ; Word: bytes on from the base, or a frame place's offset.
 RO_OTYPE EQU  RO_PLACE+6       ; Byte: type of the path, operand or parameter in hand.
-RO_PPUSH EQU  RO_PLACE+7       ; Byte: nonzero when an index's computed base is pushed.
+RO_PPUSH EQU  RO_PLACE+7       ; Byte: bit 0 a computed base pushed, 1 a string, 2 s.length.
 RO_IPOS EQU  RO_PLACE+8        ; Word: the offset of the index's first token.
 RO_PROOT EQU  RO_PLACE+10      ; Word: the root's symbol record, for its name.
-RO_PWORD EQU  6                ; Words in the block, RO_PLACE to RO_STEND.
-RO_STEND EQU  RO_PLACE+12      ; End of the routine state; the tables follow.
+RO_POWN EQU  RO_PLACE+12       ; Word: the root's owner word at IX+n, or zero.
+RO_PWORD EQU  7                ; Words in the block, RO_PLACE to RO_STEND.
+RO_STEND EQU  RO_PLACE+14      ; End of the routine state; the tables follow.
 GA_BLOB EQU  0                 ; Place: static, in a blob.
 GA_FRAME EQU  1                ; Place: the frame, at IX+offset.
 GA_ALIAS EQU  2                ; Place: through an address word in the frame.
@@ -163,5 +167,6 @@ RO_FFAIL EQU  1                ; Routine flag: it can fail.
 RO_FMAIN EQU  2                ; Routine flag: it is main.
 RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body.
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
+RO_FVRES EQU  $10              ; Routine flag: its aggregate result is var.
 RO_FPRIV EQU  $20              ; Routine flag: private, hidden when its part ends.
 

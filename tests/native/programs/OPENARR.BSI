@@ -1,0 +1,61 @@
+// Open arrays and open strings (67e): T[] parameters taking arrays of
+// their element type and open arrays passed on, var or not; .length,
+// elements at run-time and constant indexes, checked at run time; arrays
+// of arrays and records as elements; s.length set through STR_SETL, a
+// var string[]'s characters and capacity; a u8[] for a service.
+record Pair
+    k as u8
+    v as i16
+end
+
+sub sum(a as u16[]) as u16
+    var t as u16 = 0
+    var i as u16
+    for i = 0 until a.length
+        t = t + a[i]
+    end
+    return t + a[1]
+end
+
+sub bump(var a as u16[])
+    a[0] = a[0] + sum(a)
+end
+
+sub pairs(var p as Pair[], k as u8)
+    var i as u16
+    for i = 0 until p.length
+        p[i].k = k
+        p[i].v = -i16(i)
+    end
+end
+
+sub grid(var g as u8[][3]) as u8
+    g[1][2] = 9
+    return g[g.length - 1][0]
+end
+
+sub chop(var s as string[], n as u8)
+    if n < s.length
+        s.length = n
+    end
+    s[0] = u8(s.capacity)
+end
+
+sub reads(f as File, var buf as u8[]) as u16 fails
+    var n = readBlock(f, buf, 4) else fail
+    return n
+end
+
+sub main() fails
+    var w as u16[5] = [1, 2, 3, 4, 5]
+    var ps as Pair[4]
+    var gr as u8[2][3]
+    var line as string[12] = "hello"
+    var bytes as u8[8]
+    var t as u16 = sum(w)
+    bump(w)
+    pairs(ps, 7)
+    var c as u8 = grid(gr)
+    chop(line, 2)
+    var n = reads(console, bytes) else fail
+end

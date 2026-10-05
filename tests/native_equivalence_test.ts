@@ -63,6 +63,12 @@ const CONFORMANCE: Record<string, string> = {
   BYTEWORD: "tests/conformance/types/byte-to-word-conversion.bsi",
   SAMETYPE: "tests/conformance/types/same-type-conversion.bsi",
   LOOPTR32: "tests/conformance/statements/loop-range-traps-32.bsi",
+  FROMCL: "tests/conformance/statements/from-clause.bsi",
+  FARFIELD: "tests/conformance/statements/var-parameter-far-field.bsi",
+  ASSERTT: "tests/conformance/statements/assert-traps.bsi",
+  TXTCON: "tests/conformance/library/text-console.bsi",
+  TRUNCREF: "tests/conformance/library/truncate-refuses.bsi",
+  DIRECTRY: "tests/conformance/services/directory.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -151,6 +157,18 @@ const CLAIMED: Record<string, string[]> = {
     "LSEEK",
     "SAMETYPE",
     "LOOPTR32",
+  ],
+  "67e: var parameters, open arrays, from clauses and assert": [
+    "VARPARM",
+    "OPENARR",
+    "ASSERTS",
+    "RUNVAR",
+    "FROMCL",
+    "FARFIELD",
+    "ASSERTT",
+    "TXTCON",
+    "TRUNCREF",
+    "DIRECTRY",
   ],
 };
 
@@ -273,8 +291,8 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
 // variables, fields and elements, signed and wide exact constants,
 // shifts and conversions to every byte and word type, and (67b) with u32
 // and i32 variables, parameters, fields and constants and conversions to
-// them: each compiles to
-// the reference's streams, or both compilers refuse it, with the same
+// them, and (67e) with the aggregates var parameters, fixed or open: each
+// compiles to the reference's streams, or both compilers refuse it, with the same
 // diagnostic at the same place. The generator is deterministic, so a
 // failure names a statement that can be rerun.
 Deno.test("c to i: random expressions compile as the reference compiles them", async () => {
@@ -391,6 +409,17 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
       `${record}${consts}sub main()\nvar z as u8 = 1\nz = z + 1\n${names}${objects}`,
       "",
     ],
+    // (67e) The aggregates are var parameters, then open views.
+    [
+      `${record}${consts}sub run(var r as rec, var arr as u8[4], ` +
+      `var wds as u16[3], var s as string[5], var sarr as i8[2])\n${names}`,
+      `sub main()\n${objects}run(r, arr, wds, s, sarr)\nend\n`,
+    ],
+    [
+      `${record}${consts}sub run(var r as rec, var arr as u8[], ` +
+      `var wds as u16[], var s as string[], var sarr as i8[])\n${names}`,
+      `sub main()\n${objects}run(r, arr, wds, s, sarr)\nend\n`,
+    ],
   ];
   for (let i = 0; i < 300; i++) {
     const [head, tail] = heads[i % heads.length];
@@ -488,6 +517,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67a: include and private"],
     ...CLAIMED["67b: signed bytes and words, shifts and exact values"],
     ...CLAIMED["67b: 32-bit values, counters and file positions"],
+    ...CLAIMED["67e: var parameters, open arrays, from clauses and assert"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -533,9 +563,13 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
         "RUNLONG",
         "LSEEK",
         "SAMETYPE",
+        "RUNVAR",
       ].includes(name)
     ) {
       assertEquals(/^TRAP narrowing/.test(expected), true);
+    }
+    if (name === "ASSERTT") {
+      assertEquals(/^TRAP assertion/.test(expected), true);
     }
     if (["LOOPTRAP", "LOOPTR32"].includes(name)) {
       assertEquals(/^TRAP loop-range/.test(expected), true);
@@ -827,6 +861,58 @@ const REFUSED: Record<string, string> = {
     "var w as u16\nvar l as u32\nsub main()\nw = l\nend\n",
   "a u32 exact sum beyond its range":
     "var l as u32\nsub main()\nl = 4294967295 + 1\nend\n",
+  "var on a u8 parameter": "sub f(var n as u8)\nend\nsub main()\nend\n",
+  "var on a File parameter": "sub f(var n as File)\nend\nsub main()\nend\n",
+  "a from clause naming no parameter":
+    "sub f(a as u8[4]) as u8 from b\nreturn 1\nend\nsub main()\nend\n",
+  "a from clause naming a scalar parameter":
+    "sub f(a as u8) as u8 from a\nreturn 1\nend\nsub main()\nend\n",
+  "a from clause without a name":
+    "sub f() as u8 from\nreturn 1\nend\nsub main()\nend\n",
+  "a name in place of from":
+    "sub f() as u8 fromx a\nreturn 1\nend\nsub main()\nend\n",
+  "a result rooted in a parameter outside from":
+    "record R\na as u8\nend\nsub f(a as R, b as R) as R from a\nreturn b\nend\nsub main()\nend\n",
+  "a constant passed to a var parameter":
+    "record R\na as u8\nend\nconst k as R = (1)\nsub h(var r as R)\nend\nsub main()\nh(k)\nend\n",
+  "a read-only parameter passed to a var parameter":
+    "record R\na as u8\nend\nsub h(var r as R)\nend\nsub g(r as R)\nh(r)\nend\nsub main()\nend\n",
+  "a read-only call result passed to a var parameter":
+    "record R\na as u8\nend\nvar v as R\nsub f() as R\nreturn v\nend\nsub h(var r as R)\nend\nsub main()\nh(f())\nend\n",
+  "an open string assigned whole":
+    'sub h(var s as string[])\ns = "abc"\nend\nsub main()\nend\n',
+  "an open array assigned whole":
+    "sub h(var a as u8[], b as u8[])\na = b\nend\nsub main()\nend\n",
+  "a literal passed to a user's var string[]":
+    'sub h(var s as string[])\nend\nsub main()\nh("abc")\nend\n',
+  "a literal passed to an open array":
+    'sub h(a as u8[])\nend\nsub main()\nh("abc")\nend\n',
+  "an open dimension inside": "sub h(a as u8[3][])\nend\nsub main()\nend\n",
+  "two open dimensions": "sub h(a as u8[][])\nend\nsub main()\nend\n",
+  "a u8 array passed as a u16[]":
+    "sub h(a as u16[])\nend\nsub main()\nvar b as u8[4]\nh(b)\nend\n",
+  "a fixed string's length assigned":
+    "sub h(var s as string[10])\ns.length = 2\nend\nsub main()\nend\n",
+  "a read-only open string's length assigned":
+    "sub h(s as string[])\ns.length = 2\nend\nsub main()\nend\n",
+  "an open array's length assigned":
+    "sub h(var a as u8[])\na.length = 2\nend\nsub main()\nend\n",
+  "an open array's field other than length":
+    "sub h(a as u8[])\nvar n as u16 = a.size\nend\nsub main()\nend\n",
+  "an open array local": "sub main()\nvar a as u8[]\nend\n",
+  "an open array program variable": "var a as u8[]\nsub main()\nend\n",
+  "an open array field": "record R\na as u8[]\nend\nsub main()\nend\n",
+  "an open array result": "sub f() as u8[]\nend\nsub main()\nend\n",
+  "an open array local inferred":
+    "sub h(a as u8[])\nvar b = a\nend\nsub main()\nend\n",
+  "a certainly false assert": "sub main()\nassert false\nend\n",
+  "an assert of a number": "sub main()\nassert 5\nend\n",
+  "an assert of a u8": "var x as u8\nsub main()\nassert x\nend\n",
+  "a failable call in an assert":
+    "sub f() as boolean fails\nreturn true\nend\nsub main()\nassert f()\nend\n",
+  "an assert with more after it":
+    "var x as u8\nsub main()\nassert x = 3 x\nend\n",
+  "an assert of nothing": "sub main()\nassert\nend\n",
 };
 
 /** The code of a message number, from the message table. */

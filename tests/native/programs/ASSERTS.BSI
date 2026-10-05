@@ -1,0 +1,32 @@
+// assert statements and from clauses (67e): a known true condition
+// generates nothing, a computed one OR A and CALL Z,TRAP_AST; a result
+// rooted in a parameter its from clause names, of several.
+record Item
+    value as u8
+end
+
+const ready = true
+
+sub pick(items as Item[4], spare as Item, index as u8) as Item from items, spare
+    if index > 3
+        return spare
+    end
+    return items[index]
+end
+
+sub main()
+    var list as Item[4]
+    var other as Item
+    var n as u8 = 2
+    assert ready
+    assert n = 2 and list[1].value = 0
+    list[2].value = 'K'
+    assert pick(list, other, n).value = 'K'
+    if n > 1
+        assert not (n = 9)
+    end
+    while n < 5
+        assert n < 5
+        n = n + 1
+    end
+end

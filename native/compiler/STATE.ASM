@@ -24,9 +24,9 @@
 ;                  stack
 ;    +$567    146  control: depth, fallthrough, eight frames of eighteen
 ;                  bytes
-;    +$5F9   1527  aggregate types, records, fields, array bounds, the
+;    +$5F9   1530  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$BF0         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$BF3         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -213,20 +213,22 @@ AG_LEVEL EQU  AG_BASE+$04      ; Byte: initializer nesting depth.
 ; Nonzero once an explicit initializer has supplied at least one value. The
 ; value is a Boolean allocation choice, not a retained element count.
 AG_GIVEN EQU  AG_BASE+$05      ; Byte: an initializer value was given.
-AG_CTYPE EQU  AG_BASE+$06      ; Byte: type ID of the current object.
-AG_CFIDX EQU  AG_BASE+$07      ; Byte: first field of the current record.
-AG_CFCNT EQU  AG_BASE+$08      ; Byte: fields of the current record.
-AG_CSIZE EQU  AG_BASE+$09      ; Word: extent of the current record.
-AG_OPOS EQU  AG_BASE+$0B       ; Word: offset reached in the object.
-AG_OSIZE EQU  AG_BASE+$0D      ; Word: extent of the current object.
-AG_NKIND EQU  AG_BASE+$0F      ; Byte: candidate descriptor's kind.
-AG_NAUX EQU  AG_BASE+$10       ; Byte: its element type or capacity.
-AG_NDIM EQU  AG_BASE+$11       ; Word: its element count or length.
-AG_NSIZE EQU  AG_BASE+$13      ; Word: its extent in bytes.
-AG_OEND EQU  AG_BASE+$15       ; Word: end of the current object.
+AG_OPENF EQU  AG_BASE+$06      ; Byte: nonzero once a type's `[]` is read.
+AG_CTYPE EQU  AG_BASE+$07      ; Byte: type ID of the current object.
+AG_CFIDX EQU  AG_BASE+$08      ; Byte: first field of the current record.
+AG_CFCNT EQU  AG_BASE+$09      ; Byte: fields of the current record.
+AG_CSIZE EQU  AG_BASE+$0A      ; Word: extent of the current record.
+AG_OPOS EQU  AG_BASE+$0C       ; Word: offset reached in the object.
+AG_OSIZE EQU  AG_BASE+$0E      ; Word: extent of the current object.
+AG_NKIND EQU  AG_BASE+$10      ; Byte: candidate descriptor's kind.
+AG_NAUX EQU  AG_BASE+$11       ; Byte: its element type or capacity.
+AG_NDIM EQU  AG_BASE+$12       ; Word: its element count or length.
+AG_NSIZE EQU  AG_BASE+$14      ; Word: its extent in bytes.
+AG_OEND EQU  AG_BASE+$16       ; Word: end of the current object.
+AG_TPOS EQU  AG_BASE+$18       ; Word: the offset of the type's first token.
 ; The bounds of a type's array dimensions, outermost first, kept until the
 ; type is complete and built from the innermost (AC_DIM, AC_ARRAY).
-AG_DSTK EQU  AG_BASE+$17       ; AG_DCAP words: the bounds.
+AG_DSTK EQU  AG_BASE+$1A       ; AG_DCAP words: the bounds.
 AG_DCAP EQU  8                 ; Dimensions of one array type; DG_BOUND beyond.
 AG_STEND EQU  AG_DSTK+2*AG_DCAP ; End of the aggregate scalars.
 
@@ -374,6 +376,8 @@ DG_FALSE EQU  45               ; assertion-false.
 DG_EMPTY EQU  48               ; empty-record.
 DG_KNOWN EQU  51               ; not-constant.
 DG_NOCVT EQU  53               ; conversion-unavailable.
+DG_VARP EQU  54                ; var-parameter: var on a scalar or File.
+DG_FROM EQU  55                ; from-clause: no aggregate parameter.
 DG_MIXED EQU  70               ; mixed-operands.
 DG_CHAIN EQU  71               ; chained-comparison.
 DG_INDEX EQU  72               ; index-type.
@@ -474,6 +478,8 @@ SY_PARAM EQU  $30              ; Class: a parameter of the current routine.
 SY_CMASK EQU  $30              ; Mask of the class bits.
 SY_TYPE EQU  $40               ; Symbol flag: the name is a record type.
 SY_AGGR EQU  $80               ; Symbol flag: the object is an aggregate.
+SY_PFROM EQU  1                ; Aggregate parameter flag: named in from.
+SY_PVAR EQU  2                 ; Aggregate parameter flag: var, writable.
 SY_RTYPE EQU  SY_TYPE          ; Information byte of a record type name.
 SY_AGLOB EQU  SY_AGGR+SY_GLOB  ; Information byte of an aggregate variable.
 
@@ -489,9 +495,13 @@ AG_KARR EQU  6                 ; Descriptor kind: array.
 ; and with it clear the ID is AG_VIEW for a string, AG_BUF for a u8 array.
 AG_FILE EQU  $79               ; Type ID of File.
 AG_BUF EQU  $7A                ; Type ID of a u8[] parameter (services).
-AG_VBUF EQU  $7B               ; Type ID of a var u8[] parameter (services).
 AG_VIEW EQU  $7C               ; Type ID of an open string parameter.
-AG_VVIEW EQU  $7D              ; Type ID of a var string[] parameter (services).
+; An open array, T[], a parameter type only, is AG_OPEN plus its element's
+; ID, $41 to $67. A parameter's type, a routine's or a service's, has bit
+; 7 (AG_VAR) set for a var parameter.
+AG_OPEN EQU  $40               ; Type ID of an open array of no element.
+AG_OLIM EQU  $68               ; Exclusive end of the open arrays' IDs.
+AG_VAR EQU  $80                ; Parameter type flag: var.
 
 ; Relation codes: EXPR.ASM keeps the pending comparison as one of them in
 ; EX_OPER, and the comparison templates (GENEXPR.ASM) select by it.

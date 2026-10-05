@@ -52,6 +52,7 @@ export const NATIVE_NAMES: Record<string, string> = {
   SHR32U: "HP_LSHRU",
   SHR32S: "HP_LSHRS",
   TRAP_AST: "HP_ASSRT",
+  STR_SETL: "HP_SETL",
 };
 
 const hex = (n: number, width: number) =>
@@ -165,8 +166,8 @@ function nativeType(type: string, isVar: boolean): string {
     u32: "SY_U32",
     boolean: "SY_BOOL",
     File: "AG_FILE",
-    "u8[]": isVar ? "AG_VBUF" : "AG_BUF",
-    "string[]": isVar ? "AG_VVIEW" : "AG_VIEW",
+    "u8[]": isVar ? "AG_BUF+AG_VAR" : "AG_BUF",
+    "string[]": isVar ? "AG_VIEW+AG_VAR" : "AG_VIEW",
   };
   const id = ids[type];
   if (!id) throw new Error(`no native type for ${type}`);

@@ -86,6 +86,7 @@
     "parameter-tail": "DiagnosticExpectedRight",
     "parameter": "DiagnosticExpectedName",
     "result-opt": "DiagnosticExpectedLine",
+    "result-var-opt": "DiagnosticExpectedType",
     "fails-opt": "DiagnosticExpectedLine",
     "routine-body": "DiagnosticExpectedStatement",
     "local-declaration": "DiagnosticExpectedVar",
@@ -108,6 +109,7 @@
     "type-atom": "DiagnosticExpectedType",
     "string-capacity": "DiagnosticExpectedScalar",
     "type-array-opt": "DiagnosticExpectedScalar",
+    "array-bound": "DiagnosticExpectedScalar",
     "scalar-type": "DiagnosticExpectedType"
   },
   "actions": {
@@ -125,6 +127,8 @@
     "CommitAggregateConstant": "AC_ROCMT",
     "BeginAssert": "AC_CLAIM",
     "CommitAssert": "AC_PROVE",
+    "BeginStatementAssert": "AC_ASSRT",
+    "CommitStatementAssert": "AC_TRUE",
     "SaveProgramType": "AC_VAR",
     "CommitProgramVariable": "AC_ALLOC",
     "BeginRecord": "AC_REC",
@@ -142,6 +146,9 @@
     "CommitParameter": "AC_JOIN",
     "AllowSubResult": "AC_GIVES",
     "SaveSubResult": "AC_GIVEN",
+    "MarkVarParameter": "AC_VARP",
+    "MarkVarResult": "AC_VARR",
+    "FromClause": "AC_FROM",
     "MarkSubFails": "AC_FAILS",
     "StrayClause": "AC_STRAY",
     "SaveLocalType": "AC_LOCAL",
@@ -183,12 +190,13 @@
     "BeginTypeBound": "AC_IDLE",
     "MakeStringType": "AC_STR",
     "MakeOpenStringType": "AC_OPEN",
+    "MakeOpenArrayType": "AC_OPENA",
+    "BeginType": "AC_TYPE0",
     "SaveArrayBound": "AC_DIM",
     "TypeScalar": "AC_TYPE",
     "MakeArrayTypes": "AC_ARRAY",
     "LocalInitializer": "AC_LINIT",
-    "InferredInitializer": "AC_INFER",
-    "NotYetCompiled": "TR_OPER"
+    "InferredInitializer": "AC_INFER"
   },
   "equates": {
     "GR_STMT": "statement",
@@ -198,6 +206,10 @@
     "GR_UNTIL": "ForUntil"
   },
   "externals": {
+    "FromClause": [
+      "TokenName",
+      "Empty"
+    ],
     "ConstantExpression": [
       "TokenNumber",
       "TokenCharacter",
@@ -557,7 +569,12 @@
       "lhs": "parameter",
       "rhs": [
         "TokenVar",
-        "a:NotYetCompiled"
+        "a:MarkVarParameter",
+        "TokenName",
+        "a:RetainParameter",
+        "TokenAs",
+        "type",
+        "a:CommitParameter"
       ]
     },
     {
@@ -565,9 +582,22 @@
       "rhs": [
         "TokenAs",
         "a:AllowSubResult",
+        "result-var-opt",
         "type",
-        "a:SaveSubResult"
+        "a:SaveSubResult",
+        "x:FromClause"
       ]
+    },
+    {
+      "lhs": "result-var-opt",
+      "rhs": [
+        "TokenVar",
+        "a:MarkVarResult"
+      ]
+    },
+    {
+      "lhs": "result-var-opt",
+      "rhs": []
     },
     {
       "lhs": "result-opt",
@@ -696,8 +726,11 @@
     {
       "lhs": "statement",
       "rhs": [
+        "a:BeginStatementAssert",
         "TokenAssert",
-        "a:NotYetCompiled"
+        "x:RuntimeExpression",
+        "a:CommitStatementAssert",
+        "TokenNewline"
       ]
     },
     {
@@ -870,6 +903,7 @@
     {
       "lhs": "type",
       "rhs": [
+        "a:BeginType",
         "type-atom",
         "type-array-opt",
         "a:MakeArrayTypes"
@@ -915,6 +949,20 @@
       "lhs": "type-array-opt",
       "rhs": [
         "TokenLeftBracket",
+        "array-bound"
+      ]
+    },
+    {
+      "lhs": "array-bound",
+      "rhs": [
+        "TokenRightBracket",
+        "a:MakeOpenArrayType",
+        "type-array-opt"
+      ]
+    },
+    {
+      "lhs": "array-bound",
+      "rhs": [
         "a:BeginTypeBound",
         "x:ConstantExpression",
         "TokenRightBracket",

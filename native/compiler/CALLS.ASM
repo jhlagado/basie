@@ -97,10 +97,11 @@ RO_BACK:                       ; The block is RO_PWORD words.
 ; Begin a path at the current NAME, an aggregate symbol (DG_CLASH for any
 ; other), as the reference's designator does: a program variable or an
 ; aggregate constant is static, the constant read-only; a parameter is an
-; alias through its word in the frame, read-only (no parameter is var),
-; but a File parameter is its value in the frame, as a local is. RO_ESC
-; says whether the root is in the frame. A returns the type, also in
-; RO_OTYPE.
+; alias through its word in the frame, read-only unless var (SY_PVAR), a
+; var record's owner word above it (RO_POWN); but a File parameter is its
+; value in the frame, as a local is. RO_ESC says whether the root is in
+; the frame, a parameter the from clause names (SY_PFROM) counting as
+; outside it. A returns the type, also in RO_OTYPE.
 
 RO_ROOT:
     CALL RO_SYM                    ; A is the type, D the class, BC the payload.
@@ -112,7 +113,9 @@ RO_ROOT:
     LD   (RO_PROOT),HL             ; a diagnostic may give.
     POP  BC                        ; The payload again.
     LD   HL,0                      ; Nothing on
-    LD   (RO_PADD),HL              ; from it yet.
+    LD   (RO_PADD),HL              ; from it yet,
+    LD   (RO_POWN),HL              ; no owner word,
+    LD   (RO_PPUSH),HL             ; nothing pushed (RO_IPOS's low byte too).
     BIT  7,D                       ; SY_AGGR: an aggregate?
     JP   Z,EX_ETYPE                ; Raise DG_CLASH.
     LD   A,D                       ; The class
@@ -128,7 +131,32 @@ RO_ROOT:
     LD   A,(RO_OTYPE)              ; A File parameter
     CP   AG_FILE                   ; is a value
     JR   Z,.LOCAL                  ; in the frame too.
-    INC  E                         ; Another is read-only,
+    BIT  0,D                       ; SY_PFROM: named in from,
+    JR   Z,.OWNED                  ; its root
+    DEC  H                         ; may be returned.
+.OWNED:                        ; A is the type.
+    BIT  1,D                       ; SY_PVAR?
+    JR   NZ,.WRITE                 ; Then writable.
+    INC  E                         ; Another is read-only.
+    JR   .ALIAS                    ; An alias.
+.WRITE:                        ; A var parameter: a record's
+    CP   AG_OPEN                   ; owner word
+    JR   NC,.ALIAS                 ; (no view is a record)
+    PUSH HL                        ; follows
+    PUSH DE                        ; its
+    CALL AG_DESC                   ; address
+    LD   A,(HL)                    ; word.
+    POP  DE                        ; (E is kept.)
+    CP   AG_KREC                   ; A record?
+    JR   NZ,.NOOWN                 ; No.
+    LD   H,B                       ; The payload
+    LD   L,C                       ; plus
+    INC  HL                        ; two
+    INC  HL                        ; is
+    LD   (RO_POWN),HL              ; its offset.
+.NOOWN:                        ; RO_POWN is set.
+    POP  HL                        ; H is RO_ESC.
+.ALIAS:                        ; Through its word.
     LD   A,GA_ALIAS                ; an alias through its word.
     JR   .KIND                     ; Record it.
 .LOCAL:                        ; BC is the offset from IX.
@@ -174,14 +202,19 @@ RO_NAMED:
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse the selections from a call's aggregate result of type A, a path's
-; computed, read-only start: its address is in HL. A returns the path's
-; type.
+; computed start, read-only unless the callee's result is var (RO_CRO):
+; its address is in HL. A returns the path's type.
 
 RO_START:                      ; A is the result type.
     LD   (RO_OTYPE),A              ; The path's type.
     LD   A,GA_HELD                 ; Its address is in HL:
     LD   (RO_PKIND),A              ; computed,
-    LD   (RO_PRO),A                ; and read-only (nonzero); fall into RO_PATH.
+    LD   A,(RO_CRO)                ; and read-only
+    LD   (RO_PRO),A                ; unless var (RO_FVRES),
+    PUSH HL                        ; with
+    LD   HL,0                      ; no
+    LD   (RO_POWN),HL              ; owner word.
+    POP  HL                        ; Fall into RO_PATH.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse a path's selections (the reference's suffixes) after its start, the
@@ -207,10 +240,12 @@ RO_PATH:
     JR   Z,.NONE                   ; (no-such-field).
     CP   AG_VIEW                   ; An open string?
     JR   Z,.STRING                 ; Its length or capacity.
+    CP   AG_OPEN                   ; An open array?
+    JP   NC,.OPEN                  ; Its length.
     CALL AG_DESC                   ; HL addresses the descriptor.
     LD   A,(HL)                    ; Its kind.
     CP   AG_KREC                   ; A record?
-    JR   Z,RO_FIELD                ; Find the field.
+    JP   Z,RO_FIELD                ; Find the field.
     CP   AG_KSTR                   ; A string?
     JR   Z,.STRING                 ; Its length.
 .NONE:                         ; An array has no fields either.
@@ -224,22 +259,50 @@ RO_PATH:
     JR   C,.LENGTH                 ; The length byte.
     LD   A,(RO_OTYPE)              ; Only an open string
     CP   AG_VIEW                   ; has a capacity.
-    JR   NZ,RO_ENAME               ; Raise DG_UNDEF.
+    JP   NZ,RO_ENAME               ; Raise DG_UNDEF.
     LD   HL,KW_CAP                 ; The spelling "capacity".
     LD   B,8                       ; Its length.
     CALL TK_MATCH                  ; Is the name capacity?
-    JR   NC,RO_ENAME               ; Raise DG_UNDEF.
-    LD   HL,(RO_PBASE)             ; The view's capacity word
+    JP   NC,RO_ENAME               ; Raise DG_UNDEF.
+    LD   A,SY_U8                   ; Its low byte, a u8.
+.WORD:                         ; A is the type of the view's word:
+    LD   HL,(RO_PBASE)             ; the word
     INC  HL                        ; lies above
-    INC  HL                        ; its address word:
-    LD   (RO_PADD),HL              ; its low byte, in the frame.
-    LD   A,GA_FRAME                ; A frame
-    LD   (RO_PKIND),A              ; place.
-.LENGTH:                       ; The length is the string's first byte.
-    LD   A,SY_U8                   ; A u8,
-    LD   (RO_OTYPE),A              ; at the same place,
-    LD   (RO_PRO),A                ; and read-only: nonzero.
-    JR   RO_PATH                   ; Continue the path.
+    INC  HL                        ; its address word,
+    LD   (RO_PADD),HL              ; in the frame.
+    LD   HL,RO_PKIND               ; A frame
+    LD   (HL),GA_FRAME             ; place.
+    JR   .FIXED                    ; Read-only.
+.LENGTH:                       ; The length is the string's first byte:
+    LD   A,(RO_OTYPE)              ; a writable
+    CP   AG_VIEW                   ; open string's
+    JR   NZ,.BYTE                  ; is
+    LD   A,(RO_PRO)                ; set
+    OR   A                         ; through STR_SETL
+    JR   NZ,.BYTE                  ; (setLength),
+    LD   A,4                       ; RO_PPUSH
+    LD   (RO_PPUSH),A              ; bit 2;
+    LD   A,SY_U8                   ; a u8
+    LD   (RO_OTYPE),A              ; at the same place.
+    JP   RO_PATH                   ; Continue the path.
+.BYTE:                         ; Any other's
+    LD   A,SY_U8                   ; is a u8,
+.FIXED:                        ; read-only:
+    LD   (RO_OTYPE),A              ; type A,
+    LD   (RO_PRO),A                ; at the same place, nonzero.
+    JP   RO_PATH                   ; Continue the path.
+.OPEN:                         ; An open array's length:
+    LD   HL,(TK_POS)               ; (the dot's offset
+    PUSH HL                        ; kept)
+    CALL RO_NAME                   ; a name,
+    LD   HL,KW_LEN                 ; which must be
+    LD   B,6                       ; `length`,
+    CALL TK_MATCH                  ; else
+    POP  HL                        ; no-such-field
+    LD   A,DG_FIELD                ; at the dot;
+    JP   NC,DG_HERE                ; no return.
+    LD   A,SY_U16                  ; It is the view's word,
+    JP   .WORD                     ; a u16.
 
 ; Raise DG_FIELD at the selected name, which is no field of the type,
 ; naming it.
@@ -305,7 +368,8 @@ RO_FIELD:
 ; that the index cannot overwrite it; the path's block and the index's
 ; position are kept across the index, a u16 expression. A constant index
 ; into an array is checked now, at the index (DG_RANGE), and moves the
-; place on; anything else is checked at run time (GENAGGR.ASM).
+; place on; anything else, an open array's constant index too, is checked
+; at run time (GENAGGR.ASM).
 
 RO_INDEX:
     CALL PR_TAKE                   ; Consume the bracket.
@@ -317,13 +381,16 @@ RO_INDEX:
     LD   C,2                       ; Bit 1 of RO_PPUSH: a string.
     CP   AG_VIEW                   ; An open string
     JR   Z,.BASE                   ; is one.
+    CP   AG_OPEN                   ; An open array
+    JR   NC,.ARRAY                 ; is not.
     CALL AG_DESC                   ; HL addresses the descriptor.
     LD   A,(HL)                    ; Its kind:
     CP   AG_KREC                   ; a record
     JR   Z,.NOINDEX                ; cannot be indexed;
     CP   AG_KSTR                   ; a string
     JR   Z,.BASE                   ; is one,
-    LD   C,0                       ; an array is not.
+.ARRAY:                        ; an array
+    LD   C,0                       ; is not.
     JR   .BASE                     ; Index it.
 .NOINDEX:                      ; At the bracket.
     CALL DG_RAISE                  ; Raise the diagnostic below:
@@ -358,7 +425,10 @@ RO_INDEX:
     LD   HL,(EX_RVAL)              ; HL its value.
     LD   A,(RO_PPUSH)              ; A string's characters
     AND  2                         ; are checked against its length
-    JR   NZ,.CHAR                  ; at run time.
+    JR   NZ,.CHAR                  ; at run time,
+    LD   A,(RO_OTYPE)              ; as are
+    CP   AG_OPEN                   ; an open array's
+    JR   NC,.ITEM                  ; elements.
     BIT  7,D                       ; SY_KNOWN: a constant index?
     JR   Z,.ITEM                   ; No: checked at run time too.
     PUSH HL                        ; Keep it.
@@ -511,14 +581,14 @@ RO_ARGS:
 .ARG:                          ; Parse the next argument, if any.
     LD   A,E                       ; Any left?
     OR   A                         ; Zero when every one is parsed.
-    JR   Z,.CLOSE                  ; Then the call closes.
+    JP   Z,.CLOSE                  ; Then the call closes.
     PUSH HL                        ; Keep the types
     PUSH DE                        ; and the count across the peek.
     CALL PR_PEEK                   ; Does the call close
     POP  DE                        ; where
     POP  HL                        ; an argument
     CP   TK_RPAR                   ; is due?
-    JR   Z,.ARITY                  ; Too few arguments.
+    JP   Z,.ARITY                  ; Too few arguments.
     PUSH HL                        ; Keep the types
     PUSH DE                        ; and the count across the argument.
     LD   A,(HL)                    ; The parameter's type.
@@ -528,31 +598,62 @@ RO_ARGS:
     CALL GX_TOREG                  ; The value in the registers at type E.
     LD   A,E                       ; A word
     CALL GX_SIZE                   ; is pushed as it is;
-    JR   Z,.PUSH                   ; a long's high word first,
-    JR   NC,.LONG                  ; and a byte
+    JP   Z,.PUSH                   ; a long's high word first,
+    JP   NC,.LONG                  ; and a byte
     CALL GX_ZEXT                   ; widens, LD L,A, LD H,0.
-    JR   .PUSH                     ; Push the word.
+    JP   .PUSH                     ; Push the word.
 .LONG:                         ; A long:
     LD   A,$D5                     ; PUSH DE,
     CALL GX_PUSHA                  ; two bytes pushed.
-    JR   .PUSH                     ; Then the low word.
-.AGGR:                         ; A is the parameter's aggregate type.
-    CP   AG_FILE                   ; A File?
+    JP   .PUSH                     ; Then the low word.
+.AGGR:                         ; A is the parameter's type, AG_VAR for var.
+    LD   B,A                       ; Keep it.
+    AND  $7F                       ; Without AG_VAR:
+    CP   AG_FILE                   ; a File?
     JR   Z,.FILE                   ; Its value is passed.
-    JR   C,.ADDRESS                ; Below it, an aggregate's address.
-    CALL RO_VIEW                   ; A view: its word is pushed.
-    JR   .PUSH                     ; Then the address.
+    CP   AG_OPEN                   ; Below the views,
+    JR   C,.ADDRESS                ; an aggregate's address.
+    LD   A,B                       ; A view:
+    CALL RO_VIEW                   ; its word is pushed.
+    JP   .PUSH                     ; Then the address.
 .FILE:                         ; A File argument.
     CALL RO_FVAL                   ; Its value in DEHL.
     LD   A,$D5                     ; PUSH DE, the high word,
     CALL GX_PUSHA                  ; two bytes pushed.
-    JR   .PUSH                     ; Then the low word.
-.ADDRESS:                      ; An aggregate of type A.
-    PUSH AF                        ; Keep the type.
+    JP   .PUSH                     ; Then the low word.
+.ADDRESS:                      ; An aggregate of type A, B with AG_VAR.
+    PUSH BC                        ; Keep the parameter's type.
     CALL RO_AGGR                   ; A is the argument's type, HL its address.
-    POP  BC                        ; B is the parameter's.
-    CP   B                         ; The types must be the same,
+    POP  BC                        ; B is the parameter's,
+    LD   C,A                       ; C the argument's:
+    LD   A,B                       ; the types,
+    AND  $7F                       ; less AG_VAR,
+    CP   C                         ; must be the same,
     JP   NZ,EX_EFIT                ; else DG_CLASH at the argument.
+    BIT  7,B                       ; A var parameter
+    JR   Z,.PUSH                   ; takes
+    LD   A,(RO_PRO)                ; only a writable
+    OR   A                         ; argument,
+    LD   A,DG_CONST                ; else not-writable
+    JP   NZ,EX_EVAL                ; at it;
+    LD   A,C                       ; and a record
+    CALL AG_DESC                   ; its owner
+    LD   A,(HL)                    ; word
+    CP   AG_KREC                   ; first:
+    JR   NZ,.PUSH                  ; the root's,
+    LD   HL,(RO_POWN)              ; a var record
+    LD   A,H                       ; parameter's,
+    OR   L                         ; LD E,(IX+n),
+    JR   Z,.NOOWN                  ; LD D,(IX+n+1),
+    LD   DE,GX_DLDDE               ; HL kept
+    CALL GX_FACC                   ; (ixWord),
+    JR   .OWNER                    ; or
+.NOOWN:                        ; none:
+    CALL EM_SEQ                    ; LD DE,0;
+    DB   3,$11,0,0                 ; then
+.OWNER:                        ; PUSH DE,
+    LD   A,$D5                     ; two bytes
+    CALL GX_PUSHA                  ; pushed.
 .PUSH:                         ; The argument is in HL.
     CALL GX_PUSHW                  ; PUSH HL, pushed until the call returns.
     POP  DE                        ; The spacing and count.
@@ -561,14 +662,14 @@ RO_ARGS:
     LD   B,0                       ; is D bytes
     ADD  HL,BC                     ; on.
     DEC  E                         ; One fewer to parse.
-    JR   Z,.CLOSE                  ; That was the last.
+    JP   Z,.CLOSE                  ; That was the last.
     PUSH HL                        ; Keep the types
     PUSH DE                        ; and the count.
     LD   E,TK_COMMA                ; A comma separates arguments.
     CALL PR_NEED                   ; Consume it.
     POP  DE                        ; The count
     POP  HL                        ; and the types again.
-    JR   .ARG                      ; Parse the next argument.
+    JP   .ARG                      ; Parse the next argument.
 .ARITY:                        ; Too few or too many arguments.
     CALL DG_RAISE                  ; Abandon the build, at the token:
     DB   DG_ARITY                  ; arity.
@@ -586,7 +687,10 @@ RO_ARGS:
     PUSH AF                        ; is returned, so keep it.
     INC  HL                        ; Then its flags,
     LD   A,(HL)                    ; whether it can fail,
-    PUSH AF                        ; are kept too.
+    PUSH AF                        ; are kept too,
+    AND  RO_FVRES                  ; and whether
+    XOR  RO_FVRES                  ; its result
+    LD   (RO_CRO),A                ; is read-only.
     INC  HL                        ; Its ordinal.
     LD   E,(HL)                    ; DE is
     INC  HL                        ; the ordinal,
@@ -670,14 +774,16 @@ RO_FAILS:
 
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A view argument of type A (argument): AG_VIEW or AG_VVIEW for a string,
-; AG_BUF or AG_VBUF for an array of u8, the second of each var. A string
-; literal, for a string[] that is not var: LD DE,its length, PUSH DE, LD
-; HL,literal. Otherwise a path, rooted at a variable or constant (not a
-; call), and writable for a var view (DG_CONST): a string's, its address
-; into HL, then its capacity, LD DE,n for a declared string or the word of
-; an open string passed on, and PUSH DE; an array of u8's, its address
-; and LD DE,its length, PUSH DE. The address is pushed by the caller. A
+; A view argument of type A (argument): AG_VIEW for a string, an open
+; array's ID (AG_OPEN plus its element's) or AG_BUF, the services' u8[],
+; each with AG_VAR for var. A string literal, for a string[]
+; that is not var: LD DE,its length, PUSH DE, LD HL,literal. Otherwise a
+; path, rooted at a variable or constant (not a call), and writable for a
+; var view (DG_CONST): a string's, its address into HL, then its
+; capacity, LD DE,n for a declared string or the word of an open string
+; passed on, and PUSH DE; an array's of the view's element type, its
+; address and LD DE,its length, or an open array's of that type, passed
+; on with its word, PUSH DE. The address is pushed by the caller. A
 ; literal holds at most 253 bytes (DG_LONG); a literal for any other view
 ; is read-only (DG_CONST), and a path of another type raises DG_CLASH.
 
@@ -709,18 +815,18 @@ RO_VIEW:
     CALL RO_NAMED                  ; Parse the path; A is its type.
     POP  BC                        ; B is the view's type.
     LD   C,A                       ; C is the path's.
-    BIT  0,B                       ; A var view?
+    BIT  7,B                       ; A var view?
     JR   Z,.READ                   ; No: any path will do.
     LD   A,(RO_PRO)                ; A read-only path
     OR   A                         ; cannot be passed:
     LD   A,DG_CONST                ; not-writable,
     JP   NZ,EX_EVAL                ; at the path.
 .READ:                         ; B is the view, C the path's type.
-    RES  0,B                       ; The view without var:
+    RES  7,B                       ; The view without var:
     LD   A,B                       ; a string's
     CP   AG_VIEW                   ; or an array's?
     LD   A,C                       ; The path's type.
-    JR   NZ,.BUFFER                ; An array of u8.
+    JR   NZ,.BUFFER                ; An array.
     CP   AG_VIEW                   ; An open string passed on?
     JR   Z,.PASS                   ; Its capacity word.
     CP   AG_FIRST                  ; A scalar
@@ -733,18 +839,28 @@ RO_VIEW:
     LD   L,(HL)                    ; is
     LD   H,0                       ; HL.
     JR   .WORD                     ; Pass it.
-.BUFFER:                       ; A is the path's type.
-    CP   AG_FIRST                  ; A scalar,
+.BUFFER:                       ; A is the path's type, B the view's.
+    LD   E,A                       ; Keep it.
+    LD   A,B                       ; The services' u8[]
+    CP   AG_BUF                    ; is
+    JR   NZ,.OPEN                  ; an open
+    LD   B,AG_OPEN+SY_U8           ; array of u8.
+.OPEN:                         ; B is an open array's ID.
+    LD   A,E                       ; The path's type:
+    CP   B                         ; the same open array
+    JR   Z,.PASS                   ; passes its word on;
+    CP   AG_FIRST                  ; a scalar,
     JP   C,EX_EFIT                 ; a File
-    CP   AG_FILE                   ; or a view
+    CP   AG_OPEN                   ; or a view
     JP   NC,EX_EFIT                ; is no array: DG_CLASH at the path.
     CALL AG_DESC                   ; HL addresses the descriptor.
     LD   A,(HL)                    ; Its kind
     CP   AG_KARR                   ; must be an array
     JP   NZ,EX_EFIT                ; (DG_CLASH),
     INC  HL                        ; and its element
-    LD   A,(HL)                    ; type
-    CP   SY_U8                     ; u8 (DG_CLASH).
+    LD   A,B                       ; the view's
+    SUB  AG_OPEN                   ; element
+    CP   (HL)                      ; type (DG_CLASH).
     JP   NZ,EX_EFIT                ; Its length
     INC  HL                        ; is
     LD   E,(HL)                    ; the
@@ -913,8 +1029,11 @@ RO_OBJ:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse an assignment whose target is a path rooted at the current NAME,
-; an aggregate symbol (assign): a read-only target raises DG_CONST. An
-; aggregate is copied: its address pushed, the source's address, POP DE,
+; an aggregate symbol (assign): a read-only target raises DG_CONST, as
+; does a view as a whole. A writable open string's length is set through
+; STR_SETL, which checks and zeroes: the value in A, LD E,A, the capacity's
+; low byte, LD A,(IX+n+2), LD D,A, the address, LD L,(IX+n), LD H,(IX+n+1),
+; CALL STR_SETL. An aggregate is copied: its address pushed, the source's address, POP DE,
 ; LD BC,size, LDIR, the source a path or call of the same type or, for a
 ; string, a literal within its capacity (DG_LONG), which takes the whole
 ; string's bytes. A scalar's value is checked against its type and stored:
@@ -931,10 +1050,16 @@ RO_LET:
     OR   A                         ; cannot be
     JP   NZ,RO_EROOT               ; assigned: raise DG_CONST at it.
     POP  AF                        ; The target's type.
+    CALL AG_ISVW                   ; A view as a whole
+    LD   B,DG_CONST                ; is not writable
+    JP   C,.AT                     ; (not-writable at it).
     CP   AG_FILE                   ; A File?
-    JR   Z,.FILE                   ; Its value is stored.
+    JP   Z,.FILE                   ; Its value is stored.
     CP   AG_FIRST                  ; An aggregate?
-    JR   NC,.COPY                  ; Copy it whole.
+    JP   NC,.COPY                  ; Copy it whole.
+    LD   A,(RO_PPUSH)              ; A writable open string's
+    AND  4                         ; length
+    JR   NZ,.SETL                  ; is set through STR_SETL.
     LD   A,(RO_PKIND)              ; A computed place?
     CP   GA_HELD                   ; Its address
     CALL Z,GX_PUSHW                ; is in HL: PUSH HL, two bytes pushed.
@@ -973,6 +1098,35 @@ RO_LET:
 .STORE:                        ; A is the last byte.
     CALL EM_BYTE                   ; Append it.
     JP   AC_ROUTE                  ; Any failure handling; return.
+.SETL:                         ; The path is s.length:
+    CALL RO_KEEP                   ; its place, kept.
+    LD   A,SY_U8                   ; A u8
+    CALL EX_RUN                    ; is wanted.
+    CALL EX_STASH                  ; Keep it.
+    CALL RO_BACK                   ; The place comes back.
+    LD   HL,(AC_SPOS)              ; At the statement's root,
+    LD   (EX_START),HL             ; where
+    LD   E,SY_U8                   ; the value must fit a u8,
+    CALL AC_FITTO                  ; brought
+    CALL GX_TOREG                  ; into A.
+    CALL EM_OP                     ; LD E,A,
+    DB   $5F                       ; the length;
+    LD   HL,(RO_PBASE)             ; the capacity's
+    INC  HL                        ; low byte,
+    INC  HL                        ; above the address word:
+    LD   DE,GX_DLDA                ; LD A,(IX+n+2),
+    CALL GX_FACC                   ; appended;
+    CALL EM_OP                     ; LD D,A;
+    DB   $57                       ; then
+    LD   HL,(RO_PBASE)             ; the string's
+    LD   A,SY_U16                  ; address,
+    CALL GX_FLOAD                  ; LD L,(IX+n), LD H,(IX+n+1);
+    CALL EM_HELP                   ; CALL STR_SETL.
+    DW   HP_SETL                   ; Its figure counted.
+    JP   AC_ROUTE                  ; Any failure handling; return.
+.AT:                           ; Diagnostic B at the path.
+    LD   A,B                       ; Reported
+    JP   EX_EVAL                   ; at its start.
 .FILE:                         ; A File variable.
     CALL RO_KEEP                   ; Keep its place across the value.
     CALL RO_FVAL                   ; The value into DEHL.

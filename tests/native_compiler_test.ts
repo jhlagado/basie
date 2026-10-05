@@ -23,8 +23,8 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
   // the same commit, with the census figure in its message (D43).
   assertEquals(await sha256(image.com), DIGEST);
   assertEquals(await sha256(image.ovl), OVL_DIGEST);
-  assertEquals(image.core, 16_706);
-  assertEquals(image.com.length, 17_367);
+  assertEquals(image.core, 17_504);
+  assertEquals(image.com.length, 18_165);
   assertEquals(image.ovl.length, 5_120);
   assertEquals(
     image.overlays.map((o) => [o.name, o.bytes.length]),
@@ -50,6 +50,6 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
 });
 
 const DIGEST =
-  "28a45855e727270820feb191483b7d6eeab84e226b2b502bb18be2332246b773";
+  "fe9db48671d9d8c01a3b5771df034e0220459a2e5f518e707df6f60525de3ab4";
 const OVL_DIGEST =
-  "ba17d85b8893096312a4acd725c0d6aae7d8091a3bc8730016c0964dde489892";
+  "831e2507cb7522c5ba2e4cc49a72dea1287e422c78deeac04103195aeef966c6";

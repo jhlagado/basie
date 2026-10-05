@@ -34,9 +34,8 @@
 ; (AC_BIND), after its initializer, as the reference's does.
 
 AC_LOCAL:
-    LD   A,(AG_CTYPE)              ; The local's type.
-    CP   AG_VIEW                   ; An open string
-    JP   Z,EX_ETYPE                ; is a parameter type only.
+    LD   A,(AG_CTYPE)              ; The local's type:
+    CALL AG_NOVW                   ; a view is a parameter's only.
     LD   D,SY_AGGR+SY_LOCAL        ; An aggregate local's class,
     CP   AG_FIRST                  ; unless
     JR   NC,.CLASS                 ; it is a scalar:
@@ -155,8 +154,8 @@ AC_INFER:
     CALL RO_PART                   ; Parse the path; A is its type.
     CP   AG_FIRST                  ; An aggregate?
     JR   C,.SELECT                 ; No: a scalar it selects.
-    CP   AG_VIEW                   ; An open string
-    JP   Z,EX_EFIT                 ; is no local's type (DG_CLASH).
+    CALL AG_ISVW                   ; A view
+    JP   C,EX_EFIT                 ; is no local's type (DG_CLASH).
     PUSH AF                        ; Keep the type.
     CALL GA_ADDR                   ; Its address into HL,
     LD   A,AC_LCOPY                ; copied into the local
@@ -484,6 +483,43 @@ AC_GOTO:
     LD   C,$C3                     ; JP to it.
     CALL EM_JUMP                   ; Append it.
     JP   AC_DEAD                   ; Nothing after it is reachable.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; BeginStatementAssert: keep the offset of `assert` (AC_SPOS), where a
+; certainly false condition is reported, and expect a Boolean.
+
+AC_ASSRT:
+    LD   HL,(TK_POS)               ; The offset of `assert`,
+    LD   (AC_SPOS),HL              ; kept.
+            JR   AC_COND                   ; Expect a Boolean.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; CommitStatementAssert (assertStatement): a known condition must be the
+; Boolean true, anything else known is assertion-false at `assert`; a
+; computed one is checked as a Boolean and tested, OR A, CALL Z,TRAP_AST.
+
+AC_TRUE:
+    LD   A,(EX_RMETA)              ; The condition's metadata:
+    AND  SY_KNOWN+SY_TMASK         ; known,
+    JP   P,.TEST                   ; or computed.
+    CP   SY_KNOWN+SY_BOOL          ; A known Boolean
+    JR   NZ,.FALSE                 ; that
+    LD   A,(EX_RVAL)               ; is
+    OR   A                         ; true
+    RET  NZ                        ; holds.
+.FALSE:                        ; Anything else known:
+    LD   A,DG_FALSE                ; assertion-false,
+    LD   HL,AC_SPOS                ; at `assert`.
+    JP   DG_AT                     ; No return.
+.TEST:                         ; Computed:
+    LD   HL,(AC_SPOS)              ; a Boolean, as the reference
+    LD   (EX_START),HL             ; reports it, at `assert`,
+    CALL AC_BOOL                   ; with no failure pending,
+    CALL EM_OP                     ; OR A,
+    DB   $B7                       ; then
+    LD   A,$CC                     ; CALL Z
+    LD   L,HP_ASSRT&$FF            ; to the assertion trap,
+    JP   EM_TRAP                   ; appended; return.
 
 ; ------------------------------------------------------- structured flow
 

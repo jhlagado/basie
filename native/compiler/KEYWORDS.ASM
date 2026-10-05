@@ -16,6 +16,7 @@
 ;    KW_CAP    the spelling `capacity`, likewise
 ;    KW_ID     the spelling `id`, which no routine may take (AC_SIG)
 ;    KW_FILE   the spelling `File`, the type of files (AC_NAMED)
+;    KW_FROM   the spelling `from`, which begins a result's from clause
 ;
 ;  KW_TAB holds length-prefixed spellings: a length byte, the bytes of the
 ;  word and the token kind. Matching is exact and case-sensitive. A word
@@ -104,3 +105,4 @@ KW_LEN: DB   "length"          ; The string length field, six bytes.
 KW_CAP: DB   "capacity"        ; An open string's capacity field, eight bytes.
 KW_ID: DB   "id"               ; The conversion no routine may be named.
 KW_FILE: DB   "File"           ; The File type, four bytes.
+KW_FROM: DB   "from"           ; A result's from clause, four bytes.

@@ -102,7 +102,7 @@ HP_NAMES:
     DB   8,"readLine"              ; readLine: service $071.
     DB   0,RO_FFAIL                ; No result; it can fail.
     DW   $071,22                   ; Ordinal $071, 22 bytes of stack.
-    DB   8,2,AG_FILE,AG_VVIEW      ; 8 argument bytes; 2 parameters.
+    DB   8,2,AG_FILE,AG_VIEW+AG_VAR; 8 argument bytes; 2 parameters.
     DB   8,"openRead"              ; openRead: service $072.
     DB   AG_FILE,RO_FFAIL          ; Result File; it can fail.
     DW   $072,18                   ; Ordinal $072, 18 bytes of stack.
@@ -134,7 +134,7 @@ HP_NAMES:
     DB   9,"readBlock"             ; readBlock: service $079.
     DB   SY_U16,RO_FFAIL           ; Result u16; it can fail.
     DW   $079,24                   ; Ordinal $079, 24 bytes of stack.
-    DB   10,3,AG_FILE,AG_VBUF,SY_U16; 10 argument bytes; 3 parameters.
+    DB   10,3,AG_FILE,AG_BUF+AG_VAR,SY_U16; 10 argument bytes; 3 parameters.
     DB   10,"writeBlock"           ; writeBlock: service $07A.
     DB   0,RO_FFAIL                ; No result; it can fail.
     DW   $07A,28                   ; Ordinal $07A, 28 bytes of stack.
@@ -166,15 +166,15 @@ HP_NAMES:
     DB   9,"findFirst"             ; findFirst: service $081.
     DB   SY_BOOL,RO_FFAIL          ; Result boolean; it can fail.
     DW   $081,18                   ; Ordinal $081, 18 bytes of stack.
-    DB   8,2,AG_VIEW,AG_VVIEW      ; 8 argument bytes; 2 parameters.
+    DB   8,2,AG_VIEW,AG_VIEW+AG_VAR; 8 argument bytes; 2 parameters.
     DB   8,"findNext"              ; findNext: service $082.
     DB   SY_BOOL,RO_FFAIL          ; Result boolean; it can fail.
     DW   $082,12                   ; Ordinal $082, 12 bytes of stack.
-    DB   4,1,AG_VVIEW              ; 4 argument bytes; one parameter.
+    DB   4,1,AG_VIEW+AG_VAR        ; 4 argument bytes; one parameter.
     DB   11,"commandTail"          ; commandTail: service $084.
     DB   0,0                       ; No result.
     DW   $084,6                    ; Ordinal $084, 6 bytes of stack.
-    DB   4,1,AG_VVIEW              ; 4 argument bytes; one parameter.
+    DB   4,1,AG_VIEW+AG_VAR        ; 4 argument bytes; one parameter.
     DB   10,"resetDisks"           ; resetDisks: service $085.
     DB   0,0                       ; No result.
     DW   $085,10                   ; Ordinal $085, 10 bytes of stack.
