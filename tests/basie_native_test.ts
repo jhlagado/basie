@@ -1,15 +1,18 @@
 /**
  * BASIE.COM, the native compiler in its CP/M shell (native compiler plan
- * 65.2 and 65.2b), under the CP/M harness: the command line and its
+ * 65.2, 65.2b and 65.5), under the CP/M harness: the command line and its
  * options, the library check, the compilation stamp, source parts read
- * from files, the spool drive, and diagnostics. The streams it writes are
+ * from files, the spool drive, diagnostics, and the chain to BLINK.COM,
+ * which the harness runs as CP/M would: the loader BASIE leaves at the top
+ * of memory reads BLINK.COM from the harness's disk and starts it. The streams it writes are
  * checked against the reference compiler's by
  * tests/native_equivalence_test.ts; constructs not yet generated are
  * refused with Error 95 (65.4).
  */
 import { assertEquals, assertNotEquals } from "@std/assert";
 import { buildBasie } from "../native/compiler/build.ts";
-import { runCom } from "./harness/cpm.ts";
+import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
+import { messageFile } from "../ref/compile/messages.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
 import { HELPER_KEY, HELPER_VERSION } from "../ref/compile/helpers.ts";
 
@@ -56,7 +59,7 @@ Deno.test("BASIE with no part prints its usage", () => {
 
 Deno.test("a failed build deletes A:$$$.SUB; a good one leaves it", () => {
   const files = { "$$$.SUB": "x", ...MAIN };
-  let result = build("MAIN", files);
+  let result = build("MAIN [C]", files);
   assertEquals(result.disk.has("$$$.SUB"), true);
   assertEquals(result.returnCode, undefined);
   result = build("OTHER", files);
@@ -76,7 +79,7 @@ Deno.test("a failed compilation deletes its streams unless K keeps them", () => 
   result = build("MAIN [M,K]", bad);
   for (const name of streams) assertEquals(result.disk.has(name), true, name);
   // A good build keeps its streams.
-  result = build("MAIN [M]", MAIN);
+  result = build("MAIN [M,C]", MAIN);
   for (const name of streams) assertEquals(result.disk.has(name), true, name);
 });
 
@@ -87,11 +90,11 @@ Deno.test("BASIE reports a part it can't find", () => {
 });
 
 Deno.test("BASIE compiles a program from a file", () => {
-  assertEquals(run("MAIN", MAIN), "");
-  assertEquals(run("MAIN.BSI [M]", MAIN), "");
+  assertEquals(run("MAIN [C]", MAIN), "");
+  assertEquals(run("MAIN.BSI [M,C]", MAIN), "");
   // CR LF lines, and the end of file marked by $1A within the last record.
   const crlf = PROGRAM.replaceAll("\n", "\r\n") + "\x1a\x1a";
-  assertEquals(run("MAIN", { "MAIN.BSI": crlf }), "");
+  assertEquals(run("MAIN [C]", { "MAIN.BSI": crlf }), "");
 });
 
 Deno.test("BASIE compiles a program of several parts", () => {
@@ -99,7 +102,7 @@ Deno.test("BASIE compiles a program of several parts", () => {
     "DATA.BSI": "var result as u8\n",
     "MAIN.BSI": "sub main()\nresult = 12\nend\n",
   };
-  assertEquals(run("DATA, MAIN", files), "");
+  assertEquals(run("DATA, MAIN [C]", files), "");
   assertEquals(run("MAIN,DATA", files), "MAIN.BSI 2:1 Error 57\r\n");
   const later = { ...files, "MAIN.BSI": "sub main()\nresult = missing\nend\n" };
   assertEquals(run("DATA,MAIN", later), "MAIN.BSI 2:10 Error 57\r\n");
@@ -122,7 +125,7 @@ Deno.test("the source may fill memory to 1K below the BDOS entry", () => {
     return text + "//" + "x".repeat(size - text.length - 3) + "\n";
   };
   assertEquals(fill(room).length, room);
-  assertEquals(run("MAIN", { "MAIN.BSI": fill(room) }), "");
+  assertEquals(run("MAIN [C]", { "MAIN.BSI": fill(room) }), "");
   assertEquals(
     run("MAIN", { "MAIN.BSI": fill(room + 1) }),
     "Source too large\r\n",
@@ -132,20 +135,19 @@ Deno.test("the source may fill memory to 1K below the BDOS entry", () => {
 // ---- 65.2b: options, the library check and the stamp ----------------------
 
 Deno.test("BASIE accepts every option of toolchain §5.3, in any case", () => {
-  const all = "[K, M,Y,N,R,B,Z,V,P=CPM22,L=A,S=A,O=B:PROG.HEX,F=255," +
+  const all = "[C, K, M,Y,N,R,B,Z,V,P=CPM22,L=A,S=A,O=B:PROG.HEX,F=255," +
     "STACK=65535]";
   assertEquals(run(`MAIN ${all}`, MAIN), "");
-  assertEquals(run("MAIN [C]", MAIN), "");
   for (const o of ["O=PROG", "O=PROG.COM", "O=PROG.BIN", "F=1", "STACK=1"]) {
-    assertEquals(run(`MAIN [${o}]`, MAIN), "", o);
+    assertEquals(run(`MAIN [${o},C]`, MAIN), "", o);
   }
   // The CP/M 3 CCP leaves the tail's case alone; BASIE reads it in any.
-  const result = build("main [m , k]", MAIN);
+  const result = build("main [m , k,c]", MAIN);
   assertEquals(result.output, "");
   assertEquals(result.disk.has("MAIN.$NM"), true);
-  // X links only: nothing is compiled.
+  // X links only: nothing is compiled, and BLINK, not on this disk, is run.
   const linked = build("MAIN [X]", MAIN);
-  assertEquals(linked.output, "");
+  assertEquals(linked.output, "BLINK.COM not found\r\n");
   assertEquals(linked.disk.has("MAIN.$DR"), false);
 });
 
@@ -238,15 +240,15 @@ Deno.test("BASIE reads the library before any source, and refuses one it doesn't
   const later = patched(8, HELPER_VERSION + 1, 0);
   later.set([HELPER_VERSION + 1, 0], KEYS);
   later.set([0x34, 0x12], KEYS + 2 + 2 * HELPER_VERSION);
-  assertEquals(run("MAIN", { ...MAIN, "CPM22.BRL": later }), "");
+  assertEquals(run("MAIN [C]", { ...MAIN, "CPM22.BRL": later }), "");
   // P names another library, with the same rules.
-  assertEquals(run("MAIN [P=MINE]", { ...MAIN, "MINE.BRL": LIBRARY }), "");
+  assertEquals(run("MAIN [P=MINE,C]", { ...MAIN, "MINE.BRL": LIBRARY }), "");
 });
 
 Deno.test("BASIE takes the identities of the library for the directory", () => {
   const library = patched(6, 7, 0);
   library.set([9, 0], 10);
-  const result = build("MAIN", { ...MAIN, "CPM22.BRL": library }, false);
+  const result = build("MAIN [C]", { ...MAIN, "CPM22.BRL": library }, false);
   assertEquals(result.output, "");
   const header = result.disk.get("MAIN.$DR")!;
   const word = (at: number) => header[at] | (header[at + 1] << 8);
@@ -260,13 +262,13 @@ Deno.test("BASIE looks for the library on L's drive or the first part's, then A:
   const onB = { "B:MAIN.BSI": PROGRAM };
   // On the first part's drive,
   assertEquals(
-    build("B:MAIN", { ...onB, "B:CPM22.BRL": LIBRARY }, false)
+    build("B:MAIN [C]", { ...onB, "B:CPM22.BRL": LIBRARY }, false)
       .output,
     "",
   );
   // and then on A:;
   assertEquals(
-    build("B:MAIN", { ...onB, "CPM22.BRL": LIBRARY }, false)
+    build("B:MAIN [C]", { ...onB, "CPM22.BRL": LIBRARY }, false)
       .output,
     "",
   );
@@ -276,11 +278,11 @@ Deno.test("BASIE looks for the library on L's drive or the first part's, then A:
   );
   // on L's drive, and then on A:.
   assertEquals(
-    build("MAIN [L=C]", { ...MAIN, "C:CPM22.BRL": LIBRARY }, false)
+    build("MAIN [L=C,C]", { ...MAIN, "C:CPM22.BRL": LIBRARY }, false)
       .output,
     "",
   );
-  assertEquals(run("MAIN [L=C]", MAIN), "");
+  assertEquals(run("MAIN [L=C,C]", MAIN), "");
   assertEquals(
     build("MAIN [L=C]", { ...MAIN, "B:CPM22.BRL": LIBRARY }, false).output,
     "CPM22.BRL not found\r\n",
@@ -289,13 +291,13 @@ Deno.test("BASIE looks for the library on L's drive or the first part's, then A:
 
 Deno.test("BASIE writes the streams on the spool drive, with the first part's name", () => {
   const streams = ["$DR", "$BY", "$LN", "$NM"];
-  let result = build("B:MAIN,C:MORE [M]", {
+  let result = build("B:MAIN,C:MORE [M,C]", {
     "B:MAIN.BSI": "var x as u8\n",
     "C:MORE.BSI": "sub main()\nx = 1\nend\n",
   });
   assertEquals(result.output, "");
   for (const t of streams) assertEquals(result.disk.has(`B:MAIN.${t}`), true);
-  result = build("MAIN [M,S=D]", MAIN);
+  result = build("MAIN [M,S=D,C]", MAIN);
   assertEquals(result.output, "");
   for (const t of streams) {
     assertEquals(result.disk.has(`D:MAIN.${t}`), true, t);
@@ -316,7 +318,7 @@ Deno.test("BASIE chooses each compilation's stamp as object format §4.1 asks", 
   };
   // With no earlier directory, a stamp from the source, never zero; every
   // stream carries it.
-  let result = build("MAIN [M]", MAIN);
+  let result = build("MAIN [M,C]", MAIN);
   const first = stamp(result.disk);
   assertNotEquals(first, 0);
   for (const t of ["$BY", "$LN", "$NM"]) {
@@ -326,15 +328,138 @@ Deno.test("BASIE chooses each compilation's stamp as object format §4.1 asks", 
   for (const [old, next] of [[41, 42], [0xfffe, 0xffff], [0xffff, 1]]) {
     const header = result.disk.get("MAIN.$DR")!.slice();
     header.set([old & 0xff, old >> 8], 6);
-    const again = build("MAIN", { ...MAIN, "MAIN.$DR": header });
+    const again = build("MAIN [C]", { ...MAIN, "MAIN.$DR": header });
     assertEquals(stamp(again.disk), next, `after ${old}`);
   }
   // The earlier directory is looked for on the spool drive.
   const header = result.disk.get("MAIN.$DR")!.slice();
   header.set([0x10, 0x20], 6);
-  result = build("MAIN [S=B]", { ...MAIN, "B:MAIN.$DR": header });
+  result = build("MAIN [S=B,C]", { ...MAIN, "B:MAIN.$DR": header });
   assertEquals(stamp(result.disk, "B:MAIN.$DR"), 0x2011);
   // A file of that name that is no directory is ignored.
-  result = build("MAIN", { ...MAIN, "MAIN.$DR": "not a directory" });
+  result = build("MAIN [C]", { ...MAIN, "MAIN.$DR": "not a directory" });
   assertNotEquals(stamp(result.disk), 0);
+});
+
+// ---- 65.5: the chain to BLINK ---------------------------------------------
+
+const BLINK = comBytes(await assembleFile("native/linker/BLINK.ASM"));
+const HELLO = Deno.readFileSync("tests/conformance/basics/hello.bsi");
+
+/** Run BASIE, and BLINK after it, with BLINK.COM and BASIE.MSG on A:. */
+function chain(tail: string, files: Files = {}, tools = true) {
+  return runCom(basie, {
+    tail,
+    files: tools
+      ? {
+        "CPM22.BRL": LIBRARY,
+        "BLINK.COM": BLINK,
+        "BASIE.MSG": messageFile(),
+        ...files,
+      }
+      : files,
+    maxSteps: 400_000_000,
+  });
+}
+
+/** The output of a .COM file run under the harness. */
+const output = (com: Uint8Array) => runCom(com).output;
+
+const STREAMS = ["$DR", "$BY", "$LN", "$NM"];
+
+Deno.test("BASIE HELLO compiles and links HELLO.COM, which prints Hello", () => {
+  const result = chain("HELLO", { "HELLO.BSI": HELLO });
+  assertEquals(result.output, "");
+  assertEquals(result.returnCode, 0);
+  assertEquals(output(result.disk.get("HELLO.COM")!), "Hello\r\n");
+  assertEquals(result.disk.has("HELLO.LIN"), true);
+  // BLINK deletes the intermediate files once it has published the program.
+  for (const t of STREAMS) assertEquals(result.disk.has(`HELLO.${t}`), false);
+  // Several parts: the program and its files take the first part's name.
+  const parts = chain("DATA, MAIN", {
+    "DATA.BSI": "var x as u8 = 72\n",
+    "MAIN.BSI": "sub main() fails\nwriteByte(console, x) else fail\nend\n",
+  });
+  assertEquals(parts.output, "");
+  assertEquals(output(parts.disk.get("DATA.COM")!), "H");
+});
+
+Deno.test("a failed build never runs BLINK", () => {
+  const result = chain("HELLO", {
+    "HELLO.BSI": "sub main()\nvalue = 1\nend\n",
+  });
+  assertEquals(result.output, "HELLO.BSI 2:1 Error 57\r\n");
+  assertEquals(result.returnCode, 0xff11);
+  assertEquals(result.disk.has("HELLO.COM"), false);
+  for (const t of STREAMS) assertEquals(result.disk.has(`HELLO.${t}`), false);
+});
+
+Deno.test("BASIE passes BLINK's options through the chain", () => {
+  const files = { "HELLO.BSI": HELLO };
+  // K keeps the intermediate files, for BLINK as for BASIE.
+  let result = chain("HELLO [M, K]", files);
+  assertEquals(result.output, "");
+  for (const t of STREAMS) assertEquals(result.disk.has(`HELLO.${t}`), true);
+  assertEquals(result.disk.has("HELLO.MAP"), true);
+  // A program already there becomes HELLO.BAK, unless Z.
+  const old = { ...files, "HELLO.COM": "old" };
+  result = chain("HELLO", old);
+  assertEquals(new TextDecoder().decode(result.disk.get("HELLO.BAK")), "old");
+  result = chain("HELLO [Z]", old);
+  assertEquals(result.disk.has("HELLO.BAK"), false);
+  assertEquals(output(result.disk.get("HELLO.COM")!), "Hello\r\n");
+  // O= names the output, its drive and its kind.
+  result = chain("HELLO [O=B:WORLD.HEX,Y]", files);
+  assertEquals(result.output, "");
+  assertEquals(result.disk.has("HELLO.COM"), false);
+  assertEquals(result.disk.has("B:WORLD.HEX"), true);
+  assertEquals(result.disk.has("B:WORLD.SYM"), true);
+  // N: no line stream, so no line table.
+  result = chain("HELLO [N]", files);
+  assertEquals(result.disk.has("HELLO.LIN"), false);
+  assertEquals(output(result.disk.get("HELLO.COM")!), "Hello\r\n");
+  // S puts the intermediate files on the spool drive, where BLINK finds them.
+  result = chain("hello [s=c]", files);
+  assertEquals(result.output, "");
+  assertEquals(output(result.disk.get("HELLO.COM")!), "Hello\r\n");
+  for (const t of STREAMS) assertEquals(result.disk.has(`C:HELLO.${t}`), false);
+});
+
+Deno.test("C compiles only and X links only", () => {
+  let result = chain("HELLO [C]", { "HELLO.BSI": HELLO });
+  assertEquals(result.output, "");
+  assertEquals(result.disk.has("HELLO.COM"), false);
+  const kept: Files = {};
+  for (const t of ["$DR", "$BY", "$LN"]) {
+    kept[`HELLO.${t}`] = result.disk.get(`HELLO.${t}`)!;
+  }
+  // X, as running BLINK directly, needs no source.
+  result = chain("HELLO [X,K]", kept);
+  assertEquals(result.output, "");
+  assertEquals(output(result.disk.get("HELLO.COM")!), "Hello\r\n");
+  for (const t of ["$DR", "$BY", "$LN"]) {
+    assertEquals(result.disk.has(`HELLO.${t}`), true);
+  }
+  result = chain("HELLO [X]", {});
+  assertEquals(result.output, "Error 225: HELLO.$DR not found\r\n");
+});
+
+Deno.test("BASIE looks for BLINK.COM on L's drive or the current one, then A:", () => {
+  const files = {
+    "HELLO.BSI": HELLO,
+    "CPM22.BRL": LIBRARY,
+    "BASIE.MSG": messageFile(),
+  };
+  let result = chain("HELLO [L=B]", { ...files, "B:BLINK.COM": BLINK }, false);
+  assertEquals(result.output, "");
+  assertEquals(output(result.disk.get("HELLO.COM")!), "Hello\r\n");
+  result = chain("HELLO [L=B]", { ...files, "BLINK.COM": BLINK }, false);
+  assertEquals(result.output, "");
+  // Without it, the streams stay for a later BLINK.
+  result = chain("HELLO", files, false);
+  assertEquals(result.output, "BLINK.COM not found\r\n");
+  assertEquals(result.returnCode, 0xff12);
+  for (const t of ["$DR", "$BY", "$LN"]) {
+    assertEquals(result.disk.has(`HELLO.${t}`), true);
+  }
 });

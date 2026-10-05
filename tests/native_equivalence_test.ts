@@ -106,11 +106,14 @@ const CLAIMED: Record<string, string[]> = {
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
 const LIBRARY = (await buildRuntime()).file;
 
-/** Compile NAME with BASIE.COM and the options; return the disk. */
+/**
+ * Compile NAME with BASIE.COM and the options, with C, so that BASIE does
+ * not chain to BLINK; return the disk.
+ */
 function native(name: string, options = "") {
   const source = Deno.readFileSync(path(name));
   const run = runCom(basie, {
-    tail: `${name}${options}`,
+    tail: `${name} [C${options}]`,
     files: { [`${name}.BSI`]: source, "CPM22.BRL": LIBRARY },
     maxSteps: 50_000_000,
   });
@@ -163,7 +166,7 @@ function same(
 for (const [stage, names] of Object.entries(CLAIMED)) {
   for (const name of names) {
     Deno.test(`${stage}: ${name} compiles to the reference's streams`, async () => {
-      const disk = native(name, " [M]");
+      const disk = native(name, ",M");
       const streams = await reference(name, disk);
       for (const [type, expected] of Object.entries(streams)) {
         same(`${name}.${type}`, disk.get(`${name}.${type}`), expected);
@@ -176,7 +179,7 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
         plain.get(`${name}.$DR`),
         (await reference(name, plain)).$DR,
       );
-      const lineless = native(name, " [N]");
+      const lineless = native(name, ",N");
       assertEquals(lineless.has(`${name}.$LN`), false);
       same(
         `${name}.$BY`,
@@ -307,7 +310,7 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
       `${head}${body}\nend\n${tail}`,
     );
     const run = runCom(basie, {
-      tail: "RANDOM",
+      tail: "RANDOM [C]",
       files: { "RANDOM.BSI": source, "CPM22.BRL": LIBRARY },
       maxSteps: 50_000_000,
     });

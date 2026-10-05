@@ -10,10 +10,12 @@
 ;  streams NAME.$DR, $BY, $LN and $NM on the spool drive and with the first
 ;  part's name (toolchain §3.2), names each part in the line stream, and
 ;  hands the parts to PR_BUILD, which compiles them into blobs; it then
-;  closes the streams. A diagnostic is printed as NAME.BSI LINE:COLUMN Error
-;  N, with the forked compiler's number, until the message file replaces it
-;  (step 66). The stack and the source occupy the CCP's memory, so every
-;  exit is a warm boot through $0000.
+;  closes the streams and runs BLINK.COM to link them (CHAIN.ASM), unless
+;  option C compiles only; option X runs BLINK at once. A diagnostic is
+;  printed as NAME.BSI LINE:COLUMN Error N, with the forked compiler's
+;  number, until the message file replaces it (step 66). The stack and the
+;  source occupy the CCP's memory, so every exit is a warm boot through
+;  $0000 or the chain to BLINK.
 ;
 ;  Principal entries:
 ;    SH_START  the program entry, reached from the jump at $0100
@@ -117,7 +119,7 @@ SH_START:                      ; Entered from the jump at $0100.
     JP   NZ,SH_TRAP                ; available.
     LD   A,(CL_SEEN+CL_IC)         ; Option X
     CP   'X'                       ; links only:
-    JP   Z,0                       ; nothing is compiled.
+    JP   Z,CH_RUN                  ; run BLINK, compiling nothing.
     CALL LB_CHECK                  ; The library must suit the compiler.
     XOR  A                         ; Load the parts in order,
 .LOADS:                        ; A is the next one's index.
@@ -166,7 +168,10 @@ SH_START:                      ; Entered from the jump at $0100.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
     JP   C,SH_DIAG                 ; Print it and fail.
     CALL BL_CLOSE                  ; Write the trailers and close the streams.
-    JP   0                         ; Success: warm boot, and a SUBMIT job runs on.
+    LD   A,(CL_SEEN+CL_IC)         ; Option C
+    CP   'C'                       ; compiles only: success,
+    JP   Z,0                       ; a warm boot, and a SUBMIT job runs on.
+    JP   CH_RUN                    ; Otherwise BLINK links the streams.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load part SH_PIDX, whose name CL_READ saved, after the parts already

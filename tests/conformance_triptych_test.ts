@@ -103,6 +103,46 @@ Deno.test({
   },
 });
 
+Deno.test({
+  name: "BASIE HELLO compiles, chains to BLINK and links under real CP/M 2.2",
+  ignore: !available,
+  async fn() {
+    const { buildBasie } = await import("../native/compiler/build.ts");
+    const { assembleFile, comBytes } = await import("./harness/cpm.ts");
+    const { buildRuntime } = await import("../tools/helpertable.ts");
+    const { messageFile } = await import("../ref/compile/messages.ts");
+    const encode = (text: string) => new TextEncoder().encode(text);
+    const cpm = await boot(
+      await systemDisk({
+        "BASIE.COM": (await buildBasie()).com,
+        "BLINK.COM": comBytes(await assembleFile("native/linker/BLINK.ASM")),
+        "CPM22.BRL": (await buildRuntime()).file,
+        "BASIE.MSG": messageFile(),
+        "HELLO.BSI": Deno.readFileSync("tests/conformance/basics/hello.bsi"),
+        "BAD.BSI": encode("sub main()\nvalue = 1\nend\n"),
+      }),
+    );
+    try {
+      // The loader BASIE leaves at the top of memory reads BLINK.COM through
+      // the real BDOS and starts it; BLINK publishes HELLO.COM and HELLO.LIN.
+      assertEquals(cpm.command("BASIE HELLO", 400_000), "");
+      assertEquals(cpm.command("HELLO"), "Hello\r\n");
+      assertEquals(
+        cpm.command("BASIE BAD", 400_000),
+        "BAD.BSI 2:1 Error 57\r\n",
+      );
+      assertEquals(cpm.command("BASIE HELLO [O=HI.COM,K]", 400_000), "");
+      assertEquals(cpm.command("HI"), "Hello\r\n");
+      const disk = cpm.disk();
+      for (const file of ["HELLO.LIN", "HI.LIN", "HELLO.$DR", "HELLO.$BY"]) {
+        assertEquals(readFile(disk, file).length > 0, true, file);
+      }
+    } finally {
+      cpm.close();
+    }
+  },
+});
+
 async function exists(url: URL) {
   try {
     await Deno.stat(url);
