@@ -493,9 +493,14 @@ comes from its method.
 - **Ref:** JavaScript maps, bounded by host memory. No fixed maximum.
 - **Native minimums:** 2,000 program blobs at 8 bytes per ordinal; 9,000
   distinct references at 2 bytes each ([limits](limits.md) §5.2).
-- **Native maximum:** TBD; the design is "until the table space is exhausted",
-  then `L-CAP-TABLES` ([linker](linker.md) §2.2).
-- **Status:** to be measured (roadmap step 63).
+- **Native maximum:** measured (roadmap step 63): about 44.7K of table space on
+  a 57K CP/M 2.2 system once `BLINK.COM` (12.0K) and a 768-byte stack margin
+  are taken; about 5,450 blobs with few references, after which
+  `L-CAP-TABLES`. With ordinary programs the image limit is reached first: a
+  54K program with 8 references per routine links.
+- **Status:** confirmed as an implementation maximum, set by memory. The 7K
+  code estimate in the toolchain was low; the map, the symbol file and
+  publication account for most of the difference.
 
 ### 3.29 Relocations in object files
 

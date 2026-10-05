@@ -214,18 +214,34 @@ SELECT: LD      HL,(WK_ENT)
 PASSES: LD      (WK_CB),HL
         LD      A,7
 .CLASS: LD      (SEL_CLS),A
+        CALL    PRESENT         ; skip a class with no live blob (linker §10)
+        JR      Z,.NEXT
         XOR     A
         CALL    WALK
         LD      A,1
         CALL    WALK
-        LD      A,(SEL_CLS)
+.NEXT:  LD      A,(SEL_CLS)
         SUB     1
         JR      NC,.CLASS
         RET
 
+; NZ when alignment class SEL_CLS has a live blob.
+PRESENT:
+        LD      A,(SEL_CLS)
+        INC     A
+        LD      B,A
+        LD      A,(CLASSES)
+.SHIFT: RRCA
+        DJNZ    .SHIFT
+        RLCA                    ; back one: bit 0 is the class's
+        AND     1
+        RET
+
 ; ---- Phase C -----------------------------------------------------------------
 
-PHASEC: LD      HL,(PR_BASE)
+PHASEC: XOR     A               ; the CRCs were checked in Phase A
+        LD      (CRC_ON),A
+        LD      HL,(PR_BASE)
         LD      (CURSOR),HL
         LD      A,S_START
         LD      (SEL_SEC),A

@@ -211,7 +211,7 @@ const TABLE: [number, string, string, Group][] = [
   [
     219,
     "L-FIT-NOMINAL",
-    "Warning: the program may not fit a typical machine",
+    "The program may not fit a typical machine",
     LINK,
   ],
   [220, "L-RANGE", "A reference value is out of range", LINK],

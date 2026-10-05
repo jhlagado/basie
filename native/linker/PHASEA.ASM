@@ -79,7 +79,16 @@ R_U8:   PUSH    BC
         POP     DE
         POP     BC
         JP      C,R_SHORT
+        PUSH    AF              ; the CRC is checked in Phase A only
+        LD      A,(CRC_ON)
+        OR      A
+        JR      Z,.NOCRC
+        POP     AF
         JP      CRC_ADD8
+.NOCRC: POP     AF
+        RET
+
+CRC_ON: DB      1               ; cleared once Phase A has checked the CRCs
 
 ; The same without the CRC.
 R_RAW:  PUSH    BC
@@ -1130,6 +1139,7 @@ ALIASOK:
 
 ; The mark stack lives between the program table and the edge lists.
 MK_PTR: DW      0
+CLASSES: DB     0               ; bit n: a live blob of alignment class n
 PHASEB: LD      HL,(PT_END)
         LD      (MK_PTR),HL
         LD      HL,0            ; the roots
@@ -1208,10 +1218,24 @@ FOLLOW: LD      A,D
         EX      DE,HL
         CALL    ENT_MAKE
         RET     C
-; Mark the entry at HL live and push it, unless it already is.
+; Mark the entry at HL live and push it, unless it already is, noting its
+; alignment class among those present.
 MARK:   BIT     5,(HL)
         RET     NZ
         SET     5,(HL)
+        PUSH    HL
+        LD      DE,E_LAYOUT
+        ADD     HL,DE
+        LD      B,(HL)
+        INC     B
+        LD      A,0
+        SCF
+.BIT:   RLA                     ; A = 1 << class
+        DJNZ    .BIT
+        LD      HL,CLASSES
+        OR      (HL)
+        LD      (HL),A
+        POP     HL
         EX      DE,HL
         LD      HL,(MK_PTR)
         LD      (HL),E

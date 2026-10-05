@@ -476,6 +476,8 @@ PHASEE: LD      A,(O_FLAGS)
         LD      (WK_CB),HL
         LD      A,7
 .CLS:   LD      (SEL_CLS),A
+        CALL    PRESENT
+        JR      Z,.SKIPC
         XOR     A
         CALL    NM_RESET
         XOR     A
@@ -484,7 +486,7 @@ PHASEE: LD      A,(O_FLAGS)
         CALL    NM_RESET
         LD      A,1
         CALL    WALK
-        LD      A,(SEL_CLS)
+.SKIPC: LD      A,(SEL_CLS)
         SUB     1
         JR      NC,.CLS
         RET

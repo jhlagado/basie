@@ -157,7 +157,7 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | 216 | `L-FIT-IMAGE` | The image exceeds the image limit |
 | 217 | `L-FIT-MEMORY` | Image, data and stack exceed the address space |
 | 218 | `L-FIT-RAM` | Data and stack exceed RAM |
-| 219 | `L-FIT-NOMINAL` | Warning: the program may not fit a typical machine |
+| 219 | `L-FIT-NOMINAL` | The program may not fit a typical machine |
 | 220 | `L-RANGE` | A reference value is out of range |
 | 221 | `L-PLACEHOLDER` | Nonzero placeholder bytes |
 | 222 | `L-IO` | ^1: read or write failed, or the disk is full |

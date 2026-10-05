@@ -95,13 +95,19 @@ These are minimums unless a row says otherwise. Resources not yet listed (includ
 | Initialised data and constants | no compiler limit | Written to the byte stream, not held in memory |
 | Routine size | no compiler limit | Routines too large for the routine buffer are written unbuffered |
 
-### 5.2 Linker (`BLINK.COM`, about 48K for tables)
+### 5.2 Linker (`BLINK.COM`, 12.0K, about 44.7K for tables)
 
-| Capacity | Guaranteed minimum | Notes |
-| --- | ---: | --- |
-| Program blobs | 2,000 | 8 bytes per ordinal |
-| Distinct references | 9,000 | 2 bytes each |
-| Program size | the CP/M image limit | The tables, not the image, are the constraint |
+Measured on a CP/M 2.2 system with BDOS at `$E406` (57K transient area),
+roadmap step 63:
+
+| Capacity | Guaranteed minimum | Measured | Notes |
+| --- | ---: | ---: | --- |
+| Program blobs | 2,000 | about 5,450 with few references | 8 bytes per ordinal, plus 4 per blob with references and 2 per distinct reference; `L-CAP-TABLES` beyond |
+| Distinct references | 9,000 | shares the same space | 2 bytes each |
+| Program size | the CP/M image limit | the image limit, `$DC00` | A 54K program of 1,044 blobs and 8 references each links; code fills the image before references fill the tables |
+
+Link time at 4 MHz under the minimal harness, excluding disk time: 2.6 s for
+`hello` (910 bytes), 6.3 s for ADVENT (6.4K), 78 s for a 54K program.
 
 ### 5.3 Running programs
 

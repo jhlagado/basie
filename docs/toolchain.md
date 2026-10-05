@@ -281,12 +281,11 @@ With a 24K `BASIE.COM` and about 56.75K from `$0100` to the BDOS entry on a
 
 | Region | Size |
 | --- | --- |
-| Core and linker code | about 7K |
-| File buffers (seven files) | about 1.2K |
-| Stack | about 0.5K |
-| **Fixed total** | **about 8.7K** |
+| Core and linker code, with its file buffers | 12.0K (measured; estimated 8.2K) |
+| Stack margin | 0.75K |
+| **Fixed total** | **12.8K** |
 
-About 48K remains for the linker's tables ([linker](linker.md), Section 2).
+About 44.7K remains for the linker's tables on a 57K system ([linker](linker.md), Section 2; [limits](limits.md) §5.2).
 
 ### 7.3 Overlays and the message file
 
