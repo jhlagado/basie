@@ -60,7 +60,7 @@ there.
 | 19 | Spec | Routines: `var` parameters, leases, `from`, forward rules for recursion | Chapter 13 (done) | Conformance programs |
 | 20 | Spec | Errors and traps: the new traps, named failure constants | Chapters 14 and 15 (done) | Conformance programs |
 | 21 | Spec | The system boundary: services and the standard library | Chapter 16 (done) | Conformance programs |
-| 22 | Spec | Complete grammar, checked for single-pass parsing | Chapter 17 | A grammar check like Nucleus's |
+| 22 | Spec | Complete grammar, checked for single-pass parsing | Chapter 17 (done; `tools/grammar.ts` reads §17.2 and checks it against the §17.4 table, Chapter 3 and the lexer) | A grammar check like Nucleus's |
 | 23 | Spec | Adversarial review of the specification | Review report and fixes | Findings closed |
 
 Steps 12 to 23 can run alongside M3 once chapters 3 and 6 exist.

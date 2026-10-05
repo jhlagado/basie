@@ -102,6 +102,10 @@ type is expected and it is followed by a pool name (`id nodes`), and in the
 conversion form `id(...)`. Everywhere else it is an ordinary identifier, so a
 record may have a field named `id`.
 
+`from` is a **contextual word** too: it is a keyword only after the result
+type in a routine header, where it begins the `from` clause (Chapter 13,
+Section 13.6). Everywhere else it is an ordinary identifier.
+
 `elseif` is one keyword. `else if` produces the two keywords `else` and `if` and does not form an `elseif` clause. `ELSEIF` is a `NAME`, not a keyword.
 
 Chapter 14 defines the recoverable-error forms that use `fail`, `fails`, and `handle`. `on` and `error` are ordinary identifiers.
