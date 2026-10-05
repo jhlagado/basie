@@ -96,7 +96,9 @@ These cases are distinct:
 | A conforming program reaches a condition for which this specification requires a trap. | The generated program must perform the specified runtime trap unless a later chapter explicitly permits compile-time rejection.          |
 | This draft has not yet specified the case.                                             | No conformance result can be inferred until the specification supplies the missing rule.                                                 |
 
-A runtime trap is specified behaviour, not undefined behaviour and not evidence that the source was necessarily invalid. Later chapters define which failures are compile-time invalid, which are recoverable, and which trap at runtime.
+A runtime trap is specified behaviour, not undefined behaviour and not evidence that the source was necessarily invalid.
+
+**Diagnostic policy.** A compiler may stop at its first diagnostic, as `BASIE.COM` and the reference compiler do; another may continue to report further diagnostics. Neither may ever report a successful translation of invalid source. Later chapters define which failures are compile-time invalid, which are recoverable, and which trap at runtime.
 
 ## 1.10 Provisional features
 
@@ -106,7 +108,7 @@ A program that depends on an unadmitted candidate is not yet a conforming Basie 
 
 ## 1.11 Direct Z80 implementation
 
-The first compiler emits Z80 machine code directly and satisfies the separate Z80 runtime and backend contract. It may retain a checked semantic-operation transcript as private compiler workspace, but it does not serialize or execute that transcript as a public bytecode format.
+`BASIE.COM` emits Z80 machine code directly and follows the [code generation contract](../docs/code-generation.md), the [CP/M target](../docs/cpm-target.md) and the [object format](../docs/object-format.md). It has no intermediate bytecode or transcript format.
 
 Another compiler may use a different internal organization or target only when it preserves the same source semantics, diagnostics, and specified traps. An implementation choice does not create another Basie language profile.
 

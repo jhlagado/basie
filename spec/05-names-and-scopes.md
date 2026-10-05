@@ -23,13 +23,13 @@ Basie uses these scopes:
 | ------------ | -------- | --------------- |
 | Program      | Predefined names, and the named constants, record types, pools, top-level variables and routine signatures not marked `private` | None |
 | Part         | The `private` top-level declarations of one source part | Program scope |
-| Routine      | The routine's formal parameters, and the locals declared directly in its body | The part scope of the routine's part, as visible at the routine's position |
+| Routine      | The routine's formal parameters, and the locals declared directly in its body | The part scope of the part holding the routine's body, as visible at the routine's position |
 | Block        | The locals and local constants declared directly in one block | The innermost enclosing block or routine scope |
 | Record field | The fields declared by one record type | None for ordinary-name lookup; selection uses the field scope associated with the record type |
 
 One compilation has one program scope, and each source part one part scope. A part boundary opens no other scope, and a later part does not see an earlier part's `private` bindings.
 
-A **block** is a statement sequence that the grammar delimits (design decision D28): each arm of an `if`, `elseif` or `else`; each `case` and `else` arm of a `select` (Chapter 11); and each loop body (Chapter 12). A routine body is the outermost block of its routine and is the routine scope itself. A block scope begins where the block's statements begin and ends at the keyword that ends the block or starts the next arm.
+A **block** is a statement sequence that the grammar delimits (design decision D28): each arm of an `if`, `elseif` or `else`; each `case` and `else` arm of a `select` (Chapter 11); each loop body (Chapter 12); and each `handle` body (Chapter 14, Section 14.6). The name in a `select` arm's `some(NAME)` is declared in that arm's block, at its start. A routine body is the outermost block of its routine and is the routine scope itself. A block scope begins where the block's statements begin and ends at the keyword that ends the block or starts the next arm.
 
 A local variable or local constant may be declared at any statement position (Chapter 10). Its scope runs from its declaration point (Section 5.5) to the end of the innermost enclosing block. When control leaves that block, by reaching its end or by `exit`, `continue`, `return` or `fail`, the local's lifetime ends, and an owning local is freed (Chapter 7).
 
@@ -153,7 +153,7 @@ The compiler resolves a name at its source position in this order:
 | Context                                | Lookup                                                                                                 |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | A reserved word or built-in type token | Use the token established by Chapter 3; perform no ordinary-name lookup                                |
-| A name after `.`                       | Use the selected record's field scope, or require intrinsic `length` when the base is a bounded string |
+| A name after `.`                       | Use the selected record's field scope, or require intrinsic `length` when the base is a bounded string, or `length` or `capacity` when it is a `string[]` parameter |
 | `id` before a pool name in a type, or `id(` in an expression | The contextual word of Chapter 3 (design decision D29); otherwise `id` is an ordinary name |
 | An ordinary name inside a routine      | Search the visible locals of the enclosing blocks from the innermost outwards, then the parameters, then the routine's part scope, then the program scope |
 | An ordinary name at top level          | Search the visible part scope, then the program scope                                                   |
@@ -245,7 +245,7 @@ end
 
 ## 5.12 Diagnostics and capacity limits
 
-The compiler must diagnose an undeclared use, an exact duplicate, forbidden shadowing, a wrong declaration class, a call needing a forward declaration, an abbreviated body without one incomplete forward, a second completion, an uncompleted forward declaration, and a `private` forward completed in another part. It may stop after the first diagnostic under Chapter 1.
+The compiler must diagnose an undeclared use, an exact duplicate, forbidden shadowing, a wrong declaration class, a call needing a forward declaration, an abbreviated body without one incomplete forward, a second completion, an uncompleted forward declaration, and a `private` forward completed in another part. It may stop after the first diagnostic under Chapter 1, Section 1.9.
 
 An implementation may bound identifier length, retained name bytes, ordinary bindings, routine-local bindings, record fields, or unresolved forward signatures. It must document each limit and issue a capacity diagnostic before truncation, wraparound, dropped declarations, or unchecked collision can occur. A capacity failure does not change identifier identity or make an otherwise conforming program invalid.
 

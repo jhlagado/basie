@@ -81,10 +81,11 @@ Apart from `include` lines at the start of a part (Section 4.3.2), only top-leve
 - record type declarations (Chapter 6);
 - pool declarations and forward pool declarations (Chapters 7 and 8);
 - top-level variable declarations (Chapters 6 to 8);
-- forward routine declarations; and
-- routine definitions (Chapter 13).
+- forward routine declarations;
+- routine definitions (Chapter 13); and
+- compile-time `assert` (Chapter 8, Section 8.2).
 
-Any top-level declaration may be marked `private` (Chapter 5).
+Any top-level declaration but `assert`, which declares no name, may be marked `private` (Chapter 5). A top-level `assert` counts as a declaration for the rule that `include` lines come first (Section 4.3.2).
 
 Inside a routine body, constants and variables may also be declared at any statement position, with block scope (Chapter 5, design decision D28). Record types, pools and routines are declared only at top level.
 
@@ -166,7 +167,7 @@ At `EOF`, the compiler must verify that:
 - no top-level declaration remains structurally incomplete; and
 - exactly one defined `main` satisfies Section 4.7.
 
-The compiler may diagnose a duplicate declaration or mismatched completion as soon as it encounters the later declaration. It must not defer a detectable error merely because end-of-input validation also covers the condition. After any structural error, the initial compiler may stop under the diagnostic policy in Chapter 1; it must not report a successful translation.
+The compiler may diagnose a duplicate declaration or mismatched completion as soon as it encounters the later declaration. It must not defer a detectable error merely because end-of-input validation also covers the condition. After any structural error, a compiler may stop under the diagnostic policy of Chapter 1, Section 1.9; it must not report a successful translation.
 
 ## 4.9 Capacity limits and source parts
 

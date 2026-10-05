@@ -5,7 +5,7 @@
 
 This chapter defines how the source bytes in each ordered source part become one logical token stream. It defines source bytes, line endings, whitespace, comments, names, reserved words, literals, punctuation, source positions, and lexical errors. Chapter 4 defines the multipart input around those bytes. Later chapters define grammar, name resolution, types, expression precedence, and runtime meaning.
 
-The rules are deterministic and require no backtracking. Rules stated for source text, token identity, or lexical errors apply to every conforming compiler. Project acceptance requires the first compiler to consume the source in order with bounded state and without retaining a complete source copy. This is a Chapter 2 project constraint, not a required internal organization for another compiler. Another compiler may organize tokenization differently, but it must produce the same tokens. One byte of lookahead is sufficient for every token rule in this chapter.
+The rules are deterministic and require no backtracking. Rules stated for source text, token identity, or lexical errors apply to every conforming compiler. `BASIE.COM` reads the source in order with bounded state, without retaining a complete copy (Chapter 2, Section 2.4); the reference toolchain, which reads whole files, follows the same rules. This is a Chapter 2 project constraint, not a required internal organization for another compiler. Another compiler may organize tokenization differently, but it must produce the same tokens. One byte of lookahead is sufficient for every token rule in this chapter.
 
 ## 3.2 Source bytes
 
@@ -35,7 +35,7 @@ Diagnostics must identify a reproducible source position. Each source part start
 - a one-based line number; and
 - a one-based byte column within that line.
 
-When CRLF produces `NEWLINE`, its two bytes occupy one token span, advance the byte offset by two, and advance the line number once. A synthesized source-part-boundary or final `NEWLINE` has a zero-width span at the end of its source part. A horizontal tab advances the byte column by one; the column is not a display-cell count. The optional diagnostic name from Section 4.3 may accompany a diagnostic but does not replace the stable identity. These counters permit streaming diagnostics without a resident source map. An implementation that bounds a counter or source-part length must publish the limit and diagnose overflow.
+When CRLF produces `NEWLINE`, its two bytes occupy one token span, advance the byte offset by two, and advance the line number once. A synthesized source-part-boundary or final `NEWLINE` has a zero-width span at the end of its source part. A horizontal tab advances the byte column by one; the column is not a display-cell count. A diagnostic may also give the part's name as it was opened, but that does not replace the stable identity (Section 4.3.1). These counters permit streaming diagnostics without a resident source map. An implementation that bounds a counter or source-part length must publish the limit and diagnose overflow.
 
 ## 3.4 Whitespace, comments, and logical newlines
 
@@ -45,7 +45,7 @@ ASCII space and horizontal tab are the only horizontal whitespace. They separate
 
 A logical newline is the only statement terminator. Basie has no semicolon terminator and no second interchangeable terminator.
 
-Delimiter state tracks open parentheses and square brackets. A physical line ending produces `NEWLINE` only when no delimiter is open. Inside either delimiter, a physical line ending is whitespace and produces no token. Parentheses and brackets inside a comment or literal do not affect this state. The first compiler represents it with a bounded stack; another compiler may use a different representation.
+Delimiter state tracks open parentheses and square brackets. A physical line ending produces `NEWLINE` only when no delimiter is open. Inside either delimiter, a physical line ending is whitespace and produces no token. Parentheses and brackets inside a comment or literal do not affect this state. `BASIE.COM` represents it with a bounded stack; another compiler may use a different representation.
 
 This is a tokenizer-parser interface rule rather than statement grammar: the tokenizer emits `NEWLINE` under this rule, while later chapters specify which grammar positions accept it. Delimiter state must distinguish `(` from `[`. A closing delimiter with no matching opener, a mismatched closing delimiter, an open delimiter at EOF, or implementation-capacity exhaustion is diagnosed.
 
@@ -139,7 +139,7 @@ float-literal ::= decimal-digit+ "." decimal-digit+ exponent?
 exponent      ::= ("e" | "E") ("+" | "-")? decimal-digit+
 ```
 
-A digit is required on both sides of the decimal point, so `1.0`, `0.25`, `1e3` and `2.5e-3` are valid and `.5` and `5.` are not. The tokenizer converts the literal to the nearest `f32` value, rounding to nearest with ties to even and flushing values below the smallest normal `f32` to zero (design decision D7). A literal whose value exceeds the largest finite `f32` is a lexical error. A floating-point literal has type `f32`; it never adapts to an integer context.
+A digit is required on both sides of the decimal point, so `1.0`, `0.25`, `1e3` and `2.5e-3` are valid and `.5` and `5.` are not. The tokenizer converts the literal to the nearest `f32` value, rounding to nearest with ties to even, then flushing a rounded value below the smallest normal `f32` to zero (design decision D7); so a literal just below the smallest normal that rounds up to it is that normal value, not zero. A literal whose value exceeds the largest finite `f32` is a lexical error. A floating-point literal has type `f32`; it never adapts to an integer context.
 
 A leading `+` or `-` is a separate punctuation token and is never part of the literal. Thus `-32768` begins with `-` followed by the literal `32768`; expression and constant rules determine whether that combination is valid.
 
@@ -246,7 +246,7 @@ line-ending        ::= LF | CR LF
 
 ## 3.10 Lexical errors and bounded failure
 
-The first compiler stops after its first lexical diagnostic. Another compiler may continue only to report additional diagnostics; it must not accept the source by guessing, replacing, truncating, or silently resynchronizing tokens, and it must not report successful compilation.
+`BASIE.COM` and the reference compiler stop after the first lexical diagnostic (Chapter 1, Section 1.9). Another compiler may continue only to report additional diagnostics; it must not accept the source by guessing, replacing, truncating, or silently resynchronizing tokens, and it must not report successful compilation.
 
 Lexical errors include:
 

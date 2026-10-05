@@ -25,20 +25,20 @@ fixes it names the finding, as B1, A3 and so on).
 | A4 | major (closed) | Nothing stops a declaration starting in one part and ending in another; the compiler accepts it, and a split body sees the other part's private names. | Each part ends at top level; diagnose |
 | A5 | major (closed) | The object format puts all part records first, but parts are discovered as includes are read. | Emit a part record when its number is fixed |
 | A6 | major (closed) | "No other declaration may use the identity `main`" conflicts with fields and earlier locals named `main`, which the compiler accepts. | Program and part scope only |
-| A7 | minor | Compile-time `assert` is missing from the top-level families, and can't be `private`. | Add, with the exception |
-| A8 | minor | `.capacity` on `string[]` parameters is missing from 5.6's lookup table. | Add |
-| A9 | minor | `handle` bodies and `some(NAME)` bindings are missing from 5.3 and 5.4. | Add |
-| A10 | minor | Which part scope a body completing a forward from another part sees. | The body's part |
+| A7 | minor (closed) | Compile-time `assert` is missing from the top-level families, and can't be `private`. | Add, with the exception |
+| A8 | minor (closed) | `.capacity` on `string[]` parameters is missing from 5.6's lookup table. | Add |
+| A9 | minor (closed) | `handle` bodies and `some(NAME)` bindings are missing from 5.3 and 5.4. | Add |
+| A10 | minor (closed) | Which part scope a body completing a forward from another part sees. | The body's part |
 | A11 | minor | Chapter 1 names Nucleus documents and omits services, memory safety and code generation from the authority order. | Name the real documents |
-| A12 | minor | "First compiler" is a Nucleus term; streaming is called a chapter 2 constraint but isn't in chapter 2. | Say `BASIE.COM`; add to 2.4 |
-| A13 | minor | Stale cross-references to "Section 4.3" and "Chapter 1" diagnostic policy. | Fix |
+| A12 | minor (closed) | "First compiler" is a Nucleus term; streaming is called a chapter 2 constraint but isn't in chapter 2. | Say `BASIE.COM`; add to 2.4 |
+| A13 | minor (closed) | Stale cross-references to "Section 4.3" and "Chapter 1" diagnostic policy. | Fix |
 | A14 | minor (closed) | Code fences tagged `nucleus`; the README still says chapters describe Nucleus 0.1. | Fix |
 | A15 | minor | Reference diagnostics give a provisional part number for lexical errors in included parts. | Report the part's name |
 | A16 | minor | Part identity by drive and name, drives in includes, required types, several command-line parts, and `L=`'s meaning differ between chapter 4, the toolchain and the reference. | Align |
 | A17 | minor | Chapter 1 says the corpus has no `activation-capacity` trap; one test expects it. Tests are ranked lowest in 1.3 but called normative in 21.1. | Fix |
 | A18 | minor | `private-is-part-local.bsi` has only one part. | Add a multipart test |
 | A19 | minor (closed) | Because `id` lexes as `NAME`, `primary` and `type-atom` have two more LL(1) conflicts than the 17.4 table shows; the grammar check treats `id` as its own terminal. | Add the rows; check `id` as `NAME` |
-| A20 | minor | 3.6 doesn't say whether a tiny float literal is rounded before it is flushed. | Rounded first |
+| A20 | minor (closed) | 3.6 doesn't say whether a tiny float literal is rounded before it is flushed. | Rounded first |
 | A21 | minor (closed) | Chapter 2's version 2 list omits generics and `repeat`. | Add |
 
 ## Group B: chapters 6 to 9
