@@ -134,17 +134,10 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     LD   IX,LN_FD                  ; NAME.$LN,
     LD   A,(DIR_FD+FD_FCB)         ; on the directory's drive.
     LD   HL,CMD_NAME               ; NAME,
-    LD   DE,LN_TYPE                ; type $LN.
-    CALL FIL_INIT                  ; Set up the FCB.
-    LD   HL,CMD_NAME               ; Its name as text,
-    LD   DE,LN_TEXT                ; into LN_TEXT,
-    LD   BC,LN_TYPE                ; with its type.
-    CALL FIL_TEXT                  ; NAME.$LN.
-    CALL FIL_OPEN                  ; Open it; carry if it doesn't exist.
-    LD   HL,LN_TEXT                ; Name it
-    LD   (RD_NAME),HL              ; in the diagnostic.
-    LD   HL,225                    ; L-MISSING.
-    JP   C,DG_FILE                 ; Report it.
+    LD   DE,LN_TYPE                ; type $LN,
+    LD   BC,LN_TEXT                ; named in LN_TEXT.
+    CALL FIL_NAME                  ; Set up the FCB.
+    CALL FIL_NEED                  ; Open it, or L-MISSING.
     CALL .HEAD                     ; Check the stream's header and stamp.
     LD   BC,0                      ; First pass: count the parts in BC.
 .COUNT:                        ; LN_FD is at a record's tag.
@@ -170,14 +163,9 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     PUSH BC                        ; Keep it for the header.
     LD   IX,LT_FD                  ; The line table, NAME.$LT on the output drive:
     CALL OUT_PICK                  ; HL is the output's name, A its drive.
-    LD   DE,LT_TYPE                ; Type $LT.
-    CALL FIL_INIT                  ; Set up the FCB.
-    CALL OUT_PICK                  ; HL is the name again.
-    LD   DE,LT_TEXT                ; Its name as text,
-    LD   BC,LT_TYPE                ; with its type,
-    CALL FIL_TEXT                  ; into LT_TEXT.
-    LD   HL,LT_TEXT                ; The file being written, for diagnostics;
-    LD   (RD_NAME),HL              ; Phase D's reads then name it too.
+    LD   DE,LT_TYPE                ; Type $LT,
+    LD   BC,LT_TEXT                ; named in LT_TEXT.
+    CALL FIL_NAME                  ; Set up the FCB.
     XOR  A                         ; Pad the last record with zeros.
     CALL FIL_MAKE                  ; Create it; carry if the directory is full.
     JP   C,DG_DISK                 ; L-IO.
@@ -278,12 +266,7 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     OR   A                         ; must be 0.
     JR   NZ,.BAD                   ; Higher.
     CALL LN_WORD                   ; The stamp
-    LD   DE,(DIR_HEAD+6)           ; must be the directory's.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Equal?
-    RET  Z                         ; The stream belongs to the directory.
-    LD   HL,202                    ; L-STAMP.
-    JP   DG_PLAIN                  ; Report it.
+    JP   RD_STAMP                  ; must be the directory's; return.
 .BAD:                          ; A malformed stream.
     LD   HL,LN_TEXT                ; Name the stream
     LD   (RD_NAME),HL              ; in the diagnostic.
@@ -453,15 +436,13 @@ LN_BLOB:                       ; RD_PREV, WK_OWN and WK_KIND are the blob's.
 .RECORD:                       ; LN_TAG is the next record's tag.
     LD   A,(LN_TAG)                ; A blob-lines record?
     CP   2                         ; Tag 2.
-    JR   NZ,.BAD                   ; Out of step.
+    JR   NZ,LN_FAIL                ; Out of step.
     CALL LN_WORD                   ; Its ordinal
     LD   DE,(RD_PREV)              ; must be the blob's.
     OR   A                         ; Clear carry for the subtraction.
     SBC  HL,DE                     ; Equal?
-    JR   NZ,.BAD                   ; Out of step.
+    JR   NZ,LN_FAIL                ; Out of step.
     JP   LN_WORD                   ; HL is its entry count; return.
-.BAD:                          ; The stream doesn't match the directory.
-    JR   LN_FAIL                   ; A spare jump to the report.
 
 ;@ROUTINE NORETURN
 ; The line stream is out of step with the directory, or damaged: report

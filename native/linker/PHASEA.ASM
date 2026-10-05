@@ -25,7 +25,7 @@
 ;
 ;  Memory, from FREEMEM up: the library table, indexed by ordinal from 0,
 ;  then the program table, which grows, indexed by ordinal - $0400. The edge
-;  lists grow down from EDGE_TOP, TAB_ROOM bytes below the stack. A blob
+;  lists grow down from TAB_ROOM bytes below the stack. A blob
 ;  with references has a $0000 terminator with its distinct targets below
 ;  it, and its edges field points at the lowest. The two must not meet.
 ;
@@ -53,8 +53,9 @@ TAB_ROOM EQU  $0300            ; Kept below the stack for calls and messages.
 
 LIB_HEAD:                      ; The library's header and profile block.
     DS   64                        ; Read by LIB_READ; the PF_ fields are within.
-DIR_HEAD:                      ; The program directory's header.
-    DS   20                        ; Read by DIR_OPEN.
+DIR_REST:                      ; The program directory's header from its stamp,
+    DS   14                        ; read by DIR_OPEN.
+DIR_HEAD EQU  DIR_REST-6       ; Its magic and version are checked, not kept.
 LIB_TAB:                       ; The library table's base: FREEMEM.
     DW   0                         ; Set by PA_RUN.
 LIB_CNT:                       ; The library's entries: its highest ordinal + 1.
@@ -67,8 +68,6 @@ PRG_END:                       ; The end of the program table.
     DW   0                         ; Grown by TAB_FIND; the mark stack starts here.
 EDGE_PTR:                      ; The lowest word of the edge lists.
     DW   0                         ; Moves down as EDGE_ADD pushes.
-EDGE_TOP:                      ; The top of the edge lists.
-    DW   0                         ; Set by PA_RUN and not read again.
 PA_MAIN:                       ; The ordinal the ENTRY record names: MAIN.
     DW   0                         ; Checked by PA_CHECK, followed in Phase B.
 PA_ENTRY:                      ; Nonzero once the ENTRY record is read.
@@ -88,8 +87,6 @@ RD_OWNER:                      ; The directory being read: 0 library, 1 program.
     DB   0                         ; Library ordinals may refer only to the library.
 RD_PREV:                       ; The last ordinal read: the current blob's.
     DW   0                         ; The next implicit ordinal is one more.
-.HASPREV:                      ; Unused.
-    DB   0                         ; A spare byte.
 RD_FIRST:                      ; The lowest ordinal this directory may define.
     DW   0                         ; $0001 for the library, $0400 for the program.
 RD_LAST:                       ; The highest ordinal this directory may define.
@@ -378,8 +375,7 @@ PA_RUN:                        ; The library's header is in LIB_HEAD.
     LD   DE,TAB_ROOM               ; less the room the stack needs
     OR   A                         ; for calls and messages.
     SBC  HL,DE                     ; HL is the lists' top.
-    LD   (EDGE_TOP),HL             ; Record it,
-    LD   (EDGE_PTR),HL             ; and start the lists empty there.
+    LD   (EDGE_PTR),HL             ; The lists start empty there.
     LD   DE,(PRG_TAB)              ; The library table must fit below it.
     OR   A                         ; Clear carry for the subtraction.
     SBC  HL,DE                     ; Carry if the top is below the program table.
@@ -939,6 +935,41 @@ PA_TRAIL:                      ; The $FF that begins the trailer is read.
     LD   HL,211                    ; L-LIMITS: blobs after LIMITS.
     JP   NZ,DG_PLAIN               ; Report it.
     RET                            ; The directory is read: to .READDIR's caller.
+
+;@ROUTINE IN HL,IX OUT HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Read the header of the stream at IX: the 4-byte magic at HL and version
+; 1.0, returning HL = its compilation stamp. L-FORMAT for the file RD_NAME
+; names otherwise.
+
+RD_MAGIC:                      ; IX is at the stream's first byte.
+    LD   B,4                       ; Four bytes of magic.
+.MAGIC:                        ; HL walks the magic.
+    CALL RD_BYTE                   ; The next byte.
+    CP   (HL)                      ; Does it match?
+    JR   NZ,.BAD                   ; Not this kind of stream.
+    INC  HL                        ; The next magic byte.
+    DJNZ .MAGIC                    ; Until all four match.
+    CALL RD_BYTE                   ; The major version
+    CP   1                         ; must be 1.
+    JR   NZ,.BAD                   ; Unknown.
+    CALL RD_BYTE                   ; The minor version
+    OR   A                         ; must be 0,
+    JP   Z,RD_WORD                 ; and the stamp follows; return.
+.BAD:                          ; Bad magic or version.
+    LD   HL,200                    ; L-FORMAT.
+    JP   DG_FILE                   ; Report it with the name.
+
+;@ROUTINE IN HL CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Check that HL, a program stream's stamp, is the directory's: L-STAMP
+; otherwise.
+
+RD_STAMP:                      ; HL is the stream's stamp.
+    LD   DE,(DIR_HEAD+6)           ; The directory's stamp.
+    OR   A                         ; Clear carry for the subtraction.
+    SBC  HL,DE                     ; Equal?
+    RET  Z                         ; The stream belongs to the directory.
+    LD   HL,202                    ; L-STAMP.
+    JP   DG_PLAIN                  ; Report it.
 
 ;@ROUTINE IN IX CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read the stored CRC that comes next, without adding it to CRC_VAL, and

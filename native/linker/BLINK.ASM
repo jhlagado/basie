@@ -83,7 +83,7 @@ LK_START:                      ; Entered from the jump at $0100.
     CALL PA_RUN                    ; Phase A: read and check the directories,
     CALL NM_CHECK                  ; and the names, for options M and Y.
     CALL PB_RUN                    ; Phase B: mark what is live.
-    LD   A,(OP_EXTRA)              ; Option W:
+    LD   A,(OP_SEEN)               ; Option W:
     AND  OX_W                      ; dump the tables,
     CALL NZ,TB_WRITE               ; for testing.
     CALL PC_RUN                    ; Phase C: place.
@@ -244,25 +244,12 @@ LIB_CHK:                       ; Option V.
 ; argument 1.
 
 LIB_ARG:                       ; LIB_FILE is the library's name.
-    LD   DE,LIB_TEXT               ; The text,
-    LD   HL,LIB_FILE               ; from the name,
-    LD   B,8                       ; at most eight characters.
-.NAME:                         ; HL walks the name, DE the text.
-    LD   A,(HL)                    ; The next character.
-    CP   ' '                       ; Padding ends the name.
-    JR   Z,.TYPE                   ; The type follows.
-    LD   (DE),A                    ; Copy it.
-    INC  HL                        ; The next character.
-    INC  DE                        ; The next place.
-    DJNZ .NAME                     ; Until eight are copied.
-.TYPE:                         ; DE is after the name.
-    LD   HL,.EXT                   ; ".BRL" and the zero,
-    LD   BC,5                      ; five bytes,
-    LDIR                           ; copied.
+    LD   HL,LIB_FILE               ; The name,
+    LD   DE,LIB_TEXT               ; as text,
+    LD   BC,LIB_TYPE               ; with its type,
+    CALL FIL_TEXT                  ; NAME.BRL.
     LD   HL,LIB_TEXT               ; The text
     LD   (DG_ARG1),HL              ; is argument 1.
     RET                            ; Done.
-.EXT:                          ; The library's type as text.
-    DB   ".BRL",0                  ; With its terminator.
 
 FREEMEM:                       ; The end of the image: the tables start here.

@@ -16,7 +16,7 @@
 ;  parsed there. CMD_BUF and CMD_BAD, the text of a bad word for its
 ;  diagnostic, lie in two of Phase D's FDs (PHASED.ASM), which are unused
 ;  until long after parsing. Each option may be given once: OP_SEEN keeps a
-;  bit for each option with a value, OP_FLAGS and OP_EXTRA one for each flag.
+;  bit for each option with a value and for W, OP_FLAGS one for each flag.
 ;
 ;  Failure: a malformed word reports L-COMMAND with the word as argument 1,
 ;  and CMD_READ returns carry.
@@ -47,10 +47,8 @@ OP_FILES:                      ; F=: the file table's entries, or 0.
     DB   0                         ; 0: the default, four (Phase C).
 OP_STACK:                      ; STACK=: the stack reserve in bytes, or 0.
     DW   0                         ; 0: the compiler's reserve alone.
-OP_SEEN:                       ; One bit per option with a value, to refuse repeats.
-    DW   0                         ; Bit 8 P=, 9 L=, 10 S=, 11 O=, 12 F=, 15 STACK=.
-OP_EXTRA:                      ; More flags: OX_W.
-    DB   0                         ; No more room in OP_FLAGS.
+OP_SEEN:                       ; A bit per option with a value, and W: the SEEN_.
+    DB   0                         ; Repeats are refused.
 
 OF_K EQU  $01                  ; K: keep the intermediate files.
 OF_M EQU  $02                  ; M: write the map.
@@ -60,7 +58,13 @@ OF_R EQU  $10                  ; R: a re-runnable image, DATA copied to COPY.
 OF_B EQU  $20                  ; B: keep the CCP resident.
 OF_Z EQU  $40                  ; Z: no .BAK of the old output.
 OF_V EQU  $80                  ; V: verify placeholders and the library's CRC.
-OX_W EQU  $01                  ; W: write the link tables to NAME.$TB, for testing.
+SEEN_P EQU  $01                ; P= given.
+SEEN_L EQU  $02                ; L= given.
+SEEN_S EQU  $04                ; S= given.
+SEEN_O EQU  $08                ; O= given.
+SEEN_F EQU  $10                ; F= given.
+OX_W EQU  $20                  ; W: write the link tables to NAME.$TB, for testing.
+SEEN_ST EQU  $80               ; STACK= given.
 
 FN_DISK:                       ; A parsed file name's drive, 1 A:, or 0.
     DB   0                         ; Set by .FILENAME.
@@ -127,7 +131,7 @@ CMD_READ:                      ; Called first, before any file is open.
     OR   A                         ; The end of the tail?
     JR   Z,.DONE                   ; No options were given.
     CP   '['                       ; Only an option list may follow.
-    JP   NZ,.BADWORD               ; Anything else is a bad word.
+    JP   NZ,.REPORT                ; Anything else is a bad word.
     INC  HL                        ; Past the bracket.
 .OPTLOOP:                      ; HL is at an option.
     CALL .SKIP                     ; Past spaces.
@@ -143,7 +147,7 @@ CMD_READ:                      ; Called first, before any file is open.
     CALL .SKIP                     ; Past spaces.
     LD   A,(HL)                    ; Nothing may follow the list.
     OR   A                         ; Only the end.
-    JP   NZ,.BADWORD               ; Report the stray word.
+    JP   NZ,.REPORT                ; Report the stray word.
 .DONE:                         ; The tail parsed.
     LD   A,1                       ; A = 1: a name was given.
     OR   A                         ; Clear carry.
@@ -198,7 +202,7 @@ CMD_READ:                      ; Called first, before any file is open.
     INC  DE                        ; The next character of the word.
     INC  HL                        ; And of the tail.
     DJNZ .SPELL                    ; Until "TACK=" is matched.
-    LD   A,15                      ; STACK= is option 15 in OP_SEEN.
+    LD   A,SEEN_ST                 ; STACK=, once.
     CALL .ONCE                     ; Refuse it if repeated.
     RET  C                         ; Repeated: reported.
     CALL .DECIMAL                  ; DE is the number of bytes.
@@ -207,16 +211,12 @@ CMD_READ:                      ; Called first, before any file is open.
     OR   A                         ; Clear carry.
     RET                            ; Parsed.
 .NOVALUE:                      ; C is a flag letter.
-    LD   A,C                       ; W has its own byte.
+    LD   A,C                       ; W has its bit in OP_SEEN.
     CP   'W'                       ; Is it W?
     JR   NZ,.TABLE                 ; Others are in the table.
-    LD   A,(OP_EXTRA)              ; W: write the tables, for testing.
-    AND  OX_W                      ; Already given?
-    JP   NZ,.BAD                   ; A repeated flag is refused.
-    LD   A,OX_W                    ; Set W,
-    LD   (OP_EXTRA),A              ; the only bit in OP_EXTRA.
-    OR   A                         ; Clear carry.
-    RET                            ; Parsed.
+    LD   A,OX_W                    ; W: write the tables, for testing,
+    CALL .ONCE                     ; once.
+    RET                            ; Carry if repeated.
 .TABLE:                        ; Look the letter up in .FLAGS.
     LD   DE,.FLAGS                 ; Letter, then its flag bit.
     LD   B,8                       ; Eight flag letters.
@@ -255,7 +255,7 @@ CMD_READ:                      ; Called first, before any file is open.
     JP   Z,.FILES                  ; Parse a number.
     JP   .BAD                      ; No other option takes a value.
 .LIBRARY:                      ; P=NAME.
-    LD   A,8                       ; P= is option 8 in OP_SEEN.
+    LD   A,SEEN_P                  ; P=, once.
     CALL .ONCE                     ; Refuse it if repeated.
     RET  C                         ; Repeated: reported.
     CALL .FILENAME                 ; Parse the name into FN_.
@@ -274,11 +274,11 @@ CMD_READ:                      ; Called first, before any file is open.
     OR   A                         ; Clear carry.
     RET                            ; Parsed.
 .LIBDISK:                      ; L=D.
-    LD   A,9                       ; L= is option 9 in OP_SEEN.
+    LD   A,SEEN_L                  ; L=, once.
     LD   DE,LIB_DISK               ; The drive goes to LIB_DISK.
     JR   .DRIVE                    ; Parse it.
 .SPOOL:                        ; S=D.
-    LD   A,10                      ; S= is option 10 in OP_SEEN.
+    LD   A,SEEN_S                  ; S=, once.
     LD   DE,OP_SPOOL               ; The drive goes to OP_SPOOL.
 .DRIVE:                        ; A is the option's number, DE its field.
     CALL .ONCE                     ; Refuse it if repeated.
@@ -294,7 +294,7 @@ CMD_READ:                      ; Called first, before any file is open.
     OR   A                         ; Clear carry.
     RET                            ; Parsed.
 .OUTPUT:                       ; O=[D:]NAME[.TYPE].
-    LD   A,11                      ; O= is option 11 in OP_SEEN.
+    LD   A,SEEN_O                  ; O=, once.
     CALL .ONCE                     ; Refuse it if repeated.
     RET  C                         ; Repeated: reported.
     CALL .FILENAME                 ; Parse the name into FN_.
@@ -347,7 +347,7 @@ CMD_READ:                      ; Called first, before any file is open.
 .KINDS:                        ; The output types, in kind-bit order.
     DB   "COMBINHEX"               ; 1 .COM, 2 .BIN, 4 .HEX.
 .FILES:                        ; F=N.
-    LD   A,12                      ; F= is option 12 in OP_SEEN.
+    LD   A,SEEN_F                  ; F=, once.
     CALL .ONCE                     ; Refuse it if repeated.
     RET  C                         ; Repeated: reported.
     CALL .DECIMAL                  ; DE is the number of entries.
@@ -361,43 +361,20 @@ CMD_READ:                      ; Called first, before any file is open.
     RET                            ; Parsed.
 
 ;@ROUTINE IN A OUT CARRY CLOBBERS A,B,ZERO,SIGN,PARITY,HALFCARRY
-; Mark option number A seen in OP_SEEN, keeping HL and DE. If it already
-; was, report it and return carry to .OPTION's caller instead.
+; Mark the option whose OP_SEEN bit is A seen, keeping HL and DE. If it
+; already was, report it and return carry to .OPTION's caller instead.
 
-.ONCE:                         ; A is the option's bit number, 8 to 15.
-    PUSH HL                        ; Keep the parse position.
-    PUSH DE                        ; Keep a drive option's field.
-    LD   HL,1                      ; HL = 1 << A,
-    OR   A                         ; for which A = 0 needs no shift.
-    JR   Z,.MASK                   ; Never so, but kept general.
-.SHIFT:                        ; Shift HL left A times.
-    ADD  HL,HL                     ; One place.
-    DEC  A                         ; One fewer to go.
-    JR   NZ,.SHIFT                 ; Until A is 0.
-.MASK:                         ; HL is the option's bit.
-    EX   DE,HL                     ; DE is the bit.
-    LD   HL,(OP_SEEN)              ; The options seen so far.
-    LD   A,H                       ; Test the high bytes
-    AND  D                         ; for the bit,
-    LD   B,A                       ; keeping the result,
-    LD   A,L                       ; and the low bytes,
-    AND  E                         ; likewise,
-    OR   B                         ; together.
+.ONCE:                         ; A is a SEEN_ bit, or OX_W.
+    LD   B,A                       ; Keep the bit.
+    LD   A,(OP_SEEN)               ; The options seen so far.
+    AND  B                         ; Is this one among them?
     JR   NZ,.TWICE                 ; Already seen.
-    LD   A,H                       ; Add the bit:
-    OR   D                         ; the high byte,
-    LD   H,A                       ; set,
-    LD   A,L                       ; and the low byte,
-    OR   E                         ; set.
-    LD   L,A                       ; HL is the options seen, this one included.
-    LD   (OP_SEEN),HL              ; Keep them.
-    POP  DE                        ; Recover DE,
-    POP  HL                        ; and the parse position.
+    LD   A,(OP_SEEN)               ; Add it
+    OR   B                         ; to those seen,
+    LD   (OP_SEEN),A               ; and keep them.
     OR   A                         ; Clear carry.
     RET                            ; The option is new.
 .TWICE:                        ; A repeated option.
-    POP  DE                        ; Recover DE,
-    POP  HL                        ; and the parse position.
     POP  BC                        ; Drop .ONCE's return: leave the option parser.
 .BAD:                          ; A bad option, reported from its start.
     LD   HL,(.START)               ; The option's first character.
@@ -584,14 +561,9 @@ CMD_READ:                      ; Called first, before any file is open.
     RET                            ; DE is the number.
 
 ;@ROUTINE IN HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,ZERO,SIGN,PARITY,HALFCARRY
-; Report L-COMMAND for the word at HL (to the next comma, bracket or the
-; end), then return carry.
-
-.BADWORD:                      ; HL is the stray word.
-    JR   .REPORT                   ; The same report; a spare jump.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,ZERO,SIGN,PARITY,HALFCARRY
-; The same for a missing or misplaced bracket at HL - 1.
+; Report L-COMMAND for a missing or misplaced bracket at HL - 1, or, from
+; .REPORT, for the word at HL (to the next comma, bracket or the end), and
+; return carry.
 
 .BRACKET:                      ; HL is just past the offending character.
     DEC  HL                        ; Report from that character.

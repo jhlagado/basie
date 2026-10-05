@@ -51,12 +51,9 @@ SRC_TEXT:                      ; Its name as text, for diagnostics.
 PD_RUN:                        ; Phase C has placed everything.
     LD   IX,OUT_FD                 ; NAME.$$$ on the output drive,
     CALL OUT_PICK                  ; HL = name, A = drive,
-    LD   DE,OUT_TEMP               ; under the type $$$.
-    CALL FIL_INIT                  ; Set up the FCB.
-    CALL OUT_PICK                  ; Its name as text,
-    LD   DE,OUT_TEXT               ; into OUT_TEXT,
-    LD   BC,OUT_TEMP               ; with its type.
-    CALL FIL_TEXT                  ; NAME.$$$.
+    LD   DE,OUT_TEMP               ; under the type $$$,
+    LD   BC,OUT_TEXT               ; named in OUT_TEXT.
+    CALL FIL_NAME                  ; Set up the FCB.
     XOR  A                         ; .COM: the last record padded with zeros.
     CALL FIL_MAKE                  ; Create it; carry if the directory is full.
     JP   C,OUT_FAIL                ; L-IO.
@@ -69,27 +66,17 @@ PD_RUN:                        ; Phase C has placed everything.
     LD   A,(LIB_FD+FD_FCB)         ; else the drive the library was found on.
 .LIBDISK:                      ; A is the library's drive.
     LD   HL,LIB_FILE               ; Its name,
-    LD   DE,LIB_TYPE               ; type BRL.
-    CALL FIL_INIT                  ; Set up the FCB.
-    LD   HL,LIB_TEXT               ; The file being read,
-    LD   (RD_NAME),HL              ; for diagnostics.
-    CALL FIL_OPEN                  ; Open it again.
-    LD   HL,225                    ; L-MISSING: gone since Phase A.
-    JP   C,DG_FILE                 ; Report it with the name.
+    LD   DE,LIB_TYPE               ; type BRL,
+    LD   BC,LIB_TEXT               ; named in LIB_TEXT.
+    CALL FIL_NAME                  ; Set up the FCB.
+    CALL FIL_NEED                  ; Open it again, or L-MISSING.
     LD   IX,SRC_PROG               ; The program's byte stream, NAME.$BY,
     LD   A,(DIR_FD+FD_FCB)         ; on the directory's drive.
     LD   HL,CMD_NAME               ; NAME,
-    LD   DE,SRC_TYPE               ; type $BY.
-    CALL FIL_INIT                  ; Set up the FCB.
-    LD   HL,CMD_NAME               ; Its name as text,
-    LD   DE,SRC_TEXT               ; into SRC_TEXT,
-    LD   BC,SRC_TYPE               ; with its type.
-    CALL FIL_TEXT                  ; NAME.$BY.
-    LD   HL,SRC_TEXT               ; The file being read,
-    LD   (RD_NAME),HL              ; for diagnostics.
-    CALL FIL_OPEN                  ; Open it; carry if it doesn't exist.
-    LD   HL,225                    ; L-MISSING.
-    JP   C,DG_FILE                 ; Report it with the name.
+    LD   DE,SRC_TYPE               ; type $BY,
+    LD   BC,SRC_TEXT               ; named in SRC_TEXT.
+    CALL FIL_NAME                  ; Set up the FCB.
+    CALL FIL_NEED                  ; Open it, or L-MISSING.
     CALL SRC_HEAD                  ; Check its header and stamp.
     LD   HL,$FFFF                  ; The image's CRC
     LD   (IMG_CRC),HL              ; starts.
@@ -167,33 +154,9 @@ OUT_PICK:                      ; For NAME.$$$, NAME.$LT and the published files.
 ; the directory's compilation stamp. L-FORMAT or L-STAMP otherwise.
 
 SRC_HEAD:                      ; IX is NAME.$BY, just opened.
-    LD   HL,.MAGIC                 ; Compare the magic
-    LD   B,4                       ; over four bytes.
-.COMPARE:                      ; HL walks the magic.
-    CALL RD_RAW                    ; The next byte; the end of file doesn't return.
-    CP   (HL)                      ; Does it match?
-    JR   NZ,.BAD                   ; Not a byte stream.
-    INC  HL                        ; The next magic byte.
-    DJNZ .COMPARE                  ; Until all four match.
-    CALL RD_RAW                    ; The major version
-    CP   1                         ; must be 1.
-    JR   NZ,.BAD                   ; Unknown.
-    CALL RD_RAW                    ; The minor version
-    OR   A                         ; must be 0.
-    JR   NZ,.BAD                   ; Higher.
-    CALL RD_RAW                    ; The stamp's low byte,
-    LD   L,A                       ; into L,
-    CALL RD_RAW                    ; and its high byte,
-    LD   H,A                       ; into H.
-    LD   DE,(DIR_HEAD+6)           ; The directory's stamp.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Equal?
-    RET  Z                         ; The stream belongs to the directory.
-    LD   HL,202                    ; L-STAMP.
-    JP   DG_PLAIN                  ; Report it.
-.BAD:                          ; Bad magic or version.
-    LD   HL,200                    ; L-FORMAT.
-    JP   DG_FILE                   ; Report it with the name.
+    LD   HL,.MAGIC                 ; Its magic and version,
+    CALL RD_MAGIC                  ; checked without the CRC, off since Phase C;
+    JP   RD_STAMP                  ; and its stamp; return.
 .MAGIC:                        ; The byte stream's magic.
     DB   "BSIB"                    ; Basie byte stream.
 

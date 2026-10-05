@@ -131,18 +131,13 @@ PE_RUN:                        ; Called after publication.
 
 ;@ROUTINE IN DE,IX CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Create report IX of type DE, NAME.TYP on the output drive, with its name
-; as text in REP_TEXT. L-IO if the directory is full.
+; as text in REP_TEXT, which RD_NAME then names. L-IO if the directory is
+; full.
 
 .CREATE:                       ; IX is MAP_FD or SY_FD, DE its type.
-    PUSH DE                        ; Keep the type.
     CALL OUT_PICK                  ; HL is the output's name, A its drive.
-    POP  DE                        ; DE is the type,
-    PUSH DE                        ; still kept.
-    CALL FIL_INIT                  ; Set up the FCB.
-    CALL OUT_PICK                  ; HL is the name again.
-    POP  BC                        ; BC is the type.
-    LD   DE,REP_TEXT               ; The report's name as text,
-    CALL FIL_TEXT                  ; replacing the last report's.
+    LD   BC,REP_TEXT               ; Its name as text, replacing the last
+    CALL FIL_NAME                  ; report's; set up the FCB.
     LD   (REP_FD),IX               ; A failure now deletes this report.
     LD   A,$1A                     ; A text file's last record: Control-Z.
     CALL FIL_MAKE                  ; Create it; carry if the directory is full.

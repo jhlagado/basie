@@ -21,7 +21,7 @@ assembles each included file before its includer, so the list is the layout.
 | `FILE.ASM` | `FD_`, `FIL_` | Buffered files over CP/M's random-record calls |
 | `CRC.ASM` | `CRC_` | CRC-16/CCITT-FALSE |
 | `MSG.ASM` | `DG_`, `MSG_` | Diagnostics, with their text from `BASIE.MSG` |
-| `TAIL.ASM` | `CMD_`, `OP_`, `OF_`, `OX_`, `FN_` | The command tail and its options |
+| `TAIL.ASM` | `CMD_`, `OP_`, `OF_`, `OX_`, `SEEN_`, `FN_` | The command tail and its options |
 | `PHASEA.ASM` | `RD_`, `DG_`, `TAB_`, `EDGE_`, `PA_` | Reading a directory, the tables, Phase A's records and trailers |
 | `CHECKS.ASM` | `DIR_`, `PA_`, `TAB_`, `EDGE_` | The program directory's header, the profile, Phase A's closing checks |
 | `PHASEB.ASM` | `PB_`, `TB_`, `DG_` | Phase B, marking; option W's table dump |
@@ -71,7 +71,7 @@ GETB, PUTB and GETW (get or put a byte or word).
 | `DG_` | Diagnostics: printing them, their arguments, and the exits that report one and stop |
 | `MSG_` | The message file `BASIE.MSG` and the words printed around a message |
 | `CMD_`, `FN_` | The command tail, the first part, and a parsed file name |
-| `OP_`, `OF_`, `OX_` | Option values, and the option flags in `OP_FLAGS` and `OP_EXTRA` |
+| `OP_`, `OF_`, `OX_`, `SEEN_` | Option values, the option flags in `OP_FLAGS`, and `OP_SEEN`'s bits for W and the options with values |
 | `RD_` | Reading a directory: the reader, the record being read and its file |
 | `REF_` | Reading a blob's references |
 | `E_`, `EF_`, `K_` | Table entry fields, entry flags, blob kinds |
@@ -139,7 +139,3 @@ Where BLINK still differs from the reference, by design or by size:
 - A name of 0 or more than 31 bytes is `L-FORMAT`, as the object format
   says, and `NAME.$NM` from another compilation is `L-STAMP`, as for the
   other program streams; the reference's reader accepts both.
-
-Dead bytes for the next compression pass: `.HASPREV`, `.BASE`, `EDGE_TOP`, a
-never-taken test in `.ONCE`, two spare jumps and a redundant `PUSH BC`/`POP
-BC` in `MSG.ASM`.

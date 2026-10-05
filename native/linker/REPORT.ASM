@@ -383,23 +383,13 @@ NM_CHECK:                      ; Both directories are read.
     LD   IX,NM_FD                  ; Phase D's line-stream FD, free until then.
     LD   A,(DIR_FD+FD_FCB)         ; The directory's drive,
     LD   HL,CMD_NAME               ; NAME,
-    LD   DE,NM_TYPE                ; type $NM.
-    CALL FIL_INIT                  ; Set up the FCB.
-    LD   HL,CMD_NAME               ; Its name as text,
-    LD   DE,NM_TEXT                ; into NM_TEXT,
-    LD   BC,NM_TYPE                ; with its type.
-    CALL FIL_TEXT                  ; NAME.$NM.
-    LD   HL,NM_TEXT                ; The file being read,
-    LD   (RD_NAME),HL              ; for diagnostics.
+    LD   DE,NM_TYPE                ; type $NM,
+    LD   BC,NM_TEXT                ; named in NM_TEXT.
+    CALL FIL_NAME                  ; Set up the FCB.
     CALL FIL_OPEN                  ; Open it; carry if it doesn't exist.
     RET  C                         ; The program has no names.
     CALL .STREAM                   ; Check it: HL is its stamp,
-    LD   DE,(DIR_HEAD+6)           ; which must be the directory's.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Equal?
-    RET  Z                         ; The names belong to the directory.
-    LD   HL,202                    ; L-STAMP.
-    JP   DG_PLAIN                  ; Report it.
+    JP   RD_STAMP                  ; which must be the directory's; return.
 
 ;@ROUTINE IN IX OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Check the name stream at IX, returning its stamp: magic BSIN, version
@@ -407,21 +397,8 @@ NM_CHECK:                      ; Both directories are read.
 
 .STREAM:                       ; IX is at the stream's first byte.
     CALL CRC_NEW                   ; The CRC covers everything before it.
-    LD   HL,.MAGIC                 ; Compare the magic
-    LD   B,4                       ; over four bytes.
-.MAG:                          ; HL walks the magic.
-    CALL RD_BYTE                   ; The next byte.
-    CP   (HL)                      ; Does it match?
-    JR   NZ,.BAD                   ; Not a name stream.
-    INC  HL                        ; The next magic byte.
-    DJNZ .MAG                      ; Until all four match.
-    CALL RD_BYTE                   ; The major version
-    CP   1                         ; must be 1.
-    JR   NZ,.BAD                   ; Unknown.
-    CALL RD_BYTE                   ; The minor version
-    OR   A                         ; must be 0.
-    JR   NZ,.BAD                   ; Higher.
-    CALL RD_WORD                   ; The stamp,
+    LD   HL,.MAGIC                 ; The magic and version,
+    CALL RD_MAGIC                  ; checked: HL is the stamp,
     PUSH HL                        ; kept for the caller.
 .REC:                          ; IX is at a record.
     CALL RD_WORD                   ; Its ordinal;

@@ -29,7 +29,8 @@ DIR_TEXT:                      ; Its name as text, for diagnostics.
     DS   13                        ; NAME.$DR and a zero.
 
 ;@ROUTINE OUT IX CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Open NAME.$DR on the spool drive, read its header into DIR_HEAD and check
+; Open NAME.$DR on the spool drive, read its header from the stamp on into
+; DIR_HEAD, check
 ; it against the library (linker §4.3; object format §10), then check the
 ; options against the profile. IX is left on the directory's first record,
 ; with CRC_VAL counting from the file's start.
@@ -42,42 +43,21 @@ DIR_OPEN:                      ; Called once the library's directory is read.
     LD   A,(CMD_DISK)              ; Otherwise the first part's drive.
 .DRV:                          ; A is the drive.
     LD   HL,CMD_NAME               ; NAME,
-    LD   DE,DIR_TYPE               ; type $DR.
-    CALL FIL_INIT                  ; Set up the FCB.
-    LD   HL,CMD_NAME               ; Its name as text,
-    LD   DE,DIR_TEXT               ; into DIR_TEXT,
-    LD   BC,DIR_TYPE               ; with its type.
-    CALL FIL_TEXT                  ; NAME.$DR.
-    LD   HL,DIR_TEXT               ; The file being read,
-    LD   (RD_NAME),HL              ; for diagnostics.
-    CALL FIL_OPEN                  ; Open it; carry if it doesn't exist.
-    LD   HL,225                    ; L-MISSING.
-    JP   C,DG_FILE                 ; Report it with the name.
+    LD   DE,DIR_TYPE               ; type $DR,
+    LD   BC,DIR_TEXT               ; named in DIR_TEXT.
+    CALL FIL_NAME                  ; Set up the FCB.
+    CALL FIL_NEED                  ; Open it, or L-MISSING.
     CALL CRC_NEW                   ; The directory's CRC covers its header.
-    LD   HL,DIR_HEAD               ; Read the 20-byte header
-    LD   B,20                      ; into DIR_HEAD.
+    LD   HL,.MAGIC                 ; Its magic and version,
+    CALL RD_MAGIC                  ; checked: HL is the stamp,
+    LD   (DIR_HEAD+6),HL           ; kept.
+    LD   HL,DIR_HEAD+8             ; The rest of the 20-byte header,
+    LD   B,12                      ; 12 bytes, into DIR_HEAD.
 .HEAD:                         ; HL walks DIR_HEAD.
     CALL RD_BYTE                   ; The next byte, into the CRC.
     LD   (HL),A                    ; Store it.
     INC  HL                        ; The next place.
-    DJNZ .HEAD                     ; Until all 20 are read.
-    LD   HL,DIR_HEAD               ; Magic and version.
-    LD   DE,.MAGIC                 ; Compare the magic
-    LD   B,4                       ; over four bytes.
-.COMPARE:                      ; HL walks the header, DE the magic.
-    LD   A,(DE)                    ; A magic byte.
-    CP   (HL)                      ; Does the header match?
-    JR   NZ,.BADMAG                ; Not a program directory.
-    INC  HL                        ; The next header byte.
-    INC  DE                        ; The next magic byte.
-    DJNZ .COMPARE                  ; Until all four match.
-    LD   A,(DIR_HEAD+4)            ; The major version
-    CP   1                         ; must be 1.
-    LD   HL,200                    ; L-FORMAT.
-    JP   NZ,DG_FILE                ; An unknown major version.
-    LD   A,(DIR_HEAD+5)            ; The minor version
-    OR   A                         ; must be 0.
-    JP   NZ,DG_FILE                ; A higher minor version: L-FORMAT.
+    DJNZ .HEAD                     ; Until all 12 are read.
     LD   HL,(DIR_HEAD+8)           ; Compatibility: the runtime's identity
     LD   DE,(LIB_HEAD+6)           ; must be the library's.
     OR   A                         ; Clear carry for the subtraction.
@@ -112,9 +92,6 @@ DIR_OPEN:                      ; Called once the library's directory is read.
 .COMPAT:                       ; The program was built for another library.
     LD   HL,201                    ; L-COMPAT.
     JP   DG_PLAIN                  ; Report it.
-.BADMAG:                       ; Not a program directory.
-    LD   HL,200                    ; L-FORMAT.
-    JP   DG_FILE                   ; Report it with the name.
 .MAGIC:                        ; The program directory's magic.
     DB   "BSIP"                    ; Basie program directory.
 
@@ -209,6 +186,31 @@ DIR_OPEN:                      ; Called once the library's directory is read.
     POP  IX                        ; Recover IX.
     LD   HL,201                    ; L-COMPAT.
     JP   DG_PLAIN                  ; Report it.
+
+;@ROUTINE IN IX CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Open the file at IX, set up by FIL_NAME: L-MISSING for it if it isn't
+; there.
+
+FIL_NEED:                      ; RD_NAME names the file.
+    CALL FIL_OPEN                  ; Open it; carry if it doesn't exist.
+    RET  NC                        ; Open.
+    LD   HL,225                    ; L-MISSING.
+    JP   DG_FILE                   ; Report it with the name.
+
+;@ROUTINE IN A,BC,DE,HL,IX OUT DE CLOBBERS A,BC,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Set up the FD at IX as FIL_INIT does, for drive A, the name at HL and the
+; type at DE; then write NAME.TYP as text at BC, which RD_NAME then names
+; for diagnostics.
+
+FIL_NAME:                      ; BC has room for 13 bytes.
+    LD   (RD_NAME),BC              ; The text names the file.
+    PUSH BC                        ; Keep the text's place,
+    PUSH DE                        ; the type,
+    PUSH HL                        ; and the name.
+    CALL FIL_INIT                  ; Set up the FCB.
+    POP  HL                        ; HL is the name,
+    POP  BC                        ; BC the type,
+    POP  DE                        ; DE the text's place; fall into FIL_TEXT.
 
 ;@ROUTINE IN BC,DE,HL OUT DE CLOBBERS A,BC,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the file name NAME.TYP as zero-terminated text at DE: HL is the

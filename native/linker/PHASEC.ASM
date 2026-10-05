@@ -88,8 +88,6 @@ WK_ENTRY:                      ; The blob's entry.
     DW   0                         ; From the table.
 SRC_FD:                        ; Phase D: the byte stream being copied.
     DW   0                         ; SRC_LIB or SRC_PROG.
-.BASE:                         ; Unused.
-    DS   3                         ; Three spare bytes.
 PS_TAB:                        ; MAIN to FILECOUNT: address, size.
     DS   40                        ; Ten rows of four bytes.
 

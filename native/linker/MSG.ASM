@@ -145,9 +145,7 @@ DG_SAY:                        ; HL is "Error " or "Warning ".
     CALL CON_CHAR                  ; Print it.
     JR   .TEXT                     ; And go on with the text.
 .ARGUMENT:                     ; HL is an argument, or 0.
-    PUSH BC                        ; Keep B, the bytes left (CON_STR keeps it too).
-    CALL .PUTARG                   ; Print the argument, or "?".
-    POP  BC                        ; B is the bytes left.
+    CALL .PUTARG                   ; Print it, or "?"; B, the bytes left, is kept.
     JR   .TEXT                     ; And go on with the text.
 .NONE:                         ; The number is on the stack.
     POP  HL                        ; HL is the number; fall into the bare form.
