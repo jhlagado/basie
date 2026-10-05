@@ -197,9 +197,10 @@ the symbol table's records grew from seven bytes to nine (a scalar
 constant's value after its payload) and the operand stack's entries from
 thirteen to sixteen, and a control frame from sixteen bytes to eighteen
 (a long counter's four-byte step); with the folding scratch the
-compiler's workspace grew to 3,908 bytes (3,923 at 67e, with a bit for
-each parameter a from clause names, `RO_FROM`, and a var record's owner
-word in the path's block). The workspace, the shell's and the blob
+compiler's workspace grew to 3,908 bytes (3,925 at 67e, with a bit for
+each parameter a from clause names, `RO_FROM`, a var record's owner word
+in the path's block, and the end of a routine's waiting aggregate
+constants, which wait in the free memory above the source). The workspace, the shell's and the blob
 writer's, and the source area after them, moved 2K up (`MM_WBASE` `$5000`), so that the
 image and the overlay area can grow towards the target; the source area
 shrank by as much, to about 26.75K on a 62K system ([limits](limits.md)

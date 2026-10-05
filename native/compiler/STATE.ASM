@@ -16,17 +16,18 @@
 ;
 ;    Offset  Size  Block
 ;    +$000     27  source cursor, current token, diagnostic (PR_BASE)
-;    +$01B    158  emitter and routine generation: frame accounting, the
-;                  routine's labels, ordinals and the program's limits
-;    +$0B9      3  parser lookahead
-;    +$0BC    865  symbol table: count, 96 records of nine bytes
-;    +$41D    330  expression state, the folding scratch and the operand
+;    +$01B    160  emitter and routine generation: frame accounting, the
+;                  routine's labels, ordinals, its waiting constants and
+;                  the program's limits
+;    +$0BB      3  parser lookahead
+;    +$0BE    865  symbol table: count, 96 records of nine bytes
+;    +$41F    330  expression state, the folding scratch and the operand
 ;                  stack
-;    +$567    146  control: depth, fallthrough, eight frames of eighteen
+;    +$569    146  control: depth, fallthrough, eight frames of eighteen
 ;                  bytes
-;    +$5F9   1530  aggregate types, records, fields, array bounds, the
+;    +$5FB   1530  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$BF3         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$BF5         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -98,7 +99,8 @@ RG_PATCH EQU  RG_LARGE+2       ; Word: the offset of the prologue's frame operan
 RG_NAME EQU  RG_PATCH+2        ; Word: the routine's name, for the name stream.
 RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
 RG_FWD EQU  RG_NLEN+1          ; Byte: nonzero once a routine is declared forward.
-GX_IMMV EQU  RG_FWD+1          ; Byte: the immediate of a frame byte's store (GX_DSTN).
+RG_PEND EQU  RG_FWD+1          ; Word: the end of the routine's waiting constants.
+GX_IMMV EQU  RG_PEND+2         ; Byte: the immediate of a frame byte's store (GX_DSTN).
 GX_TYPES EQU  GX_IMMV+1        ; Word: a narrowing's types, target low (GX_TRIM).
 GX_PFROM EQU  GX_TYPES+2       ; Byte: its source's properties (GX_PROP).
 GX_PTO EQU  GX_PFROM+1         ; Byte: its target's properties.

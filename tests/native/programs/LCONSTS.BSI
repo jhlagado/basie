@@ -1,0 +1,36 @@
+// Aggregate constants in routines' bodies (67e): each takes its ordinal
+// where it is declared and its read-only blob follows its routine's, a
+// forward's completion's too; one in a block is gone at the block's end.
+record P
+    x as u8
+    y as u16
+end
+
+const top as P = (1, 2)
+
+forward sub g() as u8
+
+sub f() as u8
+    const k as P = (5, 600)
+    const w as u8[3] = [7, 8, 9]
+    return k.x + w[1] + top.x
+end
+
+sub main()
+    const s as string[8] = "abc"
+    var t as string[8] = s
+    var a as u8 = f() + g()
+    if a > 3
+        const q as u16[2] = [100, 200]
+        a = u8(q[1] - 190)
+    end
+    while a < 20
+        const r as P[2] = [(1, 2), (3, 4)]
+        a = a + r[1].x
+    end
+end
+
+sub g
+    const z as u8[2] = [4, 5]
+    return z[0]
+end

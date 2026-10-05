@@ -170,6 +170,7 @@ const CLAIMED: Record<string, string[]> = {
     "TRUNCREF",
     "DIRECTRY",
   ],
+  "67e: aggregate constants in routines' bodies": ["LCONSTS"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -518,6 +519,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67b: signed bytes and words, shifts and exact values"],
     ...CLAIMED["67b: 32-bit values, counters and file positions"],
     ...CLAIMED["67e: var parameters, open arrays, from clauses and assert"],
+    ...CLAIMED["67e: aggregate constants in routines' bodies"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -913,6 +915,12 @@ const REFUSED: Record<string, string> = {
   "an assert with more after it":
     "var x as u8\nsub main()\nassert x = 3 x\nend\n",
   "an assert of nothing": "sub main()\nassert\nend\n",
+  "a routine's aggregate constant written":
+    "sub main()\nconst k as u8[2] = [1, 2]\nk[0] = 3\nend\n",
+  "a block's aggregate constant used after the block":
+    "sub main()\nif true\nconst k as u8[2] = [1, 2]\nend\nvar c as u8 = k[0]\nend\n",
+  "a routine's aggregate constant of an open type":
+    "sub main()\nconst k as u8[] = [1, 2]\nend\n",
 };
 
 /** The code of a message number, from the message table. */

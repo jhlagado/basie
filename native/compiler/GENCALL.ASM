@@ -28,6 +28,14 @@
 ;  pair:
 ;    DW need                             frame + 4 + helpers + callees
 ;
+;  An aggregate constant declared in a routine's body takes its ordinal
+;  where it is declared, after the routine's, and its blob follows the
+;  routine's, as the reference's list has them; the blob writer builds one
+;  blob at a time, so the constant waits, staged in the free memory
+;  between the source's last part and the part table (RG_SPAN), until the
+;  routine's blob is written (RG_DEFER, RG_CLOSE). Each waiting constant
+;  is its ordinal, its size, its bytes, then its name's address and length.
+;
 ;  Labels 0 and 1 of every routine are its exit and its pair (RG_EXIT,
 ;  RG_PAIR). A routine declared forward may be reached by recursion, so it
 ;  checks its need against the stack before it builds its frame, as the
@@ -39,6 +47,7 @@
 ;    RG_RET    the success return: OR A when it can fail, JP exit
 ;    RG_CLOSE  end a routine: exit, frame and need, write the blob
 ;    RG_DATA   write the staged object as a blob of a given kind
+;    RG_DEFER  keep a routine's aggregate constant until its blob is written
 ;    RG_BSS    write a bss blob of the staged object's size
 ;    RG_END    write the entry and limits records
 ;    BL_OVER   the blob writer's overflow: refuse the routine or object
@@ -62,13 +71,17 @@ RG_ADD:                        ; A blob is about to begin.
 ; Begin the blob of the routine whose name is the B characters at HL and
 ; whose ordinal is DE: mark its line (the line of its name, AC_DPOS),
 ; allocate its exit and pair labels and write its prologue, checked when
-; the routine was declared forward (RO_CFLAG). Code may then be written.
+; the routine was declared forward (RO_CFLAG); no constant waits yet
+; (RG_PEND). Code may then be written.
 
 RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     LD   (RG_NAME),HL              ; Keep the name for the name stream.
     LD   A,B                       ; And its length.
     LD   (RG_NLEN),A               ; Keep it.
-    EX   DE,HL                     ; HL is the routine's ordinal.
+    PUSH DE                        ; (the ordinal kept)
+    CALL RG_SPAN                   ; No constant
+    LD   (RG_PEND),HL              ; waits yet.
+    POP  HL                        ; HL is the routine's ordinal.
     XOR  A                         ; Kind code, no root flag, no alignment.
     CALL BL_BEGIN                  ; Start the blob.
     CALL EM_OPEN                   ; No frame, temporaries or labels yet.
@@ -113,7 +126,8 @@ RG_RET:                        ; Control leaves the routine successfully.
 ;@ROUTINE OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; End the routine: the success return if its end is reachable (CT_FALLS),
 ; the exit sequence, the frame patched into the prologue, the frame and
-; need words, then write the blob and its name. HL returns the need.
+; need words, then write the blob and its name, and after it the blobs of
+; its waiting aggregate constants (RG_DEFER). HL returns the need.
 
 RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   A,(CT_FALLS)              ; Can control reach the end?
@@ -177,8 +191,114 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   A,(RG_NLEN)               ; of this
     LD   B,A                       ; length.
     CALL BL_NAME                   ; Record it.
+    CALL RG_SPAN                   ; Then the waiting constants,
+.NEXT:                         ; from HL:
+    LD   DE,(RG_PEND)              ; any
+    OR   A                         ; left
+    SBC  HL,DE                     ; before
+    ADD  HL,DE                     ; the end?
+    JR   Z,.DONE                   ; No: done.
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; its
+    LD   D,(HL)                    ; ordinal,
+    INC  HL                        ; kept
+    PUSH DE                        ; for its name;
+    LD   C,(HL)                    ; BC is
+    INC  HL                        ; its
+    LD   B,(HL)                    ; size.
+    INC  HL                        ; Its bytes follow.
+    PUSH HL                        ; Keep
+    PUSH BC                        ; them.
+    EX   DE,HL                     ; HL is the ordinal:
+    LD   A,BL_KRO                  ; read-only data
+    CALL BL_BEGIN                  ; begins;
+    POP  BC                        ; BC bytes
+    POP  HL                        ; at HL
+    CALL RG_BYTES                  ; are appended.
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; its
+    LD   D,(HL)                    ; name,
+    INC  HL                        ; B
+    LD   B,(HL)                    ; its
+    INC  HL                        ; length.
+    EX   (SP),HL                   ; HL is the ordinal, the next kept.
+    PUSH HL                        ; Keep
+    PUSH DE                        ; them
+    PUSH BC                        ; all
+    CALL BL_END                    ; while the blob is written.
+    POP  BC                        ; Then
+    POP  DE                        ; its
+    POP  HL                        ; name
+    CALL BL_NAME                   ; is recorded.
+    POP  HL                        ; The next.
+    JR   .NEXT                     ; Write it.
+.DONE:                         ; Every constant is written.
     POP  HL                        ; HL is the need.
     RET                            ; The routine is written.
+
+;@ROUTINE OUT HL,DE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Return in HL the end of the source's last part and in DE the part
+; table's bottom: the memory between them is free while the program is
+; compiled. BC is kept.
+
+RG_SPAN:                       ; The parts are loaded.
+    LD   A,(SRC_PCNT)              ; The last
+    DEC  A                         ; part's
+    CALL SRC_PART                  ; entry is the table's bottom.
+    PUSH HL                        ; Keep it.
+    LD   DE,PT_END                 ; Its bytes'
+    ADD  HL,DE                     ; end
+    LD   E,(HL)                    ; is
+    INC  HL                        ; the last
+    LD   D,(HL)                    ; loaded.
+    EX   DE,HL                     ; HL is it,
+    POP  DE                        ; DE the bottom.
+    RET                            ; Done.
+
+;@ROUTINE OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Keep the aggregate constant staged in AG_IBUF, AG_OSIZE bytes, named by
+; the retained declaration name, until its routine's blob is written: it
+; takes the next ordinal, returned in BC, and waits after the constants
+; before it, within the free memory (DG_ROOM beyond).
+
+RG_DEFER:                      ; Declared in a routine's body.
+    CALL RG_ADD                    ; HL is the ordinal.
+    PUSH HL                        ; Keep it.
+    CALL RG_SPAN                   ; DE is the free memory's end.
+    LD   HL,(AG_OSIZE)             ; Its bytes
+    LD   BC,7                      ; and seven more:
+    ADD  HL,BC                     ; the entry's size,
+    LD   B,H                       ; in
+    LD   C,L                       ; BC.
+    LD   HL,(RG_PEND)              ; After the others
+    ADD  HL,BC                     ; it ends here,
+    JR   C,.FULL                   ; within memory
+    EX   DE,HL                     ; and below
+    SBC  HL,DE                     ; the part table,
+    JR   C,.FULL                   ; else DG_ROOM.
+    LD   HL,(RG_PEND)              ; It begins where they end,
+    LD   (RG_PEND),DE              ; and ends there.
+    POP  BC                        ; The ordinal:
+    LD   (HL),C                    ; its
+    INC  HL                        ; two
+    LD   (HL),B                    ; bytes;
+    INC  HL                        ; then
+    PUSH BC                        ; (the ordinal kept)
+    EX   DE,HL                     ; the size's
+    LD   HL,AG_OSIZE               ; two
+    LDI                            ; bytes,
+    LDI                            ; copied;
+    LD   BC,(AG_OSIZE)             ; then the bytes,
+    LD   HL,AG_IBUF                ; from the staging;
+    LDIR                           ; then the name's
+    LD   HL,AC_DNAME               ; address
+    LD   BC,3                      ; and length
+    LDIR                           ; (AC_DLEN after it).
+    POP  BC                        ; BC is the ordinal.
+    RET                            ; Done.
+.FULL:                         ; No room for it:
+    CALL DG_RAISE                  ; the source's
+    DB   DG_ROOM                   ; memory.
 
 ;@ROUTINE IN A OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the object staged in AG_IBUF, AG_OSIZE bytes, as a blob of kind A
@@ -190,17 +310,24 @@ RG_DATA:                       ; A is the kind.
     PUSH HL                        ; Keep it.
     CALL BL_BEGIN                  ; Start the blob; no root, no alignment.
     LD   HL,AG_IBUF                ; The staged bytes,
-    LD   BC,(AG_OSIZE)             ; all of them.
-.LOOP:                         ; BC bytes remain at HL.
+    LD   BC,(AG_OSIZE)             ; all of them,
+    CALL RG_BYTES                  ; appended.
+    CALL BL_END                    ; Write the blob.
+    JR   RG_NAMED                  ; Name it and return its ordinal.
+
+;@ROUTINE IN BC,HL OUT HL CLOBBERS A,BC,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the BC bytes at HL, at least one, to the blob; HL returns past
+; them.
+
+RG_BYTES:                      ; BC bytes remain at HL.
     LD   A,(HL)                    ; Append the next
     CALL BL_BYTE                   ; to the blob.
     INC  HL                        ; Move to the next.
     DEC  BC                        ; One fewer.
     LD   A,B                       ; Any left?
     OR   C                         ; Zero when all are written.
-    JR   NZ,.LOOP                  ; Append the rest.
-    CALL BL_END                    ; Write the blob.
-    JR   RG_NAMED                  ; Name it and return its ordinal.
+    JR   NZ,RG_BYTES               ; Append the rest.
+    RET                            ; Done.
 
 ;@ROUTINE OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write a bss blob of the staged object's size, AG_OSIZE, named by the

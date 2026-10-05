@@ -202,7 +202,7 @@ AC_STR:
 
 AC_REUSE:
     CALL AG_REUSE                  ; A is the type's ID, new or shared.
-            JR   AC_USE                    ; Make it current.
+            JR   AC_USE            ; Make it current.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; BeginType: keep the offset of the type's first token (AG_TPOS), where a
@@ -410,9 +410,16 @@ AC_ROCMT:
     LD   HL,AC_DVAL                ; read as
     CALL VL_WRAP                   ; the type's number.
     JR   AC_CONST                  ; Declare it.
-.BLOB:                         ; An aggregate constant.
-    LD   A,BL_KRO                  ; Read-only data.
+.BLOB:                         ; An aggregate constant:
+    LD   A,(RO_BODY)               ; in a routine's body
+    OR   A                         ; it waits
+    JR   Z,.TOP                    ; for the routine's blob,
+    CALL RG_DEFER                  ; BC its ordinal;
+    JR   .SYM                      ; otherwise
+.TOP:                          ; it is written,
+    LD   A,BL_KRO                  ; read-only data.
     CALL RG_DATA                   ; Write it; BC is its ordinal.
+.SYM:                          ; BC is the ordinal.
     LD   D,SY_AGGR+SY_CONST        ; An aggregate constant.
     CALL EX_PREP                   ; Write the provisional symbol.
     LD   A,(AG_CTYPE)              ; The constant's type ID.
@@ -466,20 +473,10 @@ AC_OBJ:
     LD   (AG_GIVEN),A              ; ...and no initializer yet.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; SaveAggregateConstantType: begin a typed constant: its value is staged
-; as an object's initializer is. An aggregate constant in a routine's
-; body is not yet compiled (DG_NYI): its rodata blob would begin inside
-; the routine's.
+; SaveAggregateConstantType: begin a typed constant, at top level or in a
+; routine's body: its value is staged as an object's initializer is.
 
-AC_ROOBJ:
-    LD   A,(RO_BODY)               ; Inside a body,
-    OR   A                         ; is it
-    LD   A,(AG_CTYPE)              ; of an aggregate
-    JR   Z,AC_OBJ                  ; type?
-    CP   AG_FIRST                  ; Then it is
-    JP   NC,TR_OPER                ; refused for now.
-    JR   AC_OBJ                    ; Begin the object.
+AC_ROOBJ EQU  AC_VAR           ; SaveAggregateConstantType: as an object.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; FinishProgramInitializer: an initializer was given, and it must have
