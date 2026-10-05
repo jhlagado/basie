@@ -13,6 +13,8 @@ function run(tail: string, files: Record<string, string | Uint8Array> = {}) {
   return runCom(basie, { tail, files, maxSteps: 50_000_000 }).output;
 }
 
+const USAGE = "Usage: BASIE PART[,PART...] [OPTIONS]\r\n";
+
 const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\n" +
   "value = value * 2\nend\n";
 
@@ -21,6 +23,11 @@ Deno.test("BASIE with no part prints its usage", () => {
   assertEquals(run("[K]"), "Usage: BASIE PART[,PART...] [OPTIONS]\r\n");
   assertEquals(run("TOOLONGNAME"), "Usage: BASIE PART[,PART...] [OPTIONS]\r\n");
   assertEquals(run("MAIN;"), "Usage: BASIE PART[,PART...] [OPTIONS]\r\n");
+  // A comma must be followed by a part, and a dot by a type.
+  const files = { "MAIN.BSI": PROGRAM };
+  for (const tail of ["MAIN,", "MAIN, ", "MAIN,[K]", "MAIN.", "MAIN. [K]"]) {
+    assertEquals(run(tail, files), USAGE, tail);
+  }
 });
 
 Deno.test("a failed build deletes A:$$$.SUB; a good one leaves it", () => {
@@ -33,6 +40,7 @@ Deno.test("a failed build deletes A:$$$.SUB; a good one leaves it", () => {
 
 Deno.test("BASIE reports a part it can't find", () => {
   assertEquals(run("MAIN"), "MAIN.BSI not found\r\n");
+  assertEquals(run("B:MAIN"), "B:MAIN.BSI not found\r\n");
   assertEquals(run("MAIN.TXT", { "MAIN.BSI": PROGRAM }), "MAIN.TXT not found\r\n");
 });
 
@@ -61,4 +69,20 @@ Deno.test("BASIE reports a diagnostic with its part, line and column", () => {
   const parts = [..."ABCDEFGHI"];
   const empty = Object.fromEntries(parts.map((p) => [`${p}.BSI`, "\n"]));
   assertEquals(run(parts.join(","), empty), "More than 8 source parts\r\n");
+});
+
+Deno.test("the source may fill memory to 1K below the BDOS entry", () => {
+  // The harness's BDOS entry is $E406, so the source runs from $5800 to $E006.
+  const room = 0xe006 - 0x5800;
+  const fill = (size: number) => {
+    let text = PROGRAM;
+    while (text.length < size - 70) text += "// " + "x".repeat(60) + "\n";
+    return text + "//" + "x".repeat(size - text.length - 3) + "\n";
+  };
+  assertEquals(fill(room).length, room);
+  assertEquals(run("MAIN", { "MAIN.BSI": fill(room) }), "");
+  assertEquals(
+    run("MAIN", { "MAIN.BSI": fill(room + 1) }),
+    "Source too large\r\n",
+  );
 });

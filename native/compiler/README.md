@@ -50,11 +50,11 @@ a generator for Basie's grammar that writes ATOM under the `GR_` scheme
 | Compiler code | 14,893 |
 | Immutable data | 393 |
 | **Compiler core** | **15,286** |
-| CP/M shell | 786 |
-| **`BASIE.COM`** | **16,075** |
+| CP/M shell | 858 |
+| **`BASIE.COM`** | **16,147** |
 | Workspace (not in the image) | 3,609 |
 
-That leaves 10,549 bytes to the 26K target and 12,597 to the 28K limit (D43).
+That leaves 10,477 bytes to the 26K target and 12,525 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change

@@ -13,11 +13,11 @@ Deno.test("BASIE.COM is the recorded image and within budget", async () => {
   const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(image.com));
   const hex = [...new Uint8Array(digest)]
     .map((b) => b.toString(16).padStart(2, "0")).join("");
-  // Step 65.0: byte-identical to the AZM build of step 65.2. A change to the
-  // compiler updates this digest and the sizes below in the same commit.
+  // A change to the compiler updates this digest and the sizes below in the
+  // same commit, with the census figure in its message (D43).
   assertEquals(hex, DIGEST);
   assertEquals(image.core, 15_286);
-  assertEquals(image.com.length, 16_075);
+  assertEquals(image.com.length, 16_147);
   assertEquals(image.com.length <= LIMIT, true, `over the ${LIMIT}-byte limit`);
   console.log(
     `  BASIE.COM ${image.com.length} bytes: ${
@@ -27,4 +27,4 @@ Deno.test("BASIE.COM is the recorded image and within budget", async () => {
 });
 
 const DIGEST =
-  "ea0ce9efabb5f90041bc2c2325f81a59ed40cd67cc4221e661d8c9103d60a9d8";
+  "da3433d95f3590184def213dcdff3324d390c51793ab8cd2c32938b9b920a74f";

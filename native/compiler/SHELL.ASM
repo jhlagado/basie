@@ -46,6 +46,7 @@ SH_READ EQU  20                ; BDOS read sequential: A is nonzero at end of fi
 SH_DMA EQU  26                 ; BDOS set DMA address: DE receives the next record.
 SH_FLEN EQU  36                ; FCB bytes, through the random record number.
 SH_NLEN EQU  11                ; FCB name and type bytes, padded with spaces.
+SH_SLOT EQU  12                ; A saved part name: the FCB's drive, name and type.
 
 ; The shell's workspace, after the compiler's and below the source.
 SH_LIMIT EQU  SH_WBEG          ; Word: the source must end at or below here.
@@ -54,8 +55,8 @@ SH_PBEG EQU  SH_LOADP+2        ; Word: the start of the part being loaded.
 SH_PCNT EQU  SH_PBEG+2         ; Byte: parts loaded, so the next part's index.
 SH_FCB EQU  SH_PCNT+1          ; SH_FLEN bytes: the FCB of every BDOS file call.
 SH_PARTS EQU  SH_FCB+SH_FLEN   ; SRC_CAP descriptors of 5 bytes: id, start, end.
-SH_NAMES EQU  SH_PARTS+SRC_CAP*5 ; SRC_CAP names of SH_NLEN bytes, by index.
-SH_WEND EQU  SH_NAMES+SRC_CAP*SH_NLEN ; The build checks this is at or below MM_SRC.
+SH_NAMES EQU  SH_PARTS+SRC_CAP*5 ; SRC_CAP slots of SH_SLOT bytes, by index.
+SH_WEND EQU  SH_NAMES+SRC_CAP*SH_SLOT ; The build checks this is at or below MM_SRC.
 
 ;@ROUTINE NORETURN
 ; Load the parts the command tail names, compile them and warm boot, after
@@ -85,11 +86,19 @@ SH_START:                      ; Entered from the jump at $0100.
     JR   Z,.TAILDONE               ; Then the parts are complete.
     CP   '['                       ; Do the options begin here?
     JR   Z,.TAILDONE               ; They are not yet read, so the parts are complete.
+.PART:                         ; HL is at a part's first character.
     CALL .LOAD                     ; Parse the name, load the part, add its descriptor.
     CALL .SPACES                   ; A is the character after the name and any spaces.
     INC  HL                        ; Step past it, in case it is a comma.
     CP   ','                       ; Does another part follow?
-    JR   Z,.NEXTPART               ; Parse it.
+    JR   NZ,.NOCOMMA               ; No: only the end or the options may follow.
+    CALL .SPACES                   ; A is the first character after the comma.
+    OR   A                         ; A comma must be followed by a part,
+    JP   Z,SH_USAGE                ; not by the end of the tail
+    CP   '['                       ; or by the options.
+    JR   NZ,.PART                  ; Parse the next part.
+    JP   SH_USAGE                  ; A trailing comma is a malformed command line.
+.NOCOMMA:                      ; A is the byte after the part and any spaces.
     OR   A                         ; Is this the end of the tail?
     JR   Z,.TAILDONE               ; Then the parts are complete.
     CP   '['                       ; Otherwise only the options may follow.
@@ -118,7 +127,8 @@ SH_START:                      ; Entered from the jump at $0100.
 ;@ROUTINE IN HL OUT HL CLOBBERS A,BC,DE,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse [d:]name[.type] at HL into the FCB, load the part after the parts
 ; already loaded, end it at its first $1A and append its descriptor. HL is
-; left after the name. Errors leave by SH_MANY, SH_USAGE, SH_MISS, SH_LARGE.
+; left after the name. Errors leave by SH_MANY, SH_USAGE, SH_MISS, SH_RERR
+; and SH_LARGE.
 
 .LOAD:                         ; HL is at the part's first character.
     LD   A,(SH_PCNT)               ; A is the number of parts loaded so far.
@@ -151,7 +161,10 @@ SH_START:                      ; Entered from the jump at $0100.
     INC  HL                        ; Step over the dot.
     LD   DE,SH_FCB+9               ; The type field follows the name.
     LD   B,3                       ; A type has at most three characters.
-    CALL SH_FIELD                  ; Copy it; a dot alone leaves the type blank.
+    CALL SH_FIELD                  ; Copy it; HL stops at the first other character.
+    LD   A,(SH_FCB+9)              ; A is the type's first byte.
+    CP   ' '                       ; A dot with no type after it
+    JP   Z,SH_USAGE                ; is a usage error.
     JR   .OPEN                     ; Check what ends the part.
 .DEFTYPE:                      ; No dot, so the type is BSI.
     PUSH HL                        ; Keep the tail position across the copy.
@@ -175,8 +188,8 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   A,(SH_PCNT)               ; Keep the name for diagnostics: A is the index.
     CALL SH_PNAME                  ; HL is the name slot of this part's index.
     EX   DE,HL                     ; DE is the slot.
-    LD   HL,SH_FCB+1               ; Copy the FCB's name and type to the slot.
-    LD   BC,SH_NLEN                ; Eleven bytes; the drive is not kept.
+    LD   HL,SH_FCB                 ; Copy the FCB's drive, name and type to the slot.
+    LD   BC,SH_SLOT                ; Twelve bytes, so diagnostics can name the drive.
     LDIR                           ; SH_MISS and SH_DIAG print the name from here.
     LD   DE,SH_FCB                 ; DE is the FCB for BDOS.
     LD   C,SH_OPEN                 ; Open the part for reading.
@@ -186,14 +199,13 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   HL,(SH_LOADP)             ; The part starts at the load point.
     LD   (SH_PBEG),HL              ; Keep its start for the trim and the descriptor.
 .RECORD:                       ; SH_LOADP is where the next record goes.
-    LD   HL,(SH_LOADP)             ; Is there room for another record?
-    LD   DE,128                    ; One CP/M record.
-    ADD  HL,DE                     ; HL is where that record would end.
-    EX   DE,HL                     ; DE is that end.
-    LD   HL,(SH_LIMIT)             ; HL is the first byte the source may not use.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Carry if the record would cross the limit.
-    JP   C,SH_LARGE                ; Every read is checked first, even the one at end of file.
+    LD   HL,(SH_LOADP)             ; The load point may be up to one record past the
+    LD   DE,-128                   ; limit before the read that finds the end of the
+    ADD  HL,DE                     ; file, which writes nothing; HL is it less 128.
+    EX   DE,HL                     ; DE is the load point less one record.
+    CALL .ROOM                     ; Carry if even that is past the limit.
+    JP   C,SH_LARGE                ; Records land at most 256 bytes past the limit, in
+                                   ; the stack's reserve; .FOUND checks the true end.
     LD   DE,(SH_LOADP)             ; DE is the load point.
     LD   C,SH_DMA                  ; The record is read straight to it.
     CALL SH_BDOS                   ; Set the DMA address to DE.
@@ -201,7 +213,11 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   C,SH_READ                 ; Read its next record.
     CALL SH_BDOS                   ; A is zero if a record was read.
     OR   A                         ; Was one read?
-    JR   NZ,.LOADED                ; Any other status is taken as the end of the file.
+    JR   Z,.ADVANCE                ; Yes: move past it.
+    DEC  A                         ; Status 1 is the end of the file.
+    JR   Z,.LOADED                 ; The part is complete.
+    JP   SH_RERR                   ; Any other status is a read error (toolchain §6.2).
+.ADVANCE:                      ; A record was read at SH_LOADP.
     LD   HL,(SH_LOADP)             ; Advance the load point past the record.
     LD   DE,128                    ; A record is 128 bytes.
     ADD  HL,DE                     ; HL is the next load point.
@@ -210,7 +226,7 @@ SH_START:                      ; Entered from the jump at $0100.
 .LOADED:                       ; The file is in memory from SH_PBEG to SH_LOADP.
     LD   HL,(SH_PBEG)              ; Scan from the part's start for its first $1A.
     LD   DE,(SH_LOADP)             ; DE is the end of the last record.
-SH_TRIM:                       ; HL is the next byte to test, below or at DE.
+.TRIM:                         ; HL is the next byte to test, below or at DE.
     LD   A,L                       ; Has the scan reached DE?
     CP   E                         ; Compare the low bytes.
     JR   NZ,.BYTE                  ; They differ: test the byte at HL.
@@ -222,10 +238,12 @@ SH_TRIM:                       ; HL is the next byte to test, below or at DE.
     CP   $1A                       ; CP/M ends a text file with $1A in its last record.
     JR   Z,.FOUND                  ; The part ends at the first one.
     INC  HL                        ; Not yet: test the next byte.
-    JR   SH_TRIM                   ; Continue the scan.
+    JR   .TRIM                     ; Continue the scan.
 .FOUND:                        ; HL is the part's exclusive end.
-    LD   (SH_LOADP),HL             ; The next part loads here, over the $1A and padding.
-    EX   DE,HL                     ; DE is the part's end, for the descriptor.
+    EX   DE,HL                     ; DE is the end.
+    CALL .ROOM                     ; Carry if the part ends past the limit.
+    JP   C,SH_LARGE                ; The part does not fit below the stack's reserve.
+    LD   (SH_LOADP),DE             ; The next part loads here, over the $1A and padding.
     LD   A,(SH_PCNT)               ; Build the descriptor: id, start, end.
     LD   L,A                       ; L keeps this part's index.
     INC  A                         ; A is its 1-based id, which DG_PART reports.
@@ -250,6 +268,16 @@ SH_TRIM:                       ; HL is the next byte to test, below or at DE.
     LD   (HL),D                    ; Store the end's high byte.
     POP  HL                        ; HL is back in the tail, just after the name.
     RET                            ; The part is loaded and described.
+
+;@ROUTINE IN DE OUT CARRY CLOBBERS HL,ZERO,SIGN,PARITY,HALFCARRY
+; Carry if the address DE is past SH_LIMIT, the first byte the source may
+; not use.
+
+.ROOM:                         ; DE is an address in the source area.
+    LD   HL,(SH_LIMIT)             ; HL is the limit.
+    OR   A                         ; Clear carry for the subtraction.
+    SBC  HL,DE                     ; Carry if DE is above it.
+    RET                            ; The caller tests carry.
 
 ;@ROUTINE CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Set the FCB to the current drive, a blank name and type, and zeros in the
@@ -322,19 +350,18 @@ SH_FIELD:                      ; B is the room left in the field.
     RET                            ; A is a name character.
 
 ;@ROUTINE IN A OUT HL CLOBBERS DE,CARRY,HALFCARRY
-; HL = the saved name of the part whose index is A (0-based), at
-; SH_NAMES + SH_NLEN * A.
+; HL = the saved drive and name of the part whose index is A (0-based),
+; at SH_NAMES + SH_SLOT * A.
 
 SH_PNAME:                      ; A is a part index below SRC_CAP.
     LD   L,A                       ; L is the index.
     LD   H,0                       ; Zero-extend it into HL.
-    LD   D,H                       ; D is zero, the index's high byte.
-    LD   E,L                       ; DE is the index, added back below.
     ADD  HL,HL                     ; HL = 2 * index.
     ADD  HL,HL                     ; HL = 4 * index.
-    ADD  HL,DE                     ; HL = 5 * index.
-    ADD  HL,HL                     ; HL = 10 * index.
-    ADD  HL,DE                     ; HL = 11 * index, the name's offset.
+    LD   D,H                       ; DE = 4 * index, added back below.
+    LD   E,L                       ; Its low byte.
+    ADD  HL,HL                     ; HL = 8 * index.
+    ADD  HL,DE                     ; HL = 12 * index, the slot's offset.
     LD   DE,SH_NAMES               ; DE is the base of the saved names.
     ADD  HL,DE                     ; HL is the name slot.
     RET                            ; Return the slot in HL.
@@ -374,13 +401,27 @@ SH_DIAG:                       ; Reached on carry from PR_BUILD.
 
 ;@ROUTINE NORETURN
 ; Report that the part .LOAD failed to open is not on the disk, as
-; NAME.TYP not found.
+; D:NAME.TYP not found.
 
 SH_MISS:                       ; .LOAD saved the part's name before the open.
+    LD   DE,SH_FMSG                ; The text after the name.
+    JR   SH_NAMED                  ; Print the name, then the text.
+
+;@ROUTINE NORETURN
+; Report a part that CP/M could not read, as D:NAME.TYP read error.
+
+SH_RERR:                       ; .LOAD had a read status other than 0 or 1.
+    LD   DE,SH_RMSG                ; The text after the name.
+
+;@ROUTINE IN DE NORETURN
+; Print the name of the part being loaded, then the text at DE, and fail.
+
+SH_NAMED:                      ; DE is the message that follows the name.
+    PUSH DE                        ; Keep it across the name.
     LD   A,(SH_PCNT)               ; The count is still this part's index.
     CALL SH_PNAME                  ; HL is its saved name.
-    CALL SH_SHOW                   ; Print it as NAME.TYP, without the drive.
-    LD   HL,SH_FMSG                ; The text after the name.
+    CALL SH_SHOW                   ; Print it as D:NAME.TYP.
+    POP  HL                        ; HL is the message.
     JR   SH_FAIL                   ; Print it and fail.
 
 ;@ROUTINE NORETURN
@@ -432,9 +473,19 @@ SH_QUIT:                       ; Every failure ends here, its message printed.
 ; ---- console ----------------------------------------------------------------
 
 ;@ROUTINE IN HL CLOBBERS A,B,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Print the 11-character FCB name at HL as NAME.TYP, without padding.
+; Print the saved drive and name at HL as D:NAME.TYP, without padding, and
+; without the drive when the part was on the current drive.
 
-SH_SHOW:                       ; HL is a saved name.
+SH_SHOW:                       ; HL is a saved slot: drive byte, name, type.
+    LD   A,(HL)                    ; A is the drive: 0 current, 1 for A:.
+    INC  HL                        ; HL is the name.
+    OR   A                         ; Was a drive named?
+    JR   Z,.NAME                   ; No: print the name alone.
+    ADD  A,'A'-1                   ; Make the drive a letter.
+    CALL SH_CHAR                   ; Print it.
+    LD   A,':'                     ; Then the colon.
+    CALL SH_CHAR                   ; Print it.
+.NAME:                         ; HL is the eight-character name.
     LD   B,8                       ; The name field has eight characters.
     CALL .CHARS                    ; Print them; HL moves to the type.
     LD   A,'.'                     ; An FCB stores no dot.
@@ -561,6 +612,8 @@ SH_EMSG:                       ; Begins a diagnostic's message.
     DB   "Error ",0                ; The forked compiler's number follows.
 SH_FMSG:                       ; Follows the name of a missing part.
     DB   " not found",0            ; The part's file is not on its drive.
+SH_RMSG:                       ; Follows the name of a part CP/M could not read.
+    DB   " read error",0           ; A disk error, not the end of the file.
 SH_PMSG:                       ; A ninth part was named.
     DB   "More than 8 source parts",0 ; 8 is SRC_CAP.
 SH_LMSG:                       ; The parts would reach the stack's reserve.
