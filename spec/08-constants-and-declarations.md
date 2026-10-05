@@ -217,9 +217,10 @@ An initializer for an owning handle follows the transfer rules of Chapter 7: a f
 - a variable, parameter, typed constant or field, or an element or selection of one;
 - the result of a routine call, a `new` or `new?` expression, or `id(...)`;
 - an explicit conversion; or
+- `true`, `false`, a floating-point literal, a character literal standing alone, or a comparison, which Chapter 9 types as `boolean`, `f32` or `u8`; or
 - an expression whose type Chapter 9 determines from operands that have definite types.
 
-A bare literal, an untyped constant, or an expression built only from them has no definite type, and a local initialized with one must state its type:
+An exact integer has no definite type: an integer literal, an untyped integer constant, or an expression built only from them. A local initialized with one must state its type. So must a local initialized with a string literal or `none`. An open view (`string[]` or `T[]`) is never a local's type, so a `string[]` or `T[]` parameter can't initialize an inferred local (Chapter 6, Section 6.8):
 
 ```nucleus
 var d = distance(a, b)        // the routine's result type
@@ -229,7 +230,7 @@ var count as u16 = 0          // a bare literal: the type must be written
 var bad = 0                   // invalid: no definite type
 ```
 
-An inferred local of a record, array or string type is a copy of its initializer, which must therefore not be of an owning type unless the initializer is fresh.
+An inferred local of a record, array or string type is a copy of its initializer, which must therefore not be of an owning type: no aggregate value is ever fresh, since aggregate results are aliases (Chapter 6, Section 6.5).
 
 The local becomes visible only after its declaration has been checked, so its initializer cannot name it.
 

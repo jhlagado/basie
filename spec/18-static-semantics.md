@@ -17,7 +17,7 @@ Every expression and declaration has one static type (Chapter 6). Records and po
 ## 18.4 Storage, aliases and ownership
 
 - Aliases exist only as parameters and as results consumed within a statement; a returned alias is rooted in program storage or a `from` parameter, never in a local (Chapter 7, Section 7.7; Chapter 13).
-- Parameters without `var` are read-only, except scalar parameters, which are local copies (Chapter 13).
+- Parameters without `var` are read-only, except scalar and handle parameters, which are local copies (Chapter 13).
 - Owning handles and objects of owning type are never copied: ownership passes by a fresh value or `move` (Chapter 7, Section 7.11).
 - Optional handles are reached only through `select` (Chapter 11).
 - Fields, array elements and program variables of handle type are optional; non-optional handle locals have initializers (Chapter 8).

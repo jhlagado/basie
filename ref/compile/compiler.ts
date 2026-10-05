@@ -454,7 +454,11 @@ export class Compiler {
     this.expectKeyword("const");
     const name = this.expectName();
     let type: Type | undefined;
-    if (this.acceptKeyword("as")) type = this.parseType();
+    if (this.acceptKeyword("as")) {
+      const typeAt = this.token;
+      type = this.parseType();
+      this.refuseOpenView(type, typeAt, "a constant");
+    }
     this.expectPunct("=");
     if (type && isAggregate(type)) {
       const bytes = this.staticInitializer(type);
@@ -512,7 +516,9 @@ export class Compiler {
     this.expectKeyword("var");
     const name = this.expectName();
     this.expectKeyword("as");
+    const typeAt = this.token;
     const type = this.parseType();
+    this.refuseOpenView(type, typeAt, "a program variable");
     if (type.kind === "handle" && !type.optional) {
       fail(
         "handle-must-be-optional",
@@ -571,6 +577,7 @@ export class Compiler {
       this.expectKeyword("as");
       const typeAt = this.token;
       const ftype = this.parseType();
+      this.refuseOpenView(ftype, typeAt, "a field");
       if (ftype.kind === "handle" && !ftype.optional) {
         fail(
           "handle-must-be-optional",
@@ -896,7 +903,9 @@ export class Compiler {
     const from: string[] = [];
     if (this.acceptKeyword("as")) {
       varResult = this.acceptKeyword("var");
+      const resultAt = this.token;
       result = this.parseType();
+      this.refuseOpenView(result, resultAt, "a routine result");
       if (this.isName("from")) {
         this.advance();
         do {
@@ -1279,11 +1288,26 @@ export class Compiler {
     else fail("syntax", t, `expected a statement, found ${this.describe(t)}`);
   }
 
+  /** `string[]` and `T[]` are parameter types only (6.2, 6.8). */
+  private refuseOpenView(t: Type, at: Token, what: string): void {
+    if (t.kind === "openString" || t.kind === "openArray") {
+      fail(
+        "type-mismatch",
+        at,
+        `${typeName(t)} is a parameter type only and can't be ${what}`,
+      );
+    }
+  }
+
   private localVar(): void {
     this.expectKeyword("var");
     const name = this.expectName();
     let type: Type | undefined;
-    if (this.acceptKeyword("as")) type = this.parseType();
+    if (this.acceptKeyword("as")) {
+      const typeAt = this.token;
+      type = this.parseType();
+      this.refuseOpenView(type, typeAt, "a local");
+    }
     if (!type && !this.isPunct("=")) {
       fail("syntax", this.token, "a local without a type needs an initializer");
     }
@@ -1329,6 +1353,7 @@ export class Compiler {
           );
         }
         actual = (v as { type: Type }).type;
+        this.refuseOpenView(actual, at, "a local");
       }
       if (isAggregate(actual)) {
         if (v.kind !== "address") {
@@ -1356,6 +1381,14 @@ export class Compiler {
         const offset = this.allocLocal(sizeOf(actual));
         this.storeRegisters(actual, { kind: "frame", offset });
         this.declareLocal(name, actual, offset);
+      }
+      if (this.isKeyword("handle")) {
+        // The local would have no value after a failure (14.6).
+        fail(
+          "syntax",
+          this.token,
+          "handle can't follow a local declaration: declare the local first",
+        );
       }
       this.nameStatementTail(name, undefined);
       return;

@@ -64,7 +64,7 @@ Basie has no `call` keyword. An already declared routine name followed by its pa
 
 ## 10.4 Assignment
 
-An assignment target is a writable path: a mutable scalar, handle or aggregate path rooted in a program variable, a local, or a parameter that the routine may change. A parameter without `var` is read-only, except a scalar parameter, which is a local copy (Chapter 13, design decision D17). A path rooted at a constant is never a target. A path through a handle to a pool record is writable under the access rules of Chapter 7. A bounded-string byte selected through a writable root is writable; `.length` of a `string[]` parameter is writable as Chapter 6 allows, and that of a concrete string is not.
+An assignment target is a writable path: a mutable scalar, handle or aggregate path rooted in a program variable, a local, or a parameter that the routine may change. A parameter without `var` is read-only, except a scalar or handle parameter, which is a local copy (Chapter 13, design decision D17): an owning handle parameter belongs to the routine and may be moved or overwritten, and an identifier parameter may be reassigned. A path rooted at a constant is never a target. A path through a handle to a pool record is writable under the access rules of Chapter 7. A bounded-string byte selected through a writable root is writable; `.length` of a `string[]` parameter is writable as Chapter 6 allows, and that of a concrete string is not.
 
 A local used as the counter of an enclosing counted loop is read-only until that loop ends (Chapter 12).
 

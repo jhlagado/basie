@@ -53,12 +53,12 @@ fixes it names the finding, as B1, A3 and so on).
 | B6 | major | 6.5 keeps Nucleus statements: scalars only `u8`, `u16`, `boolean`; no local aggregates; results alias program storage. | Rewrite 6.5 to D8, D20 |
 | B7 | major | Identifier comparison (`=`, `<>`, with `none`) is specified but not implemented. | Implement; state `id P` widens to `id P?` |
 | B8 | major | Exact operands of `not`, `shl`, `shr` and bitwise operators: 9.7 and 9.10 conflict; the compiler rejects `var x as u8 = 1 shl 3`. | Define them from the context type |
-| B9 | major | 8.10 says literals have no definite type, but 9.7 types `true`, characters, floats and comparisons, and the compiler accepts `var f = true`. | Restrict 8.10 to exact integers |
+| B9 | major (closed) | 8.10 says literals have no definite type, but 9.7 types `true`, characters, floats and comparisons, and the compiler accepts `var f = true`. | Restrict 8.10 to exact integers |
 | B10 | major | Character literals are exact in one place and `u8` in another; substituting a constant for its literal changes validity. | One rule, stated once |
 | B11 | major | `var f as f32 = 16777217` is accepted and rounds silently, though an exact integer adopts `f32` only when representable. | Reject; define `f32(...)` on exact operands |
 | B12 | major | Exact arithmetic is done in host doubles: intermediates outside the range are neither rejected nor exact. | Check every intermediate |
-| B13 | major | "Parameters without `var` are read-only, except scalar parameters" excludes handle parameters, which `move n` needs. | Add handle parameters |
-| B14 | major | Open views (`string[]`, `T[]`) are accepted as local initializers and results, and then crash the compiler. | Diagnose them |
+| B13 | major (closed) | "Parameters without `var` are read-only, except scalar parameters" excludes handle parameters, which `move n` needs. | Add handle parameters |
+| B14 | major (closed) | Open views (`string[]`, `T[]`) are accepted as local initializers and results, and then crash the compiler. | Diagnose them |
 | B15 | major | String literals: chapter 9 admits them only in initializers and read-only arguments, chapter 17 in every argument; the compiler also accepts `s = "abc"` and literals in `new`. | Name every position |
 | B16 | major (closed) | Whether an aggregate field reached through an owning local is copied or aliased is unclear; the compiler aliases. | Lease semantics for owner paths |
 | B17 | minor | Chapter 6 omits handle fields, exact indexes, arrays of arrays and handles, and `T[]` identity. | Add |
@@ -88,13 +88,13 @@ fixes it names the finding, as B1, A3 and so on).
 | C6 | critical (closed) | For an owning destination the spec evaluates the right side before the target path, which single-pass code can't do; the compiler evaluates a called index first and loses it. | Target path, right side, recheck, free, store |
 | C7 | major (closed) | Exact loop bounds outside the counter's type are rejected, though 12.4 says they need not fit. | Compare mathematically |
 | C8 | major (closed) | Named steps that are negative or `f32` are accepted. | Require a non-negative integer constant |
-| C9 | major | `handle` on a local declaration is accepted. | Reject |
-| C10 | major | 14.4 allows `else fail` only on scalar local declarations; the grammar and compiler allow any expression initializer. | Any expression initializer |
+| C9 | major (closed) | `handle` on a local declaration is accepted. | Reject |
+| C10 | major (closed) | 14.4 allows `else fail` only on scalar local declarations; the grammar and compiler allow any expression initializer. | Any expression initializer |
 | C11 | major (closed) | `move` in `assert` conditions and `and`/`or` operands is accepted. | Reject |
 | C12 | major | `File` comparison is specified but rejected. | Implement |
 | C13 | major | `clock` and `DateTime` are in services revision 2 but have no layout and no implementation. | Define and implement, or remove |
 | C14 | major (closed) | Whether an unreachable end of a loop body counts as a back edge. | Only when it can complete |
-| C15 | major | Handle parameters without `var` can be assigned, against 10.4. | Scalar and handle parameters are local copies |
+| C15 | major (closed) | Handle parameters without `var` can be assigned, against 10.4. | Scalar and handle parameters are local copies |
 | C16 | major | "When the compiler proves" makes validity depend on cleverness. | Only constant operands |
 | C17 | major | Typed `case` labels use conversion rules rather than representability. | Pick one rule |
 | C18 | major (closed) | File-table generations saturate at $FFFF and the entry is reused, so a stale `File` can match a new file. | Withdraw the entry, as pool slots are |

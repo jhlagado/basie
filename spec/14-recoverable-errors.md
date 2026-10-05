@@ -70,7 +70,7 @@ Every call of a failable routine must consume failure at that call site. Basie p
 
 A failable invocation cannot appear inside an argument, arithmetic operation, comparison, condition, index, general conversion, or other larger expression. It may be only:
 
-- the complete initializer of a scalar local declaration, followed by `else fail`;
+- the complete expression initializer of a local declaration, of any type, followed by `else fail`;
 - the complete right side of an assignment, followed by `else fail` or `handle`;
 - the complete routine-call statement, followed by `else fail` or `handle`.
 
