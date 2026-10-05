@@ -25,7 +25,7 @@ A>BASIE MAIN
 The toolchain is two programs (design decision D9):
 
 - **`BASIE.COM`** compiles the source and writes the intermediate files. Its
-  budget is at most 24K, including tables, leaving at least 32K of working
+  budget is a 26K target and a 28K limit, including tables (D43), leaving at least 28K of working
   space on a CP/M 2.2 system with 56K free.
 - **`BLINK.COM`** links them and writes the program. When compilation succeeds,
   `BASIE` runs it automatically: CP/M 2.2 has no call to run another program, so
@@ -272,8 +272,9 @@ warm boot.
 | Branch records, line entries and labels for one routine | about 1K, bounded by the routine buffer |
 | File buffers: a source part, the four streams, and the library during the check | about 1K |
 
-With a 24K `BASIE.COM` and about 56.75K from `$0100` to the BDOS entry on a
-62K system, about 32K remains for the workspace.
+With `BASIE.COM` at its 26K target and about 56.75K from `$0100` to the BDOS
+entry on a 62K system, about 30.75K remains for the workspace; at the 28K
+limit, 28.75K.
 
 ### 7.2 `BLINK.COM`
 
@@ -286,6 +287,11 @@ With a 24K `BASIE.COM` and about 56.75K from `$0100` to the BDOS entry on a
 | **Fixed total** | **12.8K** |
 
 About 44.7K remains for the linker's tables on a 57K system ([linker](linker.md), Section 2; [limits](limits.md) §5.2).
+
+`BLINK.COM` is held to a **12K target and a 14K limit** by the same census and
+compression cycle as the compiler (D43): `deno task census
+native/linker/BLINK.ASM --target 12288 --budget 14336`. At step 63 it was
+12,262 bytes: 26 under the target.
 
 ### 7.3 Overlays and the message file
 

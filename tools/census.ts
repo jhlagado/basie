@@ -2,12 +2,14 @@
  * Budget census: assemble an ATOM program and report how many bytes of its
  * image each source file and directory contributes.
  *
- *   deno task census ENTRY.asm [--budget BYTES] [--base ADDRESS]
+ *   deno task census ENTRY.asm [--target BYTES] [--budget BYTES] [--base ADDRESS]
  *
  * Bytes are attributed by label: each label owns the bytes from its address up
- * to the next label's, and belongs to the file that defines it. With --budget,
- * the census exits with status 1 when the image is larger, which is how the
- * native compiler and linker are held to their limits.
+ * to the next label's, and belongs to the file that defines it. With --target,
+ * the census reports the margin to it and warns when the image is larger; with
+ * --budget, it exits with status 1 when the image is larger. That is how the
+ * native compiler (26K target, 28K limit: design decision D43) and the linker
+ * are held to their budgets.
  */
 import { walk } from "@std/fs/walk";
 import { dirname, relative } from "@std/path";
@@ -22,7 +24,9 @@ export type Census = {
 /** Map each label defined in the sources under `root` to its file. */
 export async function labelFiles(root: string) {
   const owner = new Map<string, string>();
-  for await (const entry of walk(root, { exts: [".asm", ".inc"] })) {
+  for await (
+    const entry of walk(root, { exts: [".asm", ".inc", ".ASM", ".INC"] })
+  ) {
     const text = await Deno.readTextFile(entry.path);
     for (const line of text.split("\n")) {
       const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*):/);
@@ -75,10 +79,13 @@ if (import.meta.main) {
     return value;
   };
   const budget = option("--budget");
+  const target = option("--target");
   const base = Number(option("--base") ?? 0x100);
   const entry = args[0];
   if (!entry) {
-    console.error("usage: census ENTRY.asm [--budget BYTES] [--base ADDRESS]");
+    console.error(
+      "usage: census ENTRY.asm [--target BYTES] [--budget BYTES] [--base ADDRESS]",
+    );
     Deno.exit(2);
   }
   const path = await Deno.realPath(entry);
@@ -89,6 +96,21 @@ if (import.meta.main) {
   console.log(`Image: ${census.total} bytes from $${base.toString(16)}`);
   console.log("\nBy directory:\n" + table(census.byDirectory, census.total));
   console.log("\nBy file:\n" + table(census.byFile, census.total));
+  const margin = (label: string, limit: string | undefined) => {
+    if (limit === undefined) return;
+    const left = Number(limit) - census.total;
+    console.log(
+      `${label} ${limit}: ${
+        left >= 0 ? `${left} bytes to spare` : `${-left} bytes over`
+      }`,
+    );
+  };
+  console.log("");
+  margin("Target", target);
+  margin("Limit ", budget);
+  if (target !== undefined && census.total > Number(target)) {
+    console.log("Warning: above the target; make a compression pass");
+  }
   if (budget !== undefined && census.total > Number(budget)) {
     console.log(`\nOver budget: ${census.total} > ${budget}`);
     Deno.exit(1);

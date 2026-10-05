@@ -211,9 +211,9 @@ accounted.
 
 The toolchain is two programs:
 
-- **`BASIE.COM`**, the compiler, at most **24K** including its tables, which
-  leaves at least **32K** of working space on a CP/M 2.2 system with 56K free;
-  and
+- **`BASIE.COM`**, the compiler, with a target of **26K** and a limit of
+  **28K** including its tables (D43, which replaces the original 24K), leaving
+  at least **28K** of working space on a CP/M 2.2 system with 56K free; and
 - **`BLINK.COM`**, the linker, which `BASIE` runs automatically when compilation
   succeeds. CP/M 2.2 has no call to run another program, so `BASIE` copies a
   small loader to the top of memory, which reads `BLINK.COM` into place and
@@ -222,7 +222,7 @@ The toolchain is two programs:
 
 Ways the compiler is kept within budget:
 
-1. It is built on the 12K Nucleus compiler rewrite.
+1. It is built on the Nucleus native compiler (about 15K at the fork).
 2. 32-bit and `f32` operations are generated as calls to runtime helpers, never
    inline, so the compiler only checks types and selects helpers.
 3. Diagnostic message text lives in a message file, `BASIE.MSG`, read only when
@@ -557,7 +557,7 @@ expression blocks (O3), arenas (O4), routine values (O5), default parameter
 values (O6), generics (D23) and `repeat`.
 
 **Why.** The deferred features are the largest compiler costs that ordinary
-programs can do without, and the version 1 set fits the 24K budget (D9).
+programs can do without, and the version 1 set is meant to fit the compiler budget (D9, D43).
 
 ### D25. Strings: bounded strings and a Basie library
 
@@ -900,3 +900,29 @@ it should carry, not for its encoding. No debugger is planned yet. The format
 is to be specified before one is built (roadmap step 73), and the compiler's
 name and line streams should be kept rich enough that it can be produced
 without a compiler change.
+
+### D43. The compiler's budget: 26K target, 28K limit, never 30K
+
+`BASIE.COM`'s budget rises from 24K to a **target of 26K** and a **limit of
+28K**, including its tables. 30K is the ceiling that no decision may cross. The
+census measures the compiler after every native increment and reports it
+against both figures: above the target it warns, above the limit it fails, and
+no further features are added until size work or a move to version 2 brings it
+back. The workspace left on a CP/M 2.2 system with 56.75K from `$0100` to the
+BDOS entry is then at least 28.75K at the limit and about 30.75K at the target.
+
+Every native increment follows the cycle that made Nucleus small: **the
+increment, a review for correctness, a compression pass** over its object
+code, and a further review when the compression changed much. The compression
+pass is part of the increment, not a later clean-up: an inefficient
+implementation is not landed with the intention of fixing it afterwards. Each
+increment's commit records the census figure.
+
+**Why.** The Nucleus compiler was already about 15K when Basie forked it, not
+the 12K the plan assumed, and the estimate for Basie's additions put the total
+at 22K to 27K. A 24K limit would have forced either deferring features Basie
+needs or a struggle that the incremental compression cycle handles better. 28K
+keeps enough workspace for real programs, and the target keeps pressure on
+every step. Nucleus showed that compressing at every step, not at the end, is
+what gets a comprehensive compiler into a small space.
+

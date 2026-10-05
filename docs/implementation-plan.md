@@ -18,7 +18,7 @@ Five things, in this order of dependency:
 3. **The standard library:** Basie source for strings, formatting, parsing and
    console and file conveniences.
 4. **The linker, `BLINK.COM`:** Z80, running on CP/M 2.2.
-5. **The compiler, `BASIE.COM`:** Z80, running on CP/M 2.2, within 24K.
+5. **The compiler, `BASIE.COM`:** Z80, running on CP/M 2.2, within its 26K target and never above the 28K limit (D43).
 
 ## 2. The key decision: how to build it
 
@@ -196,8 +196,13 @@ working compiler:
 
 After each stage: the conformance corpus must behave identically to the
 reference toolchain, and the **budget census** must show `BASIE.COM` within its
-24K and the workspace at least 32K. A stage that breaks the budget stops work
-until it is brought back within it (Section 5).
+28K limit, and is reported against the 26K target. A stage that breaks the
+limit stops work until it is brought back within it (Section 5).
+
+Each stage, and each increment within one, runs the cycle of D43: the
+increment, a correctness review, a compression pass over its object code, and
+a further review when the compression changed much. The census figure goes in
+the commit.
 
 **Gate:** the whole corpus passes natively, within budget.
 
@@ -215,8 +220,8 @@ until it is brought back within it (Section 5).
   with its estimated cost, replaced by its measured cost as soon as it exists.
 - The native compiler's size and workspace are measured on every commit that
   touches it, as Nucleus's were.
-- **Stop rule:** if `BASIE.COM` exceeds 24K or the workspace falls below 32K, no
-  further features are added until it is back within budget, by size work or by
+- **Stop rule:** if `BASIE.COM` exceeds its 28K limit, no further features are
+  added until it is back within it, by size work or by
   moving a feature to version 2. The feature inventory records which.
 - The reference compiler's generated code is measured too, so code-size
   regressions show up before native work.
@@ -258,7 +263,7 @@ Phase 4:
 
 | Risk | Mitigation |
 | --- | --- |
-| The compiler exceeds 24K | Measured on every commit; stop rule; version 2 list; overlays |
+| The compiler exceeds 28K | Measured on every commit against the 26K target; a compression pass in every increment; stop rule; version 2 list; overlays |
 | The workspace is too small for real programs | Measure symbol-table cost early in Phase 6; message file and overlays free space |
 | The reference and native compilers drift apart | Behavioural comparison on the whole corpus after every native stage |
 | Memory-safety rules are harder to implement in one pass than expected | The reference compiler implements them first, in the same single-pass style |

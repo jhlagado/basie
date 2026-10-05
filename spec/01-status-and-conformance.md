@@ -13,7 +13,7 @@ This specification defines the source-language syntax, static semantics, runtime
 
 The separate implementation contracts define how a program is represented and run: [code generation](../docs/code-generation.md) (frames, calls and helpers), [memory safety](../docs/memory-safety.md) (the pool and handle machinery), [services](../docs/services.md) (the services Chapter 16 makes normative), the [CP/M target](../docs/cpm-target.md) and the [object format](../docs/object-format.md). Non-normative implementation plans and design papers record compiler strategies and project constraints; they do not add source-language semantics.
 
-Basie is implemented twice: a reference toolchain in TypeScript, and a native compiler and linker, `BASIE.COM` and `BLINK.COM`, that run on CP/M 2.2 and emit Z80 machine code directly. The native compiler has a budget of 24K (Chapter 2). That budget does not create a smaller Basie dialect or alter the meaning of a conforming program.
+Basie is implemented twice: a reference toolchain in TypeScript, and a native compiler and linker, `BASIE.COM` and `BLINK.COM`, that run on CP/M 2.2 and emit Z80 machine code directly. The native compiler has a budget of 26K, with a 28K limit (Chapter 2). That budget does not create a smaller Basie dialect or alter the meaning of a conforming program.
 
 ## 1.3 Authority
 
@@ -71,7 +71,7 @@ A compiler claiming Basie 1.0 conformance must:
 
 A compiler must not report successful translation and then emit code with semantics that differ from this specification. Diagnostic wording and presentation are implementation-defined unless a later chapter requires a particular machine-readable result.
 
-The native compiler passes an additional project acceptance gate only if it fits its 24K budget (Chapter 2). A compiler may conform to the language and fail that size gate. Conversely, fitting the budget does not excuse a compiler that rejects an in-capacity conforming program, accepts invalid source without a diagnostic, or changes program meaning.
+The native compiler passes an additional project acceptance gate only if it fits its budget (Chapter 2). A compiler may conform to the language and fail that size gate. Conversely, fitting the budget does not excuse a compiler that rejects an in-capacity conforming program, accepts invalid source without a diagnostic, or changes program meaning.
 
 ## 1.7 Extensions
 

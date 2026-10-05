@@ -24,7 +24,7 @@ Two kinds of cost matter:
 
 ## 2. The budget
 
-`BASIE.COM` is at most **24K**, including its tables, leaving at least **32K**
+`BASIE.COM` has a target of **26K** and a limit of **28K** (D43), including its tables, leaving at least **28K**
 of working space (D9). The linker is a separate program, `BLINK.COM`, so its
 code doesn't count against this.
 
@@ -62,7 +62,7 @@ The compiler is kept within budget by:
 | Services for I/O | 0.7K for the services' signatures | per service used | [services](services.md) |
 | Blob output for the linker | about neutral against Nucleus's output | — | build pipeline |
 | Branch shrinking | 0.3K | — | build pipeline §6.3 |
-| **Total** | **about 21.5–23.5K** | | within 24K, with little room to spare |
+| **Total** | **about 21.5–23.5K** on a 12K base; about 24.5–26.5K on the 15K base actually forked | | within the 26K target, with little room to spare (D43) |
 
 The standard library, written in Basie and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text

@@ -25,7 +25,7 @@ Basie programs and the native toolchain target a Z80 with 64K of RAM running **C
 
 The native toolchain is two programs (design decision D9):
 
-- **`BASIE.COM`**, the compiler, at most **24K** including its tables, which leaves at least 32K of workspace on a CP/M 2.2 system with 56K free; diagnostic texts are in a message file, `BASIE.MSG`, and rarely used parts are in overlays; and
+- **`BASIE.COM`**, the compiler, with a target of **26K** and a limit of **28K** including its tables (design decision D43), which leaves at least 28K of workspace on a CP/M 2.2 system with 56K free; diagnostic texts are in a message file, `BASIE.MSG`, and rarely used parts are in overlays; and
 - **`BLINK.COM`**, the linker, which `BASIE` chains to automatically when compilation succeeds, so the linker has nearly the whole program area for its tables.
 
 `BASIE.COM` compiles in one pass: it reads each source part in order, with bounded state, and never holds a whole source in memory. Every rule of this specification is written so that it can be checked at the point the compiler reaches, without looking ahead past one token or back at text already read.

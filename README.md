@@ -77,7 +77,7 @@ These terms are provisional, but the documents use them consistently.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
 - [Feature inventory](docs/feature-inventory.md): every feature, its cost
-  against the 24K compiler budget, and whether it is in version 1 or 2.
+  against the compiler budget (26K target, 28K limit), and whether it is in version 1 or 2.
 - [Input, output and effects](docs/io-and-effects.md): services and the
   external-effects channel instead of operating-system or port primitives.
 - [Services](docs/services.md): the version 1 console, file, command-line and

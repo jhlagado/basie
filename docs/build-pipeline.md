@@ -278,7 +278,7 @@ advisory.
 | Forward branches | always `JP` | `JR` where it fits, for buffered routines |
 | Runtime | linked whole for the target | blob library; unused helpers removed |
 | Output | image and patch spools, merged by a materializer | written in address order by the linker |
-| Executables | compiler, plus a materializer | compiler `BASIE.COM` (24K budget), then linker `BLINK.COM`, chained automatically |
+| Executables | compiler, plus a materializer | compiler `BASIE.COM` (26K target, 28K limit), then linker `BLINK.COM`, chained automatically |
 
 What carries over from Nucleus: append-only output files, a CRC that makes
 partial output unusable, a publication sequence that never destroys the
@@ -377,5 +377,5 @@ These are collected from the specifications:
   `JP` for long inline literals; the stack reserve as a lower bound guarded by
   an activation-capacity check; and a per-routine reference capacity.
 - **Revision 5 addendum (2026-10-04):** the linker became a separate program,
-  `BLINK.COM`, chained from `BASIE.COM`, to keep the compiler within its 24K
+  `BLINK.COM`, chained from `BASIE.COM`, to keep the compiler within its budget (26K target, 28K limit)
   budget (design decision D9).
