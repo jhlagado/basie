@@ -78,11 +78,13 @@ DG_LINE EQU  PR_BASE+$1A       ; Word: its line.
 DG_COL EQU  PR_BASE+$1C        ; Word: its column.
 
 ; A diagnostic ends parsing, so the live semantic sink may reuse the eventual
-; offset and line fields. DG_CODE and DG_PART remain clear on
-; successful compilation; an error overwrites all reused bytes before return.
-; The high byte of DG_LINE and both bytes of DG_COL extend
-; past PR_STEND into the dead semantic buffer. The diagnostic is
-; terminal, so no semantic byte remains live.
+; offset and line fields. DG_CODE and DG_PART stay clear while parsing
+; succeeds, but the emit phase reuses them (EM_LIM, EM_DFIX), so after a
+; compilation they mean something only when carry reports a diagnostic; an
+; error overwrites all reused bytes before return. The high byte of DG_LINE
+; and both bytes of DG_COL extend past PR_STEND into the transcript's count
+; and first two operation bytes. The diagnostic is terminal, so no semantic
+; byte remains live.
 TR_PTR EQU  PR_BASE+$18        ; Word: next free transcript byte (TRANSCR).
 TR_CNT EQU  PR_BASE+$1A        ; Byte: operations appended so far.
 
