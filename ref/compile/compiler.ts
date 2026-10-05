@@ -4575,7 +4575,14 @@ export class Compiler {
           return v;
         }
         if (this.isPunct(".") || this.isPunct("[")) {
-          fail("not-indexable", this.token, "a scalar result has no fields");
+          const rt = (v as { type?: Type }).type;
+          fail(
+            "not-indexable",
+            this.token,
+            rt?.kind === "handle"
+              ? "a handle result is stored in a local before its fields are reached"
+              : "a scalar result has no fields",
+          );
         }
         return v;
       }

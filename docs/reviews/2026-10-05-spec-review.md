@@ -71,7 +71,7 @@ fixes it names the finding, as B1, A3 and so on).
 | B24 | minor (closed) | `move` from a ticket's field is allowed by 9.16 but rejected by the compiler and memory safety 5.12. | "writable parameter" |
 | B25 | minor (closed) | 9.15 says designators are not constant, but named constants are designators. | Except named constants |
 | B26 | minor (closed) | 7.7's `from` wording names a local. | Use D8's wording |
-| B27 | minor | Field access through a fresh handle temporary is unspecified and badly diagnosed. | State invalid |
+| B27 | minor (closed) | Field access through a fresh handle temporary is unspecified and badly diagnosed. | State invalid |
 | B28 | minor (closed) | A record with an `id P?` field has no static initializer, which 8.9 doesn't say. | Say so |
 | B29 | minor (closed) | The type grammar reads `u8[25][40]` backwards. | Note the binding |
 | B30 | minor (closed) | Fences tagged `nucleus`; planning text in 6.12; memory safety says 4-byte slot headers, revision 6.1 says 6. | Fix |

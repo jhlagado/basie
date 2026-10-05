@@ -75,7 +75,7 @@ The compiler resolves each `NAME` before interpreting its suffixes. A constant, 
 
 **Field selection.** `.NAME` on a record designator resolves `NAME` in that record's field scope. On a bounded string, `.length` gives the current length as `u8`, and on a `string[]` parameter `.capacity` gives its capacity as `u8` (Chapter 6). On a non-optional handle, `.NAME` selects a field of the slot's record, through the access rules of Chapter 7, Section 7.13. An optional handle cannot be selected through; it must first be tested with `select`.
 
-**Results.** Index and field suffixes may follow a call whose result is an aggregate alias; the suffix does not copy the object. A scalar result cannot take a suffix, and a result-free call is not an expression.
+**Results.** Index and field suffixes may follow a call whose result is an aggregate alias; the suffix does not copy the object. A scalar result cannot take a suffix, nor can a handle result: `make().v` is invalid, and the handle is stored in a local first, which also gives a fresh owning result its owner (Chapter 7, Section 7.13), and a result-free call is not an expression.
 
 ## 9.5 Categories and designators
 
