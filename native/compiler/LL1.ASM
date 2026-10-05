@@ -1,176 +1,222 @@
-; Packed LL(1) interpreter for the complete Stage 7 grammar.
-; Token ordinals occupy $00..$3F, nonterminals $40..$7F, and explicit
-; semantic or retained-expression actions $80..$FE. Productions store their
-; right sides in reverse order so one bounded copy pushes a complete rule.
+;==========================================================================
+;  LL(1) engine
+;==========================================================================
+;
+;  A table-driven predictive parser. A stack of grammar symbols starts as
+;  the start symbol; the engine pops one symbol at a time until the stack
+;  is empty, by which point the whole program has been read and its
+;  semantic transcript written. The tables are in GRAMMAR.ASM; the actions
+;  they name are in ACTIONS.ASM.
+;
+;  Principal entry:
+;    LL_PARSE  parse the whole program from the start symbol
+;
+;  A grammar symbol is one byte:
+;    $00..$3F  a terminal: the token kind that must come next (TK_)
+;    $40..$7F  a nonterminal: prediction row (symbol - $40) of GR_ROWX
+;    $80..$FE  an action: entry (symbol - $80) of GR_ACTX
+;
+;  A terminal is consumed with PR_NEED, which raises DG_TOKEN+kind on a
+;  mismatch. A nonterminal peeks at the next token and searches its row
+;  for the production that token predicts; if none does, the row's own
+;  diagnostic is raised. The chosen production's right side is pushed in
+;  one copy: bodies are stored reversed, so the copy leaves the leftmost
+;  symbol on top. An action is called with its ordinal in A; it consumes
+;  any tokens it needs, appends to the transcript and returns, or raises
+;  a diagnostic, which abandons the build (PARSER.ASM).
+;
+;  Workspace: LL_DEPTH, a byte counting the symbols on the stack, then
+;  LL_STACK, LL_CAP bytes with the top of stack at LL_STACK+LL_DEPTH-1.
+;  Both overlay the target layout fields (TG_LBASE..TG_LEND), which are
+;  dead until parsing has finished. LL_WEND marks the end of the whole
+;  compiler workspace for the build's boundary check.
 
-LL_CAP EQU  64
-LL_DEPTH EQU  TG_WEND
-LL_STACK EQU  LL_DEPTH+1
-LL_WEND EQU  TG_END
-DG_LLCAP EQU  87
+LL_CAP EQU  64                 ; Grammar stack capacity in symbols.
+LL_DEPTH EQU  TG_WEND          ; Symbols on the stack (byte).
+LL_STACK EQU  LL_DEPTH+1       ; The stack; LL_STACK+0 is the bottom.
+LL_WEND EQU  TG_END            ; End of compiler workspace (marker).
+DG_LLCAP EQU  87               ; Grammar stack overflow; DG_LEAK is also 87.
 
-; Push the start symbol and run until the grammar stack is empty. Explicit
-; actions return through .RESUME with carry reporting failure.
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY
+; Parse the program: push GR_START and expand, match and act until the
+; stack is empty. Returns A zero with Z set and carry clear; every error
+; leaves through DG_ISSUE instead.
+
 LL_PARSE:
-    XOR  A
-    LD   (LL_DEPTH),A
-    LD   A,GR_START
-    CALL .PUSHSYM
-.LOOP:
-    LD   A,(LL_DEPTH)
-    OR   A
-    RET  Z
-    CALL .POPSYM
-    CP   $40
-    JR   C,.TERMINAL
-    CP   $80
-    JR   C,.NONTERM
+    XOR  A                         ; Start with an empty stack.
+    LD   (LL_DEPTH),A              ; No symbols yet.
+    LD   A,GR_START                ; The compilation-unit nonterminal.
+    CALL .PUSHSYM                  ; Make it the only symbol.
+.LOOP:                         ; Pop and process one symbol.
+    LD   A,(LL_DEPTH)              ; How many symbols remain?
+    OR   A                         ; An empty stack means the program is complete.
+    RET  Z                         ; Return with A zero, Z set and carry clear.
+    CALL .POPSYM                   ; A is the symbol on top, now removed.
+    CP   $40                       ; Below $40 is a terminal.
+    JR   C,.TERMINAL               ; Consume the token it names.
+    CP   $80                       ; $40..$7F is a nonterminal.
+    JR   C,.NONTERM                ; Predict and push one of its productions.
 
-; Action ordinal -> absolute routine address. A retains the
-; zero-based ordinal for parameterised physical handlers.
-    SUB  $80
-    LD   L,A
-    LD   H,0
-    ADD  HL,HL
-    LD   DE,GR_ACTX
-    ADD  HL,DE
-    LD   E,(HL)
-    INC  HL
-    LD   D,(HL)
-    EX   DE,HL
-    LD   DE,.RESUME
-    PUSH DE
-    JP   (HL)
-.RESUME:
-    JR   .LOOP
+; An action. Call it through GR_ACTX with its zero-based ordinal in A, so
+; one routine can serve a family of actions (AC_TYPE, AC_GOTO, AC_FORTO).
 
-.TERMINAL:
-    LD   E,A
-    CALL PR_NEED
-    JR   .LOOP
+    SUB  $80                       ; A is the action ordinal.
+    LD   L,A                       ; Index the directory...
+    LD   H,0                       ; ...as a word offset.
+    ADD  HL,HL                     ; Two bytes per routine address.
+    LD   DE,GR_ACTX                ; The action directory.
+    ADD  HL,DE                     ; HL addresses this action's entry.
+    LD   E,(HL)                    ; Fetch the routine address...
+    INC  HL                        ; ...low byte first...
+    LD   D,(HL)                    ; ...then the high byte.
+    EX   DE,HL                     ; HL is the action routine.
+    LD   DE,.RESUME                ; Its RET must come back to the loop.
+    PUSH DE                        ; Stack the return address.
+    JP   (HL)                      ; Run the action with A still the ordinal.
+.RESUME:                       ; Each action returns here.
+    JR   .LOOP                     ; Process the next symbol.
 
-.NONTERM:
-    SUB  $40
-    LD   L,A
-    LD   H,0
-    ADD  HL,HL
-    LD   DE,GR_ROWX
-    ADD  HL,DE
-    LD   E,(HL)
-    INC  HL
-    LD   A,(HL)
-    PUSH AF
-    LD   D,0
-    LD   HL,GR_ROWS
-    ADD  HL,DE
-    PUSH HL
-    CALL PR_PEEK
-    POP  HL
-    LD   C,A
-.NEXTALT:
-    LD   B,(HL)
-    INC  HL
-.TOKEN:
-    LD   A,(HL)
-    LD   E,A
-    AND  $7F
-    CP   C
-    JR   Z,.MATCH
-    INC  HL
-    BIT  7,E
-    JR   Z,.TOKEN
-    BIT  7,B
-    JR   NZ,.NOMATCH
-    JR   .NEXTALT
-.NOMATCH:
-    POP  AF
-    JP   DG_ISSUE
-.MATCH:
-    POP  AF
-    LD   A,B
-    AND  $7F
-    CALL .EXPAND
-    JR   .LOOP
+.TERMINAL:                     ; A is the token kind the grammar requires.
+    LD   E,A                       ; PR_NEED expects it in E.
+    CALL PR_NEED                   ; Consume it or raise DG_TOKEN+kind.
+    JR   .LOOP                     ; Process the next symbol.
 
-; A is a production ordinal. Adjacent directory offsets delimit its body.
+; A nonterminal. Its GR_ROWX entry is the row's offset from GR_ROWS and
+; the diagnostic for a token the row does not predict. A row is a list of
+; alternatives, each a production byte and then the token kinds that
+; select it; bit 7 marks the last token of an alternative and, on the
+; production byte, the last alternative of the row.
+
+.NONTERM:                      ; A is $40 plus the row number.
+    SUB  $40                       ; A is the row number.
+    LD   L,A                       ; Index the row directory...
+    LD   H,0                       ; ...as a word offset.
+    ADD  HL,HL                     ; Two bytes per row.
+    LD   DE,GR_ROWX                ; The row directory.
+    ADD  HL,DE                     ; HL addresses this row's entry.
+    LD   E,(HL)                    ; E is the row's offset from GR_ROWS.
+    INC  HL                        ; Step to the row's diagnostic.
+    LD   A,(HL)                    ; Fetch it.
+    PUSH AF                        ; Keep it until a production is chosen.
+    LD   D,0                       ; Widen the offset.
+    LD   HL,GR_ROWS                ; The rows' common base.
+    ADD  HL,DE                     ; HL addresses the row's first alternative.
+    PUSH HL                        ; PR_PEEK clobbers HL.
+    CALL PR_PEEK                   ; A is the lookahead token's kind.
+    POP  HL                        ; Recover the row pointer.
+    LD   C,A                       ; C is the kind to look for.
+.NEXTALT:                      ; HL addresses an alternative's production byte.
+    LD   B,(HL)                    ; B is the production, bit 7 if it is the last alternative.
+    INC  HL                        ; Step to its first predicting token.
+.TOKEN:                        ; Test one predicting token.
+    LD   A,(HL)                    ; Fetch it with its end-of-list bit.
+    LD   E,A                       ; Keep the end-of-list bit.
+    AND  $7F                       ; Strip it to a token kind.
+    CP   C                         ; Does this token predict the production?
+    JR   Z,.MATCH                  ; Yes: expand it.
+    INC  HL                        ; No: step past it.
+    BIT  7,E                       ; Was it the alternative's last token?
+    JR   Z,.TOKEN                  ; No: test the next one.
+    BIT  7,B                       ; Was this the row's last alternative?
+    JR   NZ,.NOMATCH               ; Yes: nothing predicts the lookahead.
+    JR   .NEXTALT                  ; No: try the next alternative.
+.NOMATCH:                      ; No production fits the lookahead.
+    POP  AF                        ; A is the row's diagnostic.
+    JP   DG_ISSUE                  ; Report it at the lookahead token.
+.MATCH:                        ; B selects the production.
+    POP  AF                        ; Discard the row's diagnostic.
+    LD   A,B                       ; Fetch the production byte.
+    AND  $7F                       ; Strip the last-alternative bit.
+    CALL .EXPAND                   ; Push its right side.
+    JR   .LOOP                     ; Process the symbol now on top.
+
 ;@ROUTINE IN A OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; Push the right side of production A. Its body lies between two adjacent
+; directory offsets. Productions below GR_SPLIT use GR_ALTX and GR_ALTS,
+; the rest GR_ALTXH and GR_ALTHI, which keeps every offset within a byte.
+; An empty body pushes nothing. Overflow raises DG_LLCAP.
+
 .EXPAND:
-    CP   GR_SPLIT
-    LD   DE,GR_ALTS
-    LD   HL,GR_ALTX
-    JR   C,.LOCATED
-    SUB  GR_SPLIT
-    LD   DE,GR_ALTHI
-    LD   HL,GR_ALTXH
-.LOCATED:
-    LD   C,A
-    LD   B,0
-    ADD  HL,BC
-    LD   C,(HL)
-    INC  HL
-    LD   A,(HL)
-    SUB  C
-    LD   B,A
-    LD   A,C
-    LD   L,A
-    LD   H,0
-    ADD  HL,DE
-    LD   A,B
-    OR   A
-    RET  Z
-    LD   A,(LL_DEPTH)
-    LD   C,A
-    ADD  A,B
-    JR   C,.FULL
-    CP   LL_CAP+1
-    JR   NC,.FULL
-    LD   (LL_DEPTH),A
-    PUSH HL
-    LD   A,C
-    LD   E,A
-    LD   D,0
-    LD   HL,LL_STACK
-    ADD  HL,DE
-    EX   DE,HL
-    POP  HL
-    LD   C,B
-    LD   B,0
-    LDIR
-    XOR  A
-    RET
+    CP   GR_SPLIT                  ; Is the production in the low half?
+    LD   DE,GR_ALTS                ; Low half: bodies from GR_ALTS...
+    LD   HL,GR_ALTX                ; ...located by GR_ALTX.
+    JR   C,.LOCATED                ; Keep them for a low production.
+    SUB  GR_SPLIT                  ; High half: renumber from zero.
+    LD   DE,GR_ALTHI               ; Bodies from GR_ALTHI...
+    LD   HL,GR_ALTXH               ; ...located by GR_ALTXH.
+.LOCATED:                      ; DE is the body base, HL the directory.
+    LD   C,A                       ; Index the directory...
+    LD   B,0                       ; ...one byte per production.
+    ADD  HL,BC                     ; HL addresses the production's offset.
+    LD   C,(HL)                    ; C is the start of its body.
+    INC  HL                        ; The next entry is the end of the body.
+    LD   A,(HL)                    ; Fetch that end offset.
+    SUB  C                         ; A is the body's length.
+    LD   B,A                       ; Keep the length in B.
+    LD   A,C                       ; Form the body's address...
+    LD   L,A                       ; ...from its start offset...
+    LD   H,0                       ; ...widened...
+    ADD  HL,DE                     ; ...plus the base.
+    LD   A,B                       ; Is the body empty?
+    OR   A                         ; Zero length derives the empty string.
+    RET  Z                         ; Push nothing.
+    LD   A,(LL_DEPTH)              ; Fetch the current depth.
+    LD   C,A                       ; Keep it as the copy's starting slot.
+    ADD  A,B                       ; A is the depth after the push.
+    JR   C,.FULL                   ; Past 255 symbols the stack is certainly full.
+    CP   LL_CAP+1                  ; More than LL_CAP symbols?
+    JR   NC,.FULL                  ; Raise DG_LLCAP.
+    LD   (LL_DEPTH),A              ; Commit the new depth.
+    PUSH HL                        ; Keep the body's address.
+    LD   A,C                       ; Form the first free slot...
+    LD   E,A                       ; ...from the old depth...
+    LD   D,0                       ; ...widened...
+    LD   HL,LL_STACK               ; ...plus the stack base.
+    ADD  HL,DE                     ; HL is the first free slot.
+    EX   DE,HL                     ; DE is the copy destination.
+    POP  HL                        ; HL is the body.
+    LD   C,B                       ; Copy the body's length...
+    LD   B,0                       ; ...as a word count.
+    LDIR                           ; Push the reversed body; its leftmost symbol lands on top.
+    XOR  A                         ; Report success with carry clear.
+    RET                            ; The stack holds the right side.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE,HL
+; Push symbol A, raising DG_LLCAP if the stack is full.
+
 .PUSHSYM:
-    LD   C,A
-    LD   A,(LL_DEPTH)
-    CP   LL_CAP
-    JR   NC,.FULL
-    LD   L,A
-    LD   H,0
-    LD   DE,LL_STACK
-    ADD  HL,DE
-    LD   (HL),C
-    LD   HL,LL_DEPTH
-    INC  (HL)
-    XOR  A
-    RET
+    LD   C,A                       ; Keep the symbol.
+    LD   A,(LL_DEPTH)              ; Fetch the depth.
+    CP   LL_CAP                    ; Is the stack full?
+    JR   NC,.FULL                  ; Raise DG_LLCAP.
+    LD   L,A                       ; Form the first free slot...
+    LD   H,0                       ; ...from the depth...
+    LD   DE,LL_STACK               ; ...plus the stack base.
+    ADD  HL,DE                     ; HL is the first free slot.
+    LD   (HL),C                    ; Store the symbol there.
+    LD   HL,LL_DEPTH               ; Address the depth.
+    INC  (HL)                      ; Count the symbol.
+    XOR  A                         ; Report success with carry clear.
+    RET                            ; The symbol is on top.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
+; Pop the top symbol into A. The caller has checked that the stack is not
+; empty.
+
 .POPSYM:
-    LD   A,(LL_DEPTH)
-    DEC  A
-    LD   (LL_DEPTH),A
-    LD   L,A
-    LD   H,0
-    LD   DE,LL_STACK
-    ADD  HL,DE
-    LD   A,(HL)
-    OR   A
-    RET
+    LD   A,(LL_DEPTH)              ; Fetch the depth.
+    DEC  A                         ; The top symbol is at depth minus one.
+    LD   (LL_DEPTH),A              ; Remove it from the count.
+    LD   L,A                       ; Form its slot...
+    LD   H,0                       ; ...from the new depth...
+    LD   DE,LL_STACK               ; ...plus the stack base.
+    ADD  HL,DE                     ; HL addresses the symbol.
+    LD   A,(HL)                    ; Fetch it.
+    OR   A                         ; Clear carry.
+    RET                            ; A is the popped symbol.
 
-.FULL:
-    CALL DG_RAISE
-    DB   DG_LLCAP
+.FULL:                         ; The grammar stack cannot take the push.
+    CALL DG_RAISE                  ; Abandon the build.
+    DB   DG_LLCAP                  ; Grammar stack overflow.
 
-LL_CEND:
+LL_CEND:                       ; End of the LL(1) engine's code (marker).
