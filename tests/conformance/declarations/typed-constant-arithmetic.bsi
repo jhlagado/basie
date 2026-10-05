@@ -1,0 +1,24 @@
+// A typed constant beside a literal behaves like its type: the literal
+// adopts it, so u8 arithmetic wraps and the result fits a u8 (8.4; review
+// finding B3).
+// spec: 8.4, 9.7
+// expect output: 144 44 -4\r\n
+
+include "FORMAT.BSI"
+
+const a as u8 = 200
+const c as u16 = a * 2
+const m as i8 = -5
+
+sub main() fails
+    var line as string[30]
+    var b as u8 = a + 100
+    var n as i8 = m + 1
+    appendU16(line, c) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, b) else fail
+    appendByte(line, ' ') else fail
+    appendI16(line, i16(n)) else fail
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end

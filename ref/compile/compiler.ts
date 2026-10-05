@@ -4676,7 +4676,8 @@ export class Compiler {
       const rightAt = this.token;
       const rv = right();
       if (rv.kind === "const") {
-        const type = isShift
+        // An exact right operand adopts the typed constant's type (8.4).
+        const type = isShift || !rv.type
           ? leftType
           : this.resultType(leftType, this.numericType(rv, rightAt), rightAt);
         const lc = this.coerceConst(left, type, leftAt);
