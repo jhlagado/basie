@@ -9,15 +9,15 @@
 ;  from MM_WBASE ($4800).
 ;
 ;    Offset  Size  Block
-;    +$717     30  routine state: counts, the signature being parsed, the
+;    +$70D     30  routine state: counts, the signature being parsed, the
 ;                  path and the call being checked (RO_BASE)
-;    +$735     32  routine table: four records of eight bytes (RO_RTAB)
-;    +$755     64  parameter table: sixteen records of four bytes (RO_PTAB)
-;    +$795     32  call frames: four records of eight bytes (RO_NTAB)
-;    +$7B5      3  multipart source cursor (SRC_DESC, SRC_LEFT)
-;    +$7B8      2  PR_SP, the stack DG_ISSUE restores
-;    +$7BA     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$7FB         LL_WEND, the end of the compiler workspace, 2,043 bytes
+;    +$72B     32  routine table: four records of eight bytes (RO_RTAB)
+;    +$74B     64  parameter table: sixteen records of four bytes (RO_PTAB)
+;    +$78B     32  call frames: four records of eight bytes (RO_NTAB)
+;    +$7AB      3  multipart source cursor (SRC_DESC, SRC_LEFT)
+;    +$7AE      2  PR_SP, the stack DG_ISSUE restores
+;    +$7B0     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$7F1         LL_WEND, the end of the compiler workspace, 2,033 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_WEND before parsing. ACTIONS.ASM writes the
 ;  signature, body and failure-routing fields as the grammar's actions

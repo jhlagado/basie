@@ -19,12 +19,12 @@
 ;    +$000     27  source cursor, current token, diagnostic (PR_BASE)
 ;    +$01B    152  emitter and routine generation: frame accounting, the
 ;                  routine's labels, ordinals and the program's limits
-;    +$0B3     13  retained forward signature, parser lookahead
-;    +$0C0     99  symbol table: count, slot cursors, sixteen records
-;    +$123    243  expression state and the operand stack
-;    +$216     88  control frames
-;    +$26E   1193  aggregate types, records, fields, the initializer staging
-;    +$717         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$0B3      3  parser lookahead
+;    +$0B6     99  symbol table: count, slot cursors, sixteen records
+;    +$119    243  expression state and the operand stack
+;    +$20C     88  control frames
+;    +$264   1193  aggregate types, records, fields, the initializer staging
+;    +$70D         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -93,30 +93,20 @@ RG_NAME EQU  RG_PATCH+2        ; Word: the routine's name, for the name stream.
 RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
 EM_WEND EQU  RG_NLEN+1         ; End of the emitter's state.
 
-; A retained forward signature: the name of a routine declared before its
-; body, kept as a pointer and length into the resident source. +$03..+$05
-; held its parameter's name and +$08..+$09 its types. PR_RESET clears
-; PR_FORD and nothing sets it again, so EX_ISFWD never matches; the bytes
-; are dead in practice.
-PR_FNAME EQU  EM_WEND+$00      ; Word: the forward name's spelling.
-PR_FNLEN EQU  EM_WEND+$02      ; Byte: its length, read through TK_SAME.
-PR_FORD EQU  EM_WEND+$06       ; Byte: nonzero while a forward is pending.
-PR_FDONE EQU  EM_WEND+$07      ; Byte: forward completed; only cleared.
-
 ; The predictive expression path keeps one token of lookahead. $FF denotes an
 ; empty lookahead cell; token ordinals occupy the low half of the byte range.
-PR_LKIND EQU  EM_WEND+$0A      ; Byte: buffered token kind, or $FF.
-PR_LVAL EQU  EM_WEND+$0B       ; Word: the buffered token's payload.
+PR_LKIND EQU  EM_WEND+$00      ; Byte: buffered token kind, or $FF.
+PR_LVAL EQU  EM_WEND+$01       ; Word: the buffered token's payload.
 
 ; Source bytes remain resident through compilation, so a scalar symbol keeps
 ; the exact spelling as a pointer and length instead of copying name bytes.
 ; The entry at SY_CNT is provisional until the declaration initializer
 ; succeeds; lookup sees only the committed prefix. Records are laid out in
 ; SYMBOLS.ASM.
-SY_CNT EQU  EM_WEND+$0D        ; Byte: committed symbols.
-SY_LSLOT EQU  EM_WEND+$0E      ; Byte: next free byte of the routine frame.
-SY_GSLOT EQU  EM_WEND+$0F      ; Byte: cleared by PR_RESET, never read.
-SY_BASE EQU  EM_WEND+$10       ; First symbol record.
+SY_CNT EQU  EM_WEND+$03        ; Byte: committed symbols.
+SY_LSLOT EQU  EM_WEND+$04      ; Byte: next free byte of the routine frame.
+SY_GSLOT EQU  EM_WEND+$05      ; Byte: cleared by PR_RESET, never read.
+SY_BASE EQU  EM_WEND+$06       ; First symbol record.
 SY_RECB EQU  6                 ; Bytes in one symbol record.
 SY_CAP EQU  16                 ; Symbol records in the table.
 SY_LIM EQU  SY_BASE+SY_RECB*SY_CAP ; Exclusive end of the symbol table.

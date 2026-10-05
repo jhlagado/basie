@@ -17,8 +17,8 @@ function run(tail: string, files: Record<string, string | Uint8Array> = {}) {
 
 const USAGE = "Usage: BASIE PART[,PART...] [OPTIONS]\r\n";
 
-// Operators come with stage (c) of 65.4.
-const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\nend\n";
+const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\n" +
+  "value = value * 2\nend\n";
 
 Deno.test("BASIE with no part prints its usage", () => {
   assertEquals(run(""), "Usage: BASIE PART[,PART...] [OPTIONS]\r\n");

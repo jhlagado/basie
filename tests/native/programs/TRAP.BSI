@@ -1,0 +1,10 @@
+// Arithmetic checked by the narrowing trap when the program runs (65.4 c).
+var x as u16 = 1000
+var a as u8
+
+sub main()
+    x = x * 3 / 12 + 5
+    a = u8(x)
+    x = x + a - 254
+    a = u8(x)
+end

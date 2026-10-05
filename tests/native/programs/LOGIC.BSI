@@ -1,0 +1,37 @@
+// not, and, or and their short circuits (65.4 c).
+var a as u8 = 200
+var b as u8 = 9
+var x as u16 = 1000
+var f as boolean
+var g as boolean = true
+var h as boolean
+const yes = true
+const no = false
+
+sub main()
+    f = not g
+    f = g and h
+    f = g or h
+    f = g and h or f
+    f = g or h and f
+    f = not g and not h
+    f = a < b and x > 3
+    f = a < b or x > 3
+    f = yes and g
+    f = no and g
+    f = yes or g
+    f = no or g
+    f = g and yes
+    f = g or no
+    f = no and (a / b > 3)
+    f = yes or (x * 2 = 4)
+    f = (g and h) or (f and g)
+    a = not a
+    x = not x
+    a = a and b or 3
+    x = x xor 255
+    a = b xor a
+    f = not (a = b)
+    f = yes and no
+    f = not yes
+end

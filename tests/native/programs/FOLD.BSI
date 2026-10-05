@@ -1,0 +1,27 @@
+// Constant folding, unary minus and the narrowing check (65.4 c).
+var a as u8
+var x as u16
+var f as boolean
+const k = 12
+const big = 60000
+
+sub main()
+    a = 2 + 3
+    a = k * 2 - 4
+    x = big + 5000
+    x = 300 * 200 / 100
+    x = big / 7 mod 10
+    a = u8(200) + u8(100)
+    x = u16(65535) + 1
+    a = -a
+    x = -x
+    x = -(x + 1)
+    a = - - a
+    a = -0
+    x = 2 * k + 1
+    f = k > 10
+    f = not (k = 12)
+    a = (k and 15) or 64
+    x = 'A' * 4
+    a = +a
+end

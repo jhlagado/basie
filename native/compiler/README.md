@@ -41,7 +41,7 @@ byte for byte. A construct not yet generated this way is refused with Error
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
 | `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
 | `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels, frame accounting |
-| `GENEXPR.ASM` | `GX_` | Expression templates: loads, stores, constants, widening |
+| `GENEXPR.ASM` | `GX_` | Expression templates: loads, stores, constants, widening, the operators, comparisons, short circuits and conversions |
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
 | `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams, diagnostics |
@@ -55,15 +55,15 @@ a generator for Basie's grammar that writes ATOM under the `GR_` scheme
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 11,001 |
+| Compiler code | 11,267 |
 | Immutable data | 393 |
-| **Compiler core** | **11,394** |
+| **Compiler core** | **11,660** |
 | CP/M shell | 984 |
-| **`BASIE.COM`** | **12,381** |
-| Compiler workspace (not in the image) | 2,043 |
+| **`BASIE.COM`** | **12,647** |
+| Compiler workspace (not in the image) | 2,033 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 14,243 bytes to the 26K target and 16,291 to the 28K limit (D43).
+That leaves 13,977 bytes to the 26K target and 16,025 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change

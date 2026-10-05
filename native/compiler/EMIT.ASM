@@ -37,7 +37,7 @@
 ;    EM_SEQ    append the inline counted byte sequence after the CALL
 ;    EM_REF    append an ABS16 reference to blob HL with addend DE
 ;    EM_HELP   append CALL helper, the inline ordinal and stack figure
-;    EM_PUSH   count A bytes pushed; EM_POP counts them popped
+;    EM_PUSH   count A bytes pushed; EM_POP counts them popped (EM_POP2: two)
 ;    EM_LNEW   allocate a label
 ;    EM_LREF   append the operand naming a label
 ;    EM_LDEF   define a label at the current offset
@@ -72,14 +72,14 @@ EM_QUIET:                      ; Is code being discarded?
     POP  HL                        ; Restore HL; POP keeps the flags.
     RET                            ; NZ: discard.
 
-;@ROUTINE CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the byte that follows the CALL and return past it.
+;@ROUTINE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the byte that follows the CALL and return past it. HL is kept.
 
 EM_OP:                         ; The inline byte is one opcode.
-    POP  HL                        ; HL addresses it.
+    EX   (SP),HL                   ; HL addresses it; the caller's HL waits.
     LD   A,(HL)                    ; Fetch it.
-    INC  HL                        ; Step over it.
-    PUSH HL                        ; Return past it.
+    INC  HL                        ; Step over it: the return address,
+    EX   (SP),HL                   ; and HL is restored.
 
 ;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the byte in A to the routine's blob, unless code is being
@@ -143,8 +143,8 @@ EM_HELP:                       ; The ordinal and figure follow the CALL.
     JR   C,.SMALLER                ; No: keep the old one.
     LD   (HL),A                    ; Yes: it is the largest.
 .SMALLER:                      ; EM_STACK is up to date.
-    LD   A,$CD                     ; CALL nn.
-    CALL EM_BYTE                   ; Append the opcode.
+    CALL EM_OP                     ; CALL nn.
+    DB   $CD                       ; Append the opcode.
     LD   L,E                       ; HL is the helper's ordinal
     LD   H,0                       ; as a word.
     LD   D,H                       ; With no addend:
@@ -170,6 +170,12 @@ EM_PUSH:                       ; A is the bytes pushed.
     RET  NC                        ; No: nothing changes.
     LD   (EM_DEEP),DE              ; Yes: it is the deepest.
     RET                            ; The frame word will cover it.
+
+;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Count the two bytes of a byte or word temporary popped.
+
+EM_POP2:                       ; A temporary of two bytes was popped.
+    LD   A,2                       ; Two bytes; fall into EM_POP.
 
 ;@ROUTINE IN A CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Count A bytes popped (the reference's pop).

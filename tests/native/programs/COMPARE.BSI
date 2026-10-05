@@ -1,0 +1,39 @@
+// Comparisons of bytes, words and Booleans (65.4 c).
+var a as u8 = 200
+var b as u8 = 9
+var x as u16 = 1000
+var y as u16 = 2
+var f as boolean
+var g as boolean = true
+
+sub main()
+    f = a = b
+    f = a <> b
+    f = a < b
+    f = a <= b
+    f = a > b
+    f = a >= b
+    f = x = y
+    f = x <> y
+    f = x < y
+    f = x <= y
+    f = x > y
+    f = x >= y
+    f = a = 1
+    f = a < 2
+    f = a > 3
+    f = 4 = a
+    f = 5 < a
+    f = 6 >= a
+    f = x <= 1000
+    f = 1000 > x
+    f = a < x
+    f = x >= a
+    f = u16(3) < a
+    f = f = g
+    f = f <> g
+    f = f = true
+    f = false <> g
+    f = 1 < 2
+    f = a + 1 > b * 2
+end

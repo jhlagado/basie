@@ -1,0 +1,36 @@
+// 16-bit arithmetic in every operand position (65.4 c).
+var x as u16 = 1000
+var y as u16 = 7
+var z as u16
+const k = 300
+
+sub main()
+    z = x + y
+    z = x - y
+    z = x * y
+    z = x / y
+    z = x mod y
+    z = x and y
+    z = x or y
+    z = x xor y
+    z = x + 1
+    z = x - 2
+    z = x * 3
+    z = x / 4
+    z = x mod 5
+    z = x and 255
+    z = x or 256
+    z = x xor k
+    z = 1 + x
+    z = 2 - x
+    z = 3 * x
+    z = 400 / x
+    z = 500 mod x
+    z = 255 and x
+    z = 256 or x
+    z = k xor x
+    z = (x + y) * (x - y)
+    z = x + y * z - x / y
+    z = ((x))
+    z = x + y + z + k
+end

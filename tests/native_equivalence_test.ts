@@ -21,6 +21,15 @@ const DIR = "tests/native/programs";
 const CLAIMED: Record<string, string[]> = {
   "a: empty routines": ["EMPTY", "FAILS", "SUBS"],
   "b: declarations and references": ["DECLS", "REFS"],
+  "c: expressions and assignment": [
+    "WORDS",
+    "BYTES",
+    "MIXED",
+    "COMPARE",
+    "LOGIC",
+    "FOLD",
+    "TRAP",
+  ],
 };
 
 /** Compile NAME with BASIE.COM and the options; return the disk. */
@@ -83,19 +92,104 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
   }
 }
 
-Deno.test("BLINK links BASIE.COM's streams and the program runs", async () => {
+// Random assignments over the stage (c) subset: each compiles to the
+// reference's streams, or both compilers refuse it. The generator is
+// deterministic, so a failure names a statement that can be rerun.
+Deno.test("c: random expressions compile as the reference compiles them", async () => {
+  let seed = 654;
+  const rnd = (n: number) => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed % n;
+  };
+  const pick = <T>(a: T[]) => a[rnd(a.length)];
+  const nums = ["0", "1", "2", "7", "15", "200", "255", "256", "300", "65535"];
+  const integer = (d: number): string => {
+    if (d <= 0 || rnd(3) === 0) {
+      return rnd(5) < 2
+        ? pick([...nums, "k", "big", "'A'"])
+        : pick(["a", "b", "x", "y"]);
+    }
+    const r = rnd(10);
+    if (r === 0) return `u8(${integer(d - 1)})`;
+    if (r === 1) return `u16(${integer(d - 1)})`;
+    if (r === 2) return `(${integer(d - 1)})`;
+    if (r === 3) return `-${integer(d - 1)}`;
+    if (r === 4) return `not ${integer(d - 1)}`;
+    const op = pick(["+", "-", "*", "/", "mod", "and", "or", "xor"]);
+    return `${integer(d - 1)} ${op} ${integer(d - 1)}`;
+  };
+  const boolean = (d: number): string => {
+    if (d <= 0 || rnd(4) === 0) {
+      return pick(["f", "g", "true", "false", "yes", "no"]);
+    }
+    const r = rnd(7);
+    if (r === 0) return `not ${boolean(d - 1)}`;
+    if (r === 1) return `(${boolean(d - 1)})`;
+    const rel = pick(["=", "<>", "<", "<=", ">", ">="]);
+    if (r <= 3) return `${integer(d - 1)} ${rel} ${integer(d - 1)}`;
+    if (r === 4) {
+      return `${pick(["f", "g"])} ${pick(["=", "<>"])} ${boolean(d - 1)}`;
+    }
+    return `${boolean(d - 1)} ${pick(["and", "or"])} ${boolean(d - 1)}`;
+  };
+  const head = "var a as u8 = 200\nvar b as u8 = 9\nvar x as u16 = 1000\n" +
+    "var y as u16 = 2\nvar f as boolean\nvar g as boolean = true\n" +
+    "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n" +
+    "sub main()\n";
+  for (let i = 0; i < 300; i++) {
+    const kind = rnd(3);
+    const statement = kind === 0
+      ? `${pick(["a", "b"])} = ${integer(4)}`
+      : kind === 1
+      ? `${pick(["x", "y"])} = ${integer(4)}`
+      : `${pick(["f", "g"])} = ${boolean(4)}`;
+    const source = new TextEncoder().encode(`${head}${statement}\nend\n`);
+    const ref = await compile("RANDOM.BSI", {
+      shrink: false,
+      mainSource: source,
+    });
+    const run = runCom(basie, {
+      tail: "RANDOM",
+      files: { "RANDOM.BSI": source },
+      maxSteps: 50_000_000,
+    });
+    if (!ref.ok) {
+      assertEquals(
+        run.output !== "",
+        true,
+        `the reference refuses ${statement}`,
+      );
+      continue;
+    }
+    // The one refusal allowed: an exact value outside 0..65535, which the
+    // native compiler cannot fold (Error 61; native compiler plan §5).
+    if (/ Error 61\r\n$/.test(run.output)) continue;
+    assertEquals(run.output, "", statement);
+    same(statement, run.disk.get("RANDOM.$DR"), ref.objects.directory);
+    same(statement, run.disk.get("RANDOM.$BY"), ref.objects.bytes);
+    same(statement, run.disk.get("RANDOM.$LN"), ref.objects.lines);
+  }
+});
+
+Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
   const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));
-  const files: Record<string, Uint8Array> = {
+  const library: Record<string, Uint8Array> = {
     "BASIE.MSG": messageFile(),
     "CPM22.BRL": (await buildRuntime()).file,
   };
-  const name = "EMPTY";
-  const disk = native(name);
-  for (const t of ["$DR", "$BY", "$LN"]) {
-    files[`${name}.${t}`] = disk.get(`${name}.${t}`)!;
+  // TRAP's arithmetic decides which of its two narrowings traps.
+  for (const name of ["EMPTY", "TRAP"]) {
+    const disk = native(name);
+    const files = { ...library };
+    for (const t of ["$DR", "$BY", "$LN"]) {
+      files[`${name}.${t}`] = disk.get(`${name}.${t}`)!;
+    }
+    const linked = runCom(blink, { tail: name, files, maxSteps: 100_000_000 });
+    assertEquals(linked.output, "", name);
+    const com = linked.disk.get(`${name}.COM`)!;
+    const ref = await compile(`${DIR}/${name}.BSI`, { shrink: false });
+    if (!ref.ok) throw new Error(`${name}: the reference refuses it`);
+    const expected = runCom(ref.com, { maxSteps: 1_000_000 }).output;
+    assertEquals(runCom(com, { maxSteps: 1_000_000 }).output, expected, name);
   }
-  const linked = runCom(blink, { tail: name, files, maxSteps: 100_000_000 });
-  assertEquals(linked.output, "");
-  const com = linked.disk.get(`${name}.COM`)!;
-  assertEquals(runCom(com, { maxSteps: 1_000_000 }).output, "");
 });

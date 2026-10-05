@@ -1,0 +1,29 @@
+// u8 and u16 together, widening and the conversions (65.4 c).
+var a as u8 = 200
+var b as u8 = 9
+var x as u16 = 1000
+var y as u16
+
+sub main()
+    y = a + x
+    y = x + a
+    y = a * x
+    y = x / a
+    y = a - x
+    y = a + b
+    y = u16(a) + b
+    y = u16(5) + a
+    y = a + u16(5)
+    y = u16(a)
+    a = u8(x)
+    a = u8(x + 1)
+    a = u8(b)
+    a = u8(300 - 100)
+    y = u16(a) * u16(b)
+    a = u8(x) + b
+    y = a
+    y = (a + b) + x
+    y = x - (a + b)
+    y = u16(7) * 3
+    a = u8(7) * 3
+end

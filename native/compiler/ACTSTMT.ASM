@@ -29,8 +29,9 @@
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; SaveLocalType: declare a scalar local of the current type at the next
-; frame slot, provisionally so that its initializer cannot use it. Emit
-; its OP_LOC8 or OP_LOC16 and expect an initializer of its type.
+; frame slot, provisionally so that its initializer cannot use it, and
+; expect an initializer of its type. Locals are refused (DG_NYI) until
+; frames are compiled.
 
 AC_LOCAL:
     LD   A,(AG_CTYPE)              ; The local's scalar type...
@@ -45,8 +46,7 @@ AC_LOCAL:
     LD   D,A                       ; For EX_PREP.
     CALL EX_PREP                   ; Write the provisional symbol.
     POP  BC                        ; Recover the payload.
-    CALL EX_DTYPE                  ; The local's type.
-    CALL EX_LOCAL                  ; Emit its declaration at SY_LSLOT.
+    CALL TR_OPER                   ; Refused until frames are compiled (65.4 d).
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Expect an expression of the declaration's type (AC_DINFO).
@@ -63,16 +63,10 @@ AC_INIT:
     JP   AC_WANT                   ; Expect it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; DefaultLocalInitializer: without an initializer a local starts at zero.
-; Emit a literal zero and present it as a known value of the local's type.
+; DefaultLocalInitializer: without an initializer a local starts at zero,
+; a known value of the local's type.
 
 AC_ZERO:
-    LD   A,1                       ; Emit even if a constant parse...
-    LD   (EX_LIVE),A               ; ...left emission off.
-    LD   A,OP_LIT16                ; A literal word...
-    CALL EX_EMIT                   ; ...appended...
-    LD   HL,0                      ; ...with value...
-    CALL EX_EMITW                  ; ...zero.
     CALL EX_DTYPE                  ; The local's type...
     OR   SY_KNOWN                  ; ...known at compile time...
     LD   (EX_RMETA),A              ; ...is the result's metadata.

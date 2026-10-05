@@ -164,9 +164,8 @@ PR_ETERM:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,HL
 ; Clear the state one compilation accumulates: the diagnostic, the
-; lookahead, the symbol table, the aggregate counters, the retained forward
-; signature, the next ordinal (the program's base, $0400) and the largest
-; frame. Returns A zero.
+; lookahead, the symbol table, the aggregate counters, the next ordinal
+; (the program's base, $0400) and the largest frame. Returns A zero.
 
 PR_RESET:
     XOR  A                         ; Zero for every cleared field.
@@ -175,8 +174,6 @@ PR_RESET:
     LD   (SY_CNT),A                ; No symbols.
     LD   (SY_LSLOT),A              ; No local frame bytes allocated.
     LD   (SY_GSLOT),A              ; No global slots allocated.
-    LD   (PR_FDONE),A              ; No forward signature completed.
-    LD   (PR_FORD),A               ; And none retained.
     LD   HL,AG_MODE                ; The aggregate counters, AG_MODE..AG_GIVEN.
     LD   B,AG_GIVEN-AG_MODE+1      ; Their byte count.
 .LOOP:                         ; Clear one aggregate counter.

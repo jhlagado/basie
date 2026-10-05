@@ -5,8 +5,8 @@
 ;  The second of the expression parser's three files (EXPR.ASM describes
 ;  the module, its result convention and its operand stack). Parse the
 ;  operands of the binary operators: literals, names, parenthesized
-;  expressions, conversions and the unary signs, emitting each one's load,
-;  literal or operation and folding constants.
+;  expressions, conversions and the unary signs, folding constants and
+;  generating the code of the rest (GENEXPR.ASM).
 ;
 ;  Principal entries:
 ;    EX_TERM   parse one primary
@@ -17,7 +17,6 @@
 ;    EX_CAST   parse a conversion's parenthesized operand
 ;    EX_INT    require an integer result
 ;    EX_UNARY  parse a primary preceded by any signs
-;    EX_UNOP   emit a unary operation, preserving the operand
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse one primary: a number, character, `true` or `false`, a name, a
@@ -100,13 +99,7 @@ EX_NAME:
     LD   D,A                       ; Keep the symbol info.
     AND  SY_AGGR                   ; An aggregate?
     JP   NZ,RO_OBJ                 ; Yes: parse its field or element path.
-    LD   A,D                       ; Recover the symbol info.
-    JR   .RESOLVED                 ; Load or fold the scalar.
-; The routine table handles scalar calls above.
-.VARIABLE:                     ; Unreachable: nothing jumps here.
-    CALL SY_GET                    ; Unreachable: fetch the symbol.
-    LD   D,A                       ; Unreachable: keep its info.
-.RESOLVED:                     ; D is a scalar symbol's info, BC its payload.
+    LD   A,D                       ; A scalar: D is its info, BC its payload.
     CALL EX_CLASS                  ; Reject a type name; zero for a constant.
     JR   Z,.CONST                  ; A constant folds to a literal.
     LD   A,D                       ; Recover the symbol info.
@@ -116,38 +109,16 @@ EX_NAME:
     AND  SY_CMASK                  ; Keep the storage class.
     CP   SY_GLOB                   ; A program variable?
     JR   Z,.GLOBAL                 ; Load it by address.
-    CP   SY_PARAM                  ; A parameter?
-    JR   Z,.PARAM                  ; Load it from the frame.
-    LD   A,E                       ; A local: is it a word?
-    CP   SY_U16                    ; Compare with u16.
-    LD   A,OP_LDL8                 ; Assume a byte local.
-    JR   NZ,.LOAD                  ; u8 and Boolean load a byte.
-    LD   A,OP_LDL16                ; A u16 local loads a word.
-    JR   .LOAD                     ; Emit it with the frame offset.
+    PUSH DE                        ; A local or parameter: keep the type.
+    CALL EX_EMIT                   ; Refused until frames are compiled.
+    POP  DE                        ; The type, in a constant parse.
+    JR   .TYPED                    ; A run-time result of that type.
 .GLOBAL:                       ; A program variable, blob BC.
     LD   A,E                       ; Its type.
     PUSH DE                        ; Keep it.
     CALL GX_LOAD                   ; Load it into A or HL.
     POP  DE                        ; Recover the type.
-    LD   A,E                       ; A run-time result of that type.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return it.
-.PARAM:                        ; A parameter at frame offset C.
-    LD   A,E                       ; Is it a word?
-    CP   SY_U16                    ; Compare with u16.
-    LD   A,OP_LDP8                 ; Assume a byte parameter.
-    JR   NZ,.LOAD                  ; u8 and Boolean load a byte.
-    LD   A,OP_LDP16                ; A u16 parameter loads a word.
-.LOAD:                         ; Emit a frame load at offset C.
-    PUSH DE                        ; Keep the type.
-    PUSH BC                        ; Keep the offset.
-    CALL EX_EMIT                   ; Emit the load.
-    POP  BC                        ; Recover the offset.
-    POP  DE                        ; Recover the type.
-    LD   A,C                       ; The frame offset is the operand.
-    PUSH DE                        ; Keep the type.
-    CALL EX_EMITB                  ; Emit it.
-    POP  DE                        ; Recover the type.
+.TYPED:                        ; E is the value's type.
     LD   A,E                       ; A run-time result of that type.
     OR   A                         ; Clear carry for success.
     RET                            ; Return it.
@@ -198,18 +169,16 @@ EX_PAREN:
     POP  AF                        ; Recover the metadata.
     JR   EX_PURE                   ; A failable call may not be enclosed.
 
-;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse the parenthesized operand of an explicit conversion to type A, with
-; A as the expected type. The enclosing expected type is restored before
-; returning the operand in A/HL.
+;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; Parse the parenthesized operand of an explicit conversion, with no type
+; expected inside it, as the reference parses it. The enclosing expected
+; type is restored before returning the operand in A/HL.
 
 EX_CAST:
-    LD   C,A                       ; C is the conversion's type.
     LD   A,(EX_WANT)               ; Fetch the enclosing expected type.
-    LD   B,A                       ; B keeps it.
-    PUSH BC                        ; Save both across the operand.
-    LD   A,C                       ; The conversion's type...
-    LD   (EX_WANT),A               ; ...is expected inside it.
+    PUSH AF                        ; Save it across the operand.
+    XOR  A                         ; Nothing is expected inside
+    LD   (EX_WANT),A               ; the conversion.
     CALL PR_LEFT                   ; Require the opening parenthesis.
     CALL EX_PARSE                  ; Parse the operand.
     LD   D,A                       ; Keep its metadata.
@@ -218,9 +187,8 @@ EX_CAST:
     CALL PR_RIGHT                  ; Require the closing parenthesis.
     POP  HL                        ; Recover the value.
     POP  DE                        ; Recover the metadata.
-    POP  BC                        ; Recover the enclosing expected type.
-    LD   A,B                       ; Restore it...
-    LD   (EX_WANT),A               ; ...for the rest of the expression.
+    POP  AF                        ; Recover the enclosing expected type.
+    LD   (EX_WANT),A               ; Restore it for the rest of the expression.
     LD   A,D                       ; Return the operand's metadata.
     CALL EX_PURE                   ; A failable call may not be enclosed.
     OR   A                         ; Clear carry for success.
@@ -228,39 +196,24 @@ EX_CAST:
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse u8(...), a checked narrowing. A known operand must fit a byte, or
-; DG_TRUNC is raised; a run-time operand emits OP_TRUNC with the
-; conversion's offset for the run-time trap.
+; DG_TRUNC is raised; a computed u16 is checked at run time (GX_BYTE);
+; a computed u8 is already one.
 
 EX_U8:
-    LD   HL,(TK_POS)               ; The conversion keyword's offset...
-    LD   (EX_OPPOS),HL             ; ...is the operator offset.
-    PUSH HL                        ; This conversion's trap position.
-    LD   A,SY_U8                   ; Parse the operand as a u8.
     CALL EX_CAST                   ; Parse the parenthesized operand.
-; Restore the enclosing context while keeping this conversion's value and
-; source offset live for the checked narrowing below.
-    LD   D,A                       ; Keep the operand's metadata.
-    LD   B,H                       ; Keep its value in BC...
-    LD   C,L                       ; ...while HL takes the offset.
-    POP  HL                        ; Recover this conversion's offset.
-    LD   (EX_OPPOS),HL             ; Nested operators may have replaced it.
-    LD   H,B                       ; Recover the value.
-    LD   L,C                       ; Complete HL.
-    LD   A,D                       ; Recover the metadata.
-    CALL EX_INT                    ; A Boolean cannot be narrowed.
+    CALL EX_INT                    ; A Boolean cannot be narrowed; D is A.
     AND  SY_KNOWN                  ; Is the operand known?
     JR   Z,.RUNTIME                ; No: check it at run time.
     LD   A,H                       ; Does the constant exceed a byte?
     OR   A                         ; Test its high byte.
-    JP   NZ,EX_ECAST               ; Yes: report it, or return a quiet zero.
+    JP   NZ,EX_ECAST               ; Yes: report it.
     LD   A,SY_KNOWN+SY_U8          ; A known u8 with the same value.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return it.
-.RUNTIME:                      ; A run-time operand.
-    LD   A,OP_TRUNC                ; Emit the checked narrowing...
-    CALL EX_EMIT                   ; ...operation.
-    LD   HL,(EX_OPPOS)             ; Its operand is the trap's offset.
-    CALL EX_EMITW                  ; Emit it.
+    RET                            ; Return it; OR cleared carry.
+.RUNTIME:                      ; A computed operand.
+    LD   A,D                       ; Its type.
+    AND  SY_TMASK                  ; Alone.
+    CP   SY_U16                    ; A word?
+    CALL Z,GX_BYTE                 ; Check its high byte and take the low.
     LD   A,SY_U8                   ; A run-time u8.
     OR   A                         ; Clear carry for success.
     RET                            ; Return it.
@@ -279,18 +232,22 @@ EX_INT:
     RET                            ; Return with carry clear.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse u16(...), a widening that needs no check or run-time operation:
-; every integer fits a u16 and carriers are already sixteen bits.
+; Parse u16(...), a widening that needs no check: every integer fits a
+; u16. A computed u8 is widened into HL (GX_WIDEN).
 
 EX_U16:
-    LD   A,SY_U16                  ; Parse the operand as a u16.
     CALL EX_CAST                   ; Parse the parenthesized operand.
-    CALL EX_INT                    ; A Boolean cannot be converted.
+    CALL EX_INT                    ; A Boolean cannot be converted; D is A.
     AND  SY_KNOWN                  ; Is the operand known?
-    LD   A,SY_U16                  ; The result is a u16.
-    RET  Z                         ; Run-time: return it.
-    OR   SY_KNOWN                  ; Known: keep the value in HL.
-    RET                            ; Return it with carry clear.
+    LD   A,SY_KNOWN+SY_U16         ; Known: keep the value in HL.
+    RET  NZ                        ; Return it; AND cleared carry.
+    LD   A,D                       ; A computed operand's type.
+    AND  SY_TMASK                  ; Alone.
+    CP   SY_U8                     ; A byte?
+    CALL Z,GX_WIDEN                ; Then it moves to HL.
+    LD   A,SY_U16                  ; A run-time u16.
+    OR   A                         ; Clear carry for success.
+    RET                            ; Return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a unary expression: a primary preceded by any number of signs.
@@ -316,38 +273,36 @@ EX_PLUS:
     OR   A                         ; Clear carry for success.
     RET                            ; Return the operand.
 
-; Parse unary minus: negate the operand at its own type, or for an exact
-; constant at the expected width, u8 if EX_WANT is u8 and u16 otherwise.
+; Parse unary minus: negate the operand at its own type. An exact constant
+; other than zero would be a negative exact value, which the reference
+; keeps until its context types it; the native compiler has no negative
+; exact values, so it refuses one with DG_RANGE.
 
 EX_MINUS:
     CALL EX_PLUS                   ; Consume '-' and parse the operand.
     LD   D,A                       ; Keep its metadata.
     AND  SY_TMASK                  ; Is it typed?
-    JR   NZ,.TYPED                 ; Yes: negate at its type.
-    LD   A,(EX_WANT)               ; An exact constant: what is expected?
-    CP   SY_U8                     ; A u8?
-    JR   Z,EX_NEGU8                ; Negate it as a byte.
-    LD   A,SY_U16                  ; Otherwise negate it as a word.
-    JR   EX_NEG                    ; Emit and fold.
-.TYPED:                        ; A typed operand.
-    LD   A,D                       ; Recover the metadata.
-    AND  SY_TMASK                  ; Keep its type for the negation.
+    JR   NZ,EX_NEG                 ; Yes: negate at its type.
+    LD   A,H                       ; An exact constant: is it zero?
+    OR   L                         ; Then its negation is zero.
+    JP   NZ,EX_ERNG                ; Otherwise refuse it.
+    LD   A,D                       ; Exact zero, unchanged.
+    RET                            ; OR cleared carry.
 
+;@ROUTINE IN A,D,HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
 ; Negate at type A (u8 or u16) the operand with metadata D and value HL:
-; emit OP_NEG8 or OP_NEG16, and fold a known value modulo the width.
+; fold a known value modulo the width, or negate a computed one (GX_NEG).
 
 EX_NEG:
     LD   C,A                       ; C is the negation's width.
-    CP   SY_U8                     ; Is it u8?
-    LD   A,OP_NEG8                 ; Assume the byte negation.
-    JR   Z,.EMIT                   ; Yes: keep it.
-    LD   A,OP_NEG16                ; No: the word negation.
-.EMIT:                         ; Emit the negation.
-    CALL EX_UNOP                   ; Emit it, keeping BC, DE and HL.
-    LD   A,D                       ; Is the operand known?
-    AND  SY_KNOWN                  ; Test its flag.
+    BIT  7,D                       ; SY_KNOWN: is the operand known?
+    JR   NZ,.FOLD                  ; Yes: fold it.
+    LD   D,C                       ; Its type.
+    CALL GX_NEG                    ; Negate A or HL.
     LD   A,C                       ; A run-time result of the width's type.
-    RET  Z                         ; Return it if not known.
+    OR   A                         ; Clear carry for success.
+    RET                            ; Return it.
+.FOLD:                         ; HL is a known value.
     XOR  A                         ; Fold: zero...
     SUB  L                         ; ...less the low byte...
     LD   L,A                       ; ...is the low result.
@@ -358,31 +313,3 @@ EX_NEG:
     LD   A,C                       ; The result has the width's type...
     OR   SY_KNOWN                  ; ...and is known.
     RET                            ; Return it.
-
-;@ROUTINE IN A,BC,DE,HL OUT BC,DE,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A
-; Emit operation A, preserving BC, DE and HL for the folding that follows.
-
-EX_UNOP:
-    PUSH BC                        ; Keep the width.
-    PUSH DE                        ; Keep the operand's metadata.
-    PUSH HL                        ; Keep its value.
-    CALL EX_EMIT                   ; Emit the operation.
-    POP  HL                        ; Recover the value.
-    POP  DE                        ; Recover the metadata.
-    POP  BC                        ; Recover the width.
-    RET                            ; Return to the fold.
-
-; Negate an exact constant expected as u8; D is its metadata, HL its value.
-
-EX_NEGU8:
-; Width selection must not destroy evidence that the exact literal itself
-; exceeded u8 before negation applies modulo 256.
-    LD   A,D                       ; Is the operand known?
-    AND  SY_KNOWN                  ; Test its flag.
-    JR   Z,.READY                  ; No: nothing to check.
-    LD   A,H                       ; Does the constant exceed a byte?
-    OR   A                         ; Test its high byte.
-    JP   NZ,EX_ERNG                ; Yes: it is out of range.
-.READY:                        ; The operand fits a byte.
-    LD   A,SY_U8                   ; Negate at u8.
-    JR   EX_NEG                    ; Emit and fold.

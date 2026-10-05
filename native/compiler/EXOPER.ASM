@@ -15,11 +15,11 @@
 ;    EX_AND    parse a chain of `and` operands
 ;    EX_PARSE  parse a complete expression in the current mode
 ;    EX_FITS   check a result against a destination type
-;    EX_RUN    parse a run-time expression, emitting its operations
-;    EX_CONST  parse an expression without emitting, for constants
+;    EX_RUN    parse a run-time expression, generating its code
+;    EX_CONST  parse an expression that must be known, for constants
 ;    EX_WIDTH  return a scalar type's storage width
-;    EX_LOCAL  emit the declaration of a scalar local
 ;    EX_STORE  store a result into a variable
+;    EX_OPEN   keep the left operand of `and`, `or` or `xor`
 
 ; Integer *, / and mod bind tighter than + and -, which bind tighter than
 ; comparisons. B is the minimum precedence: 0 comparison, 1 additive, 2
@@ -104,6 +104,8 @@ EX_LOOK:                       ; Is the next token a binary operator?
     POP  AF                        ; Recover the left metadata.
     PUSH DE                        ; Keep the levels across the push.
     CALL EX_HOLD                   ; Push the left operand and operator.
+    LD   A,(EX_LMETA)              ; A computed left operand
+    CALL GX_PUSH                   ; is pushed while the right is computed.
     POP  BC                        ; Recover the levels.
     PUSH BC                        ; Keep them across the right operand.
     LD   B,C                       ; The right operand's minimum level.
@@ -162,114 +164,71 @@ EX_LOOK:                       ; Is the next token a binary operator?
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
 ; Reduce the comparison EX_OPER on the popped operands to a Boolean. Two
-; Booleans compare only for = and <> (OP_LCMP); integers compare at the
-; unified width (OP_CMP8, OP_CMP16), unsigned. The enum follows the
-; operation. Known operands fold to a known Boolean.
+; Booleans compare only for = and <> (GX_BOOL); integers compare at the
+; unified width, unsigned (GX_BINOP). Known operands fold to a known
+; Boolean.
 
 .REDUCE:
     LD   A,(EX_LMETA)              ; Fetch the left metadata.
     AND  SY_TMASK                  ; Keep its type.
-    LD   D,A                       ; D is the left type.
-    LD   A,(EX_RMETA)              ; Fetch the right metadata.
-    AND  SY_TMASK                  ; Keep its type.
-    LD   E,A                       ; E is the right type.
-    LD   A,D                       ; Is the left Boolean?
-    CP   SY_BOOL                   ; Compare with Boolean.
+    CP   SY_BOOL                   ; Is the left Boolean?
     JR   NZ,.INTEGER               ; No: compare integers.
-    LD   A,E                       ; Then the right must be Boolean too.
+    LD   A,(EX_RMETA)              ; Then the right must be Boolean too.
+    AND  SY_TMASK                  ; Keep its type.
     CP   SY_BOOL                   ; Compare with Boolean.
     JP   NZ,EX_ETYPE               ; It is not: a type mismatch.
     LD   A,(EX_OPER)               ; Booleans have no order...
     CP   EX_NE+1                   ; ...so only = and <> apply.
     JP   NC,EX_ETYPE               ; An ordering comparison is a mismatch.
-    LD   A,OP_LCMP                 ; Compare Booleans.
-    JR   .EMIT                     ; Emit it.
+    CALL EX_KNOWN                  ; Are both known?
+    JR   NZ,.FOLD                  ; Then fold them.
+    LD   A,(EX_OPER)               ; = or <>.
+    CALL GX_BOOL                   ; Compare them at run time.
+    JR   .RUNTIME                  ; A computed Boolean.
 .INTEGER:                      ; Integer operands.
     CALL EX_UNIFY                  ; Check them; C is the width.
-    LD   A,C                       ; Is it u8?
-    CP   SY_U8                     ; Compare with u8.
-    LD   A,OP_CMP8                 ; Assume the byte comparison.
-    JR   Z,.EMIT                   ; Yes: keep it.
-    LD   A,OP_CMP16                ; No: the word comparison.
-.EMIT:                         ; Emit the comparison.
-    CALL EX_EMIT                   ; Emit the operation.
-    LD   A,(EX_OPER)               ; Its operand is the enum.
-    CALL EX_EMITB                  ; Emit it.
-    CALL EX_KNOWN                  ; Are both operands known?
-    LD   A,SY_BOOL                 ; A run-time Boolean...
-    RET  Z                         ; ...if not.
-    LD   HL,(EX_LVAL)              ; Fold: fetch the left value.
+    CALL EX_KNOWN                  ; Are both known?
+    JR   NZ,.FOLD                  ; Then fold them.
+    CALL GX_BINOP                  ; Compare them at run time.
+.RUNTIME:                      ; The Boolean is in A.
+    LD   A,SY_BOOL                 ; A run-time Boolean.
+    OR   A                         ; Clear carry.
+    RET                            ; Return it.
+.FOLD:                         ; Both known: order them, unsigned.
+    LD   HL,(EX_LVAL)              ; Fetch the left value.
     LD   DE,(EX_RVAL)              ; Fetch the right value.
     OR   A                         ; Clear carry for the comparison.
-    SBC  HL,DE                     ; Compare them, unsigned.
-    LD   A,(EX_OPER)               ; Fetch the enum; flags survive.
-    JR   Z,.EQUAL                  ; Equal.
-    JR   C,.LESS                   ; Less.
-    LD   C,1                       ; Greater: C is one.
-    JR   .SELECT                   ; Map the relation.
-.EQUAL:                        ; The operands are equal.
-    LD   C,0                       ; C is zero.
-    JR   .SELECT                   ; Map the relation.
-.LESS:                         ; The left is less.
-    LD   C,$FF                     ; C is minus one.
-.SELECT:                       ; Map the requested relation.
-; C is -1, 0, or 1. Map the requested relation to a Boolean.
-    LD   B,A                       ; Keep the enum.
-    LD   HL,0                      ; Assume false.
-    LD   A,B                       ; Recover the enum.
-    CP   EX_EQ                     ; Equal?
-    JR   Z,.IFEQUAL                ; Test it.
-    CP   EX_NE                     ; Not equal?
-    JR   Z,.IFUNEQ                 ; Test it.
-    CP   EX_LT                     ; Less?
-    JR   Z,.IFLESS                 ; Test it.
-    CP   EX_LE                     ; At most?
-    JR   Z,.IFATMOST               ; Test it.
-    CP   EX_GT                     ; More?
-    JR   Z,.IFMORE                 ; Test it; otherwise at least.
-    LD   A,C                       ; At least: true unless less.
-    CP   $FF                       ; Was it less?
-    JR   Z,.CONST                  ; Yes: false.
-    INC  L                         ; No: true.
-    JR   .CONST                    ; Return it.
-.IFEQUAL:                      ; Equal: true when C is zero.
-    LD   A,C                       ; Fetch the ordering.
-    OR   A                         ; Is it zero?
-    JR   NZ,.CONST                 ; No: false.
-    INC  L                         ; Yes: true.
-    JR   .CONST                    ; Return it.
-.IFUNEQ:                       ; Not equal: true when C is nonzero.
-    LD   A,C                       ; Fetch the ordering.
-    OR   A                         ; Is it zero?
-    JR   Z,.CONST                  ; Yes: false.
-    INC  L                         ; No: true.
-    JR   .CONST                    ; Return it.
-.IFLESS:                       ; Less: true when C is minus one.
-    LD   A,C                       ; Fetch the ordering.
-    CP   $FF                       ; Was it less?
-    JR   NZ,.CONST                 ; No: false.
-    INC  L                         ; Yes: true.
-    JR   .CONST                    ; Return it.
-.IFATMOST:                     ; At most: true unless greater.
-    LD   A,C                       ; Fetch the ordering.
-    CP   1                         ; Was it greater?
-    JR   Z,.CONST                  ; Yes: false.
-    INC  L                         ; No: true.
-    JR   .CONST                    ; Return it.
-.IFMORE:                       ; More: true when C is one.
-    LD   A,C                       ; Fetch the ordering.
-    CP   1                         ; Was it greater?
-    JR   NZ,.CONST                 ; No: false.
-    INC  L                         ; Yes: true.
+    SBC  HL,DE                     ; Compare them.
+    LD   B,2                       ; Equal: bit 1.
+    JR   Z,.ORDERED                ; Equal.
+    LD   B,1                       ; Less: bit 0.
+    JR   C,.ORDERED                ; Less.
+    LD   B,4                       ; Greater: bit 2.
+.ORDERED:                      ; B is the ordering's bit.
+    LD   A,(EX_OPER)               ; The relation
+    LD   E,A                       ; indexes
+    LD   D,0                       ; the table of
+    LD   HL,.TRUE                  ; the orderings
+    ADD  HL,DE                     ; that make it true.
+    LD   A,(HL)                    ; Is this ordering
+    AND  B                         ; one of them?
+    LD   HL,0                      ; False,
+    JR   Z,.CONST                  ; unless it is:
+    INC  L                         ; then true.
 .CONST:                        ; HL is the folded Boolean.
     LD   A,SY_KNOWN+SY_BOOL        ; A known Boolean.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
+.TRUE:                         ; By relation: bit 0 less, 1 equal, 2 greater.
+    DB   2,5,1,3,4,6               ; = <> < <= > >=.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse a `not` expression: Boolean negation (OP_LNOT) or an integer's
-; bitwise complement (OP_NOT8, OP_NOT16). `not` binds below comparisons
-; and above `and`, so `not a = b` negates the comparison.
+; Parse a `not` expression: Boolean negation or an integer's bitwise
+; complement (GX_NOT), folded when the operand is known. An exact operand
+; takes the expected type, u8 or u16; with neither expected it has no type
+; and is refused (DG_CLASH).
+; `not` binds below comparisons and above `and`, so `not a = b` negates
+; the comparison.
 
 EX_NOT:
     CALL PR_PEEK                   ; Look at the next token.
@@ -279,49 +238,29 @@ EX_NOT:
     CALL EX_NOT                    ; Parse its operand, `not` included.
     CALL EX_PURE                   ; A failable call may not be enclosed.
     LD   D,A                       ; Keep the operand's metadata.
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_BOOL                   ; Is it Boolean?
-    LD   C,SY_BOOL                 ; Assume a Boolean result...
-    LD   A,OP_LNOT                 ; ...from the Boolean negation.
-    JR   Z,.EMIT                   ; Yes: emit it.
-    LD   A,D                       ; An integer: is it typed?
-    AND  SY_TMASK                  ; Keep its type.
-    JR   NZ,.TYPED                 ; Yes: complement at its type.
-    LD   A,(EX_WANT)               ; An exact constant: what is expected?
+    AND  SY_TMASK                  ; Keep its type,
+    LD   C,A                       ; the result's.
+    JR   NZ,.TYPED                 ; A typed operand keeps it.
+    LD   A,(EX_WANT)               ; An exact one takes the expected type,
+    LD   C,A                       ; which must be an integer (spec 9.12).
+    CP   SY_U16                    ; A u16?
+    JR   Z,.TYPED                  ; Complement it as a word.
     CP   SY_U8                     ; A u8?
-    JR   Z,.EXACT8                 ; Complement it as a byte.
-    LD   C,SY_U16                  ; Otherwise a u16 result...
-    LD   A,OP_NOT16                ; ...from the word complement.
-    JR   .EMIT                     ; Emit it.
-.EXACT8:                       ; An exact constant expected as u8.
-; As with unary minus, validate the exact operand before applying the
-; width-specific complement and masking the result.
-    LD   A,D                       ; Is the operand known?
-    AND  SY_KNOWN                  ; Test its flag.
-    JR   Z,.BYTE                   ; No: nothing to check.
-    LD   A,H                       ; Does the constant exceed a byte?
-    OR   A                         ; Test its high byte.
-    JP   NZ,EX_ERNG                ; Yes: it is out of range.
-.BYTE:                         ; Complement as a byte.
-    LD   C,SY_U8                   ; A u8 result...
-    LD   A,OP_NOT8                 ; ...from the byte complement.
-    JR   .EMIT                     ; Emit it.
-.TYPED:                        ; A typed integer.
-    LD   A,D                       ; Recover the metadata.
-    AND  SY_TMASK                  ; Keep its type.
-    LD   C,A                       ; The result has the operand's type.
-    CP   SY_U8                     ; Is it u8?
-    LD   A,OP_NOT8                 ; Assume the byte complement.
-    JR   Z,.EMIT                   ; Yes: keep it.
-    LD   A,OP_NOT16                ; No: the word complement.
-.EMIT:                         ; Emit the operation A; C is the type.
-    CALL EX_UNOP                   ; Emit it, keeping BC, DE and HL.
-    LD   A,D                       ; Is the operand known?
-    AND  SY_KNOWN                  ; Test its flag.
-    LD   A,C                       ; A run-time result of type C...
-    RET  Z                         ; ...if not.
-    CP   SY_BOOL                   ; Fold: is it Boolean?
-    JR   NZ,.INTCONST              ; No: complement the integer.
+    JP   NZ,EX_ETYPE               ; Neither: the value has no type.
+    LD   A,H                       ; A u8: the constant
+    OR   A                         ; must fit a byte.
+    JP   NZ,EX_ERNG                ; It does not.
+.TYPED:                        ; C is the result's type.
+    BIT  7,D                       ; SY_KNOWN: is the operand known?
+    JR   NZ,.FOLD                  ; Yes: fold it.
+    CALL GX_NOT                    ; Complement A or HL.
+    LD   A,C                       ; A run-time result of type C.
+    OR   A                         ; Clear carry.
+    RET                            ; Return it.
+.FOLD:                         ; HL is the known operand.
+    LD   A,C                       ; A Boolean?
+    CP   SY_BOOL                   ; It flips.
+    JR   NZ,.INTCONST              ; An integer complements.
     LD   A,L                       ; Fetch the truth value.
     XOR  1                         ; Negate it.
     LD   L,A                       ; Keep the low result.
@@ -340,10 +279,11 @@ EX_NOT:
     OR   SY_KNOWN                  ; ...and is known.
     RET                            ; Return it with carry clear.
 
-; Boolean short circuit is represented by prefix and suffix operations so
-; the Z80 backend can branch around the right operand: OP_CAND or OP_COR
-; after the left operand, OP_JOIN after the right. Integer `and` and `or`
-; use the ordinary postfix reduction.
+; Boolean `and` and `or` short-circuit: after a computed left operand, OR A
+; and a jump over the right operand to a label (GX_SKIP), which is defined
+; after the right (EX_LOGIC); a known left that decides the result leaves
+; the right operand's code discarded (EX_MUTE). Integer `and`, `or` and
+; `xor` are reduced like the other integer operators.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a chain of `and` operands, reducing left to right.
@@ -360,15 +300,8 @@ EX_AND:
     CALL PR_TAKE                   ; Consume it.
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
-    CALL EX_HOLD                   ; Push the left operand.
-    CALL EX_LBOOL                  ; Is the left Boolean?
-    JR   NZ,.RIGHT                 ; No: integer `and` needs no prefix.
-    LD   A,OP_CAND                 ; Open the short circuit...
-    CALL EX_EMIT                   ; ...after the left operand.
-    LD   C,0                       ; A constant false left...
-    CALL EX_MUTE                   ; ...leaves the right arm unevaluated.
-.RIGHT:                        ; Parse the right operand.
-    CALL EX_NOT                    ; Parse it.
+    CALL EX_OPEN                   ; Keep the left operand.
+    CALL EX_NOT                    ; Parse the right operand.
     CALL EX_JOIN                   ; Pop the left operand beneath it.
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,.INTEGER               ; No: reduce integer `and`.
@@ -381,7 +314,7 @@ EX_AND:
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a complete expression: a chain of `and` operands joined by `or`
 ; and `xor`, reducing left to right. A failable call may not be the left
-; operand of `or`.
+; operand of `or`; `xor` takes integers only.
 
 EX_PARSE:
     CALL EX_AND                    ; Parse the first operand.
@@ -402,22 +335,18 @@ EX_ORS:                        ; A/HL is the result so far.
     CALL PR_TAKE                   ; Consume it.
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
-    CALL EX_SAVE                   ; Push the left operand.
-    LD   A,(EX_OPER)               ; Which operator?
-    CP   TK_XOR                    ; `xor`?
-    JR   NZ,.BOOLLEFT              ; No: `or` may short-circuit.
-    CALL EX_LBOOL                  ; `xor` is for integers only.
-    JP   Z,EX_ETYPE                ; A Boolean left is a mismatch.
-    JR   .RIGHT                    ; Parse the right operand.
-.BOOLLEFT:                     ; `or`: is the left Boolean?
-    CALL EX_LBOOL                  ; Test the left type.
-    JR   NZ,.RIGHT                 ; No: integer `or` needs no prefix.
-    LD   A,OP_COR                  ; Open the short circuit...
-    CALL EX_EMIT                   ; ...after the left operand.
-    LD   C,1                       ; A constant true left...
-    CALL EX_MUTE                   ; ...leaves the right arm unevaluated.
-.RIGHT:                        ; Parse the right operand.
-    CALL EX_AND                    ; Parse it.
+    LD   D,A                       ; Keep it.
+    LD   A,(EX_OPER)               ; `xor`?
+    CP   TK_XOR                    ; It is for integers only.
+    JR   NZ,.OPEN                  ; `or` takes Booleans too.
+    LD   A,D                       ; The left's type.
+    AND  SY_TMASK                  ; Alone.
+    CP   SY_BOOL                   ; A Boolean?
+    JP   Z,EX_ETYPE                ; Is a mismatch for `xor`.
+.OPEN:                         ; D is the left's metadata.
+    LD   A,D                       ; Keep the left operand.
+    CALL EX_OPEN                   ; Push it or open the short circuit.
+    CALL EX_AND                    ; Parse the right operand.
     CALL EX_JOIN                   ; Pop the left operand beneath it.
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,EX_ORINT               ; No: reduce the integer operator.
@@ -433,10 +362,48 @@ EX_ORINT:                      ; Integer `or` or `xor`.
     CALL EX_ARITH                  ; Reduce the bitwise operator.
     JR   EX_ORS                    ; Look for another operator.
 
+;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
+; Keep the left operand A/HL of `and`, `or` or `xor` (EX_OPER) on the
+; operand stack while the right is parsed. An integer is pushed if it was
+; computed (GX_PUSH). A computed Boolean opens the short circuit (GX_SKIP)
+; and its value word holds the label to define after the right operand. A
+; known Boolean that decides the result discards the right operand's code
+; (EX_MUTE).
+
+EX_OPEN:
+    LD   D,A                       ; Keep the metadata.
+    AND  SY_TMASK                  ; Its type.
+    CP   SY_BOOL                   ; A Boolean?
+    JR   Z,.BOOL                   ; It may short-circuit.
+    LD   A,D                       ; An integer: keep it,
+    CALL EX_HOLD                   ; with the operator.
+    LD   A,(EX_LMETA)              ; If it was computed,
+    JP   GX_PUSH                   ; push it, and return.
+.BOOL:                         ; A Boolean left operand.
+    BIT  7,D                       ; SY_KNOWN: is it known?
+    JR   NZ,.KNOWN                 ; Then it may decide the result.
+    PUSH DE                        ; Keep the metadata.
+    LD   A,(EX_OPER)               ; `and` or `or`:
+    CALL GX_SKIP                   ; OR A, JP Z or NZ to a new label A.
+    POP  DE                        ; D is the metadata.
+    LD   L,A                       ; Its value word
+    LD   H,0                       ; holds the label.
+    LD   A,D                       ; Keep the operand.
+    JP   EX_HOLD                   ; With the operator, and return.
+.KNOWN:                        ; A known Boolean.
+    LD   A,D                       ; Keep it,
+    CALL EX_HOLD                   ; with the operator.
+    LD   A,(EX_OPER)               ; `and`?
+    CP   TK_AND                    ; False decides it;
+    LD   C,0                       ; true decides `or`.
+    JR   Z,EX_MUTE                 ; Discard the right if it is false.
+    INC  C                         ; Discard the right if it is true.
+
 ;@ROUTINE IN C OUT ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,A,HL
 ; Raise EX_QUIET when the left operand is the constant C that decides the
 ; short circuit (false for `and`, true for `or`): the right arm will never
-; run, so its faults are not diagnosed. EX_POP lowers it again.
+; run, so its code is discarded, as the reference compiler discards it.
+; EX_POP lowers it again.
 
 EX_MUTE:
     LD   A,(EX_LMETA)              ; Is the left operand known?
@@ -447,50 +414,46 @@ EX_MUTE:
     XOR  C                         ; Is it the deciding value?
     RET  NZ                        ; No: the right arm decides the result.
     LD   HL,EX_QUIET               ; Address the quiet count.
-    INC  (HL)                      ; The right arm is unevaluated.
+    INC  (HL)                      ; The right arm is discarded.
     RET                            ; Return.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
-; Close a Boolean short circuit (OP_JOIN) for the operator EX_OPER, `and`
-; or `or`; the right operand must be Boolean. Fold when both are known.
+; Close a Boolean `and` or `or` (EX_OPER); the right operand must be
+; Boolean. After a computed left, the right is brought into A and the
+; short circuit's label is defined (logicalOrBitwise). After a known
+; left, the result is the left if it decided, otherwise the right.
 
 EX_LOGIC:
     LD   A,(EX_RMETA)              ; Fetch the right metadata.
+    LD   D,A                       ; Keep it.
     AND  SY_TMASK                  ; Keep its type.
     CP   SY_BOOL                   ; Is it Boolean?
     JP   NZ,EX_ETYPE               ; No: a mismatch with the Boolean left.
-    LD   A,OP_JOIN                 ; Close the short circuit.
-    CALL EX_EMIT                   ; Emit it.
-    CALL EX_KNOWN                  ; Are both operands known?
-    LD   A,SY_BOOL                 ; A run-time Boolean...
-    RET  Z                         ; ...if not.
-    LD   HL,(EX_LVAL)              ; Fold: fetch the left value.
-    LD   A,L                       ; Is it true?
-    OR   H                         ; Test both bytes.
-    LD   C,A                       ; C is nonzero for true.
-    LD   A,(EX_OPER)               ; Which operator?
-    CP   TK_AND                    ; `and`?
-    JR   Z,.ISAND                  ; Fold it.
-    LD   A,C                       ; `or`: is the left true?
-    OR   A                         ; Test it.
-    JR   NZ,.TRUE                  ; Yes: the result is true.
-    JR   .RIGHT                    ; No: the result is the right operand.
-.ISAND:                        ; `and`: is the left false?
-    LD   A,C                       ; Fetch the left truth.
-    OR   A                         ; Test it.
-    JR   Z,.FALSE                  ; Yes: the result is false.
-.RIGHT:                        ; The right operand decides.
-    LD   HL,(EX_RVAL)              ; Return its value.
-    JR   .CONST                    ; As a known Boolean.
-.FALSE:                        ; The result is false.
-    LD   HL,0                      ; Form zero.
-    JR   .CONST                    ; As a known Boolean.
-.TRUE:                         ; The result is true.
-    LD   HL,1                      ; Form one.
-.CONST:                        ; HL is the folded Boolean.
-    LD   A,SY_KNOWN+SY_BOOL        ; A known Boolean.
+    LD   E,A                       ; E is Boolean, for GX_TOREG.
+    LD   A,(EX_LMETA)              ; Is the left known?
+    RLCA                           ; SY_KNOWN into carry.
+    JR   C,.KNOWN                  ; Yes: it decided, or the right does.
+    LD   HL,(EX_RVAL)              ; The right's value, if known,
+    CALL GX_TOREG                  ; comes into A.
+    LD   A,(EX_LVAL)               ; The short circuit's label
+    CALL EM_LDEF                   ; is here.
+    LD   A,SY_BOOL                 ; A run-time Boolean.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
+.KNOWN:                        ; A known left.
+    LD   HL,(EX_LVAL)              ; Its value, 0 or 1.
+    LD   A,(EX_OPER)               ; `and` is decided by false,
+    CP   TK_AND                    ; `or` by true.
+    LD   A,L                       ; The value.
+    JR   Z,.DECIDE                 ; `and`: zero decides.
+    XOR  1                         ; `or`: one decides.
+.DECIDE:                       ; A is zero when the left decides.
+    OR   A                         ; Did it?
+    LD   A,SY_KNOWN+SY_BOOL        ; Then the result is the known left.
+    RET  Z                         ; HL is it; carry is clear.
+    LD   A,D                       ; Otherwise the right,
+    LD   HL,(EX_RVAL)              ; known or computed.
+    RET                            ; Carry is clear.
 
 ;@ROUTINE IN A,E,HL OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Check result A/HL against destination type E for assignment, passing or
@@ -530,8 +493,8 @@ EX_FITS:
     RET                            ; Return it with carry clear.
 
 ;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse a run-time expression with expected type A, emitting its
-; operations. Clears the pending failable-call state and the operand stack.
+; Parse a run-time expression with expected type A, generating its code.
+; Clears the pending failable-call state and the operand stack.
 
 EX_RUN:
     LD   (EX_WANT),A               ; Record the expected type.
@@ -539,14 +502,14 @@ EX_RUN:
     LD   (RO_PEND),A               ; No failable call is pending yet.
     LD   (RO_KEPT),A               ; No carriers are kept beneath one.
     LD   A,1                       ; Turn emission on.
-    LD   (EX_LIVE),A               ; Operations go to the transcript.
+    LD   (EX_LIVE),A               ; What is not yet compiled is refused.
     XOR  A                         ; Form zero.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
     JP   EX_PARSE                  ; Parse the expression.
 
 ;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse an expression with expected type A without emitting, for a
+; Parse an expression with expected type A that must be known, for a
 ; constant declaration or a static initializer. The caller requires the
 ; result to be known.
 
@@ -568,20 +531,6 @@ EX_WIDTH:
     RET  NZ                        ; u8 and Boolean take one.
     INC  A                         ; u16 takes two.
     RET                            ; Return it.
-
-;@ROUTINE IN A OUT A,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,B,DE,HL
-; Emit the declaration of a scalar local of type A (OP_LOC8 or OP_LOC16)
-; at the next frame slot, SY_LSLOT. Always emitted.
-
-EX_LOCAL:
-    CP   SY_U16                    ; Is it a word?
-    LD   A,OP_LOC8                 ; Assume a byte local.
-    JR   NZ,.PICKED                ; u8 and Boolean are bytes.
-    LD   A,OP_LOC16                ; A u16 local is a word.
-.PICKED:                       ; A is the declaration operation.
-    CALL TR_OPER                   ; Append it.
-    LD   A,(SY_LSLOT)              ; Its operand is the frame slot.
-    JP   TR_PUT                    ; Append it and return.
 
 ;@ROUTINE IN D,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the value in the registers into the variable with symbol info D: a
