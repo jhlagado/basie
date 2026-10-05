@@ -653,8 +653,8 @@ AC_LEAVE:
 ; BeginFor, with the counter as the current NAME: it must be a declared,
 ; integer local (loop-counter) not already counting an open loop
 ; (not-writable). Keep its offset, and its width and sign as the mode's
-; CT_MWORD and CT_MSIGN, and expect the initial value at its type. A
-; 32-bit counter is not yet compiled (DG_NYI).
+; CT_MWORD, CT_MLONG and CT_MSIGN, and expect the initial value at its
+; type.
 
 AC_FOR:
     CALL SY_FIND                   ; An undeclared counter
@@ -668,11 +668,13 @@ AC_FOR:
     CP   SY_BOOL                   ; Boolean?
     JP   Z,CT_EVAR                 ; Cannot count: raise DG_COUNT.
     CALL GX_PROP                   ; Its size and sign:
-    BIT  2,A                       ; a long
-    JP   NZ,TR_OPER                ; is not yet compiled.
-    LD   E,A                       ; A word's size, 2,
+    LD   E,A                       ; a word's size, 2,
     AND  2                         ; doubled,
     ADD  A,A                       ; is CT_MWORD;
+    BIT  2,E                       ; a long's
+    JR   Z,.SIGN                   ; is
+    OR   CT_MLONG                  ; CT_MLONG;
+.SIGN:                         ; and
     BIT  7,E                       ; a signed type's
     JR   Z,.MODE                   ; sign
     OR   CT_MSIGN                  ; is CT_MSIGN.
@@ -717,8 +719,10 @@ AC_FORTO:
 ; DefaultForStep: the step is one, upward.
 
 AC_BYONE:
-    LD   HL,1                      ; Step by one.
-    LD   (AC_DELTA),HL             ; Keep it; fall into AC_STEP.
+    LD   HL,1                      ; Step by one,
+    LD   (AC_DELTA),HL             ; four bytes:
+    DEC  HL                        ; a zero
+    LD   (AC_DELTA+2),HL           ; high word; fall into AC_STEP.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; SaveForStep (forStatement): the step must fit the counter (DG_STEP).
@@ -737,14 +741,20 @@ AC_BYONE:
 AC_STEP:
     CALL AC_CTYPE                  ; The counter's type:
     LD   C,A                       ; C keeps it.
-    CALL GX_PROP                   ; Its largest value: a byte's
+    CALL GX_PROP                   ; Its largest value: a long's
     LD   B,A                       ; (B its properties)
-    AND  2                         ; at most 255,
-    LD   HL,(AC_DELTA)             ; or 127 signed;
-    JR   NZ,.WORD                  ; a word's 65535,
-    LD   A,H                       ; or 32767
-    OR   A                         ; signed:
-    JP   NZ,CT_ESTEP               ; DG_STEP.
+    LD   HL,(AC_DELTA+2)           ; any, or below 2^31 signed;
+    BIT  2,B                       ; a byte's and a word's need
+    JR   NZ,.WORD                  ; a zero
+    LD   A,H                       ; high
+    OR   L                         ; word,
+    JP   NZ,CT_ESTEP               ; else DG_STEP;
+    LD   HL,(AC_DELTA)             ; a word's 65535
+    BIT  1,B                       ; or 32767 signed;
+    JR   NZ,.WORD                  ; a byte's 255
+    LD   A,H                       ; or
+    OR   A                         ; 127
+    JP   NZ,CT_ESTEP               ; signed.
     LD   H,L                       ; A byte's top bit is L's.
 .WORD:                         ; H holds the step's top bit.
     BIT  7,B                       ; A signed counter's step
@@ -785,7 +795,12 @@ AC_STEP:
     SBC  A,A                       ; CT_MCMPS
     AND  CT_MCMPS                  ; in
     CALL .MARK                     ; the mode.
-    LD   A,2                       ; Two bytes
+    LD   A,(AC_MODE)               ; Two bytes,
+    AND  CT_MLONG                  ; or four
+    LD   A,2                       ; for
+    JR   Z,.SIZE                   ; a long
+    LD   A,4                       ; counter,
+.SIZE:                         ; A is the slot's size,
     CALL EM_ALLOC                  ; in the frame for the bound;
     LD   (AC_BOUND),HL             ; their offset.
     POP  DE                        ; The type and the metadata.
@@ -821,15 +836,16 @@ AC_STEP:
     LD   D,E                       ; of its sign
     INC  E                         ; (u8 to u16, i8 to i16)
     CALL GX_WIDEN                  ; first.
-.SLOT:                         ; The word is in HL.
-    LD   A,SY_U16                  ; It goes
-    LD   HL,(AC_BOUND)             ; to its slot
+.SLOT:                         ; A word or a long is in the registers:
+    LD   A,E                       ; at its type
+    LD   HL,(AC_BOUND)             ; it goes to its slot
     JP   GX_FPUT                   ; (storeBound); return.
 
 ;@ROUTINE IN A,E OUT E CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY,HL
 ; A is a typed bound's type, E the counter's: return their common type
 ; in E, the type the other widens to (commonType); none raises
-; mixed-operands at the bound, and a long one is not yet compiled.
+; mixed-operands at the bound, and a long one for a narrower counter is
+; the reference's NotImplemented, refused here too (DG_NYI).
 
 .COMMON:                       ; A is the bound's type.
     LD   B,A                       ; Keep it.
@@ -844,10 +860,13 @@ AC_STEP:
     LD   A,DG_MIXED                ; Neither: mixed-operands,
     JP   EX_EVAL                   ; at the bound.
 .LONG:                         ; E is the common type.
-    LD   A,E                       ; A long
-    CALL GX_PROP                   ; is
-    AND  4                         ; not yet
-    JP   NZ,TR_OPER                ; compiled.
+    LD   A,(AC_MODE)               ; A long counter
+    AND  CT_MLONG                  ; takes
+    RET  NZ                        ; any;
+    LD   A,E                       ; a narrower one
+    CALL GX_PROP                   ; no long
+    AND  4                         ; comparison
+    JP   NZ,TR_OPER                ; (NotImplemented).
     RET                            ; E is it.
 
 ;@ROUTINE IN A OUT E,CARRY CLOBBERS A,HL,ZERO,SIGN,PARITY,HALFCARRY
@@ -883,7 +902,7 @@ AC_FORDO:
     ADD  HL,DE                     ; are copied
     EX   DE,HL                     ; from the scratch,
     LD   HL,AC_MODE                ; laid out
-    LD   BC,7                      ; alike.
+    LD   BC,AC_WEND-AC_MODE        ; alike.
     LDIR                           ; Copy them.
     LD   B,CT_FEXIT                ; The exit,
     CALL CT_NEW                    ; allocated.
@@ -934,6 +953,9 @@ AC_NEXT:
     CALL CT_BLOCK                  ; The body's block ends.
     LD   B,CT_FCONT                ; The next value
     CALL CT_DEF                    ; starts here.
+    CALL CT_MODE                   ; A long counter
+    BIT  7,A                       ; (CT_MLONG)
+    JP   NZ,AC_LNEXT               ; is stepped through the runtime.
     CALL CT_WIDE                   ; HL is the counter; A the mode.
     PUSH AF                        ; Keep the mode.
     AND  CT_MALL+CT_MNONE          ; The bound in reach?
@@ -947,7 +969,7 @@ AC_NEXT:
     CALL Z,EM_BYTE                 ; EX DE,HL.
     CALL EM_SEQ                    ; OR A, SBC HL,DE: the distance;
     DB   4,$B7,$ED,$52,$11         ; LD DE,step.
-    CALL .MAG                      ; The magnitude.
+    CALL CT_MAGW                   ; The magnitude.
     CALL EM_SEQ                    ; OR A, SBC HL,DE: carry if it
     DB   4,$B7,$ED,$52,$E1         ; does not fit; POP HL, the counter.
     CALL EM_POP2                   ; Popped.
@@ -957,7 +979,7 @@ AC_NEXT:
 .STEP:                         ; HL is the counter.
     CALL EM_OP                     ; LD DE,step.
     DB   $11                       ; The opcode.
-    CALL .MAG                      ; The magnitude.
+    CALL CT_MAGW                   ; The magnitude.
     POP  AF                        ; The mode.
     PUSH AF                        ; Kept.
     BIT  1,A                       ; CT_MDOWN:
@@ -1016,25 +1038,104 @@ AC_NEXT:
     POP  AF                        ; The mode:
     CALL CT_TYPE                   ; the counter's type.
 .STORE:                        ; A is the counter's type.
+AC_ADV:                        ; Store the next value and go on (AC_LNEXT).
     PUSH AF                        ; Keep it.
-    LD   B,CT_FVAR                 ; The counter's
-    CALL CT_FIELD                  ; offset
-    LD   E,(HL)                    ; is
-    INC  HL                        ; in
-    LD   D,(HL)                    ; DE.
-    EX   DE,HL                     ; HL is the offset.
+    LD   B,CT_FVAR                 ; The counter's offset
+    CALL CT_FWORD                  ; is HL.
     POP  AF                        ; The type.
     CALL GX_FPUT                   ; Store the next value.
     LD   BC,CT_FDEST*256+$C3       ; JP
     CALL CT_GO                     ; to the body.
     JP   AC_LEAVE                  ; Define the exit and close the frame.
-.MAG:                          ; Append the step's magnitude.
-    LD   B,CT_FSTEP                ; The step
-    CALL CT_FIELD                  ; is
-    LD   E,(HL)                    ; in
-    INC  HL                        ; the
-    LD   D,(HL)                    ; frame.
-    EX   DE,HL                     ; HL is the magnitude,
-    JP   EM_WORD                   ; appended; return.
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; EndFor of a long counter, A the mode (forStatement, big): with the bound
+; in reach, the distance to it in the loop's direction, through SUB32,
+; against the step's magnitude, through CMP32U, leaves the loop when the
+; step does not fit (or fills it exactly, for until); with none, the
+; counter, its sign bit flipped when signed, is compared with the last
+; value a step can leave in the type, ~step going up and step going down,
+; and traps (loop-range) beyond it. Then ADD32 or SUB32 makes the next
+; value, stored, and the loop goes on.
+
+AC_LNEXT:
+    PUSH AF                        ; Keep the mode.
+    AND  CT_MALL+CT_MNONE          ; The bound in reach?
+    JR   NZ,.LIMIT                 ; No: the type's limit.
+    POP  AF                        ; The mode:
+    PUSH AF                        ; (kept)
+    LD   BC,CT_FBND*256+CT_FVAR    ; up, the bound less the counter,
+    AND  CT_MDOWN                  ; or
+    JR   Z,.ORDER                  ; down,
+    LD   BC,CT_FVAR*256+CT_FBND    ; the counter less the bound.
+.ORDER:                        ; B is the minuend's field, C the other's.
+    PUSH BC                        ; Keep them.
+    CALL CT_LLOAD                  ; The minuend into DEHL,
+    CALL CT_EXX                    ; then to the alternates
+    POP  BC                        ; while
+    LD   B,C                       ; the subtrahend
+    CALL CT_LLOAD                  ; loads,
+    CALL CT_EXX                    ; and back.
+    CALL EM_HELP                   ; CALL SUB32: the distance,
+    DW   HP_LSUB                   ; never negative.
+    LD   B,0                       ; The step's magnitude
+    CALL CT_ALTK                   ; in the alternates,
+    CALL EM_HELP                   ; CALL CMP32U: carry if the step
+    DW   HP_LCMPU                  ; does not fit.
+    POP  AF                        ; The mode.
+    PUSH AF                        ; Kept.
+    CALL CT_PAST                   ; JP C, and for until JP Z, to the exit.
+    JR   .STEP                     ; Then the next value.
+.LIMIT:                        ; No bound in reach.
+    LD   B,CT_FVAR                 ; The counter,
+    CALL CT_LFLIP                  ; flipped if signed,
+    POP  AF                        ; against
+    PUSH AF                        ; the last value
+    AND  CT_MDOWN                  ; a step
+    SUB  1                         ; can leave,
+    SBC  A,A                       ; complemented
+    LD   B,A                       ; going up,
+    CALL CT_ALTK                   ; in the alternates:
+    CALL EM_HELP                   ; CALL CMP32U.
+    DW   HP_LCMPU                  ; Then
+    POP  AF                        ; going
+    PUSH AF                        ; down
+    AND  CT_MDOWN                  ; a borrow
+    JR   NZ,.DOWN                  ; traps;
+    CALL EM_LNEW                   ; going up, a label past the trap:
+    PUSH AF                        ; (kept)
+    LD   C,$DA                     ; JP C
+    CALL EM_JUMP                   ; to it,
+    POP  AF                        ; and
+    PUSH AF                        ; (kept)
+    LD   C,$CA                     ; JP Z
+    CALL EM_JUMP                   ; to it,
+    CALL EM_HELP                   ; else CALL TRAP_LOO,
+    DW   HP_LOOP                   ; its figure counted;
+    POP  AF                        ; the label
+    PUSH AF                        ; is
+    CALL EM_LDEF                   ; here,
+    POP  AF                        ; and
+    CALL EM_LFREE                  ; free again.
+    JR   .STEP                     ; Then the next value.
+.DOWN:                         ; CALL C,TRAP_LOO.
+    LD   A,$DC                     ; The site's opcode,
+    LD   L,HP_LOOP&$FF             ; the loop-range trap.
+    CALL EM_TRAP                   ; Appended.
+.STEP:                         ; The next value:
+    LD   B,CT_FVAR                 ; the counter
+    CALL CT_LLOAD                  ; in DEHL,
+    LD   B,0                       ; the step
+    CALL CT_ALTK                   ; in the alternates,
+    POP  AF                        ; and
+    PUSH AF                        ; by
+    AND  CT_MDOWN                  ; the direction
+    LD   DE,HP_LADD                ; ADD32
+    JR   Z,.ADD                    ; or
+    LD   DE,HP_LSUB                ; SUB32,
+.ADD:                          ; called.
+    CALL EM_HELPD                  ; DEHL is the next value,
+    POP  AF                        ; stored at
+    CALL CT_TYPE                   ; the counter's type.
+    JP   AC_ADV                    ; Then on to the body.
 
 AC_CEND:                       ; End of the grammar actions' code (marker).

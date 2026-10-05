@@ -1,0 +1,34 @@
+// The 32-bit types run (67b): each result is checked, and the narrowing
+// at the end traps only when every one is right.
+var check as u32
+var out as u8
+
+sub scale(a as u32, b as i32) as i32
+    return i32(a / 1000) * b + i32(a mod 1000)
+end
+
+sub main()
+    var l as u32 = 3000000000
+    var m as i32 = -2000000
+    var t as u32
+    var i as u32
+    var j as i32
+    check = u32(scale(123456789, -3) + 370246)
+    check = check + (l / 7 - 428571428) + u32(m / -1000 - 2000)
+    check = check + u32(i32(l shr 12) - 732421) + u32((m shr 8) + 7813)
+    check = check + ((l shl 3) xor $65E9A000) + (l and $FF) - 0
+    if l < 100 or m > 0 or not (m < -1999999) or l * 2 <> 1705032704
+        check = check + 1
+    end
+    for i = 4294967200 to 4294967295 step 10
+        t = t + 1
+    end
+    check = check + t - 10
+    for j = 300000 to -300000 step -100000
+        t = t + u32(j + 300000)
+    end
+    check = check + t - 2100010
+    m = -m * -m / 4000000
+    check = check + u32(m + 1000000)
+    out = u8(256 - check)
+end

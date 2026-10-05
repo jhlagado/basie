@@ -162,6 +162,7 @@ function nativeType(type: string, isVar: boolean): string {
   const ids: Record<string, string> = {
     u8: "SY_U8",
     u16: "SY_U16",
+    u32: "SY_U32",
     boolean: "SY_BOOL",
     File: "AG_FILE",
     "u8[]": isVar ? "AG_VBUF" : "AG_BUF",
@@ -173,7 +174,8 @@ function nativeType(type: string, isVar: boolean): string {
 }
 
 /** Bytes an argument of a native type takes on the stack. */
-const argumentBytes = (id: string) => id.startsWith("SY_") ? 2 : 4;
+const argumentBytes = (id: string) =>
+  id.startsWith("SY_") && id !== "SY_U32" ? 2 : 4;
 
 /**
  * The source of native/compiler/PREDEF.ASM: the names the compiler
@@ -182,10 +184,9 @@ const argumentBytes = (id: string) => id.startsWith("SY_") ? 2 : 4;
  * constant's is two bytes: SY_KNOWN with its type (SY_EXACT, or AG_FILE
  * for console and printer), then its value. A service's is laid out as a
  * routine record from RO_RTYPE (CALLWORK.ASM), whose first byte, its
- * result type, has bit 7 clear: its result type, its flags (RO_FFAIL;
- * RO_FWIDE when a u32 makes it one the compiler does not yet call), its
- * ordinal, its stack figure and its argument bytes; then the count and
- * native type IDs of its parameters.
+ * result type, has bit 7 clear: its result type, its flags (RO_FFAIL),
+ * its ordinal, its stack figure and its argument bytes; then the count
+ * and native type IDs of its parameters.
  */
 export function nativeNames(built: BuiltLibrary): string {
   const lines: string[] = [];
@@ -220,24 +221,15 @@ export function nativeNames(built: BuiltLibrary): string {
       if (!q) throw new Error(`unparsed parameter ${p}`);
       return { type: q[2], isVar: q[1] !== undefined };
     });
-    const wide = params.some((p) => p.type === "u32") || m[3] === "u32";
-    const ids = params.map((p) =>
-      p.type === "u32" ? "SY_U16" : nativeType(p.type, p.isVar)
-    );
-    const result = m[3] === undefined
-      ? "0"
-      : m[3] === "u32"
-      ? "0"
-      : nativeType(m[3], false);
-    const flags = [m[4] ? "RO_FFAIL" : "", wide ? "RO_FWIDE" : ""]
-      .filter((f) => f).join("+") || "0";
+    const ids = params.map((p) => nativeType(p.type, p.isVar));
+    const result = m[3] === undefined ? "0" : nativeType(m[3], false);
+    const flags = m[4] ? "RO_FFAIL" : "0";
     const h = built.helpers.find((x) => x.ordinal === s.ordinal);
     if (!h || h.convention !== 1 || h.returning > 0xff) {
       throw new Error(`${s.name} is not a service below 256 bytes of stack`);
     }
     const args = params.reduce(
-      (n, p) =>
-        n + (p.type === "u32" ? 4 : argumentBytes(nativeType(p.type, p.isVar))),
+      (n, p) => n + argumentBytes(nativeType(p.type, p.isVar)),
       0,
     );
     row(
@@ -246,9 +238,7 @@ export function nativeNames(built: BuiltLibrary): string {
     );
     row(
       `DB   ${result},${flags}`,
-      `${m[3] ? `Result ${m[3]}` : "No result"}${m[4] ? "; it can fail" : ""}${
-        wide ? "; not yet called (u32)" : ""
-      }.`,
+      `${m[3] ? `Result ${m[3]}` : "No result"}${m[4] ? "; it can fail" : ""}.`,
     );
     row(
       `DW   ${hex(s.ordinal, 3)},${h.returning}`,
@@ -282,10 +272,10 @@ export function nativeNames(built: BuiltLibrary): string {
     ";  A constant's is two bytes: SY_KNOWN with its type, SY_EXACT or",
     ";  AG_FILE, then its value. A service's is laid out as a routine record",
     ";  from RO_RTYPE (CALLWORK.ASM), so that RO_CALL reads both alike, and",
-    ";  its first byte has bit 7 clear: its result type, its flags (RO_FFAIL,",
-    ";  and RO_FWIDE for one with a u32 the compiler does not yet call), its",
-    ";  ordinal, its stack figure (the bytes a returning call uses) and its",
-    ";  argument bytes; then the count and the type IDs of its parameters.",
+    ";  its first byte has bit 7 clear: its result type, its flags",
+    ";  (RO_FFAIL), its ordinal, its stack figure (the bytes a returning call",
+    ";  uses) and its argument bytes; then the count and the type IDs of its",
+    ";  parameters.",
     ";  A zero length byte ends the table.",
     ";",
     ";  The table is the NAMES overlay of BASIE.OVL (OVERLAY.ASM), at the",

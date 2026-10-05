@@ -13,10 +13,10 @@
 ;  A constant's is two bytes: SY_KNOWN with its type, SY_EXACT or
 ;  AG_FILE, then its value. A service's is laid out as a routine record
 ;  from RO_RTYPE (CALLWORK.ASM), so that RO_CALL reads both alike, and
-;  its first byte has bit 7 clear: its result type, its flags (RO_FFAIL,
-;  and RO_FWIDE for one with a u32 the compiler does not yet call), its
-;  ordinal, its stack figure (the bytes a returning call uses) and its
-;  argument bytes; then the count and the type IDs of its parameters.
+;  its first byte has bit 7 clear: its result type, its flags
+;  (RO_FFAIL), its ordinal, its stack figure (the bytes a returning call
+;  uses) and its argument bytes; then the count and the type IDs of its
+;  parameters.
 ;  A zero length byte ends the table.
 ;
 ;  The table is the NAMES overlay of BASIE.OVL (OVERLAY.ASM), at the
@@ -140,15 +140,15 @@ HP_NAMES:
     DW   $07A,28                   ; Ordinal $07A, 28 bytes of stack.
     DB   10,3,AG_FILE,AG_BUF,SY_U16; 10 argument bytes; 3 parameters.
     DB   4,"seek"                  ; seek: service $07B.
-    DB   0,RO_FFAIL+RO_FWIDE       ; No result; it can fail; not yet called (u32).
+    DB   0,RO_FFAIL                ; No result; it can fail.
     DW   $07B,18                   ; Ordinal $07B, 18 bytes of stack.
-    DB   8,2,AG_FILE,SY_U16        ; 8 argument bytes; 2 parameters.
+    DB   8,2,AG_FILE,SY_U32        ; 8 argument bytes; 2 parameters.
     DB   8,"position"              ; position: service $07C.
-    DB   0,RO_FFAIL+RO_FWIDE       ; Result u32; it can fail; not yet called (u32).
+    DB   SY_U32,RO_FFAIL           ; Result u32; it can fail.
     DW   $07C,8                    ; Ordinal $07C, 8 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   4,"size"                  ; size: service $07D.
-    DB   0,RO_FFAIL+RO_FWIDE       ; Result u32; it can fail; not yet called (u32).
+    DB   SY_U32,RO_FFAIL           ; Result u32; it can fail.
     DW   $07D,18                   ; Ordinal $07D, 18 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   6,"exists"                ; exists: service $07E.

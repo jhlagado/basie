@@ -470,15 +470,11 @@ RO_CALL:
 ; Parse a call to the service whose payload in HP_NAMES is at HL, its name
 ; read, as RO_CALL parses a call to a routine: the payload is laid out as
 ; a routine record from RO_RTYPE, then the parameters' count and their
-; types, a byte apart. A service with a u32 parameter or result is refused
-; for now (DG_NYI). A returns the result type, zero for none.
+; types, a byte apart. A returns the result type, zero for none.
 
 RO_SVC:
     PUSH HL                        ; The record, read when the call closes.
-    INC  HL                        ; Its flags:
-    BIT  4,(HL)                    ; RO_FWIDE, a u32?
-    JP   NZ,TR_OPER                ; Refused for now.
-    LD   DE,RO_RARGS-RO_RFLAG+1    ; After the argument bytes
+    LD   DE,RO_RARGS-RO_RTYPE+1    ; After the argument bytes
     ADD  HL,DE                     ; is the count:
     LD   E,(HL)                    ; E of them,
     INC  HL                        ; the types after it,

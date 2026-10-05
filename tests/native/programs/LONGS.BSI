@@ -1,0 +1,54 @@
+// The 32-bit types (67b): u32 and i32 globals, locals, parameters,
+// results, record fields and array cells; the 32-bit helpers for
+// arithmetic, comparison, shifts and bitwise operators; conversions to
+// and from the narrower types; and exact values to 32 bits.
+const big = 4000000000
+const half as i32 = -2147483648
+const mask as u32 = $FFFF0000
+
+record pair
+    lo as u32
+    hi as i32
+end
+
+var total as u32 = 123456789
+var delta as i32 = -70000
+var cells as u32[4]
+var p as pair
+
+sub mix(a as u32, b as i32, c as u16) as i32
+    var t as i32 = b * 3 - i32(c)
+    if a > 100000 and t < 0
+        return t / 7 + i32(a mod 1000)
+    end
+    return -t
+end
+
+sub spread(x as u32) as u32
+    return (x shl 4) or (x shr 28) xor mask
+end
+
+sub main()
+    var l as u32 = big
+    var m as i32 = half + 1
+    var w as u16 = 40000
+    var s as i16 = -3
+    var b as i8 = -1
+    var u as u8 = 200
+    l = l / 3 + total mod 97 - u32(w) * 2
+    m = mix(l, delta, w) + i32(s) * i32(b) - m
+    cells[2] = spread(l) and not total
+    cells[u and 3] = u32(u) + cells[2]
+    p.lo = cells[0] + 1
+    p.hi = -p.hi + i32(p.lo shr 1)
+    if l >= total or m <> delta and p.hi < 0
+        total = total - 1
+    end
+    w = u16(l and $FFFF)
+    s = i16(m shr 16)
+    b = i8(m and 127)
+    u = u8(cells[2] shr 24)
+    delta = i32(total) - 1000000
+    l = l * l
+    m = -m mod 1000 shl 3
+end

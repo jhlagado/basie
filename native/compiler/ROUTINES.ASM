@@ -275,15 +275,21 @@ RO_ENROL:
 
 ;@ROUTINE IN A OUT B CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Return in B the bytes an argument of type A takes (parameterWords): four
-; for an open string's view or a File, two for anything else. A is kept.
+; for an open string's view, a File or a long scalar, two for anything
+; else. A is kept.
 
 RO_WORDS:
     LD   B,4                       ; Two words
     CP   AG_VIEW                   ; for a view
     RET  Z                         ; of a string,
-    CP   AG_FILE                   ; or a File;
-    RET  Z                         ; otherwise
-    LD   B,2                       ; one.
+    CP   AG_FILE                   ; or a File,
+    RET  Z                         ; or
+    CP   SY_U32                    ; a u32,
+    JR   C,.WORD                   ; an i32
+    CP   SY_F32+1                  ; or an f32;
+    RET  C                         ; otherwise
+.WORD:                         ; one word.
+    LD   B,2                       ; Two bytes.
     RET                            ; B is the bytes.
 
 ;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL

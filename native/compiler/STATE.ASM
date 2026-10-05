@@ -22,10 +22,11 @@
 ;    +$0BC    865  symbol table: count, 96 records of nine bytes
 ;    +$41D    330  expression state, the folding scratch and the operand
 ;                  stack
-;    +$567    130  control: depth, fallthrough, eight frames of sixteen bytes
-;    +$5E9   1527  aggregate types, records, fields, array bounds, the
+;    +$567    146  control: depth, fallthrough, eight frames of eighteen
+;                  bytes
+;    +$5F9   1527  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$BE0         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$BF0         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -166,13 +167,13 @@ EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
 EX_STLEN EQU  16               ; Bytes in one entry.
 EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
 
-; Structured control (CONTROL.ASM) keeps a sixteen-byte frame for each
+; Structured control (CONTROL.ASM) keeps an eighteen-byte frame for each
 ; open if, while, for and handler; the fields are laid out there.
 CT_BASE EQU  EX_STLIM          ; First byte of the control block.
 CT_DEPTH EQU  CT_BASE+$00      ; Byte: open control frames.
 CT_FALLS EQU  CT_BASE+$01      ; Byte: nonzero while control can reach this point.
 CT_FTAB EQU  CT_BASE+$02       ; First control frame.
-CT_FLEN EQU  16                ; Bytes in one frame.
+CT_FLEN EQU  18                ; Bytes in one frame.
 CT_FCAP EQU  8                 ; Frames; DG_NEST when exceeded.
 CT_FLIM EQU  CT_FTAB+CT_FLEN*CT_FCAP ; Exclusive end of the frames.
 
@@ -189,8 +190,8 @@ CT_FSIZE EQU  5                ; Frame field: the frame's size as it opened (wor
 CT_FMODE EQU  7                ; Frame field: if flags, for mode, kept bytes.
 CT_FVAR EQU  8                 ; Frame field: the counter's offset (word).
 CT_FBND EQU  10                ; Frame field: the bound's offset (word).
-CT_FSTEP EQU  12               ; Frame field: the step's magnitude (word).
-CT_FSYMS EQU  14               ; Frame field: SY_CNT as it opened, its blocks' first symbol.
+CT_FSTEP EQU  12               ; Frame field: the step's magnitude (four bytes).
+CT_FSYMS EQU  16               ; Frame field: SY_CNT as it opened, its blocks' first symbol.
 CT_MINC EQU  1                 ; For mode: to, the bound is inclusive.
 CT_MDOWN EQU  2                ; For mode: the step is negative.
 CT_MWORD EQU  4                ; For mode: the counter is a word.
@@ -198,6 +199,7 @@ CT_MSIGN EQU  8                ; For mode: the counter is signed.
 CT_MCMPS EQU  $10              ; For mode: the comparison with the bound is signed.
 CT_MALL EQU  $20               ; For mode: no bound in reach; it runs until it traps.
 CT_MNONE EQU  $40              ; For mode: no bound in reach; it never starts.
+CT_MLONG EQU  $80              ; For mode: the counter is a long.
 
 ; Aggregate type and layout metadata lasts the whole compilation. Type IDs
 ; 1..3 are the predefined scalars; IDs 4 and above name bounded four-byte

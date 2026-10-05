@@ -30,7 +30,7 @@
 ;    CT_PAST   leave a for loop when the last comparison says so
 ;
 ;  Frames (STATE.ASM). CT_DEPTH counts the open frames, at most CT_FCAP
-;  (8); frame n is the CT_FLEN (16) bytes at CT_FTAB+16n. The fields are:
+;  (8); frame n is the CT_FLEN (18) bytes at CT_FTAB+18n. The fields are:
 ;    CT_FKIND  +0  CT_KIF, CT_KLOOP (while), CT_KFOR or CT_KTRAP (handle)
 ;    CT_FDEST  +1  label: an if's next arm, a for's body, a handler's
 ;                  failure entry
@@ -50,22 +50,25 @@
 ;                  temporaries' bytes pushed beneath the failing call
 ;    CT_FVAR   +8  for: word, the counter's offset from IX
 ;    CT_FBND   +10 for: word, the bound's offset from IX
-;    CT_FSTEP  +12 for: word, the step's magnitude
-;    CT_FSYMS  +14 SY_CNT as the frame opened: the first symbol of each of
+;    CT_FSTEP  +12 for: four bytes, the step's magnitude
+;    CT_FSYMS  +16 SY_CNT as the frame opened: the first symbol of each of
 ;                  its blocks, whose symbols go out of scope as it ends
 ;  The for fields from CT_FMODE are copied from the actions' scratch
 ;  AC_MODE..AC_DELTA, laid out alike.
 
 ;@ROUTINE IN A OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Return in HL the address of frame A, CT_FTAB+16A. A is unchanged.
+; Return in HL the address of frame A, CT_FTAB+18A. A is unchanged.
 
 CT_FRAME:
     LD   L,A                       ; Widen the frame index
     LD   H,0                       ; into HL.
     ADD  HL,HL                     ; Times two,
+    LD   D,H                       ; kept
+    LD   E,L                       ; in DE;
     ADD  HL,HL                     ; four,
     ADD  HL,HL                     ; eight,
-    ADD  HL,HL                     ; sixteen: the frame's offset.
+    ADD  HL,HL                     ; sixteen,
+    ADD  HL,DE                     ; eighteen: the frame's offset.
     LD   DE,CT_FTAB                ; The frame table.
     ADD  HL,DE                     ; HL addresses frame A.
     RET                            ; A is still the index; carry clear.
@@ -168,6 +171,18 @@ CT_FIELD:
     LD   D,0                       ; into DE.
     ADD  HL,DE                     ; HL addresses the field.
     RET                            ; Carry clear.
+
+;@ROUTINE IN B OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; Return in HL the word in field B (a CT_F offset) of the innermost frame.
+; BC is kept.
+
+CT_FWORD:
+    CALL CT_FIELD                  ; HL addresses the field:
+    LD   E,(HL)                    ; its
+    INC  HL                        ; word
+    LD   D,(HL)                    ; in DE,
+    EX   DE,HL                     ; then HL.
+    RET                            ; Done.
 
 ;@ROUTINE IN B OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE
 ; Allocate a routine label (EM_LNEW) into field B of the innermost frame;
@@ -304,11 +319,11 @@ CT_NOTE:
     SET  0,(HL)                    ; Some arm falls through.
     RET                            ; The mark is made.
 
-;@ROUTINE OUT A,B,DE,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,HL
+;@ROUTINE OUT A,B,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C
 ; Parse a for loop's step: an optional sign, then a number, an integer
-; constant, exact or typed, or a predeclared constant, which must be
-; nonzero. Return the magnitude in DE and
-; in B the mode bit CT_MDOWN for a negative step. Anything else raises
+; constant, exact or typed and not negative, or a predeclared constant,
+; which must be nonzero. Return the magnitude in HLDE, HL the high word,
+; and in B the mode bit CT_MDOWN for a negative step. Anything else raises
 ; DG_STEP.
 
 CT_STEP:
@@ -338,6 +353,8 @@ CT_STEP:
     INC  HL                        ; Its value,
     LD   E,(HL)                    ; a byte,
     LD   D,0                       ; widened into DE,
+    LD   H,D                       ; with a
+    LD   L,D                       ; zero high word,
     JR   .NONZERO                  ; must not be zero.
 .CONST:                        ; The name must be an integer constant.
     CALL SY_GET                    ; A is its class and type, BC its value.
@@ -349,26 +366,27 @@ CT_STEP:
     CP   SY_BOOL                   ; not Boolean.
     JR   Z,CT_ESTEP                ; A Boolean is no step.
     INC  HL                        ; Its value's high bytes (SY_VHI):
-    LD   A,(HL)                    ; any
-    INC  HL                        ; is
-    OR   (HL)                      ; beyond
-    INC  HL                        ; any counter
-    OR   (HL)                      ; here, or negative,
-    JR   NZ,CT_ESTEP               ; no step.
-    JR   .NUMBER                   ; BC is the value.
+    LD   E,(HL)                    ; the
+    INC  HL                        ; high
+    LD   D,(HL)                    ; word,
+    INC  HL                        ; and the top byte,
+    LD   A,(HL)                    ; set when
+    OR   A                         ; it is negative,
+    JR   NZ,CT_ESTEP               ; no magnitude.
+    EX   DE,HL                     ; HL is the high word.
+    JR   .NUMBER                   ; BC is the low.
 .LITERAL:                      ; A number:
-    LD   HL,(TK_NHI)               ; beyond sixteen bits
-    LD   A,H                       ; it fits
-    OR   L                         ; no counter here,
-    JR   NZ,CT_ESTEP               ; no step.
-.NUMBER:                       ; BC holds the value.
+    LD   HL,(TK_NHI)               ; its high word.
+.NUMBER:                       ; BC holds the low word.
     LD   D,B                       ; Move it
     LD   E,C                       ; to DE.
-.NONZERO:                      ; DE is the magnitude.
+.NONZERO:                      ; HLDE is the magnitude.
     POP  BC                        ; B is the direction.
     LD   A,D                       ; Is it zero?
-    OR   E                         ; A zero step would never finish.
-    RET  NZ                        ; DE is the magnitude.
+    OR   E                         ; A zero step
+    OR   H                         ; would
+    OR   L                         ; never finish.
+    RET  NZ                        ; HLDE is the magnitude.
 
 ;@ROUTINE NORETURN
 ; Raise DG_STEP: the step is not a nonzero constant that fits the counter.
@@ -385,11 +403,19 @@ CT_EVAR:
     DB   DG_COUNT                  ; Bad counter.
 
 ;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Return in A the counter's type from for mode A, its CT_MWORD and
-; CT_MSIGN: u8, u16, i8 or i16. HL is kept.
+; Return in A the counter's type from for mode A, its CT_MLONG, CT_MWORD
+; and CT_MSIGN: u8, u16, i8, i16, u32 or i32. HL is kept.
 
 CT_TYPE:
     PUSH HL                        ; Keep HL.
+    BIT  7,A                       ; CT_MLONG:
+    JR   Z,.SHORT                  ; a long counter
+    AND  CT_MSIGN                  ; is a u32,
+    LD   A,SY_U32                  ; or
+    JR   Z,.DONE                   ; else
+    INC  A                         ; an i32.
+    JR   .DONE                     ; A is it.
+.SHORT:                        ; A byte or a word.
     AND  CT_MWORD+CT_MSIGN         ; The two bits,
     RRCA                           ; as
     RRCA                           ; an index,
@@ -400,6 +426,7 @@ CT_TYPE:
     SUB  L                         ; mode,
     LD   H,A                       ; select
     LD   A,(HL)                    ; one.
+.DONE:                         ; A is the type.
     POP  HL                        ; Restore HL.
     RET                            ; A is it.
 .TABLE:                        ; By CT_MWORD and CT_MSIGN:
@@ -410,9 +437,25 @@ CT_TYPE:
 ; (CT_WIDE, CT_BOUND), leaving carry when the counter is below and zero
 ; when they are equal (compare16ToFlags): a signed comparison (CT_MCMPS)
 ; flips both sign bits first, LD A,H, XOR $80, LD H,A, LD A,D, XOR $80,
-; LD D,A; then OR A, SBC HL,DE. A returns the frame's mode.
+; LD D,A; then OR A, SBC HL,DE. A long counter is compared through
+; CMP32U, the counter in DEHL and the bound in the alternates, each with
+; its sign bit flipped when signed. A returns the frame's mode.
 
 CT_TEST:
+    LD   B,CT_FMODE                ; A long
+    CALL CT_FIELD                  ; counter
+    BIT  7,(HL)                    ; (CT_MLONG)
+    JR   Z,.SHORT                  ; is
+    LD   B,CT_FVAR                 ; loaded,
+    CALL CT_LFLIP                  ; flipped if signed,
+    CALL CT_EXX                    ; to the alternates;
+    LD   B,CT_FBND                 ; then the bound,
+    CALL CT_LFLIP                  ; flipped,
+    CALL CT_EXX                    ; and back;
+    CALL EM_HELP                   ; CALL CMP32U:
+    DW   HP_LCMPU                  ; carry when below, zero when equal.
+    JR   CT_MODE                   ; A is the mode; return.
+.SHORT:                        ; A byte or a word.
     CALL CT_WIDE                   ; HL is the counter, A the mode.
     PUSH AF                        ; Keep the mode.
     CALL CT_BOUND                  ; DE is the bound.
@@ -427,6 +470,76 @@ CT_TEST:
     DB   3,$B7,$ED,$52             ; counter is below, zero when equal.
     POP  AF                        ; The mode.
     RET                            ; Compared.
+
+;@ROUTINE IN B OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the long at the offset in field B, CT_FVAR or CT_FBND, of the
+; innermost frame, a for loop with a long counter, into DEHL at the
+; counter's type (loadRegisters), and flip its sign bit when the counter
+; is signed (CT_LFLIP: LD A,D, XOR $80, LD D,A) or not (CT_LLOAD). A
+; returns the frame's mode.
+
+CT_LFLIP:
+    CALL CT_LLOAD                  ; Load it; A is the mode.
+    BIT  3,A                       ; CT_MSIGN?
+    RET  Z                         ; Unsigned: done.
+    CALL EM_SEQ                    ; LD A,D, XOR $80, LD D,A:
+    DB   4,$7A,$EE,$80,$57         ; the sign bit flipped.
+CT_MODE:                       ; Return the mode in A.
+    LD   B,CT_FMODE                ; The frame's
+    CALL CT_FIELD                  ; mode
+    LD   A,(HL)                    ; is A.
+    RET                            ; Done.
+CT_LLOAD:                      ; B is the field.
+    CALL CT_FWORD                  ; HL is the offset,
+    PUSH HL                        ; kept.
+    CALL CT_MODE                   ; The mode's
+    CALL CT_TYPE                   ; type,
+    POP  HL                        ; at the offset,
+    CALL GX_FLOAD                  ; loaded.
+    JR   CT_MODE                   ; A is the mode; return.
+
+;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the low word of the innermost for loop's step magnitude, the
+; operand of a word counter's LD DE,step.
+
+CT_MAGW:
+    LD   B,CT_FSTEP                ; The step's low word
+    CALL CT_FWORD                  ; is HL,
+    JP   EM_WORD                   ; appended; return.
+
+;@ROUTINE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append EXX.
+
+CT_EXX:
+    CALL EM_OP                     ; EXX.
+    DB   $D9                       ; Appended.
+    RET                            ; Done.
+
+;@ROUTINE IN B CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the innermost for loop's step magnitude, each byte exclusive-ored
+; with B (zero, or $FF for its complement), into the alternates (the
+; reference's altConst): EXX, LD HL,low word, LD DE,high word, EXX.
+
+CT_ALTK:
+    PUSH BC                        ; Keep the mask.
+    CALL EM_SEQ                    ; EXX, then LD HL,
+    DB   2,$D9,$21                 ; the low word:
+    LD   B,CT_FSTEP                ; the step's
+    CALL CT_FIELD                  ; four bytes.
+    POP  BC                        ; B is the mask.
+    CALL .WORD                     ; Its low word,
+    CALL EM_OP                     ; then LD DE,
+    DB   $11                       ; the high
+    CALL .WORD                     ; word,
+    JR   CT_EXX                    ; then EXX; return.
+.WORD:                         ; HL is a word, B the mask.
+    CALL .BYTE                     ; Its low byte,
+.BYTE:                         ; then its high byte:
+    LD   A,(HL)                    ; the byte,
+    XOR  B                         ; masked,
+    CALL EM_BYTE                   ; appended.
+    INC  HL                        ; The next.
+    RET                            ; Done.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load the counter of the innermost frame, a for loop, into HL widened to
@@ -471,12 +584,8 @@ CT_WIDE:
 ; DE), keeping HL.
 
 CT_BOUND:
-    LD   B,CT_FBND                 ; The bound's offset.
-    CALL CT_FIELD                  ; HL addresses it.
-    LD   E,(HL)                    ; Fetch
-    INC  HL                        ; the
-    LD   D,(HL)                    ; offset,
-    EX   DE,HL                     ; into HL.
+    LD   B,CT_FBND                 ; The bound's offset
+    CALL CT_FWORD                  ; is HL.
     LD   DE,GX_DLDDE               ; DE = (IX+d).
     JP   GX_FACC                   ; Load it and return.
 

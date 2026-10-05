@@ -205,9 +205,9 @@ EX_CAST:
 ; (GX_WIDEN), or narrows with a check (GX_TRIM).
 
 EX_CONV:                       ; C is the target type.
-    LD   A,C                       ; u32, i32 and f32
-    CP   SY_U32                    ; are not
-    JP   NC,TR_OPER                ; yet compiled.
+    LD   A,C                       ; f32
+    CP   SY_F32                    ; is not
+    JP   Z,TR_OPER                 ; yet compiled.
     PUSH BC                        ; Keep the target.
     CALL PR_PEEK                   ; The parenthesis's
     LD   HL,(TK_POS)               ; offset,

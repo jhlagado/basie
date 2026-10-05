@@ -49,8 +49,8 @@ AC_LFILE EQU  $FC              ; EX_RMETA of a File local, its value in DEHL.
 AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode (CT_MINC...).
 AC_INDEX EQU  AC_MODE+1        ; Word: the counter's offset from IX.
 AC_BOUND EQU  AC_INDEX+2       ; Word: the bound's offset from IX.
-AC_DELTA EQU  AC_BOUND+2       ; Word: the step's magnitude.
-AC_WEND EQU  AC_DELTA+2        ; End of the action scratch (marker).
+AC_DELTA EQU  AC_BOUND+2       ; Four bytes: the step's magnitude.
+AC_WEND EQU  AC_DELTA+4        ; End of the action scratch (marker).
 
 ; --------------------------------------------------------------- islands
 
@@ -78,11 +78,12 @@ AC_EXPR:
 ; AC_DELTA.
 
 AC_BY:
-    CALL CT_STEP                   ; B is the direction bit, DE the magnitude.
+    CALL CT_STEP                   ; B is the direction bit, HLDE the magnitude.
     LD   A,(AC_MODE)               ; The mode so far (the bound's kind).
     OR   B                         ; Add the downward bit.
     LD   (AC_MODE),A               ; Keep the complete mode.
-    LD   (AC_DELTA),DE             ; Keep the step.
+    LD   (AC_DELTA),DE             ; Keep the step,
+    LD   (AC_DELTA+2),HL           ; four bytes.
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 
@@ -122,8 +123,8 @@ AC_STRAY:
 
 AC_TYPE:
     LD   A,(PR_LVAL)               ; The keyword's type ID.
-    CP   SY_U32                    ; u32, i32 and f32
-    JP   NC,TR_OPER                ; are refused for now.
+    CP   SY_F32                    ; f32
+    JP   Z,TR_OPER                 ; is refused for now.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Make type ID A the current type.

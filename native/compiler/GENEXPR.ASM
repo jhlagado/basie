@@ -479,8 +479,9 @@ GX_TRIM:                       ; D is the source's type, E the target's.
     LD   (GX_PFROM),A              ; are kept,
     LD   B,A                       ; and the
     LD   A,E                       ; target's
-    CALL GX_PROP                   ; too.
-    LD   (GX_PTO),A                ; Kept.
+    CALL GX_PROP                   ; too,
+    LD   HL,GX_PTO                 ; kept
+    LD   (HL),A                    ; (HL is GX_PTO).
     OR   B                         ; Is either
     AND  4                         ; a long?
             JR   NZ,.WIDE          ; Then the 32-bit checks.

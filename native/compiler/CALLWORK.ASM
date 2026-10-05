@@ -9,18 +9,18 @@
 ;  from MM_WBASE ($5000).
 ;
 ;    Offset  Size  Block
-;    +$BE0     44  routine state: counts, the signature being parsed, the
+;    +$BF0     44  routine state: counts, the signature being parsed, the
 ;                  body's block, the declaration's part and visibility,
 ;                  the private symbols, the call being checked and the
 ;                  path in hand (RO_BASE)
-;    +$C0C    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$D8C    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$E8C     96  the routine's string literals: 16 of six bytes (RO_LTAB)
-;    +$EEC      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;    +$C1C    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$D9C    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$E9C     96  the routine's string literals: 16 of six bytes (RO_LTAB)
+;    +$EFC      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE)
-;    +$EF1      2  PR_SP, the stack DG_ISSUE restores
-;    +$EF3     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$F34         LL_WEND, the end of the compiler workspace, 3,892 bytes
+;    +$F01      2  PR_SP, the stack DG_ISSUE restores
+;    +$F03     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$F44         LL_WEND, the end of the compiler workspace, 3,908 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
@@ -163,6 +163,5 @@ RO_FFAIL EQU  1                ; Routine flag: it can fail.
 RO_FMAIN EQU  2                ; Routine flag: it is main.
 RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body.
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
-RO_FWIDE EQU  $10              ; Service flag: a u32 makes it one not yet called.
 RO_FPRIV EQU  $20              ; Routine flag: private, hidden when its part ends.
 

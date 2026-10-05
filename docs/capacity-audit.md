@@ -195,8 +195,9 @@ of declarations after `main`.
 **At step 67b** the numeric types came. A known value is five bytes, so
 the symbol table's records grew from seven bytes to nine (a scalar
 constant's value after its payload) and the operand stack's entries from
-thirteen to sixteen; with the folding scratch the compiler's workspace
-grew to 3,892 bytes. The workspace, the shell's and the blob writer's, and
+thirteen to sixteen, and a control frame from sixteen bytes to eighteen
+(a long counter's four-byte step); with the folding scratch the
+compiler's workspace grew to 3,908 bytes. The workspace, the shell's and the blob writer's, and
 the source area after them, moved 2K up (`MM_WBASE` `$5000`), so that the
 image and the overlay area can grow towards the target; the source area
 shrank by as much, to about 26.75K on a 62K system ([limits](limits.md)
@@ -484,7 +485,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   the cost.
 - **Native compiler at 65.4 (f):** 8 open `if`, `while`, `for` and `handle`
   statements (`CT_FCAP`, `DG_NEST`), sixteen bytes each, 130 bytes with the
-  depth and fallthrough bytes.
+  depth and fallthrough bytes; at 67b eighteen bytes each (a long
+  counter's four-byte step), 146 bytes.
 - **Status:** TBD.
 
 ### 3.21 Expression nesting
@@ -513,8 +515,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   included, is refused with `DG_RANGE` rather than folded differently.
   Typed operations wrap at their width, as the spec says.
 - **Nesting and evaluation stack:** TBD.
-- **Status:** TBD; the native compiler's exact range is a defect to remove
-  when 32-bit types arrive (step 67).
+- **Native compiler at 67b:** the exact range of the spec, folded in five
+  bytes (`VALUE.ASM`); the 16-bit range and `native-exact` are gone.
+- **Status:** TBD for nesting; the range is confirmed.
 
 ### 3.24 Loop counters
 
@@ -631,7 +634,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 | `AggregateTypeCapacity` | 8 | §3.7. At 65.4 (h), 24 (`AG_TCAP`) |
 | `AggregateInitializerDepthCapacity` | 4 | §3.22: at least 32 |
 | `AggregateInitializerCapacity`, `StaticImageCapacity` | 1,024 bytes | the static image is *gone* (each declaration is written as its blob at once); one object's initializer is still staged in 1,024 bytes (`AG_ICAP`), to be streamed |
-| `ControlFrameCapacity` | 8 | §3.20: at least 32. At 65.4 (f) still 8 (`CT_FCAP`), each frame sixteen bytes holding its labels, the label count and frame size to restore, and a for loop's counter, bound and step |
+| `ControlFrameCapacity` | 8 | §3.20: at least 32. At 65.4 (f) still 8 (`CT_FCAP`), each frame sixteen bytes (eighteen at 67b) holding its labels, the label count and frame size to restore, and a for loop's counter, bound and step |
 | `ExpressionStackCapacity` | 16 | §3.21: at least 32. At 67b still 16 (`EX_STCAP`), each entry sixteen bytes: the left operand's five-byte value and the two operands' first offsets |
 | `HybridLL1StackCapacity` | 64 | parser stack, TBD |
 | `EmitControlFixupCapacity`, `EmitControlLabelCapacity` | 32 each | fixups *gone*: pending operands are chained through their references' addend words (`EMIT.ASM`, no limit); labels are per routine, 32 in use at once (`EM_LCAP`), released by nesting from 65.4 (f), §3.4 |

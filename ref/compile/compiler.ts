@@ -4128,6 +4128,7 @@ export class Compiler {
   private widen(from: ScalarName, to: ScalarName): void {
     const r = this.routine!;
     const fs = SCALARS[from].size, ts = SCALARS[to].size;
+    if (from === to) return; // a value already of its type
     if (to === "f32") {
       // Exact for 8- and 16-bit types: through the 32-bit value.
       const signed = SCALARS[from].signed;

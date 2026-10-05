@@ -1,0 +1,15 @@
+// Converting a value to its own type keeps it: a u32 above 65,535 and a
+// positive i32 with bit 15 set both pass through unchanged, so only the
+// last conversion, of a value that does not fit, traps.
+// spec: 9.6
+// expect trap: narrowing at 14
+
+sub main()
+    var l as u32 = 100000
+    var m as i32 = 40000
+    l = u32(l)
+    m = i32(m)
+    var w as u16 = u16(l - 34465)
+    w = u16(m - 34465)
+    w = u16(l)
+end

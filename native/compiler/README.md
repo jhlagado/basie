@@ -100,18 +100,18 @@ edited by hand.
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 16,087 |
+| Compiler code | 16,406 |
 | Immutable data | 300 |
-| **Compiler core** | **16,387** |
+| **Compiler core** | **16,706** |
 | CP/M shell and overlay loader | 658 |
-| **`BASIE.COM`** | **17,048** |
+| **`BASIE.COM`** | **17,367** |
 | Overlay area, after the image | 1,024 |
 | `BASIE.OVL` (six overlays, 5,120 bytes on disk) | 4,608 |
-| Compiler workspace (not in the image) | 3,892 |
+| Compiler workspace (not in the image) | 3,908 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-The image and the overlay area take 18,072 bytes, 8,552 to the 26K target
-and 10,600 to the 28K limit (D43). Every increment follows D43's cycle: the
+The image and the overlay area take 18,391 bytes, 8,233 to the 26K target
+and 10,281 to the 28K limit (D43). Every increment follows D43's cycle: the
 increment, a correctness review, a compression pass, a further review when
 needed, and the census figure in the commit. `tests/native_compiler_test.ts`
 pins the digests of `BASIE.COM` and `BASIE.OVL`, so a change to the
