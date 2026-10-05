@@ -7,7 +7,7 @@ A **trap** terminates Basie source execution immediately. Source code cannot cat
 
 The implementation reports a stable symbolic trap reason and the best available location for the operation that failed. When source mapping is available, the report must identify the source span. Otherwise, it must identify the generated instruction location. Numeric trap encodings, transport records, monitor integration, and physical output belong to the [code generation contract](../docs/code-generation.md).
 
-Effects completed before the failing operation remain observable. The failing operation performs no result store unless its rule below says otherwise. No later source operation executes.
+Effects completed before the failing operation remain observable. The failing operation performs no result store. No later source operation executes.
 
 ## 15.2 Required trap reasons
 
@@ -19,7 +19,7 @@ Basie 1.0 defines these trap reasons:
 | `narrowing` | A checked conversion's value does not fit the target type, including a negative value converted to an unsigned type and an `f32` value whose truncation does not fit. The trap precedes production of the result. |
 | `division-by-zero` | A divisor for `/` or `mod`, integer or `f32`, is zero. The trap precedes production of the result. |
 | `float-overflow` | The rounded result of an `f32` operation or conversion exceeds the largest finite `f32`. |
-| `float-invalid` | An `f32` operation has no real result, such as the square root of a negative number in the standard library. |
+| `float-invalid` | Reserved for an `f32` operation with no real result. No Basie 1.0 operation produces it: there is no infinity or NaN to start from, overflow traps as `float-overflow`, and division by zero as `division-by-zero`. |
 | `loop-range` | A counted loop's next value would continue but does not fit the counter type. The trap precedes the counter store. |
 | `activation-capacity` | On entry to a forward-declared routine, its stack bound would reach free memory (Chapter 13, Section 13.9). The trap follows argument evaluation and precedes the routine's locals. |
 | `stale-handle` | An access through an identifier whose slot has been freed since the identifier was made (Chapter 7, Section 7.16). The trap precedes the access. |

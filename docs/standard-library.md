@@ -99,7 +99,7 @@ touching nothing, if `NAME.~` already exists, since that file may be the
 user's. (The runtime reserves file types beginning with `$` for its own
 temporaries.)
 
-A command line is `commandTail` (services §6) split with `word`. CP/M's CCP
+A command line is `commandTail` (services §5) split with `word`. CP/M's CCP
 upper-cases the tail before the program sees it.
 
 ## 6. Pseudo-random numbers: `RANDOM.BSI`

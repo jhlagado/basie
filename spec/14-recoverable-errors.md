@@ -23,7 +23,8 @@ A routine that can return a recoverable error writes `fails` at the end of its h
 ```text
 routine-header ::= "sub" NAME "(" [ formal-parameter
                    { "," formal-parameter } ] ")"
-                   [ "as" type ] [ "fails" ]
+                   [ result-clause ] [ "fails" ]
+result-clause  ::= "as" [ "var" ] type [ "from" NAME { "," NAME } ]
 ```
 
 `fails` is part of the routine signature. A forward declaration records it once; the later abbreviated body header cannot repeat it. An ordinary routine without a forward includes it in its complete header. The clause does not change the declared parameters or optional success-result type.

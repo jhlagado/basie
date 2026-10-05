@@ -105,12 +105,12 @@ fixes it names the finding, as B1, A3 and so on).
 | C23 | minor (closed) | Three places say a trap frees slots; 15.1 says it frees none. | Exclude traps |
 | C24 | minor (closed) | 16.2 omits `textMode` and `binaryMode`. | Add |
 | C25 | minor (closed) | `File` is absent from chapter 6 and the assignment and parameter rules. | Classify it |
-| C26 | minor | `as var` results as `var` arguments are accepted but unstated. | State |
-| C27 | minor | `var x as T[]` taking `T[N]` is missing from 13.4. | Add |
-| C28 | minor | Nothing produces `float-invalid`. | Drop or name one |
-| C29 | minor | Chapter 21 omits `library` and `services`, and misses `loop-range` and loop-boundary programs. | Update |
-| C30 | minor | 14.2's header fragment lacks the `var` and `from` result clause. | Align with 13.2 |
+| C26 | minor (closed) | `as var` results as `var` arguments are accepted but unstated. | State |
+| C27 | minor (closed) | `var x as T[]` taking `T[N]` is missing from 13.4. | Add |
+| C28 | minor (closed) | Nothing produces `float-invalid`. | Drop or name one |
+| C29 | minor (closed) | Chapter 21 omits `library` and `services`, and misses `loop-range` and loop-boundary programs. | Update |
+| C30 | minor (closed) | 14.2's header fragment lacks the `var` and `from` result clause. | Align with 13.2 |
 | C31 | minor (closed) | `left = right = 0` is valid when `left` is boolean. | Better example |
-| C32 | minor | An untyped constant `select` subject is unspecified. | State |
-| C33 | minor | Stale text: a Skate reference, `nucleus` fences, a wrong services section, a "to be confirmed", an empty forward reference, `abort` of a zero `File`. | Fix |
+| C32 | minor (closed) | An untyped constant `select` subject is unspecified. | State |
+| C33 | minor (closed) | Stale text: a Skate reference, `nucleus` fences, a wrong services section, a "to be confirmed", an empty forward reference, `abort` of a zero `File`. | Fix |
 | C34 | minor (closed) | "Source routine" excludes services. | "routine or service" |

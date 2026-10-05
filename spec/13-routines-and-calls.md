@@ -53,7 +53,7 @@ Arguments are evaluated from left to right, and each is bound before the next is
 **Aggregate parameters.** A record, array or bounded-string parameter is an alias to the caller's object; no copy is made (Chapter 7, Section 7.7).
 
 - Without `var` it is a **ticket**: read-only in the routine (design decision D17). Its argument may be any aggregate designator or aggregate result of exactly the parameter's type, including a constant. For a read-only `string[]` parameter, the argument may be a bounded string of any capacity, or a string literal, which the compiler supplies as a constant.
-- With `var`, the routine may write through it. The argument must be a writable designator of exactly the parameter's type, or of any bounded-string capacity for `var s as string[]`; a constant or string literal is invalid.
+- With `var`, the routine may write through it. The argument must be a writable designator of exactly the parameter's type, or of any bounded-string capacity for `var s as string[]`, or any complete `T[N]` for `var a as T[]`; a constant or string literal is invalid. A call to a routine whose result is `as var` is also a writable designator, so it may be passed (Section 13.6).
 - A `string[]` parameter carries its argument's capacity, so `.length`, `.capacity` and indexing use the real bound.
 - An aggregate field of a pool record reached through a handle is copied into a hidden temporary of the caller when passed to a ticket (Chapter 7, Section 7.13); it cannot be passed to a `var` parameter except through a lease.
 

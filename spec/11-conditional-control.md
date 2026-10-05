@@ -99,7 +99,7 @@ A `select` is either an **integer selection** or a **handle selection**, chosen 
 
 ### 11.7.2 Integer selection
 
-The subject has an integer type: `u8`, `i8`, `u16`, `i16`, `u32` or `i32`. A character literal is a `u8` value (Chapter 6), so selections on characters are `u8` selections. `move` is invalid.
+The subject has an integer type: `u8`, `i8`, `u16`, `i16`, `u32` or `i32`. An exact subject, such as a literal or an untyped constant, has no type to select on and is invalid (`no-definite-type`). Labels written as character literals are exact (Chapter 6), so selections on characters are usually `u8` selections. `move` is invalid.
 
 Each label is a constant expression, or a range `low to high` of two. Each label is converted to the subject's type as an assignment would convert it: an exact label must fit the type, and a typed constant label must widen to it without a conversion, so a `u16` constant can't label a `u8` subject even when its value would fit (Chapter 6, Section 6.4). In a range `low` must not exceed `high`. No value may be covered by two labels, in the same arm or in different arms; an overlap is diagnosed as `duplicate-case`. `some` and `none` arms are invalid.
 

@@ -27,7 +27,7 @@ Nucleus's `readInputByte()` and `writeOutputByte(b)` remain as shorthands for `r
 `File` is a predeclared opaque type that identifies an open file, the console or the printer ([services](../docs/services.md), Section 2):
 
 - A `File` value can be stored in variables, fields, array elements and parameters, copied, and compared with `=` and `<>`. It has no other operations, and no conversion to or from any other type.
-- Its zero value refers to no file; a service given it fails with `fileClosed`. A `File` whose file has been closed also fails with `fileClosed`, never reaching another file.
+- Its zero value refers to no file; a service given it fails with `fileClosed`, except the infallible `abort`, which does nothing. A `File` whose file has been closed also fails with `fileClosed`, never reaching another file.
 - `File` values arise only from the opening services and from `console` and `printer`.
 - `File` is not a handle and is not owned: closing a file is an explicit service call, and files still open when the program ends are closed by the runtime ([services](../docs/services.md), Section 7).
 
