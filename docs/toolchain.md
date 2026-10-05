@@ -178,6 +178,7 @@ ws        = a space
 | `F=n` | File-table entries: files open at once, 1 to 255 | 4 |
 | `STACK=n` | Minimum stack in decimal bytes; the linker uses it when it exceeds the compiler's estimate, so it works with `X` | the compiler's estimate |
 | `T=hhhh` | Trap lookup (Section 8) | — |
+| `W` | `BLINK` only: write the link tables to `MAIN.$TB`, for testing the linker against the reference | off |
 
 `C` and `X` are for diagnosing the toolchain, not for incremental compilation.
 A link-only run refuses intermediate files whose compilation stamps disagree

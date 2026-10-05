@@ -4,6 +4,7 @@
 %INCLUDE "CRC.ASM"
 %INCLUDE "MSG.ASM"
 %INCLUDE "TAIL.ASM"
+%INCLUDE "PHASEA.ASM"
 
 ; BLINK: link a compiled Basie program (docs/linker.md; toolchain §5).
 ;
@@ -38,7 +39,13 @@ START:  LD      HL,(TOP)
         JR      Z,.DONE
         CALL    LIBCRC
         JR      C,FAILED
-.DONE:  LD      DE,RC_OK
+.DONE:  CALL    LIBNAME         ; the library's name, for messages
+        CALL    PHASEA
+        CALL    PHASEB
+        LD      A,(O_FLAGS2)
+        AND     OF2_W
+        CALL    NZ,DUMP
+        LD      DE,RC_OK
         JP      EXITRC
 
 FAILED: LD      DE,RC_LINK
@@ -67,43 +74,43 @@ OPENLIB:
         CALL    F_INIT
         JP      F_OPEN
 
-; Check the library's magic and version, and keep its length. Carry after a
-; diagnostic.
+; Read the library's header into LIBH and check its magic and version.
+; Carry after a diagnostic.
 LIBHEAD:
-        LD      HL,.MAGIC
-        LD      B,4
-.CHECK: PUSH    HL
+        LD      HL,LIBH
+        LD      B,40
+.READ:  PUSH    HL
         PUSH    BC
         CALL    F_GETB
         POP     BC
         POP     HL
-        JP      C,.BAD
-        CP      (HL)
-        JP      NZ,.BAD
+        JR      C,.SHORT
+        LD      (HL),A
         INC     HL
+        DJNZ    .READ
+        LD      HL,LIBH
+        LD      DE,.MAGIC
+        LD      B,4
+.CHECK: LD      A,(DE)
+        CP      (HL)
+        JR      NZ,.BAD
+        INC     HL
+        INC     DE
         DJNZ    .CHECK
-        CALL    F_GETB          ; version 1.0
-        JP      C,.BAD
+        LD      A,(LIBH+4)      ; version 1.0
         CP      1
-        JP      NZ,.BAD
-        CALL    F_GETB
-        JP      C,.BAD
+        JR      NZ,.BAD
+        LD      A,(LIBH+5)
         OR      A
-        JP      NZ,.BAD
-        XOR     A
-        LD      HL,28           ; the file length (u32)
-        CALL    F_SEEK
-        JR      C,.SHORT
-        CALL    F_GETW
-        JR      C,.SHORT
+        JR      NZ,.BAD
+        LD      HL,(LIBH+28)    ; the file length
         LD      (LIB_LEN),HL
-        CALL    F_GETB
-        JR      C,.SHORT
+        LD      A,(LIBH+30)
         LD      (LIB_LEN+2),A
         OR      A
         RET
 .BAD:   LD      HL,200          ; L-FORMAT
-        JP      .SAY
+        JR      .SAY
 .SHORT: LD      HL,214          ; L-TRUNCATED
 .SAY:   PUSH    HL
         CALL    LIBNAME
@@ -181,3 +188,6 @@ LIBNAME:
         LD      (M_ARG1),HL
         RET
 .EXT:   DB      ".BRL",0
+
+; The end of the program: the linker's tables start here.
+FREEMEM:

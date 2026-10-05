@@ -124,7 +124,7 @@ M5 starts alongside M4: each compiler step needs its helpers.
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
 | 59 | Native | Skeleton `BLINK.COM`: command tail, file I/O, CRC, message output | `native/linker/` (done: 2.6K; checks the library header and, with V, its CRC; `tests/blink_test.ts`) | Runs under the harness |
-| 60 | Native | Phase A and B | | Same tables as the reference, dumped and compared |
+| 60 | Native | Phase A and B | `native/linker/PHASEA.ASM` (done; the tables match the reference linker's on the examples and corpus programs) | Same tables as the reference, dumped and compared |
 | 61 | Native | Phase C and D, the line table | | Byte-identical images on the linker suite |
 | 62 | Native | Phase E and publication | | Byte-identical maps and files |
 | 63 | Native | Capacity measurement: the largest program it can link | Measured limits | Published in the limits register |

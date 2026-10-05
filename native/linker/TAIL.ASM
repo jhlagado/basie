@@ -21,6 +21,8 @@ O_FILES:
 O_STACK:
         DW      0               ; STACK=: bytes, or 0
 O_SEEN: DW      0               ; one bit per option, to refuse repeats
+O_FLAGS2:
+        DB      0               ; more flags: OF2_W
 
 OF_K    EQU     $01             ; keep intermediate files
 OF_M    EQU     $02             ; write the map
@@ -30,6 +32,7 @@ OF_R    EQU     $10             ; re-runnable image
 OF_B    EQU     $20             ; keep the CCP resident
 OF_Z    EQU     $40             ; no .BAK
 OF_V    EQU     $80             ; verify placeholders and the library CRC
+OF2_W   EQU     $01             ; write the link tables to NAME.$TB (testing)
 
 T_BUF:  DS      130             ; the tail, upper-cased and zero-terminated
 T_BAD:  DS      32              ; the text of a bad option, for the message
@@ -154,7 +157,17 @@ T_OPTION:
         LD      (O_STACK),DE
         OR      A
         RET
-.FLAG:  LD      DE,.FLAGS       ; letter, then its flag bit
+.FLAG:  LD      A,C
+        CP      'W'
+        JR      NZ,.TABLE
+        LD      A,(O_FLAGS2)    ; W: write the tables, for testing
+        AND     OF2_W
+        JP      NZ,.BAD
+        LD      A,OF2_W
+        LD      (O_FLAGS2),A
+        OR      A
+        RET
+.TABLE: LD      DE,.FLAGS       ; letter, then its flag bit
         LD      B,8
 .FL:    LD      A,(DE)
         CP      C

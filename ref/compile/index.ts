@@ -4,7 +4,12 @@
  */
 import { link, LinkError } from "../link/link.ts";
 import { type Library, readLibrary } from "../object/library.ts";
-import { defaultHeader } from "../object/program.ts";
+import {
+  defaultHeader,
+  writeByteStream,
+  writeProgramDirectory,
+} from "../object/program.ts";
+import { writeLineStream } from "../object/streams.ts";
 import { buildLibrary } from "../../tools/brl.ts";
 import { Compiler, NotImplemented } from "./compiler.ts";
 import { CompileError } from "./diagnostics.ts";
@@ -33,6 +38,13 @@ export type CompileResult =
     imageSize: number;
     lineTable?: Uint8Array;
     addresses: Map<number, number>;
+    /**
+     * The intermediate files the native linker reads (toolchain §3.2): the
+     * program directory, byte stream and line stream.
+     */
+    objects: { directory: Uint8Array; bytes: Uint8Array; lines: Uint8Array };
+    /** The reference linker's view of every blob, for comparing linkers. */
+    blobs: { ordinal: number; kind: number; size: number; live: boolean }[];
   }
   | { ok: false; diagnostics: Diagnostic[] }
   | { ok: false; linkError: string };
@@ -113,12 +125,28 @@ export async function compile(
         blobs: program.lines,
       },
     });
+    const parts = stream.parts.map((p) => p.name);
     return {
       ok: true,
       imageSize: result.image.length,
       com: result.output,
       lineTable: result.lineTable,
       addresses: result.addresses,
+      objects: {
+        directory: writeProgramDirectory(
+          dir.header,
+          program.records,
+          program.bytes.length,
+        ),
+        bytes: writeByteStream(stamp, program.bytes),
+        lines: writeLineStream(stamp, parts, program.lines),
+      },
+      blobs: result.blobs.map((b) => ({
+        ordinal: b.ordinal,
+        kind: b.kind,
+        size: b.size,
+        live: b.live,
+      })),
     };
   } catch (e) {
     if (e instanceof CompileError) {
