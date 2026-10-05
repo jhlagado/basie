@@ -3,9 +3,9 @@
 
 ## 16.1 Boundary model
 
-A Basiq program reaches the console, files, the command line and the machine only through **services**: predeclared routines supplied by the runtime library of the target profile. The source language exposes no BDOS or BIOS calls, ports, addresses, device registers or memory map ([I/O and effects](../docs/io-and-effects.md)).
+A Basie program reaches the console, files, the command line and the machine only through **services**: predeclared routines supplied by the runtime library of the target profile. The source language exposes no BDOS or BIOS calls, ports, addresses, device registers or memory map ([I/O and effects](../docs/io-and-effects.md)).
 
-The services, their signatures, behaviour and failure codes are defined normatively by **Basiq Services, revision 2** ([services](../docs/services.md)), which is part of this specification. This chapter states the rules that bind them to the language.
+The services, their signatures, behaviour and failure codes are defined normatively by **Basie Services, revision 2** ([services](../docs/services.md)), which is part of this specification. This chapter states the rules that bind them to the language.
 
 ## 16.2 Predeclared names
 
@@ -31,7 +31,7 @@ Nucleus's `readInputByte()` and `writeOutputByte(b)` remain as shorthands for `r
 
 ## 16.4 The standard library
 
-Formatting and parsing numbers, building and comparing strings, splitting the command line into words and similar routines form a **standard library written in Basiq** (design decision D36), supplied as source parts such as `STRINGS.BSQ` and `FORMAT.BSQ` and brought in with `include` (Chapter 4). They are ordinary Basiq routines with no special status; their internal routines are `private`. They use failure codes 32 to 47.
+Formatting and parsing numbers, building and comparing strings, splitting the command line into words and similar routines form a **standard library written in Basie** (design decision D36), supplied as source parts such as `STRINGS.BSI` and `FORMAT.BSI` and brought in with `include` (Chapter 4). They are ordinary Basie routines with no special status; their internal routines are `private`. They use failure codes 32 to 47.
 
 ## 16.5 Program startup and termination
 

@@ -38,7 +38,7 @@ export function writeProgramDirectory(
   byteStreamLength: number,
 ): Uint8Array {
   const out = new ByteWriter();
-  out.ascii("BSQP");
+  out.ascii("BSIP");
   out.u8(header.major);
   out.u8(header.minor);
   out.u16(header.stamp);
@@ -62,7 +62,7 @@ export function writeProgramDirectory(
 /** Decode and check a program directory stream. */
 export function readProgramDirectory(bytes: Uint8Array): ProgramDirectory {
   const r = new ByteReader(bytes, "program directory");
-  if (r.ascii(4) !== "BSQP") throw new ObjectError("L-FORMAT", "bad magic");
+  if (r.ascii(4) !== "BSIP") throw new ObjectError("L-FORMAT", "bad magic");
   const header: ProgramHeader = {
     major: r.u8(),
     minor: r.u8(),
@@ -88,7 +88,7 @@ export function readProgramDirectory(bytes: Uint8Array): ProgramDirectory {
 /** Encode a byte stream: header, then the stored bytes of the blobs. */
 export function writeByteStream(stamp: number, data: Uint8Array): Uint8Array {
   const out = new ByteWriter();
-  out.ascii("BSQB");
+  out.ascii("BSIB");
   out.u8(1);
   out.u8(0);
   out.u16(stamp);
@@ -99,7 +99,7 @@ export function writeByteStream(stamp: number, data: Uint8Array): Uint8Array {
 /** Decode a byte stream; returns its stamp and the blob bytes. */
 export function readByteStream(bytes: Uint8Array) {
   const r = new ByteReader(bytes, "byte stream");
-  if (r.ascii(4) !== "BSQB") throw new ObjectError("L-FORMAT", "bad magic");
+  if (r.ascii(4) !== "BSIB") throw new ObjectError("L-FORMAT", "bad magic");
   if (r.u8() !== 1 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
   const stamp = r.u16();
   return { stamp, data: bytes.subarray(8) };

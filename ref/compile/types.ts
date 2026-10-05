@@ -1,4 +1,4 @@
-/** The Basiq type model (spec chapter 6) and storage sizes (code generation §1). */
+/** The Basie type model (spec chapter 6) and storage sizes (code generation §1). */
 
 export type ScalarName =
   | "u8"

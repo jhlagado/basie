@@ -3,9 +3,9 @@
 
 ## 12.1 Scope
 
-This chapter defines the two Basiq 1.0 loop forms, counted-loop direction and bounds, and the required `exit` and `continue` statements. Chapter 9 defines expressions, and Chapter 10 defines statement sequences.
+This chapter defines the two Basie 1.0 loop forms, counted-loop direction and bounds, and the required `exit` and `continue` statements. Chapter 9 defines expressions, and Chapter 10 defines statement sequences.
 
-Basiq has one pre-test conditional loop and one counted loop. Both use ordinary comparisons and direct Z80 branches; neither requires a dedicated loop runtime mechanism.
+Basie has one pre-test conditional loop and one counted loop. Both use ordinary comparisons and direct Z80 branches; neither requires a dedicated loop runtime mechanism.
 
 ## 12.2 Grammar
 
@@ -36,7 +36,7 @@ A `while` condition must have type `boolean`. The condition is evaluated before 
 
 The loop may execute zero times. Calls, checks, mutations, and traps performed by each evaluated condition remain observable. A condition is evaluated once per test; a trap prevents entry to the body or any later iteration.
 
-An indefinite loop uses `while true`. Basiq has no separate unconditional-loop keyword.
+An indefinite loop uses `while true`. Basie has no separate unconditional-loop keyword.
 
 A `move` is invalid in a `while` condition. A fresh temporary created in the condition is freed once the condition has been tested (Chapter 10, Section 10.8).
 
@@ -89,17 +89,17 @@ The inclusive form directly expresses a closed ordinal interval. Positive and ne
 
 The start and bound are not reevaluated after the loop begins. A change to storage read by the original bound expression does not change the saved bound for the active loop.
 
-Basiq has no `for in`, iterator protocol, range object, callback traversal, anonymous counter, omitted start, omitted bound, implicit array-length bound, or source form that declares the counter. The counter and both endpoint expressions are explicit.
+Basie has no `for in`, iterator protocol, range object, callback traversal, anonymous counter, omitted start, omitted bound, implicit array-length bound, or source form that declares the counter. The counter and both endpoint expressions are explicit.
 
 ## 12.7 `exit` and `continue`
 
-Every Basiq loop supports bare `exit` and bare `continue`. They are unlabeled and apply to the innermost enclosing loop.
+Every Basie loop supports bare `exit` and bare `continue`. They are unlabeled and apply to the innermost enclosing loop.
 
 `exit` transfers control to the statement after that loop's closing `end`. It does not leave the routine or terminate the program.
 
 In a `while` loop, `continue` transfers control to the next condition test. In a counted `for` loop, it transfers control to the increment-and-next-test path from Section 12.5. It does not skip the increment.
 
-Either statement outside a loop is invalid. Basiq has no labelled transfer, numeric loop depth, `break` synonym, or transfer directly to an outer loop. An early `return` under Chapter 13 remains the way to leave the routine from inside nested loops.
+Either statement outside a loop is invalid. Basie has no labelled transfer, numeric loop depth, `break` synonym, or transfer directly to an outer loop. An early `return` under Chapter 13 remains the way to leave the routine from inside nested loops.
 
 The grammar adds only the two simple statements, and their lowering uses the active loop's existing continue and exit branch targets. This low incremental structure is a settled language decision; target-byte cost remains subject to the Chapter 2 ledger.
 
@@ -111,7 +111,7 @@ The semantic-operation interface requires no dedicated `for`, `while`, `exit`, o
 
 ## 12.9 Excluded loop forms
 
-Basiq 1.0 has no:
+Basie 1.0 has no:
 
 - `repeat until` or `do while` loop;
 - post-test loop;

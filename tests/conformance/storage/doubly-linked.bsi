@@ -2,7 +2,7 @@
 // spec: 7
 // expect output: 3 2 1\r\n3 1\r\n
 
-include "FORMAT.BSQ"
+include "FORMAT.BSI"
 
 forward pool dnodes
 

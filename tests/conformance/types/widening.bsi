@@ -2,7 +2,7 @@
 // spec: 6.4
 // expect output: 200 -3 200\r\n
 
-include "FORMAT.BSQ"
+include "FORMAT.BSI"
 
 sub main() fails
     var small as u8 = 200

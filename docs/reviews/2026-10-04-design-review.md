@@ -1,4 +1,4 @@
-# Adversarial review of the Basiq language design
+# Adversarial review of the Basie language design
 
 - Date: 2026-10-04
 - Documents: design-decisions.md (D1–D22, O1–O6), memory-safety.md revision 3,
@@ -564,7 +564,7 @@ then `bump(h)` is a lease on it.
 `new nodes(5, "five", none, none)`: a ten-field record is ten arguments and
 the handle fields are always `none` at creation. Allow trailing fields to be
 omitted and zeroed, or named fields. Also note `new` passes a string literal
-as an argument, which Nucleus §13.4 forbids; Basiq must admit string literals
+as an argument, which Nucleus §13.4 forbids; Basie must admit string literals
 as arguments and initialisers (N5).
 
 ### E8. No arrays of arrays, no open arrays
@@ -641,14 +641,14 @@ default).
 
 ### I1. Soundness and sufficiency for CP/M: files
 
-Services with Basiq signatures are the right boundary, but the proposal does
+Services with Basie signatures are the right boundary, but the proposal does
 not say where a file's state lives. Under CP/M a file is an FCB of 36 bytes
 plus a 128-byte record buffer. Two designs: a fixed table in the runtime
 (`u8` handles, a profile limit of, say, four open files, 656 bytes always
 present when files are used) or a program-declared opaque record
 (`var f as File`) passed to every service as `var f as File`, so the program
 pays for exactly the files it declares and memory stays "declared in the
-source". The second fits Basiq. It needs an *opaque* type kind: a `File` can't
+source". The second fits Basie. It needs an *opaque* type kind: a `File` can't
 be copied (two FCBs for one file corrupt the directory on close), can't have
 its fields named, and must be closed before its scope ends or at program exit.
 That is a lifetime rule like an owning handle's; say whether a `File` is freed
@@ -704,7 +704,7 @@ digits as u8[6], ticks as u16)` that scans for a period (which is how most
 TEC-1 monitor routines work), a `scanDisplayOnce()` the program's main loop
 must call often (fragile), or an interrupt-driven scan from the TEC-1's
 optional 4049 clock on NMI, which the memory-safety claim excludes ("Interrupts
-and concurrency: Basiq 1.0 has neither in source", but the runtime may use
+and concurrency: Basie 1.0 has neither in source", but the runtime may use
 one). Pick the first for 1.0 and state the second as an option. Keypad: the
 74C923 encoder is polled on a port and raises an interrupt the runtime can
 ignore; `readKeypad()` returning `u8?`-style "no key" needs an optional
@@ -716,7 +716,7 @@ generation is a timed loop in the runtime, which is fine. Timing: a
 
 On a TEC-1 and its relatives, the hobbyist's reason to program is the new
 board plugged into the bus: an LED matrix, a GLCD, a sound chip. Requiring a
-runtime-library assembly blob for every one of them, before a line of Basiq
+runtime-library assembly blob for every one of them, before a line of Basie
 can touch it, removes the audience the bare-machine profile exists for. On
 those machines there is no MMU, no DMA controller and no operating system to
 corrupt, so `IN`/`OUT` can't break the memory-safety claim: they can't write
@@ -761,7 +761,7 @@ operation on a profile fails with one shared code rather than being absent.
 - §3.1 "withdraws the port built-ins listed in revision 1 of the feature
   inventory": the current inventory lists none, so the reference dangles.
 - §3.2 "the compiler learns each service's signature from the helper table":
-  the helper table numbers blobs; it does not currently carry Basiq
+  the helper table numbers blobs; it does not currently carry Basie
   signatures (parameter types, `var`, `fails`). Object-format §10 must grow a
   signature record, or the compiler must have a built-in service table per
   profile, which is what Nucleus did.
@@ -783,7 +783,7 @@ operation on a profile fails with one shared code rather than being absent.
 | S6 | design-decisions.md:391 | "A non-optional `own` is always a local" (D18) | Same |
 | S7 | design-decisions.md:511–543 | O1 "Exclusivity and `inout`" | Superseded: `inout` is `var` (D17); exclusivity is moot for program storage (never freed) and for pools (no aliases, D16). Mark resolved: "no exclusivity; overlap through globals is visible through mutation and never a lifetime hazard" |
 | S8 | design-decisions.md:545–566 | O2 "Pools with owned handles" and its five problems | All five are decided (D16, D18, D19, D22; memory-safety §5.2, §5.3, §5.10, §5.11). Mark resolved and point at the sections |
-| S9 | design-decisions.md:9 | `../nucleus/docs/specification.md` | Path resolves to `basiq/nucleus/...`; should be `../../nucleus/docs/specification.md`. Also io-and-effects.md:5 and build-pipeline.md:9 |
+| S9 | design-decisions.md:9 | `../nucleus/docs/specification.md` | Path resolves to `basie/nucleus/...`; should be `../../nucleus/docs/specification.md`. Also io-and-effects.md:5 and build-pipeline.md:9 |
 | S10 | feature-inventory.md:53, 87–126, 154, 178, 184, 195, 224, 239 | `select` throughout | D15 named it `match`; the inventory still documents `select` and its examples use it |
 | S11 | feature-inventory.md:57 | "Ownership: pools, `own`, `id`, `new`, `give`, flow check ... retirement" | `own` and `give` removed (D19, D22); "retirement" is "freeing" (D18); `move` missing |
 | S12 | feature-inventory.md:169 | "an aggregate field is bound as an alias ... read-only unless the subject is a `var` parameter" | Contradicts memory-safety §5.5 (identifier bindings) and D16 for pool subjects; see U7 |
@@ -846,7 +846,7 @@ F1 chooses the conversion.
 16. **N16. Enumerations** (E15): syntax, conversions, use as array index.
 17. **N17. Modules and visibility** (E16): the inventory's "imports" without
     namespaces or `private` is not enough for a library of string and
-    formatting routines in Basiq source, which the inventory's §5 item 3
+    formatting routines in Basie source, which the inventory's §5 item 3
     relies on.
 18. **N18. Case sensitivity, run-time `assert`, identifier equality,
     `repeat`** (E10, E14, E12, E13): small, but each appears in chapter one

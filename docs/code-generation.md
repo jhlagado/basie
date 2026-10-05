@@ -1,4 +1,4 @@
-# Basiq code generation contract
+# Basie code generation contract
 
 - Status: draft 1 (2026-10-04), adopted for the reference compiler; the native
   compiler and the runtime's helper table follow it (design decision D41)
@@ -44,7 +44,7 @@ wider register than their type keep their meaning only in the low bytes.
 | `A`, `BC`, `DE`, `HL`, `AF'`, `BC'`, `DE'`, `HL'` | scratch; destroyed by any call |
 
 Nothing but `IX` and `SP` survives a call. Interrupts are not handled by
-Basiq code (CP/M target §8).
+Basie code (CP/M target §8).
 
 ## 3. Frames and the calling convention
 
@@ -153,7 +153,7 @@ use and the largest `need` of the routines called.
 ## 8. Runtime helpers and services
 
 Helpers and services are library blobs reached by `CALL` with this same
-convention: arguments on the stack for services (they are ordinary Basiq
+convention: arguments on the stack for services (they are ordinary Basie
 signatures), and in registers for arithmetic helpers, as the helper table
 states per helper. Each helper publishes its stack use. The table's interface
 key ([object format](object-format.md) §10) covers each helper's ordinal,

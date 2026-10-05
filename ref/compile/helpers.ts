@@ -3,7 +3,7 @@
  * of every helper and service in CPM22.BRL (object format §10). The
  * compiler carries this table; a test checks it against the runtime source.
  *
- * Conventions: 1 = a service with a Basiq signature, called with arguments
+ * Conventions: 1 = a service with a Basie signature, called with arguments
  * on the stack; 2 = a register helper.
  */
 
@@ -13,7 +13,7 @@ export type HelperEntry = {
   name: string;
   ordinal: number;
   convention: 1 | 2;
-  /** For services: the Basiq signature, parsed by the compiler. */
+  /** For services: the Basie signature, parsed by the compiler. */
   signature?: string;
   /** Stack bytes the helper itself uses beyond its arguments. */
   stack: number;

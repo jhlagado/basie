@@ -2,7 +2,7 @@
 // spec: 8.10
 // expect output: -42\r\n
 
-include "FORMAT.BSQ"
+include "FORMAT.BSI"
 
 sub twice(n as i16) as i16
     return n * 2

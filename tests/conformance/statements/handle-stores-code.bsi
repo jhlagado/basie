@@ -2,7 +2,7 @@
 // spec: 14.6
 // expect output: 48 7\r\n
 
-include "FORMAT.BSQ"
+include "FORMAT.BSI"
 
 const notReady = 48
 

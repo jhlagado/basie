@@ -105,7 +105,7 @@ export function writeLibrary(lib: Omit<Library, "trailer">): Uint8Array {
   const fileLength = out.length + 2;
   const bytes = out.toBytes();
   const header = new ByteWriter();
-  header.ascii("BSQR");
+  header.ascii("BSIR");
   header.u8(1);
   header.u8(0);
   header.u16(lib.runtimeIdentity);
@@ -131,7 +131,7 @@ export function writeLibrary(lib: Omit<Library, "trailer">): Uint8Array {
 /** Decode and check a blob library file. */
 export function readLibrary(file: Uint8Array, verify = false): Library {
   const h = new ByteReader(file, "library header");
-  if (h.ascii(4) !== "BSQR") throw new ObjectError("L-FORMAT", "bad magic");
+  if (h.ascii(4) !== "BSIR") throw new ObjectError("L-FORMAT", "bad magic");
   if (h.u8() !== 1 || h.u8() > 0) throw new ObjectError("L-FORMAT", "version");
   const runtimeIdentity = h.u16();
   const helperVersion = h.u16();

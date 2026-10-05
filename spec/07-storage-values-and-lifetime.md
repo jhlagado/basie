@@ -3,13 +3,13 @@
 
 ## 7.1 Scope
 
-This chapter defines Basiq's storage classes, object identity, copying, aliases, pools and handles, ownership, freeing, and the stack bound. It is the normative form of the [memory-safety design](../docs/memory-safety.md), revision 6, which gives the reasons and patterns. Chapter 6 defines the types, Chapter 8 the declarations and initializers, Chapter 10 the statement rule and the flow check, Chapter 11 handle selection, Chapter 13 parameters and calls, and Chapter 15 the traps.
+This chapter defines Basie's storage classes, object identity, copying, aliases, pools and handles, ownership, freeing, and the stack bound. It is the normative form of the [memory-safety design](../docs/memory-safety.md), revision 6, which gives the reasons and patterns. Chapter 6 defines the types, Chapter 8 the declarations and initializers, Chapter 10 the statement rule and the flow check, Chapter 11 handle selection, Chapter 13 parameters and calls, and Chapter 15 the traps.
 
 The rules do not expose physical addresses, registers, stack positions or layouts, except where this chapter names an implementation structure to explain an observable rule. A conforming implementation preserves the source-level identity, lifetime and checking rules whatever its storage arrangement.
 
 ## 7.2 The safety property
 
-A program compiled from Basiq source cannot:
+A program compiled from Basie source cannot:
 
 1. read or write outside the bounds of an object;
 2. read or write storage after its lifetime has ended;
@@ -19,7 +19,7 @@ A program compiled from Basiq source cannot:
 6. overflow its stack into other memory; or
 7. leak pool storage.
 
-Each hazard is either rejected during compilation or detected during execution by a trap (Chapter 15): `bounds`, `stale-handle`, `ownership-cycle` and `activation-capacity`. The runtime library, the BIOS and the BDOS are trusted and outside the property. Basiq 1.0 has no interrupts or concurrency in source.
+Each hazard is either rejected during compilation or detected during execution by a trap (Chapter 15): `bounds`, `stale-handle`, `ownership-cycle` and `activation-capacity`. The runtime library, the BIOS and the BDOS are trusted and outside the property. Basie 1.0 has no interrupts or concurrency in source.
 
 ## 7.3 Values, objects, aliases and handles
 
@@ -41,7 +41,7 @@ An object has one identity throughout its lifetime. Writing into an object chang
 | Activation storage | local variables, at any statement position | from the declaration to the end of the enclosing block | at the end of the block |
 | Pool storage | the slots of a top-level `pool` | from `new` until freed | when its owner goes away |
 
-There is no general heap: every byte a program uses is declared in the source with a size fixed when the program is linked. Arena storage, freed as a whole at the end of a scope, is planned for version 2 and is not part of Basiq 1.0.
+There is no general heap: every byte a program uses is declared in the source with a size fixed when the program is linked. Arena storage, freed as a whole at the end of a scope, is planned for version 2 and is not part of Basie 1.0.
 
 **Zero values.** Where Chapter 8 gives an object no explicit initial value, it starts at its type's zero value:
 

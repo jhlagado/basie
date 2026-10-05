@@ -7,7 +7,7 @@ This chapter defines how declarations bind names and where those bindings are vi
 
 A scope controls where source text may refer to a declaration. It does not determine storage allocation, initialization, storage duration, or value lifetime; Chapter 7 defines those subjects.
 
-Basiq has no implicit declarations, overloads, generic parameters, nested routines, or qualified module names. A `private` top-level declaration is visible only within its own source part (Section 5.11). Formal parameters and named local variables use the declarations defined by Chapters 8 and 13.
+Basie has no implicit declarations, overloads, generic parameters, nested routines, or qualified module names. A `private` top-level declaration is visible only within its own source part (Section 5.11). Formal parameters and named local variables use the declarations defined by Chapters 8 and 13.
 
 ## 5.2 Name identity
 
@@ -17,7 +17,7 @@ An implementation may use a hash or an interned ordinal to locate a candidate bi
 
 ## 5.3 Scope structure
 
-Basiq uses these scopes:
+Basie uses these scopes:
 
 | Scope        | Bindings | Enclosing scope |
 | ------------ | -------- | --------------- |
@@ -41,7 +41,7 @@ Program, part, routine and block scopes use one ordinary namespace. A record typ
 
 Name lookup first finds the one ordinary binding and then checks whether its declaration class is valid in context. A record type used as an expression, a variable used as a type, or a result-free routine used as a value is invalid. A pool name is valid both as a type, meaning an owning handle into that pool, and where Chapter 7 admits a pool as an operand, as in `new nodes(...)`. The compiler must not continue searching for another declaration of a more convenient class.
 
-Basiq has no overload sets. Two routines with the same identity conflict even when their parameter or result types differ. Enumeration and subrange types are absent and introduce no member or range namespaces.
+Basie has no overload sets. Two routines with the same identity conflict even when their parameter or result types differ. Enumeration and subrange types are absent and introduce no member or range namespaces.
 
 Every ordinary binding has one canonical declaration. An abbreviated routine body completes an earlier forward declaration under Section 5.8; it is the only case in which a later header with the same identity is not a duplicate declaration.
 
@@ -106,9 +106,9 @@ Declaration order applies across the whole logical compilation unit. A later dec
 
 Two declarations in the same scope conflict when their exact case-sensitive identities are equal. A difference in letter case creates a different name; repeating the same spelling is a duplicate.
 
-Lookup never selects a later declaration in preference to an earlier one. Basiq has no temporal shadowing, source-level replacement, or latest-definition rule.
+Lookup never selects a later declaration in preference to an earlier one. Basie has no temporal shadowing, source-level replacement, or latest-definition rule.
 
-A parameter or local must not shadow any ordinary binding visible at its declaration point: a program binding, a part binding, a parameter, or a local of an enclosing block. Basiq has no shadowing at any level. Locals in blocks that do not enclose one another may use the same identity, because neither is visible where the other is declared:
+A parameter or local must not shadow any ordinary binding visible at its declaration point: a program binding, a part binding, a parameter, or a local of an enclosing block. Basie has no shadowing at any level. Locals in blocks that do not enclose one another may use the same identity, because neither is visible where the other is declared:
 
 ```nucleus
 sub show(flag as boolean)

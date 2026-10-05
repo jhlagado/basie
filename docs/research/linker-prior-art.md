@@ -1,13 +1,13 @@
-# Linker prior art for Basiq
+# Linker prior art for Basie
 
 - Status: research note
 - Date: 2026-10-03
 - Context: `../build-pipeline.md` (object spools, blobs, ordinals, tree shaking)
 
-This note surveys object formats and linkers that Basiq's spool format and
+This note surveys object formats and linkers that Basie's spool format and
 linker can learn from. It covers the CP/M tools of the period, the later
 small-machine toolchains, and the modern linkers that remove dead code. It
-ends with design lessons for Basiq.
+ends with design lessons for Basie.
 
 ## How to read the evidence marks
 
@@ -438,7 +438,7 @@ checked for equivalence with the originals [V S64, S65, S66].
   constants [R].
 - **How:** a TPU stores each routine's code as a separate block with its own
   fixup list, so the linker can trace references from the main program and
-  emit only reached routines [R]. This is exactly Basiq's blob model.
+  emit only reached routines [R]. This is exactly Basie's blob model.
 - **Limits:** code linked from `.OBJ` files with `{$L}` was all-or-nothing [R,
   uncertain]. A type's virtual method table references every virtual method,
   so any instantiated object type keeps all its virtual methods alive [R]. TPU
@@ -645,18 +645,18 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
   silently unless something such as a key or version check catches it; and
   numbers are unreadable in diagnostics unless a name table travels alongside.
 
-## Lessons for Basiq
+## Lessons for Basie
 
 1. **Make the routine the unit, in the format itself.** Every CP/M linker in
    this survey was limited to module-level removal because REL and its
    relatives had nothing smaller than a module (Section 10.3). Turbo Pascal 4
    shook per routine because the TPU stored each routine as its own block with
-   its own fixups (Section 7). Basiq's one-blob-per-routine rule is the right
+   its own fixups (Section 7). Basie's one-blob-per-routine rule is the right
    decision; keep it absolute, including for runtime helpers.
 
 2. **Make every reference explicit and target-named.** REL relocatable words
    say only "relative to CSEG", so no routine-level graph can be built from them
-   (Section 10.3). Basiq's "every address use is a reference" rule is what makes
+   (Section 10.3). Basie's "every address use is a reference" rule is what makes
    reachability possible. Never allow a "segment-relative" reference form that
    bypasses it.
 
@@ -671,13 +671,13 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
 4. **Include low-byte, high-byte and addend forms from day one.** M80 had to
    bolt on postfix expressions for `LOW` and `HIGH` externals, DRI's LINK-80
    never read them (Section 1), and Hi-Tech's 3.09 LINK rejects its own
-   complex relocations (Section 4). Basiq's page-aligned tables used through
+   complex relocations (Section 4). Basie's page-aligned tables used through
    `LD H,hi(table)` need a high-byte form; `table+k` needs an addend. A fixed
    small set (word, low byte, high byte, each with a signed addend) covers this
    without a general expression evaluator.
 
 5. **Never carry PC-relative references between blobs.** REL had no relative
-   form, and the period linkers never relaxed branches (Section 10.2). Basiq's
+   form, and the period linkers never relaxed branches (Section 10.2). Basie's
    rule that `JR` and `DJNZ` stay inside a blob keeps the linker from needing
    instruction knowledge, as in the period tools. Branch shrinking belongs in the
    compiler, inside a routine, where the bytes are still at hand (Plan 9 shows
@@ -691,7 +691,7 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
 
 7. **Put a directory where the linker needs it.** IRL's index lets LINK-80
    seek straight to a module (Section 2); LIBR and `__.SYMDEF` play the same role
-   (Sections 4, 9). Basiq's runtime spool set should carry a directory of blob
+   (Sections 4, 9). Basie's runtime spool set should carry a directory of blob
    sizes and reference lists, separate from the bytes, so the mark phase reads
    only the graph and the place phase reads only live bytes.
 
@@ -700,7 +700,7 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
    spilled to eight temporary files when memory ran out (Section 2). Hi-Tech's
    LINK shows the better shape: tables in RAM, two passes, output placed by
    seeking so the image is never held in memory (Section 4); PLINK-II and
-   SLRNK+ built the output on disk (Section 3). Basiq's
+   SLRNK+ built the output on disk (Section 3). Basie's
    linker should hold only per-ordinal tables (live bit, size, address) in
    memory, about 4 to 5 bytes per blob, and stream bytes from disk to output.
    State the capacity limit as a number of blobs, and report it as a clear
@@ -709,7 +709,7 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
 9. **Number things, but guard the numbers.** Ordinals are compact and need no
    name table (Oberon, wasm, BDOS functions), but numbers drift when the
    defining side changes, and mismatches are silent (Section 10.4). Oberon's
-   per-module key is the guard. Basiq's runtime spool set should carry a
+   per-module key is the guard. Basie's runtime spool set should carry a
    version stamp or interface hash that the compiler records and the linker
    checks, so a stale runtime is refused rather than mislinked.
 
@@ -720,33 +720,33 @@ be Turbo Pascal 4's smart linker on DOS (1987) [R].
 
 11. **Keep names out of linking but available for reports.** REL's 6- and
     7-character limits forced name mangling (Sections 1 and 2), while numbers
-    are unreadable in error messages (Section 10.4). Basiq's optional name
+    are unreadable in error messages (Section 10.4). Basie's optional name
     spool gives the best of both, provided every linker diagnostic and map line
     prints names when the spool is present.
 
 12. **Make roots explicit and give a way to keep.** ELF needs `KEEP()` and
     `__start_`/`__stop_` because some tables are reached only by convention;
-    forgetting them silently deletes code (Section 9). Basiq's startup blob and
+    forgetting them silently deletes code (Section 9). Basie's startup blob and
     linker pseudo-ordinals are its roots; any table reached only indirectly (an
     interrupt vector, a dispatch table filled at run time) needs an explicit
     "keep" flag in the format, not a convention.
 
 13. **Watch for structures that keep everything alive.** Turbo Pascal's VMTs
     and Go's reflection keep every method reachable (Sections 7 and 9). If
-    Basiq gains procedure tables, interfaces or variant dispatch, a table that
+    Basie gains procedure tables, interfaces or variant dispatch, a table that
     references every member defeats shaking. Prefer per-call-site references,
     or a table per used subset.
 
 14. **Report what was removed.** `--print-gc-sections` exists because
     silent removal confuses users (Section 9), and LINK-80 already reported a
-    map and a "use factor" (Section 2). Basiq's map should list removed blobs
+    map and a "use factor" (Section 2). Basie's map should list removed blobs
     by name, and the capacity margin, so users can trust the shaker and see how
     close they are to the limits.
 
 15. **Do not let one-big-blob escape hatches spread.** ELF code in one
     `.text` section, `.OBJ` files in Turbo Pascal and multi-function modules in
     z88dk all defeat routine-level removal (Sections 6, 7, 9). Hand-written
-    runtime code is the likely offender in Basiq; enforce one helper per blob in
+    runtime code is the likely offender in Basie; enforce one helper per blob in
     the runtime build, as the build pipeline already proposes.
 
 ## Addendum: verified findings for Sections 7, 8 and 10.4
@@ -826,17 +826,17 @@ source are marked [R].
 - **Lilith Modula-2.** `CX 1 0` calls external module 1, procedure 0, in 3
   bytes. (afborchert/lilith)
 
-### What this changes for Basiq
+### What this changes for Basie
 
 - **Turbo Pascal 4 is confirmed** as the closest precedent: per-procedure blocks,
   each with its own reference list, marked from the main program. Its data
-  granularity was coarser than Basiq's, which removes each variable and
+  granularity was coarser than Basie's, which removes each variable and
   constant individually.
 - **Ordinals need fixed assignment, not linker-assigned numbering.** The Win32
-  `LocalAlloc` case is the failure Basiq's append-only helper table prevents:
+  `LocalAlloc` case is the failure Basie's append-only helper table prevents:
   runtime ordinals are published and fixed by the runtime, never assigned by a
   tool at build time.
-- **Oberon's key is the model for the interface check** Basiq should add: a
+- **Oberon's key is the model for the interface check** Basie should add: a
   checksum of the helper table carried by the blob library and recorded by the
   compiler, so a library with the same version number but a different
   interface is refused.

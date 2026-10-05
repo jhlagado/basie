@@ -31,11 +31,11 @@ const show = (
 };
 
 Deno.test("an included part is compiled before the rest of the part", () => {
-  const r = show("/p/main.bsq", {
-    "/p/main.bsq": 'include "UTIL.BSQ"\nconst a = 1\n',
-    "/p/UTIL.BSQ": "const b = 2\n",
+  const r = show("/p/main.bsi", {
+    "/p/main.bsi": 'include "UTIL.BSI"\nconst a = 1\n',
+    "/p/UTIL.BSI": "const b = 2\n",
   });
-  assertEquals(r.parts, ["UTIL.BSQ", "MAIN.BSQ"]);
+  assertEquals(r.parts, ["UTIL.BSI", "MAIN.BSI"]);
   assertEquals(
     r.tokens,
     "0:CONST 0:b 0:punct 0:number 0:newline 1:CONST 1:a 1:punct 1:number 1:newline 1:eof",
@@ -43,48 +43,48 @@ Deno.test("an included part is compiled before the rest of the part", () => {
 });
 
 Deno.test("includes are depth first and once only", () => {
-  const r = show("/p/main.bsq", {
-    "/p/main.bsq": 'include "A.BSQ"\ninclude "B.BSQ"\nconst m = 0\n',
-    "/p/A.BSQ": 'include "C.BSQ"\nconst a = 0\n',
-    "/p/B.BSQ": 'include "C.BSQ"\nconst b = 0\n',
-    "/p/C.BSQ": "const c = 0\n",
+  const r = show("/p/main.bsi", {
+    "/p/main.bsi": 'include "A.BSI"\ninclude "B.BSI"\nconst m = 0\n',
+    "/p/A.BSI": 'include "C.BSI"\nconst a = 0\n',
+    "/p/B.BSI": 'include "C.BSI"\nconst b = 0\n',
+    "/p/C.BSI": "const c = 0\n",
   });
-  assertEquals(r.parts, ["C.BSQ", "A.BSQ", "B.BSQ", "MAIN.BSQ"]);
+  assertEquals(r.parts, ["C.BSI", "A.BSI", "B.BSI", "MAIN.BSI"]);
   assertEquals(r.tokens.match(/:c /g)!.length, 1);
 });
 
 Deno.test("the library directory is searched after the part's own", () => {
-  const r = show("/p/main.bsq", {
-    "/p/main.bsq": 'include "FORMAT.BSQ"\n',
-    "/lib/FORMAT.BSQ": "const f = 0\n",
+  const r = show("/p/main.bsi", {
+    "/p/main.bsi": 'include "FORMAT.BSI"\n',
+    "/lib/FORMAT.BSI": "const f = 0\n",
   }, ["/lib"]);
-  assertEquals(r.parts, ["FORMAT.BSQ", "MAIN.BSQ"]);
+  assertEquals(r.parts, ["FORMAT.BSI", "MAIN.BSI"]);
 });
 
 Deno.test("include diagnostics: missing, cycle, position", () => {
   const code = (files: Record<string, string>) =>
     assertThrows(
-      () => loadSource("/p/main.bsq", { reader: memory(files) }),
+      () => loadSource("/p/main.bsi", { reader: memory(files) }),
       CompileError,
     )
       .code;
   assertEquals(
-    code({ "/p/main.bsq": 'include "NOPE.BSQ"\n' }),
+    code({ "/p/main.bsi": 'include "NOPE.BSI"\n' }),
     "include-missing",
   );
   assertEquals(
     code({
-      "/p/main.bsq": 'include "A.BSQ"\n',
-      "/p/A.BSQ": 'include "MAIN.BSQ"\n',
+      "/p/main.bsi": 'include "A.BSI"\n',
+      "/p/A.BSI": 'include "MAIN.BSI"\n',
     }),
     "include-cycle",
   );
   const e = assertThrows(
     () =>
-      loadSource("/p/main.bsq", {
+      loadSource("/p/main.bsi", {
         reader: memory({
-          "/p/main.bsq": 'const x = 1\ninclude "A.BSQ"\n',
-          "/p/A.BSQ": "",
+          "/p/main.bsi": 'const x = 1\ninclude "A.BSI"\n',
+          "/p/A.BSI": "",
         }),
       }),
     CompileError,
@@ -93,9 +93,9 @@ Deno.test("include diagnostics: missing, cycle, position", () => {
 });
 
 Deno.test("a part with no final newline still ends its last line", () => {
-  const r = show("/p/main.bsq", {
-    "/p/main.bsq": 'include "A.BSQ"\nconst m = 0',
-    "/p/A.BSQ": "const a = 0",
+  const r = show("/p/main.bsi", {
+    "/p/main.bsi": 'include "A.BSI"\nconst m = 0',
+    "/p/A.BSI": "const a = 0",
   });
   assertEquals(
     r.tokens.endsWith("0:newline 1:CONST 1:m 1:punct 1:number 1:newline 1:eof"),

@@ -1,4 +1,4 @@
-# Basiq diagnostic codes
+# Basie diagnostic codes
 
 - Status: working register; grows with the reference compiler
 - Related: [design decisions](design-decisions.md) D39 (message file),
@@ -6,7 +6,7 @@
 
 Every compile-time diagnostic has a stable kebab-case **code**, used by the
 conformance tests (`// expect error: CODE at LINE:COLUMN`) and, in the native
-compiler, mapped to a message number in `BASIQ.MSG`. The position is the first
+compiler, mapped to a message number in `BASIE.MSG`. The position is the first
 byte of the construct the diagnostic names. Codes are never reused for a
 different meaning.
 

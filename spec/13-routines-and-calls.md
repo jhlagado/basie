@@ -5,7 +5,7 @@
 
 This chapter defines routine declarations as callable interfaces, invocation, parameter kinds including `var` parameters, leases and slot-holders, argument binding, results and the `from` clause, `return`, routine completion, recursive calls, the activation-capacity check, and freeing on exit. Chapters 4, 5, and 8 define declaration order, forwards, names, headers, parameters, and local declarations. Chapters 6 and 7 define value copying, aggregate aliases, and lifetime.
 
-Basiq has one routine family. A routine declares no result or one result type. It has no overload, nested declaration, multiple-result form, implicit result variable, routine-name assignment, routine value, indirect call, or callback type.
+Basie has one routine family. A routine declares no result or one result type. It has no overload, nested declaration, multiple-result form, implicit result variable, routine-name assignment, routine value, indirect call, or callback type.
 
 ## 13.2 Routine syntax
 
@@ -40,7 +40,7 @@ An omitted result clause declares a result-free routine. A written type declares
 
 A routine invocation begins with a visible routine name whose complete signature has already been checked. An earlier forward declaration supplies that signature when the definition appears later. The compiler does not infer a signature from arguments or defer checking until another pass.
 
-The invocation must supply exactly one argument for each formal parameter, in declaration order. Basiq has no optional, named, variadic, grouped, or default arguments. An infallible result-free routine may be used only as the complete call statement from Chapter 10. An infallible result-bearing routine may be used as an expression or as a call statement that discards the result. Chapter 14 restricts every failable call to a position with one explicit failure consumer.
+The invocation must supply exactly one argument for each formal parameter, in declaration order. Basie has no optional, named, variadic, grouped, or default arguments. An infallible result-free routine may be used only as the complete call statement from Chapter 10. An infallible result-bearing routine may be used as an expression or as a call statement that discards the result. Chapter 14 restricts every failable call to a position with one explicit failure consumer.
 
 A call expression takes its static result type directly from the signature. A scalar result is a scalar value. An aggregate result is a transient typed alias and may take the field or index suffixes admitted by Chapter 9. It must then be consumed under Section 13.6; a routine name without its argument list is invalid in every expression and statement context.
 
@@ -112,7 +112,7 @@ If evaluating a later argument or suffix performs another call, the compiler pre
 
 ## 13.7 Value-routine completion
 
-A value routine is invalid when its closing `end` is reachable without executing `return expression`. Basiq supplies no implicit value.
+A value routine is invalid when its closing `end` is reachable without executing `return expression`. Basie supplies no implicit value.
 
 The rule uses a structured summary of whether each statement can **fall through**:
 

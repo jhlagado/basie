@@ -1,4 +1,4 @@
-# Basiq 1.0 Language Specification
+# Basie 1.0 Language Specification
 
 - Status: working draft, forked from the Nucleus 0.1 specification (Nucleus commit `89f51a6`, 2026-08-15)
 - Changes from Nucleus: [change log](CHANGELOG.md)

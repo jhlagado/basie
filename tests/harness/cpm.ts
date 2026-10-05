@@ -1,7 +1,7 @@
 /**
  * Minimal CP/M 2.2 environment on the portable Z80 runtime, for fast unit
  * tests. It provides page zero, the command tail and default FCB, and a BDOS
- * entry at $0005 that services the console and file functions Basiq's runtime
+ * entry at $0005 that services the console and file functions Basie's runtime
  * uses, over an in-memory disk. A jump to $0000 (warm boot) or a return to the
  * CCP's address ends the program.
  *

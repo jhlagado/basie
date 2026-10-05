@@ -59,7 +59,7 @@ export async function runtimeLibrary(): Promise<
   return { library: cachedLibrary, keys: cachedKeys! };
 }
 
-/** Compile and link one Basiq program to a .COM image. */
+/** Compile and link one Basie program to a .COM image. */
 export async function compile(
   mainPath: string,
   options: CompileOptions = {},

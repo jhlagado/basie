@@ -619,7 +619,7 @@ come after the stack check, not before.
 **Where:** §1 "trusted base"; Nucleus §16.
 
 Nucleus's services move single bytes, and the runtime owns the DMA buffer
-(cpm-target §4 step 1). Basiq will presumably add a record read into a
+(cpm-target §4 step 1). Basie will presumably add a record read into a
 program buffer. A BDOS read writes 128 bytes at the DMA address regardless
 of the caller's buffer. If the service takes `string[]` or `u8[]`, the
 runtime has the capacity and must check it; if it takes `u8[128]` the type
@@ -646,7 +646,7 @@ end
 ```
 
 Nucleus already loses the read-only marker through an alias and says
-portable programs must not rely on it. Basiq has modes and should close
+portable programs must not rely on it. Basie has modes and should close
 this: a result alias has a mode, read by default; a routine returning an
 alias rooted in an `inout` parameter or a global variable may declare the
 result `inout`; a constant-rooted path never binds to `inout`. This is not a
@@ -704,7 +704,7 @@ constants.
 
 #### m7. String growth needs a capacity trap
 
-Nucleus strings cannot change length. If Basiq adds append or length
+Nucleus strings cannot change length. If Basie adds append or length
 assignment, the check against capacity is a new `bounds` site; `string[]`
 carries the capacity so it is implementable. Note it under claim 1.
 

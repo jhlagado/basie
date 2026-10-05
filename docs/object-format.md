@@ -1,4 +1,4 @@
-# Basiq Object Format 1.0
+# Basie Object Format 1.0
 
 - Status: draft specification, revision 3 (after two adversarial reviews)
 - Date: 2026-10-03
@@ -9,7 +9,7 @@
 
 ## 1. Scope
 
-This document defines, byte for byte, the files that carry compiled Basiq code
+This document defines, byte for byte, the files that carry compiled Basie code
 between the compiler and the linker:
 
 - the **program object**, written by the compiler for one compilation, made of
@@ -188,7 +188,7 @@ record           = blob-record | control-record
 
 | Offset | Field | Type | Meaning |
 | ---: | --- | --- | --- |
-| 0 | magic | 4 bytes | ASCII `BSQP` |
+| 0 | magic | 4 bytes | ASCII `BSIP` |
 | 4 | major version | `u8` | 1 |
 | 5 | minor version | `u8` | 0 |
 | 6 | compilation stamp | `u16` | Section 4.1 |
@@ -227,12 +227,12 @@ ordinal, and so, usually, is the record after it.
 2, 4 ... 64 bytes. Value 7 means 256 bytes. A `code` or `startup` blob must use
 0.
 
-**Root flag.** A root blob is live whatever references it. Basiq 1.0 defines no
+**Root flag.** A root blob is live whatever references it. Basie 1.0 defines no
 source feature that makes a program blob a root, so a 1.0 program directory has
 none; the flag exists for future interrupt and exported routines.
 
 **Size.** A blob of size 0 is invalid. Every routine has at least a return
-instruction, and Basiq has no empty aggregates.
+instruction, and Basie has no empty aggregates.
 
 ### 4.3 Byte stream
 
@@ -242,7 +242,7 @@ byte-stream = byte-header blob-bytes*
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| magic | 4 bytes | ASCII `BSQB` |
+| magic | 4 bytes | ASCII `BSIB` |
 | major, minor version | `u8`, `u8` | 1, 0 |
 | compilation stamp | `u16` | Must equal the directory's |
 
@@ -378,7 +378,7 @@ an optional name section.
 
 | Offset | Field | Type | Meaning |
 | ---: | --- | --- | --- |
-| 0 | magic | 4 bytes | ASCII `BSQR` |
+| 0 | magic | 4 bytes | ASCII `BSIR` |
 | 4 | major version | `u8` | 1 |
 | 5 | minor version | `u8` | 0 |
 | 6 | runtime identity | `u16` | Identity of this runtime |
@@ -465,13 +465,13 @@ line-stream = line-header part-record* blob-lines* line-trailer
 
 | Record | Layout |
 | --- | --- |
-| Line header | magic `BQLS` (4 bytes), major `u8` = 1, minor `u8` = 0, compilation stamp `u16` |
+| Line header | magic `BSIL` (4 bytes), major `u8` = 1, minor `u8` = 0, compilation stamp `u16` |
 | Part record | tag `$01`, part `u8` (0–254), name length `u8`, name bytes |
 | Blob lines | tag `$02`, ordinal `u16`, entry count `u16`, entries |
 | Line trailer | tag `$FF`, CRC `u16` over every preceding byte |
 
 Part records name each source part with the name the compiler opened, such as
-`B:MAIN.BSQ`. **All part records come first,** in part order, before any
+`B:MAIN.BSI`. **All part records come first,** in part order, before any
 blob-lines record; the compiler knows every part from the command line before
 it compiles anything. Parts are numbered from 0; 255 is reserved.
 
@@ -503,7 +503,7 @@ diagnostics.
 
 | Record | Layout |
 | --- | --- |
-| Name header | magic `BSQM` (4 bytes), major `u8` = 1, minor `u8` = 0, compilation stamp `u16` |
+| Name header | magic `BSIN` (4 bytes), major `u8` = 1, minor `u8` = 0, compilation stamp `u16` |
 | Name record | ordinal `u16`, name length `u8` (1–31), name bytes |
 | Name trailer | ordinal `$0000`, CRC `u16` over every preceding byte |
 
@@ -559,7 +559,7 @@ Section 7.7). Its entries are in increasing address order as written.
 
 | Record | Layout |
 | --- | --- |
-| Header | magic `BQLT` (4 bytes), major `u8` = 1, minor `u8` = 0, part count `u8`, output name length `u8`, output name, library name length `u8`, library name |
+| Header | magic `BSIT` (4 bytes), major `u8` = 1, minor `u8` = 0, part count `u8`, output name length `u8`, output name, library name length `u8`, library name |
 | Part names | for each part in order: name length `u8`, name bytes |
 | Entries | 5 bytes each, in increasing address order |
 | Trailer | marker `$FF $FF $FF $FF $FF`, entry count `u16`, image CRC `u16`, CRC `u16` over every preceding byte |

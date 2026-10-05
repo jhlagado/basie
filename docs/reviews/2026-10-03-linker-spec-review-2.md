@@ -115,7 +115,7 @@ problem (47 findings). New: 4 blocking, 11 major, 15 minor.
 that uses its part"), §11 (header: part count, then part names, then
 entries); linker §7.6.
 
-**Counterexample.** Parts `MAIN.BSQ` and `UTIL.BSQ`. The compiler writes the
+**Counterexample.** Parts `MAIN.BSI` and `UTIL.BSI`. The compiler writes the
 part record for part 1 just before the first `UTIL` routine's blob-lines
 record, halfway through the stream. The linker writes the line-table header
 (part count, part names) before its first entry, during the `START` pass,
@@ -309,7 +309,7 @@ estimate in §6.3's cost list, since it is now on the critical path.
 `REQUIRED` may lie above the image limit, because a running program may use
 the CCP's memory"); cpm-target §3.2.
 
-**Counterexample.** `BASIQ MAIN [B]`, `REQUIRED = $E000`. Nominal top `$E406`:
+**Counterexample.** `BASIE MAIN [B]`, `REQUIRED = $E000`. Nominal top `$E406`:
 no warning. Usable top under keep-CCP is `$DC00`: the program refuses to start
 on every typical 62K machine.
 
@@ -321,9 +321,9 @@ base) and make that an error or at least the warning.
 **Where:** toolchain §3.2 (table shows `MAIN.$DR` etc.), §3.3 ("The base name
 is the first part's, unless option `O` names another"), §5.3 `X`.
 
-**Counterexample.** `BASIQ MAIN [O=GAME.COM]` then `BASIQ MAIN [X,O=GAME.COM]`.
+**Counterexample.** `BASIE MAIN [O=GAME.COM]` then `BASIE MAIN [X,O=GAME.COM]`.
 Are the intermediates `MAIN.$DR` or `GAME.$DR`? The second command must find
-them. Also `BASIQ MAIN [O=B:GAME]`: is the type `.COM` or an error?
+them. Also `BASIE MAIN [O=B:GAME]`: is the type `.COM` or an error?
 
 **Fix.** Intermediates always take the first part's name and the spool drive;
 outputs take `O=`'s name and drive; a missing type in `O=` means `.COM`.
@@ -454,7 +454,7 @@ says" for the byte stream is detected at 128-byte granularity only.
 
 #### Nm13. `$FF03` means two things
 
-toolchain §5.4 (`BASIQ`: disk error) and cpm-target §5 (program: not enough
+toolchain §5.4 (`BASIE`: disk error) and cpm-target §5 (program: not enough
 memory). Different programs, same code; confusing in a `SUBMIT` log. Use
 distinct values or note the overlap.
 

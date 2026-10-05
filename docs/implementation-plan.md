@@ -1,4 +1,4 @@
-# Basiq implementation plan
+# Basie implementation plan
 
 - Status: approved (design decision D35)
 - Date: 2026-10-04
@@ -10,28 +10,28 @@
 
 Five things, in this order of dependency:
 
-1. **The language specification:** Basiq 1.0, forked from the Nucleus 0.1
+1. **The language specification:** Basie 1.0, forked from the Nucleus 0.1
    specification with decisions D1–D34 applied.
 2. **The runtime library:** hand-written Z80 for CP/M 2.2, shipped as a blob
    library (`CPM22.BRL`), including startup, arithmetic helpers, pools, traps
    and the services.
-3. **The standard library:** Basiq source for strings, formatting, parsing and
+3. **The standard library:** Basie source for strings, formatting, parsing and
    console and file conveniences.
 4. **The linker, `BLINK.COM`:** Z80, running on CP/M 2.2.
-5. **The compiler, `BASIQ.COM`:** Z80, running on CP/M 2.2, within 24K.
+5. **The compiler, `BASIE.COM`:** Z80, running on CP/M 2.2, within 24K.
 
 ## 2. The key decision: how to build it
 
 ### 2.1 Recommendation: a reference implementation in TypeScript on Deno, then the native toolchain
 
 **Track A, the reference toolchain:** a compiler and linker written in
-TypeScript, run under **Deno** on the development machine. It reads Basiq
+TypeScript, run under **Deno** on the development machine. It reads Basie
 source and writes exactly the object format and program images the native
 toolchain will. It is written in the same single-pass, streaming style as the
 native compiler, so that it is an executable model of the native algorithms, not
 an unrelated compiler.
 
-**Track B, the native toolchain:** `BASIQ.COM` and `BLINK.COM` in Z80 assembly,
+**Track B, the native toolchain:** `BASIE.COM` and `BLINK.COM` in Z80 assembly,
 assembled with ATOM as development tooling. The compiler starts from a fork of
 the Nucleus 12K compiler rewrite, evolved in stages; the linker is new.
 
@@ -52,7 +52,7 @@ the Nucleus 12K compiler rewrite, evolved in stages; the linker is new.
   minutes; in Z80 it takes days. Every open question found while writing the
   reference compiler is found before it costs native work.
 - **A test oracle.** Every native stage is checked against the reference on the
-  same programs. Nucleus had to prove each feature from first principles; Basiq
+  same programs. Nucleus had to prove each feature from first principles; Basie
   gets a second implementation to disagree with.
 - **Host tooling for free.** The reference compiler doubles as a fast
   cross-compiler for development, and its line tables and maps feed Debug80
@@ -64,8 +64,8 @@ the Nucleus 12K compiler rewrite, evolved in stages; the linker is new.
 
 | Alternative | Why not |
 | --- | --- |
-| **Native only, as Nucleus was built** | Every language question would be answered in Z80. Nucleus showed this works but is slow, and Basiq's language is several times larger |
-| **TypeScript only, as a cross-compiler** | Fails the project's premise: Basiq compiles on the Z80 itself |
+| **Native only, as Nucleus was built** | Every language question would be answered in Z80. Nucleus showed this works but is slow, and Basie's language is several times larger |
+| **TypeScript only, as a cross-compiler** | Fails the project's premise: Basie compiles on the Z80 itself |
 | **Native compiler written from scratch** | Throws away the Nucleus rewrite's measured lexer, parser, scopes and code generation, which carry over almost unchanged |
 | **A reference compiler with a conventional tree-based design** | Easier to write, but it would not model the native single-pass algorithms, so it couldn't expose single-pass problems early |
 
@@ -77,7 +77,7 @@ the Nucleus 12K compiler rewrite, evolved in stages; the linker is new.
 | Z80 execution | `@jhlagado/z80-runtime` | Used by Skate under Deno |
 | Assembling native code and the runtime | ATOM, through `atom-z80` | Used by Skate under Deno; development tooling only |
 | CP/M 2.2 for running programs and the native toolchain | The CP/M harness used by Skate's and ATOM's proofs | To be shared or adapted |
-| Service contracts | `z80-services` (byte gateway, console and storage) | Basiq's services adopt them (Section 6) |
+| Service contracts | `z80-services` (byte gateway, console and storage) | Basie's services adopt them (Section 6) |
 | Turning runtime assembly into blobs | A blob output mode in ATOM, or a Deno tool over ATOM's output | To be decided in Phase 2 |
 
 Node is used only where a shared package needs it.
@@ -85,13 +85,13 @@ Node is used only where a shared package needs it.
 ## 3. Repository layout
 
 ```text
-basiq/
+basie/
   docs/            design documents, reviews, this plan
-  spec/            the Basiq 1.0 language specification
+  spec/            the Basie 1.0 language specification
   ref/             reference compiler and linker (TypeScript, Deno)
   runtime/         runtime library sources (Z80, ATOM) and the CPM22 profile
-  lib/             the standard library (Basiq source)
-  native/          BASIQ.COM and BLINK.COM sources (Z80, ATOM)
+  lib/             the standard library (Basie source)
+  native/          BASIE.COM and BLINK.COM sources (Z80, ATOM)
   tests/           conformance corpus, golden outputs, harnesses
   tools/           blob builder, budget census, CP/M harness glue
   deno.json        tasks: check, test, test:cpm, measure, census
@@ -168,7 +168,7 @@ toolchain.
 - The runtime library in full: arithmetic helpers (16-bit, 32-bit, `f32`), copy
   and bounds helpers, pools (allocation, freeing with descriptors, generations,
   the cycle check), stack checks, trap reporters, startup, and every service.
-- The standard library in Basiq: strings, number formatting and parsing
+- The standard library in Basie: strings, number formatting and parsing
   including `f32`, console and file conveniences.
 - Measure every helper's size and stack figure, and publish them in the helper
   table.
@@ -195,7 +195,7 @@ working compiler:
 3. Add the features in Phase 3's order.
 
 After each stage: the conformance corpus must behave identically to the
-reference toolchain, and the **budget census** must show `BASIQ.COM` within its
+reference toolchain, and the **budget census** must show `BASIE.COM` within its
 24K and the workspace at least 32K. A stage that breaks the budget stops work
 until it is brought back within it (Section 5).
 
@@ -206,7 +206,7 @@ until it is brought back within it (Section 5).
 - Large programs: the largest the compiler can compile, the largest the linker
   can link, build times on the CP/M harness.
 - The book and reference material.
-- A release image with `BASIQ.COM`, `BASIQ.MSG`, `BASIQ.OVL`, `BLINK.COM`,
+- A release image with `BASIE.COM`, `BASIE.MSG`, `BASIE.OVL`, `BLINK.COM`,
   `CPM22.BRL` and the standard library.
 
 ## 5. Budget discipline
@@ -215,7 +215,7 @@ until it is brought back within it (Section 5).
   with its estimated cost, replaced by its measured cost as soon as it exists.
 - The native compiler's size and workspace are measured on every commit that
   touches it, as Nucleus's were.
-- **Stop rule:** if `BASIQ.COM` exceeds 24K or the workspace falls below 32K, no
+- **Stop rule:** if `BASIE.COM` exceeds 24K or the workspace falls below 32K, no
   further features are added until it is back within budget, by size work or by
   moving a feature to version 2. The feature inventory records which.
 - The reference compiler's generated code is measured too, so code-size
@@ -223,25 +223,25 @@ until it is brought back within it (Section 5).
 
 ## 6. Services and the shared service contracts
 
-Basiq's [services](services.md) are its language-facing adapter over the
+Basie's [services](services.md) are its language-facing adapter over the
 **z80-services** contracts, in the way Skate exposes Scheme ports and Nucleus its
 own procedures. Before the runtime's services are written:
 
-- map each Basiq service to its z80-services operation (the byte gateway and the
+- map each Basie service to its z80-services operation (the byte gateway and the
   console and storage contracts), and record any service with no contract yet as
   a gap to raise there; and
 - implement the CP/M 2.2 providers in the runtime library to those contracts,
-  so their conformance vectors test Basiq's services too.
+  so their conformance vectors test Basie's services too.
 
 ## 7. The limits register
 
-Every limit in Basiq is listed in the [limits register](limits.md), with its
+Every limit in Basie is listed in the [limits register](limits.md), with its
 value, its reason and its kind: language, format, CP/M, or capacity. **The
 rule:** no limit is smaller than memory allows unless the object format, CP/M or
 a measured cost requires it, and every limit is published and diagnosed.
 Capacity limits carry guaranteed minimums that the native toolchain must meet,
 and the register records every small limit from Nucleus's first implementation
-that Basiq does not inherit.
+that Basie does not inherit.
 
 ## 8. Library questions, not language questions
 

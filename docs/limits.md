@@ -1,4 +1,4 @@
-# Basiq limits register
+# Basie limits register
 
 - Status: working record (roadmap step 4)
 - Date: 2026-10-04
@@ -19,10 +19,10 @@ Limits fall into four kinds:
 
 | Kind | Meaning |
 | --- | --- |
-| **Language** | Part of Basiq's definition; the same on every implementation |
+| **Language** | Part of Basie's definition; the same on every implementation |
 | **Format** | Set by the object format or a file format |
 | **CP/M** | Set by CP/M 2.2 itself |
-| **Capacity** | Set by an implementation's memory. Basiq 1.0 publishes a **guaranteed minimum** that `BASIQ.COM` must meet within its 32K workspace, and a program may go beyond it while memory lasts |
+| **Capacity** | Set by an implementation's memory. Basie 1.0 publishes a **guaranteed minimum** that `BASIE.COM` must meet within its 32K workspace, and a program may go beyond it while memory lasts |
 
 ## 2. Language limits
 
@@ -51,7 +51,7 @@ Limits fall into four kinds:
 | Source part length | 65,535 bytes | 16-bit source offsets in the line stream |
 | Source parts in one program | 255 | One-byte part numbers in the line stream |
 | Name length in the name stream | 31 bytes | Object format §9; names are truncated only in reports, never in compilation |
-| Messages in `BASIQ.MSG` | 65,535 | 16-bit offset table |
+| Messages in `BASIE.MSG` | 65,535 | 16-bit offset table |
 
 ## 4. CP/M limits
 
@@ -72,7 +72,7 @@ for the native compiler and linker; the reference toolchain has no such limits.
 The figures are first estimates, to be confirmed by measurement in roadmap
 steps 63 and 68.
 
-### 5.1 Compiler (`BASIQ.COM`, 32K workspace)
+### 5.1 Compiler (`BASIE.COM`, 32K workspace)
 
 These are minimums unless a row says otherwise. Resources not yet listed (include depth, type descriptors, name storage, pools, scope and initializer nesting) are TBD in the [capacity audit](capacity-audit.md) §3.
 
@@ -111,12 +111,12 @@ These are minimums unless a row says otherwise. Resources not yet listed (includ
 | Stack | from `FREE` to the top of memory | Checked at startup against `REQUIRED` |
 | Pools | as declared | Fixed at link time; exhaustion traps or returns `none` (D27) |
 
-## 6. Nucleus limits Basiq does not inherit
+## 6. Nucleus limits Basie does not inherit
 
 Nucleus's first implementation fixed small limits to fit its 16K compiler. They
-are recorded here so that none survives into Basiq by accident:
+are recorded here so that none survives into Basie by accident:
 
-| Nucleus limit | Nucleus value | Basiq |
+| Nucleus limit | Nucleus value | Basie |
 | --- | ---: | --- |
 | Source parts | 8 | 255 (format) |
 | Ordinary binding symbols | 16 | at least 1,000 (§5.1) |

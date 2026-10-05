@@ -6,4 +6,4 @@ START:  LD      C,9
         CALL    $0005
         RET
 MESSAGE:
-        DB      "HELLO FROM BASIQ",13,10,"$"
+        DB      "HELLO FROM BASIE",13,10,"$"

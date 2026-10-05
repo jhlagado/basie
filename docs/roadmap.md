@@ -1,4 +1,4 @@
-# Basiq roadmap
+# Basie roadmap
 
 - Status: working plan
 - Date: 2026-10-04
@@ -13,8 +13,8 @@ The **tracks**:
 - **Design:** documents and decisions.
 - **Spec:** the language specification.
 - **Ref:** the TypeScript reference toolchain on Deno.
-- **RT:** the runtime library (Z80) and the standard library (Basiq).
-- **Native:** `BASIQ.COM` and `BLINK.COM` (Z80).
+- **RT:** the runtime library (Z80) and the standard library (Basie).
+- **Native:** `BASIE.COM` and `BLINK.COM` (Z80).
 
 ## Standing rule: the capacity audit
 
@@ -116,7 +116,7 @@ M5 starts alongside M4: each compiler step needs its helpers.
 | 54 | RT | Stack checks, trap reporters, startup and exit, the `OPTIONS` word | | Startup tests under both harnesses |
 | 55 | RT | Services: console and printer, then files, then the command line and machine | | z80-services conformance vectors; CP/M harness tests |
 | 56 | RT | Publish every helper's size and stack figure in the helper table, with interface keys | Helper table | Linker compatibility tests |
-| 57 | RT | Standard library in Basiq: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/` | Library tests |
+| 57 | RT | Standard library in Basie: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/` | Library tests |
 | 58 | RT | Example programs: a text adventure, a file utility, a game with a pool | `examples/` | Run under the full harness |
 
 ## M6. The native linker
@@ -137,7 +137,7 @@ Each stage keeps a working compiler, and the census runs on every commit.
 | ---: | --- | --- | --- | --- |
 | 64 | Native | Fork the Nucleus 12K rewrite into `native/compiler/`; build and run its existing proofs | Baseline | Nucleus proofs pass |
 | 65 | Native | Replace placed output with blob output; chain to `BLINK` | | Nucleus examples link and run |
-| 66 | Native | Message file and overlay mechanism | `BASIQ.MSG`, `BASIQ.OVL` | Diagnostics match the reference |
+| 66 | Native | Message file and overlay mechanism | `BASIE.MSG`, `BASIE.OVL` | Diagnostics match the reference |
 | 67 | Native | Steps 38 to 48 in order, each as a native stage | | Corpus behaviour identical to the reference after each stage; census within budget |
 | 68 | Native | Capacity measurement: largest compilable program, symbol counts, build times | Measured limits | Published |
 
@@ -146,8 +146,8 @@ Each stage keeps a working compiler, and the census runs on every commit.
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
 | 69 | All | Large-program tests and stress tests | Test reports | Pass |
-| 70 | All | Release image: `BASIQ.COM`, `BASIQ.MSG`, `BASIQ.OVL`, `BLINK.COM`, `CPM22.BRL`, the library | Disk image | Boots and builds the examples |
-| 71 | Design | The Basiq book in debug80-docs | Book | Verification script like Nucleus's |
+| 70 | All | Release image: `BASIE.COM`, `BASIE.MSG`, `BASIE.OVL`, `BLINK.COM`, `CPM22.BRL`, the library | Disk image | Boots and builds the examples |
+| 71 | Design | The Basie book in debug80-docs | Book | Verification script like Nucleus's |
 | 72 | All | Version 2 planning: enumerations and variants, expression blocks, routine values | Plan | — |
 | 73 | Design | Debug information for source-level debugging: a binary, CP/M-readable format mapping addresses to statements and lines, and routines to their frame layouts and types, building on the line table (`.LIN`) and symbol file (`.SYM`). D8 is the reference point but is not assumed suitable for CP/M. Low priority: no debugger is planned yet, but the format must exist before one is | Format specification; a `D` link option | Round-trip tests; a host tool that lists source for an address |
 

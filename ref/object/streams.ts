@@ -12,7 +12,7 @@ export function writeLineStream(
   blobs: BlobLines[],
 ): Uint8Array {
   const out = new ByteWriter();
-  out.ascii("BQLS");
+  out.ascii("BSIL");
   out.u8(1);
   out.u8(0);
   out.u16(stamp);
@@ -51,7 +51,7 @@ export function writeLineStream(
 
 export function readLineStream(bytes: Uint8Array) {
   const r = new ByteReader(bytes, "line stream");
-  if (r.ascii(4) !== "BQLS") throw new ObjectError("L-FORMAT", "bad magic");
+  if (r.ascii(4) !== "BSIL") throw new ObjectError("L-FORMAT", "bad magic");
   if (r.u8() !== 1 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
   const stamp = r.u16();
   const parts: string[] = [];
@@ -102,7 +102,7 @@ export function writeNameStream(
   names: { ordinal: number; name: string }[],
 ): Uint8Array {
   const out = new ByteWriter();
-  out.ascii("BSQM");
+  out.ascii("BSIN");
   out.u8(1);
   out.u8(0);
   out.u16(stamp);
@@ -119,7 +119,7 @@ export function writeNameStream(
 
 export function readNameStream(bytes: Uint8Array) {
   const r = new ByteReader(bytes, "name stream");
-  if (r.ascii(4) !== "BSQM") throw new ObjectError("L-FORMAT", "bad magic");
+  if (r.ascii(4) !== "BSIN") throw new ObjectError("L-FORMAT", "bad magic");
   if (r.u8() !== 1 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
   const stamp = r.u16();
   const names = new Map<number, string>();

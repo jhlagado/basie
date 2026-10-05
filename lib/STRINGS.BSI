@@ -1,4 +1,4 @@
-// Basiq standard library: strings (D25, D36). Each routine fails with
+// Basie standard library: strings (D25, D36). Each routine fails with
 // lineTooLong rather than exceed the destination's capacity.
 
 sub appendByte(var s as string[], b as u8) fails

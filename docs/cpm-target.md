@@ -1,4 +1,4 @@
-# Basiq CP/M target 1.0
+# Basie CP/M target 1.0
 
 - Status: draft specification, revision 3 (after two adversarial reviews)
 - Date: 2026-10-03
@@ -9,7 +9,7 @@
 
 ## 1. Scope
 
-This document defines how a linked Basiq program runs under CP/M 2.2 and CP/M 3
+This document defines how a linked Basie program runs under CP/M 2.2 and CP/M 3
 on a Z80 with 64K of RAM: the target profiles, the memory a program uses, what
 the runtime library's `startup` blob does, how a program exits, and how traps
 are reported. All of this code comes from the blob library for the profile;
@@ -148,7 +148,7 @@ the routine's prologue, which the line table maps to the routine's header.
 
 A program too large for the real machine never reaches startup. The CP/M 2.2
 CCP loads the file record by record and stops with `BAD LOAD` if the next record
-would reach its own base, so no Basiq message appears. A 62K system with the CCP
+would reach its own base, so no Basie message appears. A 62K system with the CCP
 at `$DC00` can load at most about 56,064 bytes; the exact figure depends on the
 CCP's comparison and may be 128 bytes less.
 
@@ -182,7 +182,7 @@ restores the saved entry stack pointer and returns to the CCP. This costs about
 The command tail is at `$0080`: a length byte followed by the text. The default
 FCB at `$005C` is 36 bytes long, running to `$007F`, and the second default FCB
 at `$006C` overlaps bytes 16 to 35 of the first. The CP/M 2.2 CCP converts the
-whole command line to upper case, so Basiq's argument interface cannot promise
+whole command line to upper case, so Basie's argument interface cannot promise
 to preserve case.
 
 ## 7. Re-running without reloading
@@ -216,7 +216,7 @@ and never `RST 0` or `RST 38h`. Both CP/M profiles declare none free. A profile
 variant that declares some has startup install them, and its library marks each
 installed helper as a root.
 
-A Basiq program does not change the interrupt mode or the `I` register, and
+A Basie program does not change the interrupt mode or the `I` register, and
 installs nothing at `$0038`.
 
 ## 9. Other CP/M environments
@@ -289,5 +289,5 @@ program's call.
 
 ### 10.3 Lookup
 
-The `BASIQ` executable's trap lookup mode turns the printed address into a
+The `BASIE` executable's trap lookup mode turns the printed address into a
 source position using the line table ([toolchain](toolchain.md), Section 8).

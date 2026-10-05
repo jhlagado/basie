@@ -1,6 +1,6 @@
 # Conformance tests
 
-Each test is a Basiq source file, `NAME.bsq`, whose leading comment lines state
+Each test is a Basie source file, `NAME.bsi`, whose leading comment lines state
 what the toolchain must do with it. The runner compiles, links and runs each
 test under the CP/M harness and compares the results.
 

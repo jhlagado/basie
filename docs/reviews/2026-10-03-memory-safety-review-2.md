@@ -568,7 +568,7 @@ owned local" presumably includes it, so the epilogue must walk it by
 descriptor and the routine must declare `frees nodes`; neither is said. Also
 unsaid: `take x.head` and `x.head = none` through a read-only ticket `x as
 Holder` must be errors, since both write the location. Nucleus lost read-only
-through aliases; Basiq has modes and must enforce them for these two
+through aliases; Basie has modes and must enforce them for these two
 operations or U7's reasoning fails for tickets.
 
 **Fix.** State all three.

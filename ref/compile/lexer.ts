@@ -1,5 +1,5 @@
 /**
- * The Basiq tokenizer (spec chapter 3). One source part at a time, one byte
+ * The Basie tokenizer (spec chapter 3). One source part at a time, one byte
  * of lookahead, no backtracking.
  */
 

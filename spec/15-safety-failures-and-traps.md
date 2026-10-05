@@ -3,7 +3,7 @@
 
 ## 15.1 Trap semantics
 
-A **trap** terminates Basiq source execution immediately. Source code cannot catch, handle, resume, mask, or convert it to a recoverable error. A trap performs no stack unwinding, frees no pool slot and runs no source cleanup action; the runtime's own end-of-run file handling still applies ([services](../docs/services.md), Section 7).
+A **trap** terminates Basie source execution immediately. Source code cannot catch, handle, resume, mask, or convert it to a recoverable error. A trap performs no stack unwinding, frees no pool slot and runs no source cleanup action; the runtime's own end-of-run file handling still applies ([services](../docs/services.md), Section 7).
 
 The implementation reports a stable symbolic trap reason and the best available location for the operation that failed. When source mapping is available, the report must identify the source span. Otherwise, it must identify the generated instruction location. Numeric trap encodings, transport records, monitor integration, and physical output belong to the Z80 runtime and backend contract.
 
@@ -11,7 +11,7 @@ Effects completed before the failing operation remain observable. The failing op
 
 ## 15.2 Required trap reasons
 
-Basiq 1.0 defines these trap reasons:
+Basie 1.0 defines these trap reasons:
 
 | Reason | Condition and point |
 | --- | --- |
@@ -46,4 +46,4 @@ A recoverable service error follows Chapter 14 and is not a trap while a source 
 
 ## 15.5 Host failures
 
-The execution environment must preserve a trap even if its reporting device or output stream is unavailable. It may fall back to a monitor code, halt state, or other documented target mechanism. Reporting failure must not resume the Basiq program or replace the original symbolic reason with an unrelated success outcome.
+The execution environment must preserve a trap even if its reporting device or output stream is unavailable. It may fall back to a monitor code, halt state, or other documented target mechanism. Reporting failure must not resume the Basie program or replace the original symbolic reason with an unrelated success outcome.

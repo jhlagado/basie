@@ -803,7 +803,7 @@ function buildLineTable(
   const bytes: number[] = [];
   const ascii = (t: string) =>
     bytes.push(...[...t].map((c) => c.charCodeAt(0)));
-  ascii("BQLT");
+  ascii("BSIT");
   bytes.push(1, 0, lines.parts.length, 0, 0);
   for (const p of lines.parts) {
     bytes.push(p.length);
