@@ -1,0 +1,952 @@
+{
+  "start": "compilation-unit",
+  "terminals": {
+    "TokenEof": "TK_EOF",
+    "TokenNewline": "TK_EOL",
+    "TokenName": "TK_NAME",
+    "TokenCharacter": "TK_CHAR",
+    "TokenNumber": "TK_NUM",
+    "TokenLeftParen": "TK_LPAR",
+    "TokenRightParen": "TK_RPAR",
+    "TokenEquals": "TK_EQ",
+    "TokenSub": "TK_SUB",
+    "TokenFails": "TK_FAILS",
+    "TokenFail": "TK_FAIL",
+    "TokenEnd": "TK_END",
+    "TokenVar": "TK_VAR",
+    "TokenAs": "TK_AS",
+    "TokenU8": "TK_U8",
+    "TokenFor": "TK_FOR",
+    "TokenUntil": "TK_UNTIL",
+    "TokenLeftBracket": "TK_LBRAC",
+    "TokenRightBracket": "TK_RBRAC",
+    "TokenComma": "TK_COMMA",
+    "TokenForward": "TK_FORW",
+    "TokenReturn": "TK_RET",
+    "TokenIf": "TK_IF",
+    "TokenMinus": "TK_MINUS",
+    "TokenPlus": "TK_PLUS",
+    "TokenU16": "TK_U16",
+    "TokenBoolean": "TK_BOOL",
+    "TokenTrue": "TK_TRUE",
+    "TokenFalse": "TK_FALSE",
+    "TokenConst": "TK_CONST",
+    "TokenNot": "TK_NOT",
+    "TokenElseIf": "TK_ELSIF",
+    "TokenElse": "TK_ELSE",
+    "TokenWhile": "TK_WHILE",
+    "TokenTo": "TK_TO",
+    "TokenStep": "TK_STEP",
+    "TokenExit": "TK_EXIT",
+    "TokenContinue": "TK_CONT",
+    "TokenStringLiteral": "TK_TEXT",
+    "TokenRecord": "TK_REC",
+    "TokenString": "TK_STR",
+    "TokenHandle": "TK_HANDL",
+    "TokenAssert": "TK_ASSRT"
+  },
+  "diagnosticCodes": {
+    "DiagnosticExpectedDeclaration": "DG_DECL",
+    "DiagnosticExpectedEqual": "DG_EQ",
+    "DiagnosticExpectedFail": "DG_KFAIL",
+    "DiagnosticExpectedFor": "DG_FOR",
+    "DiagnosticExpectedForward": "DG_FORW",
+    "DiagnosticExpectedIf": "DG_IF",
+    "DiagnosticExpectedLeft": "DG_LPAR",
+    "DiagnosticExpectedLine": "DG_EOL",
+    "DiagnosticExpectedLoop": "DG_LOOP",
+    "DiagnosticExpectedName": "DG_NAME",
+    "DiagnosticExpectedReturn": "DG_RET",
+    "DiagnosticExpectedRight": "DG_RPAR",
+    "DiagnosticExpectedScalar": "DG_VALUE",
+    "DiagnosticExpectedStatement": "DG_STMT",
+    "DiagnosticExpectedSub": "DG_SUB",
+    "DiagnosticExpectedToOrUntil": "DG_UPTO",
+    "DiagnosticExpectedType": "DG_TYPE",
+    "DiagnosticExpectedVar": "DG_VAR",
+    "DiagnosticRecordEmpty": "DG_EMPTY"
+  },
+  "diagnostics": {
+    "compilation-unit": "DiagnosticExpectedDeclaration",
+    "top-level-list": "DiagnosticExpectedDeclaration",
+    "top-level-declaration": "DiagnosticExpectedDeclaration",
+    "const-declaration": "DiagnosticExpectedDeclaration",
+    "const-declaration-tail": "DiagnosticExpectedEqual",
+    "assert-declaration": "DiagnosticExpectedDeclaration",
+    "program-var-declaration": "DiagnosticExpectedDeclaration",
+    "program-initializer-opt": "DiagnosticExpectedEqual",
+    "record-declaration": "DiagnosticExpectedDeclaration",
+    "record-fields": "DiagnosticRecordEmpty",
+    "record-field-tail": "DiagnosticExpectedName",
+    "record-field": "DiagnosticExpectedName",
+    "forward-declaration": "DiagnosticExpectedForward",
+    "sub-definition": "DiagnosticExpectedSub",
+    "sub-definition-tail": "DiagnosticExpectedLeft",
+    "parameter-list": "DiagnosticExpectedRight",
+    "parameter-tail": "DiagnosticExpectedRight",
+    "parameter": "DiagnosticExpectedName",
+    "result-opt": "DiagnosticExpectedLine",
+    "fails-opt": "DiagnosticExpectedLine",
+    "routine-body": "DiagnosticExpectedStatement",
+    "local-list": "DiagnosticExpectedStatement",
+    "local-declaration": "DiagnosticExpectedVar",
+    "local-initializer-opt": "DiagnosticExpectedLine",
+    "local-shape": "DiagnosticExpectedType",
+    "statement-sequence": "DiagnosticExpectedStatement",
+    "statement": "DiagnosticExpectedStatement",
+    "return-statement": "DiagnosticExpectedReturn",
+    "return-value-opt": "DiagnosticExpectedLine",
+    "fail-statement": "DiagnosticExpectedFail",
+    "name-statement-tail": "DiagnosticExpectedLine",
+    "transfer-statement": "DiagnosticExpectedLoop",
+    "if-statement": "DiagnosticExpectedIf",
+    "if-tail": "DiagnosticExpectedStatement",
+    "while-statement": "DiagnosticExpectedScalar",
+    "for-statement": "DiagnosticExpectedFor",
+    "for-bound": "DiagnosticExpectedToOrUntil",
+    "for-step-opt": "DiagnosticExpectedLine",
+    "type": "DiagnosticExpectedType",
+    "type-atom": "DiagnosticExpectedType",
+    "string-capacity": "DiagnosticExpectedScalar",
+    "type-array-opt": "DiagnosticExpectedScalar",
+    "scalar-type": "DiagnosticExpectedType"
+  },
+  "actions": {
+    "RequireMain": "AC_MAIN",
+    "RequireBeforeMain": "AC_EARLY",
+    "RetainDeclarationName": "AC_NAME",
+    "ConstantExpression": "AC_FOLD",
+    "FinishConstantExpression": "AC_VALUE",
+    "CommitConstant": "AC_CONST",
+    "SaveAggregateConstantType": "AC_ROOBJ",
+    "StaticInitializer": "AC_IMAGE",
+    "FinishProgramInitializer": "AC_EXACT",
+    "CommitAggregateConstant": "AC_ROCMT",
+    "BeginAssert": "AC_CLAIM",
+    "CommitAssert": "AC_PROVE",
+    "SaveProgramType": "AC_VAR",
+    "CommitProgramVariable": "AC_ALLOC",
+    "BeginRecord": "AC_REC",
+    "CommitRecord": "AC_RECOK",
+    "BeginRecordField": "AC_FIELD",
+    "CommitRecordField": "AC_PLACE",
+    "RetainSubName": "AC_SUB",
+    "BeginForward": "AC_PROTO",
+    "CommitForward": "AC_SEAL",
+    "BeginSub": "AC_SIG",
+    "BeginSubBody": "AC_BODY",
+    "EndSub": "AC_END",
+    "BeginForwardBody": "AC_IMPL",
+    "RetainParameter": "AC_PARAM",
+    "CommitParameter": "AC_JOIN",
+    "AllowSubResult": "AC_GIVES",
+    "SaveSubResult": "AC_GIVEN",
+    "MarkSubFails": "AC_FAILS",
+    "StrayClause": "AC_STRAY",
+    "SaveLocalType": "AC_LOCAL",
+    "CommitLocal": "AC_BIND",
+    "BeginLocalInitializer": "AC_INIT",
+    "RuntimeExpression": "AC_EXPR",
+    "FinishLocalInitializer": "AC_ADOPT",
+    "DefaultLocalInitializer": "AC_ZERO",
+    "NameStatement": "AC_STMT",
+    "BeginReturnValue": "AC_RET",
+    "ReturnValue": "AC_YIELD",
+    "CommitReturn": "AC_RETOP",
+    "CommitBareReturn": "AC_BARE",
+    "BeginFail": "AC_FAIL",
+    "CommitFail": "AC_THROW",
+    "BeginHandle": "AC_ONERR",
+    "EndHandle": "AC_NOERR",
+    "EmitExit": "AC_GOTO",
+    "EmitContinue": "AC_GOTO",
+    "BeginIf": "AC_IF",
+    "BeginIfBody": "AC_THEN",
+    "EndIf": "AC_ENDIF",
+    "BeginElseIf": "AC_ELIF",
+    "BeginElse": "AC_ELSE",
+    "FinishElse": "AC_TOTAL",
+    "FinishIfClauses": "AC_PART",
+    "BeginWhile": "AC_WHILE",
+    "BeginWhileBody": "AC_DO",
+    "EndWhile": "AC_LOOP",
+    "BeginFor": "AC_FOR",
+    "BeginForBody": "AC_FORDO",
+    "EndFor": "AC_NEXT",
+    "ForTo": "AC_FORTO",
+    "ForUntil": "AC_FORTO",
+    "StepConstant": "AC_BY",
+    "SaveForStep": "AC_STEP",
+    "DefaultForStep": "AC_BYONE",
+    "ResolveRecordType": "AC_NAMED",
+    "BeginTypeBound": "AC_IDLE",
+    "MakeStringType": "AC_STR",
+    "MakeOpenStringType": "AC_OPEN",
+    "SaveArrayBound": "AC_DIM",
+    "TypeU8": "AC_TYPE",
+    "TypeU16": "AC_TYPE",
+    "TypeBoolean": "AC_TYPE",
+    "MakeArrayTypes": "AC_ARRAY",
+    "LocalInitializer": "AC_LINIT",
+    "InferredInitializer": "AC_INFER"
+  },
+  "equates": {
+    "GR_STMT": "statement",
+    "GR_LOCAL": "local-declaration",
+    "GR_EXIT": "EmitExit",
+    "GR_CONT": "EmitContinue",
+    "GR_TO": "ForTo",
+    "GR_UNTIL": "ForUntil",
+    "GR_U8": "TypeU8",
+    "GR_U16": "TypeU16",
+    "GR_BOOL": "TypeBoolean"
+  },
+  "externals": {
+    "ConstantExpression": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "RuntimeExpression": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "StaticInitializer": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenLeftBracket",
+      "TokenStringLiteral",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "StepConstant": [
+      "TokenNumber",
+      "TokenName",
+      "TokenPlus",
+      "TokenMinus"
+    ],
+    "StrayClause": [
+      "TokenElse",
+      "TokenElseIf"
+    ],
+    "NameStatement": [
+      "TokenName"
+    ],
+    "ReturnValue": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "LocalInitializer": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenLeftBracket",
+      "TokenStringLiteral",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "InferredInitializer": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ]
+  },
+  "productions": [
+    {
+      "lhs": "compilation-unit",
+      "rhs": [
+        "top-level-list",
+        "a:RequireMain",
+        "TokenEof"
+      ]
+    },
+    {
+      "lhs": "top-level-list",
+      "rhs": [
+        "top-level-declaration",
+        "top-level-list"
+      ]
+    },
+    {
+      "lhs": "top-level-list",
+      "rhs": []
+    },
+    {
+      "lhs": "top-level-declaration",
+      "rhs": [
+        "const-declaration"
+      ]
+    },
+    {
+      "lhs": "top-level-declaration",
+      "rhs": [
+        "assert-declaration"
+      ]
+    },
+    {
+      "lhs": "top-level-declaration",
+      "rhs": [
+        "program-var-declaration"
+      ]
+    },
+    {
+      "lhs": "top-level-declaration",
+      "rhs": [
+        "record-declaration"
+      ]
+    },
+    {
+      "lhs": "top-level-declaration",
+      "rhs": [
+        "forward-declaration"
+      ]
+    },
+    {
+      "lhs": "top-level-declaration",
+      "rhs": [
+        "sub-definition"
+      ]
+    },
+    {
+      "lhs": "const-declaration",
+      "rhs": [
+        "a:RequireBeforeMain",
+        "TokenConst",
+        "TokenName",
+        "a:RetainDeclarationName",
+        "const-declaration-tail"
+      ]
+    },
+    {
+      "lhs": "const-declaration-tail",
+      "rhs": [
+        "TokenEquals",
+        "x:ConstantExpression",
+        "a:FinishConstantExpression",
+        "TokenNewline",
+        "a:CommitConstant"
+      ]
+    },
+    {
+      "lhs": "const-declaration-tail",
+      "rhs": [
+        "TokenAs",
+        "type",
+        "a:SaveAggregateConstantType",
+        "TokenEquals",
+        "x:StaticInitializer",
+        "a:FinishProgramInitializer",
+        "TokenNewline",
+        "a:CommitAggregateConstant"
+      ]
+    },
+    {
+      "lhs": "assert-declaration",
+      "rhs": [
+        "a:RequireBeforeMain",
+        "a:BeginAssert",
+        "TokenAssert",
+        "x:ConstantExpression",
+        "TokenNewline",
+        "a:CommitAssert"
+      ]
+    },
+    {
+      "lhs": "program-var-declaration",
+      "rhs": [
+        "a:RequireBeforeMain",
+        "TokenVar",
+        "TokenName",
+        "a:RetainDeclarationName",
+        "TokenAs",
+        "type",
+        "a:SaveProgramType",
+        "program-initializer-opt",
+        "TokenNewline",
+        "a:CommitProgramVariable"
+      ]
+    },
+    {
+      "lhs": "program-initializer-opt",
+      "rhs": [
+        "TokenEquals",
+        "x:StaticInitializer",
+        "a:FinishProgramInitializer"
+      ]
+    },
+    {
+      "lhs": "program-initializer-opt",
+      "rhs": []
+    },
+    {
+      "lhs": "record-declaration",
+      "rhs": [
+        "a:RequireBeforeMain",
+        "TokenRecord",
+        "TokenName",
+        "a:BeginRecord",
+        "TokenNewline",
+        "record-fields",
+        "TokenEnd",
+        "TokenNewline",
+        "a:CommitRecord"
+      ]
+    },
+    {
+      "lhs": "record-fields",
+      "rhs": [
+        "record-field",
+        "record-field-tail"
+      ]
+    },
+    {
+      "lhs": "record-field-tail",
+      "rhs": [
+        "record-field",
+        "record-field-tail"
+      ]
+    },
+    {
+      "lhs": "record-field-tail",
+      "rhs": []
+    },
+    {
+      "lhs": "record-field",
+      "rhs": [
+        "TokenName",
+        "a:BeginRecordField",
+        "TokenAs",
+        "type",
+        "TokenNewline",
+        "a:CommitRecordField"
+      ]
+    },
+    {
+      "lhs": "forward-declaration",
+      "rhs": [
+        "TokenForward",
+        "TokenSub",
+        "TokenName",
+        "a:RetainSubName",
+        "a:BeginForward",
+        "TokenLeftParen",
+        "parameter-list",
+        "TokenRightParen",
+        "result-opt",
+        "fails-opt",
+        "TokenNewline",
+        "a:CommitForward"
+      ]
+    },
+    {
+      "lhs": "sub-definition",
+      "rhs": [
+        "TokenSub",
+        "TokenName",
+        "a:RetainSubName",
+        "sub-definition-tail"
+      ]
+    },
+    {
+      "lhs": "sub-definition-tail",
+      "rhs": [
+        "a:BeginSub",
+        "TokenLeftParen",
+        "parameter-list",
+        "TokenRightParen",
+        "result-opt",
+        "fails-opt",
+        "TokenNewline",
+        "a:BeginSubBody",
+        "routine-body",
+        "a:EndSub"
+      ]
+    },
+    {
+      "lhs": "sub-definition-tail",
+      "rhs": [
+        "a:BeginForwardBody",
+        "TokenNewline",
+        "routine-body",
+        "a:EndSub"
+      ]
+    },
+    {
+      "lhs": "parameter-list",
+      "rhs": [
+        "parameter",
+        "parameter-tail"
+      ]
+    },
+    {
+      "lhs": "parameter-list",
+      "rhs": []
+    },
+    {
+      "lhs": "parameter-tail",
+      "rhs": [
+        "TokenComma",
+        "parameter",
+        "parameter-tail"
+      ]
+    },
+    {
+      "lhs": "parameter-tail",
+      "rhs": []
+    },
+    {
+      "lhs": "parameter",
+      "rhs": [
+        "TokenName",
+        "a:RetainParameter",
+        "TokenAs",
+        "type",
+        "a:CommitParameter"
+      ]
+    },
+    {
+      "lhs": "result-opt",
+      "rhs": [
+        "TokenAs",
+        "a:AllowSubResult",
+        "type",
+        "a:SaveSubResult"
+      ]
+    },
+    {
+      "lhs": "result-opt",
+      "rhs": []
+    },
+    {
+      "lhs": "fails-opt",
+      "rhs": [
+        "TokenFails",
+        "a:MarkSubFails"
+      ]
+    },
+    {
+      "lhs": "fails-opt",
+      "rhs": []
+    },
+    {
+      "lhs": "routine-body",
+      "rhs": [
+        "local-list",
+        "statement-sequence",
+        "TokenEnd",
+        "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "routine-body",
+      "rhs": [
+        "x:StrayClause"
+      ]
+    },
+    {
+      "lhs": "local-list",
+      "rhs": [
+        "local-declaration",
+        "local-list"
+      ]
+    },
+    {
+      "lhs": "local-list",
+      "rhs": []
+    },
+    {
+      "lhs": "local-declaration",
+      "rhs": [
+        "TokenVar",
+        "TokenName",
+        "a:RetainDeclarationName",
+        "local-shape",
+        "TokenNewline",
+        "a:CommitLocal"
+      ]
+    },
+    {
+      "lhs": "local-initializer-opt",
+      "rhs": [
+        "TokenEquals",
+        "a:BeginLocalInitializer",
+        "x:LocalInitializer",
+        "a:FinishLocalInitializer"
+      ]
+    },
+    {
+      "lhs": "local-initializer-opt",
+      "rhs": [
+        "a:DefaultLocalInitializer"
+      ]
+    },
+    {
+      "lhs": "statement-sequence",
+      "rhs": [
+        "statement",
+        "statement-sequence"
+      ]
+    },
+    {
+      "lhs": "statement-sequence",
+      "rhs": []
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "x:NameStatement",
+        "name-statement-tail"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "return-statement",
+        "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "fail-statement",
+        "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "transfer-statement",
+        "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "if-statement"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "while-statement"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "for-statement"
+      ]
+    },
+    {
+      "lhs": "return-statement",
+      "rhs": [
+        "TokenReturn",
+        "a:BeginReturnValue",
+        "return-value-opt"
+      ]
+    },
+    {
+      "lhs": "return-value-opt",
+      "rhs": [
+        "x:ReturnValue",
+        "a:CommitReturn"
+      ]
+    },
+    {
+      "lhs": "return-value-opt",
+      "rhs": [
+        "a:CommitBareReturn"
+      ]
+    },
+    {
+      "lhs": "fail-statement",
+      "rhs": [
+        "TokenFail",
+        "a:BeginFail",
+        "x:RuntimeExpression",
+        "a:CommitFail"
+      ]
+    },
+    {
+      "lhs": "name-statement-tail",
+      "rhs": [
+        "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "name-statement-tail",
+      "rhs": [
+        "TokenHandle",
+        "TokenName",
+        "a:BeginHandle",
+        "TokenNewline",
+        "statement-sequence",
+        "TokenEnd",
+        "TokenNewline",
+        "a:EndHandle"
+      ]
+    },
+    {
+      "lhs": "transfer-statement",
+      "rhs": [
+        "TokenExit",
+        "a:EmitExit"
+      ]
+    },
+    {
+      "lhs": "transfer-statement",
+      "rhs": [
+        "TokenContinue",
+        "a:EmitContinue"
+      ]
+    },
+    {
+      "lhs": "if-statement",
+      "rhs": [
+        "TokenIf",
+        "a:BeginIf",
+        "x:RuntimeExpression",
+        "TokenNewline",
+        "a:BeginIfBody",
+        "statement-sequence",
+        "if-tail",
+        "TokenEnd",
+        "TokenNewline",
+        "a:EndIf"
+      ]
+    },
+    {
+      "lhs": "if-tail",
+      "rhs": [
+        "TokenElseIf",
+        "a:BeginElseIf",
+        "x:RuntimeExpression",
+        "TokenNewline",
+        "a:BeginIfBody",
+        "statement-sequence",
+        "if-tail"
+      ]
+    },
+    {
+      "lhs": "if-tail",
+      "rhs": [
+        "TokenElse",
+        "a:BeginElse",
+        "TokenNewline",
+        "statement-sequence",
+        "a:FinishElse"
+      ]
+    },
+    {
+      "lhs": "if-tail",
+      "rhs": [
+        "a:FinishIfClauses"
+      ]
+    },
+    {
+      "lhs": "while-statement",
+      "rhs": [
+        "TokenWhile",
+        "a:BeginWhile",
+        "x:RuntimeExpression",
+        "TokenNewline",
+        "a:BeginWhileBody",
+        "statement-sequence",
+        "TokenEnd",
+        "TokenNewline",
+        "a:EndWhile"
+      ]
+    },
+    {
+      "lhs": "for-statement",
+      "rhs": [
+        "TokenFor",
+        "TokenName",
+        "a:BeginFor",
+        "TokenEquals",
+        "x:RuntimeExpression",
+        "for-bound",
+        "x:RuntimeExpression",
+        "for-step-opt",
+        "TokenNewline",
+        "a:BeginForBody",
+        "statement-sequence",
+        "TokenEnd",
+        "TokenNewline",
+        "a:EndFor"
+      ]
+    },
+    {
+      "lhs": "for-bound",
+      "rhs": [
+        "TokenTo",
+        "a:ForTo"
+      ]
+    },
+    {
+      "lhs": "for-bound",
+      "rhs": [
+        "TokenUntil",
+        "a:ForUntil"
+      ]
+    },
+    {
+      "lhs": "for-step-opt",
+      "rhs": [
+        "TokenStep",
+        "x:StepConstant",
+        "a:SaveForStep"
+      ]
+    },
+    {
+      "lhs": "for-step-opt",
+      "rhs": [
+        "a:DefaultForStep"
+      ]
+    },
+    {
+      "lhs": "type",
+      "rhs": [
+        "type-atom",
+        "type-array-opt",
+        "a:MakeArrayTypes"
+      ]
+    },
+    {
+      "lhs": "type-atom",
+      "rhs": [
+        "scalar-type"
+      ]
+    },
+    {
+      "lhs": "type-atom",
+      "rhs": [
+        "TokenName",
+        "a:ResolveRecordType"
+      ]
+    },
+    {
+      "lhs": "type-atom",
+      "rhs": [
+        "TokenString",
+        "TokenLeftBracket",
+        "string-capacity",
+        "TokenRightBracket"
+      ]
+    },
+    {
+      "lhs": "string-capacity",
+      "rhs": [
+        "a:BeginTypeBound",
+        "x:ConstantExpression",
+        "a:MakeStringType"
+      ]
+    },
+    {
+      "lhs": "string-capacity",
+      "rhs": [
+        "a:MakeOpenStringType"
+      ]
+    },
+    {
+      "lhs": "type-array-opt",
+      "rhs": [
+        "TokenLeftBracket",
+        "a:BeginTypeBound",
+        "x:ConstantExpression",
+        "TokenRightBracket",
+        "a:SaveArrayBound",
+        "type-array-opt"
+      ]
+    },
+    {
+      "lhs": "type-array-opt",
+      "rhs": []
+    },
+    {
+      "lhs": "scalar-type",
+      "rhs": [
+        "TokenU8",
+        "a:TypeU8"
+      ]
+    },
+    {
+      "lhs": "scalar-type",
+      "rhs": [
+        "TokenU16",
+        "a:TypeU16"
+      ]
+    },
+    {
+      "lhs": "scalar-type",
+      "rhs": [
+        "TokenBoolean",
+        "a:TypeBoolean"
+      ]
+    },
+    {
+      "lhs": "local-shape",
+      "rhs": [
+        "TokenAs",
+        "type",
+        "a:SaveLocalType",
+        "local-initializer-opt"
+      ]
+    },
+    {
+      "lhs": "local-shape",
+      "rhs": [
+        "TokenEquals",
+        "x:InferredInitializer",
+        "a:FinishLocalInitializer"
+      ]
+    }
+  ]
+}

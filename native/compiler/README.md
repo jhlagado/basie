@@ -11,6 +11,7 @@ licence.
 
 ```text
 deno task build:compiler     build BASIE.COM and BASIE.OVL and report the extents
+deno task grammar            generate GRAMMAR.ASM from grammar/grammar.json
 deno task census:basie       size by file, against the 26K target and 28K limit,
                              then the overlays and the overlay area
 ```
@@ -85,13 +86,13 @@ number, code, position and arguments against the reference's.
 | `OVERLAY.ASM` | `OV_` | Resident: the overlay loader and `BASIE.OVL`'s format |
 | `CHAIN.ASM` | `CH_` | The chain to `BLINK.COM`: its tail, and the loader copied to the top of memory; overlay `CHAIN` |
 
-`GRAMMAR.ASM` was generated from Nucleus's grammar (`grammar/stage7-grammar.json`).
-The generator, which wrote AZM, was retired with the conversion. Step 67 brings
-a generator for Basie's grammar that writes ATOM under the `GR_` scheme
-([native compiler](../../docs/native-compiler.md) §2). Until then the tables
-are edited by hand and the JSON is kept in step with them (65.4 h: locals of
-any type, and arrays of arrays; 65.4 i: a local whose type is inferred from
-its initializer).
+`GRAMMAR.ASM` is generated from the grammar, `grammar/grammar.json`, by
+`tools/llgen.ts` (`deno task grammar`; [grammar](grammar/README.md)), which
+computes the prediction rows and every offset under the `GR_` scheme
+([native compiler](../../docs/native-compiler.md) §2);
+`tests/llgen_test.ts` checks the tables are current. The grammar began as
+Nucleus's, and from the conversion to ATOM until step 67 its tables were
+edited by hand.
 
 ## State
 
