@@ -20,7 +20,7 @@ Deno.test("BASIE.COM is the recorded image and within budget", async () => {
   // same commit, with the census figure in its message (D43).
   assertEquals(hex, DIGEST);
   assertEquals(image.core, 13_692);
-  assertEquals(image.com.length, 14_749);
+  assertEquals(image.com.length, 15_897);
   assertEquals(image.com.length <= LIMIT, true, `over the ${LIMIT}-byte limit`);
   console.log(
     `  BASIE.COM ${image.com.length} bytes: ${
@@ -30,4 +30,4 @@ Deno.test("BASIE.COM is the recorded image and within budget", async () => {
 });
 
 const DIGEST =
-  "afe910d96578e736e71cb2d2ae95b2225c3c5abe69eeed002e1b55d9f57575c1";
+  "035ef60c7a825c08b5a109b90d1796a4cfb31310e5bd5c7891b59e3aacee0929";

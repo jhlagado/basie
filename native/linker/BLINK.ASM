@@ -110,18 +110,18 @@ LK_BUSY:                       ; Nonzero once linking has begun.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,ZERO,SIGN,PARITY,HALFCARRY
 ; Open NAME.BRL: on the drive option L gives, else the first part's drive,
-; then A: (toolchain §5.3). Carry after a diagnostic.
+; then on A: (toolchain §5.3, §7.3). Carry after a diagnostic.
 
 LIB_OPEN:                      ; LIB_FILE is the library's name.
     LD   IX,LIB_FD                 ; The library's FD.
     LD   A,(LIB_DISK)              ; Option L's drive,
     OR   A                         ; if given,
-    JR   NZ,.ONLY                  ; is the only place to look.
-    LD   A,(CMD_DISK)              ; The first part's drive.
+    JR   NZ,.FIRST                 ; is the first place to look;
+    LD   A,(CMD_DISK)              ; else the first part's drive.
+.FIRST:                        ; A is the first drive to try.
     CALL .TRY                      ; Open it there.
     RET  NC                        ; Found.
     LD   A,1                       ; Then A:.
-.ONLY:                         ; A is the last drive to try.
     CALL .TRY                      ; Open it there.
     RET  NC                        ; Found.
     CALL LIB_ARG                   ; The library's name is argument 1.

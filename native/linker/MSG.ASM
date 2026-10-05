@@ -191,18 +191,15 @@ DG_SAY:                        ; HL is "Error " or "Warning ".
 
 ;@ROUTINE OUT IX,CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; Open BASIE.MSG and check its magic: on the library drive (option L) if
-; given, else the current drive, then A:. Carry if it can't be used.
+; given, else the current drive, then on A: (toolchain §7.3). Carry if it
+; can't be used.
 
 .OPEN:                         ; IX becomes the message file's FD.
     LD   IX,MSG_FD                 ; The message file has its own FD.
     LD   A,(LIB_DISK)              ; Option L's drive, or 0 for the current one.
     CALL .TRY                      ; Open the file there and check it.
     RET  NC                        ; Found and sound.
-    LD   A,(LIB_DISK)              ; Was a drive given with option L?
-    OR   A                         ; Nonzero if so.
-    SCF                            ; Report the file as unusable,
-    RET  NZ                        ; since option L names the only place to look.
-    LD   A,1                       ; Otherwise try drive A:.
+    LD   A,1                       ; Then try drive A:.
 
 ;@ROUTINE IN A,IX OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; Open BASIE.MSG on drive A (0 the current drive) and check its magic,

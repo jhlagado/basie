@@ -3,7 +3,11 @@
  * decision D45). Each claimed program in tests/native/programs is compiled
  * by the reference compiler with branch shrinking off and by BASIE.COM under
  * the CP/M harness, and NAME.$DR, $BY, $LN and $NM must agree byte for byte
- * before CP/M's padding of the last record, which must be zeros. The claimed
+ * before CP/M's padding of the last record, which must be zeros. BASIE.COM
+ * chooses each compilation's stamp as object format §4.1 asks, from the
+ * source and the R register, where the reference always writes 1, so the
+ * reference is given the stamp the native run chose (CompileOptions.stamp)
+ * and the streams, their CRCs included, are compared whole. The claimed
  * set only grows: a program once claimed must keep matching (native compiler
  * plan, 65.4).
  */
@@ -99,23 +103,36 @@ const CLAIMED: Record<string, string[]> = {
   ],
 };
 
+/** The CPM22 library, which BASIE.COM checks before it compiles. */
+const LIBRARY = (await buildRuntime()).file;
+
 /** Compile NAME with BASIE.COM and the options; return the disk. */
 function native(name: string, options = "") {
   const source = Deno.readFileSync(path(name));
   const run = runCom(basie, {
     tail: `${name}${options}`,
-    files: { [`${name}.BSI`]: source },
+    files: { [`${name}.BSI`]: source, "CPM22.BRL": LIBRARY },
     maxSteps: 50_000_000,
   });
   assertEquals(run.output, "", `${name}${options}`);
   return run.disk;
 }
 
-/** The reference's four streams for NAME, compiled with shrinking off. */
-async function reference(name: string) {
+/** The compilation stamp BASIE.COM gave NAME's streams on a disk. */
+function stampOf(disk: Map<string, Uint8Array>, name: string) {
+  const directory = disk.get(`${name}.$DR`)!;
+  return directory[6] | (directory[7] << 8);
+}
+
+/**
+ * The reference's four streams for NAME, compiled with shrinking off and
+ * the stamp the native run on the disk chose.
+ */
+async function reference(name: string, disk: Map<string, Uint8Array>) {
   const result = await compile(`${name}.BSI`, {
     shrink: false,
     mainSource: Deno.readFileSync(path(name)),
+    stamp: stampOf(disk, name),
   });
   if (!result.ok) {
     throw new Error(
@@ -146,18 +163,26 @@ function same(
 for (const [stage, names] of Object.entries(CLAIMED)) {
   for (const name of names) {
     Deno.test(`${stage}: ${name} compiles to the reference's streams`, async () => {
-      const streams = await reference(name);
       const disk = native(name, " [M]");
+      const streams = await reference(name, disk);
       for (const [type, expected] of Object.entries(streams)) {
         same(`${name}.${type}`, disk.get(`${name}.${type}`), expected);
       }
       // Without M or Y there is no name stream; with N, no line stream.
       const plain = native(name);
       assertEquals(plain.has(`${name}.$NM`), false);
-      same(`${name}.$DR`, plain.get(`${name}.$DR`), streams.$DR);
+      same(
+        `${name}.$DR`,
+        plain.get(`${name}.$DR`),
+        (await reference(name, plain)).$DR,
+      );
       const lineless = native(name, " [N]");
       assertEquals(lineless.has(`${name}.$LN`), false);
-      same(`${name}.$BY`, lineless.get(`${name}.$BY`), streams.$BY);
+      same(
+        `${name}.$BY`,
+        lineless.get(`${name}.$BY`),
+        (await reference(name, lineless)).$BY,
+      );
     });
   }
 }
@@ -281,14 +306,15 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     const source = new TextEncoder().encode(
       `${head}${body}\nend\n${tail}`,
     );
+    const run = runCom(basie, {
+      tail: "RANDOM",
+      files: { "RANDOM.BSI": source, "CPM22.BRL": LIBRARY },
+      maxSteps: 50_000_000,
+    });
     const ref = await compile("RANDOM.BSI", {
       shrink: false,
       mainSource: source,
-    });
-    const run = runCom(basie, {
-      tail: "RANDOM",
-      files: { "RANDOM.BSI": source },
-      maxSteps: 50_000_000,
+      stamp: run.disk.has("RANDOM.$DR") ? stampOf(run.disk, "RANDOM") : 1,
     });
     if (!ref.ok) {
       assertEquals(
@@ -312,7 +338,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
   const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));
   const library: Record<string, Uint8Array> = {
     "BASIE.MSG": messageFile(),
-    "CPM22.BRL": (await buildRuntime()).file,
+    "CPM22.BRL": LIBRARY,
   };
   // TRAP's arithmetic decides which of its two narrowings traps; RECURSE,
   // RUNFLOW and RUNPATHS reach their last statement's trap only when their
@@ -582,7 +608,7 @@ for (const [what, text] of Object.entries(REFUSED)) {
     assertEquals(ref.ok, false, "the reference accepts it");
     const run = runCom(basie, {
       tail: "REFUSED",
-      files: { "REFUSED.BSI": source },
+      files: { "REFUSED.BSI": source, "CPM22.BRL": LIBRARY },
       maxSteps: 50_000_000,
     });
     assertEquals(/ Error \d+\r\n$/.test(run.output), true, run.output);

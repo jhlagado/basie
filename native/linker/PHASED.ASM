@@ -59,12 +59,8 @@ PD_RUN:                        ; Phase C has placed everything.
     JP   C,OUT_FAIL                ; L-IO.
     LD   A,1                       ; NAME.$$$ exists now,
     LD   (OUT_MADE),A              ; so a failure deletes it.
-    LD   IX,SRC_LIB                ; The library's byte section, through a second FD:
-    LD   A,(LIB_DISK)              ; on option L's drive,
-    OR   A                         ; if given,
-    JR   NZ,.LIBDISK               ; it was;
-    LD   A,(LIB_FD+FD_FCB)         ; else the drive the library was found on.
-.LIBDISK:                      ; A is the library's drive.
+    LD   IX,SRC_LIB                ; The library's byte section, through a second FD,
+    LD   A,(LIB_FD+FD_FCB)         ; on the drive the library was found on.
     LD   HL,LIB_FILE               ; Its name,
     LD   DE,LIB_TYPE               ; type BRL,
     LD   BC,LIB_TEXT               ; named in LIB_TEXT.

@@ -121,6 +121,7 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | One array type or object | 1,024 bytes (`AG_ICAP`), the initializer staging, even without an initializer; `DG_DATA` beyond | writing initializers to the blob as they are parsed |
 | Constructs compiled | those of the claimed programs of 65.4 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 95), among them the services with a `u32` parameter or result (`seek`, `position`, `size`) and `File` fields, elements, results and program-variable initializers | step 67 |
 | `File` values | `console`, `printer`, a service's result or a File variable, and only where a File is expected (an argument, an assignment, a File local's initializer); a File as an operand, as in `f = console`, is refused (`DG_CLASH`, Error 60) | step 67 |
+| Option `T`, trap lookup (toolchain §8) | read and checked, then refused as not yet available | a later step |
 | Local declarations | before a routine body's first statement, not inside its blocks (the forked grammar's `local-list`); a later one is refused (`DG_VALUE`, Error 58) | the scoped symbol table (step 67) |
 | Exact constant values | 0 to 65,535 while folding; a value outside it, a negative one included, is refused (`DG_RANGE`, Error 61) where the spec allows −2^31 to 2^32 − 1 | 32-bit folding with the 32-bit types (step 67) |
 
@@ -138,8 +139,8 @@ roadmap step 63, and rescaled for the current image:
 Table space is the memory from the end of BLINK's image (`FREEMEM`, which is
 `$0100` plus the image's length) to the stack margin, 768 bytes below the BDOS
 entry. It therefore grows by every byte the image loses. With the image at
-10,888 bytes, `FREEMEM` is `$2B88` and table space is `$E406` − `$0300` −
-`$2B88` = 46,462 bytes (45.4K). At step 63 the image was 12,262 bytes and the
+10,876 bytes, `FREEMEM` is `$2B7C` and table space is `$E406` − `$0300` −
+`$2B7C` = 46,474 bytes (45.4K). At step 63 the image was 12,262 bytes and the
 same method gives 45,088 bytes (44.0K; this section said 44.7K then). The blob
 count is the step-63 measurement scaled by the ratio of the two, 1.030,
 since tables of few references cost the same bytes per blob; it is an estimate

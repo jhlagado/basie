@@ -62,6 +62,12 @@ export type CompileOptions = SourceOptions & {
   mainSource?: Uint8Array;
   /** Shrink forward jumps to JR (default on; off to measure the gain). */
   shrink?: boolean;
+  /**
+   * The compilation stamp written into every stream (object format §4.1),
+   * 1 by default. A test sets it to the stamp the native compiler chose, to
+   * compare the two compilers' streams byte for byte.
+   */
+  stamp?: number;
 };
 
 let cachedLibrary: Library | undefined;
@@ -104,7 +110,7 @@ export async function compile(
       options.shrink ?? true,
     );
     const program = compiler.compile();
-    const stamp = 1;
+    const stamp = options.stamp ?? 1;
     const dir = {
       header: defaultHeader({
         stamp,

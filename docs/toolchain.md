@@ -296,7 +296,9 @@ it to 12,566; the compression pass that followed (shared file routines, padded
 map labels, a row pointer for the pseudo-objects, `JR` where in range, and
 buffers that share memory between phases) brought it to 10,887 bytes. The
 fixes from the commentary pass's review, with their own compression pass,
-left it at 10,888 bytes: 1,400 under the target.
+left it at 10,888 bytes: 1,400 under the target. Looking for the library and
+`BASIE.MSG` on drive `A:` after option `L`'s drive, as Section 7.3 says,
+where it had looked on `L`'s drive alone, took it to 10,876 bytes.
 
 ### 7.3 Overlays and the message file
 

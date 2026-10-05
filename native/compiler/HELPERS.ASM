@@ -10,6 +10,9 @@
 ;  figure (the bytes a returning call uses, its return address
 ;  included) in its high byte. EM_HELP and EM_JPH read it as the word
 ;  after their CALL; a trap site (EM_TRAP) takes the ordinal alone.
+;  HP_VER and HP_KEY are the helper-table version the compiler is built
+;  for and that version's interface key, which the directory header
+;  carries and the library's key table must hold (section 10).
 
 HP_RETN EQU  $0209             ; RETN: ordinal $09, 2 bytes of stack.
 HP_STACK EQU  $020A            ; STK_CHK: ordinal $0A, 2 bytes of stack.
@@ -18,3 +21,5 @@ HP_TRUNC EQU  $020B            ; TRAP_NAR: ordinal $0B, 2 bytes of stack.
 HP_LOOP EQU  $020F             ; TRAP_LOO: ordinal $0F, 2 bytes of stack.
 HP_MUL16 EQU  $0216            ; MUL16: ordinal $16, 2 bytes of stack.
 HP_DIV16 EQU  $0217            ; DIV16: ordinal $17, 2 bytes of stack.
+HP_VER EQU  1                  ; The helper-table version compiled in.
+HP_KEY EQU  $5524              ; Its interface key.

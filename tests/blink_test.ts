@@ -36,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 10_888);
+  assertEquals(blink.length, 10_876);
 });
 
 const BLINK_DIGEST =
-  "e1264a4925c3e685fe75b5aab2a29fc56a258147e87a82b6af33625acca8a971";
+  "242815baca55fee833686d26e28f28696bf79f5aefa2ed62829f7b4b30b88e68";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
@@ -98,6 +98,25 @@ Deno.test("BLINK looks for the library named by P=", () => {
       "HELLO.$LN": HELLO_LN,
     }),
     "",
+  );
+});
+
+Deno.test("BLINK looks for the library and messages on L's drive, then A:", () => {
+  const files = {
+    "HELLO.$DR": HELLO_DR,
+    "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
+  };
+  // On drive C, as L says; then on A:, as toolchain §7.3 has it.
+  assertEquals(run("HELLO [L=C]", { ...files, "C:CPM22.BRL": library }), "");
+  assertEquals(run("HELLO [L=C]", { ...files, "CPM22.BRL": library }), "");
+  assertEquals(
+    run("HELLO [L=C]", { ...files, "B:CPM22.BRL": library, "BASIE.MSG": MSG }),
+    error(225, ["CPM22.BRL"]),
+  );
+  assertEquals(
+    run("HELLO [L=C]", { ...files, "C:BASIE.MSG": MSG }),
+    error(225, ["CPM22.BRL"]),
   );
 });
 

@@ -127,8 +127,16 @@ export function nativeHelpers(built: BuiltLibrary): string {
     ";  figure (the bytes a returning call uses, its return address",
     ";  included) in its high byte. EM_HELP and EM_JPH read it as the word",
     ";  after their CALL; a trap site (EM_TRAP) takes the ordinal alone.",
+    ";  HP_VER and HP_KEY are the helper-table version the compiler is built",
+    ";  for and that version's interface key, which the directory header",
+    ";  carries and the library's key table must hold (section 10).",
     "",
     ...rows,
+    `HP_VER EQU  ${built.helperVersion}`.padEnd(31) +
+    "; The helper-table version compiled in.",
+    `HP_KEY EQU  ${hex(built.helperKeys[built.helperVersion - 1], 4)}`.padEnd(
+      31,
+    ) + "; Its interface key.",
     "",
   ].join("\n");
 }

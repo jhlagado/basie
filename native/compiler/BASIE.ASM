@@ -21,7 +21,9 @@
 ;  workspace layout and the constants every module shares. HEAD.ASM places
 ;  the first byte at $0100. The shell comes last, so its code and data end
 ;  the image; KEYWORDS.ASM and PREDEF.ASM hold the compiler's immutable
-;  tables just before it.
+;  tables just before it. COMMAND.ASM and LIBRARY.ASM are the shell's
+;  one-shot code, which step 66 moves to an overlay. The two markers below
+;  the includes end the image: ATOM assembles this file's own lines last.
 
 %INCLUDE "MEMORY.ASM"              ; Memory map: image, workspace, source.
 %INCLUDE "STATE.ASM"               ; Parser workspace and shared constants.
@@ -53,4 +55,9 @@
 %INCLUDE "GENCALL.ASM"             ; Routines, declarations and limits.
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.
 %INCLUDE "PREDEF.ASM"              ; Predeclared constants and services.
-%INCLUDE "SHELL.ASM"               ; The CP/M shell, last in the image.
+%INCLUDE "SHELL.ASM"               ; The CP/M shell.
+%INCLUDE "COMMAND.ASM"             ; The shell's command line.
+%INCLUDE "LIBRARY.ASM"             ; The library check and the stamp.
+
+SH_CEND:                       ; End of the shell, which the build measures from SH_CBEG.
+MM_END:                        ; End of BASIE.COM; the build checks it does not pass MM_WBASE.

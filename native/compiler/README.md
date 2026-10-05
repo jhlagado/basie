@@ -17,7 +17,8 @@ deno task census:basie       size by file, against the 26K target and 28K limit
 ## Files
 
 `BASIE.ASM` includes the others in image order. ATOM assembles each included
-file before its includer, so the list is the layout.
+file before its includer, so the list is the layout, and `BASIE.ASM`'s own
+two lines, the markers that end the shell and the image, come last.
 
 Code is generated as it is parsed, in the reference compiler's templates,
 and each routine and top-level declaration is written as a blob (design
@@ -31,7 +32,7 @@ byte for byte. A construct not yet generated this way is refused with Error
 | --- | --- | --- |
 | `MEMORY.ASM` | `MM_` | Memory map: the image, workspaces and resident source |
 | `STATE.ASM`, `CALLWORK.ASM` | various | Workspace layout, diagnostic numbers, transcript operations, token kinds |
-| `HELPERS.ASM` | `HP_` | The runtime helpers the generators call: ordinal and stack figure, generated with the reference's helper table by `deno task helpers` (`tests/helper_table_test.ts` checks it is current) |
+| `HELPERS.ASM` | `HP_` | The runtime helpers the generators call: ordinal and stack figure; the helper-table version and key compiled in; generated with the reference's helper table by `deno task helpers` (`tests/helper_table_test.ts` checks it is current) |
 | `HEAD.ASM` | `MM_` | The jump to the shell at `$0100` |
 | `SOURCE.ASM` | `SRC_` | Source parts |
 | `TOKEN.ASM` | `TK_` | Tokenizer |
@@ -47,7 +48,9 @@ byte for byte. A construct not yet generated this way is refused with Error
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, prologues (checked for a forward routine) and exits (through `RETN` when there are arguments), the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
 | `PREDEF.ASM` | `HP_` | The predeclared names: constants, `console` and `printer`, and the services with their signatures, ordinals and stack figures, generated from the reference's helper table and `ref/compile/helpers.ts` by `deno task helpers` (`tests/helper_table_test.ts` checks it is current) |
-| `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams (deleted after a failure unless option `K`), diagnostics |
+| `SHELL.ASM` | `SH_` | The CP/M shell: its course, source parts, streams on the spool drive (deleted after a failure unless option `K`), diagnostics and return codes |
+| `COMMAND.ASM` | `CL_` | The command line: the parts' names and every option of toolchain §5.3, checked as `BLINK` checks them (one-shot code, for an overlay at step 66) |
+| `LIBRARY.ASM` | `LB_` | The library check (header, version, helper-table key) and the compilation stamp (one-shot code, for an overlay at step 66) |
 
 `GRAMMAR.ASM` was generated from Nucleus's grammar (`grammar/stage7-grammar.json`).
 The generator, which wrote AZM, was retired with the conversion. Step 67 brings
@@ -64,12 +67,12 @@ its initializer).
 | Compiler code | 12,498 |
 | Immutable data | 1,194 |
 | **Compiler core** | **13,692** |
-| CP/M shell | 1,054 |
-| **`BASIE.COM`** | **14,749** |
+| CP/M shell | 2,202 |
+| **`BASIE.COM`** | **15,897** |
 | Compiler workspace (not in the image) | 3,589 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 11,875 bytes to the 26K target and 13,923 to the 28K limit (D43).
+That leaves 10,727 bytes to the 26K target and 12,775 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change

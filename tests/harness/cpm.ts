@@ -5,6 +5,10 @@
  * uses, over an in-memory disk. A jump to $0000 (warm boot) or a return to the
  * CCP's address ends the program.
  *
+ * Drives: a file on drive A is keyed by its plain name, "MAIN.BSI"; one on
+ * another drive by its name with the drive, "B:MAIN.BSI". An FCB's drive
+ * byte of 0 means the current drive, A until BDOS 14 selects another.
+ *
  * Full-fidelity proofs boot real CP/M 2.2 on the Triptych machine instead, as
  * Skate's proofs do; this harness is for quick checks of generated code.
  */
@@ -39,7 +43,10 @@ export type CpmOptions = {
   input?: string;
   /** The command tail, as typed after the program name. */
   tail?: string;
-  /** Files present before the run, keyed by 8.3 name such as "DATA.TXT". */
+  /**
+   * Files present before the run, keyed by 8.3 name such as "DATA.TXT" on
+   * drive A, or with a drive such as "B:DATA.TXT" on another.
+   */
   files?: Record<string, Uint8Array | string>;
   maxSteps?: number;
   /** Drives (0 for A) that BDOS 29 reports read-only. */
@@ -259,15 +266,16 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
       case 16: // close file
         return result(disk.has(fcbName(de)) ? 0 : 0xff);
       case 17: // search first
-        search = [...disk.keys()].filter((n) => matches(fcbPattern(de), n))
+        search = filesOn(driveOf(de)).filter((n) => matches(fcbPattern(de), n))
           .sort();
         return searchNext();
       case 18: // search next
         return searchNext();
       case 19: { // delete file
         const pattern = fcbPattern(de);
-        const names = [...disk.keys()].filter((n) => matches(pattern, n));
-        names.forEach((n) => disk.delete(n));
+        const on = driveOf(de);
+        const names = filesOn(on).filter((n) => matches(pattern, n));
+        names.forEach((n) => disk.delete(onDrive(on, n)));
         return result(names.length > 0 ? 0 : 0xff);
       }
       case 20: // read sequential
@@ -282,7 +290,8 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
         return result(0);
       }
       case 23: { // rename: new name in the second half of the FCB
-        const from = fcbName(de), to = fcbName(de + 16);
+        const from = fcbName(de);
+        const to = onDrive(driveOf(de), plainName(de + 16));
         if (!disk.has(from)) return result(0xff);
         if (disk.has(to)) throw new Error(`Rename onto existing file ${to}`);
         disk.set(to, disk.get(from)!);
@@ -400,11 +409,35 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
     return text;
   }
 
+  /** The FCB's name as the disk keys it, with its drive unless that is A. */
   function fcbName(fcb: number) {
+    return onDrive(driveOf(fcb), plainName(fcb));
+  }
+
+  function plainName(fcb: number) {
     const raw = fcbPattern(fcb);
     const base = raw.slice(0, 8).trimEnd();
     const ext = raw.slice(8).trimEnd();
     return ext ? `${base}.${ext}` : base;
+  }
+
+  /** The FCB's drive, 0 for A: its drive byte, or the current drive for 0. */
+  function driveOf(fcb: number) {
+    const d = mem[fcb];
+    return d >= 1 && d <= 16 ? d - 1 : drive;
+  }
+
+  /** The disk's key for a plain name on drive d. */
+  function onDrive(d: number, name: string) {
+    return d === 0 ? name : `${String.fromCharCode(65 + d)}:${name}`;
+  }
+
+  /** The plain names of the files on drive d. */
+  function filesOn(d: number) {
+    const prefix = d === 0 ? "" : `${String.fromCharCode(65 + d)}:`;
+    return [...disk.keys()].filter((n) =>
+      prefix ? n.startsWith(prefix) : !/^[A-P]:/.test(n)
+    ).map((n) => n.slice(prefix.length));
   }
 }
 
