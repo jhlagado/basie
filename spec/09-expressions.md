@@ -143,7 +143,8 @@ The six comparison operators produce `boolean`.
 
 - **Numeric operands** follow Section 9.7: they must have one type after widening, or the comparison is invalid. Integer comparison uses the type's ordering, signed or unsigned. `f32` comparison is ordinary, with `-0.0 = 0.0`.
 - **`boolean` operands** admit only `=` and `<>`.
-- **Identifiers** of the same type admit only `=` and `<>`. Two identifiers are equal when both are `none`, or when both were made from the same slot with the same generation. `none` may be compared with an optional identifier. Comparing identifiers performs no check and never traps; a stale identifier is not equal to `none` by comparison, though `select` treats it as `none`.
+- **Identifiers** of the same pool admit only `=` and `<>`; `id P` widens to `id P?` for the comparison, so either may be compared with the other. Two identifiers are equal when both are `none`, or when both were made from the same slot with the same generation. `none` may be compared with an optional identifier. Comparing identifiers performs no check and never traps; a stale identifier is not equal to `none` by comparison, though `select` treats it as `none`.
+- **`File` values** admit only `=` and `<>`, comparing the entry and generation, so a value equals `console`, `printer` or a copy of itself (Chapter 16, Section 16.3).
 - **Owning handles**, records, arrays and strings have no comparison operators.
 
 ## 9.12 `not`, `and`, `or` and `xor`

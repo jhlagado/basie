@@ -4812,6 +4812,40 @@ export class Compiler {
       if (op === "=") r.blob.u8(0xee, 0x01);
       return { kind: "reg", type: BOOLEAN };
     }
+    // Identifiers and File values compare by equality only (9.11, 16.3).
+    const leftT = (left as { type?: Type }).type;
+    if (
+      isComparison && leftT &&
+      (leftT.kind === "file" || (leftT.kind === "handle" && leftT.id))
+    ) {
+      if (op !== "=" && op !== "<>") {
+        fail(
+          "type-mismatch",
+          leftAt,
+          `${typeName(leftT)} compares only with = and <>`,
+        );
+      }
+      // id P widens to id P? for the comparison.
+      const cmp: Type = leftT.kind === "handle"
+        ? { ...leftT, optional: true }
+        : leftT;
+      this.toRegisters(left, cmp, leftAt);
+      r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
+      this.push(4);
+      const rightAt = this.token;
+      const rv = right();
+      this.toRegisters(rv, cmp, rightAt);
+      r.blob.u8(0xd9, 0xe1, 0xd1); // EXX; POP HL; POP DE
+      this.pop(4);
+      this.callHelper(Helper.CMP32U); // Z: equal
+      const skip = r.blob.newLabel();
+      r.blob.u8(0x3e, 0); // LD A,0
+      r.blob.jpIf(JP_NZ, skip);
+      r.blob.u8(0x3c); // INC A
+      r.blob.defineLabel(skip);
+      if (op === "<>") r.blob.u8(0xee, 0x01); // XOR 1
+      return { kind: "reg", type: BOOLEAN };
+    }
     // Numeric operands.
     const leftType = this.numericType(left, leftAt);
     if (left.kind === "const" && !left.type) {

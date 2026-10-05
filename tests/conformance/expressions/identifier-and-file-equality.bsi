@@ -1,0 +1,41 @@
+// Identifiers compare with = and <>, against each other and none; id P
+// widens to id P? for the comparison. File values compare too (9.11, 16.3;
+// review findings B7 and C12).
+// spec: 9.11, 16.3
+// expect output: TFTFT TFT\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+sub flag(b as boolean) as u8
+    if b
+        return 'T'
+    end
+    return 'F'
+end
+
+sub main() fails
+    var a = new nodes(1, none)
+    var b = new nodes(2, none)
+    var ia = id(a)
+    var ib = id(b)
+    var ia2 = id(a)
+    var empty as id nodes? = none
+    writeByte(console, flag(ia = ia2)) else fail
+    writeByte(console, flag(ia = ib)) else fail
+    writeByte(console, flag(ia <> ib)) else fail
+    writeByte(console, flag(ia = empty)) else fail
+    writeByte(console, flag(empty = none)) else fail
+    writeByte(console, ' ') else fail
+    var f = console
+    writeByte(console, flag(f = console)) else fail
+    writeByte(console, flag(f = printer)) else fail
+    writeByte(console, flag(f <> printer)) else fail
+    writeText(console, "\r\n") else fail
+end
