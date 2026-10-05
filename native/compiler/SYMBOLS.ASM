@@ -43,7 +43,7 @@ SY_FIND:
     RET  Z                         ; Return carry clear from the OR.
     LD   C,A                       ; C counts the records left to compare.
     LD   HL,SY_BASE                ; Begin with the first record.
-.LOOP:                             ; Compare one record per iteration.
+.LOOP:                         ; Compare one record per iteration.
     CALL TK_SAME                   ; Does its spelling equal the token's?
     RET  C                         ; Return the matching record in HL.
     LD   DE,SY_RECB                ; Fetch the record stride.
@@ -89,7 +89,7 @@ SY_NEW:
     LD   (HL),B                    ; Record its high byte.
     OR   A                         ; Report success with carry clear.
     RET                            ; The record awaits SY_CMT.
-.FULL:                             ; Every slot is in use.
+.FULL:                         ; Every slot is in use.
     LD   A,DG_SYMS                 ; Diagnostic: too many symbols.
     JR   DG_ISSUE                  ; Report it; no return.
 

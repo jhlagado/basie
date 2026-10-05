@@ -63,7 +63,7 @@ SRC_OPEN:
     JR   NC,.FULL                  ; Refuse a count outside one to eight.
     LD   (SRC_LEFT),A              ; Ordinal zero, A parts still to come.
     JR   SRC_LOAD                  ; Load the first descriptor at HL.
-.FULL:                             ; Report the part count before any part.
+.FULL:                         ; Report the part count before any part.
     XOR  A                         ; Form zero for every field below.
     LD   H,A                       ; An empty range at address zero.
     LD   L,A                       ; Clear the start's low byte as well.
@@ -108,7 +108,7 @@ SRC_PEEK:
     JR   NZ,.BYTE                  ; Bytes remain in this part.
     SCF                            ; Report the end of the part.
     RET                            ; Return with A as the caller left it.
-.BYTE:                             ; A byte is available.
+.BYTE:                         ; A byte is available.
     LD   A,(HL)                    ; Fetch it without advancing.
     OR   A                         ; Clear carry; zero marks a NUL byte.
     RET                            ; Return the byte.
@@ -136,7 +136,7 @@ SRC_TAKE:
     POP  BC                        ; Restore the caller's BC.
     OR   A                         ; Clear carry; zero marks a NUL byte.
     RET                            ; Return the byte.
-.EOF:                              ; The part is exhausted.
+.EOF:                          ; The part is exhausted.
     POP  BC                        ; Restore the caller's BC.
     SCF                            ; Report the end of the part.
     RET                            ; Return with A as SRC_PEEK left it.
