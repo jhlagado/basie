@@ -125,15 +125,10 @@ be fixed with tests against the reference linker:
 2. Phase A misses three of the reference's checks: a reference-count escape
    below 255, `SIZE16` naming an alias read after the reference, and the
    trailer's highest ordinal.
-3. Growing the program table multiplies the ordinal by eight unchecked, so a
-   large or sparse ordinal can wrap and clear memory instead of reporting
-   `L-CAP-TABLES`.
-4. Placement can wrap past `$FFFF` unnoticed, so `L-FIT-IMAGE` and
-   `L-FIT-MEMORY` do not fire.
-5. Several diagnostics name the wrong file (`OUT_TEXT` never set, `RD_NAME`
+3. Several diagnostics name the wrong file (`OUT_TEXT` never set, `RD_NAME`
    left on `NAME.$LT`, `.LIBKEY`, `DG_DISK`, `REP_FAIL`).
-6. `LN_OPEN` assumes part records come first and in order.
-7. Smaller: `REP_DEC` above 999,999, the debugger margin and the map totals
+4. `LN_OPEN` assumes part records come first and in order.
+5. Smaller: `REP_DEC` above 999,999, the debugger margin and the map totals
    in 16 bits, an unchecked backup rename and an unchecked open of the
    library's name section.
 

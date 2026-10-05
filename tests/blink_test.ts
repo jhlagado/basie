@@ -36,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 10_839);
+  assertEquals(blink.length, 10_871);
 });
 
 const BLINK_DIGEST =
-  "0b1e3f2641159eb6df6f23331e5e24f4d4d43cf33dda8105232afdc7e47a59cc";
+  "3542dda1d835f2971809ee51538d33490e9e37341204c8ed43ec2efcdba2f225";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
@@ -612,6 +612,9 @@ Deno.test("BLINK refuses a ROM profile (class 3), which it doesn't implement", (
 const { writeNameStream } = await import(
   "../ref/object/streams.ts"
 );
+const { LinkError } = await import("../ref/link/link.ts");
+const { ObjectError } = await import("../ref/object/types.ts");
+const { messageNumber } = await import("../ref/compile/messages.ts");
 type DirRecord = import("../ref/object/types.ts").DirectoryRecord;
 type Named = { ordinal: number; name: string };
 
@@ -683,6 +686,41 @@ function extendHello(
   };
 }
 
+/** BLINK's console output for the objects as PROG. */
+function runObjects(objects: Objects, tail: string, lib = library) {
+  return runCom(blink, {
+    tail,
+    files: {
+      "BASIE.MSG": MSG,
+      "CPM22.BRL": lib,
+      "PROG.$DR": objects.directory,
+      "PROG.$BY": objects.bytes,
+      "PROG.$LN": objects.lines,
+      "PROG.$NM": objects.names,
+    },
+    maxSteps: 300_000_000,
+  }).output;
+}
+
+/** The reference linker's diagnostic number for the objects, if any. */
+function referenceError(objects: Objects, rerunnable = false) {
+  try {
+    const dir = readProgramDirectory(objects.directory);
+    const lines = readLineStream(objects.lines);
+    link(readLibrary(library), dir, readByteStream(objects.bytes).data, {
+      rerunnable,
+      byteStreamStamp: dir.header.stamp,
+      lines: { stamp: lines.stamp, parts: lines.parts, blobs: lines.blobs },
+    });
+  } catch (e) {
+    if (e instanceof LinkError || e instanceof ObjectError) {
+      return messageNumber(e.code);
+    }
+    throw e;
+  }
+  return undefined;
+}
+
 Deno.test("BLINK lists aliases in the map and the symbol file as the reference does", () => {
   // R refers to three aliases of B, two of them at one address, the second
   // by SIZE16 before its ALIAS record; D and its alias are dead. Every name
@@ -726,4 +764,64 @@ Deno.test("BLINK lists aliases in the map and the symbol file as the reference d
   );
   const result = compareLink(objects, "PROG [M,Y]", false);
   assertEquals(result.addresses.get(a2), result.addresses.get(b)! + 2);
+});
+
+Deno.test("BLINK reports L-CAP-TABLES for an ordinal its tables can't reach", () => {
+  // A dead bss blob far up the ordinals: the program table would need eight
+  // bytes for every ordinal below it. The reference has no such tables.
+  for (const ordinal of [0x2000, 0x2400, 0xffdf]) {
+    const objects = extendHello([blobRecord(Kind.bss, ordinal, 4)]);
+    assertEquals(referenceError(objects), undefined);
+    assertEquals(runObjects(objects, "PROG"), error(215), `$${ordinal}`);
+  }
+  // A sparse ordinal that fits links as the reference does.
+  compareLink(
+    extendHello([blobRecord(Kind.bss, 0x400 + 3000, 4)], [], [{
+      ordinal: 0x400 + 3000,
+      name: "far",
+    }]),
+    "PROG [M,Y]",
+    false,
+  );
+});
+
+Deno.test("BLINK reports L-FIT-IMAGE and L-FIT-MEMORY when placement passes $FFFF", () => {
+  if (!hello.ok) throw new Error();
+  const end = hello.link.imageBase + hello.link.image.length;
+  const aligned = Math.ceil(end / 256) * 256;
+  const cases: [Objects, string, number][] = [
+    // BSS past $FFFF.
+    [extendHello([blobRecord(Kind.bss, 0x401, 0xff00, [], true)]), "PROG", 217],
+    // A bss blob whose alignment rounds past $FFFF.
+    [
+      extendHello([
+        blobRecord(Kind.bss, 0x401, 0x10000 - 8 - aligned, [], true, 7),
+        blobRecord(Kind.bss, 0x402, 64, [], true, 6),
+      ]),
+      "PROG",
+      217,
+    ],
+    // TEXT past $FFFF.
+    [
+      extendHello(
+        [blobRecord(Kind.rodata, 0x401, 0xff00, [], true)],
+        new Uint8Array(0xff00),
+      ),
+      "PROG",
+      216,
+    ],
+    // COPY past $FFFF under option R.
+    [
+      extendHello(
+        [blobRecord(Kind.data, 0x401, 0x7f80, [], true)],
+        new Uint8Array(0x7f80),
+      ),
+      "PROG [R]",
+      216,
+    ],
+  ];
+  for (const [objects, tail, want] of cases) {
+    assertEquals(referenceError(objects, tail.includes("R")), want, tail);
+    assertEquals(runObjects(objects, tail), error(want), tail);
+  }
 });

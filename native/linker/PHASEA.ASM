@@ -246,7 +246,7 @@ LK_DIGIT:                      ; Used for ordinals, Intel HEX and the map.
 ; Return in HL the entry of ordinal HL, growing the program table, zeroed,
 ; to cover it. Carry if the ordinal has no entry: a pseudo-object, or a
 ; library ordinal beyond the library's highest. Program tables that would
-; meet the edge lists report L-CAP-TABLES.
+; pass $FFFF or meet the edge lists report L-CAP-TABLES.
 
 TAB_FIND:                      ; HL is an ordinal.
     LD   A,H                       ; Is it $FFxx?
@@ -286,11 +286,15 @@ TAB_FIND:                      ; HL is an ordinal.
     PUSH HL                        ; HL is the index, still kept.
     INC  HL                        ; The new count.
     LD   (PRG_CNT),HL              ; Record it.
-    ADD  HL,HL                     ; Eight bytes per entry;
-    ADD  HL,HL                     ; a large ordinal overflows
-    ADD  HL,HL                     ; here unchecked.
+    LD   A,H                       ; 8K entries or more
+    AND  $E0                       ; would take 64K:
+    JR   NZ,DG_CAP                 ; L-CAP-TABLES.
+    ADD  HL,HL                     ; Eight bytes
+    ADD  HL,HL                     ; per
+    ADD  HL,HL                     ; entry.
     LD   DE,(PRG_TAB)              ; From the program table's base,
-    ADD  HL,DE                     ; the new end.
+    ADD  HL,DE                     ; the new end,
+    JR   C,DG_CAP                  ; which may not pass $FFFF.
     EX   DE,HL                     ; DE is the new end.
     LD   HL,(EDGE_PTR)             ; It may not pass the edge lists.
     OR   A                         ; Clear carry for the subtraction.

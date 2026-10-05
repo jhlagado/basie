@@ -340,7 +340,7 @@ WK_PASS:                       ; A is an S_ value, HL a callback.
 ; Phase C: place START, TEXT, DATA and BSS, then the file table; give live
 ; aliases their addresses; set the stack reserve and the pseudo-objects;
 ; and check the fit (linker §6.4). L-FIT-IMAGE and L-FIT-MEMORY end the
-; link; L-FIT-NOMINAL is a warning.
+; link, as soon as placement passes $FFFF; L-FIT-NOMINAL is a warning.
 
 PC_RUN:                        ; Phase B has marked the live blobs.
     XOR  A                         ; The CRCs were checked in Phase A,
@@ -360,9 +360,16 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     OR   A                         ; Clear carry for the subtraction.
     SBC  HL,DE                     ; HL is DATA's size.
     POP  DE                        ; DE is DATA's end.
-    ADD  HL,DE                     ; HL is COPY's end.
+    ADD  HL,DE                     ; HL is COPY's end,
+    JP   C,.WRAP                   ; past $FFFF: L-FIT-IMAGE.
     LD   (IMG_END),HL              ; The image ends there.
     LD   (PC_NEXT),HL              ; BSS follows the image.
+    EX   DE,HL                     ; Fit checks (linker §6.4): the image
+    LD   HL,(PF_LIMIT)             ; must end at or below the image limit,
+    OR   A                         ; checked before BSS is placed, as the
+    SBC  HL,DE                     ; reference checks it first.
+    LD   HL,216                    ; L-FIT-IMAGE.
+    JP   C,DG_PLAIN                ; Report it.
     LD   A,S_BSS                   ; Place BSS.
     CALL .PLACESEC                 ; HL is its start.
     LD   (BSS_BEG),HL              ; Keep it.
@@ -382,13 +389,15 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     LD   B,A                       ; counted in B,
     LD   DE,(PF_FILE)              ; times the profile's entry size.
 .MUL:                          ; HL accumulates the size.
-    ADD  HL,DE                     ; One entry more.
+    ADD  HL,DE                     ; One entry more,
+    JP   C,.WRAP                   ; past $FFFF: L-FIT-MEMORY.
     DJNZ .MUL                      ; FT_COUNT times.
 .NOFILES:                      ; HL is the table's size.
     LD   (FT_SIZE),HL              ; Keep it.
     LD   DE,(PC_NEXT)              ; FREE is the first address
-    ADD  HL,DE                     ; after the table;
-    LD   (PC_FREE),HL              ; the sum is not checked for overflow.
+    ADD  HL,DE                     ; after the table,
+    JP   C,.WRAP                   ; past $FFFF: L-FIT-MEMORY.
+    LD   (PC_FREE),HL              ; Kept.
     LD   HL,0                      ; Aliases of live blobs: their address and size.
 .ALIAS:                        ; HL walks every position.
     PUSH HL                        ; Keep it.
@@ -412,12 +421,6 @@ PC_RUN:                        ; Phase B has marked the live blobs.
 .RES:                          ; HL is the larger.
     LD   (PC_STACK),HL             ; The reserve.
     CALL .PSEUDOS                  ; The pseudo-objects' rows.
-    LD   HL,(PF_LIMIT)             ; Fit checks (linker §6.4): the image
-    LD   DE,(IMG_END)              ; must end at or below the image limit.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Carry if it ends above.
-    LD   HL,216                    ; L-FIT-IMAGE.
-    JP   C,DG_PLAIN                ; Report it.
     LD   HL,(PC_FREE)              ; FREE plus the reserve
     LD   DE,(PC_STACK)             ; must stay within
     ADD  HL,DE                     ; the address space.
@@ -437,6 +440,18 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     RET  NC                        ; It fits.
     LD   HL,219                    ; L-FIT-NOMINAL: a warning only.
     JP   DG_WARN                   ; Report it; the link goes on.
+
+;@ROUTINE NORETURN
+; Placement passed $FFFF: L-FIT-MEMORY in BSS and the file table, which
+; follow the image, else L-FIT-IMAGE.
+
+.WRAP:                         ; WK_SEC is the section being placed.
+    LD   HL,217                    ; L-FIT-MEMORY,
+    LD   A,(WK_SEC)                ; in BSS
+    CP   S_BSS                     ; or after it;
+    JP   Z,DG_PLAIN                ; report it.
+    DEC  HL                        ; L-FIT-IMAGE,
+    JP   DG_PLAIN                  ; in the image; report it.
 
 ;@ROUTINE IN A OUT DE,HL CLOBBERS A,BC,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Place section A: return HL = its start and DE = its end. The first blob
@@ -483,8 +498,9 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     INC  HL                        ; low byte
     LD   (HL),D                    ; first.
     EX   DE,HL                     ; HL is the address.
-    ADD  HL,BC                     ; Plus the size, unchecked for overflow,
-    LD   (PC_NEXT),HL              ; is the next free address.
+    ADD  HL,BC                     ; Plus the size
+    JR   C,.WRAP                   ; may not pass $FFFF;
+    LD   (PC_NEXT),HL              ; it is the next free address.
     JP   REF_SKIP                  ; Skip its references.
 
 ;@ROUTINE IN A OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -505,6 +521,7 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     DJNZ .POW                      ; DE is 2^B.
     DEC  DE                        ; The mask: the low bits.
     ADD  HL,DE                     ; Round up past the boundary,
+    JR   C,.WRAP                   ; which may not pass $FFFF,
     LD   A,E                       ; then clear
     CPL                            ; the mask's
     AND  L                         ; bits
