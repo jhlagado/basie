@@ -2,21 +2,23 @@
 ;  Source parts' names
 ;==========================================================================
 ;
-;  The names the command line saved for the source parts (SH_NAMES, in
-;  SHELL.ASM's workspace), spelled for the line stream and for
-;  diagnostics. No resident code needs them, so this file is assembled
-;  into each overlay that does: COMMAND, START and DIAG (build.ts).
+;  The source parts' names: those the command line saved (SH_NAMES, in
+;  SHELL.ASM's workspace) and those of the part table (SOURCE.ASM), each
+;  a drive and an 11-character name as an FCB holds them, spelled for the
+;  line stream and for diagnostics. No resident code needs them, so this
+;  file is assembled into each overlay that does: COMMAND, START and DIAG
+;  (build.ts).
 ;
 ;  Principal entries:
-;    SH_PNAME  address part A's saved drive, name and type
-;    SH_TYPED  spell part A as the line stream names it, NAME.TYP
-;    SH_SPELL  spell part A as a diagnostic names it, D:NAME.TYP
+;    SH_PNAME  address the command line's part A's saved drive and name
+;    SH_TYPED  spell a part as the line stream names it, NAME.TYP
+;    SH_SPELL  spell a part as a diagnostic names it, D:NAME.TYP
 
 ;@ROUTINE IN A OUT HL CLOBBERS DE,CARRY,HALFCARRY
 ; HL = the saved drive and name of the part whose index is A (0-based),
 ; at SH_NAMES + SH_SLOT * A.
 
-SH_PNAME:                      ; A is a part index below SRC_CAP.
+SH_PNAME:                      ; A is a part index below CL_PCAP.
     LD   L,A                       ; L is the index.
     LD   H,0                       ; Zero-extend it into HL.
     ADD  HL,HL                     ; HL = 2 * index.
@@ -29,13 +31,12 @@ SH_PNAME:                      ; A is a part index below SRC_CAP.
     ADD  HL,DE                     ; HL is the name slot.
     RET                            ; Return the slot in HL.
 
-;@ROUTINE IN A OUT B,HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Spell the name of part A (0-based) as the reference compiler names a part
-; in the line stream, NAME.TYP without padding or drive, at SH_TEXT: HL
-; addresses it and B is its length.
+;@ROUTINE IN HL OUT B,HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Spell the part whose drive and name are at HL as the reference compiler
+; names a part in the line stream, NAME.TYP without padding or drive, at
+; SH_TEXT: HL addresses it and B is its length.
 
-SH_TYPED:                      ; A is a part index.
-    CALL SH_PNAME                  ; HL is its saved drive, name and type.
+SH_TYPED:                      ; HL is the part's drive and name.
     INC  HL                        ; Skip the drive.
     LD   DE,SH_TEXT                ; The spelling is built here.
     CALL SH_NTYPE                  ; NAME.TYP.
@@ -47,16 +48,13 @@ SH_TYPED:                      ; A is a part index.
     EX   DE,HL                     ; HL is the spelling.
     RET                            ; B is its length.
 
-;@ROUTINE IN A,DE OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Spell the name of part A (0-based) at DE as D:NAME.TYP, zero-terminated,
-; without padding, and without the drive when the part was on the current
-; drive. HL addresses the spelling.
+;@ROUTINE IN DE,HL OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Spell the part whose drive and name are at HL, at DE, as D:NAME.TYP,
+; zero-terminated, without padding, and without the drive when the part
+; was on the current drive. HL addresses the spelling.
 
-SH_SPELL:                      ; A is a part index, DE the place for its name.
-    PUSH DE                        ; The spelling's start, returned in HL,
-    PUSH DE                        ; and the place, kept across SH_PNAME.
-    CALL SH_PNAME                  ; HL is its saved drive, name and type.
-    POP  DE                        ; The place.
+SH_SPELL:                      ; HL is the part's name, DE the place for it.
+    PUSH DE                        ; The spelling's start, returned in HL.
     LD   A,(HL)                    ; A is the drive: 0 current, 1 for A:.
     INC  HL                        ; HL is the name.
     OR   A                         ; Was a drive named?

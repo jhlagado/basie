@@ -1,0 +1,12 @@
+// Includes and private names (D33; step 67): two parts, one including
+// the other, each compiled once and before this one, which sees their
+// public names only; a forward one part declares, another completes.
+include "INCLIB.BSI"
+include "INCUTIL.BSI"
+
+var total as u16
+private const scale = 7
+
+sub main()
+    total = combine(2, 10) + triple(later(4)) * scale
+end

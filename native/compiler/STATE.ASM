@@ -306,10 +306,11 @@ TK_REC EQU  48                 ; Keyword record.
 TK_STR EQU  49                 ; Keyword string.
 TK_DOT EQU  50                 ; Full stop: field selection.
 TK_HANDL EQU  51               ; Keyword handle.
-; Ordinal 52 is intentionally unused so later token ordinals remain stable.
+TK_PRIV EQU  52                ; Keyword private.
 TK_XOR EQU  53                 ; Keyword xor.
 TK_MOD EQU  54                 ; Keyword mod.
 TK_ASSRT EQU  55               ; Keyword assert.
+TK_INCL EQU  61                ; Keyword include, which the grammar never names.
 
 ; Diagnostic codes, as DG_CODE reports them. Below DG_TOKEN and from 190
 ; to 199 a code is the reference compiler's number for the diagnostic
@@ -329,6 +330,10 @@ DG_LONGC EQU  7                ; long-character.
 DG_OPEN EQU  8                 ; unterminated-literal.
 DG_SHUT EQU  9                 ; unmatched-delimiter.
 DG_AJAR EQU  11                ; open-delimiter.
+DG_LATE EQU  21                ; include-position: an include after a declaration.
+DG_CYCLE EQU  22               ; include-cycle.
+DG_LOST EQU  23                ; include-missing.
+DG_INCL EQU  24                ; include-syntax.
 DG_MAIN EQU  25                ; missing-main.
 DG_UNDEF EQU  27               ; undeclared-name.
 DG_BADMN EQU  26               ; bad-main.
@@ -388,9 +393,10 @@ DG_IF EQU  DG_TOKEN+TK_IF      ; if expected.
 DG_COMMA EQU  DG_TOKEN+TK_COMMA ; A comma expected.
 DG_NAME EQU  DG_TOKEN+TK_NAME  ; A name expected.
 
-; Pseudo-kinds, above the token kinds and below DG_CAP-DG_TOKEN: what a
-; syntax diagnostic expected that is no single token (MESSAGE.ASM's
-; phrases, the reference compiler's words).
+; Pseudo-kinds, above the token kinds the grammar names and below
+; DG_CAP-DG_TOKEN: what a syntax diagnostic expected that is no single
+; token (MESSAGE.ASM's phrases, the reference compiler's words). TK_INCL,
+; which no grammar row names, shares their range.
 TK_XEXPR EQU  56               ; An expression.
 TK_XTYPE EQU  57               ; A type.
 TK_XDECL EQU  58               ; A declaration.
@@ -417,8 +423,9 @@ DG_INITS EQU  DG_CAP+8         ; Nested initializers (AG_LCAP).
 DG_DATA EQU  DG_CAP+9          ; The initializer staging (AG_ICAP).
 DG_BLOB EQU  DG_CAP+10         ; The blob writer's buffers.
 DG_LLCAP EQU  DG_CAP+11        ; The grammar stack (LL_CAP).
-DG_PARTS EQU  DG_CAP+12        ; Source parts (SRC_CAP).
+DG_PARTS EQU  DG_CAP+12        ; Source parts: 255, the line stream's limit.
 DG_ROOM EQU  DG_CAP+13         ; Memory for the source.
+DG_INEST EQU  DG_CAP+14        ; Includes open at once (SH_ICAP).
 
 
 ; Scalar types and symbol information. An expression's metadata byte and a

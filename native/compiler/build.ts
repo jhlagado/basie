@@ -32,13 +32,13 @@ export const OVERLAYS = [
   {
     name: "COMMAND",
     equate: "OV_CMD",
-    files: ["COMMAND.ASM", "PARTNAME.ASM"],
+    files: ["COMMAND.ASM", "FILENAME.ASM", "PARTNAME.ASM"],
     offset: 0,
   },
   {
     name: "START",
     equate: "OV_START",
-    files: ["PARTS.ASM", "LIBRARY.ASM", "PARTNAME.ASM"],
+    files: ["LIBRARY.ASM", "PARTNAME.ASM"],
     offset: 0,
   },
   { name: "NAMES", equate: "OV_NAMES", files: ["PREDEF.ASM"], offset: 0 },
@@ -47,6 +47,12 @@ export const OVERLAYS = [
     name: "DIAG",
     equate: "OV_DIAG",
     files: ["MESSAGE.ASM", "PARTNAME.ASM"],
+    offset: 0,
+  },
+  {
+    name: "PARTS",
+    equate: "OV_PARTS",
+    files: ["PARTS.ASM", "FILENAME.ASM", "PARTNAME.ASM"],
     offset: 0,
   },
 ];

@@ -74,9 +74,8 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     CALL EM_OPEN                   ; No frame, temporaries or labels yet.
     XOR  A                         ; No string literals
     LD   (RO_LCNT),A               ; either.
-    LD   A,(SRC_ID)                ; The part, counted from one,
-    DEC  A                         ; is the line stream's part, from zero.
-    LD   HL,(AC_DPOS+2)            ; The line of the routine's name.
+    LD   A,(SRC_NUM)               ; The part's number in the stream
+    LD   HL,(AC_DPOS+2)            ; and the line of the routine's name.
     CALL BL_LINE                   ; The blob starts on it.
     CALL EM_LNEW                   ; Label 0, RG_EXIT.
     CALL EM_LNEW                   ; Label 1, RG_PAIR.

@@ -10,16 +10,19 @@
 ;  file; the area is as large as the largest overlay, in whole records.
 ;
 ;    OV_CMD    COMMAND.ASM  the command line (CL_READ at OV_AREA)
-;    OV_START  PARTS.ASM, LIBRARY.ASM  the library check, the parts'
-;                           loading, the stamp and the streams (SH_BEGIN
-;                           at OV_AREA)
+;    OV_START  LIBRARY.ASM  the library check (LB_FIRST at OV_AREA), then,
+;                           once the parts are loaded, the stamp and the
+;                           streams (LB_OPEN at OV_AREA+3)
 ;    OV_NAMES  PREDEF.ASM   the predeclared names (HP_NAMES at OV_AREA),
 ;                           loaded for the whole compilation
 ;    OV_CHAIN  CHAIN.ASM    the chain to BLINK (CH_RUN at OV_AREA)
 ;    OV_DIAG   MESSAGE.ASM  diagnostics from BASIE.MSG (MS_SHOWE at
 ;                           OV_AREA, MS_SHOWD at OV_AREA+3)
-;  PARTNAME.ASM, the parts' names, is assembled into COMMAND, START and
-;  DIAG, which each need it.
+;    OV_PARTS  PARTS.ASM    the parts and their includes, loaded (SH_BEGIN
+;                           at OV_AREA)
+;  PARTNAME.ASM, the parts' names, is assembled into COMMAND, START, DIAG
+;  and PARTS, which each need it, and FILENAME.ASM, CP/M names, into
+;  COMMAND and PARTS.
 ;
 ;  A later overlay may load above another in the area, so that both are
 ;  there at once: the conversion of decimal literals to f32 is planned
@@ -44,10 +47,11 @@
 ;  build fails.
 
 OV_CMD EQU  0                  ; The command line.
-OV_START EQU  1                ; The start of a build: library, parts, streams.
+OV_START EQU  1                ; The start of a build: library, stamp, streams.
 OV_NAMES EQU  2                ; The predeclared names.
 OV_CHAIN EQU  3                ; The chain to BLINK.
 OV_DIAG EQU  4                 ; Diagnostics from BASIE.MSG.
+OV_PARTS EQU  5                ; The source parts, loaded.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 

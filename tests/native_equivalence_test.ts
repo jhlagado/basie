@@ -9,9 +9,12 @@
  * reference is given the stamp the native run chose (CompileOptions.stamp)
  * and the streams, their CRCs included, are compared whole. The claimed
  * set only grows: a program once claimed must keep matching (native compiler
- * plan, 65.4).
+ * plan, 65.4). The parts a program includes are on the disk beside it: the
+ * source parts of its own folder and of lib/, as the reference finds them
+ * (its libraryDirs).
  */
 import { assertEquals } from "@std/assert";
+import { dirname } from "@std/path";
 import { buildBasie } from "../native/compiler/build.ts";
 import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
@@ -52,6 +55,9 @@ const CONFORMANCE: Record<string, string> = {
   LOCALCON: "tests/conformance/declarations/local-constant.bsi",
   SIBLING: "tests/conformance/scopes/sibling-blocks-reuse.bsi",
   KEYS: "tests/conformance/services/keys.bsi",
+  PRIVPART: "tests/conformance/structure/private-across-parts.bsi",
+  PRIVLOC: "tests/conformance/structure/private-is-part-local.bsi",
+  INCONCE: "tests/conformance/structure/include-once.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -121,10 +127,27 @@ const CLAIMED: Record<string, string[]> = {
     "SIBLING",
     "KEYS",
   ],
+  "67a: include and private": ["INCMAIN", "PRIVPART", "PRIVLOC", "INCONCE"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
 const LIBRARY = (await buildRuntime()).file;
+
+/**
+ * The source parts a program may include, by their CP/M names: the 8.3
+ * upper-case parts of its folder (its includes' own folder), then lib/'s.
+ */
+function partsBeside(file: string): Record<string, Uint8Array> {
+  const parts: Record<string, Uint8Array> = {};
+  for (const dir of ["lib", dirname(file)]) {
+    for (const f of Deno.readDirSync(dir)) {
+      if (/^[A-Z0-9]{1,8}\.BSI$/.test(f.name)) {
+        parts[f.name] = Deno.readFileSync(`${dir}/${f.name}`);
+      }
+    }
+  }
+  return parts;
+}
 
 /**
  * Compile NAME with BASIE.COM and the options, with C, so that BASIE does
@@ -134,7 +157,12 @@ function native(name: string, options = "") {
   const source = Deno.readFileSync(path(name));
   const run = runCom(basie, {
     tail: `${name} [C${options}]`,
-    files: { [`${name}.BSI`]: source, "CPM22.BRL": LIBRARY, "BASIE.OVL": OVL },
+    files: {
+      ...partsBeside(path(name)),
+      [`${name}.BSI`]: source,
+      "CPM22.BRL": LIBRARY,
+      "BASIE.OVL": OVL,
+    },
     maxSteps: 50_000_000,
   });
   assertEquals(run.output, "", `${name}${options}`);
@@ -155,6 +183,7 @@ async function reference(name: string, disk: Map<string, Uint8Array>) {
   const result = await compile(`${name}.BSI`, {
     shrink: false,
     mainSource: Deno.readFileSync(path(name)),
+    libraryDirs: [dirname(path(name)), "lib"],
     stamp: stampOf(disk, name),
   });
   if (!result.ok) {
@@ -403,6 +432,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED[
       "67a: declarations anywhere, block scope, typed and local constants"
     ],
+    ...CLAIMED["67a: include and private"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -416,6 +446,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     const ref = await compile(`${name}.BSI`, {
       shrink: false,
       mainSource: Deno.readFileSync(path(name)),
+      libraryDirs: [dirname(path(name)), "lib"],
     });
     if (!ref.ok) throw new Error(`${name}: the reference refuses it`);
     const want = parseExpectations(Deno.readTextFileSync(path(name)));
@@ -681,12 +712,52 @@ const REFUSED: Record<string, string> = {
 /** The code of a message number, from the message table. */
 const codeOf = (n: number) => MESSAGES.find((m) => m.number === n)?.code;
 
-for (const [what, text] of Object.entries(REFUSED)) {
+// Programs of the conformance suite both compilers refuse, with the parts
+// of their folder beside them (67a: include and private).
+const REFUSED_WITH_PARTS: Record<string, string> = {
+  "an include after a declaration":
+    "tests/conformance/structure/include-after-declaration.bsi",
+  "a declaration split across parts":
+    "tests/conformance/structure/split-declaration.bsi",
+  "an include of a part not on the disk":
+    "tests/conformance/structure/include-missing.bsi",
+  "an include cycle": "tests/conformance/structure/include-cycle.bsi",
+  "an include with a wildcard":
+    "tests/conformance/structure/include-wildcard.bsi",
+  "an include without a type":
+    "tests/conformance/structure/include-needs-type.bsi",
+  "a private forward left open in its part":
+    "tests/conformance/structure/private-forward-in-part.bsi",
+  "a public forward completed as private":
+    "tests/conformance/structure/private-completion-mismatch.bsi",
+  "a part's private name used by the part that includes it":
+    "tests/native/programs/INCPRIV.BSI",
+  "a lexical error in an included part's first line":
+    "tests/native/programs/INCLEX.BSI",
+  "an include of a name too long": "tests/native/programs/INCLONG.BSI",
+  "an include of a string with more after it":
+    "tests/native/programs/INCMORE.BSI",
+  "an include of no name": "tests/native/programs/INCNONE.BSI",
+};
+
+const refusals: [string, string, string | undefined][] = [
+  ...Object.entries(REFUSED).map(([w, t]): [string, string, undefined] => [
+    w,
+    t,
+    undefined,
+  ]),
+  ...Object.entries(REFUSED_WITH_PARTS).map((
+    [w, f],
+  ): [string, string, string] => [w, Deno.readTextFileSync(f), f]),
+];
+
+for (const [what, text, file] of refusals) {
   Deno.test(`both compilers refuse ${what}`, async () => {
     const source = new TextEncoder().encode(text);
     const ref = await compile("REFUSED.BSI", {
       shrink: false,
       mainSource: source,
+      ...(file ? { libraryDirs: [dirname(file), "lib"] } : {}),
     });
     if (ref.ok || !("diagnostics" in ref)) {
       throw new Error("the reference accepts it");
@@ -695,6 +766,7 @@ for (const [what, text] of Object.entries(REFUSED)) {
     const run = runCom(basie, {
       tail: "REFUSED",
       files: {
+        ...(file ? partsBeside(file) : {}),
         "REFUSED.BSI": source,
         "CPM22.BRL": LIBRARY,
         "BASIE.OVL": OVL,
@@ -703,17 +775,19 @@ for (const [what, text] of Object.entries(REFUSED)) {
       maxSteps: 50_000_000,
     });
     // As the reference toolchain prints it: PART LINE:COLUMN: N: text.
-    const m = run.output.match(/^REFUSED\.BSI (\d+):(\d+): (\d+): (.*)\r\n$/);
+    const m = run.output.match(/^(\S+) (\d+):(\d+): (\d+): (.*)\r\n$/);
     if (!m) throw new Error(`not a diagnostic: ${JSON.stringify(run.output)}`);
-    const number = Number(m[3]);
+    const number = Number(m[4]);
     assertEquals(
       {
+        part: m[1],
         code: codeOf(number),
         number,
-        line: Number(m[1]),
-        column: Number(m[2]),
+        line: Number(m[2]),
+        column: Number(m[3]),
       },
       {
+        part: want.part,
         code: want.code,
         number: want.number,
         line: want.line,
@@ -724,8 +798,8 @@ for (const [what, text] of Object.entries(REFUSED)) {
     // The native compiler supplied arguments when its text is not the
     // template's with none; then they must be the reference's, if it
     // supplies them too.
-    if (want.args && m[4] !== formatMessage(number, [])) {
-      assertEquals(m[4], formatMessage(number, want.args));
+    if (want.args && m[5] !== formatMessage(number, [])) {
+      assertEquals(m[5], formatMessage(number, want.args));
     }
   });
 }

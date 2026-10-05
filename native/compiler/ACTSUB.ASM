@@ -44,14 +44,154 @@
 
 ; ------------------------------------------------------- routines and main
 
+; ------------------------------------------------------ parts and visibility
+
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; RequireMain, at the end of the program: main must have a body (DG_TOP),
-; and no forward routine may be left without its body (DG_UNMET).
+; BeginTopLevel: a top-level declaration begins, public unless marked
+; (MarkPrivate). Its first token is the lookahead, so SRC_ID is its part:
+; when that is not the last declaration's part (AC_DPART), the part has
+; ended (AC_ENDP), as the reference's compile loop finds before each
+; declaration.
+
+AC_TOP:
+    XOR  A                         ; Public
+    LD   (AC_PRIV),A               ; unless marked.
+    LD   A,(SRC_ID)                ; The declaration's part:
+    LD   HL,AC_DPART               ; is it
+    CP   (HL)                      ; the last one's?
+    RET  Z                         ; Yes: nothing has ended.
+    LD   C,(HL)                    ; The part that ended,
+    LD   (HL),A                    ; this one now,
+    LD   A,C                       ; or none
+    OR   A                         ; before the first
+    RET  Z                         ; declaration; fall into AC_ENDP.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A part has ended (the reference's endPart), or the program has: a
+; private forward of it not completed is forward-incomplete, at its
+; `forward` (the reference's declaredAt), found back from its name over
+; `sub` and the spaces between (a declaration's tokens are on one line);
+; then its private routines' and symbols' names go out of scope, cut to
+; no characters, which no name matches. The privates of earlier parts
+; were complete when they ended, and are cut already.
+
+AC_ENDP:
+    LD   A,(RO_RCNT)               ; The routines,
+    LD   C,A                       ; C of them,
+    LD   B,0                       ; from the first.
+.ROUTINE:                      ; B is the next, C remain.
+    LD   A,C                       ; Any left?
+    OR   A                         ; If not,
+    JR   Z,.SYMBOLS                ; the symbols.
+    LD   A,B                       ; Its
+    CALL RO_SUBAT                  ; record, HL:
+    PUSH HL                        ; kept.
+    LD   DE,RO_RFLAG               ; Its
+    ADD  HL,DE                     ; flags,
+    LD   A,(HL)                    ; A.
+    POP  HL                        ; The record.
+    BIT  5,A                       ; RO_FPRIV: a public one
+    JR   Z,.PUBLIC                 ; stays;
+    AND  RO_FOPEN                  ; a private one still open
+    JR   NZ,.OPEN                  ; is incomplete;
+    INC  HL                        ; any other's
+    INC  HL                        ; name
+    LD   (HL),A                    ; is cut (A is zero).
+.PUBLIC:                       ; Routine B is done.
+    INC  B                         ; The next.
+    DEC  C                         ; One fewer.
+    JR   .ROUTINE                  ; Until all are.
+.SYMBOLS:                      ; The symbols, all the program's.
+    LD   A,(SY_CNT)                ; How many?
+    OR   A                         ; None:
+    RET  Z                         ; none is private.
+    LD   B,A                       ; B of them, from the last back.
+.SYMBOL:                       ; Symbol B-1 is next.
+    LD   A,B                       ; Its
+    DEC  A                         ; bit
+    CALL SY_BIT                    ; in SY_PRIV:
+    LD   C,A                       ; kept,
+    AND  (HL)                      ; is it set?
+    JR   Z,.SHOWN                  ; A public one stays.
+    LD   A,C                       ; A private one's bit
+    XOR  (HL)                      ; is cleared,
+    LD   (HL),A                    ; for a later part's symbols,
+    LD   A,B                       ; and
+    DEC  A                         ; its
+    CALL SY_AT                     ; record's
+    INC  HL                        ; name
+    INC  HL                        ; is
+    LD   (HL),0                    ; cut.
+.SHOWN:                        ; Symbol B-1 is done.
+    DJNZ .SYMBOL                   ; Until all are.
+    RET                            ; The part's private names are gone.
+.OPEN:                         ; HL is the record, its name first.
+    LD   E,(HL)                    ; The name's
+    INC  HL                        ; address,
+    LD   D,(HL)                    ; DE,
+    EX   DE,HL                     ; HL;
+    CALL .BACK                     ; back over the spaces to `sub`'s b,
+    DEC  HL                        ; back
+    DEC  HL                        ; to its s,
+    CALL .BACK                     ; over the spaces to `forward`'s d,
+    LD   DE,1-7                    ; back
+    ADD  HL,DE                     ; to its f.
+    LD   A,DG_UNMET                ; forward-incomplete,
+    JP   DG_SRC                    ; there; no return.
+.BACK:                         ; HL is after spaces and tabs.
+    DEC  HL                        ; The byte before:
+    LD   A,(HL)                    ; a space
+    CP   ' '                       ; or
+    JR   Z,.BACK                   ; a tab
+    CP   9                         ; is passed;
+    JR   Z,.BACK                   ; anything else
+    RET                            ; ends a word.
+
+;@ROUTINE OUT A
+; MarkPrivate: the declaration that follows is private (D33).
+
+AC_MARK:
+    LD   A,1                       ; Mark it.
+    LD   (AC_PRIV),A               ; SY_CMT and AC_VIS read it.
+    RET                            ; Back to the engine.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; Take the declaration's visibility for a routine: A returns RO_FPRIV if
+; it is private, else zero, and AC_PRIV is cleared, so the routine's
+; parameters and locals are not private symbols.
+
+AC_VIS:
+    LD   HL,AC_PRIV                ; The mark
+    LD   A,(HL)                    ; is taken
+    LD   (HL),0                    ; and cleared:
+    OR   A                         ; a public routine
+    RET  Z                         ; has no flag,
+    LD   A,RO_FPRIV                ; a private one
+    RET                            ; RO_FPRIV.
+
+;@ROUTINE NORETURN
+; EndTopLevel: a declaration must end in the part where it began (spec
+; 4.3.1): if the part of its last token, its line's end, is not, raise
+; syntax there, as the reference's topLevel does.
+
+AC_SPLIT:
+    LD   A,(AC_DPART)              ; The part it began in:
+    LD   HL,SRC_ID                 ; is it
+    CP   (HL)                      ; the part it ends in?
+    RET  Z                         ; Yes.
+    CALL DG_RAISE                  ; No: syntax,
+    DB   DG_DECL                   ; at its last token.
+
+; ------------------------------------------------------- routines and main
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; RequireMain, at the end of the program, as the reference's compile ends
+; it: the last part ends (its private forwards complete, AC_ENDP), no
+; forward routine may be left without its body (forward-incomplete, at its
+; name), and main must have a body (missing-main).
 
 AC_MAIN:
-    LD   A,(RO_MFLAG)              ; Main's flags
-    AND  RO_FMAIN                  ; say whether it was declared.
-    JR   Z,.NOMAIN                 ; No: there is no main.
+    CALL AC_ENDP                   ; The last part ends.
     LD   A,(RO_RCNT)               ; The routines declared.
     LD   B,A                       ; Count them in B.
     XOR  A                         ; Start at index zero...
@@ -59,7 +199,7 @@ AC_MAIN:
 .LOOP:                         ; Check routine C.
     LD   A,B                       ; Any left?
     OR   A                         ; Zero means all are complete.
-    RET  Z                         ; Every forward has its body.
+    JR   Z,.ENTRY                  ; Every forward has its body.
     LD   A,C                       ; The routine's index.
     CALL RO_SUBAT                  ; HL addresses its record.
     LD   DE,RO_RFLAG               ; Address its flags.
@@ -70,8 +210,11 @@ AC_MAIN:
     INC  C                         ; Next routine.
     DEC  B                         ; One fewer to check.
     JR   .LOOP                     ; Check it.
-.NOMAIN:                       ; The program has no main.
-    CALL DG_RAISE                  ; Abandon the build.
+.ENTRY:                        ; Every forward is complete.
+    LD   A,(RO_MFLAG)              ; Main's flags
+    AND  RO_FMAIN                  ; say whether it was declared.
+    RET  NZ                        ; It was.
+    CALL DG_RAISE                  ; The program has no main:
     DB   DG_MAIN                   ; missing-main, at its end.
 .PARTIAL:                      ; A forward has no body.
     LD   A,C                       ; Its record:
@@ -144,10 +287,14 @@ AC_SIG:
     LD   A,(RO_PCNT)               ; The next free parameter entry...
     LD   (HL),A                    ; ...is its first parameter...
     LD   (RO_CPIDX),A              ; ...in the record and the signature.
-    CALL AC_CLEAR                  ; No parameters or result yet; A is zero.
-    LD   (RO_CFLAG),A              ; The routine's flags: none yet.
+    CALL AC_CLEAR                  ; No parameters or result yet.
+    CALL AC_VIS                    ; The routine's flags: private, or none,
+    LD   (RO_CFLAG),A              ; yet.
     RET                            ; Back to the engine.
 .MAIN:                         ; Open main's signature.
+    LD   A,(AC_PRIV)               ; Main can't be private:
+    OR   A                         ; bad-main,
+    JP   NZ,AC_EMAIN               ; at its name.
     LD   A,$FF                     ; Main is being declared.
     LD   (RO_CUR),A                ; Mark it.
     CALL AC_CLEAR                  ; No parameters or result.
@@ -267,7 +414,8 @@ AC_FAILS:
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; BeginForwardBody: `sub NAME` without a signature opens the body of an
 ; open forward, recovering the signature it stored. A name that is no
-; routine, main, or a routine whose body exists raises forward-mismatch.
+; routine, main, a routine whose body exists, or a completion whose
+; visibility is not the forward's, raises forward-mismatch.
 
 AC_IMPL:
     CALL AC_RESUB                  ; The routine's name is current again.
@@ -288,9 +436,15 @@ AC_IMPL:
     LD   A,(HL)                    ; Its result type.
     LD   (RO_CTYPE),A              ; Recover it.
     INC  HL                        ; Step to RO_RFLAG.
-    LD   A,(HL)                    ; Its flags.
-    BIT  2,A                       ; RO_FOPEN: still waiting for a body?
+    BIT  2,(HL)                    ; RO_FOPEN: still waiting for a body?
     JR   Z,.MISSING                ; No: no forward is incomplete.
+    PUSH HL                        ; Keep the flags' place.
+    CALL AC_VIS                    ; The completion's visibility
+    POP  HL                        ; and
+    XOR  (HL)                      ; the forward's
+    AND  RO_FPRIV                  ; must agree.
+    JR   NZ,.MISSING               ; They differ.
+    LD   A,(HL)                    ; Its flags.
     AND  $FF-RO_FOPEN              ; The body is here.
     LD   (HL),A                    ; In the record...
     LD   (RO_CFLAG),A              ; ...and the signature.

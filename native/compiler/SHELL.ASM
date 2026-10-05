@@ -6,11 +6,12 @@
 ;  image at $0100, whose first instruction jumps to SH_START. The shell
 ;  runs the build through its overlays (OVERLAY.ASM): COMMAND reads the
 ;  command line; START checks the blob library, loads each source part
-;  into memory above the compiler's workspace, chooses the compilation
-;  stamp, opens the intermediate streams NAME.$DR, $BY, $LN and $NM on the
-;  spool drive and with the first part's name (toolchain §3.2) and names
-;  each part in the line stream; NAMES holds the predeclared names while
-;  PR_BUILD compiles the parts into blobs; then the shell closes the
+;  named on it and every part they include into memory above the
+;  compiler's workspace, chooses the compilation stamp, opens the
+;  intermediate streams NAME.$DR, $BY, $LN and $NM on the spool drive and
+;  with the first part's name (toolchain §3.2) and names each part in the
+;  line stream; NAMES holds the predeclared names while PR_BUILD compiles
+;  the parts into blobs; then the shell closes the
 ;  streams and CHAIN runs BLINK.COM to link them, unless option C compiles
 ;  only; option X runs BLINK at once. A diagnostic is printed by the DIAG
 ;  overlay, by the reference's number with its text from BASIE.MSG. The
@@ -25,8 +26,9 @@
 ;    OUT_FAIL  the output streams' failure: a full disk or directory
 ;
 ;  Failure: a malformed command line, an unusable library, a missing part,
-;  more than SRC_CAP parts, source too large for memory, a full disk or a
-;  compiler diagnostic prints one line, sets the CP/M 3 return code
+;  more than CL_PCAP parts named or 255 in all, source too large for
+;  memory, a full disk or a compiler diagnostic prints one line, sets the
+;  CP/M 3 return code
 ;  (toolchain §5.4: $FF13 for a disk that filled or failed, $FF11 for
 ;  anything else) and then deletes A:$$$.SUB, which stops a running SUBMIT
 ;  job under CP/M 2.2. A compiler diagnostic or a full disk, which come
@@ -34,13 +36,12 @@
 ;  K keeps them (toolchain §6.2).
 ;
 ;  Memory: SP starts at the BDOS entry. The parts are packed upward from
-;  MM_SRC, each ending at its first $1A, and must stay MM_STACK bytes below
-;  the BDOS entry, which leaves that much for the stack. The workspace,
-;  SH_WBEG to SH_WEND below MM_BLOB, holds the load state, one FCB, the part
-;  descriptors PR_BUILD reads (five bytes each: the part's 1-based id, its
-;  start and its exclusive end), each part's 11-character CP/M name for
-;  diagnostics and the line stream, the part name being written, the
-;  streams' drive and name, and the options (COMMAND.ASM).
+;  MM_SRC, each ending at its first $1A, and the part table (SOURCE.ASM)
+;  grows down to meet them from MM_STACK bytes below the BDOS entry, which
+;  leaves that much for the stack. The workspace, SH_WBEG to SH_WEND below
+;  MM_BLOB, holds the load state, one FCB, the names of the parts the
+;  command line names, the part name being written, the streams' drive
+;  and name, and the options (COMMAND.ASM).
 ;
 ;  Registers: every BDOS call is taken to change every register, IX and IY
 ;  included. SH_CHAR saves AF, BC, DE and HL around its call.
@@ -54,6 +55,7 @@ SH_TAIL EQU  $0080             ; Command tail: a length byte, then the text.
 SH_COUT EQU  2                 ; BDOS console output: E is the character.
 SH_OPEN EQU  15                ; BDOS open file: A is $FF when the file is absent.
 SH_ERASE EQU  19               ; BDOS delete file: an absent file is only a status.
+SH_DISK EQU  25                ; BDOS current disk: A is the drive, 0 for A:.
 SH_READ EQU  20                ; BDOS read sequential: A is nonzero at end of file.
 SH_DMA EQU  26                 ; BDOS set DMA address: DE receives the next record.
 SH_RCODE EQU  108              ; BDOS set return code (CP/M 3): DE is the code.
@@ -61,6 +63,8 @@ SH_FLEN EQU  36                ; FCB bytes, through the random record number.
 SH_NLEN EQU  11                ; FCB name and type bytes, padded with spaces.
 SH_SLOT EQU  12                ; A saved part name: the FCB's drive, name and type.
 SH_KEEP EQU  $40               ; BL_FLAGS bit: option K, keep the streams on failure.
+CL_PCAP EQU  8                 ; Parts the command line may name; DG_PARTS beyond.
+SH_ICAP EQU  16                ; Includes open at once while loading; DG_INEST beyond.
 SH_RSRC EQU  $11               ; Return code's low byte: a source error, $FF11.
 SH_RDISK EQU  $13              ; Return code's low byte: a disk error, $FF13.
 SH_NIO EQU  222                ; L-IO: a part that can't be read.
@@ -90,11 +94,16 @@ SH_LIMIT EQU  SH_WBEG          ; Word: the source must end at or below here.
 SH_LOADP EQU  SH_LIMIT+2       ; Word: the next free source byte, the load point.
 SH_PBEG EQU  SH_LOADP+2        ; Word: the start of the part being loaded.
 SH_PCNT EQU  SH_PBEG+2         ; Byte: parts named on the command line.
-SH_PIDX EQU  SH_PCNT+1         ; Byte: the index of the part being loaded.
-SH_FCB EQU  SH_PIDX+1          ; SH_FLEN bytes: the FCB of every BDOS file call.
-SH_PARTS EQU  SH_FCB+SH_FLEN   ; SRC_CAP descriptors of 5 bytes: id, start, end.
-SH_NAMES EQU  SH_PARTS+SRC_CAP*5 ; SRC_CAP slots of SH_SLOT bytes, by index.
-SH_TEXT EQU  SH_NAMES+SRC_CAP*SH_SLOT ; 15 bytes: a part's name as D:NAME.TYP.
+SH_PIDX EQU  SH_PCNT+1         ; Byte: the index of the command line's part.
+SH_LCNT EQU  SH_PIDX+1         ; Byte: the parts loaded, the part table's entries.
+SH_SNUM EQU  SH_LCNT+1         ; Byte: the next part's number in the stream.
+SH_DEPTH EQU  SH_SNUM+1        ; Byte: includes open while the parts load.
+SH_CURDR EQU  SH_DEPTH+1       ; Byte: the current drive, 1 for A:.
+SH_CUR EQU  SH_CURDR+1         ; Word: the table entry of the part being loaded.
+SH_IPOS EQU  SH_CUR+2          ; Word: the offset of the include being read.
+SH_FCB EQU  SH_IPOS+2          ; SH_FLEN bytes: the FCB of every BDOS file call.
+SH_NAMES EQU  SH_FCB+SH_FLEN   ; CL_PCAP slots of SH_SLOT bytes, by index.
+SH_TEXT EQU  SH_NAMES+CL_PCAP*SH_SLOT ; 15 bytes: a part's name as D:NAME.TYP.
 SH_SNAME EQU  SH_TEXT+15       ; 9 bytes: the streams' drive and name.
 SH_RLOW EQU  SH_SNAME+9        ; Byte: a failure's return code, low byte.
 CL_POS EQU  SH_RLOW+1          ; Word: the option being parsed (COMMAND.ASM).
@@ -138,12 +147,17 @@ SH_START:                      ; Entered from the jump at $0100.
     CP   'X'                       ; links only:
     JP   Z,SH_CHAIN                ; run BLINK, compiling nothing.
     LD   A,OV_START                ; The start of a build:
-    CALL OV_LOAD                   ; check the library, load the parts, choose the
-    CALL OV_AREA                   ; stamp and open the streams (SH_BEGIN).
+    CALL OV_LOAD                   ; check the library
+    CALL OV_AREA                   ; (LB_FIRST);
+    LD   A,OV_PARTS                ; load the parts
+    CALL OV_LOAD                   ; and their includes
+    CALL OV_AREA                   ; (SH_BEGIN),
+    JP   C,SH_DIAG                 ; a diagnostic of theirs printed;
+    LD   A,OV_START                ; then choose the stamp,
+    CALL OV_LOAD                   ; open the streams and name the parts
+    CALL OV_AREA+3                 ; (LB_OPEN).
     LD   A,OV_NAMES                ; The predeclared names
     CALL OV_LOAD                   ; are in the overlay area for the compilation.
-    LD   A,(SH_PCNT)               ; The parts' count
-    LD   HL,SH_PARTS               ; PR_BUILD takes the count in A, descriptors at HL.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
     JP   C,SH_DIAG                 ; Print it and fail.
     CALL BL_CLOSE                  ; Write the trailers and close the streams.

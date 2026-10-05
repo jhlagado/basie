@@ -135,6 +135,103 @@ Deno.test("BASIE compiles a program of several parts", () => {
   );
 });
 
+// ---- 67a: include ------------------------------------------------------------
+
+/** The names of the parts a build's line stream records, in order. */
+function partsOf(lines: Uint8Array): string[] {
+  const names: string[] = [];
+  let at = 8; // after the magic, version and stamp
+  while (lines[at] === 1) {
+    const length = lines[at + 2];
+    names.push(new TextDecoder().decode(lines.slice(at + 3, at + 3 + length)));
+    at += 3 + length;
+  }
+  return names;
+}
+
+Deno.test("BASIE loads the parts a part includes, each once, before it", () => {
+  const files = {
+    "MAIN.BSI": 'include "LIB.BSI"\ninclude "BASE.BSI"\nsub main()\n' +
+      "result = twice(3)\nend\n",
+    "LIB.BSI": '// The library.\ninclude "BASE.BSI"\n\n' +
+      "sub twice(n as u8) as u8\nreturn n + n + base\nend\n",
+    "BASE.BSI": "var result as u8\nconst base = 0\n",
+  };
+  const result = build("MAIN [C,K]", files);
+  assertEquals(result.output, "");
+  assertEquals(partsOf(result.disk.get("MAIN.$LN")!), [
+    "BASE.BSI",
+    "LIB.BSI",
+    "MAIN.BSI",
+  ]);
+  // A part the command line names that an earlier part included is
+  // compiled once (spec 4.3.2, rule 4).
+  const again = build("MAIN,BASE [C,K]", files);
+  assertEquals(again.output, "");
+  assertEquals(partsOf(again.disk.get("MAIN.$LN")!).length, 3);
+});
+
+Deno.test("an include is looked for on its part's drive, then on L's or A:", () => {
+  const main = 'include "LIB.BSI"\nsub main()\nresult = 1\nend\n';
+  const lib = "var result as u8\n";
+  // On the including part's drive first,
+  assertEquals(
+    run("B:MAIN [C]", { "B:MAIN.BSI": main, "B:LIB.BSI": lib }),
+    "",
+  );
+  // then on A:,
+  assertEquals(run("B:MAIN [C]", { "B:MAIN.BSI": main, "LIB.BSI": lib }), "");
+  // or on option L's drive instead of A:,
+  assertEquals(
+    run("B:MAIN [C,L=C]", {
+      "B:MAIN.BSI": main,
+      "C:LIB.BSI": lib,
+      "C:CPM22.BRL": LIBRARY,
+    }),
+    "",
+  );
+  assertEquals(
+    run("B:MAIN [C,L=C]", {
+      "B:MAIN.BSI": main,
+      "LIB.BSI": lib,
+      "C:CPM22.BRL": LIBRARY,
+    }),
+    "B:MAIN.BSI 1:9: 23: LIB.BSI not found\r\n",
+  );
+  // and with a drive, there alone.
+  assertEquals(
+    run("MAIN [C]", {
+      "MAIN.BSI": main.replace("LIB.BSI", "D:LIB.BSI"),
+      "D:LIB.BSI": lib,
+    }),
+    "",
+  );
+  assertEquals(
+    run("MAIN [C]", {
+      "MAIN.BSI": main.replace("LIB.BSI", "D:LIB.BSI"),
+      "LIB.BSI": lib,
+    }),
+    "MAIN.BSI 1:9: 23: LIB.BSI not found\r\n",
+  );
+});
+
+Deno.test("includes open at once are counted, the parts by the line stream's byte", () => {
+  // A chain of includes 16 deep loads; 17 deep is the capacity.
+  const chain = (depth: number) => {
+    const files: Files = {};
+    for (let i = 0; i < depth; i++) {
+      files[`P${i}.BSI`] = `include "P${i + 1}.BSI"\n`;
+    }
+    files[`P${depth}.BSI`] = "sub main()\nend\n";
+    return files;
+  };
+  assertEquals(run("P0 [C]", chain(16)), "");
+  assertEquals(
+    run("P0 [C]", chain(17)),
+    "P16.BSI 1:9: 190: A compiler capacity was exceeded: include depth\r\n",
+  );
+});
+
 Deno.test("BASIE reports a diagnostic with its part, line and column", () => {
   const files = { "MAIN.BSI": "sub main()\n    value = 1\nend\n" };
   assertEquals(run("MAIN", files), undeclared("MAIN", 5));
@@ -180,9 +277,11 @@ Deno.test("without BASIE.MSG a diagnostic is its number and arguments", () => {
   );
 });
 
-Deno.test("the source may fill memory to 1K below the BDOS entry", () => {
-  // The harness's BDOS entry is $E406, so the source runs from $6800 to $E006.
-  const room = 0xe006 - 0x6800;
+Deno.test("the source and the part table may fill memory to 1K below the BDOS entry", () => {
+  // The harness's BDOS entry is $E406, so the source runs up from $6800
+  // and the part table down from $E006, 21 bytes a part; each record must
+  // fit below the table before it is read.
+  const room = Math.floor((0xe006 - 21 - 0x6800) / 128) * 128;
   const fill = (size: number) => {
     let text = PROGRAM;
     while (text.length < size - 70) text += "// " + "x".repeat(60) + "\n";

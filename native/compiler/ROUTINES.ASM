@@ -144,19 +144,16 @@ RO_LIB:
     ADD  HL,DE                     ; HL addresses the next entry.
     JR   .LOOP                     ; Continue through the table.
 
-;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
-; Compile A source parts, described at HL, into the blob writer's streams,
-; which the caller has opened (BL_OPEN): every blob, then the entry and
-; limits records. Carry clear reports success. A diagnostic returns carry
-; set, with DG_CODE, DG_PART and DG_POS describing it.
+;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
+; Compile the source parts of the part table (SOURCE.ASM) in stream order
+; into the blob writer's streams, which the caller has opened (BL_OPEN):
+; every blob, then the entry and limits records. Carry clear reports
+; success. A diagnostic returns carry set, with DG_CODE, DG_PART and
+; DG_POS describing it.
 
 PR_BUILD:
     LD   (PR_SP),SP                ; A diagnostic returns from here.
-    PUSH AF                        ; Keep the part count.
-    PUSH HL                        ; Keep the part descriptors.
     CALL PR_RESET                  ; Clear the parser's state.
-    POP  HL                        ; Recover the part descriptors.
-    POP  AF                        ; Recover the part count.
     CALL SRC_OPEN                  ; Open the first part.
     CALL PR_PARSE                  ; Parse every part, writing its blobs.
     CALL RG_END                    ; The entry and limits records.

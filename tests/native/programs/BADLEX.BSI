@@ -1,0 +1,3 @@
+// A part for INCLEX.BSI: a lexical error on its first line.
+
+const k = 1 ` 2

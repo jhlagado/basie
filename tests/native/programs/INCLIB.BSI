@@ -1,0 +1,20 @@
+// A part for INCMAIN.BSI, including INCUTIL.BSI before its declarations.
+// Its private names may repeat the private names of INCUTIL.BSI.
+include "INCUTIL.BSI"
+
+private const scale = 5
+
+private sub helper(p as pair) as u16
+    return p.b + triple(p.a)
+end
+
+sub combine(a as u8, b as u16) as u16
+    var p as pair
+    p.a = a
+    p.b = b
+    return helper(p) * scale
+end
+
+sub later
+    return n + 1
+end

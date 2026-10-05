@@ -1,5 +1,5 @@
 ;==========================================================================
-;  Library check and compilation stamp
+;  Library check, compilation stamp and streams
 ;==========================================================================
 ;
 ;  Before any source is read, BASIE.COM reads the blob library a build
@@ -13,8 +13,16 @@
 ;  compiler takes them from its library. Then, before the streams are
 ;  made, the compilation stamp is chosen (object format §4.1).
 ;
-;  Principal entries, in the START overlay, which SH_BEGIN (PARTS.ASM)
-;  enters:
+;  The START overlay (OVERLAY.ASM), with PARTNAME.ASM. The shell enters it
+;  twice: before the parts are loaded (PARTS.ASM), at OV_AREA, to check the
+;  library and set the streams' flags (LB_FIRST), and after, at
+;  OV_AREA+3, to choose the stamp, open the streams NAME.$DR, $BY, $LN and
+;  $NM on the spool drive with the first part's name (toolchain §3.2) and
+;  name each part in the line stream in stream order (LB_OPEN).
+;
+;  Principal entries:
+;    LB_FIRST  check the library; the streams' flags
+;    LB_OPEN   choose the stamp, open the streams and name the parts
 ;    LB_CHECK  find, read and check the library
 ;    LB_STAMP  choose the compilation stamp
 ;
@@ -32,6 +40,69 @@ LB_RAND EQU  33                ; BDOS read random: the record number is in the F
 LB_NFORM EQU  200              ; L-FORMAT: bad magic or version.
 LB_NCOMP EQU  201              ; L-COMPAT: another helper table.
 LB_NTRUN EQU  214              ; L-TRUNCATED: the library ends too soon.
+LB_END EQU  SH_IPOS            ; Word: the end of the part the stamp's CRC reads.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The overlay's entries: OV_AREA, LB_FIRST, and OV_AREA+3, LB_OPEN.
+
+LB_ENTRY:                      ; At OV_AREA.
+    JP   LB_FIRST                  ; LB_OPEN follows at +3.
+    JP   LB_OPEN                   ; At OV_AREA+3.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Check the library (LB_CHECK), then set the streams' flags from the
+; options in BL_FLAGS, now, so that SH_SCRUB keeps them for option K if a
+; part fails before they open.
+
+LB_FIRST:                      ; At OV_AREA.
+    CALL LB_CHECK                  ; The library must suit the compiler.
+    LD   C,BL_LNOUT                ; By default a line stream and no names.
+    LD   A,(CL_SEEN+CL_IN)         ; Option N:
+    OR   A                         ; no line stream.
+    JR   Z,.LINES                  ; Not given.
+    LD   C,0                       ; None.
+.LINES:                        ; C holds the line stream's flag.
+    LD   HL,CL_SEEN+CL_IM          ; Option M
+    LD   A,(CL_SEEN+CL_IY)         ; or Y
+    OR   (HL)                      ; wants
+    JR   Z,.NAMES                  ; the name stream.
+    SET  1,C                       ; Set BL_NMOUT.
+.NAMES:                        ; C holds the stream flags.
+    LD   A,(CL_SEEN+CL_IK)         ; Option K:
+    OR   A                         ; keep the streams
+    JR   Z,.KEPT                   ; after a failure.
+    SET  6,C                       ; Set SH_KEEP.
+.KEPT:                         ; C is complete.
+    LD   A,C                       ; Set it
+    LD   (BL_FLAGS),A              ; now.
+    RET                            ; The parts may load.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The parts are loaded: choose the stamp, open the streams and name each
+; part in the line stream, in stream order.
+
+LB_OPEN:                       ; At OV_AREA+3.
+    CALL LB_STAMP                  ; Choose the compilation stamp.
+    LD   A,(BL_FLAGS)              ; The streams the options want.
+    LD   HL,SH_HEAD                ; The directory's header,
+    LD   DE,SH_SNAME               ; and the streams' drive and name.
+    CALL BL_OPEN                   ; Open the streams.
+    XOR  A                         ; Name each part in the line stream,
+.PARTS:                        ; A is the next part's number.
+    PUSH AF                        ; Keep it.
+    CALL SRC_FIND                  ; B is its entry's index:
+    LD   A,B                       ; the entry,
+    CALL SRC_PART                  ; HL, begins with its name,
+    CALL SH_TYPED                  ; spelled NAME.TYP at HL, B long.
+    POP  AF                        ; A is the number.
+    PUSH AF                        ; Keep it.
+    CALL BL_PART                   ; Write its part record.
+    POP  AF                        ; The number again.
+    INC  A                         ; The next part.
+    LD   HL,SRC_PCNT               ; Is there one?
+    CP   (HL)                      ; The count ends them;
+    JR   C,.PARTS                  ; name it.
+    RET                            ; The streams are open.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Find the library and read its first record and the record of its key
@@ -220,10 +291,22 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
 .NEW:                          ; No earlier directory: a CRC.
     LD   HL,$FFFF                  ; The CRC starts at $FFFF,
     LD   (SH_HEAD+6),HL            ; where the stamp goes.
-    LD   DE,(SH_PARTS+1)           ; DE walks the first part,
+    XOR  A                         ; The first part
+    CALL SRC_PART                  ; the command line names,
+    LD   DE,PT_START               ; the table's first,
+    ADD  HL,DE                     ; from
+    LD   E,(HL)                    ; its start,
+    INC  HL                        ; DE,
+    LD   D,(HL)                    ; to
+    INC  HL                        ; its end,
+    LD   A,(HL)                    ; kept
+    INC  HL                        ; in
+    LD   H,(HL)                    ; LB_END,
+    LD   L,A                       ; is
+    LD   (LB_END),HL               ; walked,
     LD   C,128                     ; one record at most.
 .BYTE:                         ; DE is the next byte, C bytes remain.
-    LD   HL,(SH_PARTS+3)           ; The part's end:
+    LD   HL,(LB_END)               ; The part's end:
     OR   A                         ; is DE
     SBC  HL,DE                     ; at it?
     JR   Z,.MIX                    ; The part is shorter than a record.

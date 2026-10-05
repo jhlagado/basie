@@ -59,23 +59,17 @@ MS_SHOWD:                      ; At OV_AREA+3.
     OR   A                         ; Zero means that no part was current:
     LD   HL,MS_ERR                 ; then "Error ",
     JR   Z,.NUMBER                 ; as BLINK prints a diagnostic.
-    DEC  A                         ; The id less one is the index of its saved name.
-    PUSH AF                        ; Keep it for the position.
+    DEC  A                         ; The id less one is its entry's index:
+    CALL SRC_PART                  ; HL is the entry, its name first.
+    PUSH HL                        ; Keep it for the position.
     LD   DE,SH_TEXT                ; Spell it as D:NAME.TYP
     CALL SH_SPELL                  ; there,
     CALL SH_PRINT                  ; and print it.
     LD   A,' '                     ; A space separates the name from the position.
     CALL SH_CHAR                   ; Print it.
-    POP  AF                        ; The part's index:
-    LD   L,A                       ; its descriptor
-    LD   H,0                       ; is
-    LD   D,H                       ; five
-    LD   E,L                       ; times
-    ADD  HL,HL                     ; the
-    ADD  HL,HL                     ; index
-    ADD  HL,DE                     ; on from SH_PARTS,
-    LD   DE,SH_PARTS+1             ; and its start
-    ADD  HL,DE                     ; follows the id:
+    POP  HL                        ; The entry:
+    LD   DE,PT_START               ; its start
+    ADD  HL,DE                     ; follows the name:
     LD   E,(HL)                    ; DE is
     INC  HL                        ; where the part
     LD   D,(HL)                    ; begins.
@@ -514,3 +508,4 @@ MS_CAPS:                       ; Each a zero-terminated name.
     DB   "grammar stack",0         ; DG_LLCAP: the LL(1) stack.
     DB   "source parts",0          ; DG_PARTS: the part table.
     DB   "source size",0           ; DG_ROOM: memory for the source.
+    DB   "include depth",0         ; DG_INEST: includes open at once.

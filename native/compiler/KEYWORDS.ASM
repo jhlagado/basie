@@ -64,7 +64,9 @@ KW_TAB:
     DB   6,"record",TK_REC         ; Record type declaration.
     DB   6,"string",TK_STR         ; String type.
     DB   6,"handle",TK_HANDL       ; Local failure handler.
-KW_CNT EQU  33                 ; Entries in KW_TAB.
+    DB   7,"private",TK_PRIV       ; A declaration its part alone sees.
+    DB   7,"include",TK_INCL       ; A part a part depends on.
+KW_CNT EQU  35                 ; Entries in KW_TAB.
 
 ; Punctuators found by table search: the character, then a descriptor.
 ; Below $80 the descriptor is the token kind. With bit 7 set it routes a

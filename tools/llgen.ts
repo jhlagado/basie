@@ -209,32 +209,32 @@ export function grammarSource(g: GrammarFile): string {
   out.push(HEADER.trim());
   out.push("");
   out.push(
-    pad(`GR_ROW_N EQU  ${t.rows.length}`, 35) + "; Nonterminals, one row each.",
+    pad(`GR_ROW_N EQU  ${t.rows.length}`, 31) + "; Nonterminals, one row each.",
   );
-  out.push(pad(`GR_ALT_N EQU  ${t.bodies.length}`, 35) + "; Productions.");
+  out.push(pad(`GR_ALT_N EQU  ${t.bodies.length}`, 31) + "; Productions.");
   out.push(
-    pad(`GR_SPLIT EQU  ${t.split}`, 35) +
+    pad(`GR_SPLIT EQU  ${t.split}`, 31) +
       "; First production in the high directory.",
   );
   out.push(
-    pad(`GR_ACT_N EQU  ${t.actions.length}`, 35) + "; Actions in GR_ACTX.",
+    pad(`GR_ACT_N EQU  ${t.actions.length}`, 31) + "; Actions in GR_ACTX.",
   );
   out.push(
-    pad(`GR_START EQU  $40`, 35) + `; Start symbol: ${g.start}, row 0.`,
+    pad(`GR_START EQU  $40`, 31) + `; Start symbol: ${g.start}, row 0.`,
   );
   if (t.rows[0] !== g.start) throw new Error("the start symbol must be row 0");
   for (const [name, target] of Object.entries(g.equates)) {
     const r = t.rows.indexOf(target);
     if (r >= 0) {
       out.push(
-        pad(`${name} EQU  $40+${r}`, 35) +
+        pad(`${name} EQU  $40+${r}`, 31) +
           `; The ${target} nonterminal, row ${r}.`,
       );
     } else {
       const a = t.actions.indexOf(target);
       if (a < 0) throw new Error(`equate ${name}: no row or action ${target}`);
       out.push(
-        pad(`${name} EQU  ${a}`, 35) +
+        pad(`${name} EQU  ${a}`, 31) +
           `; Action ordinal of ${target} (${g.actions[target]}).`,
       );
     }
@@ -265,18 +265,18 @@ export function grammarSource(g: GrammarFile): string {
   if (at > 256) {
     throw new Error(`the rows take ${at} bytes, more than a byte's offsets`);
   }
-  out.push(pad("GR_ROWXE:", 35) + "; End of the row directory.");
+  out.push(pad("GR_ROWXE:", 31) + "; End of the row directory.");
   out.push("");
   out.push(
     "; Rows: alternatives of production byte and predicting token kinds.",
   );
   out.push("");
-  out.push(pad("GR_ROWS:", 35) + "; Base of the row offsets.");
+  out.push(pad("GR_ROWS:", 31) + "; Base of the row offsets.");
   t.rows.forEach((row, r) => {
-    out.push(pad(`GR_ROW${r}:`, 35) + `; ${row}`);
+    out.push(pad(`GR_ROW${r}:`, 31) + `; ${row}`);
     for (const b of rowBytes[r]) out.push(`    DB   ${b}`);
   });
-  out.push(pad("GR_ROW_E:", 35) + "; End of the rows.");
+  out.push(pad("GR_ROW_E:", 31) + "; End of the rows.");
   out.push("");
   out.push(
     "; Production directories: body offsets, each list closed by an end entry.",
@@ -296,26 +296,26 @@ export function grammarSource(g: GrammarFile): string {
     off += t.bodies[n].length;
   }
   out.push(line(`DB   ${off}`, "GR_ALT_E-GR_ALTHI"));
-  out.push(pad("GR_ALTXE:", 35) + "; End of the production directories.");
+  out.push(pad("GR_ALTXE:", 31) + "; End of the production directories.");
   out.push("");
   out.push("; Production bodies, each right side stored right to left.");
   out.push("");
-  out.push(pad("GR_ALTS:", 35) + "; Base of the low productions' offsets.");
+  out.push(pad("GR_ALTS:", 31) + "; Base of the low productions' offsets.");
   t.bodies.forEach((body, n) => {
     if (n === t.split) {
       out.push(
-        pad("GR_ALTHI:", 35) + "; Base of the high productions' offsets.",
+        pad("GR_ALTHI:", 31) + "; Base of the high productions' offsets.",
       );
     }
-    out.push(pad(`GR_ALT${n}:`, 35) + `; ${rowOf(n)}`);
+    out.push(pad(`GR_ALT${n}:`, 31) + `; ${rowOf(n)}`);
     if (body.length > 0) {
       out.push(`    DB   ${[...body].reverse().map(symbol).join(",")}`);
     }
   });
   if (t.split === t.bodies.length) {
-    out.push(pad("GR_ALTHI:", 35) + "; Base of the high productions' offsets.");
+    out.push(pad("GR_ALTHI:", 31) + "; Base of the high productions' offsets.");
   }
-  out.push(pad("GR_ALT_E:", 35) + "; End of the production bodies.");
+  out.push(pad("GR_ALT_E:", 31) + "; End of the production bodies.");
   out.push("");
   out.push("; Action directory: the routine for each action ordinal.");
   out.push("");
@@ -327,11 +327,11 @@ export function grammarSource(g: GrammarFile): string {
   for (const a of t.actions) {
     out.push(line(`DW   ${g.actions[a]}`, kinds.get(a) ?? `a:${a}`));
   }
-  out.push(pad("GR_ACTXE:", 35) + "; End of the action directory.");
+  out.push(pad("GR_ACTXE:", 31) + "; End of the action directory.");
   out.push("");
-  out.push(pad("GR_TAB_E:", 35) + "; End of the generated tables (marker).");
+  out.push(pad("GR_TAB_E:", 31) + "; End of the generated tables (marker).");
   out.push("");
-  out.push(pad("GR_END:", 35) + "; End of the grammar tables (marker).");
+  out.push(pad("GR_END:", 31) + "; End of the grammar tables (marker).");
   return out.join("\n") + "\n";
 }
 

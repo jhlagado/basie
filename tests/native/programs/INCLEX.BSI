@@ -1,0 +1,5 @@
+// An included part whose first line holds a byte no token begins with.
+include "BADLEX.BSI"
+
+sub main()
+end

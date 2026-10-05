@@ -1,0 +1,5 @@
+// An include line with no name.
+include
+
+sub main()
+end

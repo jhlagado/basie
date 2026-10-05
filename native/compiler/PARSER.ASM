@@ -93,36 +93,52 @@ DG_PLACE:
     RET                            ; Return from PR_BUILD.
 
 ;@ROUTINE IN A,HL NORETURN
-; Record diagnostic A at the source address HL, in the current part or an
-; earlier one (the parts lie in memory in order, from SRC_DESC's
-; descriptors back), and abandon the build.
+; Record diagnostic A at the source address HL, in any part, and abandon
+; the build. The parts lie in memory in the order they were loaded, so
+; the part is the last whose start is not above the address.
 
 DG_SRC:
     PUSH AF                        ; Keep the code.
-    EX   DE,HL                     ; DE is the address.
-    LD   HL,(SRC_DESC)             ; After the current part's descriptor.
-.BACK:                         ; HL is after a descriptor.
-    LD   BC,-SRC_DLEN              ; Step back
-    ADD  HL,BC                     ; to it.
-    PUSH HL                        ; Keep it.
-    LD   A,(HL)                    ; Its part's id,
-    INC  HL                        ; and
-    LD   C,(HL)                    ; the part's
-    INC  HL                        ; start,
-    LD   B,(HL)                    ; BC.
-    LD   H,D                       ; The address
-    LD   L,E                       ; less
-    AND  A                         ; the start,
-    SBC  HL,BC                     ; the offset; carry if before the part.
-    EX   (SP),HL                   ; The descriptor again, the offset kept.
-    JR   NC,.FOUND                 ; In this part.
-    POP  BC                        ; In an earlier one:
-    JR   .BACK                     ; step back again.
-.FOUND:                        ; A is the part's id.
-    POP  HL                        ; The offset.
-    LD   D,A                       ; The part,
-    POP  AF                        ; and
-    LD   E,A                       ; the code.
+    LD   B,0                       ; The parts from the first,
+.NEXT:                         ; B is the next to try.
+    PUSH HL                        ; Keep the address.
+    LD   A,B                       ; The next part,
+    INC  A                         ; B+1:
+    LD   HL,SRC_PCNT               ; is there one?
+    CP   (HL)                      ; If not, part B
+    JR   Z,.LAST                   ; holds the address.
+    CALL SRC_PART                  ; HL is entry B+1.
+    LD   DE,PT_START               ; Its
+    ADD  HL,DE                     ; start
+    LD   E,(HL)                    ; is
+    INC  HL                        ; DE.
+    LD   D,(HL)                    ; Is the address
+    POP  HL                        ; below it?
+    PUSH HL                        ; (kept)
+    OR   A                         ; Clear carry:
+    SBC  HL,DE                     ; carry if so.
+    POP  HL                        ; The address.
+    JR   C,.FOUND                  ; Then part B holds it.
+    INC  B                         ; Otherwise
+    JR   .NEXT                     ; try the next part.
+.LAST:                         ; B is the last part.
+    POP  HL                        ; The address.
+.FOUND:                        ; Part B holds the address HL.
+    LD   A,B                       ; Its entry:
+    PUSH HL                        ; (the address kept)
+    CALL SRC_PART                  ; HL.
+    LD   DE,PT_START               ; Its
+    ADD  HL,DE                     ; start
+    LD   E,(HL)                    ; is
+    INC  HL                        ; DE.
+    LD   D,(HL)                    ; The address
+    POP  HL                        ; less it
+    OR   A                         ; is the
+    SBC  HL,DE                     ; offset.
+    INC  B                         ; The part's id,
+    LD   D,B                       ; and
+    POP  AF                        ; the
+    LD   E,A                       ; code.
     JR   DG_PLACE                  ; Record them.
 
 ;@ROUTINE NORETURN

@@ -3,34 +3,128 @@
 ;==========================================================================
 ;
 ;  Present the program's source to the tokenizer as one ordered stream of
-;  bytes, drawn from up to eight resident parts in manifest order. The shell
-;  has read every part into memory before compilation begins, and the parts
-;  and their descriptor table stay resident until compilation finishes, so
-;  the adapter keeps only a pointer into the current part, its end and the
-;  position counters that diagnostics report.
+;  bytes, drawn from the resident parts in stream order: each part after
+;  the parts it includes (spec 4.3.2). The START overlay (PARTS.ASM) has
+;  read every part into memory and described it in the part table before
+;  compilation begins, and the parts and the table stay resident until it
+;  finishes, so the adapter keeps only a pointer into the current part,
+;  its end and the position counters that diagnostics report.
 ;
 ;  Principal entries:
-;    SRC_OPEN  validate the part count and load the first part
-;    SRC_LOAD  load the part described at HL and retain the next descriptor
+;    SRC_PART  address a part's entry in the part table
+;    SRC_FIND  find the part with a given number in the stream
+;    SRC_OPEN  begin the compilation at the stream's first part
+;    SRC_BODY make the stream's part A current, at its body
 ;    SRC_INIT  make the byte range [HL,DE) the current part with identity A
 ;    SRC_PEEK  return the current byte without consuming it
 ;    SRC_TAKE  consume one byte, advancing the offset and column
 ;    SRC_EOL   advance the line counter for one logical line break
 ;
-;  A part descriptor is five bytes (SRC_DLEN): the part's stable identity,
-;  then the start and the exclusive end address of its bytes. The table is
-;  contiguous, in manifest order.
+;  The part table grows down from SRC_PTAB, the top of the source area, to
+;  meet the parts' bytes, which are loaded up from MM_SRC: entry L, for
+;  the L'th part the loader reached, is the PT_LEN bytes at SRC_PTAB
+;  less PT_LEN times L+1. There are SRC_PCNT entries, at most 255, the
+;  line stream's limit. An entry is:
 ;
-;  SRC_LEFT packs the multipart state in one byte: bits 0..2 count the parts
-;  still to come, bits 3..5 hold the current part's manifest ordinal and bit
-;  7 records that the line break owed at a part boundary has been delivered.
-;  SRC_OPEN sets the count; the tokenizer (TK_ATEND) steps to the next part
-;  by adding SRC_STEP-1, one more ordinal and one fewer part to come.
+;    +0   SH_SLOT bytes  the part's drive and name, as an FCB holds them
+;    +12  word           PT_START: its first byte's address
+;    +14  word           PT_END: its exclusive end
+;    +16  word           PT_BODY: the offset of its body, after its
+;                        include lines, where its compilation begins
+;    +18  word           PT_LINE: the line the body begins on
+;    +20  byte           PT_NUM: its number in the stream, PT_OPEN
+;                        while its includes are being loaded
 ;
-;  The current part is SRC_ID, SRC_PTR and SRC_END. SRC_POS is the byte
+;  The current part is SRC_ID, SRC_PTR and SRC_END. SRC_ID is the part's
+;  entry plus one, which diagnostics name (DG_PART); SRC_NUM is its number
+;  in the stream, which the line stream records. SRC_POS is the byte
 ;  offset within the part; SRC_LINE and SRC_COL count from one. The
 ;  tokenizer copies them into TK_POS when a token starts, and a diagnostic
-;  copies TK_POS together with SRC_ID.
+;  copies TK_POS together with SRC_ID. The tokenizer steps to the next part
+;  (TK_ATEND) through SRC_BODY.
+
+PT_LEN EQU  21                 ; Bytes in one part table entry.
+PT_START EQU  12               ; Entry field: the part's first byte (word).
+PT_END EQU  14                 ; Entry field: its exclusive end (word).
+PT_BODY EQU  16                ; Entry field: its body's offset (word).
+PT_LINE EQU  18                ; Entry field: its body's first line (word).
+PT_NUM EQU  20                 ; Entry field: its number in the stream.
+PT_OPEN EQU  $FF               ; PT_NUM of a part whose includes are loading.
+
+;@ROUTINE IN A OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Address in HL the part table's entry A: SRC_PTAB less PT_LEN times A+1.
+; BC is kept.
+
+SRC_PART:                      ; A is the entry's index.
+    LD   L,A                       ; HL is the
+    LD   H,0                       ; index
+    INC  HL                        ; plus one,
+    LD   D,H                       ; and so
+    LD   E,L                       ; is DE.
+    ADD  HL,HL                     ; Times two,
+    ADD  HL,HL                     ; four,
+    ADD  HL,DE                     ; five,
+    ADD  HL,HL                     ; ten,
+    ADD  HL,HL                     ; twenty,
+    ADD  HL,DE                     ; twenty-one: PT_LEN.
+    EX   DE,HL                     ; DE is the distance down
+    LD   HL,(SRC_PTAB)             ; from the table's top.
+    OR   A                         ; Clear carry.
+    SBC  HL,DE                     ; HL is the entry.
+    RET                            ; Addressed.
+
+;@ROUTINE IN A OUT B,HL CLOBBERS A,C,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Find the part numbered A in the stream: HL addresses its entry's
+; PT_NUM byte and B is its index. The part is in the table.
+
+SRC_FIND:                      ; A is the number.
+    LD   C,A                       ; Keep it.
+    LD   B,0                       ; From the first entry.
+.LOOP:                         ; B is the entry to try.
+    LD   A,B                       ; Address
+    CALL SRC_PART                  ; it,
+    LD   DE,PT_NUM                 ; its number:
+    ADD  HL,DE                     ; is it
+    LD   A,(HL)                    ; the one
+    CP   C                         ; sought?
+    RET  Z                         ; Yes.
+    INC  B                         ; No: the next entry.
+    JR   .LOOP                     ; Try it.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Begin a compilation at the stream's first part, owing no line end.
+
+SRC_OPEN:
+    XOR  A                         ; No boundary line end
+    LD   (SRC_OWE),A               ; is owed; part zero of the stream
+                                   ; is current; fall into SRC_BODY.
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Make the stream's part A current at its body: the bytes after its
+; include lines, at the offset and line where they begin, in column one.
+; The tokenizer's line state starts afresh: no token yet on the line and
+; no open brackets.
+
+SRC_BODY:                      ; A is the part's number.
+    LD   (SRC_NUM),A               ; It is current.
+    CALL SRC_FIND                  ; HL is its PT_NUM, B its index.
+    INC  B                         ; Its index plus one
+    LD   A,B                       ; is its identity
+    LD   (SRC_ID),A                ; for diagnostics.
+    DEC  HL                        ; The entry's start, end, body offset
+    LD   DE,SRC_LINE+1             ; and line, the four words below its
+    LD   BC,8                      ; number, are SRC_PTR, SRC_END, SRC_POS
+    LDDR                           ; and SRC_LINE, copied from the top down.
+    LD   HL,(SRC_PTR)              ; The start
+    LD   DE,(SRC_POS)              ; and the body's offset
+    ADD  HL,DE                     ; give
+    LD   (SRC_PTR),HL              ; the body's first byte.
+    LD   HL,1                      ; The body
+    LD   (SRC_COL),HL              ; begins in column one,
+    XOR  A                         ; no token
+    LD   (TK_LIVE),A               ; on its line
+    LD   (TK_NEST),A               ; and no bracket open.
+    RET                            ; A is zero; carry clear.
 
 ;@ROUTINE IN A,DE,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Make the bytes [HL,DE) the current part, with identity A, and restart the
@@ -51,48 +145,6 @@ SRC_INIT:
     LD   (TK_LIVE),A               ; No token has been seen on this line yet.
     LD   (TK_NEST),A               ; No bracket is open across a line break.
     RET                            ; Return success with A zero.
-
-;@ROUTINE IN A,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-; Begin a compilation of A parts whose descriptors start at HL. One to eight
-; parts are accepted (SRC_CAP); any other count reports DG_PARTS at part
-; zero, line one, column one, and does not return.
-
-SRC_OPEN:
-    DEC  A                         ; Count the parts after the first.
-    CP   SRC_CAP                   ; Zero parts wrap to 255 and fail here too.
-    JR   NC,.FULL                  ; Refuse a count outside one to eight.
-    LD   (SRC_LEFT),A              ; Ordinal zero, A parts still to come.
-    JR   SRC_LOAD                  ; Load the first descriptor at HL.
-.FULL:                         ; Report the part count before any part.
-    XOR  A                         ; Form zero for every field below.
-    LD   H,A                       ; An empty range at address zero.
-    LD   L,A                       ; Clear the start's low byte as well.
-    LD   D,A                       ; The end equals the start.
-    LD   E,A                       ; Clear the end's low byte as well.
-    CALL SRC_INIT                  ; Part zero, offset zero, line and column one.
-    CALL TK_MARK                   ; Take that position as the diagnostic's.
-    CALL DG_RAISE                  ; Report the bad part count; no return.
-    DB   DG_PARTS                  ; Diagnostic: too many or too few parts.
-
-;@ROUTINE IN HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-; Make the part described at HL current and retain the address of the
-; following descriptor in SRC_DESC for the tokenizer's next part step.
-
-SRC_LOAD:
-    LD   A,(HL)                    ; Fetch the part's stable identity.
-    INC  HL                        ; Step to the start address.
-    LD   E,(HL)                    ; Fetch the start's low byte.
-    INC  HL                        ; Step to its high byte.
-    LD   D,(HL)                    ; DE now holds the part's first byte address.
-    INC  HL                        ; Step to the end address.
-    PUSH DE                        ; Keep the start while DE takes the end.
-    LD   E,(HL)                    ; Fetch the end's low byte.
-    INC  HL                        ; Step to its high byte.
-    LD   D,(HL)                    ; DE now holds the exclusive end address.
-    INC  HL                        ; HL now addresses the next descriptor.
-    LD   (SRC_DESC),HL             ; Retain it for the next part boundary.
-    POP  HL                        ; HL is the start, as SRC_INIT expects.
-    JR   SRC_INIT                  ; Make the range current and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO,DE,HL CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the current byte in A without consuming it, with carry clear and

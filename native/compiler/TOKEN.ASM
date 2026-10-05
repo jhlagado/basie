@@ -6,7 +6,7 @@
 ;  TK_NEXT. The parser is the only client: PR_PEEK holds one token of
 ;  lookahead, and the grammar actions read the current token's fields as
 ;  they append operations to the semantic transcript. Source bytes arrive
-;  only through the source adapter (SRC_PEEK, SRC_TAKE, SRC_EOL, SRC_LOAD).
+;  only through the source adapter (SRC_PEEK, SRC_TAKE, SRC_EOL, SRC_BODY).
 ;  The source stays resident until compilation ends, so a name is reported
 ;  as a pointer into it rather than copied, and name records keep that
 ;  pointer.
@@ -58,7 +58,7 @@
 ;  State. TK_POS, TK_LINE, TK_COL, TK_PTR and TK_LEN describe the current
 ;  token. TK_LIVE is nonzero once the current line has produced a token, and
 ;  TK_NEST is the bracket depth; SRC_INIT clears both for each part.
-;  TK_ATEND also advances the multipart byte SRC_LEFT. SRC_PEEK and SRC_TAKE
+;  TK_ATEND also steps to the stream's next part. SRC_PEEK and SRC_TAKE
 ;  clobber DE and HL but keep BC, so the scanners hold counts and payloads
 ;  in B and C, and save an accumulator in HL around each source call.
 
@@ -651,39 +651,43 @@ TK_BREAK:                      ; The line end is consumed.
     RET                            ; Return the line end.
 
 ; The current part is exhausted. Before a later part, a live last line first
-; yields a synthetic TK_EOL and sets bit 7 of SRC_LEFT, so that the next
-; call loads the next part. After the last part, TK_EOF repeats.
+; yields a synthetic TK_EOL and sets SRC_OWE, so that the next call steps
+; to the next part. After the last part, TK_EOF repeats. While the START
+; overlay reads a part's include lines, SRC_NUM is one less than SRC_PCNT,
+; so that every part is the last.
 
 TK_ATEND:                      ; SRC_PEEK reported the end of the part.
     LD   A,(TK_NEST)               ; The bracket depth.
     OR   A                         ; Nonzero if a bracket is still open:
     LD   A,DG_AJAR                 ; open-delimiter,
     JP   NZ,DG_ISSUE               ; at the part's end.
-    LD   A,(SRC_LEFT)              ; Pending flag, ordinal and count of later parts.
-    BIT  7,A                       ; Set once the boundary line end is returned.
-    JR   NZ,.NEXTPART              ; Yes: move on to the next part.
-    AND  SRC_CNT                   ; The number of later parts.
-    OR   A                         ; Redundant: AND has already set ZERO.
-    JR   Z,.LAST                   ; This is the last part.
+    LD   HL,SRC_OWE                ; Was the boundary line end returned?
+    LD   A,(HL)                    ; Then
+    OR   A                         ; move on
+    JR   NZ,.NEXTPART              ; to the next part.
+    LD   A,(SRC_NUM)               ; Is this
+    INC  A                         ; the stream's
+    LD   DE,SRC_PCNT               ; last
+    EX   DE,HL                     ; part?
+    CP   (HL)                      ; Its number plus one is the count:
+    JR   Z,.LAST                   ; then nothing follows.
     LD   A,(TK_LIVE)               ; Nonzero if the last line produced a token.
     OR   A                         ; Test the flag.
     JR   Z,.NEXTPART               ; No: no TK_EOL is owed.
     XOR  A                         ; The next part starts with an empty line.
     LD   (TK_LIVE),A               ; Clear the flag.
-    LD   HL,SRC_LEFT               ; The multipart byte.
-    SET  7,(HL)                    ; Load the next part on the next call.
+    EX   DE,HL                     ; HL is SRC_OWE:
+    INC  (HL)                      ; step to the next part on the next call.
     LD   A,TK_EOL                  ; A synthetic line end.
     OR   A                         ; Carry clear; ZERO clear.
     RET                            ; Return the line end.
 .NEXTPART:                     ; Step to the next source part.
-    LD   HL,SRC_LEFT               ; The multipart byte.
-    LD   A,(HL)                    ; Pending flag, ordinal and count.
-    AND  $7F                       ; Drop the pending flag.
-    ADD  A,SRC_STEP-1              ; Ordinal plus one and count minus one, at once.
-    LD   (HL),A                    ; Record the new part.
-    LD   HL,(SRC_DESC)             ; The next part's descriptor.
-    CALL SRC_LOAD                  ; Resets the cursor, the line, TK_LIVE and TK_NEST.
-    JP   TK_AGAIN                  ; Scan from the part's first byte.
+    XOR  A                         ; No line end
+    LD   (SRC_OWE),A               ; is owed there.
+    LD   A,(SRC_NUM)               ; The next number
+    INC  A                         ; in the stream:
+    CALL SRC_BODY                  ; its body, its line, TK_LIVE and TK_NEST.
+    JP   TK_AGAIN                  ; Scan from the body's first byte.
 .LAST:                         ; No later part.
     LD   A,(TK_LIVE)               ; Nonzero if the last line produced a token.
     OR   A                         ; Test the flag.

@@ -372,8 +372,7 @@ EM_ALLOW:                      ; DE is the size.
 EM_LINE:                       ; A statement is about to be parsed.
     PUSH AF                        ; Keep the caller's A.
     CALL PR_PEEK                   ; The statement's first token is read:
-    LD   A,(SRC_ID)                ; its part, counted from one,
-    DEC  A                         ; is the line stream's part, from zero,
+    LD   A,(SRC_NUM)               ; its part's number in the stream
     LD   HL,(TK_LINE)              ; and its line.
     CALL BL_LINE                   ; Mark it.
     POP  AF                        ; Restore A.

@@ -9,16 +9,18 @@
 ;  from MM_WBASE ($4800).
 ;
 ;    Offset  Size  Block
-;    +$ACA     30  routine state: counts, the signature being parsed, the
-;                  body's block, the call being checked and the path in
-;                  hand (RO_BASE)
-;    +$AE8    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$C68    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$D68     96  the routine's string literals: 16 of six bytes (RO_LTAB)
-;    +$DC8      3  multipart source cursor (SRC_DESC, SRC_LEFT)
-;    +$DCB      2  PR_SP, the stack DG_ISSUE restores
-;    +$DCD     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$E0E         LL_WEND, the end of the compiler workspace, 3,598 bytes
+;    +$ACA     44  routine state: counts, the signature being parsed, the
+;                  body's block, the declaration's part and visibility,
+;                  the private symbols, the call being checked and the
+;                  path in hand (RO_BASE)
+;    +$AF6    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$C76    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$D76     96  the routine's string literals: 16 of six bytes (RO_LTAB)
+;    +$DD6      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;                  SRC_NUM, SRC_OWE)
+;    +$DDB      2  PR_SP, the stack DG_ISSUE restores
+;    +$DDD     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$E1E         LL_WEND, the end of the compiler workspace, 3,614 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
@@ -59,13 +61,15 @@
 ;  parameter on the machine stack, so that a call inside an argument cannot
 ;  overwrite the call around it; RO_DEPTH counts them, at most RO_NCAP.
 ;
-;  The multipart cursor belongs to SOURCE.ASM: SRC_LOAD keeps the address
-;  of the next part's descriptor in SRC_DESC, SRC_OPEN sets SRC_LEFT, the
-;  tokenizer's TK_ATEND advances it at each part boundary. SRC_LEFT packs three fields:
-;    bits 0..2  parts still to come (SRC_CNT)
-;    bits 3..5  manifest ordinal of the current part (SRC_ORD)
-;    bit 7      the line end owed at the part boundary has been returned
-;  With SRC_CAP 8, the count and the ordinal each fit three bits exactly.
+;  The source cursor's part state belongs to SOURCE.ASM: the part table's
+;  top (SRC_PTAB) and count (SRC_PCNT), which the START overlay sets, the
+;  current part's number in the stream (SRC_NUM) and whether the line end
+;  owed at a part boundary has been returned (SRC_OWE). The tokenizer's
+;  TK_ATEND steps to the next part.
+;
+;  Visibility (ACTSUB.ASM, D33): AC_DPART is the part of the declaration
+;  being parsed, AC_PRIV nonzero while a private one is, and SY_PRIV a bit
+;  for each private symbol, whose name its part's end hides.
 
 RO_BASE EQU  AG_WEND           ; First byte of the routine state.
 RO_RCNT EQU  RO_BASE+$00       ; Byte: routine records completed (AC_PUB).
@@ -85,10 +89,13 @@ RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in t
 RO_LCNT EQU  RO_BASE+$0E       ; Byte: string literals of the routine (RO_LTAB).
 RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FAILS).
 RO_BODY EQU  RO_BASE+$11       ; Byte: the body's first symbol plus one, zero outside one.
+AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
+AC_PRIV EQU  RO_BASE+$13       ; Byte: nonzero while a private declaration is parsed.
+SY_PRIV EQU  RO_BASE+$14       ; SY_CAP/8 bytes: a bit for each private symbol.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's
 ; Designator holds them, and the position of the index being parsed. The
 ; fourteen bytes are kept on the machine stack across a nested parse.
-RO_PLACE EQU  RO_BASE+$12      ; First byte of the path's block.
+RO_PLACE EQU  SY_PRIV+SY_CAP/8 ; First byte of the path's block.
 RO_PKIND EQU  RO_PLACE+0       ; Byte: GA_BLOB, GA_FRAME, GA_ALIAS or GA_HELD.
 RO_PRO EQU  RO_PLACE+1         ; Byte: nonzero when the path is read-only.
 RO_PBASE EQU  RO_PLACE+2       ; Word: a static place's blob, an alias's word at IX+n.
@@ -138,19 +145,18 @@ RO_LCAP EQU  16                ; Literals in one routine; DG_LITS beyond.
 RO_LLIM EQU  RO_LTAB+RO_LLEN*RO_LCAP ; Exclusive end of the literal table.
 RO_WEND EQU  RO_LLIM           ; End of the routine workspace.
 
-; The shell's descriptor table and the source bytes stay outside the
-; compiler workspace, so the adapter keeps only these three bytes.
-SRC_DESC EQU  RO_WEND          ; Word: address of the next part's descriptor.
-SRC_LEFT EQU  SRC_DESC+2       ; Byte: parts to come, current ordinal, boundary flag.
-SRC_WEND EQU  SRC_LEFT+1       ; End of the source cursor.
+; The part table and the source bytes stay outside the compiler workspace,
+; at the top and the base of the source area, so the cursor keeps only
+; these five bytes (SOURCE.ASM).
+SRC_PTAB EQU  RO_WEND          ; Word: the part table's top, above part 0.
+SRC_PCNT EQU  SRC_PTAB+2       ; Byte: the parts in the table.
+SRC_NUM EQU  SRC_PCNT+1        ; Byte: the current part's number in the stream.
+SRC_OWE EQU  SRC_NUM+1         ; Byte: nonzero once a part's last line end is returned.
+SRC_WEND EQU  SRC_OWE+1        ; End of the source cursor.
 ; PR_BUILD saves the caller's SP here, so that a diagnostic (DG_ISSUE)
-; returns straight to the caller from any depth of the parse.
+; returns straight to the caller from any depth of the parse; the START
+; overlay does the same while it loads the parts.
 PR_SP EQU  SRC_WEND            ; Word: SP that DG_ISSUE restores.
-SRC_DLEN EQU  5                ; Bytes in one part descriptor: identity, start, end.
-SRC_CAP EQU  8                 ; Source parts a compilation accepts; DG_PARTS beyond.
-SRC_CNT EQU  $07               ; SRC_LEFT bits 0..2: parts still to come.
-SRC_STEP EQU  8                ; One ordinal step; TK_ATEND adds SRC_STEP-1.
-SRC_ORD EQU  $38               ; SRC_LEFT bits 3..5: ordinal of the current part.
 
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.
@@ -158,4 +164,5 @@ RO_FMAIN EQU  2                ; Routine flag: it is main.
 RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body.
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
 RO_FWIDE EQU  $10              ; Service flag: a u32 makes it one not yet called.
+RO_FPRIV EQU  $20              ; Routine flag: private, hidden when its part ends.
 

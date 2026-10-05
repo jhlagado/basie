@@ -122,13 +122,12 @@ LL_PARSE:
     JR   .NEXTALT                  ; No: try the next alternative.
 .NOMATCH:                      ; No production fits the lookahead.
     POP  AF                        ; A is the row's diagnostic.
-    CP   DG_STMT                   ; Where a statement is due,
-    JR   NZ,.REPORT                ; an assert
-    LD   B,A                       ; (keeping it)
-    LD   A,C                       ; is
-    CP   TK_ASSRT                  ; one the reference takes
-    LD   A,B                       ; but this compiler
-    JP   Z,TR_OPER                 ; does not yet (DG_NYI).
+    LD   B,A                       ; Keep it.
+    LD   A,C                       ; An include here
+    CP   TK_INCL                   ; follows a declaration
+    LD   A,B                       ; (include-position: the loader
+    JR   NZ,.REPORT                ; read those before any).
+    LD   A,DG_LATE                 ; Report it.
 .REPORT:                       ; A is the diagnostic.
     JP   DG_ISSUE                  ; Report it at the lookahead token.
 .MATCH:                        ; B selects the production.

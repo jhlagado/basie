@@ -1,0 +1,6 @@
+// A part's private name is not seen by the part that includes it.
+include "INCUTIL.BSI"
+
+sub main()
+    var x as u8 = scale
+end

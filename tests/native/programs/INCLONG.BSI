@@ -1,0 +1,5 @@
+// An include name longer than eight characters before its type.
+include "TOOLONGNAME.BSI"
+
+sub main()
+end

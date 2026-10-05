@@ -43,7 +43,8 @@
     "TokenRecord": "TK_REC",
     "TokenString": "TK_STR",
     "TokenHandle": "TK_HANDL",
-    "TokenAssert": "TK_ASSRT"
+    "TokenAssert": "TK_ASSRT",
+    "TokenPrivate": "TK_PRIV"
   },
   "diagnosticCodes": {
     "DiagnosticExpectedDeclaration": "DG_DECL",
@@ -70,6 +71,7 @@
     "compilation-unit": "DiagnosticExpectedDeclaration",
     "top-level-list": "DiagnosticExpectedDeclaration",
     "top-level-declaration": "DiagnosticExpectedDeclaration",
+    "private-declaration": "DiagnosticExpectedDeclaration",
     "const-declaration": "DiagnosticExpectedDeclaration",
     "const-declaration-tail": "DiagnosticExpectedEqual",
     "assert-declaration": "DiagnosticExpectedDeclaration",
@@ -112,6 +114,9 @@
   },
   "actions": {
     "RequireMain": "AC_MAIN",
+    "BeginTopLevel": "AC_TOP",
+    "EndTopLevel": "AC_SPLIT",
+    "MarkPrivate": "AC_MARK",
     "RetainDeclarationName": "AC_NAME",
     "ConstantExpression": "AC_FOLD",
     "FinishConstantExpression": "AC_VALUE",
@@ -186,7 +191,8 @@
     "TypeBoolean": "AC_TYPE",
     "MakeArrayTypes": "AC_ARRAY",
     "LocalInitializer": "AC_LINIT",
-    "InferredInitializer": "AC_INFER"
+    "InferredInitializer": "AC_INFER",
+    "NotYetCompiled": "TR_OPER"
   },
   "equates": {
     "GR_STMT": "statement",
@@ -307,7 +313,9 @@
     {
       "lhs": "top-level-list",
       "rhs": [
+        "a:BeginTopLevel",
         "top-level-declaration",
+        "a:EndTopLevel",
         "top-level-list"
       ]
     },
@@ -318,7 +326,15 @@
     {
       "lhs": "top-level-declaration",
       "rhs": [
-        "const-declaration"
+        "TokenPrivate",
+        "a:MarkPrivate",
+        "private-declaration"
+      ]
+    },
+    {
+      "lhs": "top-level-declaration",
+      "rhs": [
+        "private-declaration"
       ]
     },
     {
@@ -328,25 +344,31 @@
       ]
     },
     {
-      "lhs": "top-level-declaration",
+      "lhs": "private-declaration",
+      "rhs": [
+        "const-declaration"
+      ]
+    },
+    {
+      "lhs": "private-declaration",
       "rhs": [
         "program-var-declaration"
       ]
     },
     {
-      "lhs": "top-level-declaration",
+      "lhs": "private-declaration",
       "rhs": [
         "record-declaration"
       ]
     },
     {
-      "lhs": "top-level-declaration",
+      "lhs": "private-declaration",
       "rhs": [
         "forward-declaration"
       ]
     },
     {
-      "lhs": "top-level-declaration",
+      "lhs": "private-declaration",
       "rhs": [
         "sub-definition"
       ]
@@ -545,6 +567,13 @@
       ]
     },
     {
+      "lhs": "parameter",
+      "rhs": [
+        "TokenVar",
+        "a:NotYetCompiled"
+      ]
+    },
+    {
       "lhs": "result-opt",
       "rhs": [
         "TokenAs",
@@ -675,6 +704,13 @@
       "lhs": "statement",
       "rhs": [
         "const-declaration"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "TokenAssert",
+        "a:NotYetCompiled"
       ]
     },
     {

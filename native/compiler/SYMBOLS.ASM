@@ -39,6 +39,64 @@
 ;  initializer has been accepted. A failed declaration therefore never
 ;  leaves a half-made symbol behind.
 
+;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; Carry if the symbol record HL is in the current block: at top level the
+; program's names are one block (the reference's program and part scopes),
+; in a body the block of the innermost control frame (CT_FSYMS) or else
+; the body's own (RO_BODY). A parameter is in neither of a body's blocks.
+
+SY_HERE:                       ; HL is a record found.
+    LD   A,(RO_BODY)               ; The body's first symbol plus one,
+    SUB  1                         ; or zero outside a body, which
+    RET  C                         ; borrows: every name is the block's.
+    PUSH HL                        ; Keep the record.
+    LD   B,A                       ; The body's first symbol, unless
+    LD   A,(CT_DEPTH)              ; a control frame
+    OR   A                         ; is open,
+    LD   A,B                       ; whose block's
+    JR   Z,.BASE                   ; first symbol
+    LD   B,CT_FSYMS                ; it
+    CALL CT_FIELD                  ; kept
+    LD   A,(HL)                    ; then.
+.BASE:                         ; A is the block's first symbol.
+    CALL SY_AT                     ; HL is its record.
+    EX   DE,HL                     ; DE is,
+    POP  HL                        ; HL the record found.
+    OR   A                         ; Clear carry.
+    SBC  HL,DE                     ; No borrow if it is the block's:
+    CCF                            ; carry then.
+    RET                            ; Carry if in the block.
+
+;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Address in HL the byte of SY_PRIV that holds symbol A's private bit, and
+; return the bit's mask in A. BC and DE are kept.
+
+SY_BIT:                        ; A is the symbol's index.
+    PUSH BC                        ; Keep BC
+    PUSH DE                        ; and DE.
+    LD   C,A                       ; Keep the index.
+    AND  7                         ; Its bit
+    LD   B,A                       ; in the byte,
+    INC  B                         ; plus one,
+    LD   A,$80                     ; rotations of bit 7
+.SHIFT:                        ; B rotations remain.
+    RLCA                           ; to
+    DJNZ .SHIFT                    ; bit B.
+    LD   B,A                       ; B is the mask.
+    LD   A,C                       ; The index
+    RRCA                           ; over
+    RRCA                           ; eight
+    RRCA                           ; is
+    AND  $1F                       ; the byte's,
+    LD   E,A                       ; DE
+    LD   D,0                       ; from
+    LD   HL,SY_PRIV                ; the bits'
+    ADD  HL,DE                     ; start.
+    LD   A,B                       ; A is the mask.
+    POP  DE                        ; Restore DE
+    POP  BC                        ; and BC.
+    RET                            ; HL and A locate the bit.
+
 ;@ROUTINE OUT CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,C,DE
 ; Compare the current NAME token with each committed record. Carry returns
 ; the matching record in HL; carry clear means the name is not an ordinary
@@ -119,34 +177,6 @@ SY_NEW:
 .NAMED:                        ; A is the diagnostic.
     JR   DG_NAMED                  ; Name it; no return.
 
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
-; Carry if the symbol record HL is in the current block: at top level the
-; program's names are one block (the reference's program and part scopes),
-; in a body the block of the innermost control frame (CT_FSYMS) or else
-; the body's own (RO_BODY). A parameter is in neither of a body's blocks.
-
-SY_HERE:                       ; HL is a record found.
-    LD   A,(RO_BODY)               ; The body's first symbol plus one,
-    SUB  1                         ; or zero outside a body, which
-    RET  C                         ; borrows: every name is the block's.
-    PUSH HL                        ; Keep the record.
-    LD   B,A                       ; The body's first symbol, unless
-    LD   A,(CT_DEPTH)              ; a control frame
-    OR   A                         ; is open,
-    LD   A,B                       ; whose block's
-    JR   Z,.BASE                   ; first symbol
-    LD   B,CT_FSYMS                ; it
-    CALL CT_FIELD                  ; kept
-    LD   A,(HL)                    ; then.
-.BASE:                         ; A is the block's first symbol.
-    CALL SY_AT                     ; HL is its record.
-    EX   DE,HL                     ; DE is,
-    POP  HL                        ; HL the record found.
-    OR   A                         ; Clear carry.
-    SBC  HL,DE                     ; No borrow if it is the block's:
-    CCF                            ; carry then.
-    RET                            ; Carry if in the block.
-
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Record A as the aggregate type ordinal of the provisional symbol, then
 ; commit the symbol through SY_CMT. BC, the caller's prepared payload, is
@@ -162,10 +192,19 @@ SY_TAG:
     LD   (HL),A                    ; Record it, then commit below.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
-; Commit the provisional symbol so that SY_FIND sees it. Returns A zero
-; with carry clear.
+; Commit the provisional symbol so that SY_FIND sees it; a private
+; declaration's (AC_PRIV) is marked in SY_PRIV, to be hidden when its part
+; ends (AC_ENDP). Returns A zero with carry clear. BC and DE are kept.
 
 SY_CMT:
+    LD   A,(AC_PRIV)               ; Is the declaration private?
+    OR   A                         ; If not,
+    JR   Z,.COUNT                  ; it is only counted.
+    LD   A,(SY_CNT)                ; Its symbol's
+    CALL SY_BIT                    ; bit
+    OR   (HL)                      ; is
+    LD   (HL),A                    ; set.
+.COUNT:                        ; The symbol is complete.
     LD   HL,SY_CNT                 ; Address the committed count.
     INC  (HL)                      ; The provisional record joins the table.
     XOR  A                         ; Report success with carry clear.

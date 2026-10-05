@@ -1,0 +1,5 @@
+// An include line with more after its name.
+include "INCUTIL.BSI" 2
+
+sub main()
+end

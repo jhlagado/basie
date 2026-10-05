@@ -192,6 +192,15 @@ the count, `CT_FSYMS`, so the cost is a byte a frame). Locals no longer
 have to come first, and the limit that said so is gone, with the refusal
 of declarations after `main`.
 
+**At step 67a** `include` and `private` came, and the eight-part table
+went: the parts the command line names and the parts they include are
+described in a part table of 21-byte entries that grows down from the top
+of the source area as the parts' bytes grow up from its base, so the
+count is bounded by memory and by the line stream's one-byte part number,
+255. Includes open at once are bounded at 16 (`SH_ICAP`), the stack each
+holds being small but not measured yet. Private names need a bit for each
+symbol (`SY_PRIV`, 12 bytes) and a flag in each routine record.
+
 ### 2.4 Workspace budget for `BASIE.COM` (Implementation)
 
 The minimums in [limits](limits.md) §5.1 are not backed by a model showing
@@ -428,7 +437,10 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 - **Value:** 255 ([limits](limits.md) §3). Nucleus: `SourcePartCapacity` = 8.
 - **Cause:** one-byte part numbers in the line stream (format §8) and the line
   table. A representation maximum.
-- **Status:** confirmed as a format maximum. The compiler's own limit is TBD.
+- **Status:** confirmed as a format maximum. The native compiler's, from
+  67a: 255 while memory lasts, each part a 21-byte entry in a part table at
+  the top of the source area and its bytes below it; 8 on the command line
+  (`CL_PCAP`), each with the parts it includes.
 - **Reference toolchain:** takes one part on its command line (`deno task
   basie NAME.BSI`); every other part comes through `include`. It identifies a
   part by its resolved host path and maps every drive letter to its folders.
@@ -436,11 +448,15 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 ### 3.18 Include depth
 
-- **Minimum / maximum:** TBD. The spec (§4.3.3) lets an implementation bound
-  it, but no figure is given.
-- **Cause:** each open include holds a file position (and an FCB if the file
-  stays open) plus its name for cycle detection.
-- **Status:** TBD; needs a register entry.
+- **Minimum / maximum:** the spec (§4.3.3) lets an implementation bound it.
+  Native, from 67a: 16 open at once (`SH_ICAP`), Error 190 (`include
+  depth`) beyond.
+- **Cause:** a part is read whole before its include lines are, so an open
+  include holds no file: only the tokenizer's 14 bytes of state and the
+  part's entry on the stack. The cycle check uses the part table, where a
+  part whose includes are being read has no number yet.
+- **Status:** register entry made ([limits](limits.md) §5.1); the stack
+  measurement of step 68 may raise it.
 
 ### 3.19 Total source size
 
@@ -610,7 +626,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 | `HybridLL1StackCapacity` | 64 | parser stack, TBD |
 | `EmitControlFixupCapacity`, `EmitControlLabelCapacity` | 32 each | fixups *gone*: pending operands are chained through their references' addend words (`EMIT.ASM`, no limit); labels are per routine, 32 in use at once (`EM_LCAP`), released by nesting from 65.4 (f), §3.4 |
 | `EmitBooleanFixupCapacity` | 16 | *gone*: `and` and `or` use routine labels |
-| `SourcePartCapacity` | 8 | §3.17: 255 |
+| `SourcePartCapacity` | 8 | §3.17: 255. From 67a, 255 while memory lasts, in a part table that grows down from the top of the source area (`SOURCE.ASM`); 8 on the command line |
 | `ActivationCapacity` | 8 | §3.30: memory |
 | `SegmentCapacity` | 4 | *gone*: object-format blobs |
 | `ServiceInputCapacity` and similar | 4 | `F=n` file table, §3.16 |
