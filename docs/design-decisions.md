@@ -926,3 +926,53 @@ keeps enough workspace for real programs, and the target keeps pressure on
 every step. Nucleus showed that compressing at every step, not at the end, is
 what gets a comprehensive compiler into a small space.
 
+
+### D44. Native code is ATOM source, named and commented as ATOM and Skate are
+
+Every native program, `BASIE.COM` and `BLINK.COM` alike, is written in the
+**ATOM dialect** and assembled by ATOM alone. The compiler forked from Nucleus
+is converted out of AZM syntax, and the source translation that let ATOM read
+AZM is retired with it. The conversion is roadmap step 65.0, made before any
+more compiler code is written, so nothing new is written twice.
+
+The sources follow the conventions of ATOM's and Skate's own sources:
+
+- **Labels** (ATOM `docs/labels.md`, Skate `docs/labels.md`). Globals are
+  `AREA_WHAT` in at most eight characters, made of words rather than consonant
+  strings, from an approved list of short forms. Only names other routines use
+  are global. Loop heads, join points, error exits and single-caller helpers
+  are private `.NAMES` of the routine that owns them. There are no
+  disambiguating digits and no look-alike pairs. Extent markers keep global
+  names because host tools read them.
+- **Commentary.** Each module opens with a header that states its purpose, its
+  principal entries and its data layout. Each routine has a contract line
+  (`;@ROUTINE IN … OUT … CLOBBERS …`) and a sentence on what it does. Every
+  instruction carries a line comment that says why, not what.
+- **File names** are 8.3 and upper case, so that the native toolchain could in
+  principle be assembled on CP/M by ATOM itself. This is a goal, not yet a
+  gate: it matters once ATOM's CP/M transient can hold a source tree this size.
+
+**Order of work.** The conversion is done in two stages, each verified
+byte-identical:
+
+1. **Mechanically.** Translate the fork into ATOM source with 8.3 names. Resolve
+   the build-time conditionals for `BASIE.COM`'s one configuration, which
+   removes the dead banked and proof branches. Give long names temporary
+   ATOM names from a map. Assemble the result with ATOM directly to an image
+   byte-identical to the AZM build.
+2. **By curation, module by module.** Apply the label convention through
+   rename maps, with the rename and verify tools of Skate, and add the
+   commentary. No output byte may change. `BLINK` receives the same pass.
+
+New code is written to the convention from its first line.
+
+**Why.** AZM is being retired across these projects, as Skate, a larger
+program, has already shown is practical. One dialect means one assembler to
+trust, and no translation layer between the source and the image. Names that
+fit ATOM's limits without a ledger can be read in the source, the listing and
+the debugger alike. Line-by-line commentary is what keeps a 25K assembly
+program reviewable through the increment, review and compression cycle of D43.
+
+**Rejected.** Keeping AZM syntax behind the translation layer. It keeps the long
+names, but it leaves two dialects, a ledger of unreadable eight-character
+aliases in every listing, and contracts that nothing checks.
