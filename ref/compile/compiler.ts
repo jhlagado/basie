@@ -2899,6 +2899,34 @@ export class Compiler {
     if (d.type.kind === "handle") {
       if (d.symbol && !d.rootOnly) this.noteDirect(d);
       else if (d.symbol && d.rootOnly) this.noteMove(d);
+      if (d.place.kind === "computed") {
+        // Target path, right side, recheck, then free and store (10.4): the
+        // path may hold calls, so its address is computed once, first.
+        this.emitAddress(d);
+        r.blob.u8(0xe5); // PUSH HL: the location
+        this.push(2);
+        const v = this.expression(d.type);
+        if (d.type.id) {
+          this.toRegisters(v, d.type, at);
+          this.recheck(d);
+          r.blob.u8(0xc1); // POP BC: the location
+          r.blob.u8(0x7d, 0x02, 0x03, 0x7c, 0x02, 0x03); // LD A,L; LD (BC),A; INC BC; LD A,H; LD (BC),A; INC BC
+          r.blob.u8(0x7b, 0x02, 0x03, 0x7a, 0x02); // LD A,E; LD (BC),A; INC BC; LD A,D; LD (BC),A
+          this.pop(2);
+          return;
+        }
+        this.ownValue(v, d.type, at);
+        this.recheck(d);
+        r.blob.u8(0xd1); // POP DE: the location
+        this.pop(2);
+        if (d.slotTemp !== undefined) {
+          this.ixWord(d.slotTemp, "BC");
+        } else r.blob.u8(0x01, 0, 0); // LD BC,0
+        this.callHelper(
+          d.slotKind === "identifier" ? Helper.OWN_SETC : Helper.OWN_SET,
+        );
+        return;
+      }
       if (d.type.id) {
         const v = this.expression(d.type);
         this.toRegisters(v, d.type, at);

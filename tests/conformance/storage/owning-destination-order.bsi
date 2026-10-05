@@ -1,0 +1,27 @@
+// An owning destination with a call in its index: the target path is
+// evaluated first, then the right side, then the store (10.4; review
+// finding C6).
+// spec: 10.4
+// expect output: TR\r\n
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var hs as nodes?[4]
+var code as u8
+sub t() as u8
+    writeOutputByte('T') handle code
+    end
+    return 1
+end
+sub r() as nodes
+    writeOutputByte('R') handle code
+    end
+    return new nodes(1, none)
+end
+sub main() fails
+    hs[t()] = r()
+    writeText(console, "\r\n") else fail
+end

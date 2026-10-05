@@ -80,12 +80,13 @@ The target path is evaluated once. If target evaluation traps, the right-hand ex
 
 **Order for owning destinations.** When the destination holds an owning handle, or is of an owning type, the order is that of [memory safety](../docs/memory-safety.md), Section 5.3:
 
-1. evaluate the right-hand expression, which must be `none`, a fresh owning value, or a `move` (Chapter 7);
-2. evaluate the target path;
-3. free the value the destination held, if any; and
-4. store the new value.
+1. evaluate the target path, as for an ordinary destination;
+2. evaluate the right-hand expression, which must be `none`, a fresh owning value, or a `move` (Chapter 7);
+3. check each identifier on the target path again;
+4. free the value the destination held, if any; and
+5. store the new value.
 
-So `head = move head.next` reads `head.next` before the old head is freed. Storing into an owning location inside a pool record also records the owner link and performs the cycle check of Chapter 7.
+What matters is that the right side comes before the free: `head = move h.next`, with `h` a lease of `head`, reads `h.next` before the old head is freed. Leases, the statement rule and the recheck in step 3 stop the right side from freeing anything the target path uses. Storing into an owning location inside a pool record also records the owner link and performs the cycle check of Chapter 7.
 
 **Compatibility.** A scalar destination uses the conversion rules of Chapter 6. An aggregate destination requires a source of exactly the same concrete type. An aggregate of an owning type cannot be copied: a whole-object assignment to it is valid only when the source is fresh (Chapter 7). A handle destination requires a source of a compatible handle type: an owning destination takes an owning value with the transfer rules of Chapter 7, and an identifier destination takes an identifier, or an owning handle converted with `id(...)`.
 

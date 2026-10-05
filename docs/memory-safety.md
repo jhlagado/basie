@@ -196,7 +196,10 @@ only with `move`, which leaves `none` behind (D19). Fresh values, the results of
 
 - when its owning local or parameter goes out of scope, at the end of its block,
   on every exit path, including `return`, `exit`, `continue` and `fail`;
-- when the variable or field that owns it is overwritten, including with `none`;
+- when the variable or field that owns it is overwritten, including with `none`.
+  The target path is evaluated first, then the right side, then any identifier
+  on the path is checked again, and only then is the old value freed and the
+  new one stored (spec 10.4);
 - when the slot or the local aggregate that owns it is freed; and
 - when the temporary holding it ends (below).
 

@@ -85,7 +85,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C3 | critical (closed) | The state after a loop ignores `exit` paths, so a value moved before `exit` is used after the loop. | 12.6: meet the exits too |
 | C4 | critical (closed) | `move` in a `while` condition is accepted; the second test moves `none`. | 10.8: reject |
 | C5 | critical (closed) | `select` on a slot-holder gives a lease with direct access, but the slot-holder can name a program variable the arm can free: a use after free. | A slot-holder subject binds an identifier |
-| C6 | critical | For an owning destination the spec evaluates the right side before the target path, which single-pass code can't do; the compiler evaluates a called index first and loses it. | Target path, right side, recheck, free, store |
+| C6 | critical (closed) | For an owning destination the spec evaluates the right side before the target path, which single-pass code can't do; the compiler evaluates a called index first and loses it. | Target path, right side, recheck, free, store |
 | C7 | major (closed) | Exact loop bounds outside the counter's type are rejected, though 12.4 says they need not fit. | Compare mathematically |
 | C8 | major (closed) | Named steps that are negative or `f32` are accepted. | Require a non-negative integer constant |
 | C9 | major | `handle` on a local declaration is accepted. | Reject |
