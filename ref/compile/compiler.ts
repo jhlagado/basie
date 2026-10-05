@@ -4864,6 +4864,14 @@ export class Compiler {
       r.blob.callBlobIf(0xfc - 2, Helper.TRAP_NARROWING); // CALL M
       return;
     }
+    if (fs.size === 1 && ts.size === 2) {
+      // i8 -> u16, the one byte-to-word conversion that is no widening:
+      // the top bit must be clear, then the byte is zero-extended.
+      r.blob.u8(0xb7); // OR A: sign flag = bit 7
+      r.blob.callBlobIf(0xfc - 2, Helper.TRAP_NARROWING); // CALL M
+      r.blob.u8(0x6f, 0x26, 0x00); // LD L,A; LD H,0
+      return;
+    }
     // 16 <-> 16 (u16 <-> i16): bit 15 must be clear.
     r.blob.u8(0x7c, 0xb7); // LD A,H; OR A
     r.blob.callBlobIf(0xfc - 2, Helper.TRAP_NARROWING); // CALL M
