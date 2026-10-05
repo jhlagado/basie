@@ -38,6 +38,8 @@ Effects from an evaluated false condition remain observable. Conditions after a 
 
 ### 11.4.1 Flow states after `if`
 
+Each clause body starts in the state after its own condition, which follows every earlier condition, since those were all evaluated before it. The `else` body starts in the state after the last condition. So a `move` in an `elseif` condition is seen by that clause, by every later clause and by the `else` body.
+
 The flow state of each owning local after an `if` statement (Chapter 10, Section 10.8) is the meet of the states at the end of every clause body that can complete normally, together with the state after the last condition when there is no `else`. The meet of two equal states is that state; the meet of different states is "may hold either". A body that always ends with `return`, `fail`, `exit` or `continue` does not contribute.
 
 ## 11.5 Flat and nested forms

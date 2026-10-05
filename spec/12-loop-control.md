@@ -71,7 +71,7 @@ After the loop, the counter retains the last value stored. A zero-iteration loop
 
 ### 12.5.1 Flow states in loops
 
-The flow check (Chapter 10, Section 10.8) treats loops at their **back edges**: the end of the body, every `continue`, and, for `while`, the return to the condition. At each back edge, every non-optional owning local that certainly held a value when the loop began must certainly hold one again; otherwise the program is invalid. The compiler checks this when it reaches each back edge, so the rule needs no look-ahead.
+The flow check (Chapter 10, Section 10.8) treats loops at their **back edges**: the end of the body when it can complete normally (Chapter 13, Section 13.7), every `continue`, and, for `while`, the return to the condition. At each back edge, every non-optional owning local that certainly held a value when the loop began must certainly hold one again; otherwise the program is invalid. The compiler checks this when it reaches each back edge, so the rule needs no look-ahead.
 
 The flow state after a loop is the meet of the state when the loop's test fails and the state at every `exit` from that loop.
 

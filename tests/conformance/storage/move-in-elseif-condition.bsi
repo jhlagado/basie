@@ -1,0 +1,25 @@
+// A move in an elseif condition reaches the else body (review finding C2).
+// spec: 10.8, 11.4.1, 12.5.1
+// expect error: use-after-move at 20:28
+
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+sub eat(n as nodes) as u8
+    return 1
+end
+sub main() fails
+    var x = new nodes(65, none)
+    var b as boolean = false
+    if b
+    elseif eat(move x) = 2
+    else
+        writeByte(console, x.value) else fail
+        x.value = 99
+        writeByte(console, x.value) else fail
+    end
+    writeText(console, "\r\n") else fail
+end

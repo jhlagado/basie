@@ -184,6 +184,7 @@ const TABLE: [number, string, string, Group][] = [
   ],
   [113, "failure-unconsumed", "^1 fails: add else fail or handle", OWN],
   [114, "handle-destination", "handle needs a writable u8 variable", OWN],
+  [115, "move-position", "move can't appear in ^1", OWN],
   // 190-199: capacity and internal
   [190, "capacity", "A compiler capacity was exceeded: ^1", CAP],
   [199, "internal", "Internal compiler error: ^1", CAP],

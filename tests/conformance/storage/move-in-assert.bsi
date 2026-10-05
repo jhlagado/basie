@@ -1,0 +1,22 @@
+// No move in an assert condition (review finding C11).
+// spec: 10.8, 11.4.1, 12.5.1
+// expect error: move-position at 21:16
+
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+var head as nodes?
+var ident as id nodes?
+sub eat(n as nodes) as u8
+    return 1
+end
+sub mk() as nodes
+    return new nodes(1, none)
+end
+sub main()
+    var x = new nodes(1, none)
+    assert eat(move x) = 1
+end

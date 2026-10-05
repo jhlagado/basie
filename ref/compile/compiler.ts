@@ -116,6 +116,8 @@ type LoopContext = {
   depth: number;
   /** Flow states at loop entry, for the back-edge rule. */
   entryFlow: Map<Symbol, Flow>;
+  /** Flow states at each exit, met with the state after the loop (12.5.1). */
+  exitFlows: Map<Symbol, Flow>[];
 };
 
 type RoutineState = {
@@ -1540,6 +1542,20 @@ export class Compiler {
 
   private lastAddressRoot?: Symbol & { kind: "var" };
   private lastDesignator?: Designator;
+  /** Moves parsed so far, to find one in an operand of and or or (10.8). */
+  private moveCount = 0;
+  /** Where a move is invalid while parsing, as a phrase for the message. */
+  private noMove?: string;
+
+  private withoutMove<T>(where: string, parse: () => T): T {
+    const outer = this.noMove;
+    this.noMove = where;
+    try {
+      return parse();
+    } finally {
+      this.noMove = outer;
+    }
+  }
 
   private checkAliasEscape(_v: Value, at: Token): void {
     const root = this.lastAddressRoot;
@@ -1577,7 +1593,10 @@ export class Compiler {
   private assertStatement(): void {
     const at = this.expectKeyword("assert");
     const r = this.routine!;
-    const v = this.expression(BOOLEAN);
+    const v = this.withoutMove(
+      "an assert condition",
+      () => this.expression(BOOLEAN),
+    );
     if (v.kind === "const") {
       if (v.value !== true) {
         fail("assertion-false", at, "the assertion is certainly false");
@@ -1598,6 +1617,7 @@ export class Compiler {
     if (!loop) fail("outside-loop", at, `${word} needs an enclosing loop`);
     this.expectNewline();
     if (word === "continue") this.checkBackEdge(loop!.entryFlow, at);
+    else loop!.exitFlows.push(this.snapshotFlow());
     this.emitFrees(this.scopes.scopesFrom(loop!.depth));
     r.blob.jp(word === "exit" ? loop!.exit : loop!.next);
     r.fallsThrough = false;
@@ -1614,12 +1634,14 @@ export class Compiler {
     let next = r.blob.newLabel();
     this.condition(next);
     this.expectNewline();
-    const entryFlow = this.snapshotFlow();
+    // Each clause starts in the state after its own condition, which follows
+    // every earlier condition; the else body, after the last (11.4.1).
+    let condFlow = this.snapshotFlow();
     const armFlows: Map<Symbol, Flow>[] = [];
     this.block(["elseif", "else", "end"]);
     anyFalls ||= r.fallsThrough;
     if (r.fallsThrough) armFlows.push(this.snapshotFlow());
-    this.restoreFlow(entryFlow);
+    this.restoreFlow(condFlow);
     r.blob.jp(end);
     while (true) {
       if (this.acceptKeyword("elseif")) {
@@ -1627,10 +1649,11 @@ export class Compiler {
         next = r.blob.newLabel();
         this.condition(next);
         this.expectNewline();
+        condFlow = this.snapshotFlow();
         this.block(["elseif", "else", "end"]);
         anyFalls ||= r.fallsThrough;
         if (r.fallsThrough) armFlows.push(this.snapshotFlow());
-        this.restoreFlow(entryFlow);
+        this.restoreFlow(condFlow);
         r.blob.jp(end);
         continue;
       }
@@ -1653,7 +1676,7 @@ export class Compiler {
     this.expectNewline();
     r.blob.defineLabel(next);
     r.blob.defineLabel(end);
-    if (!hasElse) armFlows.push(entryFlow);
+    if (!hasElse) armFlows.push(condFlow);
     this.meetFlow(armFlows);
     r.fallsThrough = anyFalls || !hasElse;
   }
@@ -2516,18 +2539,27 @@ export class Compiler {
     const top = r.blob.newLabel();
     const exit = r.blob.newLabel();
     r.blob.defineLabel(top);
-    this.condition(exit);
+    this.withoutMove("a while condition", () => this.condition(exit));
     this.expectNewline();
     const entryFlow = this.snapshotFlow();
-    r.loops.push({ exit, next: top, depth: this.scopes.depth, entryFlow });
+    const loop: LoopContext = {
+      exit,
+      next: top,
+      depth: this.scopes.depth,
+      entryFlow,
+      exitFlows: [],
+    };
+    r.loops.push(loop);
     this.block(["end"]);
     r.loops.pop();
     const endAt = this.expectKeyword("end");
-    this.checkBackEdge(entryFlow, endAt);
+    // The end of the body is a back edge only when it can complete (13.7).
+    const ends = r.fallsThrough ? [this.snapshotFlow()] : [];
+    if (r.fallsThrough) this.checkBackEdge(entryFlow, endAt);
     this.expectNewline();
     r.blob.jp(top);
     r.blob.defineLabel(exit);
-    this.meetFlow([entryFlow, this.snapshotFlow()]);
+    this.meetFlow([entryFlow, ...ends, ...loop.exitFlows]);
     r.fallsThrough = true;
   }
 
@@ -2669,13 +2701,23 @@ export class Compiler {
     r.blob.defineLabel(body);
     counter.counting = true;
     const entryFlow = this.snapshotFlow();
-    r.loops.push({ exit, next, counter, depth: this.scopes.depth, entryFlow });
+    const loop: LoopContext = {
+      exit,
+      next,
+      counter,
+      depth: this.scopes.depth,
+      entryFlow,
+      exitFlows: [],
+    };
+    r.loops.push(loop);
     this.block(["end"]);
     r.loops.pop();
     counter.counting = false;
     const endAt = this.expectKeyword("end");
-    this.checkBackEdge(entryFlow, endAt);
-    this.meetFlow([entryFlow, this.snapshotFlow()]);
+    // The end of the body is a back edge only when it can complete (13.7).
+    const ends = r.fallsThrough ? [this.snapshotFlow()] : [];
+    if (r.fallsThrough) this.checkBackEdge(entryFlow, endAt);
+    this.meetFlow([entryFlow, ...ends, ...loop.exitFlows]);
     this.expectNewline();
     // The next value (12.5): the current counter passed the test, so the
     // distance to the bound in the loop's direction is never negative. The
@@ -4074,13 +4116,19 @@ export class Compiler {
   }
 
   private orExpression(expected: Type | undefined, constant: boolean): Value {
+    const moves = this.moveCount;
     let left = this.andExpression(expected, constant);
     while (this.isKeyword("or") || this.isKeyword("xor")) {
-      const op = (this.advance() as Token & { kind: "keyword" }).text;
+      const opAt = this.advance() as Token & { kind: "keyword" };
+      const op = opAt.text;
+      if (op === "or" && this.moveCount !== moves) {
+        fail("move-position", opAt, "move can't appear in an operand of or");
+      }
+      const right = () => this.andExpression(expected, constant);
       left = this.logicalOrBitwise(
         op,
         left,
-        () => this.andExpression(expected, constant),
+        op === "or" ? () => this.withoutMove("an operand of or", right) : right,
         constant,
       );
     }
@@ -4088,13 +4136,21 @@ export class Compiler {
   }
 
   private andExpression(expected: Type | undefined, constant: boolean): Value {
+    const moves = this.moveCount;
     let left = this.notExpression(expected, constant);
     while (this.isKeyword("and")) {
-      this.advance();
+      const opAt = this.advance();
+      if (this.moveCount !== moves) {
+        fail("move-position", opAt, "move can't appear in an operand of and");
+      }
       left = this.logicalOrBitwise(
         "and",
         left,
-        () => this.notExpression(expected, constant),
+        () =>
+          this.withoutMove(
+            "an operand of and",
+            () => this.notExpression(expected, constant),
+          ),
         constant,
       );
     }
@@ -4220,6 +4276,10 @@ export class Compiler {
         if (t.text === "move") {
           this.advance();
           if (constant) fail("not-constant", t, "move is not constant");
+          if (this.noMove) {
+            fail("move-position", t, `move can't appear in ${this.noMove}`);
+          }
+          this.moveCount += 1;
           return this.moveExpression(t);
         }
         if (t.text === "new") {

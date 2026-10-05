@@ -1,0 +1,25 @@
+// A move before an exit reaches the state after the loop (review finding C3).
+// spec: 10.8, 11.4.1, 12.5.1
+// expect error: use-after-move at 23:24
+
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+sub eat(n as nodes) as u8
+    return 1
+end
+sub main() fails
+    var x = new nodes(65, none)
+    var i as u8
+    for i = 0 to 3
+        if i = 2
+            eat(move x)
+            exit
+        end
+    end
+    writeByte(console, x.value) else fail
+    writeText(console, "\r\n") else fail
+end

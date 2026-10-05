@@ -1,0 +1,22 @@
+// No move in a while condition (review finding C4).
+// spec: 10.8, 11.4.1, 12.5.1
+// expect error: move-position at 17:15
+
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+var count as u8
+sub eat(n as nodes) as u8
+    return n.value
+end
+sub main() fails
+    var x = new nodes(65, none)
+    while eat(move x) <> 0 and count < 3
+        count = count + 1
+        writeByte(console, '0' + count) else fail
+    end
+    writeText(console, "\r\n") else fail
+end

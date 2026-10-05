@@ -81,19 +81,19 @@ fixes it names the finding, as B1, A3 and so on).
 | # | Severity | Finding | Right |
 | --- | --- | --- | --- |
 | C1 | critical (closed) | Counted loops store the next value before testing it, so any loop ending at the edge of its counter's type traps with `loop-range` (every descending `u16` loop, `for c = 7 to 0 step -1` on `u8`, `0 to 255`), and the counter ends one step past the bound. | 12.5: test the next value wide, then store |
-| C2 | critical | A `move` in an `elseif` condition is not seen by the `else` body, which can then read and write through `none`. | Each clause starts in the state after its own condition |
-| C3 | critical | The state after a loop ignores `exit` paths, so a value moved before `exit` is used after the loop. | 12.6: meet the exits too |
-| C4 | critical | `move` in a `while` condition is accepted; the second test moves `none`. | 10.8: reject |
+| C2 | critical (closed) | A `move` in an `elseif` condition is not seen by the `else` body, which can then read and write through `none`. | Each clause starts in the state after its own condition |
+| C3 | critical (closed) | The state after a loop ignores `exit` paths, so a value moved before `exit` is used after the loop. | 12.6: meet the exits too |
+| C4 | critical (closed) | `move` in a `while` condition is accepted; the second test moves `none`. | 10.8: reject |
 | C5 | critical | `select` on a slot-holder gives a lease with direct access, but the slot-holder can name a program variable the arm can free: a use after free. | A slot-holder subject binds an identifier |
 | C6 | critical | For an owning destination the spec evaluates the right side before the target path, which single-pass code can't do; the compiler evaluates a called index first and loses it. | Target path, right side, recheck, free, store |
 | C7 | major (closed) | Exact loop bounds outside the counter's type are rejected, though 12.4 says they need not fit. | Compare mathematically |
 | C8 | major (closed) | Named steps that are negative or `f32` are accepted. | Require a non-negative integer constant |
 | C9 | major | `handle` on a local declaration is accepted. | Reject |
 | C10 | major | 14.4 allows `else fail` only on scalar local declarations; the grammar and compiler allow any expression initializer. | Any expression initializer |
-| C11 | major | `move` in `assert` conditions and `and`/`or` operands is accepted. | Reject |
+| C11 | major (closed) | `move` in `assert` conditions and `and`/`or` operands is accepted. | Reject |
 | C12 | major | `File` comparison is specified but rejected. | Implement |
 | C13 | major | `clock` and `DateTime` are in services revision 2 but have no layout and no implementation. | Define and implement, or remove |
-| C14 | major | Whether an unreachable end of a loop body counts as a back edge. | Only when it can complete |
+| C14 | major (closed) | Whether an unreachable end of a loop body counts as a back edge. | Only when it can complete |
 | C15 | major | Handle parameters without `var` can be assigned, against 10.4. | Scalar and handle parameters are local copies |
 | C16 | major | "When the compiler proves" makes validity depend on cleverness. | Only constant operands |
 | C17 | major | Typed `case` labels use conversion rules rather than representability. | Pick one rule |

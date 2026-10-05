@@ -125,6 +125,7 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | 112 | `not-failable` | else fail and handle follow a call to a routine that fails |
 | 113 | `failure-unconsumed` | ^1 fails: add else fail or handle |
 | 114 | `handle-destination` | handle needs a writable u8 variable |
+| 115 | `move-position` | move can't appear in ^1 |
 
 ## Capacity and internal
 
