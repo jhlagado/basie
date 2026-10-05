@@ -60,9 +60,10 @@ The compiler is kept within budget by:
 | Pools, handles, `forward pool`, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
 | Stack bound and checks | 0.2K | 0.1K | memory safety §7 |
 | Services for I/O | 0.7K for the services' signatures | per service used | [services](services.md) |
-| Blob output for the linker | about neutral against Nucleus's output | — | build pipeline |
+| Blob output for the linker | about neutral against Nucleus's placed output, which it replaces | — | build pipeline |
+| CP/M shell: command line, buffered files, library check, compilation stamp, chain loader | 2.3K, about 1.3K of it in overlays | — | [native compiler](native-compiler.md) §4; Nucleus kept this outside its core |
 | Branch shrinking | 0.3K | — | build pipeline §6.3 |
-| **Total** | **about 21.5–23.5K** on a 12K base; about 24.5–26.5K on the 15K base actually forked | | within the 26K target, with little room to spare (D43) |
+| **Total** | **about 22.5–24.5K** on a 12K base; about 25.5–27.5K on the 15K base actually forked, with the shell's one-shot parts in overlays | | at or just over the 26K target: compression passes and early removal of Nucleus-only machinery are planned from the start (D43, [native compiler](native-compiler.md) §4) |
 
 The standard library, written in Basie and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text

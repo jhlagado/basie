@@ -552,6 +552,9 @@ the fork unchanged.
 | `ServiceInputCapacity` and similar | 4 | `F=n` file table, §3.16 |
 | `GeneratedRoDataCapacity` | 1K | streamed; none |
 | `RuntimeProgramDataCapacity`, `RuntimeReadOnlyCapacity` | 2K, 4K | linker places everything; none |
+| Semantic transcript | 511 bytes, 255 operations, for the whole program | flushed per routine and top-level declaration; bounded by the largest routine ([native compiler](native-compiler.md) §2) |
+| Routine label ordinals | 5 bits, shared with control labels | 16-bit blob ordinals; control labels per routine |
+| LL(1) terminal encoding | 64 terminal kinds (`$00`–`$3F`) | Basie needs 79 token kinds; token classes fold them to about 60 (native compiler §2); decided at step 67 |
 
 ## 5. Source-code discipline
 
