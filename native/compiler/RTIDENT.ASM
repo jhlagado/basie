@@ -17,23 +17,23 @@
 ;  Basie's library replaces all of this at step 65.4, when helpers become
 ;  references that BLINK resolves.
 
-RT_IDENT EQU  $0004                ; The one runtime identity accepted.
-RT_SIZE EQU  364                   ; Bytes in the linked helper image.
+RT_IDENT EQU  $0004            ; The one runtime identity accepted.
+RT_SIZE EQU  364               ; Bytes in the linked helper image.
 
-RT_VECS EQU  11                    ; Jump vectors in writable memory.
-RT_VLEN EQU  RT_VECS*3             ; Each vector is a three-byte JP.
-RT_SLEN EQU  37                    ; Writable state after the vectors.
+RT_VECS EQU  11                ; Jump vectors in writable memory.
+RT_VLEN EQU  RT_VECS*3         ; Each vector is a three-byte JP.
+RT_SLEN EQU  37                ; Writable state after the vectors.
 
 ; Helper entry offsets from the start of the linked helper image.
 
-RT_CLAIM EQU  43                   ; Claim an activation; carry when full.
-RT_FREE EQU  68                    ; Release an activation, keeping HL.
-RT_IDXOK EQU  77                   ; Check index DE below length BC.
-RT_LENOK EQU  85                   ; Check string HL against capacity C.
-RT_CHROK EQU  95                   ; Check index DE; HL = its byte's address.
-RT_RNGOK EQU  115                  ; Check an aggregate region's bounds.
-RT_BSS EQU  160                    ; Zero BC bytes at HL before main.
-RT_MUL16 EQU  182                  ; HL = HL*DE modulo 65536.
-RT_DIV16 EQU  228                  ; HL = HL/DE unsigned; carry if DE is zero.
-RT_MOD16 EQU  236                  ; HL = HL mod DE; carry if DE is zero.
-RT_CMP16 EQU  289                  ; HL = HL rel DE as 0/1; A is the relation.
+RT_CLAIM EQU  43               ; Claim an activation; carry when full.
+RT_FREE EQU  68                ; Release an activation, keeping HL.
+RT_IDXOK EQU  77               ; Check index DE below length BC.
+RT_LENOK EQU  85               ; Check string HL against capacity C.
+RT_CHROK EQU  95               ; Check index DE; HL = its byte's address.
+RT_RNGOK EQU  115              ; Check an aggregate region's bounds.
+RT_BSS EQU  160                ; Zero BC bytes at HL before main.
+RT_MUL16 EQU  182              ; HL = HL*DE modulo 65536.
+RT_DIV16 EQU  228              ; HL = HL/DE unsigned; carry if DE is zero.
+RT_MOD16 EQU  236              ; HL = HL mod DE; carry if DE is zero.
+RT_CMP16 EQU  289              ; HL = HL rel DE as 0/1; A is the relation.

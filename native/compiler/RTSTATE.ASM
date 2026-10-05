@@ -25,17 +25,17 @@
 ;  EM_STOP, EM_STRAY) write the run state and trap record; GX_SAVE and
 ;  GX_RESET emit the saves and restores of RT_SP and RT_IX.
 
-RT_BASE EQU  MM_XBASE              ; Origin of the offsets below.
-RT_RUN EQU  RT_BASE+$00            ; Run state byte.
-RT_TNUM EQU  RT_BASE+$01           ; Trap number byte.
-RT_TSUB EQU  RT_BASE+$02           ; Trapping routine byte.
-RT_TPOS EQU  RT_BASE+$03           ; Trap source offset word.
-RT_TERR EQU  RT_BASE+$05           ; Unhandled error code byte.
-RT_DEPTH EQU  RT_BASE+$06          ; Active routine count byte.
-RT_ARENA EQU  RT_BASE+$09          ; Activation arena.
-RT_ACAP EQU  8                     ; Bytes in the activation arena.
-RT_SP EQU  RT_ARENA+RT_ACAP        ; Saved root stack pointer word.
-RT_IX EQU  RT_SP+2                 ; Saved root frame pointer word.
+RT_BASE EQU  MM_XBASE          ; Origin of the offsets below.
+RT_RUN EQU  RT_BASE+$00        ; Run state byte.
+RT_TNUM EQU  RT_BASE+$01       ; Trap number byte.
+RT_TSUB EQU  RT_BASE+$02       ; Trapping routine byte.
+RT_TPOS EQU  RT_BASE+$03       ; Trap source offset word.
+RT_TERR EQU  RT_BASE+$05       ; Unhandled error code byte.
+RT_DEPTH EQU  RT_BASE+$06      ; Active routine count byte.
+RT_ARENA EQU  RT_BASE+$09      ; Activation arena.
+RT_ACAP EQU  8                 ; Bytes in the activation arena.
+RT_SP EQU  RT_ARENA+RT_ACAP    ; Saved root stack pointer word.
+RT_IX EQU  RT_SP+2             ; Saved root frame pointer word.
 
-RT_OK EQU  2                       ; Run state: the program succeeded.
-RT_TRAP EQU  3                     ; Run state: the program trapped.
+RT_OK EQU  2                   ; Run state: the program succeeded.
+RT_TRAP EQU  3                 ; Run state: the program trapped.
