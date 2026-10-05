@@ -98,19 +98,19 @@ The source type and the way a source occurrence denotes data are separate proper
 
 | Category                | Meaning                                                                                            |
 | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| Scalar value            | A `u8`, `u16`, or `boolean` value that can be copied by assignment, argument passing, or return.   |
+| Scalar value            | An integer, `f32` or `boolean` value, copied by assignment, argument passing and return.           |
 | Owned aggregate storage | Storage containing one record, fixed array, or bounded string for a lifetime defined in Chapter 7. |
 | Aggregate alias         | A typed, non-owning binding to existing aggregate storage.                                         |
 
-A scalar named constant has either an exact integer type inferred from its initializer or type `boolean`. A record, fixed array, or bounded-string constant has an explicit aggregate type and complete static initializer under Chapter 8.
+A scalar named constant is exact when it is untyped and its value is an integer, and otherwise has its written or literal type, which may be any scalar type (design decision D20; Chapter 8, Section 8.4). A record, fixed array, or bounded-string constant has an explicit aggregate type and complete static initializer under Chapter 8.
 
-Top-level variables and aggregate constants provide owned aggregate storage. Aggregate storage may also occur inline as a record field or fixed-array element. A routine cannot declare aggregate storage or an aggregate-alias local. The permitted declaration sites, initialization rules, mutability, and storage duration appear in Chapters 7 and 8.
+Top-level variables, aggregate constants and aggregate locals provide owned aggregate storage; a local's storage lives in its routine's frame for the length of its block (design decision D8; Chapter 7, Section 7.6). Aggregate storage may also occur inline as a record field or fixed-array element, including in a pool slot. A routine cannot declare an aggregate-alias local. The permitted declaration sites, initialization rules, mutability, and storage duration appear in Chapters 7 and 8.
 
 An aggregate parameter is a fixed typed alias to caller-provided storage. Its binding cannot be changed, but mutation through it changes the caller's object. A parameter declared as `string[]` additionally retains the concrete argument's capacity for checked access. A routine may also return a transient aggregate alias to existing storage, but an open-string view cannot be a result.
 
 Assignment between aggregate designators of the exact same concrete type copies the complete value into the destination. This includes two bounded strings with the same capacity. Assignment changes the destination object's contents and never rebinds an alias. Routine arguments and aggregate results transfer aliases rather than copying automatically. Concrete aggregate parameters and all aggregate results require exact type identity; `string[]` parameters use the specific compatibility rule in Section 6.10.
 
-An aggregate routine result is a transient typed alias to existing program-lifetime storage. Chapter 7 defines its permitted consumption, and Chapter 13 defines result syntax. Basie has no aggregate storage whose lifetime ends with a call, so aggregate results require no separate escape analysis.
+An aggregate routine result is a transient typed alias to storage that outlives the call: program storage, or storage reached through a parameter named in the routine's `from` clause. It can never refer to the routine's own locals, which the `from` rule checks (design decision D8; Chapter 13, Section 13.6). Chapter 7 defines its permitted consumption.
 
 ## 6.6 Record types
 

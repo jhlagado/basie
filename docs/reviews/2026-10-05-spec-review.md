@@ -50,7 +50,7 @@ fixes it names the finding, as B1, A3 and so on).
 | B3 | critical (closed) | A typed constant combined with a literal is computed in `u16`: `const a as u8 = 200` then `a * 2` gives 400, and `var b as u8 = a + 100` is rejected. | 8.4: the constant behaves like a `u8` |
 | B4 | major (closed) | `id(n)` compares only the owner word, so a record at offset 0 of a node shares the node's address and `id(n)` names the wrong pool. | Also compare the slot's pool word |
 | B5 | major (closed) | "A routine whose result is an owning type" is called fresh, and owning aggregates may be copied "unless fresh". Aggregate results are aliases, so no aggregate is ever fresh. | Say "owning handle type" |
-| B6 | major | 6.5 keeps Nucleus statements: scalars only `u8`, `u16`, `boolean`; no local aggregates; results alias program storage. | Rewrite 6.5 to D8, D20 |
+| B6 | major (closed) | 6.5 keeps Nucleus statements: scalars only `u8`, `u16`, `boolean`; no local aggregates; results alias program storage. | Rewrite 6.5 to D8, D20 |
 | B7 | major (closed) | Identifier comparison (`=`, `<>`, with `none`) is specified but not implemented. | Implement; state `id P` widens to `id P?` |
 | B8 | major | Exact operands of `not`, `shl`, `shr` and bitwise operators: 9.7 and 9.10 conflict; the compiler rejects `var x as u8 = 1 shl 3`. | Define them from the context type |
 | B9 | major (closed) | 8.10 says literals have no definite type, but 9.7 types `true`, characters, floats and comparisons, and the compiler accepts `var f = true`. | Restrict 8.10 to exact integers |
