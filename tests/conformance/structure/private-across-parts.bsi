@@ -1,0 +1,18 @@
+// Two parts may each declare a private k: neither sees the other's, and
+// the including part sees neither (5.11; review finding A18).
+// spec: 5.11
+// expect output: 1 2 3\r\n
+
+include "PARTA.BSI"
+include "PARTB.BSI"
+
+const k = 3
+
+sub main() fails
+    writeByte(console, '0' + fromA()) else fail
+    writeByte(console, ' ') else fail
+    writeByte(console, '0' + fromB()) else fail
+    writeByte(console, ' ') else fail
+    writeByte(console, '0' + k) else fail
+    writeText(console, "\r\n") else fail
+end
