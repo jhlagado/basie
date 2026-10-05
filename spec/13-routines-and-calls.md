@@ -100,7 +100,7 @@ sub pick(items as Entry[8], index as u8) as Entry from items
 end
 ```
 
-At a call, the result lives as long as the arguments passed for the `from` parameters. If any of them is rooted in a local of the caller, the result may be used within the caller but can be returned from it only if that local is itself rooted in a parameter named in the caller's own `from` clause.
+At a call, the result lives as long as the arguments passed for the `from` parameters. If any of them is rooted in a local of the caller, the result may be used within the caller but can't be returned from it. It can be returned only when every such argument is rooted in program storage or in a parameter that the caller's own `from` clause names (design decision D8).
 
 The result is read-only unless the result clause says `as var Type`. A `var` result must be rooted in a `var` parameter named in `from`, or in program storage other than a constant.
 

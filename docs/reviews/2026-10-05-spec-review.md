@@ -61,19 +61,19 @@ fixes it names the finding, as B1, A3 and so on).
 | B14 | major (closed) | Open views (`string[]`, `T[]`) are accepted as local initializers and results, and then crash the compiler. | Diagnose them |
 | B15 | major (closed) | String literals: chapter 9 admits them only in initializers and read-only arguments, chapter 17 in every argument; the compiler also accepts `s = "abc"` and literals in `new`. | Name every position |
 | B16 | major (closed) | Whether an aggregate field reached through an owning local is copied or aliased is unclear; the compiler aliases. | Lease semantics for owner paths |
-| B17 | minor | Chapter 6 omits handle fields, exact indexes, arrays of arrays and handles, and `T[]` identity. | Add |
-| B18 | minor | Homes of `P` and `id P` omit routine results. | Add |
+| B17 | minor (closed) | Chapter 6 omits handle fields, exact indexes, arrays of arrays and handles, and `T[]` identity. | Add |
+| B18 | minor (closed) | Homes of `P` and `id P` omit routine results. | Add |
 | B19 | minor (closed) | The example in 8.15 uses `step`, a reserved word. | Rename |
 | B20 | minor (closed) | A duplicate in one scope is reported as `shadowed-name`. | `duplicate-name` |
-| B21 | minor | 6.13's examples work only as locals. | Say so |
+| B21 | minor (closed) | 6.13's examples work only as locals. | Say so |
 | B22 | minor (closed) | 9.17 lists `recordValue = other` as invalid, but as a statement it is assignment. | Use `if` |
-| B23 | minor | 7.10's `new` examples use fields and pools not defined anywhere. | Use chapter 8's `Node` |
-| B24 | minor | `move` from a ticket's field is allowed by 9.16 but rejected by the compiler and memory safety 5.12. | "writable parameter" |
-| B25 | minor | 9.15 says designators are not constant, but named constants are designators. | Except named constants |
-| B26 | minor | 7.7's `from` wording names a local. | Use D8's wording |
+| B23 | minor (closed) | 7.10's `new` examples use fields and pools not defined anywhere. | Use chapter 8's `Node` |
+| B24 | minor (closed) | `move` from a ticket's field is allowed by 9.16 but rejected by the compiler and memory safety 5.12. | "writable parameter" |
+| B25 | minor (closed) | 9.15 says designators are not constant, but named constants are designators. | Except named constants |
+| B26 | minor (closed) | 7.7's `from` wording names a local. | Use D8's wording |
 | B27 | minor | Field access through a fresh handle temporary is unspecified and badly diagnosed. | State invalid |
-| B28 | minor | A record with an `id P?` field has no static initializer, which 8.9 doesn't say. | Say so |
-| B29 | minor | The type grammar reads `u8[25][40]` backwards. | Note the binding |
+| B28 | minor (closed) | A record with an `id P?` field has no static initializer, which 8.9 doesn't say. | Say so |
+| B29 | minor (closed) | The type grammar reads `u8[25][40]` backwards. | Note the binding |
 | B30 | minor (closed) | Fences tagged `nucleus`; planning text in 6.12; memory safety says 4-byte slot headers, revision 6.1 says 6. | Fix |
 
 ## Group C: chapters 10 to 21

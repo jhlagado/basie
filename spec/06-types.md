@@ -46,6 +46,8 @@ bounded-string-type
                  ::= "string" "[" [ string-capacity ] "]"
 ```
 
+In `fixed-array-type`, the first bracket written is the outermost dimension (design decision D32): `u8[25][40]` is 25 elements, each a `u8[40]`, and `screen[r][c]` indexes it in the same order. The skeleton's left recursion only records that arrays nest; it does not fix this order.
+
 An array element may be a scalar, a handle, a record, a bounded string or another fixed array, so arrays may have several dimensions (design decision D32): `u8[25][40]` is an array of 25 elements, each an array of 40 `u8`. Records may contain fields of any admitted type, including fixed arrays and handles.
 
 `string[N]` is the owned bounded-text form. An omitted capacity is admitted only
@@ -124,7 +126,7 @@ An aggregate routine result is a transient typed alias to storage that outlives 
 
 A record declaration creates one nominal type. Two record declarations create different types even when their fields have identical names and types. Record storage and aliases are compatible only with the type created by the same declaration.
 
-Every record has one fixed field sequence and one fixed layout. Each field has a name and one previously declared type. A field may have scalar, record, fixed-array, or bounded-string type. The complete field sequence is known when the record declaration ends.
+Every record has one fixed field sequence and one fixed layout. Each field has a name and one previously declared type. A field may have scalar, `File`, record, fixed-array, or bounded-string type, or an optional handle type, `P?` or `id P?` (Section 6.14). The complete field sequence is known when the record declaration ends.
 
 A record must have finite size. A field therefore must not contain its own record type directly or through a cycle of record and array containment. Variant records, unions, and overlaid layouts are absent.
 
@@ -140,9 +142,9 @@ The index domain is always zero through `N - 1`. Basie has no arbitrary lower bo
 
 Two fixed-array types are identical when their element types are identical and their lengths are equal. Thus `u8[16]` and `u8[16]` are the same type, while `u8[16]`, `u8[32]`, and `u16[16]` are three different types.
 
-An array index must have type `u8` or `u16`; `u8` widens to `u16` when the checking operation requires it. A constant index outside the array domain is invalid. A dynamic index must be checked before the access unless the compiler proves from information already available at that point that it lies in the domain. A failed dynamic check performs the bounds trap specified by Chapter 15 before any element load or store.
+An array index must have type `u8` or `u16`, or be an exact integer that fits `u16`; `u8` widens to `u16` when the checking operation requires it. A constant index outside the array domain is invalid. A dynamic index must be checked before the access unless the compiler proves from information already available at that point that it lies in the domain. A failed dynamic check performs the bounds trap specified by Chapter 15 before any element load or store.
 
-Indexing an array of scalars produces a scalar occurrence with the element type. Indexing an array of records or bounded strings produces a storage path or aggregate alias with the element type. The index operation never produces an untyped address.
+The element type may be any scalar, `File`, record, bounded-string, handle or array type, so arrays of arrays are written `T[M][N]` (Section 6.2); an array of owning handles has optional elements. Indexing an array of scalars produces a scalar occurrence with the element type. Indexing an array of records, bounded strings or arrays produces a storage path or aggregate alias with the element type. The index operation never produces an untyped address.
 
 ## 6.8 Bounded strings
 
@@ -192,7 +194,9 @@ Type identity is determined as follows:
 | Record          | The single declaration that introduced the record.                 |
 | Fixed array     | Identical element type and identical fixed length.                 |
 | `string[N]`     | Identical capacity `N`.                                            |
-| `string[]`      | Parameter-only view over one complete concrete bounded string.     |
+| `string[]`      | Parameter-only view over one complete concrete bounded string, carrying its capacity. |
+| `T[]`           | Parameter-only view over one complete `T[N]`, carrying its length `N`; two views are the same type when their element types are identical. |
+| `File`          | Its own type (Section 6.2).                                        |
 | Aggregate alias | The exact referent type; aliasing adds a category, not a new type. |
 
 The compiler applies these compatibility rules:
@@ -250,7 +254,7 @@ The numeric type ID has no source meaning and need not match across compilations
 
 ## 6.13 Examples
 
-These declarations illustrate scalar compatibility:
+These locals, inside a routine, illustrate scalar compatibility (as program variables, whose initializers must be constant, the ones initialized from other variables would be invalid):
 
 ```basie
 var byteValue as u8 = 42
@@ -321,8 +325,8 @@ earlier with `forward pool P` (design decision D40); a forward pool may appear i
 handle types, whose size doesn't depend on the record, but in nothing else until
 the pool declaration completes it.
 
-The non-optional forms are admitted only for locals with an initializer and for
-parameters. Fields, array elements and program variables of handle type are
+The non-optional forms are admitted only for locals with an initializer, for
+parameters and for routine results. Fields, array elements and program variables of handle type are
 always optional, since they start as `none`.
 
 A handle is not an address the program can see: there is no conversion between

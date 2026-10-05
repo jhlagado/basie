@@ -102,9 +102,9 @@ A **handle** names a slot. The four handle types of a pool `P` are (design decis
 
 | Type | Meaning | Allowed in |
 | --- | --- | --- |
-| `P` | owns a slot; never `none` | parameters, and locals with an initializer |
+| `P` | owns a slot; never `none` | parameters, routine results, and locals with an initializer |
 | `P?` | owns a slot, or is `none` | anywhere a type is written |
-| `id P` | refers to a slot without owning it | parameters, and locals with an initializer |
+| `id P` | refers to a slot without owning it | parameters, routine results, and locals with an initializer |
 | `id P?` | refers to a slot, or is `none` | anywhere a type is written |
 
 **Owning handles** (`P`, `P?`). Every allocated slot has exactly one owner: one owning handle, held by a local, a parameter, a temporary, a program variable, a field or element of an aggregate, or a field of another slot. An owning handle is never copied; it is handed on only by `move`, or by storing a fresh value.
@@ -118,8 +118,8 @@ An optional handle, owning or not, cannot be used to reach a record directly. It
 ## 7.10 Creating: `new` and `new?`
 
 ```basie
-var n = new nodes(5, "five", none, none)
-var t = new trees(1)                 // trailing fields omitted: zeroed
+var n = new nodes(5, none)           // Chapter 8's Node: value, next
+var m = new nodes(7)                 // trailing fields omitted: next is none
 ```
 
 `new P(arguments)` allocates a slot of pool `P` and initializes the record's fields from the arguments, in field order. Trailing arguments may be omitted, and their fields are zeroed; a record with an array of owning handles, or a nested owning record, is built this way. The result is a fresh owning handle of type `P`. The stores into the new record are initializations, not overwrites, and free nothing.

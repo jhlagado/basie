@@ -170,8 +170,8 @@ assignment and by-value passing are errors.
 ### 5.3 Creating, moving and freeing
 
 ```basie
-var n = new nodes(5, "five", none, none)
-var t = new trees(1)              // trailing fields omitted: zeroed
+var n = new nodes(5, none)        // a Node: value, next
+var m = new nodes(7)              // trailing fields omitted: next is none
 ```
 
 `new` allocates a slot and initialises fields from its arguments, in order.

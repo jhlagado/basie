@@ -170,7 +170,7 @@ These operators work logically on `boolean` operands and bit by bit on integer o
 
 **`none`** is the empty value of an optional handle. It has no type of its own and takes the optional handle type its context expects: a declared or destination type, a parameter type, a `new` argument for an optional handle field, a result, or the other operand of an identifier comparison. With no such context it is invalid.
 
-**`move designator`** hands on the owning handle held in the designator (design decision D19), which must be an owning location: a local, parameter, program variable, or a field or element reached from one of them, from a lease, from a `var` owning-aggregate parameter, or through a handle, of type `P` or `P?`. The expression yields the handle, with the designator's type, and stores `none` in the designator. Its result is a fresh owning value. Moving a non-optional local or parameter changes its flow state to "certainly moved" (Chapter 7, Section 7.17). The designator is resolved when the `move` is evaluated, and the statement rule of Chapter 10, Section 10.8 applies.
+**`move designator`** hands on the owning handle held in the designator (design decision D19), which must be an owning location: a local, a writable parameter (not a ticket), a program variable, or a field or element reached from one of them, from a lease, from a `var` owning-aggregate parameter, or through a handle, of type `P` or `P?`. The expression yields the handle, with the designator's type, and stores `none` in the designator. Its result is a fresh owning value. Moving a non-optional local or parameter changes its flow state to "certainly moved" (Chapter 7, Section 7.17). The designator is resolved when the `move` is evaluated, and the statement rule of Chapter 10, Section 10.8 applies.
 
 **`id(expression)`** makes an identifier (Chapter 7, Section 7.9). Its operand is either an owning-handle designator, of type `P` or `P?`, giving `id P` or `id P?` without changing the operand; or a `var` record parameter whose record type belongs to exactly one pool, giving `id P?` as Chapter 7, Section 7.14 describes. A fresh value is not a valid operand.
 
@@ -191,7 +191,7 @@ When an operation traps, later operands and suffixes are not evaluated. A backen
 
 ## 9.15 Constant expressions
 
-The operators and conversions of Sections 9.6 to 9.12 are available in the constant expressions of Chapter 8, Section 8.6, with exactly the run-time rules for types, wrapping, rounding, comparison and short-circuiting. A constant operation that would trap at run time, such as division by zero, a narrowing conversion that does not fit, or an `f32` overflow, is invalid. A short-circuited operand is not evaluated and cannot cause such an error. Calls, designators, `move`, `id`, `new` and `none` are not constant expressions.
+The operators and conversions of Sections 9.6 to 9.12 are available in the constant expressions of Chapter 8, Section 8.6, with exactly the run-time rules for types, wrapping, rounding, comparison and short-circuiting. A constant operation that would trap at run time, such as division by zero, a narrowing conversion that does not fit, or an `f32` overflow, is invalid. A short-circuited operand is not evaluated and cannot cause such an error. Calls, designators other than named scalar constants, `move`, `id`, `new` and `none` are not constant expressions.
 
 ## 9.16 Diagnostics and capacity
 

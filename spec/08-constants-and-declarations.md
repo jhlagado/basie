@@ -187,7 +187,7 @@ An initializer is a **static initializer**:
 | `string[N]` | One string literal of at most `N` decoded bytes |
 | Record | `( ... )` with exactly one static initializer per field, in declaration order |
 | Fixed array | `[ ... ]` with exactly one static initializer per element, in index order |
-| A handle type | none; a handle variable cannot have an initializer |
+| A handle type, or a record or array containing a handle | none: no static initializer can supply `none` for a handle, so such a variable starts at its zero value |
 | An owning type | none; it starts zeroed, with every handle `none` |
 
 A string literal sets both the bytes and the length; a literal longer than the capacity is invalid and is never truncated. Nested records, arrays and strings use their own initializers at the corresponding positions. Every level is complete: too few or too many components are invalid. A static initializer cannot name a variable or another aggregate, or call a routine.
