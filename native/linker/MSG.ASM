@@ -76,9 +76,7 @@ SAY:    PUSH    HL
 .TEXT:  LD      A,B
         OR      A
         RET     Z
-        PUSH    BC
         CALL    F_GETB
-        POP     BC
         RET     C
         DEC     B
         CP      '^'
@@ -87,9 +85,7 @@ SAY:    PUSH    HL
         OR      A
         LD      A,'^'
         JR      Z,.PUT
-        PUSH    BC
         CALL    F_GETB
-        POP     BC
         RET     C
         DEC     B
         LD      HL,(M_ARG1)
@@ -159,11 +155,7 @@ M_OPEN: LD      IX,M_FD
         RET     C
         LD      HL,.MAGIC
         LD      B,4
-.CHECK: PUSH    HL
-        PUSH    BC
-        CALL    F_GETB
-        POP     BC
-        POP     HL
+.CHECK: CALL    F_GETB
         RET     C
         CP      (HL)
         SCF

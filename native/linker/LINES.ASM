@@ -24,14 +24,8 @@ LN_PART: DB     0               ; and its part
 
 ; A = the next byte of the line stream, added to its CRC.
 LNB:    PUSH    IX
-        PUSH    BC
-        PUSH    DE
-        PUSH    HL
         LD      IX,LN_FD
         CALL    F_GETB
-        POP     HL
-        POP     DE
-        POP     BC
         POP     IX
         JR      C,.SHORT
         PUSH    HL
@@ -57,14 +51,8 @@ LTB:    PUSH    HL
         POP     HL
         PUSH    AF
         PUSH    IX
-        PUSH    BC
-        PUSH    DE
-        PUSH    HL
         LD      IX,LT_FD
         CALL    F_PUTB
-        POP     HL
-        POP     DE
-        POP     BC
         POP     IX
         JR      C,.FULL
         POP     AF

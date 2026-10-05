@@ -29,14 +29,8 @@ KINDS:  DB      "code   rodata data   bss    startup"
 
 ; Write A to the report being written.
 MTB:    PUSH    IX
-        PUSH    BC
-        PUSH    DE
-        PUSH    HL
         LD      IX,(REP_FD)
         CALL    F_PUTB
-        POP     HL
-        POP     DE
-        POP     BC
         POP     IX
         RET     NC
         JP      REPFAIL
@@ -244,9 +238,7 @@ NM_RESET:
 .SEEK:  CALL    F_SEEK
         RET     C
         LD      B,8             ; the header: magic, version, stamp
-.HEAD:  PUSH    BC
-        CALL    F_GETB
-        POP     BC
+.HEAD:  CALL    F_GETB
         RET     C
         DJNZ    .HEAD
         CALL    NM_SLOT
@@ -278,14 +270,8 @@ NM_IX:  LD      IX,LNM_FD
 ; its have flag clears.
 NM_READ:
         CALL    NM_IX
-        CALL    F_GETB
+        CALL    F_GETW
         JR      C,.END
-        PUSH    AF              ; F_GETB uses HL: keep the low byte
-        CALL    F_GETB
-        POP     HL
-        JR      C,.END
-        LD      L,H
-        LD      H,A
         LD      A,H
         OR      L
         JR      Z,.END
@@ -301,20 +287,14 @@ NM_READ:
         INC     HL
         LD      (HL),D
         CALL    NM_PSLOT        ; HL = the name buffer
-        PUSH    HL
         CALL    NM_IX
         CALL    F_GETB          ; the length
-        POP     HL
         JR      C,.END
         LD      B,A
 .CH:    LD      A,B
         OR      A
         JR      Z,.DONE
-        PUSH    BC
-        PUSH    HL
         CALL    F_GETB
-        POP     HL
-        POP     BC
         JR      C,.END
         LD      (HL),A
         INC     HL

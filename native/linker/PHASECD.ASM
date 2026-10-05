@@ -929,14 +929,8 @@ V_CY:   DB      0
 
 ; A = the next byte of the byte stream being copied.
 SRCB:   PUSH    IX
-        PUSH    BC
-        PUSH    DE
-        PUSH    HL
         LD      IX,(SRC_FD)
         CALL    F_GETB
-        POP     HL
-        POP     DE
-        POP     BC
         POP     IX
         JP      C,R_SHORT
         RET
@@ -955,14 +949,8 @@ OUTR:   PUSH    HL
         CALL    CRC_UPD
         POP     HL
         PUSH    IX
-        PUSH    BC
-        PUSH    DE
-        PUSH    HL
         LD      IX,OUT_FD
         CALL    F_PUTB
-        POP     HL
-        POP     DE
-        POP     BC
         POP     IX
         RET     NC
         JP      DISKERR

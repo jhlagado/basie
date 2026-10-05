@@ -7,16 +7,17 @@
 ;
 ; Routines take the FD in IX and preserve it.
 
-FD_FCB  EQU     0               ; the FCB (36 bytes; r0-r2 at +33)
-FD_POS  EQU     36              ; next byte in the buffer, 0 to 128
+FD_FCB  EQU     0               ; the FCB (36 bytes)
+FD_REC  EQU     33              ; its random-record field: the record buffered
+FD_POS  EQU     36              ; next byte in the buffer, 0 to 128; 129 when
+                                ; just opened, record 0 not yet read
 FD_FLG  EQU     37              ; bit 0 writing
 FD_PAD  EQU     38              ; the byte that pads a written file's last record
-FD_REC  EQU     39              ; the buffered record (3 bytes)
-FD_BUF  EQU     42              ; the record (128 bytes)
-FDSIZE  EQU     170
+FD_BUF  EQU     39              ; the record (128 bytes)
+FDSIZE  EQU     167
 
 ; Set up the FD's FCB: A = drive (0 the current one, 1 A:), HL = the 8-byte
-; name, DE = the 3-byte type, both space-padded.
+; name, DE = the 3-byte type, both space-padded. Every other field is zero.
 F_INIT: PUSH    HL
         PUSH    IX
         POP     HL
@@ -40,51 +41,29 @@ F_INIT: PUSH    HL
         LD      (IX+FD_POS),128
         RET
 
-; Point CP/M's DMA at the FD's buffer.
-F_DMA:  PUSH    IX
+; Open an existing file, set up by F_INIT, for reading. Carry if it doesn't
+; exist.
+F_OPEN: LD      C,15
+        CALL    F_BDFF
+        RET     C
+        LD      (IX+FD_POS),129 ; the first read reads record 0
+        RET
+
+; Read record FD_REC into the buffer. Carry past the end of the file.
+F_RREC: LD      C,33
+; Read or write (BDOS C) record FD_REC through the buffer. Carry on failure.
+F_RW:   PUSH    BC
+        PUSH    IX              ; the DMA: the buffer
         POP     HL
         LD      DE,FD_BUF
         ADD     HL,DE
         EX      DE,HL
         LD      C,26
-        JP      BDOS
-
-; Open an existing file for reading. Carry if it doesn't exist.
-F_OPEN: PUSH    IX
-        POP     DE
-        LD      C,15
         CALL    BDOS
-        INC     A
-        SCF
-        RET     Z
-        LD      (IX+FD_POS),128
-        LD      (IX+FD_FLG),0
-        LD      A,$FF           ; no record buffered: the next is record 0
-        LD      (IX+FD_REC),A
-        LD      (IX+FD_REC+1),A
-        LD      (IX+FD_REC+2),A
-        OR      A
-        RET
-
-; Read record FD_REC into the buffer. Carry past the end of the file.
-F_RREC: CALL    F_DMA
-        CALL    F_RSET
-        PUSH    IX
-        POP     DE
-        LD      C,33
-        CALL    BDOS
-        OR      A
-        RET     Z
-        SCF
-        RET
-
-; Copy FD_REC to the FCB's random-record field.
-F_RSET: LD      A,(IX+FD_REC)
-        LD      (IX+FD_FCB+33),A
-        LD      A,(IX+FD_REC+1)
-        LD      (IX+FD_FCB+34),A
-        LD      A,(IX+FD_REC+2)
-        LD      (IX+FD_FCB+35),A
+        POP     BC
+        CALL    F_BDOS
+        CP      1               ; carry when 0
+        CCF
         RET
 
 ; FD_REC += 1.
@@ -95,40 +74,44 @@ F_RINC: INC     (IX+FD_REC)
         INC     (IX+FD_REC+2)
         RET
 
-; A = the next byte. Carry at the end of the file. Uses BC, DE, HL.
-F_GETB: LD      A,(IX+FD_POS)
+; A = the next byte. Carry at the end of the file. Preserves BC, DE, HL.
+F_GETB: PUSH    BC
+        PUSH    DE
+        PUSH    HL
+        CALL    .GET
+        POP     HL
+        POP     DE
+        POP     BC
+        RET
+.GET:   LD      A,(IX+FD_POS)
         CP      128
         JR      C,.HAVE
-        CALL    F_RINC
+        CALL    Z,F_RINC        ; 129: just opened, record 0
         CALL    F_RREC
         RET     C
-        XOR     A
-        LD      (IX+FD_POS),A
-.HAVE:  LD      E,A
+        LD      (IX+FD_POS),0
+.HAVE:  CALL    F_PTR
+        LD      A,(HL)
+        OR      A               ; clears carry, keeps A
+        RET
+
+; HL = the buffer's next byte, and FD_POS moves past it.
+F_PTR:  LD      E,(IX+FD_POS)
         LD      D,0
         PUSH    IX
         POP     HL
         ADD     HL,DE
         LD      DE,FD_BUF
         ADD     HL,DE
-        LD      A,(HL)
         INC     (IX+FD_POS)
-        OR      A               ; clears carry, keeps A
         RET
 
 ; HL = the next two bytes, low first. Carry at the end of the file.
 F_GETW: CALL    F_GETB
         RET     C
-        PUSH    AF
-        CALL    F_GETB
-        JR      C,.END
-        LD      H,A
-        POP     AF
         LD      L,A
-        OR      A
-        RET
-.END:   POP     AF
-        SCF
+        CALL    F_GETB
+        LD      H,A
         RET
 
 ; Go to byte offset A:HL (A the high byte) for reading. Carry if that is past
@@ -138,7 +121,7 @@ F_SEEK: PUSH    HL
         ADD     HL,HL
         RL      B
         LD      A,0
-        ADC     A,0             ; the bit shifted out of B
+        RLA                     ; the bit shifted out of B
         LD      (IX+FD_REC+2),A
         LD      (IX+FD_REC),H
         LD      (IX+FD_REC+1),B
@@ -146,89 +129,69 @@ F_SEEK: PUSH    HL
         POP     HL
         RET     C
         LD      A,L
-        AND     $7F
+        AND     $7F             ; clears carry
         LD      (IX+FD_POS),A
-        OR      A
         RET
 
-; Create a file for writing, replacing any of the same name (toolchain §3.2).
-; A = the byte that pads the last record. Carry if the directory is full.
+; Create a file, set up by F_INIT, for writing, replacing any of the same
+; name (toolchain §3.2). A = the byte that pads the last record. Carry if the
+; directory is full.
 F_MAKE: LD      (IX+FD_PAD),A
         CALL    F_DEL
-        PUSH    IX
-        POP     DE
         LD      C,22
-        CALL    BDOS
-        INC     A
-        SCF
-        RET     Z
-        XOR     A
-        LD      (IX+FD_POS),A
-        LD      (IX+FD_REC),A
-        LD      (IX+FD_REC+1),A
-        LD      (IX+FD_REC+2),A
+        CALL    F_BDFF
+        RET     C
+        LD      (IX+FD_POS),0
         LD      (IX+FD_FLG),1
-        OR      A
         RET
 
-; Write A. Carry if the disk is full. Uses BC, DE, HL.
-F_PUTB: LD      C,A
-        LD      E,(IX+FD_POS)
-        LD      D,0
-        PUSH    IX
+; Write A. Carry if the disk is full. Preserves BC, DE, HL.
+F_PUTB: PUSH    BC
+        PUSH    DE
+        PUSH    HL
+        CALL    .PUT
         POP     HL
-        ADD     HL,DE
-        LD      DE,FD_BUF
-        ADD     HL,DE
+        POP     DE
+        POP     BC
+        RET
+.PUT:   LD      C,A
+        CALL    F_PTR
         LD      (HL),C
-        INC     (IX+FD_POS)
         LD      A,(IX+FD_POS)
         CP      128
         CCF
         RET     NC              ; room left: carry clear
 ; Write the buffer as record FD_REC and start the next. Carry if the disk or
 ; directory is full.
-F_WREC: CALL    F_DMA
-        CALL    F_RSET
-        PUSH    IX
-        POP     DE
-        LD      C,34
-        CALL    BDOS
-        OR      A
-        SCF
-        RET     NZ
+F_WREC: LD      C,34
+        CALL    F_RW
+        RET     C
         CALL    F_RINC
-        XOR     A
-        LD      (IX+FD_POS),A
+        LD      (IX+FD_POS),0
         RET
 
 ; Close the file, padding a written file's last record. Carry on failure.
 F_CLOSE:
         BIT     0,(IX+FD_FLG)
         JR      Z,.SHUT
-        LD      A,(IX+FD_POS)
+.PAD:   LD      A,(IX+FD_POS)
         OR      A
         JR      Z,.SHUT
-.PAD:   LD      A,(IX+FD_PAD)
+        LD      A,(IX+FD_PAD)
         CALL    F_PUTB
         RET     C
-        LD      A,(IX+FD_POS)
-        OR      A
-        JR      NZ,.PAD
-.SHUT:  PUSH    IX
-        POP     DE
-        LD      C,16
-        CALL    BDOS
-        INC     A
-        SCF
-        RET     Z
-        OR      A
+        JR      .PAD
+.SHUT:  LD      C,16
+; BDOS function C on the FD's FCB, with carry when it returns $FF.
+F_BDFF: CALL    F_BDOS
+        ADD     A,1
         RET
 
 ; Delete the file, if it exists.
-F_DEL:  PUSH    IX
+F_DEL:  LD      C,19
+; BDOS function C on the FD's FCB.
+F_BDOS: PUSH    IX
         POP     DE
-        LD      C,19
         JP      BDOS
 
 ; Rename the FD's file to the name in the FD at IY. Carry on failure.
@@ -243,12 +206,5 @@ F_REN:  PUSH    IY
         INC     D
 .COPY:  LD      BC,12
         LDIR
-        PUSH    IX
-        POP     DE
         LD      C,23
-        CALL    BDOS
-        INC     A
-        SCF
-        RET     Z
-        OR      A
-        RET
+        JR      F_BDFF

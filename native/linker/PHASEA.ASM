@@ -72,44 +72,23 @@ ARGTXT: DS      8               ; "$HHHH" and a zero, for ordinal arguments
 
 ; A = the next byte of the file at IX, added to the CRC. Preserves BC, DE,
 ; HL. A file that ends early is L-TRUNCATED.
-R_U8:   PUSH    BC
-        PUSH    DE
-        PUSH    HL
-        CALL    F_GETB
+R_U8:   CALL    R_RAW
+        PUSH    HL              ; the CRC is checked in Phase A only
+        LD      HL,CRC_ON
+        INC     (HL)
+        DEC     (HL)
         POP     HL
-        POP     DE
-        POP     BC
-        JP      C,R_SHORT
-        PUSH    AF              ; the CRC is checked in Phase A only
-        LD      A,(CRC_ON)
-        OR      A
-        JR      Z,.NOCRC
-        POP     AF
-        JP      CRC_ADD8
-.NOCRC: POP     AF
-        RET
+        RET     Z
+        JP      CRC_ADD
 
 CRC_ON: DB      1               ; cleared once Phase A has checked the CRCs
 
 ; The same without the CRC.
-R_RAW:  PUSH    BC
-        PUSH    DE
-        PUSH    HL
-        CALL    F_GETB
-        POP     HL
-        POP     DE
-        POP     BC
+R_RAW:  CALL    F_GETB
         RET     NC
 R_SHORT:
         LD      HL,214          ; L-TRUNCATED
         JP      ERRFILE
-
-; Add A to the CRC, keeping A.
-CRC_ADD8:
-        PUSH    AF
-        CALL    CRC_ADD
-        POP     AF
-        RET
 
 ; HL = the next word. Preserves BC and DE.
 R_U16:  CALL    R_U8
@@ -1342,10 +1321,8 @@ DUMP:   LD      IX,TB_FD
         RET
 
 ; Write HL, low byte first, then A, to the file at IX.
-PUTW:   PUSH    HL
-        LD      A,L
+PUTW:   LD      A,L
         CALL    PUTB
-        POP     HL
         LD      A,H
 PUTB:   CALL    F_PUTB
         RET     NC

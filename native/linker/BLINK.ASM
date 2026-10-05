@@ -95,11 +95,7 @@ OPENLIB:
 LIBHEAD:
         LD      HL,LIBH
         LD      B,64            ; the header and the profile block
-.READ:  PUSH    HL
-        PUSH    BC
-        CALL    F_GETB
-        POP     BC
-        POP     HL
+.READ:  CALL    F_GETB
         JR      C,.SHORT
         LD      (HL),A
         INC     HL
@@ -155,11 +151,7 @@ LIBCRC: XOR     A
         OR      L
         OR      C
         JR      Z,.STORED
-        PUSH    BC
-        PUSH    HL
         CALL    F_GETB
-        POP     HL
-        POP     BC
         JP      C,.BAD
         CALL    CRC_ADD
         LD      A,L
