@@ -5,7 +5,10 @@
  */
 import { assertEquals } from "@std/assert";
 import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
-import { writeByteStream, writeProgramDirectory } from "../ref/object/program.ts";
+import {
+  writeByteStream,
+  writeProgramDirectory,
+} from "../ref/object/program.ts";
 import { writeLineStream, writeNameStream } from "../ref/object/streams.ts";
 import type { DirectoryRecord } from "../ref/object/types.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
@@ -31,7 +34,11 @@ Deno.test("the blob writer writes the reference's streams for hello", async () =
     const file = run.disk.get(name)!;
     assertEquals(file.length % 128, 0, name);
     assertEquals(file.subarray(0, expected.length), expected, name);
-    assertEquals(file.subarray(expected.length).every((b) => b === 0), true, name);
+    assertEquals(
+      file.subarray(expected.length).every((b) => b === 0),
+      true,
+      name,
+    );
   }
   // BLINK links the streams, and the program runs.
   const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));
