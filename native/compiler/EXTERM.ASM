@@ -11,9 +11,6 @@
 ;  Principal entries:
 ;    EX_TERM   parse one primary
 ;    EX_LIT    return a literal as a known result
-;    EX_PURE   reject a pending failable call inside a larger expression
-;    EX_HOLD   check a left operand and push it
-;    EX_JOIN   check a right operand and pop the left beneath it
 ;    EX_CAST   parse a conversion's parenthesized operand
 ;    EX_INT    require an integer result
 ;    EX_UNARY  parse a primary preceded by any signs
@@ -125,34 +122,6 @@ EX_NAME:
     SET  7,B                       ; ...and it is known (SY_KNOWN).
     JP   EX_LIT                    ; Return it.
 
-;@ROUTINE IN A,HL OUT A,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,CARRY,C
-; A failable call is consumable only while it is the complete, untouched
-; expression, so that `else` or `handle` can follow it. Raise DG_LEAK if a
-; failable result is pending (RO_PEND) where another expression form is
-; about to enclose it; otherwise return result A/HL unchanged.
-
-EX_PURE:
-    LD   C,A                       ; Keep the result's metadata.
-    LD   A,(RO_PEND)               ; Is a failable call result pending?
-    OR   A                         ; Test the flag.
-    JP   NZ,AC_ELEAK               ; Yes: its failure would be lost.
-    LD   A,C                       ; Recover the metadata.
-    RET                            ; Return the result unchanged.
-
-;@ROUTINE IN A,HL OUT A,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,HL
-; Check result A/HL with EX_PURE and push it as a pending left operand.
-
-EX_HOLD:
-    CALL EX_PURE                   ; It may not be a pending failable call.
-    JP   EX_SAVE                   ; Push it with the operator context.
-
-;@ROUTINE IN A,HL OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,C,DE,HL
-; Check right operand A/HL with EX_PURE and pop the left operand beneath it.
-
-EX_JOIN:
-    CALL EX_PURE                   ; It may not be a pending failable call.
-    JP   EX_POP                    ; Pop the left operand and context.
-
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a parenthesized expression after its '(' and require the ')'.
 
@@ -163,7 +132,7 @@ EX_PAREN:
     CALL PR_RIGHT                  ; Require the closing parenthesis.
     POP  HL                        ; Recover the value.
     POP  AF                        ; Recover the metadata.
-    JR   EX_PURE                   ; A failable call may not be enclosed.
+    RET                            ; Return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse the parenthesized operand of an explicit conversion, with no type
@@ -186,7 +155,6 @@ EX_CAST:
     POP  AF                        ; Recover the enclosing expected type.
     LD   (EX_WANT),A               ; Restore it for the rest of the expression.
     LD   A,D                       ; Return the operand's metadata.
-    CALL EX_PURE                   ; A failable call may not be enclosed.
     OR   A                         ; Clear carry for success.
     RET                            ; Return the operand.
 
@@ -264,7 +232,6 @@ EX_UNARY:
 EX_PLUS:
     CALL PR_TAKE                   ; Consume the sign.
     CALL EX_UNARY                  ; Parse its operand, signs included.
-    CALL EX_PURE                   ; A failable call may not be enclosed.
     CALL EX_INT                    ; The operand must be an integer.
     OR   A                         ; Clear carry for success.
     RET                            ; Return the operand.

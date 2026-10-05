@@ -1,0 +1,48 @@
+// Control flow and failure, run: counted loops up and down, continue and
+// exit, a failure handled inside an expression and one passed on. The
+// last statement traps (narrowing) only when the total is right.
+var big as u16 = 300
+var r as u8
+
+sub tally(limit as u8) as u16 fails
+    var i as u8
+    var s as u16
+    for i = 1 to limit
+        if i = 7
+            continue
+        end
+        if i > 20
+            fail i
+        end
+        s = s + i
+    end
+    return s
+end
+
+sub main() fails
+    var t as u16
+    var w as u16
+    var e as u8
+    var n as u8
+    t = tally(10) else fail
+    for w = 1000 to 0 step -300
+        t = t + w / 100
+    end
+    t = t + tally(30) handle e
+        t = t + e
+    end
+    while n < 250
+        n = n + 50
+        if n = 150
+            exit
+        end
+    end
+    t = t + n
+    for n = 250 until 255
+        t = t + 1
+    end
+    t = t + n
+    if t = 500
+        r = u8(big)
+    end
+end

@@ -1,0 +1,60 @@
+// Counted loops: u8 and u16 counters, to and until, steps up and down by
+// literals and constants, exact, typed and computed bounds of either
+// width, nesting, exit and continue, and sibling loops whose bounds take
+// the same frame slot.
+const three = 3
+var total as u16
+var top as u8 = 9
+var wide as u16 = 300
+
+sub sum(n as u8) as u16
+    var i as u8
+    var s as u16
+    for i = 1 to n
+        s = s + i
+    end
+    return s
+end
+
+sub main()
+    var i as u8
+    var j as u8
+    var w as u16
+    for i = 0 to 10
+        total = total + 1
+    end
+    for i = 10 to 0 step -1
+        total = total + i
+    end
+    for i = 0 until top step three
+        if i = 6
+            continue
+        end
+        total = total + 2
+    end
+    for w = 1000 until 0 step -250
+        for j = i until 20 step 4
+            if j > 15
+                exit
+            end
+            total = total + w
+        end
+    end
+    for i = 250 to 300
+        exit
+    end
+    for i = 1 to top + 1
+        total = total + sum(i)
+    end
+    for w = wide to 65535 step 1000
+    end
+    if total > 0
+        for j = 0 to i
+        end
+    else
+        for j = 5 until u8(wide / 100)
+        end
+    end
+    for w = u16(top) to 3 step -2
+    end
+end

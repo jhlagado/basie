@@ -108,7 +108,8 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | One blob's bytes | 2,048 (`BL_CCAP`); a larger routine is refused | branch shrinking and unbuffered writing of large routines |
 | One blob's references | 512 bytes encoded (`BL_RCAP`), about 100 references | the 128-byte buffer spilling to `NAME.$RF` (toolchain §3.2) |
 | One blob's line entries | 512 bytes encoded (`BL_LCAP`), about 120 statements | spilling with the references |
-| Labels in one routine | 32 (`EM_LCAP`), two of them the exit and the need word; `DG_LABEL` beyond | a label table released by nesting (step 67) |
+| Labels in use at once in one routine | 32 (`EM_LCAP`), two of them the exit and the need word; an `if`, `while`, `for` or handler frees its labels when it ends, and `and` and `or` theirs when they join, so the count is bounded by nesting (about 3 per level); `DG_LABEL` beyond | — |
+| Open `if`, `while`, `for` and `handle` statements | 8 nested (`CT_FCAP`); `DG_NEST` (Error 68) beyond | 32 (§5.1) with the scoped symbol table (step 67) |
 | Routines | 32 besides main (`RO_RCAP`); `DG_PROCS` (Error 84) beyond | the hashed, scoped symbol table (step 67) |
 | Parameters | 64 in the whole program (`RO_PCAP`), and 255 bytes of arguments to one routine; `DG_PARAM` (Error 85) beyond | the symbol table (step 67) |
 | Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 65) beyond | measured against the stack at step 68 |

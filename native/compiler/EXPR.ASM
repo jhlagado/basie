@@ -30,8 +30,7 @@
 ;
 ;  Principal entries elsewhere: EX_RUN and EX_CONST parse an expression
 ;  for a grammar action, EX_FITS checks it against a destination and
-;  EX_STORE stores it (EXOPER.ASM); EX_LIT returns a literal and EX_PURE
-;  rejects an enclosed failable call (EXTERM.ASM).
+;  EX_STORE stores it (EXOPER.ASM); EX_LIT returns a literal (EXTERM.ASM).
 ;
 ;  Precedence, loosest first: `or` and `xor`; `and`; `not`; the six
 ;  comparisons, which do not associate; `+` and `-`; `*`, `/` and `mod`;

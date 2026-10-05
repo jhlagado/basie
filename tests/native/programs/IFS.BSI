@@ -1,0 +1,62 @@
+// if, elseif and else: computed and constant conditions, nesting, arms
+// that return, and conditions built from and, or and not.
+var a as u8 = 3
+var b as u16 = 500
+var f as boolean
+var r as u8
+
+sub pick(n as u8) as u8
+    if n = 0
+        return 10
+    elseif n = 1
+        return 11
+    elseif n < 5 and n <> 3
+        return 12
+    else
+        return 13
+    end
+end
+
+sub flag(x as u16) as boolean
+    if x > 1000 or x = 7
+        return true
+    end
+    return false
+end
+
+sub main()
+    if a = 3
+        r = 1
+    end
+    if b > 400
+        r = r + 1
+    else
+        r = r - 1
+    end
+    if true
+        r = 5
+    end
+    if false
+        r = 6
+    elseif f
+        r = 7
+    else
+        r = 8
+    end
+    if not f
+        if a < 10
+            if b <> 0
+                r = pick(a)
+            end
+        elseif a > 20
+            r = 0
+        end
+    end
+    f = flag(b)
+    if f = flag(7)
+    end
+    if a > 1
+    else
+        r = 9
+    end
+end

@@ -672,7 +672,7 @@ GR_ACTX:
     DW   AC_STEP                   ; a:SaveForStep
     DW   AC_BYONE                  ; a:DefaultForStep
     DW   AC_NAMED                  ; a:ResolveRecordType
-    DW   AC_BOUND                  ; a:BeginTypeBound
+    DW   AC_IDLE                   ; a:BeginTypeBound
     DW   AC_STR                    ; a:MakeStringType
     DW   AC_OPEN                   ; a:MakeOpenStringType
     DW   AC_ARRAY                  ; a:MakeArrayType

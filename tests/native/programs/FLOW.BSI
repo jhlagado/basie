@@ -1,0 +1,64 @@
+// Fallthrough as the reference tracks it: a routine with a result whose
+// every path returns, arms that end in exit or continue (which once left
+// the native compiler's fallthrough set), statements after a return, and
+// routines whose end is or is not reached, which decides their success
+// return.
+var g as u8
+
+sub sign(n as u8) as u8
+    if n = 0
+        return 0
+    elseif n < 128
+        return 1
+    else
+        return 2
+    end
+end
+
+sub scan(limit as u8) as u8
+    var i as u8
+    while true
+        if i = limit
+            return i
+        else
+            i = i + 1
+            if i > 200
+                exit
+            else
+                continue
+            end
+        end
+    end
+    return 255
+end
+
+sub early() fails
+    return
+    g = 1
+end
+
+sub late() fails
+    fail 3
+    g = 2
+    if g = 2
+        g = 3
+    end
+end
+
+sub nested(n as u8) as u8
+    if n > 10
+        if n > 20
+            return 3
+        else
+            return 2
+        end
+    else
+        return 1
+    end
+end
+
+sub main() fails
+    g = sign(5) + scan(7) + nested(g)
+    early() else fail
+    late() else fail
+end

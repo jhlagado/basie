@@ -9,20 +9,20 @@
 ;  from MM_WBASE ($4800).
 ;
 ;    Offset  Size  Block
-;    +$939     26  routine state: counts, the signature being parsed, the
+;    +$963     22  routine state: counts, the signature being parsed, the
 ;                  path and the call being checked (RO_BASE)
-;    +$953    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$AD3    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$BD3      3  multipart source cursor (SRC_DESC, SRC_LEFT)
-;    +$BD6      2  PR_SP, the stack DG_ISSUE restores
-;    +$BD8     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$C19         LL_WEND, the end of the compiler workspace, 3,097 bytes
+;    +$979    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$AF9    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$BF9      3  multipart source cursor (SRC_DESC, SRC_LEFT)
+;    +$BFC      2  PR_SP, the stack DG_ISSUE restores
+;    +$BFE     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$C3F         LL_WEND, the end of the compiler workspace, 3,135 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
 ;  failure-routing fields as the grammar's actions run; ROUTINES.ASM writes
-;  the tables and the path and call fields; EXPR.ASM clears RO_PEND and
-;  RO_KEPT for each expression. Source names
+;  the tables and the path and call fields; EXPR.ASM clears RO_PEND for
+;  each expression and RO_FAILS (CALLS.ASM) sets it and RO_KEPT. Source names
 ;  stay resident, so a record keeps a name as its address and length.
 ;
 ;  A routine record (RO_RLEN bytes), one per declared routine other than
@@ -78,17 +78,12 @@ RO_ACNT EQU  RO_BASE+$0C       ; Byte: scratch for paths and returns.
 RO_DPOS EQU  RO_BASE+$0D       ; Word: source offset of an index or statement.
 RO_DEPTH EQU  RO_BASE+$0F      ; Byte: calls whose arguments are being parsed.
 RO_CFLAG EQU  RO_BASE+$10      ; Byte: flags of the routine being compiled.
-RO_FPOS EQU  RO_BASE+$11       ; Word: source offset of the fail statement (AC_FAIL).
-RO_PEND EQU  RO_BASE+$13       ; Byte: nonzero while a call's failure is unrouted.
-RO_MODEP EQU  RO_BASE+$14      ; Word: transcript address of a call's handling bytes.
-RO_MFLAG EQU  RO_BASE+$16      ; Byte: main's flags, as main has no routine record.
-; A statement may hold carriers below a failable result, such as an
-; assignment's destination address. The handling bytes record their count
-; so that the jump to a handler can discard them first.
-RO_KEPT EQU  RO_BASE+$17       ; Byte: carriers held below a failable result.
-RO_VCAP EQU  RO_BASE+$18       ; Byte: offset of an open string's capacity word.
-RO_CARGS EQU  RO_BASE+$19      ; Byte: the routine's argument bytes, removed by RETN.
-RO_STEND EQU  RO_BASE+$1A      ; End of the routine state; the tables follow.
+RO_PEND EQU  RO_BASE+$11       ; Byte: $80 and a failure's label while it is unconsumed.
+RO_KEPT EQU  RO_BASE+$12       ; Byte: temporaries' bytes beneath a handled call.
+RO_MFLAG EQU  RO_BASE+$13      ; Byte: main's flags, as main has no routine record.
+RO_VCAP EQU  RO_BASE+$14       ; Byte: offset of an open string's capacity word.
+RO_CARGS EQU  RO_BASE+$15      ; Byte: the routine's argument bytes, removed by RETN.
+RO_STEND EQU  RO_BASE+$16      ; End of the routine state; the tables follow.
 
 RO_RTAB EQU  RO_STEND          ; Routine table: RO_RCAP records.
 RO_RLEN EQU  12                ; Bytes in one routine record.
@@ -129,19 +124,12 @@ SRC_CNT EQU  $07               ; SRC_LEFT bits 0..2: parts still to come.
 SRC_STEP EQU  8                ; One ordinal step; TK_ATEND adds SRC_STEP-1.
 SRC_ORD EQU  $38               ; SRC_LEFT bits 3..5: ordinal of the current part.
 
-; Control labels are the parser's, numbered for the whole program, until
-; control flow is compiled (65.4 f).
-CT_LLIM EQU  27                ; Labels for control flow; CT_ALLOT stops here.
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.
 RO_FMAIN EQU  2                ; Routine flag: it is main.
 RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body.
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
 
-; A failable call's handling mode, the first of its three handling bytes.
-; Zero means none was attached, which the parser never allows.
-RO_MPASS EQU  1                ; Handling: propagate the failure (else fail).
-RO_MTRAP EQU  3                ; Handling: jump to the statement's handler.
 
 ; Operation codes of routines, calls, aggregates and failure, continuing
 ; STATE.ASM's. Each comment names the parser routine that writes it and the
@@ -155,11 +143,7 @@ OP_STX16 EQU  94               ; RO_LET: store a word through an address; RG_PUT
 OP_COPY EQU  95                ; RO_LET: checked aggregate copy; RG_COPY.
 OP_LEN EQU  96                 ; RO_SEL: a bounded string's length; RG_LEN.
 OP_CHAR EQU  97                ; RO_CHAR: checked string character; RG_CHAR.
-OP_FAIL EQU  98                ; AC_THROW: fail with an error code; RG_FAIL.
 OP_ABORT EQU  99               ; Written by nothing; its slot dispatches to RG_FATAL.
-OP_HSKIP EQU  103              ; AC_ONERR: jump over a handler; RG_SKIP.
-OP_HOPEN EQU  104              ; AC_ONERR: enter a handler; RG_CATCH.
-OP_HDONE EQU  105              ; AC_NOERR: place the label after it; RG_JOIN.
 OP_VLEN EQU  108               ; RO_SEL: an open string's length; OS_LEN.
 OP_VCHAR EQU  109              ; RO_OSIDX: an open string's character; OS_CHAR.
 ; Predefined names in KW_NAMES order: six services, refused for now (65.4

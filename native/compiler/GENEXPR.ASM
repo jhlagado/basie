@@ -208,6 +208,11 @@ GX_DLDHL:                      ; ixWord: HL = (IX+offset).
     DB   1,$D5                     ; PUSH DE;
     DB   5,$5E,$23,$56,$EB,$D1     ; LD E,(HL), INC HL, LD D,(HL), EX DE,HL, POP DE.
     DB   $6E,$66,0                 ; LD L,(IX+d), LD H,(IX+d+1).
+GX_DLDDE:                      ; ixWord to DE: DE = (IX+offset), HL kept.
+    DB   1,4                       ; Two bytes; the far form pushes four.
+    DB   1,$E5                     ; PUSH HL;
+    DB   4,$5E,$23,$56,$E1         ; LD E,(HL), INC HL, LD D,(HL), POP HL.
+    DB   $5E,$56,0                 ; LD E,(IX+d), LD D,(IX+d+1).
 GX_DSTA:                       ; ixStoreA: (IX+offset) = A.
     DB   0,6                       ; One byte; the far form pushes six.
     DB   2,$E5,$D5                 ; PUSH HL, PUSH DE;

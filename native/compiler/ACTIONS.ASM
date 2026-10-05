@@ -35,16 +35,17 @@
 ;  cannot refer to itself. The current type is AG_CTYPE: 1..3 for the
 ;  scalars, a type-table ID from AG_FIRST, or AG_VIEW for `string[]`.
 ;
-;  Workspace. The for-loop and fallthrough scratch below overlays the
-;  first thirteen bytes of AG_IBUF, the initializer staging buffer, which
-;  is used only by top-level declarations and is dead inside a routine.
+;  Workspace. The for loop's scratch below overlays the first seven bytes
+;  of AG_IBUF, the initializer staging buffer, which is used only by
+;  top-level declarations and is dead inside a routine. It is laid out as
+;  a for frame's fields from CT_FMODE, to which AC_FORDO copies it.
 
 AC_NONE EQU  $FF               ; EX_RMETA of a local without an initializer.
-AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode bits.
-AC_DELTA EQU  AC_MODE+1        ; Word: the for loop's step magnitude.
-AC_WHERE EQU  AC_DELTA+2       ; Word: the for statement's source offset.
-AC_FLOWS EQU  AC_WHERE+2       ; CT_FCAP bytes: saved CT_FALLS per depth.
-AC_WEND EQU  AC_FLOWS+CT_FCAP  ; End of the action scratch (marker).
+AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode (CT_MINC...).
+AC_INDEX EQU  AC_MODE+1        ; Word: the counter's offset from IX.
+AC_BOUND EQU  AC_INDEX+2       ; Word: the bound's offset from IX.
+AC_DELTA EQU  AC_BOUND+2       ; Word: the step's magnitude.
+AC_WEND EQU  AC_DELTA+2        ; End of the action scratch (marker).
 
 ; --------------------------------------------------------------- islands
 
@@ -77,7 +78,8 @@ AC_STASH:
 
 ;@ROUTINE OUT A,B,DE,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,HL
 ; Island StepConstant: parse a for loop's step (CT_STEP), adding its
-; direction bit to AC_MODE and keeping its magnitude in AC_DELTA.
+; direction bit, CT_MDOWN, to AC_MODE and keeping its magnitude in
+; AC_DELTA.
 
 AC_BY:
     CALL CT_STEP                   ; B is the direction bit, DE the magnitude.
@@ -144,16 +146,6 @@ AC_NAMED:
     JP   NZ,AG_EFORM               ; No: raise DG_BOUND.
     LD   A,C                       ; The record's type ID.
     JR   AC_USE                    ; Make it current.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; BeginTypeBound: expect a u16 for a string capacity or array length.
-; AC_FOLD, which follows, sets its own expected type, so this has no lasting
-; effect; AC_COUNT does the u16 check.
-
-AC_BOUND:
-AC_U16:                        ; Also used to expect a for loop's bound.
-    LD   A,SY_U16                  ; Expect a u16.
-    JP   AC_WANT                   ; Record it.
 
 ;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
 ; Return in HL the constant bound just parsed: it must be known, fit a u16
@@ -255,12 +247,13 @@ AC_ARRAY:
 
 AC_NAME EQU  EX_DECL           ; RetainDeclarationName: check and keep it.
 
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Set the type the next run-time expression is expected to have.
+;@ROUTINE IN A OUT A
+; Set the type the next run-time expression is expected to have. AC_IDLE,
+; its RET, is the action BeginTypeBound, which needs nothing done.
 
 AC_WANT:
     LD   (EX_WANT),A               ; AC_EXPR reads it.
-    OR   A                         ; Clear carry.
+AC_IDLE:                       ; BeginTypeBound: AC_FOLD sets its own type.
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D

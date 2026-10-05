@@ -21,6 +21,7 @@ const DIR = "tests/native/programs";
 const CONFORMANCE: Record<string, string> = {
   NARROW: "tests/conformance/types/narrowing-traps.bsi",
   DIVZERO: "tests/conformance/expressions/division-by-zero-traps.bsi",
+  LOOPTRAP: "tests/conformance/statements/loop-range-traps.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -49,6 +50,8 @@ const CLAIMED: Record<string, string[]> = {
     "NARROW",
     "DIVZERO",
   ],
+  "f: control flow": ["IFS", "LOOPS", "FORS", "FLOW", "LOOPTRAP"],
+  "g: failure": ["FAILURE", "RUNFLOW"],
 };
 
 /** Compile NAME with BASIE.COM and the options; return the disk. */
@@ -115,10 +118,11 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
 }
 
 // Random assignments over the stage (c) subset, to program variables,
-// (stage d) to locals and (stage e) to parameters: each compiles to the reference's streams, or both
+// (stage d) to locals and (stage e) to parameters, some (stage f) inside
+// an if or a while: each compiles to the reference's streams, or both
 // compilers refuse it. The generator is deterministic, so a failure names a
 // statement that can be rerun.
-Deno.test("c, d, e: random expressions compile as the reference compiles them", async () => {
+Deno.test("c to f: random expressions compile as the reference compiles them", async () => {
   let seed = 654;
   const rnd = (n: number) => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
@@ -177,8 +181,15 @@ Deno.test("c, d, e: random expressions compile as the reference compiles them", 
       : kind === 1
       ? `${pick(["x", "y"])} = ${integer(4)}`
       : `${pick(["f", "g"])} = ${boolean(4)}`;
+    // (f) Every fifth statement sits in an if or a while with a random
+    // condition.
+    const body = i % 5 !== 4
+      ? statement
+      : rnd(2) === 0
+      ? `if ${boolean(2)}\n${statement}\nelseif ${boolean(1)}\nelse\nend`
+      : `while ${boolean(2)}\n${statement}\nend`;
     const source = new TextEncoder().encode(
-      `${head}${statement}\nend\n${tail}`,
+      `${head}${body}\nend\n${tail}`,
     );
     const ref = await compile("RANDOM.BSI", {
       shrink: false,
@@ -193,17 +204,17 @@ Deno.test("c, d, e: random expressions compile as the reference compiles them", 
       assertEquals(
         run.output !== "",
         true,
-        `the reference refuses ${statement}`,
+        `the reference refuses ${body}`,
       );
       continue;
     }
     // The one refusal allowed: an exact value outside 0..65535, which the
     // native compiler cannot fold (Error 61; native compiler plan §5).
     if (/ Error 61\r\n$/.test(run.output)) continue;
-    assertEquals(run.output, "", statement);
-    same(statement, run.disk.get("RANDOM.$DR"), ref.objects.directory);
-    same(statement, run.disk.get("RANDOM.$BY"), ref.objects.bytes);
-    same(statement, run.disk.get("RANDOM.$LN"), ref.objects.lines);
+    assertEquals(run.output, "", body);
+    same(body, run.disk.get("RANDOM.$DR"), ref.objects.directory);
+    same(body, run.disk.get("RANDOM.$BY"), ref.objects.bytes);
+    same(body, run.disk.get("RANDOM.$LN"), ref.objects.lines);
   }
 });
 
@@ -214,8 +225,21 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     "CPM22.BRL": (await buildRuntime()).file,
   };
   // TRAP's arithmetic decides which of its two narrowings traps; RECURSE
-  // reaches its last statement's trap only when its results are right.
-  const run = ["EMPTY", "TRAP", "CALLS", "FORWARD", "RECURSE", "DIVZERO"];
+  // and RUNFLOW reach their last statement's trap only when their results
+  // are right; LOOPTRAP traps leaving its counter's type.
+  const run = [
+    "EMPTY",
+    "TRAP",
+    "CALLS",
+    "FORWARD",
+    "RECURSE",
+    "DIVZERO",
+    "LOOPS",
+    "FORS",
+    "FAILURE",
+    "RUNFLOW",
+    "LOOPTRAP",
+  ];
   for (const name of run) {
     const disk = native(name);
     const files = { ...library };
@@ -232,8 +256,11 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     if (!ref.ok) throw new Error(`${name}: the reference refuses it`);
     const expected = runCom(ref.com, { maxSteps: 1_000_000 }).output;
     assertEquals(runCom(com, { maxSteps: 1_000_000 }).output, expected, name);
-    if (name === "RECURSE") {
+    if (name === "RECURSE" || name === "RUNFLOW") {
       assertEquals(/^TRAP narrowing/.test(expected), true);
+    }
+    if (name === "LOOPTRAP") {
+      assertEquals(/^TRAP loop-range/.test(expected), true);
     }
   }
 });
@@ -259,6 +286,63 @@ const REFUSED: Record<string, string> = {
   ),
   "a forward completed twice":
     "forward sub f()\nsub f\nend\nsub f\nend\nsub main()\nend\n",
+  "a value routine whose if has no else":
+    "sub f(n as u8) as u8\nif n = 0\nreturn 1\nend\nend\nsub main()\nend\n",
+  "a value routine ending in a loop":
+    "sub f() as u8\nwhile true\nreturn 1\nend\nend\nsub main()\nend\n",
+  "exit outside a loop": "sub main()\nexit\nend\n",
+  "continue inside an if outside a loop":
+    "sub main()\nif true\ncontinue\nend\nend\n",
+  "a loop counter assigned":
+    "sub main()\nvar i as u8\nfor i = 1 to 3\ni = 2\nend\nend\n",
+  "a loop counter counting again":
+    "sub main()\nvar i as u8\nfor i = 1 to 3\nfor i = 1 to 2\nend\nend\nend\n",
+  "a loop counter as a handler's variable":
+    "sub f() fails\nend\nsub main()\nvar i as u8\nfor i = 1 to 3\nf() handle i\nend\nend\nend\n",
+  "a parameter as a counter":
+    "sub f(i as u8)\nfor i = 1 to 3\nend\nend\nsub main()\nend\n",
+  "a Boolean counter":
+    "sub main()\nvar b as boolean\nfor b = 1 to 3\nend\nend\n",
+  "a program variable as a counter":
+    "var i as u8\nsub main()\nfor i = 1 to 3\nend\nend\n",
+  "a step wider than a u8 counter":
+    "sub main()\nvar i as u8\nfor i = 1 to 3 step 256\nend\nend\n",
+  "a zero step": "sub main()\nvar i as u8\nfor i = 1 to 3 step 0\nend\nend\n",
+  "a computed step":
+    "var s as u8 = 1\nsub main()\nvar i as u8\nfor i = 1 to 3 step s\nend\nend\n",
+  "a Boolean bound": "sub main()\nvar i as u8\nfor i = 1 to true\nend\nend\n",
+  "a non-Boolean condition": "sub main()\nif 1\nend\nend\n",
+  "a failable call unconsumed":
+    "sub f() fails\nend\nsub main() fails\nf()\nend\n",
+  "else fail in a routine that cannot fail":
+    "sub f() fails\nend\nsub main()\nf() else fail\nend\n",
+  "else fail after a call that cannot fail":
+    "sub f()\nend\nsub main() fails\nf() else fail\nend\n",
+  "handle after a call that cannot fail":
+    "var e as u8\nsub f()\nend\nsub main()\nf() handle e\nend\nend\n",
+  "a failable call as an operand's left":
+    "sub f() as u8 fails\nreturn 1\nend\nsub main() fails\nvar x as u8\nx = f() + 1 else fail\nend\n",
+  "a failable call in parentheses":
+    "sub f() as u8 fails\nreturn 1\nend\nsub main() fails\nvar x as u8\nx = (f()) else fail\nend\n",
+  "a failable call as an argument":
+    "sub f() as u8 fails\nreturn 1\nend\nsub g(a as u8)\nend\nsub main() fails\ng(f()) else fail\nend\n",
+  "a failable call in a condition":
+    "sub f() as boolean fails\nreturn true\nend\nsub main() fails\nif f() else fail\nend\nend\n",
+  "a failable call in a return":
+    "sub f() as u8 fails\nreturn 1\nend\nsub g() as u8 fails\nreturn f() else fail\nend\nsub main()\nend\n",
+  "a handler after a local's initializer":
+    "var e as u8\nsub f() as u8 fails\nreturn 1\nend\nsub main()\nvar x as u8 = f() handle e\nend\nend\n",
+  "a handler's variable of the wrong type":
+    "var e as u16\nsub f() fails\nend\nsub main()\nf() handle e\nend\nend\n",
+  "a handler's variable a constant":
+    "const e = 1\nsub f() fails\nend\nsub main()\nf() handle e\nend\nend\n",
+  "fail in a routine that cannot fail": "sub main()\nfail 1\nend\n",
+  "fail with a u16 code": "sub f() fails\nfail 300\nend\nsub main()\nend\n",
+  "else if for elseif": "sub main()\nif true\nelse if false\nend\nend\nend\n",
+  "a failable start value":
+    "sub f() as u8 fails\nreturn 1\nend\nsub main() fails\nvar i as u8\nfor i = f() else fail to 3\nend\nend\n",
+  "else fail followed by a handler":
+    "var e as u8\nsub f() fails\nend\nsub main() fails\nf() else fail handle e\nend\nend\n",
 };
 
 for (const [what, text] of Object.entries(REFUSED)) {

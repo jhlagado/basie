@@ -154,7 +154,7 @@ PR_BUILD:
     RET                            ; The caller closes the streams.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Clear the routine state and the control labels and run the LL(1) parser
+; Clear the routine state and run the LL(1) parser
 ; over every source part. The tables are written before they are read.
 
 PR_PARSE:
@@ -165,7 +165,6 @@ PR_PARSE:
     LD   (HL),A                    ; Store zero.
     INC  HL                        ; Next byte.
     DJNZ .WIPE                     ; Clear the whole workspace.
-    LD   (CT_LABNO),A              ; Number control labels from zero.
     JP   LL_PARSE                  ; Parse the program and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL

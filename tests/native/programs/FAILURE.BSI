@@ -1,0 +1,84 @@
+// Failure: fail with exact and computed codes, else fail after calls,
+// assignments and local initializers, handle into program variables,
+// locals and parameters, a handled call beneath a pushed left operand,
+// handlers inside loops and other handlers, and failable calls as right
+// operands and under not.
+var code as u8
+var total as u16 = 1
+
+sub check(n as u8) as u8 fails
+    if n > 9
+        fail n - 9
+    end
+    return n
+end
+
+sub wide(n as u16) as u16 fails
+    if n = 0
+        fail 1
+    end
+    return n * 2
+end
+
+sub relay(n as u8) as u8 fails
+    var first as u8 = check(n) else fail
+    first = first + check(n + 1) else fail
+    return first
+end
+
+sub keep(e as u8) as u8 fails
+    var local as u8
+    local = check(e) handle e
+        local = e
+    end
+    check(e + 20) handle local
+        total = total + local
+    end
+    return local
+end
+
+sub truth(n as u8) as boolean fails
+    if n = 0
+        fail 5
+    end
+    return n > 1
+end
+
+sub operands() fails
+    var x as u8 = 2
+    var b as boolean
+    x = 1 + check(x) else fail
+    x = x * check(x) handle code
+    end
+    b = not truth(x) else fail
+    b = x > 3 and truth(x) handle code
+    end
+    x = 200 - check(x) else fail
+end
+
+sub main() fails
+    var i as u8
+    var w as u16
+    code = relay(3) else fail
+    total = total + wide(5) handle code
+        total = 0
+    end
+    for i = 1 to 12
+        w = u16(i) + wide(u16(i) - 1) handle code
+            w = 7
+            relay(i) handle code
+                exit
+            end
+        end
+        if code > 1
+            continue
+        end
+    end
+    while code < 5
+        check(code + 10) handle code
+        end
+        code = keep(code) else fail
+    end
+    operands() else fail
+    fail 4
+end

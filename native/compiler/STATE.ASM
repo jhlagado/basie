@@ -22,9 +22,9 @@
 ;    +$0B4      3  parser lookahead
 ;    +$0B7    673  symbol table: count, 96 records of seven bytes
 ;    +$358    240  expression state and the operand stack
-;    +$448     88  control frames
-;    +$4A0   1177  aggregate types, records, fields, the initializer staging
-;    +$939         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$448    130  control: depth, fallthrough, eight frames of sixteen bytes
+;    +$4CA   1177  aggregate types, records, fields, the initializer staging
+;    +$963         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -141,16 +141,13 @@ EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
 EX_STLEN EQU  13               ; Bytes in one entry.
 EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
 
-; Structured-control parsing (CONTROL.ASM) keeps bounded ten-byte control
-; frames. A frame holds: +0 kind; +1, +2, +3 its label ordinals (first, continue,
-; exit); +4 a for loop's counter slot; +5 its mode; +6 its step word; +8
-; a trap offset word.
+; Structured control (CONTROL.ASM) keeps a sixteen-byte frame for each
+; open if, while, for and handler; the fields are laid out there.
 CT_BASE EQU  EX_STLIM          ; First byte of the control block.
 CT_DEPTH EQU  CT_BASE+$00      ; Byte: open control frames.
-CT_LABNO EQU  CT_BASE+$01      ; Byte: next free label ordinal.
-CT_FALLS EQU  CT_BASE+$05      ; Byte: nonzero while the body can fall through.
-CT_FTAB EQU  CT_BASE+$08       ; First control frame.
-CT_FLEN EQU  10                ; Bytes in one frame.
+CT_FALLS EQU  CT_BASE+$01      ; Byte: nonzero while control can reach this point.
+CT_FTAB EQU  CT_BASE+$02       ; First control frame.
+CT_FLEN EQU  16                ; Bytes in one frame.
 CT_FCAP EQU  8                 ; Frames; DG_NEST when exceeded.
 CT_FLIM EQU  CT_FTAB+CT_FLEN*CT_FCAP ; Exclusive end of the frames.
 
@@ -159,14 +156,18 @@ CT_KLOOP EQU  2                ; Frame kind: while loop.
 CT_KFOR EQU  3                 ; Frame kind: counted for loop.
 CT_KTRAP EQU  4                ; Frame kind: failure handler.
 CT_FKIND EQU  0                ; Frame field: kind.
-CT_FDEST EQU  1                ; Frame field: first label.
+CT_FDEST EQU  1                ; Frame field: next arm, body or failure label.
 CT_FCONT EQU  2                ; Frame field: continue label.
-CT_FEXIT EQU  3                ; Frame field: exit label.
-CT_FVAR EQU  4                 ; Frame field: counter slot or CT_NOVAR.
-CT_FMODE EQU  5                ; Frame field: for-loop mode bits.
-CT_FSTEP EQU  6                ; Frame field: step word.
-CT_FTRAP EQU  8                ; Frame field: trap offset word.
-CT_NOVAR EQU  $FF              ; No counter: the frame is not a for loop.
+CT_FEXIT EQU  3                ; Frame field: end, exit or skip label.
+CT_FLCNT EQU  4                ; Frame field: labels in use as it opened.
+CT_FSIZE EQU  5                ; Frame field: the frame's size as it opened (word).
+CT_FMODE EQU  7                ; Frame field: if flags, for mode, kept bytes.
+CT_FVAR EQU  8                 ; Frame field: the counter's offset (word).
+CT_FBND EQU  10                ; Frame field: the bound's offset (word).
+CT_FSTEP EQU  12               ; Frame field: the step's magnitude (word).
+CT_MINC EQU  1                 ; For mode: to, the bound is inclusive.
+CT_MDOWN EQU  2                ; For mode: the step is negative.
+CT_MWORD EQU  4                ; For mode: the counter is a u16.
 
 ; Aggregate type and layout metadata lasts the whole compilation. Type IDs
 ; 1..3 are the predefined scalars; IDs 4 and above name bounded four-byte
@@ -439,13 +440,6 @@ OP_STL16 EQU  63               ; GX_STX16: pop into a u16 local.
 OP_CAND EQU  64                ; GX_ANDIF: open a short-circuit and.
 OP_COR EQU  65                 ; GX_ORIF: open a short-circuit or.
 OP_JOIN EQU  66                ; GX_JOIN: close the innermost and/or.
-OP_LABEL EQU  67               ; GC_LABEL: place a control label.
-OP_IFNOT EQU  68               ; GC_IFNOT: branch to a label if false.
-OP_JUMP EQU  69                ; GC_JUMP: jump to a label.
-OP_FOR EQU  70                 ; GC_FOR: set up a counted loop.
-OP_TEST EQU  71                ; GC_TEST: test a counted loop's end.
-OP_NEXT EQU  72                ; GC_NEXT: step a counted loop.
-OP_CLEAN EQU  73               ; GC_DROP: discard a counted loop's state.
 OP_FUNC EQU  74                ; GX_ENTER: begin the value routine; unused.
 OP_LDP8 EQU  75                ; GX_LDX8: push a u8 parameter.
 OP_LDP16 EQU  76               ; GX_LDX16: push a u16 parameter.

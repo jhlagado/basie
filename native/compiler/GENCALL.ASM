@@ -105,10 +105,9 @@ RG_RET:                        ; Control leaves the routine successfully.
     AND  RO_FFAIL+RO_FMAIN         ; Can it fail, or is it main?
     LD   A,$B7                     ; OR A clears carry: success.
     CALL NZ,EM_BYTE                ; Then report success.
-    CALL EM_OP                     ; JP exit.
-    DB   $C3                       ; The opcode.
-    LD   A,RG_EXIT                 ; The exit label,
-    JP   EM_LREF                   ; as its operand, and return.
+    LD   C,$C3                     ; JP
+    LD   A,RG_EXIT                 ; to the exit;
+    JP   EM_JUMP                   ; return.
 
 ;@ROUTINE OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; End the routine: the success return if its end is reachable (CT_FALLS),

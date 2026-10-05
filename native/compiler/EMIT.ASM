@@ -42,6 +42,9 @@
 ;    EM_LNEW   allocate a label
 ;    EM_LREF   append the operand naming a label
 ;    EM_LDEF   define a label at the current offset
+;    EM_JUMP   append JP or JP cc to a label
+;    EM_LFREE  free the last label allocated
+;    EM_ALLOC  allocate a frame slot (allocLocal)
 ;    EM_LINE   mark the line of the statement at the lookahead
 ;
 ;  Workspace (STATE.ASM): EM_FRAME to EM_LLIM. A full label table raises
@@ -303,6 +306,48 @@ EM_LDEF:                       ; A is the label.
     LD   B,(HL)                    ; offset,
     LD   (HL),D                    ; both bytes.
     JR   .WALK                     ; Resolve the next.
+
+;@ROUTINE IN A,C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the jump C, JP ($C3) or JP cc, to label A (emit.ts jp, jpIf).
+
+EM_JUMP:                       ; A is the label, C the opcode.
+    PUSH AF                        ; Keep the label.
+    LD   A,C                       ; The opcode,
+    CALL EM_BYTE                   ; appended.
+    POP  AF                        ; The label
+    JP   EM_LREF                   ; is its operand; return.
+
+;@ROUTINE IN A CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Label A is defined and nothing will name it again: free it if it is
+; the last allocated, so that labels are bounded by nesting, not by the
+; routine's length.
+
+EM_LFREE:                      ; A is the label.
+    LD   HL,EM_LCNT                ; The labels in use.
+    INC  A                         ; Was it
+    CP   (HL)                      ; the last?
+    RET  NZ                        ; No: a later one is still in use.
+    DEC  (HL)                      ; Yes: it is free.
+    RET                            ; Done.
+
+;@ROUTINE IN A OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Allocate A bytes in the frame (allocLocal): the frame grows, may be the
+; deepest yet, and HL returns the new slot's offset from IX, negative.
+
+EM_ALLOC:                      ; A is the size.
+    LD   HL,(EM_FRAME)             ; The locals' bytes
+    LD   E,A                       ; grow
+    LD   D,0                       ; by
+    ADD  HL,DE                     ; the size.
+    LD   (EM_FRAME),HL             ; The frame holds the slot.
+    PUSH HL                        ; Keep the size.
+    XOR  A                         ; Nothing is pushed, but the frame
+    CALL EM_PUSH                   ; may now be the deepest yet.
+    POP  DE                        ; The frame's size,
+    LD   HL,0                      ; negated,
+    OR   A                         ; is the slot's
+    SBC  HL,DE                     ; offset.
+    RET                            ; HL is the offset.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A statement begins: the code from the blob's current offset belongs to

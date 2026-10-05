@@ -1,0 +1,44 @@
+// while loops with exit and continue, nested in ifs and in each other,
+// constant conditions, and a routine whose every path ends in a loop's
+// exit or a return.
+var n as u16 = 0
+var k as u8
+var done as boolean
+
+sub find(limit as u16) as u16
+    var i as u16
+    while true
+        i = i + 1
+        if i = limit
+            return i
+        end
+        if i > 1000
+            exit
+        end
+    end
+    return 0
+end
+
+sub main()
+    var j as u8
+    while n < 100
+        n = n + 3
+        if n mod 2 = 0
+            continue
+        end
+        while j < 5 and not done
+            j = j + 1
+            if j = 4
+                done = true
+                exit
+            else
+                continue
+            end
+        end
+        k = k + 1
+    end
+    while false
+        k = 0
+    end
+    n = find(77)
+end

@@ -122,9 +122,6 @@ RO_SEL:
     RET                            ; A is the type.
 .DOT:                          ; Select a field or the length.
     POP  AF                        ; Recover the type.
-    LD   (RO_OTYPE),A              ; Keep it across AC_SAFE.
-    CALL AC_SAFE                   ; A failable call cannot be selected from.
-    LD   A,(RO_OTYPE)              ; Recover the type.
     PUSH AF                        ; Keep it across the token reads.
 .FIELD:                        ; Read the selected name.
     CALL PR_TAKE                   ; Consume the dot.
@@ -228,13 +225,10 @@ RO_FIELD:
 ; check it and write OP_INDEX, OP_CHAR or OP_VCHAR. The type is pushed.
 
 RO_INDEX:
-    POP  AF                        ; Recover the type.
-    LD   (RO_OTYPE),A              ; Keep it across AC_SAFE.
-    CALL AC_SAFE                   ; A failable call cannot be indexed.
+    POP  BC                        ; Recover the type.
     LD   A,(RO_VCAP)               ; The index may hold another open string.
     PUSH AF                        ; So keep this path's capacity slot.
-    LD   A,(RO_OTYPE)              ; Keep the type too.
-    PUSH AF                        ; Below the slot.
+    PUSH BC                        ; Keep the type too, below the slot.
 .OPERAND:                      ; Parse the index expression.
     LD   HL,(TK_POS)               ; The offset of the bracket.
     PUSH HL                        ; Traps report it.
@@ -244,7 +238,6 @@ RO_INDEX:
     LD   A,SY_U16                  ; An index is a u16.
     LD   (EX_WANT),A               ; Ask for one.
     CALL EX_PARSE                  ; A and HL describe the index.
-    CALL EX_PURE                   ; A failable call cannot be an index.
     LD   (EX_RMETA),A              ; Keep the index's metadata.
     LD   (EX_RVAL),HL              ; Keep its constant value.
     POP  AF                        ; Recover the enclosing wanted type.
@@ -385,8 +378,7 @@ RO_ARG:
     LD   (EX_WANT),A               ; The enclosing expression resumes.
     LD   E,D                       ; EX_FITS takes the destination in E,
     LD   A,C                       ; the metadata in A.
-    CALL EX_FITS                   ; Check it against the parameter's type.
-    JP   AC_SAFE                   ; Reject a pending failure and return.
+    JP   EX_FITS                   ; Check it against the parameter's type.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse a call to routine A, RO_FIND's index, whose name has been read, as
@@ -397,9 +389,9 @@ RO_ARG:
 ; counted out again. The callee's need joins the largest of this
 ; routine's callees (noteCall); one whose body is not complete has need
 ; zero in its record, and only a routine declared forward may call itself
-; (DG_UNMET otherwise). A returns the result type, zero for none. A call
-; to main or to a failable routine is refused until failure is compiled
-; (DG_NYI, 65.4 g), as is an open-string argument (65.4 h).
+; (DG_UNMET otherwise). A failable callee's failure is consumed at once
+; (RO_FAILS). A returns the result type, zero for none. A call to main is
+; refused for now (DG_NYI), as is an open-string argument (65.4 h).
 
 RO_CALL:
     CP   RO_MAIN                   ; Is the callee main?
@@ -485,10 +477,10 @@ RO_CALL:
     LD   DE,RO_RTYPE               ; Its result type
     ADD  HL,DE                     ; is returned,
     LD   A,(HL)                    ; so keep it.
-    PUSH AF                        ; Then its flags:
-    INC  HL                        ; can it fail?
-    BIT  0,(HL)                    ; RO_FFAIL.
-    JP   NZ,TR_OPER                ; Refused until failure is compiled (65.4 g).
+    PUSH AF                        ; Then its flags,
+    INC  HL                        ; whether it can fail,
+    LD   A,(HL)                    ; are kept
+    PUSH AF                        ; too.
     INC  HL                        ; Its ordinal.
     LD   E,(HL)                    ; DE is
     INC  HL                        ; the ordinal,
@@ -515,6 +507,9 @@ RO_CALL:
     JR   NC,.SMALLER               ; Keep the larger one.
     LD   (EM_NEED),DE              ; It is the largest.
 .SMALLER:                      ; The need is accounted.
+    POP  AF                        ; The callee's flags:
+    AND  RO_FFAIL                  ; can it fail?
+    CALL NZ,RO_FAILS               ; Then its failure is consumed.
     POP  AF                        ; A is the result type.
     OR   A                         ; Carry clear.
     RET                            ; The result is in A or HL.
@@ -524,6 +519,39 @@ RO_CALL:
 .DEEP:                         ; Calls nest too deeply in arguments.
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_DEEP                   ; Nested too deeply.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A failable routine has just been called: its failure is consumed by
+; what follows the call directly, as the reference's call decides it.
+; Before `else` (fail) the routine must be failable itself (DG_LEAK), and
+; JP C goes to its exit, A holding the code; before `handle`, JP C goes
+; to a new label, and the temporaries pushed beneath the call are kept in
+; RO_KEPT for the handler to drop. Anything else raises DG_LEAK. RO_PEND
+; is $80 plus the label, which the statement's end consumes.
+
+RO_FAILS:
+    CALL PR_PEEK                   ; What follows the call?
+    CP   TK_HANDL                  ; A handler?
+    JR   Z,.TRAP                   ; Jump to it on failure.
+    CP   TK_ELSE                   ; `else fail`?
+    JP   NZ,AC_ELEAK               ; Neither: the failure is lost.
+    LD   A,(RO_CFLAG)              ; Passing it on needs
+    AND  RO_FFAIL                  ; a failable routine.
+    JP   Z,AC_ELEAK                ; This one is not.
+    LD   A,RG_EXIT                 ; To the exit, A the code.
+    JR   .JUMP                     ; Write the jump.
+.TRAP:                         ; A handler follows.
+    LD   A,(EM_TEMPS)              ; The temporaries
+    LD   (RO_KEPT),A               ; beneath the call.
+    CALL EM_LNEW                   ; A is the handler's label.
+.JUMP:                         ; A is the failure's label.
+    PUSH AF                        ; Keep it.
+    LD   C,$DA                     ; JP C,
+    CALL EM_JUMP                   ; to it on failure.
+    POP  AF                        ; The label,
+    OR   $80                       ; marked,
+    LD   (RO_PEND),A               ; is pending.
+    RET                            ; The expression goes on.
 
 ;@ROUTINE OUT A,C,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,IX,IY
 ; Parse a name-rooted aggregate path or a call returning an aggregate, its
@@ -670,8 +698,6 @@ RO_LET:
     LD   E,A                       ; It is the value's destination.
     LD   A,D                       ; The value's metadata.
     CALL EX_FITS                   ; Check that it fits.
-    LD   A,1                       ; The target's address is one carrier.
-    LD   (RO_KEPT),A               ; It lies beneath a failable value.
     CALL AC_ROUTE                  ; Attach any failure handling.
     LD   A,(RO_OTYPE)              ; The target's type.
     CP   SY_U16                    ; Is it a word?
@@ -692,8 +718,6 @@ RO_LET:
     JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
     CALL AG_SIZE                   ; HL is the aggregate's size.
     LD   (RO_OSIZE),HL             ; Keep it for the operand.
-    LD   A,1                       ; The target's address is one carrier.
-    LD   (RO_KEPT),A               ; It lies beneath a failable source.
     CALL AC_ROUTE                  ; Attach any failure handling.
     LD   A,OP_COPY                 ; Copy the source onto the target.
     CALL TR_OPER                   ; Write the operation.

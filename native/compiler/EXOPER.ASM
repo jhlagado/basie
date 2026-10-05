@@ -103,14 +103,14 @@ EX_LOOK:                       ; Is the next token a binary operator?
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
     PUSH DE                        ; Keep the levels across the push.
-    CALL EX_HOLD                   ; Push the left operand and operator.
+    CALL EX_SAVE                   ; Push the left operand and operator.
     LD   A,(EX_LMETA)              ; A computed left operand
     CALL GX_PUSH                   ; is pushed while the right is computed.
     POP  BC                        ; Recover the levels.
     PUSH BC                        ; Keep them across the right operand.
     LD   B,C                       ; The right operand's minimum level.
     CALL EX_CLIMB                  ; Parse the right operand.
-    CALL EX_JOIN                   ; Pop the left operand beneath it.
+    CALL EX_POP                    ; Pop the left operand beneath it.
     LD   A,(EX_OPER)               ; Fetch the operator.
     CP   6                         ; Enums 0..5 are comparisons.
     JR   C,.RELATION               ; Reduce a comparison.
@@ -236,7 +236,6 @@ EX_NOT:
     JP   NZ,EX_CMP                 ; No: parse a comparison-level operand.
     CALL PR_TAKE                   ; Consume `not`.
     CALL EX_NOT                    ; Parse its operand, `not` included.
-    CALL EX_PURE                   ; A failable call may not be enclosed.
     LD   D,A                       ; Keep the operand's metadata.
     AND  SY_TMASK                  ; Keep its type,
     LD   C,A                       ; the result's.
@@ -302,7 +301,7 @@ EX_AND:
     POP  AF                        ; Recover the left metadata.
     CALL EX_OPEN                   ; Keep the left operand.
     CALL EX_NOT                    ; Parse the right operand.
-    CALL EX_JOIN                   ; Pop the left operand beneath it.
+    CALL EX_POP                    ; Pop the left operand beneath it.
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,.INTEGER               ; No: reduce integer `and`.
     CALL EX_LOGIC                  ; Close the short circuit and fold.
@@ -313,8 +312,7 @@ EX_AND:
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a complete expression: a chain of `and` operands joined by `or`
-; and `xor`, reducing left to right. A failable call may not be the left
-; operand of `or`; `xor` takes integers only.
+; and `xor`, reducing left to right; `xor` takes integers only.
 
 EX_PARSE:
     CALL EX_AND                    ; Parse the first operand.
@@ -326,10 +324,6 @@ EX_ORS:                        ; A/HL is the result so far.
     JR   Z,.OPER                   ; Reduce it.
     CP   TK_OR                     ; An `or`?
     JR   NZ,EX_DONE                ; No: return the result.
-    LD   A,(RO_PEND)               ; Is a failable call result pending?
-    OR   A                         ; Test the flag.
-    JR   NZ,EX_ELEAK               ; Yes: `or` would lose its failure.
-    LD   A,TK_OR                   ; Recover the operator token.
 .OPER:                         ; A is `or` or `xor`.
     LD   (EX_OPER),A               ; It is the pending operator.
     CALL PR_TAKE                   ; Consume it.
@@ -347,7 +341,7 @@ EX_ORS:                        ; A/HL is the result so far.
     LD   A,D                       ; Keep the left operand.
     CALL EX_OPEN                   ; Push it or open the short circuit.
     CALL EX_AND                    ; Parse the right operand.
-    CALL EX_JOIN                   ; Pop the left operand beneath it.
+    CALL EX_POP                    ; Pop the left operand beneath it.
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,EX_ORINT               ; No: reduce the integer operator.
     CALL EX_LOGIC                  ; Close the short circuit and fold.
@@ -356,8 +350,6 @@ EX_DONE:                       ; No further operator at this level.
     POP  HL                        ; Recover the value.
     POP  AF                        ; Recover the metadata.
     RET                            ; Return the result.
-EX_ELEAK:                      ; A failable call before `or`.
-    CALL AC_ELEAK                  ; Report DG_LEAK; no return.
 EX_ORINT:                      ; Integer `or` or `xor`.
     CALL EX_ARITH                  ; Reduce the bitwise operator.
     JR   EX_ORS                    ; Look for another operator.
@@ -376,7 +368,7 @@ EX_OPEN:
     CP   SY_BOOL                   ; A Boolean?
     JR   Z,.BOOL                   ; It may short-circuit.
     LD   A,D                       ; An integer: keep it,
-    CALL EX_HOLD                   ; with the operator.
+    CALL EX_SAVE                   ; with the operator.
     LD   A,(EX_LMETA)              ; If it was computed,
     JP   GX_PUSH                   ; push it, and return.
 .BOOL:                         ; A Boolean left operand.
@@ -389,10 +381,10 @@ EX_OPEN:
     LD   L,A                       ; Its value word
     LD   H,0                       ; holds the label.
     LD   A,D                       ; Keep the operand.
-    JP   EX_HOLD                   ; With the operator, and return.
+    JP   EX_SAVE                   ; With the operator, and return.
 .KNOWN:                        ; A known Boolean.
     LD   A,D                       ; Keep it,
-    CALL EX_HOLD                   ; with the operator.
+    CALL EX_SAVE                   ; with the operator.
     LD   A,(EX_OPER)               ; `and`?
     CP   TK_AND                    ; False decides it;
     LD   C,0                       ; true decides `or`.
@@ -436,7 +428,9 @@ EX_LOGIC:
     LD   HL,(EX_RVAL)              ; The right's value, if known,
     CALL GX_TOREG                  ; comes into A.
     LD   A,(EX_LVAL)               ; The short circuit's label
-    CALL EM_LDEF                   ; is here.
+    CALL EM_LDEF                   ; is here,
+    LD   A,(EX_LVAL)               ; and nothing names it again:
+    CALL EM_LFREE                  ; it may be used anew.
     LD   A,SY_BOOL                 ; A run-time Boolean.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
@@ -500,7 +494,6 @@ EX_RUN:
     LD   (EX_WANT),A               ; Record the expected type.
     XOR  A                         ; Form zero.
     LD   (RO_PEND),A               ; No failable call is pending yet.
-    LD   (RO_KEPT),A               ; No carriers are kept beneath one.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
     JP   EX_PARSE                  ; Parse the expression.
