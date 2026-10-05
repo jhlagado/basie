@@ -66,7 +66,7 @@ LTB:    PUSH    HL
 LTW:    LD      A,L
         CALL    LTB
         LD      A,H
-        JP      LTB
+        JR      LTB
 
 ; Open the line stream and the line table, and write the table's header:
 ; the part names, from the stream's part records. Leaves LN_TAG holding the
@@ -287,12 +287,12 @@ LN_BLOB:
         CALL    LN_ENTRY
         CALL    .ENTRY
         JR      .MORE
-.DONE:  JP      LN_ADV
+.DONE:  JR      LN_ADV
 .SKIPALL:
         LD      HL,(LN_LEFT)
 .SKIP:  LD      A,H
         OR      L
-        JP      Z,LN_ADV
+        JR      Z,LN_ADV
         PUSH    HL
         CALL    LN_ENTRY
         POP     HL
@@ -300,7 +300,7 @@ LN_BLOB:
         JR      .SKIP
 .ONLY:
         CALL    .STARTENT
-        JP      LN_ADV
+        JR      LN_ADV
 .START: LD      A,(LN_EMIT)     ; any other emitted blob: a start entry
         OR      A
         RET     Z
@@ -342,7 +342,7 @@ LN_REC:
         SBC     HL,DE
         JR      NZ,.BAD
         JP      LNW
-.BAD:   JP      LN_OOS
+.BAD:   JR      LN_OOS
 
 ; The line stream is out of step with the directory, or damaged.
 LN_OOS: LD      HL,LN_TXT
@@ -375,7 +375,7 @@ LN_CLOSE:
         RET     Z
         LD      A,(LN_TAG)
         CP      $FF
-        JP      NZ,LN_OOS
+        JR      NZ,LN_OOS
         LD      HL,(LN_CRC)     ; the stored CRC, read without adding it
         PUSH    HL
         LD      IX,LN_FD
@@ -386,7 +386,7 @@ LN_CLOSE:
         POP     HL
         OR      A
         SBC     HL,DE
-        JP      NZ,LN_OOS
+        JR      NZ,LN_OOS
         LD      B,5
 .MARK:  LD      A,$FF
         CALL    LTB

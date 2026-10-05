@@ -137,7 +137,7 @@ LIBHEAD:
 LIBCRC: XOR     A
         LD      HL,0
         CALL    F_SEEK
-        JP      C,.BAD
+        JR      C,.BAD
         CALL    CRC_NEW
         LD      HL,(LIB_LEN)
         LD      A,(LIB_LEN+2)
@@ -152,7 +152,7 @@ LIBCRC: XOR     A
         OR      C
         JR      Z,.STORED
         CALL    F_GETB
-        JP      C,.BAD
+        JR      C,.BAD
         CALL    CRC_ADD
         LD      A,L
         SUB     1
@@ -166,7 +166,7 @@ LIBCRC: XOR     A
         JR      .LOOP
 .STORED:
         CALL    F_GETW
-        JP      C,.BAD
+        JR      C,.BAD
         LD      DE,(CRC_V)
         OR      A
         SBC     HL,DE

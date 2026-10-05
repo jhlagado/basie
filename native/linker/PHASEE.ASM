@@ -76,7 +76,7 @@ MT2:    CALL    MTI
 MTCRLF: LD      A,13
         CALL    MTB
         LD      A,10
-        JP      MTB
+        JR      MTB
 
 ; Write "$" and HL in four hex digits.
 MTHEX4: LD      A,'$'
@@ -93,7 +93,7 @@ MTH4:   LD      A,H
         CALL    .H1
         POP     AF
 .H1:    CALL    HEXDIG
-        JP      MTB
+        JR      MTB
 
 ; Write the unsigned value HL in decimal, unpadded.
 MTU0:   LD      B,0
@@ -270,7 +270,7 @@ NM_RESET:
         DJNZ    .HEAD
         CALL    NM_SLOT
         LD      (HL),1
-        JP      NM_READ
+        JR      NM_READ
 
 NM_OWN: DB      0
 NM_OPEN: DB     0               ; 1 when NAME.$NM was found

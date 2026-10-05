@@ -464,6 +464,8 @@ ALIASAT:
 
 ; The pseudo-objects' addresses and sizes (object format §3.6).
 PSEUDOS:
+        LD      HL,PSEUDO
+        LD      (PS_PTR),HL
         LD      HL,(ENTRYORD)   ; MAIN
         CALL    ENT_MAKE
         INC     HL
@@ -474,46 +476,28 @@ PSEUDOS:
         LD      E,(HL)
         INC     HL
         LD      D,(HL)
-        LD      HL,PSEUDO+0
         CALL    .PUT            ; address DE, size BC
         LD      DE,(PR_BASE)    ; IMAGE
         LD      HL,(IMG_END)
-        OR      A
-        SBC     HL,DE
-        LD      B,H
-        LD      C,L
-        LD      HL,PSEUDO+4
-        CALL    .PUT
+        CALL    .SPAN
         LD      HL,(FILEADR)    ; BSS: to the end of the file table
-        LD      DE,(BSS_BEG)
-        OR      A
-        SBC     HL,DE
         LD      BC,(FILESIZ)
         ADD     HL,BC
-        LD      B,H
-        LD      C,L
-        LD      HL,PSEUDO+8
-        CALL    .PUT
+        LD      DE,(BSS_BEG)
+        CALL    .SPAN
         LD      DE,(FREEADR)    ; FREE
         LD      BC,0
-        LD      HL,PSEUDO+12
         CALL    .PUT
-        LD      HL,(FREEADR)    ; REQUIRED: FREE plus the reserve
-        LD      BC,(RESERVE)
-        ADD     HL,BC
+        LD      HL,(RESERVE)    ; REQUIRED: FREE plus the reserve
+        LD      B,H
+        LD      C,L
+        ADD     HL,DE
         EX      DE,HL
-        LD      HL,PSEUDO+16
         CALL    .PUT
         LD      HL,(DAT_END)    ; DATA, then DATACOPY: COPY, at DATA's
         LD      DE,(DAT_BEG)    ; end, of DATA's size (empty, at TEXT's
-        OR      A               ; end, without R)
-        SBC     HL,DE
-        LD      B,H
-        LD      C,L
-        LD      HL,PSEUDO+20
-        CALL    .PUT
+        CALL    .SPAN           ; end, without R)
         LD      DE,(DAT_END)
-        LD      HL,PSEUDO+24
         CALL    .PUT
         LD      A,(O_FLAGS)     ; OPTIONS: 1 keep the CCP (B), 2 re-runnable
         XOR     OF_N            ; (R), 4 a line table (not N): bits 5, 4
@@ -527,28 +511,38 @@ PSEUDOS:
         DJNZ    .OPT
         LD      B,D             ; BC = 0
         LD      C,D
-        LD      HL,PSEUDO+28
         CALL    .PUT
         LD      DE,(FILEADR)    ; FILES
         LD      BC,(FILESIZ)
-        LD      HL,PSEUDO+32
         CALL    .PUT
-        LD      DE,0            ; FILECOUNT
+        LD      BC,0            ; FILECOUNT
+        LD      D,B
+        LD      E,B
         LD      A,(USEFILES)
         OR      A
-        JR      Z,.FC
+        JR      Z,.PUT
         LD      A,(NFILES)
         LD      E,A
-.FC:    LD      BC,0
-        LD      HL,PSEUDO+36
-.PUT:   LD      (HL),E
+; The next row: address DE, size BC. Preserves BC and DE.
+.PUT:   LD      HL,(PS_PTR)
+        LD      (HL),E
         INC     HL
         LD      (HL),D
         INC     HL
         LD      (HL),C
         INC     HL
         LD      (HL),B
+        INC     HL
+        LD      (PS_PTR),HL
         RET
+; The next row: address DE, size HL - DE.
+.SPAN:  OR      A
+        SBC     HL,DE
+        LD      B,H
+        LD      C,L
+        JR      .PUT
+
+PS_PTR: DW      0
 
 ; ---- Phase D -----------------------------------------------------------------
 
@@ -785,7 +779,7 @@ EMIT:   CALL    SELECT
         CALL    PATCH
         JR      .REF
 .REST:  LD      HL,(D_SIZE)
-        JP      COPYTO
+        JR      COPYTO
 
 ; Copy source bytes to the output until D_REFEND reaches HL.
 COPYTO: LD      DE,(D_REFEND)

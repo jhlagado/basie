@@ -191,13 +191,13 @@ T_OPTION:
 .VALUE: INC     HL              ; past '='
         LD      A,C
         CP      'P'
-        JP      Z,.P
+        JR      Z,.P
         CP      'L'
-        JP      Z,.L
+        JR      Z,.L
         CP      'S'
-        JP      Z,.S
+        JR      Z,.S
         CP      'O'
-        JP      Z,.O
+        JR      Z,.O
         CP      'F'
         JP      Z,.F
         JP      .BAD
@@ -221,7 +221,7 @@ T_OPTION:
         RET
 .L:     LD      A,9
         LD      DE,O_LDRV
-        JP      .DRIVE
+        JR      .DRIVE
 .S:     LD      A,10
         LD      DE,O_SDRV
 .DRIVE: CALL    .ONCE
@@ -282,16 +282,16 @@ T_OPTION:
         BIT     3,C
         JR      Z,.KIND
         POP     HL
-        JP      .BAD
+        JR      .BAD
 .KINDS: DB      "COMBINHEX"
 .F:     LD      A,12
         CALL    .ONCE
         RET     C
         CALL    T_DEC
-        JP      C,.BAD
+        JR      C,.BAD
         LD      A,D
         OR      A
-        JP      NZ,.BAD         ; at most 255
+        JR      NZ,.BAD         ; at most 255
         LD      A,E
         LD      (O_FILES),A
         OR      A

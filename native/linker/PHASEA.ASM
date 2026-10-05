@@ -88,7 +88,7 @@ R_RAW:  CALL    F_GETB
         RET     NC
 R_SHORT:
         LD      HL,214          ; L-TRUNCATED
-        JP      ERRFILE
+        JR      ERRFILE
 
 ; HL = the next word. Preserves BC and DE.
 R_U16:  CALL    R_U8
@@ -197,7 +197,7 @@ ENT_MAKE:
         LD      HL,(EL_PTR)
         OR      A
         SBC     HL,DE
-        JP      C,CAPFULL       ; it meets the edge lists
+        JR      C,CAPFULL       ; it meets the edge lists
         LD      HL,(PT_END)
 .ZERO:  LD      A,L
         CP      E
@@ -235,7 +235,7 @@ EL_PUSH:
         SBC     HL,DE
         POP     DE
         POP     HL
-        JP      C,CAPFULL
+        JR      C,CAPFULL
         LD      (HL),E
         INC     HL
         LD      (HL),D
@@ -267,7 +267,7 @@ PHASEA: ; the tables start above the program and the edge lists below the stack
         LD      DE,(PT_BASE)
         OR      A
         SBC     HL,DE
-        JP      C,CAPFULL
+        JR      C,CAPFULL
         LD      HL,(LT_BASE)    ; zero the library table
 .CLR:   LD      A,B
         OR      C
@@ -511,7 +511,7 @@ REFS:   LD      HL,(D_NREFS)
         JR      Z,.OFF
         LD      A,L
         OR      A
-        JP      Z,BADREF        ; a zero delta
+        JR      Z,BADREF        ; a zero delta
         LD      DE,(D_LSTOFF)
         ADD     HL,DE
 .OFF:   LD      (D_LSTOFF),HL
@@ -523,10 +523,10 @@ REFS:   LD      HL,(D_NREFS)
         JR      Z,.FORM
         CALL    R_U8
         OR      A
-        JP      Z,RESERVED      ; form byte 0
+        JR      Z,RESERVED      ; form byte 0
 .FORM:  LD      (D_FORM),A
         CP      4
-        JP      NC,RESERVED     ; BANK8 and beyond
+        JR      NC,RESERVED     ; BANK8 and beyond
         ; the width: ABS16 and SIZE16 2 bytes, LO8 and HI8 1
         LD      E,2
         CP      1
@@ -541,7 +541,7 @@ REFS:   LD      HL,(D_NREFS)
         OR      A
         SBC     HL,BC
         POP     BC
-        JP      C,BADREF        ; overlaps the previous reference
+        JR      C,BADREF        ; overlaps the previous reference
         LD      HL,(D_LSTOFF)
         ADD     HL,DE
         LD      (D_REFEND),HL
@@ -549,7 +549,7 @@ REFS:   LD      HL,(D_NREFS)
         LD      HL,(D_SIZE)
         OR      A
         SBC     HL,DE
-        JP      C,BADREF        ; leaves the blob
+        JR      C,BADREF        ; leaves the blob
         ; the target
         CALL    R_U16
         PUSH    HL
@@ -580,7 +580,7 @@ BADREF: LD      HL,208          ; L-REFERENCE
 ; Check target HL of a reference and add it to the blob's edges if new.
 TARGET: LD      A,H
         OR      L
-        JP      Z,BADREF        ; ordinal 0
+        JR      Z,BADREF        ; ordinal 0
         LD      A,H
         CP      $FF
         JR      NZ,.REAL
@@ -588,21 +588,21 @@ TARGET: LD      A,H
         CP      $E0
         JR      C,.REAL
         CP      $EA
-        JP      NC,BADREF       ; an undefined pseudo-object
+        JR      NC,BADREF       ; an undefined pseudo-object
         JR      .ADD
 .REAL:  LD      A,(D_OWNER)     ; the library refers only to itself
         OR      A
         JR      NZ,.MARK
         LD      A,H
         CP      $04
-        JP      NC,BADREF
+        JR      NC,BADREF
         PUSH    HL
         LD      DE,(LIBH+36)
         EX      DE,HL
         OR      A
         SBC     HL,DE           ; highest - target
         POP     HL
-        JP      C,BADREF
+        JR      C,BADREF
 .MARK:  PUSH    HL
         CALL    ENT_MAKE        ; referenced; carry: beyond the library
         JR      C,.UNDEF
@@ -610,7 +610,7 @@ TARGET: LD      A,H
         CP      3
         JR      NZ,.SETREF
         BIT     6,(HL)
-        JP      NZ,BADREF
+        JR      NZ,BADREF
 .SETREF:
         SET     4,(HL)
         POP     HL
@@ -1284,7 +1284,7 @@ DUMP:   LD      IX,TB_FD
         CALL    F_INIT
         XOR     A
         CALL    F_MAKE
-        JP      C,DISKERR
+        JR      C,DISKERR
         LD      HL,0            ; the position
 .EACH:  PUSH    HL
         CALL    ENTRYAT
@@ -1317,7 +1317,7 @@ DUMP:   LD      IX,TB_FD
         LD      A,(USEFILES)
         CALL    PUTB
         CALL    F_CLOSE
-        JP      C,DISKERR
+        JR      C,DISKERR
         RET
 
 ; Write HL, low byte first, then A, to the file at IX.

@@ -41,7 +41,7 @@ SAYKIND:
 SAY:    PUSH    HL
         CALL    M_OPEN
         POP     HL
-        JP      C,M_BARE
+        JR      C,M_BARE
         PUSH    HL
         LD      IX,M_FD
         XOR     A
@@ -50,12 +50,12 @@ SAY:    PUSH    HL
         CALL    NC,F_GETW       ; HL = the count
         EX      DE,HL
         POP     HL
-        JP      C,M_BARE
+        JR      C,M_BARE
         PUSH    HL
         OR      A
         SBC     HL,DE
         POP     HL
-        JP      NC,M_BARE       ; beyond the table
+        JR      NC,M_BARE       ; beyond the table
         PUSH    HL
         ADD     HL,HL
         LD      DE,8
@@ -63,14 +63,14 @@ SAY:    PUSH    HL
         XOR     A
         CALL    F_SEEK          ; the message's offset entry
         CALL    NC,F_GETW
-        JP      C,.NONE
+        JR      C,.NONE
         LD      A,H
         OR      L
-        JP      Z,.NONE         ; no message has this number
+        JR      Z,.NONE         ; no message has this number
         XOR     A
         CALL    F_SEEK
         CALL    NC,F_GETB
-        JP      C,.NONE
+        JR      C,.NONE
         POP     DE              ; the number is no longer needed
         LD      B,A             ; B = the bytes left
 .TEXT:  LD      A,B

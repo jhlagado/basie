@@ -45,7 +45,7 @@ PUTCRLF:
         LD      A,13
         CALL    PUTC
         LD      A,10
-        JP      PUTC
+        JR      PUTC
 
 ; Write HL in decimal, without leading zeros. Preserves HL.
 PUTDEC: PUSH    HL
@@ -79,7 +79,7 @@ PUTDEC: PUSH    HL
         DEC     B
         RET     Z               ; a leading zero
 .SHOW:  LD      B,1
-        JP      PUTC
+        JR      PUTC
 
 ; End the run with return code DE (BDOS 108, ignored by CP/M 2.2).
 EXITRC: LD      C,108
