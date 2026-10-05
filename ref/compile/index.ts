@@ -2,14 +2,14 @@
  * The reference compiler's entry point: source parts in, a linked .COM
  * image out (build pipeline §4).
  */
-import { link, LinkError } from "../link/link.ts";
+import { link, LinkError, type LinkResult } from "../link/link.ts";
 import { type Library, readLibrary } from "../object/library.ts";
 import {
   defaultHeader,
   writeByteStream,
   writeProgramDirectory,
 } from "../object/program.ts";
-import { writeLineStream } from "../object/streams.ts";
+import { writeLineStream, writeNameStream } from "../object/streams.ts";
 import { buildLibrary } from "../../tools/brl.ts";
 import { Compiler, NotImplemented } from "./compiler.ts";
 import { CompileError } from "./diagnostics.ts";
@@ -42,7 +42,14 @@ export type CompileResult =
      * The intermediate files the native linker reads (toolchain §3.2): the
      * program directory, byte stream and line stream.
      */
-    objects: { directory: Uint8Array; bytes: Uint8Array; lines: Uint8Array };
+    objects: {
+      directory: Uint8Array;
+      bytes: Uint8Array;
+      lines: Uint8Array;
+      names: Uint8Array;
+    };
+    /** The reference linker's result, for building its reports. */
+    link: LinkResult;
     /** The reference linker's view of every blob, for comparing linkers. */
     blobs: { ordinal: number; kind: number; size: number; live: boolean }[];
   }
@@ -140,7 +147,9 @@ export async function compile(
         ),
         bytes: writeByteStream(stamp, program.bytes),
         lines: writeLineStream(stamp, parts, program.lines),
+        names: writeNameStream(stamp, program.names),
       },
+      link: result,
       blobs: result.blobs.map((b) => ({
         ordinal: b.ordinal,
         kind: b.kind,

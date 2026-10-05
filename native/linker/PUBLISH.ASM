@@ -62,7 +62,7 @@ PUBLISH:
         JP      C,DISKERR
         XOR     A
         LD      (LT_MADE),A
-.CLEAN: JP      CLEANUP
+.CLEAN: RET                     ; the caller cleans up after the reports
 
 ; After a failure: delete NAME.$$$ and NAME.$LT if they were made, then the
 ; intermediates unless K.

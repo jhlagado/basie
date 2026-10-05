@@ -270,3 +270,49 @@ Deno.test("a failed link leaves the outputs and removes the temporaries", () => 
   const typo = runCom(blink, { tail: "HELLO [Q]", files });
   assertEquals(typo.disk.has("HELLO.$DR"), true);
 });
+
+for (const path of PROGRAMS) {
+  Deno.test(`BLINK writes the reference's map and symbol file for ${path}`, async () => {
+    const { readLibrary } = await import("../ref/object/library.ts");
+    const { readNameStream } = await import("../ref/object/streams.ts");
+    const { writeMap, writeSymbols } = await import("../ref/link/reports.ts");
+    const result = await compile(path);
+    if (!result.ok) throw new Error(JSON.stringify(result));
+    const lib = readLibrary(library);
+    const names = new Map([
+      ...readNameStream(lib.names!).names,
+      ...readNameStream(result.objects.names).names,
+    ]);
+    const map = writeMap(result.link, {
+      programName: "PROG",
+      libraryName: "CPM22.BRL",
+      runtimeIdentity: lib.runtimeIdentity,
+      profileIdentity: lib.profileIdentity,
+      outputKind: ".COM",
+      profile: lib.profile,
+      names,
+    });
+    const symbols = writeSymbols(result.link, names);
+    const run = runCom(blink, {
+      tail: "PROG [M,Y]",
+      files: {
+        "BASIE.MSG": MSG,
+        "CPM22.BRL": library,
+        "PROG.$DR": result.objects.directory,
+        "PROG.$BY": result.objects.bytes,
+        "PROG.$LN": result.objects.lines,
+        "PROG.$NM": result.objects.names,
+      },
+      maxSteps: 300_000_000,
+    });
+    assertEquals(run.output, "");
+    const got = new TextDecoder().decode(
+      run.disk.get("PROG.MAP")!.subarray(0, map.length),
+    );
+    assertEquals(got, map);
+    assertEquals(
+      run.disk.get("PROG.SYM")!.subarray(0, symbols.length),
+      symbols,
+    );
+  });
+}

@@ -408,8 +408,8 @@ A text file in four parts:
    top, the margin to each, and the debugger margin.
 2. **Live blobs,** one line each in address order: address, size, kind, padding
    paid, ordinal, and name.
-3. **Removed blobs,** one line each in directory order: ordinal, kind, size and
-   name.
+3. **Removed blobs,** one line each in directory order, the library's first:
+   ordinal, size, kind and name.
 4. **Totals:** bytes kept and removed, for the program and the library.
 
 Addresses and ordinals are hexadecimal; sizes are decimal. Names come from the

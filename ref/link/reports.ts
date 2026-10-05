@@ -84,7 +84,10 @@ export function writeMap(result: LinkResult, inputs: MapInputs): string {
   lines.push("");
   lines.push("REMOVED BLOBS");
   lines.push("Ordinal  Size  Kind     Name");
-  const removed = result.blobs.filter((b) => !b.live);
+  // Removed blobs in directory order, library first (linker §8.1).
+  const removed = result.blobs.filter((b) => !b.live).sort((a, b) =>
+    a.sequence - b.sequence
+  );
   for (const b of removed) {
     lines.push(
       `$${h4(b.ordinal)}  ${String(b.size).padStart(5)}  ${

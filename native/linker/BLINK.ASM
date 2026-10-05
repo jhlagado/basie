@@ -8,6 +8,7 @@
 %INCLUDE "PHASECD.ASM"
 %INCLUDE "LINES.ASM"
 %INCLUDE "PUBLISH.ASM"
+%INCLUDE "PHASEE.ASM"
 
 ; BLINK: link a compiled Basie program (docs/linker.md; toolchain §5).
 ;
@@ -53,6 +54,8 @@ START:  LD      HL,(TOP)
         CALL    PHASEC
         CALL    PHASED
         CALL    PUBLISH
+        CALL    PHASEE
+        CALL    CLEANUP
         LD      DE,RC_OK
         JP      EXITRC
 

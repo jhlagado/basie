@@ -100,6 +100,8 @@ export type BlobInfo = {
   address?: number;
   /** Padding inserted before this blob. */
   padding: number;
+  /** Directory position, library records first (linker §8.1). */
+  sequence: number;
 };
 
 const WIDTH: Record<number, number> = {
@@ -478,6 +480,7 @@ export function link(
     live: e.live,
     address: e.live ? e.address : undefined,
     padding: padding.get(e.ordinal) ?? 0,
+    sequence: e.sequence,
   }));
   return {
     output,
