@@ -11,18 +11,19 @@
 ;  Principal entries:
 ;    EX_TERM   parse one primary
 ;    EX_LIT    return a literal as a known result
+;    EX_LITK   return EX_KVAL as a known result
 ;    EX_CAST   parse a conversion's parenthesized operand
 ;    EX_INT    require an integer result
 ;    EX_UNARY  parse a primary preceded by any signs
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse one primary: a number, character, `true` or `false`, a name, a
-; parenthesized expression or a u8(...) or u16(...) conversion. Its
-; position becomes EX_VPOS, the position a range diagnostic blames. Any
-; other token raises DG_VALUE. A primary parsed already (EX_PRIME, a
-; computed scalar of that type) is returned instead, once. EX_CHR records
-; whether the primaries so far are one character literal (1), which an
-; inferred local takes as a u8, as the reference's char flag does.
+; parenthesized expression or a conversion, a type's name and its
+; parenthesized operand. Any other token raises DG_VALUE. A primary
+; parsed already (EX_PRIME, a computed scalar of that type) is returned
+; instead, once. EX_CHR records whether the primaries so far are one
+; character literal (1), which an inferred local takes as a u8, as the
+; reference's char flag does.
 
 EX_TERM:
     LD   HL,EX_PRIME               ; A primary parsed already
@@ -31,14 +32,7 @@ EX_TERM:
     OR   A                         ; its type, computed,
     RET  NZ                        ; with carry clear.
     CALL PR_TAKE                   ; Consume the token; BC is its value.
-    PUSH AF                        ; Keep its kind.
-    PUSH BC                        ; Keep its value.
-    LD   HL,TK_POS                 ; The token's offset, line and column...
-    LD   DE,EX_VPOS                ; ...become the latest primary's position.
-    CALL PR_COPY                   ; Copy the six bytes.
-    POP  BC                        ; Restore the value.
-    POP  AF                        ; Restore the kind.
-    LD   E,A                       ; Keep it.
+    LD   E,A                       ; Keep its kind.
     CP   TK_LPAR                   ; A parenthesis is no primary
     JR   Z,.KIND                   ; of its own.
     LD   HL,EX_CHR                 ; Is this the first primary
@@ -61,16 +55,17 @@ EX_TERM:
     JR   Z,EX_NAME                 ; Resolve it.
     CP   TK_LPAR                   ; A parenthesis?
     JP   Z,EX_PAREN                ; Parse the enclosed expression.
-    CP   TK_U8                     ; A u8 conversion?
-    JP   Z,EX_U8                   ; Parse it.
-    CP   TK_U16                    ; A u16 conversion?
-    JP   Z,EX_U16                  ; Parse it.
+    CP   TK_TYPE                   ; A type's name?
+    JP   Z,EX_CONV                 ; A conversion, C the type.
     JP   PR_ETERM                  ; Anything else: a value was expected.
-.NUMBER:                       ; BC is the number's value.
-    LD   H,B                       ; Return it in HL.
-    LD   L,C                       ; Complete HL.
-    LD   B,SY_KNOWN+SY_EXACT       ; A known value of no type yet.
-    JR   EX_LIT                    ; Return it.
+.NUMBER:                       ; BC and TK_NHI are the number's value.
+    LD   H,B                       ; Its low word
+    LD   L,C                       ; in HL,
+    LD   B,SY_KNOWN+SY_EXACT       ; a known value of no type yet,
+    CALL EX_LIT                    ; with a zero high word,
+    LD   HL,(TK_NHI)               ; but for
+    LD   (EX_KVAL+2),HL            ; the token's.
+    JR   EX_LITK                   ; Return it.
 .CHAR:                         ; C is the character code.
     LD   H,0                       ; A byte value,
     LD   L,C                       ; exact like a number (spec 9.7).
@@ -85,11 +80,26 @@ EX_TERM:
     LD   B,SY_KNOWN+SY_BOOL        ; A known Boolean; fall into EX_LIT.
 
 ;@ROUTINE IN B,HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
-; Return the known value HL with metadata B. A constant generates no code
-; until something needs it in the registers (GX_TOREG and the operator
+; Return the known value HL, a word from 0 to 65535, with metadata B: it
+; is EX_KVAL, its high bytes zero. A constant generates no code until
+; something needs it in the registers (GX_TOREG and the operator
 ; templates), as in the reference compiler. BC and DE are preserved.
 
 EX_LIT:
+    LD   (EX_KVAL),HL              ; The low word,
+    PUSH HL                        ; kept,
+    LD   HL,0                      ; and zero
+    LD   (EX_KVAL+2),HL            ; above it,
+    LD   A,H                       ; three
+    LD   (EX_KVAL+4),A             ; bytes.
+    POP  HL                        ; HL is the value; fall into EX_LITK.
+
+;@ROUTINE IN B OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
+; Return the known value in EX_KVAL with metadata B, its low word in HL.
+; BC and DE are preserved.
+
+EX_LITK:
+    LD   HL,(EX_KVAL)              ; The low word.
     LD   A,B                       ; The metadata.
     OR   A                         ; Clear carry for success.
     RET                            ; Return the known result.
@@ -115,7 +125,7 @@ EX_NAME:
     INC  HL                        ; Its value,
     LD   L,(HL)                    ; a byte,
     LD   H,0                       ; widened.
-    JP   EX_LIT                    ; Return it.
+    JR   EX_LIT                    ; Return it.
 .ORDINARY:                     ; A routine or an ordinary symbol.
     CALL RO_FIND                   ; Is it a routine?
     JP   Z,RO_FUNC                 ; Yes: parse a call for its result.
@@ -138,27 +148,31 @@ EX_NAME:
     JR   Z,.GLOBAL                 ; A program variable loads by address.
     LD   H,B                       ; A local or parameter:
     LD   L,C                       ; HL is its offset from IX.
-    CALL GX_FLOAD                  ; Load it into A or HL.
+    CALL GX_FLOAD                  ; Load it into the registers.
     JR   .LOADED                   ; Return its type.
 .GLOBAL:                       ; A program variable, blob BC.
-    CALL GX_LOAD                   ; Load it into A or HL.
+    CALL GX_LOAD                   ; Load it into the registers.
 .LOADED:                       ; The value is in the registers.
     POP  DE                        ; Recover the type.
     LD   A,E                       ; A run-time result of that type.
     OR   A                         ; Clear carry for success.
     RET                            ; Return it.
-.CONST:                        ; A scalar constant with value BC.
-    LD   H,B                       ; The value is the literal.
-    LD   L,C                       ; Complete HL.
-    LD   B,D                       ; Its type is the constant's...
-    SET  7,B                       ; ...and it is known (SY_KNOWN).
-    JP   EX_LIT                    ; Return it.
+.CONST:                        ; A scalar constant: BC its value's low word,
+    LD   (EX_KVAL),BC              ; and HL its record's payload, whose
+    INC  HL                        ; high bytes follow it
+    PUSH DE                        ; (the info kept)
+    LD   DE,EX_KVAL+2              ; in the record
+    LD   BC,3                      ; (SY_VHI).
+    LDIR                           ; The value is EX_KVAL.
+    POP  BC                        ; B is the constant's type,
+    SET  7,B                       ; known (SY_KNOWN).
+    JP   EX_LITK                   ; Return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a parenthesized expression after its '(' and require the ')'.
 
 EX_PAREN:
-    CALL EX_PARSE                  ; Parse the enclosed expression.
+    CALL EX_INNER                  ; Parse the enclosed expression.
     PUSH AF                        ; Keep its metadata.
     PUSH HL                        ; Keep its value.
     CALL PR_RIGHT                  ; Require the closing parenthesis.
@@ -182,29 +196,67 @@ EX_CAST:
     POP  AF                        ; Recover the metadata.
     RET                            ; Return the operand.
 
-;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse u8(...), a checked narrowing. A known operand must fit a byte, or
-; DG_TRUNC is raised; a computed u16 is checked at run time (GX_BYTE);
-; a computed u8 is already one.
+;@ROUTINE IN C OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; Parse a conversion to type C, its type's name read (conversion): its
+; operand, a number, is parenthesized. There is no conversion to Boolean,
+; nor from one (conversion-unavailable, at the parenthesis); f32 is not
+; yet compiled (DG_NYI). A known operand must fit the type (narrowing, at
+; the parenthesis) and keeps its value; a computed one widens to the type
+; (GX_WIDEN), or narrows with a check (GX_TRIM).
 
-EX_U8:
-    CALL EX_CAST                   ; Parse the parenthesized operand.
-    CALL EX_INT                    ; A Boolean cannot be narrowed; D is A.
-    AND  SY_KNOWN                  ; Is the operand known?
-    JR   Z,.RUNTIME                ; No: check it at run time.
-    LD   A,H                       ; Does the constant exceed a byte?
-    OR   A                         ; Test its high byte.
-    JP   NZ,EX_ECAST               ; Yes: report it.
-    LD   A,SY_KNOWN+SY_U8          ; A known u8 with the same value.
-    RET                            ; Return it; OR cleared carry.
-.RUNTIME:                      ; A computed operand.
-    LD   A,D                       ; Its type.
-    AND  SY_TMASK                  ; Alone.
-    CP   SY_U16                    ; A word?
-    CALL Z,GX_BYTE                 ; Check its high byte and take the low.
-    LD   A,SY_U8                   ; A run-time u8.
-    OR   A                         ; Clear carry for success.
+EX_CONV:                       ; C is the target type.
+    LD   A,C                       ; u32, i32 and f32
+    CP   SY_U32                    ; are not
+    JP   NC,TR_OPER                ; yet compiled.
+    PUSH BC                        ; Keep the target.
+    CALL PR_PEEK                   ; The parenthesis's
+    LD   HL,(TK_POS)               ; offset,
+    PUSH HL                        ; where the conversion's faults are.
+    CALL EX_CAST                   ; The operand: A and HL.
+    POP  HL                        ; The parenthesis.
+    POP  BC                        ; C is the target.
+    LD   D,A                       ; D is the operand's metadata.
+    LD   A,C                       ; There is
+    CP   SY_BOOL                   ; no conversion
+    JP   Z,.NONE                   ; to Boolean,
+    LD   A,D                       ; nor
+    AND  SY_TMASK                  ; from
+    CP   SY_BOOL                   ; one.
+    JP   Z,.NONE                   ; (conversion-unavailable)
+    BIT  7,D                       ; A known operand?
+    JR   Z,.COMPUTED               ; No: converted at run time.
+    PUSH HL                        ; Keep the parenthesis.
+    LD   A,C                       ; The value
+    LD   HL,EX_KVAL                ; must fit
+    PUSH BC                        ; (the target kept)
+    CALL VL_FITS                   ; the type,
+    POP  BC                        ; (the target)
+    POP  HL                        ; (the parenthesis)
+    LD   A,DG_TRUNC                ; else narrowing,
+    JP   C,DG_HERE                 ; at the parenthesis.
+    LD   B,C                       ; The same value,
+    SET  7,B                       ; known, of the type.
+    JP   EX_LITK                   ; Return it.
+.COMPUTED:                     ; A computed operand of type A.
+    PUSH BC                        ; Keep the target.
+    LD   E,C                       ; From its type
+    LD   D,A                       ; to the target:
+    CP   E                         ; the same?
+    JR   Z,.DONE                   ; Nothing to do.
+    CALL EX_WIDEN                  ; A widening?
+    JR   NC,.NARROW                ; No: a checked narrowing.
+    CALL GX_WIDEN                  ; Widen it.
+    JR   .DONE                     ; Converted.
+.NARROW:                       ; D does not widen to E.
+    CALL GX_TRIM                   ; Narrow it, checked.
+.DONE:                         ; The value is converted.
+    POP  BC                        ; C is the target,
+    LD   A,C                       ; a run-time result.
+    OR   A                         ; Clear carry.
     RET                            ; Return it.
+.NONE:                         ; A Boolean on either side:
+    LD   A,DG_NOCVT                ; conversion-unavailable,
+    JP   DG_HERE                   ; at the parenthesis.
 
 ;@ROUTINE IN A OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Require result metadata A to be an integer; a Boolean raises DG_CLASH.
@@ -216,25 +268,7 @@ EX_INT:
     CP   SY_BOOL                   ; Is it Boolean?
     JP   Z,EX_ETYPE                ; Yes: an integer is required.
     LD   A,D                       ; Recover the metadata.
-    CCF                            ; Valid scalar types compare below Boolean.
-    RET                            ; Return with carry clear.
-
-;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse u16(...), a widening that needs no check: every integer fits a
-; u16. A computed u8 is widened into HL (GX_WIDEN).
-
-EX_U16:
-    CALL EX_CAST                   ; Parse the parenthesized operand.
-    CALL EX_INT                    ; A Boolean cannot be converted; D is A.
-    AND  SY_KNOWN                  ; Is the operand known?
-    LD   A,SY_KNOWN+SY_U16         ; Known: keep the value in HL.
-    RET  NZ                        ; Return it; AND cleared carry.
-    LD   A,D                       ; A computed operand's type.
-    AND  SY_TMASK                  ; Alone.
-    CP   SY_U8                     ; A byte?
-    CALL Z,GX_WIDEN                ; Then it moves to HL.
-    LD   A,SY_U16                  ; A run-time u16.
-    OR   A                         ; Clear carry for success.
+    OR   A                         ; Clear carry.
     RET                            ; Return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
@@ -260,47 +294,31 @@ EX_UNARY:
 EX_PLUS:
     CALL PR_TAKE                   ; Consume the sign.
     CALL EX_UNARY                  ; Parse its operand, signs included.
-    CALL EX_INT                    ; The operand must be an integer.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return the operand.
+    JR   EX_INT                    ; It must be an integer; return it.
 
-; Parse unary minus: negate the operand at its own type. An exact constant
-; other than zero would be a negative exact value, which the reference
-; keeps until its context types it; the native compiler has no negative
-; exact values, so it refuses one (DG_EXACT).
+;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; Parse unary minus (negate): an exact operand is negated exactly, and
+; stays exact until its context types it; a typed known one is negated
+; and wrapped at its type; a computed one is negated in the registers
+; (GX_NEG).
 
 EX_MINUS:
     CALL EX_PLUS                   ; Consume '-' and parse the operand.
-    LD   D,A                       ; Keep its metadata.
-    AND  SY_TMASK                  ; Is it typed?
-    JR   NZ,EX_NEG                 ; Yes: negate at its type.
-    LD   A,H                       ; An exact constant: is it zero?
-    OR   L                         ; Then its negation is zero.
-    JP   NZ,EX_EXACT               ; Otherwise refuse it.
-    LD   A,D                       ; Exact zero, unchanged.
-    RET                            ; OR cleared carry.
-
-;@ROUTINE IN A,D,HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
-; Negate at type A (u8 or u16) the operand with metadata D and value HL:
-; fold a known value modulo the width, or negate a computed one (GX_NEG).
-
-EX_NEG:
-    LD   C,A                       ; C is the negation's width.
-    BIT  7,D                       ; SY_KNOWN: is the operand known?
+    BIT  7,A                       ; SY_KNOWN: is it known?
     JR   NZ,.FOLD                  ; Yes: fold it.
-    LD   D,C                       ; Its type.
-    CALL GX_NEG                    ; Negate A or HL.
-    LD   A,C                       ; A run-time result of the width's type.
-    OR   A                         ; Clear carry for success.
+    LD   D,A                       ; Its type
+    PUSH DE                        ; is kept,
+    CALL GX_NEG                    ; and the value negated.
+    POP  AF                        ; A run-time result
+    OR   A                         ; of its type; carry clear.
     RET                            ; Return it.
-.FOLD:                         ; HL is a known value.
-    XOR  A                         ; Fold: zero...
-    SUB  L                         ; ...less the low byte...
-    LD   L,A                       ; ...is the low result.
-    LD   A,0                       ; Zero...
-    SBC  A,H                       ; ...less the high byte and the borrow...
-    LD   H,A                       ; ...is the high result.
-    CALL EX_MASK                   ; Wrap it to the width.
-    LD   A,C                       ; The result has the width's type...
-    OR   SY_KNOWN                  ; ...and is known.
-    RET                            ; Return it.
+.FOLD:                         ; EX_KVAL is the known value.
+    PUSH AF                        ; Keep the metadata.
+    LD   HL,EX_KVAL                ; The value
+    CALL VL_NEG                    ; negated.
+    POP  BC                        ; B is the metadata,
+    LD   A,B                       ; its type
+    AND  SY_TMASK                  ; alone:
+    LD   C,A                       ; exact or typed,
+    JP   NZ,EX_FOLD                ; a typed one wrapped; return.
+    JP   EX_LITK                   ; An exact one as it is.

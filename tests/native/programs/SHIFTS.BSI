@@ -1,0 +1,44 @@
+// Shifts (67b): shl and shr of every byte and word type by known counts,
+// a bit at a time or the whole width (zero, or the sign for a signed
+// shr), and by computed counts clamped to the width and shifted in a
+// loop; shifts of typed constants loaded first, and exact shifts folded.
+var ub as u8 = $81
+var sb as i8 = -16
+var uw as u16 = $8001
+var sw as i16 = -1000
+var n as u8 = 3
+var wn as u16 = 20
+const k as u8 = 6
+const e = 1 shl 20 shr 18
+
+sub main()
+    var b as u8
+    var c as i8
+    var w as u16
+    var v as i16
+    b = ub shl 1
+    b = ub shr 7
+    b = ub shl 8
+    c = sb shr 2
+    c = sb shr 9
+    c = sb shl 3
+    w = uw shl 4
+    w = uw shr 15
+    w = uw shr 16
+    v = sw shr 3
+    v = sw shr 20
+    v = sw shl 1
+    b = ub shl n
+    b = ub shr n
+    c = sb shr n
+    w = uw shl wn
+    w = uw shr n
+    v = sw shr wn
+    v = sw shl n
+    b = k shl n
+    w = 1 shl n
+    w = e
+    b = k shl 2
+    w = (uw shr 4) shl 2 + w shr 1
+    v = (v shl 1) shr n
+end

@@ -192,6 +192,16 @@ the count, `CT_FSYMS`, so the cost is a byte a frame). Locals no longer
 have to come first, and the limit that said so is gone, with the refusal
 of declarations after `main`.
 
+**At step 67b** the numeric types came. A known value is five bytes, so
+the symbol table's records grew from seven bytes to nine (a scalar
+constant's value after its payload) and the operand stack's entries from
+thirteen to sixteen; with the folding scratch the compiler's workspace
+grew to 3,892 bytes. The workspace, the shell's and the blob writer's, and
+the source area after them, moved 2K up (`MM_WBASE` `$5000`), so that the
+image and the overlay area can grow towards the target; the source area
+shrank by as much, to about 26.75K on a 62K system ([limits](limits.md)
+§5.1). The 16-bit exact range, refused beyond with `native-exact`, is gone.
+
 **At step 67a** `include` and `private` came, and the eight-part table
 went: the parts the command line names and the parts they include are
 described in a part table of 21-byte entries that grows down from the top
@@ -612,7 +622,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 
 | Nucleus constant | Value | Basie replacement |
 | --- | ---: | --- |
-| `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals. At 65.4 (d), 96 records (`SY_CAP`, seven bytes each) shared by the program's names and the current routine's parameters and locals, the aggregate type held in the record; at 67a its open blocks' locals and local constants, released at each block's end; a hashed table with a name heap replaces it in step 67's capacity stage |
+| `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals. At 65.4 (d), 96 records (`SY_CAP`, seven bytes each) shared by the program's names and the current routine's parameters and locals, the aggregate type held in the record; at 67a its open blocks' locals and local constants, released at each block's end; at 67b nine bytes each, a scalar constant's five-byte value in the record; a hashed table with a name heap replaces it in step 67's capacity stage |
 | `Stage7RoutineCapacity` | 4 | §3.25. At 65.4 (e), 32 records of twelve bytes (`RO_RCAP`) holding each routine's ordinal, need and argument bytes |
 | `Stage7ParameterCapacity` | 16 (program-wide) | §3.3: at least 32 per routine. At 65.4 (e), 64 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine |
 | `Stage7CallFrameCapacity` | 4 | §3.21: call nesting. At 65.4 (e) a call being parsed keeps its state on the machine stack; calls nest eight deep in arguments (`RO_NCAP`) |
@@ -622,7 +632,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 | `AggregateInitializerDepthCapacity` | 4 | §3.22: at least 32 |
 | `AggregateInitializerCapacity`, `StaticImageCapacity` | 1,024 bytes | the static image is *gone* (each declaration is written as its blob at once); one object's initializer is still staged in 1,024 bytes (`AG_ICAP`), to be streamed |
 | `ControlFrameCapacity` | 8 | §3.20: at least 32. At 65.4 (f) still 8 (`CT_FCAP`), each frame sixteen bytes holding its labels, the label count and frame size to restore, and a for loop's counter, bound and step |
-| `ExpressionStackCapacity` | 16 | §3.21: at least 32 |
+| `ExpressionStackCapacity` | 16 | §3.21: at least 32. At 67b still 16 (`EX_STCAP`), each entry sixteen bytes: the left operand's five-byte value and the two operands' first offsets |
 | `HybridLL1StackCapacity` | 64 | parser stack, TBD |
 | `EmitControlFixupCapacity`, `EmitControlLabelCapacity` | 32 each | fixups *gone*: pending operands are chained through their references' addend words (`EMIT.ASM`, no limit); labels are per routine, 32 in use at once (`EM_LCAP`), released by nesting from 65.4 (f), §3.4 |
 | `EmitBooleanFixupCapacity` | 16 | *gone*: `and` and `or` use routine labels |
@@ -635,7 +645,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 | `RuntimeProgramDataCapacity`, `RuntimeReadOnlyCapacity` | 2K, 4K | *gone*: the linker places everything |
 | Semantic transcript | 511 bytes, 255 operations, for the whole program | *gone*: code is generated as it is parsed, into a routine's blob ([native compiler](native-compiler.md) §2); the constructs not yet moved are refused (`DG_NYI`) |
 | Routine label ordinals | 5 bits, shared with control labels | blobs take 16-bit ordinals from `$0400` (`RG_ORD`); control labels are routine labels from 65.4 (f), and the program-wide count (`CT_LABNO`, 27 labels) is gone |
-| LL(1) terminal encoding | 64 terminal kinds (`$00`–`$3F`) | Basie needs 79 token kinds; token classes fold them to about 60 (native compiler §2); decided at step 67 |
+| LL(1) terminal encoding | 64 terminal kinds (`$00`–`$3F`) | Basie needs 79 token kinds; only the grammar's terminals must be below `$40` (67a), and at 67b the eight type keywords became one terminal, `TK_TYPE`, its payload the type: 42 terminals (native compiler §2) |
 
 ## 5. Source-code discipline
 

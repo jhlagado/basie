@@ -152,9 +152,6 @@ AC_INFER:
     JR   C,.SCALAR                 ; parsed; anything else is a scalar.
     XOR  A                         ; Nothing is expected,
     CALL EX_INIT                   ; as of an expression.
-    LD   HL,TK_POS                 ; The name is the first
-    LD   DE,EX_VPOS                ; primary's position.
-    CALL PR_COPY                   ; Copy the six bytes.
     CALL RO_PART                   ; Parse the path; A is its type.
     CP   AG_FIRST                  ; An aggregate?
     JR   C,.SELECT                 ; No: a scalar it selects.
@@ -185,7 +182,7 @@ AC_INFER:
     XOR  A                         ; Nothing is expected of it.
     CALL EX_RUN                    ; A and HL describe it.
 .TYPED:                        ; A and HL describe the initializer.
-    CALL AC_STASH                  ; Keep them for AC_ADOPT and AC_BIND.
+    CALL EX_STASH                  ; Keep them for AC_ADOPT and AC_BIND.
     AND  SY_TMASK                  ; Its type:
     JR   NZ,.DECLARE               ; an exact value has none,
     LD   A,(EX_CHR)                ; unless it is
@@ -264,14 +261,20 @@ AC_FIT:
     CALL EX_DTYPE                  ; The declaration's type...
     LD   E,A                       ; ...is the destination; fall into AC_FITTO.
 
-;@ROUTINE IN E OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,HL
+;@ROUTINE IN E OUT A,CARRY,ZERO,D,HL CLOBBERS SIGN,PARITY,HALFCARRY
 ; Check the expression just parsed (EX_RMETA, EX_RVAL) against type E;
-; a mismatch raises DG_CLASH or DG_RANGE.
+; a mismatch raises DG_CLASH, DG_CONV or DG_RANGE. It is the latest
+; result again (EX_RTOK), D its metadata and HL its value, as GX_TOREG
+; takes them. BC is kept.
 
 AC_FITTO:
-    LD   HL,(EX_RVAL)              ; The value.
-    LD   A,(EX_RMETA)              ; Its metadata.
-    JP   EX_FITS                   ; Check it and return.
+    PUSH BC                        ; Keep BC
+    PUSH DE                        ; and the type.
+    CALL EX_RTOK                   ; The value, A its metadata.
+    POP  DE                        ; E is the type.
+    CALL EX_FITS                   ; Check it.
+    POP  BC                        ; Restore BC.
+    RET                            ; D, E and HL describe it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitLocal: allocate the local in the frame (allocLocal), then store its
@@ -300,11 +303,10 @@ AC_BIND:
     JR   Z,.COPY                   ; Copy it.
     CP   AC_LFILE                  ; A File in DEHL?
     JR   Z,.FILE                   ; Store it.
-    LD   D,A                       ; D is the value's metadata,
-    CALL EX_DTYPE                  ; E the local's type,
-    LD   E,A                       ; HL a known
-    LD   HL,(EX_RVAL)              ; value.
-    CALL GX_TOREG                  ; The value in A or HL at that type.
+    CALL EX_RTOK                   ; D is the value's metadata, HL a known value,
+    CALL EX_DTYPE                  ; E the local's
+    LD   E,A                       ; type.
+    CALL GX_TOREG                  ; The value in the registers at that type.
     LD   A,(AC_DINFO)              ; The local's class and type
     LD   D,A                       ; for EX_STORE,
     LD   BC,(AC_DVAL)              ; and its offset.
@@ -408,7 +410,7 @@ AC_YIELD:
     CP   AG_FIRST                  ; An aggregate?
     JR   NC,.AGGR                  ; Parse a path.
     CALL EX_RUN                    ; Parse and emit the scalar value.
-    JP   AC_STASH                  ; Keep it for AC_RETOP.
+    JP   EX_STASH                  ; Keep it for AC_RETOP.
 .AGGR:                         ; The result is an aggregate.
     JP   RO_AGGR                   ; Parse its path; RO_OTYPE is its type.
 
@@ -649,9 +651,10 @@ AC_LEAVE:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginFor, with the counter as the current NAME: it must be a declared,
-; non-Boolean local (loop-counter) not already counting an open loop
-; (not-writable). Keep its offset and width for the loop, and expect the
-; initial value at its type.
+; integer local (loop-counter) not already counting an open loop
+; (not-writable). Keep its offset, and its width and sign as the mode's
+; CT_MWORD and CT_MSIGN, and expect the initial value at its type. A
+; 32-bit counter is not yet compiled (DG_NYI).
 
 AC_FOR:
     CALL SY_FIND                   ; An undeclared counter
@@ -664,24 +667,27 @@ AC_FOR:
     AND  SY_TMASK                  ; Its type.
     CP   SY_BOOL                   ; Boolean?
     JP   Z,CT_EVAR                 ; Cannot count: raise DG_COUNT.
-    DEC  A                         ; A u16, 1,
-    ADD  A,A                       ; becomes
-    ADD  A,A                       ; CT_MWORD.
-    LD   (AC_MODE),A               ; The mode so far.
+    CALL GX_PROP                   ; Its size and sign:
+    BIT  2,A                       ; a long
+    JP   NZ,TR_OPER                ; is not yet compiled.
+    LD   E,A                       ; A word's size, 2,
+    AND  2                         ; doubled,
+    ADD  A,A                       ; is CT_MWORD;
+    BIT  7,E                       ; a signed type's
+    JR   Z,.MODE                   ; sign
+    OR   CT_MSIGN                  ; is CT_MSIGN.
+.MODE:                         ; A is the mode so far.
+    LD   (AC_MODE),A               ; Kept.
     LD   (AC_INDEX),BC             ; The counter's offset.
     CALL CT_GUARD                  ; Reject an active counter.
     JP   AC_TOVAR                  ; Expect the counter's type.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Return in A the counter's type from AC_MODE: SY_U16 or SY_U8.
+; Return in A the counter's type from AC_MODE (CT_TYPE).
 
 AC_CTYPE:
-    LD   A,(AC_MODE)               ; The mode.
-    AND  CT_MWORD                  ; A u16 counter?
-    LD   A,SY_U8                   ; Assume a u8.
-    RET  Z                         ; It is one.
-    INC  A                         ; A u16.
-    RET                            ; A is the type.
+    LD   A,(AC_MODE)               ; The mode's
+    JP   CT_TYPE                   ; type; return.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; ForTo, ForUntil: one routine for two actions, A being GR_TO or
@@ -700,7 +706,7 @@ AC_FORTO:
     CALL AC_CTYPE                  ; The counter's type
     LD   E,A                       ; is the value's destination.
     CALL AC_VALOK                  ; Check it; D is its metadata, HL its value.
-    CALL GX_TOREG                  ; Bring it into A or HL.
+    CALL GX_TOREG                  ; Bring it into the registers.
     CALL AC_CTYPE                  ; The counter's type
     LD   HL,(AC_INDEX)             ; and offset:
     CALL GX_FPUT                   ; store it.
@@ -715,65 +721,160 @@ AC_BYONE:
     LD   (AC_DELTA),HL             ; Keep it; fall into AC_STEP.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; SaveForStep: the step must fit the counter (DG_STEP). The bound just
-; parsed (no failure pending, not a Boolean) is kept in a new frame slot
-; of two bytes for the whole loop, at the wider of its type and the
-; counter's; an exact bound is a u8 when it fits one. It is stored widened
-; to a word (storeBound).
+; SaveForStep (forStatement): the step must fit the counter (DG_STEP).
+; The bound just parsed (no failure pending) decides the comparison's
+; type: a typed bound's and the counter's common type (mixed-operands
+; when they have none, or for a Boolean; a long one is not yet compiled);
+; an exact bound's is the counter's, but for a byte counter a bound it
+; does not fit makes it the word of the counter's sign, or else i16, or
+; else u16. The bound takes a new frame slot of two bytes for the whole
+; loop, stored as a word of the comparison's sign (storeBound), and
+; CT_MCMPS marks a signed comparison. An exact bound beyond even that
+; type is not stored: the loop runs until the counter leaves its type
+; (CT_MALL) when the step goes towards it, and never (CT_MNONE) when it
+; goes away.
 
 AC_STEP:
     CALL AC_CTYPE                  ; The counter's type:
-    DEC  A                         ; a u8 counter
-    LD   A,(AC_DELTA+1)            ; takes only a step
-    JR   NZ,.FITS                  ; below 256.
-    OR   A                         ; Is it?
-    JP   NZ,CT_ESTEP               ; No: raise DG_STEP.
+    LD   C,A                       ; C keeps it.
+    CALL GX_PROP                   ; Its largest value: a byte's
+    LD   B,A                       ; (B its properties)
+    AND  2                         ; at most 255,
+    LD   HL,(AC_DELTA)             ; or 127 signed;
+    JR   NZ,.WORD                  ; a word's 65535,
+    LD   A,H                       ; or 32767
+    OR   A                         ; signed:
+    JP   NZ,CT_ESTEP               ; DG_STEP.
+    LD   H,L                       ; A byte's top bit is L's.
+.WORD:                         ; H holds the step's top bit.
+    BIT  7,B                       ; A signed counter's step
+    JR   Z,.FITS                   ; must have it clear.
+    BIT  7,H                       ; Is it set?
+    JP   NZ,CT_ESTEP               ; Then DG_STEP.
 .FITS:                         ; The step fits the counter.
     CALL AC_SAFE                   ; No failure may be pending.
-    LD   HL,(EX_RVAL)              ; The bound's value, if known,
-    LD   A,(EX_RMETA)              ; and its metadata.
-    LD   D,A                       ; Keep it.
-    AND  SY_TMASK                  ; Its type.
-    CP   SY_BOOL                   ; A Boolean
-    JR   Z,.MIXED                  ; is no bound for a number.
-    OR   A                         ; Typed?
-    JR   NZ,.TYPED                 ; Its type stands.
-    LD   A,H                       ; An exact value: does it
-    OR   A                         ; fit a byte?
-    LD   A,SY_U8                   ; Then it is a u8,
-    JR   Z,.TYPED                  ; and otherwise
-    INC  A                         ; a u16.
-.TYPED:                        ; A is the bound's type.
-    LD   E,A                       ; Keep it.
-    CALL AC_CTYPE                  ; The counter's.
-    CP   E                         ; The wider of the two
-    JR   C,.WIDER                  ; is the bound's,
-    LD   E,A                       ; or the counter's.
-.WIDER:                        ; E is the comparison type.
-    PUSH DE                        ; Keep the metadata and type
-    PUSH HL                        ; and the value.
+    PUSH BC                        ; (the counter's type kept)
+    CALL EX_RTOK                   ; The bound: D its metadata, A too.
+    POP  BC                        ; C is the counter's type.
+    AND  SY_TMASK                  ; Its type:
+    LD   E,C                       ; (the counter's in E)
+    JR   Z,.EXACT                  ; exact, or
+    CALL .COMMON                   ; the common type of a typed one.
+    JR   .ALLOC                    ; Allocate the slot.
+.EXACT:                        ; The comparison is the counter's type,
+    LD   A,C                       ; unless the counter is a byte
+    CALL GX_SIZE                   ; and the bound does not fit it.
+    JR   NC,.ALLOC                 ; A word counter: its type.
+    LD   A,C                       ; The counter's own type?
+    CALL .TRY                      ; Then it.
+    JR   NC,.ALLOC                 ; It fits.
+    LD   A,C                       ; The word of the counter's sign,
+    INC  A                         ; u16 or i16?
+    CALL .TRY                      ; Then it.
+    JR   NC,.ALLOC                 ; It fits.
+    LD   A,SY_I16                  ; i16?
+    CALL .TRY                      ; Then it.
+    JR   NC,.ALLOC                 ; It fits.
+    LD   A,SY_U16                  ; u16, or else
+    CALL .TRY                      ; the counter's.
+.ALLOC:                        ; E is the comparison's type, D the metadata.
+    PUSH DE                        ; Keep them.
+    LD   A,E                       ; A signed
+    CALL GX_PROP                   ; comparison
+    RLA                            ; is
+    SBC  A,A                       ; CT_MCMPS
+    AND  CT_MCMPS                  ; in
+    CALL .MARK                     ; the mode.
     LD   A,2                       ; Two bytes
     CALL EM_ALLOC                  ; in the frame for the bound;
     LD   (AC_BOUND),HL             ; their offset.
-    POP  HL                        ; The value,
-    POP  DE                        ; metadata and type.
-    CALL GX_TOREG                  ; The bound in A or HL at type E.
-    LD   A,E                       ; A u8 bound
-    CP   SY_U8                     ; is widened
-    CALL Z,GX_WIDEN                ; to a word.
-    LD   A,SY_U16                  ; The word
-    LD   HL,(AC_BOUND)             ; goes to its slot.
-    JP   GX_FPUT                   ; Store it and return.
-.MIXED:                        ; A Boolean bound for a number:
-    LD   A,DG_MIXED                ; mixed-operands,
+    POP  DE                        ; The type and the metadata.
+    LD   A,D                       ; A typed bound
+    AND  SY_TMASK                  ; is stored;
+    JR   NZ,.STORE                 ; an exact one
+    LD   A,E                       ; only if it fits
+    CALL .TRY                      ; the comparison's type.
+    JR   NC,.STORE                 ; It does.
+    LD   A,(EX_KVAL+4)             ; Beyond: $FF below the type, 0 above.
+    AND  CT_MDOWN                  ; Below, as the bit
+    LD   HL,AC_MODE                ; of a step down:
+    XOR  (HL)                      ; equal to the step's direction
+    AND  CT_MDOWN                  ; when the step goes towards it,
+    LD   A,CT_MALL                 ; and the loop runs on;
+    JR   Z,.MARK                   ; otherwise
+    LD   A,CT_MNONE                ; it never starts.
+.MARK:                         ; Add the bits A to the mode.
+    LD   HL,AC_MODE                ; The mode
+    OR   (HL)                      ; takes
+    LD   (HL),A                    ; them.
+    RET                            ; Kept.
+.STORE:                        ; E is the comparison's type, D the metadata.
+    PUSH DE                        ; Keep them.
+    CALL EX_RTOK                   ; The bound again, HL its value,
+    POP  DE                        ; (the type)
+    PUSH DE                        ; (kept)
+    CALL GX_TOREG                  ; in the registers at that type.
+    POP  DE                        ; E is the type.
+    LD   A,E                       ; A byte
+    CALL GX_SIZE                   ; is widened
+    JR   NC,.SLOT                  ; to the word
+    LD   D,E                       ; of its sign
+    INC  E                         ; (u8 to u16, i8 to i16)
+    CALL GX_WIDEN                  ; first.
+.SLOT:                         ; The word is in HL.
+    LD   A,SY_U16                  ; It goes
+    LD   HL,(AC_BOUND)             ; to its slot
+    JP   GX_FPUT                   ; (storeBound); return.
+
+;@ROUTINE IN A,E OUT E CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY,HL
+; A is a typed bound's type, E the counter's: return their common type
+; in E, the type the other widens to (commonType); none raises
+; mixed-operands at the bound, and a long one is not yet compiled.
+
+.COMMON:                       ; A is the bound's type.
+    LD   B,A                       ; Keep it.
+    CP   E                         ; The same as the counter's,
+    JR   Z,.LONG                   ; or
+    CALL EX_WIDEN                  ; widening to it,
+    JR   C,.LONG                   ; is the counter's;
+    LD   A,E                       ; the counter's
+    LD   E,B                       ; widening to the bound's
+    CALL EX_WIDEN                  ; is
+    JR   C,.LONG                   ; the bound's.
+    LD   A,DG_MIXED                ; Neither: mixed-operands,
     JP   EX_EVAL                   ; at the bound.
+.LONG:                         ; E is the common type.
+    LD   A,E                       ; A long
+    CALL GX_PROP                   ; is
+    AND  4                         ; not yet
+    JP   NZ,TR_OPER                ; compiled.
+    RET                            ; E is it.
+
+;@ROUTINE IN A OUT E,CARRY CLOBBERS A,HL,ZERO,SIGN,PARITY,HALFCARRY
+; Carry when the exact bound (EX_KVAL) does not fit type A; when it
+; does, E becomes A. BC and D are kept.
+
+.TRY:                          ; A is the type tried.
+    PUSH BC                        ; Keep BC
+    PUSH DE                        ; and DE.
+    PUSH AF                        ; And the type.
+    LD   HL,EX_KVAL                ; Does the bound
+    CALL VL_FITS                   ; fit it?
+    POP  HL                        ; H is the type.
+    POP  DE                        ; DE again.
+    POP  BC                        ; BC again.
+    RET  C                         ; It does not.
+    LD   E,H                       ; It does: E is it.
+    RET                            ; Carry is clear.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginForBody: open a for frame with its mode, counter, bound and step,
 ; and its exit, next-value and body labels. The first test compares the
-; counter with the bound: a step up goes on when the counter is below the
-; bound, or equal to it for to; a step down stops when it is below, or
-; equal for until. The body is reachable.
+; counter, widened to a word (CT_WIDE), with the bound, signed when the
+; comparison is (compare16ToFlags): a step up goes on when the counter is
+; below the bound, or equal to it for to; a step down stops when it is
+; below, or equal for until. With no bound in reach the loop never
+; starts (JP exit) or always does. The body is reachable.
 
 AC_FORDO:
     LD   B,CT_KFOR                 ; A for frame.
@@ -790,12 +891,13 @@ AC_FORDO:
     CALL CT_NEW                    ; allocated.
     LD   B,CT_FDEST                ; The body,
     CALL CT_NEW                    ; allocated.
-    CALL CT_WIDE                   ; HL is the counter; A the mode.
-    PUSH AF                        ; Keep the mode.
-    CALL CT_BOUND                  ; DE is the bound.
-    CALL EM_SEQ                    ; OR A, SBC HL,DE: carry when the
-    DB   3,$B7,$ED,$52             ; counter is below, zero when equal.
-    POP  AF                        ; The mode.
+    LD   A,(AC_MODE)               ; No bound in reach:
+    BIT  6,A                       ; CT_MNONE,
+    LD   BC,CT_FEXIT*256+$C3       ; a JP to the exit,
+    JR   NZ,.LAST                  ; or
+    BIT  5,A                       ; CT_MALL,
+    JR   NZ,.BODY                  ; no test at all.
+    CALL CT_TEST                   ; Compare the counter with the bound.
     BIT  1,A                       ; CT_MDOWN: a step down
     JR   NZ,.DOWN                  ; stops below the bound.
     RRCA                           ; CT_MINC into carry.
@@ -818,11 +920,15 @@ AC_FORDO:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; EndFor: the body's block ends; the next value is computed where continue
-; goes. The counter passed the test, so its distance to the bound in the
-; loop's direction is never negative; the loop goes on only if a step fits
-; in it, and only then is the next value stored, so nothing wraps. A u8
-; counter traps (loop-range) if the next value leaves its type. Then jump
-; to the body, define the exit and close the frame.
+; goes. With the bound in reach the counter passed the test, so its
+; distance to the bound in the loop's direction is never negative; the
+; loop goes on only if a step fits in it, and only then is the next value
+; stored, so nothing wraps. The step is added to the counter as a word,
+; or subtracted; a byte counter traps (loop-range) if the next value
+; leaves its type (checkFitsCounter), and so does a word counter with no
+; bound in reach, its carry or overflow (CALL C or CALL PE); a signed
+; one's step up then adds with ADC, which sets the overflow. Then jump to
+; the body, define the exit and close the frame.
 
 AC_NEXT:
     CALL CT_BLOCK                  ; The body's block ends.
@@ -830,6 +936,8 @@ AC_NEXT:
     CALL CT_DEF                    ; starts here.
     CALL CT_WIDE                   ; HL is the counter; A the mode.
     PUSH AF                        ; Keep the mode.
+    AND  CT_MALL+CT_MNONE          ; The bound in reach?
+    JR   NZ,.STEP                  ; No: no distance.
     CALL GX_PUSHW                  ; PUSH HL, the counter, two bytes pushed.
     CALL CT_BOUND                  ; DE is the bound.
     POP  AF                        ; The mode.
@@ -839,38 +947,74 @@ AC_NEXT:
     CALL Z,EM_BYTE                 ; EX DE,HL.
     CALL EM_SEQ                    ; OR A, SBC HL,DE: the distance;
     DB   4,$B7,$ED,$52,$11         ; LD DE,step.
-    CALL .STEP                     ; The magnitude.
+    CALL .MAG                      ; The magnitude.
     CALL EM_SEQ                    ; OR A, SBC HL,DE: carry if it
     DB   4,$B7,$ED,$52,$E1         ; does not fit; POP HL, the counter.
     CALL EM_POP2                   ; Popped.
     POP  AF                        ; The mode.
     PUSH AF                        ; Kept.
     CALL CT_PAST                   ; JP C, and for until JP Z, to the exit.
+.STEP:                         ; HL is the counter.
     CALL EM_OP                     ; LD DE,step.
     DB   $11                       ; The opcode.
-    CALL .STEP                     ; The magnitude.
+    CALL .MAG                      ; The magnitude.
     POP  AF                        ; The mode.
     PUSH AF                        ; Kept.
-    AND  CT_MDOWN                  ; Up: ADD HL,DE.
-    LD   A,$19                     ; The opcode.
-    JR   Z,.ADD                    ; Append it.
-    CALL EM_SEQ                    ; Down: OR A,
-    DB   2,$B7,$ED                 ; then SBC HL,DE.
-    LD   A,$52                     ; Its last byte.
-.ADD:                          ; A is the last byte.
-    CALL EM_BYTE                   ; Append it.
+    BIT  1,A                       ; CT_MDOWN:
+    JR   NZ,.DOWN                  ; down subtracts.
+    LD   C,A                       ; A signed word counter
+    AND  CT_MWORD+CT_MSIGN         ; with
+    CP   CT_MWORD+CT_MSIGN         ; no bound
+    JR   NZ,.ADD                   ; in reach
+    LD   A,C                       ; adds with ADC,
+    AND  CT_MALL+CT_MNONE          ; whose overflow a trap tests;
+    JR   Z,.ADD                    ; anything else adds with ADD.
+.ADC:                          ; ADC.
+    CALL EM_SEQ                    ; OR A, ADC HL,DE.
+    DB   3,$B7,$ED,$5A             ; Appended.
+    JR   .ADDED                    ; Added.
+.ADD:                          ; ADD HL,DE.
+    CALL EM_OP                     ; Appended.
+    DB   $19                       ; The next value.
+    JR   .ADDED                    ; Added.
+.DOWN:                         ; OR A, SBC HL,DE.
+    CALL EM_SEQ                    ; Appended.
+    DB   3,$B7,$ED,$52             ; The next value.
+.ADDED:                        ; HL is the next value.
     POP  AF                        ; The mode.
-    AND  CT_MWORD                  ; A u16 counter
-    LD   A,SY_U16                  ; is stored as it is.
-    JR   NZ,.STORE                 ; It is one.
-    CALL EM_SEQ                    ; A u8: LD A,H, OR A,
-    DB   2,$7C,$B7                 ; then
-    LD   A,$C4                     ; CALL NZ
-    LD   L,HP_LOOP&$FF             ; to the loop-range trap;
+    PUSH AF                        ; Kept.
+    BIT  2,A                       ; CT_MWORD: a word counter
+    JR   NZ,.WORD                  ; may trap, then is stored.
+    BIT  3,A                       ; CT_MSIGN: a byte's next value
+    JR   NZ,.SIGNED                ; must fit it:
+    CALL EM_SEQ                    ; unsigned, LD A,H, OR A
+    DB   2,$7C,$B7                 ; with
+    JR   .TRAP                     ; CALL NZ.
+.SIGNED:                       ; Signed: H must be L's sign,
+    CALL EM_SEQ                    ; LD A,L, RLCA, SBC A,A, XOR H,
+    DB   4,$7D,$07,$9F,$AC         ; with
+.TRAP:                         ; CALL NZ
+    LD   A,$C4                     ; to the
+    LD   L,HP_LOOP&$FF             ; loop-range trap;
     CALL EM_TRAP                   ; append it.
     CALL EM_OP                     ; LD A,L,
-    DB   $7D                       ; the byte.
-    LD   A,SY_U8                   ; Store a byte.
+    DB   $7D                       ; the byte,
+    POP  AF                        ; stored at
+    CALL CT_TYPE                   ; the counter's type.
+    JR   .STORE                    ; Store it.
+.WORD:                         ; A word counter.
+    BIT  5,A                       ; CT_MALL: no bound in reach,
+    JR   Z,.KEEP                   ; so it may leave its type:
+    BIT  3,A                       ; a signed one's overflow,
+    LD   A,$EC                     ; CALL PE,
+    JR   NZ,.LEAVE                 ; or
+    LD   A,$DC                     ; an unsigned one's carry, CALL C,
+.LEAVE:                        ; to
+    LD   L,HP_LOOP&$FF             ; the loop-range trap.
+    CALL EM_TRAP                   ; Append it.
+.KEEP:                         ; Store the word.
+    POP  AF                        ; The mode:
+    CALL CT_TYPE                   ; the counter's type.
 .STORE:                        ; A is the counter's type.
     PUSH AF                        ; Keep it.
     LD   B,CT_FVAR                 ; The counter's
@@ -884,7 +1028,7 @@ AC_NEXT:
     LD   BC,CT_FDEST*256+$C3       ; JP
     CALL CT_GO                     ; to the body.
     JP   AC_LEAVE                  ; Define the exit and close the frame.
-.STEP:                         ; Append the step's magnitude.
+.MAG:                          ; Append the step's magnitude.
     LD   B,CT_FSTEP                ; The step
     CALL CT_FIELD                  ; is
     LD   E,(HL)                    ; in

@@ -1,0 +1,36 @@
+// The signed types run (67b): each result is checked, and the narrowing
+// at the end traps only when every one is right.
+var check as u16
+var out as u8
+
+sub signs(a as i8, b as i16) as i16
+    return i16(a) * b / -7 + b mod 10
+end
+
+sub main()
+    var x as i8 = -100
+    var y as i16 = -30000
+    var s as i16 = 0
+    var i as i8
+    var j as i16
+    check = u16(signs(x, 70) - 1000)
+    s = y / 7 + y mod 7
+    check = check + u16(s + 4290)
+    s = (y shr 4) + i16(x shr 3)
+    check = check + u16(s + 1888)
+    s = -y
+    if s <> 30000 or x > -1 or not (y < x)
+        check = check + 1
+    end
+    for i = 10 to -10 step -4
+        s = s + i
+    end
+    check = check + u16(s - 30000)
+    for j = -3 until 4
+        s = s - j
+    end
+    check = check + u16(s - 30000)
+    x = i8(u8(200) - 100) - 101
+    check = check + u16(x + 1)
+    out = u8(256 - check)
+end

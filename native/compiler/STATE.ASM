@@ -2,7 +2,7 @@
 ;  Compiler workspace and shared constants
 ;==========================================================================
 ;
-;  The first part of the compiler's workspace, from MM_WBASE ($4800), and
+;  The first part of the compiler's workspace, from MM_WBASE ($5000), and
 ;  the constants that every phase shares: token kinds, diagnostic numbers,
 ;  symbol classes, aggregate type ordinals and relation codes. CALLWORK.ASM
 ;  continues the workspace to LL_WEND. Nothing here is initialised by the
@@ -16,15 +16,16 @@
 ;
 ;    Offset  Size  Block
 ;    +$000     27  source cursor, current token, diagnostic (PR_BASE)
-;    +$01B    154  emitter and routine generation: frame accounting, the
+;    +$01B    158  emitter and routine generation: frame accounting, the
 ;                  routine's labels, ordinals and the program's limits
-;    +$0B5      3  parser lookahead
-;    +$0B8    673  symbol table: count, 96 records of seven bytes
-;    +$359    248  expression state and the operand stack
-;    +$451    130  control: depth, fallthrough, eight frames of sixteen bytes
-;    +$4D3   1527  aggregate types, records, fields, array bounds, the
+;    +$0B9      3  parser lookahead
+;    +$0BC    865  symbol table: count, 96 records of nine bytes
+;    +$41D    330  expression state, the folding scratch and the operand
+;                  stack
+;    +$567    130  control: depth, fallthrough, eight frames of sixteen bytes
+;    +$5E9   1527  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$ACA         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$BE0         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -97,7 +98,10 @@ RG_NAME EQU  RG_PATCH+2        ; Word: the routine's name, for the name stream.
 RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
 RG_FWD EQU  RG_NLEN+1          ; Byte: nonzero once a routine is declared forward.
 GX_IMMV EQU  RG_FWD+1          ; Byte: the immediate of a frame byte's store (GX_DSTN).
-EM_WEND EQU  GX_IMMV+1         ; End of the emitter's state.
+GX_TYPES EQU  GX_IMMV+1        ; Word: a narrowing's types, target low (GX_TRIM).
+GX_PFROM EQU  GX_TYPES+2       ; Byte: its source's properties (GX_PROP).
+GX_PTO EQU  GX_PFROM+1         ; Byte: its target's properties.
+EM_WEND EQU  GX_PTO+1          ; End of the emitter's state.
 
 ; The predictive expression path keeps one token of lookahead. $FF denotes an
 ; empty lookahead cell; token ordinals occupy the low half of the byte range.
@@ -112,43 +116,54 @@ PR_LVAL EQU  EM_WEND+$01       ; Word: the buffered token's payload.
 ; compiled, share the table.
 SY_CNT EQU  EM_WEND+$03        ; Byte: committed symbols.
 SY_BASE EQU  EM_WEND+$04       ; First symbol record.
-SY_RECB EQU  7                 ; Bytes in one symbol record.
+SY_RECB EQU  9                 ; Bytes in one symbol record.
 SY_AGT EQU  6                  ; Record offset of an aggregate's type ordinal.
+SY_VHI EQU  6                  ; Record offset of a constant's value's high bytes.
 SY_CAP EQU  96                 ; Symbol records in the table; DG_SYMS beyond.
 SY_LIM EQU  SY_BASE+SY_RECB*SY_CAP ; Exclusive end of the symbol table.
 
 ; Expression state (EXPR.ASM). An expression returns metadata in A (type
-; in SY_TMASK, SY_KNOWN when the value is exact) and an exact value in HL.
-; A bounded stack retains the left operand of each pending binary operator.
-; An entry is thirteen bytes: metadata, value word, EX_QUIET, operator,
-; operator offset word and the six-byte position of the left value.
+; in SY_TMASK, SY_KNOWN when the value is exact) and, when it is known,
+; the low word of its value in HL and the whole of it in EX_KVAL: five
+; bytes, the value in two's complement (VALUE.ASM), as wide as an exact
+; value's range of -2^31 to 2^32-1 needs. A bounded stack retains the
+; left operand of each pending binary operator. An entry is sixteen
+; bytes: metadata, the five value bytes, EX_QUIET, operator, operator
+; offset word and the six-byte position of the left value.
 EX_WANT EQU  SY_LIM+$00        ; Byte: type the context expects.
 EX_QUIET EQU  SY_LIM+$01       ; Byte: nonzero while faults fold to values.
 EX_DEPTH EQU  SY_LIM+$02       ; Byte: entries on the operand stack.
 EX_RMETA EQU  SY_LIM+$03       ; Byte: right operand's metadata.
-EX_RVAL EQU  SY_LIM+$04        ; Word: right operand's exact value.
-EX_LMETA EQU  SY_LIM+$06       ; Byte: left operand's metadata.
-EX_LVAL EQU  SY_LIM+$07        ; Word: left operand's exact value.
-EX_OPER EQU  SY_LIM+$09        ; Byte: pending relation code or operator.
-EX_OPPOS EQU  SY_LIM+$0A       ; Word: source offset for its trap.
+EX_RVAL EQU  SY_LIM+$04        ; Five bytes: right operand's exact value.
+EX_LMETA EQU  SY_LIM+$09       ; Byte: left operand's metadata.
+EX_LVAL EQU  SY_LIM+$0A        ; Five bytes: left operand's exact value.
+EX_OPER EQU  SY_LIM+$0F        ; Byte: pending relation code or operator.
+EX_OPPOS EQU  SY_LIM+$10       ; Word: source offset for its trap.
 
 ; The declaration being parsed (ACTIONS.ASM), restored as the current name
 ; when its symbol is finally written.
-AC_DINFO EQU  SY_LIM+$0C       ; Byte: class and type of the new symbol.
-AC_DVAL EQU  SY_LIM+$0D        ; Word: its payload, value or offset.
-AC_DNAME EQU  SY_LIM+$0F       ; Word: spelling, kept by TK_KEEP.
-AC_DLEN EQU  SY_LIM+$11        ; Byte: length of the spelling.
-AC_DPOS EQU  SY_LIM+$12        ; Six bytes: the declared name's position.
-EX_VPOS EQU  SY_LIM+$18        ; Six bytes: the latest value's position.
-EX_LPOSP EQU  SY_LIM+$1E       ; Word: popped left value's position record.
-EX_START EQU  SY_LIM+$20       ; Word: the offset of the last expression's first token.
-TK_ENDP EQU  SY_LIM+$22        ; Word: the offset of the last `end` (TOKEN.ASM).
-AC_SPOS EQU  SY_LIM+$24        ; Word: the offset of the name statement's first token.
-EX_CHR EQU  SY_LIM+$26         ; Byte: 1 while the only primary is a character literal.
-EX_PRIME EQU  SY_LIM+$27       ; Byte: a first primary's type, parsed already, or zero.
-EX_STACK EQU  SY_LIM+$28       ; First operand-stack entry.
+AC_DINFO EQU  SY_LIM+$12       ; Byte: class and type of the new symbol.
+AC_DVAL EQU  SY_LIM+$13        ; Five bytes: its payload, value or offset.
+AC_DNAME EQU  SY_LIM+$18       ; Word: spelling, kept by TK_KEEP.
+AC_DLEN EQU  SY_LIM+$1A        ; Byte: length of the spelling.
+AC_DPOS EQU  SY_LIM+$1B        ; Six bytes: the declared name's position.
+EX_LAT EQU  SY_LIM+$21         ; Word: the left operand's first offset (leftAt).
+EX_RAT EQU  SY_LIM+$23         ; Word: the right operand's first offset (rightAt).
+EX_START EQU  SY_LIM+$29       ; Word: the offset of the last expression's first token.
+TK_ENDP EQU  SY_LIM+$2B        ; Word: the offset of the last `end` (TOKEN.ASM).
+AC_SPOS EQU  SY_LIM+$2D        ; Word: the offset of the name statement's first token.
+EX_CHR EQU  SY_LIM+$2F         ; Byte: 1 while the only primary is a character literal.
+EX_PRIME EQU  SY_LIM+$30       ; Byte: a first primary's type, parsed already, or zero.
+EX_KVAL EQU  SY_LIM+$31        ; Five bytes: the latest known result's value.
+VL_TA EQU  SY_LIM+$36          ; Five bytes: VALUE.ASM's first scratch operand.
+VL_TB EQU  SY_LIM+$3B          ; Five bytes: its second.
+VL_TR EQU  SY_LIM+$40          ; Five bytes: its remainder.
+TK_NLO EQU  SY_LIM+$45         ; Word: a number's low word as it is scanned (TOKEN.ASM).
+TK_NHI EQU  SY_LIM+$47         ; Word: a number token's high word.
+TK_WIDE EQU  SY_LIM+$49        ; Byte: nonzero once a decimal number passes 32 bits.
+EX_STACK EQU  SY_LIM+$4A       ; First operand-stack entry.
 EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
-EX_STLEN EQU  13               ; Bytes in one entry.
+EX_STLEN EQU  16               ; Bytes in one entry.
 EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
 
 ; Structured control (CONTROL.ASM) keeps a sixteen-byte frame for each
@@ -178,7 +193,11 @@ CT_FSTEP EQU  12               ; Frame field: the step's magnitude (word).
 CT_FSYMS EQU  14               ; Frame field: SY_CNT as it opened, its blocks' first symbol.
 CT_MINC EQU  1                 ; For mode: to, the bound is inclusive.
 CT_MDOWN EQU  2                ; For mode: the step is negative.
-CT_MWORD EQU  4                ; For mode: the counter is a u16.
+CT_MWORD EQU  4                ; For mode: the counter is a word.
+CT_MSIGN EQU  8                ; For mode: the counter is signed.
+CT_MCMPS EQU  $10              ; For mode: the comparison with the bound is signed.
+CT_MALL EQU  $20               ; For mode: no bound in reach; it runs until it traps.
+CT_MNONE EQU  $40              ; For mode: no bound in reach; it never starts.
 
 ; Aggregate type and layout metadata lasts the whole compilation. Type IDs
 ; 1..3 are the predefined scalars; IDs 4 and above name bounded four-byte
@@ -269,7 +288,8 @@ TK_FAIL EQU  11                ; Keyword fail.
 TK_END EQU  12                 ; Keyword end.
 TK_VAR EQU  13                 ; Keyword var.
 TK_AS EQU  14                  ; Keyword as.
-TK_U8 EQU  15                  ; Keyword u8.
+TK_TYPE EQU  15                ; A type keyword: u8, i8, u16, i16, u32, i32, f32
+                               ; or boolean, its type ID in C (SY_U8...).
 TK_FOR EQU  16                 ; Keyword for.
 TK_UNTIL EQU  17               ; Keyword until.
 TK_LBRAC EQU  18               ; Left bracket.
@@ -281,8 +301,8 @@ TK_IF EQU  23                  ; Keyword if.
 TK_MINUS EQU  24               ; Minus sign.
 TK_PLUS EQU  25                ; Plus sign.
 TK_STAR EQU  26                ; Asterisk: multiplication.
-TK_U16 EQU  27                 ; Keyword u16.
-TK_BOOL EQU  28                ; Keyword boolean.
+TK_SHL EQU  27                 ; Keyword shl.
+TK_SHR EQU  28                 ; Keyword shr.
 TK_TRUE EQU  29                ; Keyword true.
 TK_FALSE EQU  30               ; Keyword false.
 TK_CONST EQU  31               ; Keyword const.
@@ -351,6 +371,7 @@ DG_INFER EQU  44               ; no-definite-type: an initializer to infer from.
 DG_FALSE EQU  45               ; assertion-false.
 DG_EMPTY EQU  48               ; empty-record.
 DG_KNOWN EQU  51               ; not-constant.
+DG_NOCVT EQU  53               ; conversion-unavailable.
 DG_MIXED EQU  70               ; mixed-operands.
 DG_CHAIN EQU  71               ; chained-comparison.
 DG_INDEX EQU  72               ; index-type.
@@ -371,7 +392,6 @@ DG_SAFE EQU  112               ; not-failable.
 DG_LEAK EQU  113               ; failure-unconsumed.
 DG_DEST EQU  114               ; handle-destination.
 DG_NYI EQU  191                ; native-unsupported: not yet compiled natively.
-DG_EXACT EQU  192              ; native-exact: an exact value beyond 16 bits.
 DG_BUG EQU  199                ; internal.
 
 ; Ordinary token mismatches encode the token ordinal directly. Named-value
@@ -429,28 +449,34 @@ DG_INEST EQU  DG_CAP+14        ; Includes open at once (SH_ICAP).
 
 
 ; Scalar types and symbol information. An expression's metadata byte and a
-; symbol's class/type byte share the low bits: the type in SY_TMASK. The
-; symbol byte adds its storage class in SY_CMASK and the flags SY_TYPE and
-; SY_AGGR; the metadata byte uses bit 7 as SY_KNOWN instead.
+; symbol's class/type byte share the low four bits: the type in SY_TMASK.
+; The symbol byte adds its storage class in SY_CMASK and the flags SY_TYPE
+; and SY_AGGR; the metadata byte uses bit 7 as SY_KNOWN instead. Each
+; scalar type's size and signedness are in GX_PROP (GENEXPR.ASM).
 
 SY_EXACT EQU  0                ; Type: an exact constant not yet typed.
 SY_U8 EQU  1                   ; Type: u8.
 SY_U16 EQU  2                  ; Type: u16.
 SY_BOOL EQU  3                 ; Type: boolean.
-SY_TMASK EQU  $03              ; Mask of the type bits.
+SY_I8 EQU  4                   ; Type: i8.
+SY_I16 EQU  5                  ; Type: i16.
+SY_U32 EQU  6                  ; Type: u32.
+SY_I32 EQU  7                  ; Type: i32.
+SY_F32 EQU  8                  ; Type: f32, not yet compiled.
+SY_TMASK EQU  $0F              ; Mask of the type bits.
 SY_KNOWN EQU  $80              ; Metadata flag: the value is exact, in HL.
 SY_CONST EQU  $00              ; Class: a constant.
-SY_GLOB EQU  $04               ; Class: a program variable.
-SY_LOCAL EQU  $08              ; Class: a local of the current routine.
-SY_PARAM EQU  $0C              ; Class: a parameter of the current routine.
-SY_CMASK EQU  $0C              ; Mask of the class bits.
+SY_GLOB EQU  $10               ; Class: a program variable.
+SY_LOCAL EQU  $20              ; Class: a local of the current routine.
+SY_PARAM EQU  $30              ; Class: a parameter of the current routine.
+SY_CMASK EQU  $30              ; Mask of the class bits.
 SY_TYPE EQU  $40               ; Symbol flag: the name is a record type.
 SY_AGGR EQU  $80               ; Symbol flag: the object is an aggregate.
 SY_RTYPE EQU  SY_TYPE          ; Information byte of a record type name.
 SY_AGLOB EQU  SY_AGGR+SY_GLOB  ; Information byte of an aggregate variable.
 
-AG_U16 EQU  SY_U16             ; Type ID of u16; IDs 1..3 are the scalars.
-AG_FIRST EQU  4                ; First type ID of the type table.
+AG_U16 EQU  SY_U16             ; Type ID of u16; IDs 1..8 are the scalars.
+AG_FIRST EQU  16               ; First type ID of the type table.
 AG_KREC EQU  4                 ; Descriptor kind: record.
 AG_KSTR EQU  5                 ; Descriptor kind: bounded string.
 AG_KARR EQU  6                 ; Descriptor kind: array.

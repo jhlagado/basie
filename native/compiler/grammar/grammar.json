@@ -15,7 +15,7 @@
     "TokenEnd": "TK_END",
     "TokenVar": "TK_VAR",
     "TokenAs": "TK_AS",
-    "TokenU8": "TK_U8",
+    "TokenType": "TK_TYPE",
     "TokenFor": "TK_FOR",
     "TokenUntil": "TK_UNTIL",
     "TokenLeftBracket": "TK_LBRAC",
@@ -26,8 +26,6 @@
     "TokenIf": "TK_IF",
     "TokenMinus": "TK_MINUS",
     "TokenPlus": "TK_PLUS",
-    "TokenU16": "TK_U16",
-    "TokenBoolean": "TK_BOOL",
     "TokenTrue": "TK_TRUE",
     "TokenFalse": "TK_FALSE",
     "TokenConst": "TK_CONST",
@@ -186,9 +184,7 @@
     "MakeStringType": "AC_STR",
     "MakeOpenStringType": "AC_OPEN",
     "SaveArrayBound": "AC_DIM",
-    "TypeU8": "AC_TYPE",
-    "TypeU16": "AC_TYPE",
-    "TypeBoolean": "AC_TYPE",
+    "TypeScalar": "AC_TYPE",
     "MakeArrayTypes": "AC_ARRAY",
     "LocalInitializer": "AC_LINIT",
     "InferredInitializer": "AC_INFER",
@@ -199,10 +195,7 @@
     "GR_EXIT": "EmitExit",
     "GR_CONT": "EmitContinue",
     "GR_TO": "ForTo",
-    "GR_UNTIL": "ForUntil",
-    "GR_U8": "TypeU8",
-    "GR_U16": "TypeU16",
-    "GR_BOOL": "TypeBoolean"
+    "GR_UNTIL": "ForUntil"
   },
   "externals": {
     "ConstantExpression": [
@@ -212,8 +205,7 @@
       "TokenFalse",
       "TokenName",
       "TokenLeftParen",
-      "TokenU8",
-      "TokenU16",
+      "TokenType",
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
@@ -225,8 +217,7 @@
       "TokenFalse",
       "TokenName",
       "TokenLeftParen",
-      "TokenU8",
-      "TokenU16",
+      "TokenType",
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
@@ -240,8 +231,7 @@
       "TokenLeftParen",
       "TokenLeftBracket",
       "TokenStringLiteral",
-      "TokenU8",
-      "TokenU16",
+      "TokenType",
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
@@ -266,8 +256,7 @@
       "TokenFalse",
       "TokenName",
       "TokenLeftParen",
-      "TokenU8",
-      "TokenU16",
+      "TokenType",
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
@@ -281,8 +270,7 @@
       "TokenLeftParen",
       "TokenLeftBracket",
       "TokenStringLiteral",
-      "TokenU8",
-      "TokenU16",
+      "TokenType",
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
@@ -294,8 +282,7 @@
       "TokenFalse",
       "TokenName",
       "TokenLeftParen",
-      "TokenU8",
-      "TokenU16",
+      "TokenType",
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
@@ -942,22 +929,8 @@
     {
       "lhs": "scalar-type",
       "rhs": [
-        "TokenU8",
-        "a:TypeU8"
-      ]
-    },
-    {
-      "lhs": "scalar-type",
-      "rhs": [
-        "TokenU16",
-        "a:TypeU16"
-      ]
-    },
-    {
-      "lhs": "scalar-type",
-      "rhs": [
-        "TokenBoolean",
-        "a:TypeBoolean"
+        "TokenType",
+        "a:TypeScalar"
       ]
     },
     {

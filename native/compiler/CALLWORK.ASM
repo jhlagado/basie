@@ -6,21 +6,21 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($4800).
+;  from MM_WBASE ($5000).
 ;
 ;    Offset  Size  Block
-;    +$ACA     44  routine state: counts, the signature being parsed, the
+;    +$BE0     44  routine state: counts, the signature being parsed, the
 ;                  body's block, the declaration's part and visibility,
 ;                  the private symbols, the call being checked and the
 ;                  path in hand (RO_BASE)
-;    +$AF6    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$C76    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$D76     96  the routine's string literals: 16 of six bytes (RO_LTAB)
-;    +$DD6      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;    +$C0C    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$D8C    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$E8C     96  the routine's string literals: 16 of six bytes (RO_LTAB)
+;    +$EEC      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE)
-;    +$DDB      2  PR_SP, the stack DG_ISSUE restores
-;    +$DDD     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$E1E         LL_WEND, the end of the compiler workspace, 3,614 bytes
+;    +$EF1      2  PR_SP, the stack DG_ISSUE restores
+;    +$EF3     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$F34         LL_WEND, the end of the compiler workspace, 3,892 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and

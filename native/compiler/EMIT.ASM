@@ -141,6 +141,15 @@ EM_REF:                        ; HL is the target, DE the addend.
     XOR  A                         ; Form ABS16.
     JP   BL_REF                    ; Append it and return.
 
+;@ROUTINE IN DE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append CALL helper for the helper whose HP_ word (HELPERS.ASM) is DE,
+; read from a table: EM_HELP's call.
+
+EM_HELPD:                      ; DE is the helper's word.
+    LD   C,$CD                     ; CALL nn,
+    LD   A,D                       ; its stack figure.
+    JR   EM_HWORD                  ; Append it and return.
+
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append JP helper, as EM_HELP appends its CALL: the routine exit through
 ; RETN.
@@ -163,7 +172,12 @@ EM_HCALL:                      ; C is the opcode.
     INC  HL                        ; Then
     LD   A,(HL)                    ; the stack figure.
     INC  HL                        ; Return past both.
-    PUSH HL                        ; The return address.
+    PUSH HL                        ; The return address; fall into EM_HWORD.
+
+;@ROUTINE IN A,C,E CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append opcode C to helper E, whose stack figure is A, raising EM_STACK.
+
+EM_HWORD:                      ; C is the opcode, E the ordinal, A the figure.
     LD   HL,EM_STACK               ; The largest figure so far (a byte).
     CP   (HL)                      ; Is this one larger?
     JR   C,.SMALLER                ; No: keep the old one.

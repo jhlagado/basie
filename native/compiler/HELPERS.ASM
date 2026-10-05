@@ -21,5 +21,21 @@ HP_TRUNC EQU  $020B            ; TRAP_NAR: ordinal $0B, 2 bytes of stack.
 HP_LOOP EQU  $020F             ; TRAP_LOO: ordinal $0F, 2 bytes of stack.
 HP_MUL16 EQU  $0216            ; MUL16: ordinal $16, 2 bytes of stack.
 HP_DIV16 EQU  $0217            ; DIV16: ordinal $17, 2 bytes of stack.
+HP_SDIV EQU  $0818             ; DIV16S: ordinal $18, 8 bytes of stack.
+HP_LADD EQU  $0628             ; ADD32: ordinal $28, 6 bytes of stack.
+HP_LSUB EQU  $0629             ; SUB32: ordinal $29, 6 bytes of stack.
+HP_LCMPU EQU  $062A            ; CMP32U: ordinal $2A, 6 bytes of stack.
+HP_LCMPS EQU  $062B            ; CMP32S: ordinal $2B, 6 bytes of stack.
+HP_LNEG EQU  $022C             ; NEG32: ordinal $2C, 2 bytes of stack.
+HP_LMUL EQU  $042D             ; MUL32: ordinal $2D, 4 bytes of stack.
+HP_LDIVU EQU  $062E            ; DIV32U: ordinal $2E, 6 bytes of stack.
+HP_LDIVS EQU  $0C2F            ; DIV32S: ordinal $2F, 12 bytes of stack.
+HP_LAND EQU  $0630             ; AND32: ordinal $30, 6 bytes of stack.
+HP_LOR EQU  $0631              ; OR32: ordinal $31, 6 bytes of stack.
+HP_LXOR EQU  $0632             ; XOR32: ordinal $32, 6 bytes of stack.
+HP_LSHL EQU  $0233             ; SHL32: ordinal $33, 2 bytes of stack.
+HP_LSHRU EQU  $0234            ; SHR32U: ordinal $34, 2 bytes of stack.
+HP_LSHRS EQU  $0235            ; SHR32S: ordinal $35, 2 bytes of stack.
+HP_ASSRT EQU  $0214            ; TRAP_AST: ordinal $14, 2 bytes of stack.
 HP_VER EQU  1                  ; The helper-table version compiled in.
 HP_KEY EQU  $5524              ; Its interface key.

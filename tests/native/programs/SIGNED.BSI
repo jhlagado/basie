@@ -1,0 +1,45 @@
+// Signed bytes and words (67b): i8 and i16 program variables, locals and
+// parameters; arithmetic, negation and complement; division and
+// remainder through DIV16S; the orders compared with their sign bits
+// flipped; and the unsigned types that widen to them.
+var sb as i8 = -100
+var sw as i16 = -30000
+var ub as u8 = 200
+var uw as u16 = 60000
+var f as boolean
+
+sub scale(a as i8, b as i16) as i16
+    return i16(a) * b / 3
+end
+
+sub half(n as i16) as i8
+    return i8(n / 2)
+end
+
+sub main()
+    var x as i8 = -5
+    var y as i16 = 1000
+    var z as i16
+    x = x * 3 - sb / 7
+    x = sb mod x + 3
+    x = -x
+    x = not x
+    y = y - i16(x) * 4 mod 9
+    z = sw / y + y mod -7
+    z = -z + 32767
+    z = not z
+    f = x < 0 and y >= -3 or sw > y
+    f = sb <= x
+    f = x > -128 and y < 30000
+    f = z = y or x <> sb
+    z = scale(x, y) + i16(ub)
+    y = i16(ub) + y
+    z = y - ub
+    sw = -sw
+    sb = not sb
+    sb = half(sw)
+    z = sw xor y and -2
+    y = z or 255
+    x = x + 1 - x * x
+    z = -(y + z) * 2
+end

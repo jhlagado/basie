@@ -27,21 +27,29 @@
 MM_CEND:                       ; End of compiler code (marker).
 MM_IBEG:                       ; Start of compiler immutable data (marker).
 
-; Reserved words: length, spelling, token kind. The search is linear, so
-; order affects only speed.
+; Reserved words: length, spelling, token kind. A type keyword's kind
+; byte is KW_TYPE plus its type ID: it is a TK_TYPE token whose payload
+; is the type. The search is linear, so order affects only speed.
 
 KW_TAB:
     DB   3,"var",TK_VAR            ; Program or local variable declaration.
     DB   2,"as",TK_AS              ; Introduces a type.
-    DB   2,"u8",TK_U8              ; Unsigned byte type.
-    DB   3,"u16",TK_U16            ; Unsigned word type.
-    DB   7,"boolean",TK_BOOL       ; Boolean type.
+    DB   2,"u8",KW_TYPE+SY_U8      ; Unsigned byte type.
+    DB   3,"u16",KW_TYPE+SY_U16    ; Unsigned word type.
+    DB   7,"boolean",KW_TYPE+SY_BOOL ; Boolean type.
+    DB   2,"i8",KW_TYPE+SY_I8      ; Signed byte type.
+    DB   3,"i16",KW_TYPE+SY_I16    ; Signed word type.
+    DB   3,"u32",KW_TYPE+SY_U32    ; Unsigned long type.
+    DB   3,"i32",KW_TYPE+SY_I32    ; Signed long type.
+    DB   3,"f32",KW_TYPE+SY_F32    ; Floating-point type, not yet compiled.
     DB   4,"true",TK_TRUE          ; Boolean literal.
     DB   5,"false",TK_FALSE        ; Boolean literal.
     DB   5,"const",TK_CONST        ; Constant declaration.
     DB   2,"or",TK_OR              ; Logical or bitwise or.
     DB   3,"xor",TK_XOR            ; Bitwise exclusive or.
     DB   3,"mod",TK_MOD            ; Remainder operator.
+    DB   3,"shl",TK_SHL            ; Shift left.
+    DB   3,"shr",TK_SHR            ; Shift right.
     DB   6,"assert",TK_ASSRT       ; Compile-time assertion.
     DB   3,"and",TK_AND            ; Logical or bitwise and.
     DB   3,"not",TK_NOT            ; Logical or bitwise complement.
@@ -66,7 +74,8 @@ KW_TAB:
     DB   6,"handle",TK_HANDL       ; Local failure handler.
     DB   7,"private",TK_PRIV       ; A declaration its part alone sees.
     DB   7,"include",TK_INCL       ; A part a part depends on.
-KW_CNT EQU  35                 ; Entries in KW_TAB.
+KW_CNT EQU  42                 ; Entries in KW_TAB.
+KW_TYPE EQU  $80               ; A type keyword's kind byte: this plus its type.
 
 ; Punctuators found by table search: the character, then a descriptor.
 ; Below $80 the descriptor is the token kind. With bit 7 set it routes a
@@ -83,8 +92,8 @@ KW_PUNCT:
     DB   "*",TK_STAR               ; Multiplication.
     DB   "/",TK_SLASH              ; Unreachable: TK_NEXT handles "/" first.
     DB   ".",TK_DOT                ; Field selection.
-    DB   "$",$85                   ; Hexadecimal prefix: at most four digits.
-    DB   "%",$91                   ; Binary prefix: at most sixteen digits.
+    DB   "$",$89                   ; Hexadecimal prefix: at most eight digits.
+    DB   "%",$A1                   ; Binary prefix: at most 32 digits.
 KW_PCNT EQU  9                 ; Entries in KW_PUNCT.
 
 ; Spellings compared against the current NAME token by length-checked

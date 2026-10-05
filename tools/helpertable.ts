@@ -36,6 +36,22 @@ export const NATIVE_NAMES: Record<string, string> = {
   TRAP_LOO: "HP_LOOP",
   MUL16: "HP_MUL16",
   DIV16: "HP_DIV16",
+  DIV16S: "HP_SDIV",
+  ADD32: "HP_LADD",
+  SUB32: "HP_LSUB",
+  CMP32U: "HP_LCMPU",
+  CMP32S: "HP_LCMPS",
+  NEG32: "HP_LNEG",
+  MUL32: "HP_LMUL",
+  DIV32U: "HP_LDIVU",
+  DIV32S: "HP_LDIVS",
+  AND32: "HP_LAND",
+  OR32: "HP_LOR",
+  XOR32: "HP_LXOR",
+  SHL32: "HP_LSHL",
+  SHR32U: "HP_LSHRU",
+  SHR32S: "HP_LSHRS",
+  TRAP_AST: "HP_ASSRT",
 };
 
 const hex = (n: number, width: number) =>

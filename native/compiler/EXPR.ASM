@@ -23,9 +23,14 @@
 ;    EX_MAIN   test whether the current name is `main`
 ;    EX_SAVE   push a result as a pending left operand
 ;    EX_POP    pop the left operand beneath a right one
-;    EX_UNIFY  resolve the width of a binary integer operation
+;    EX_STASH  keep the expression just parsed (EX_RMETA, EX_RVAL)
+;    EX_RTOK   make it the latest result again
+;    EX_WIDEN  whether one scalar type widens to another
+;    EX_UNIFY  resolve the type of a binary integer operation
 ;    EX_CLASS  check that a symbol is a scalar and return its class
+;    EX_FOLD   return a folded value, checked or wrapped
 ;    EX_ARITH  reduce an arithmetic or bitwise operator
+;    EX_SHIFT  reduce a shift
 ;    EX_TIMES  multiply two words, reporting overflow
 ;
 ;  Principal entries elsewhere: EX_RUN and EX_CONST parse an expression
@@ -37,31 +42,34 @@
 ;  unary `+` and `-`; primaries. `and` and `or` short-circuit when their
 ;  left operand is Boolean and are bitwise on integers; `xor` is bitwise.
 ;
-;  A result is metadata in A and, when it is known, its value in HL. The
-;  low two bits of the metadata are the type: SY_U8, SY_U16, SY_BOOL, or
-;  SY_EXACT for an untyped value that takes the type of its typed peer or
-;  of its destination. SY_KNOWN (bit 7) marks a value known at compile
-;  time; it generates no code until something needs it in the registers.
-;  A value not known is in the registers when the parser returns it: A for
-;  a u8 or a Boolean, HL for a u16, as in the reference compiler.
+;  A result is metadata in A and, when it is known, its value: the low
+;  word in HL and the whole of it, five bytes, in EX_KVAL (VALUE.ASM). The
+;  low four bits of the metadata are the type: SY_U8, SY_U16, SY_BOOL,
+;  SY_I8, SY_I16 (SY_U32 and SY_I32 to come), or SY_EXACT for an untyped
+;  value that takes the type of its typed peer or of its destination.
+;  SY_KNOWN (bit 7) marks a value known at compile time; it generates no
+;  code until something needs it in the registers. A value not known is in
+;  the registers when the parser returns it: A for a byte or a Boolean, HL
+;  for a word, as in the reference compiler.
 ;
-;  Folding follows the reference: a typed operation wraps at its width, and
-;  two exact operands give an exact result. The reference's exact values
-;  reach 32 bits and may be negative; the native compiler's are sixteen-bit
-;  and unsigned, so an exact result outside 0..65535 is refused (DG_RANGE)
-;  rather than folded differently.
+;  Folding follows the reference: a typed operation wraps at its type, and
+;  two exact operands give an exact result, which must lie from -2^31 to
+;  2^32-1 (foldExact). A diagnostic about an operand is reported at its
+;  first token, the reference's leftAt or rightAt (EX_LAT, EX_RAT).
 ;
 ;  A binary operator keeps its left operand on EX_STACK while the right is
-;  parsed: sixteen entries (EX_STCAP) of thirteen bytes (EX_STLEN):
+;  parsed: sixteen entries (EX_STCAP) of sixteen bytes (EX_STLEN):
 ;
 ;    +0  byte  left operand's metadata
-;    +1  word  left operand's value; for a computed Boolean left of `and`
-;              or `or`, the label its short circuit jumps to
-;    +3  byte  EX_QUIET at the time of the push
-;    +4  byte  EX_OPER, the pending operator
-;    +5  word  EX_OPPOS, the operator's source offset
-;    +7  six   EX_VPOS: offset, line and column of the left operand's last
-;              primary, for a diagnostic that blames the left operand
+;    +1  five  left operand's value; for a computed Boolean left of `and`
+;              or `or`, its low byte is the label its short circuit jumps
+;              to
+;    +6  byte  EX_QUIET at the time of the push
+;    +7  byte  EX_OPER, the pending operator
+;    +8  word  EX_OPPOS, the operator's source offset
+;    +10 word  EX_LAT, the left operand's first offset
+;    +12 word  EX_RAT, the right operand's first offset
+;    +14 word  unused
 ;
 ;  A computed left operand is also pushed on the machine stack (GX_PUSH)
 ;  while the right is computed, and popped beneath it.
@@ -142,24 +150,22 @@ EX_PREP:
     JP   SY_NEW                    ; Write the provisional symbol.
 
 ;@ROUTINE IN A OUT HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,CARRY,A,DE
-; Address operand-stack entry A in HL: EX_STACK plus thirteen times A.
+; Address operand-stack entry A in HL: EX_STACK plus sixteen times A.
 
 EX_SLOT:
-    LD   E,A                       ; Keep the index.
-    ADD  A,A                       ; Index times two.
-    ADD  A,E                       ; Times three.
-    ADD  A,A                       ; Times six.
-    ADD  A,A                       ; Times twelve.
-    ADD  A,E                       ; Times thirteen, the entry stride.
-    LD   E,A                       ; Widen the offset in DE.
-    LD   D,0                       ; Sixteen entries fit in a byte offset.
-    LD   HL,EX_STACK               ; Fetch the stack base.
+    ADD  A,A                       ; Index times two,
+    ADD  A,A                       ; four,
+    ADD  A,A                       ; eight,
+    LD   L,A                       ; and as a word,
+    LD   H,0                       ; sixteen entries' offsets passing a byte,
+    ADD  HL,HL                     ; sixteen: the entry stride.
+    LD   DE,EX_STACK               ; Fetch the stack base.
     ADD  HL,DE                     ; Address the entry.
     RET                            ; Return it in HL.
 
 ;@ROUTINE OUT A,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,HL
 ; Push the pending left operand and its context (EX_LMETA, EX_LVAL,
-; EX_QUIET, EX_OPER, EX_OPPOS and EX_VPOS) onto the operand stack. The
+; EX_QUIET, EX_OPER, EX_OPPOS, EX_LAT and EX_RAT) onto the operand stack. The
 ; operator's offset must be kept because a nested operation replaces
 ; EX_OPPOS before the outer one is reduced. A full stack raises DG_DEEP.
 
@@ -168,54 +174,63 @@ EX_PUSH:
     CP   EX_STCAP                  ; Is there room for one more entry?
     JR   NC,.FULL                  ; No: the expression nests too deeply.
     CALL EX_SLOT                   ; Address the free entry.
-    LD   A,(EX_LMETA)              ; Fetch the left operand's metadata.
-    LD   (HL),A                    ; Save it.
-    INC  HL                        ; Step to the value word.
-    LD   DE,(EX_LVAL)              ; Fetch the left operand's value.
-    LD   (HL),E                    ; Save its low byte.
-    INC  HL                        ; Step to the high byte.
-    LD   (HL),D                    ; Save its high byte.
-    INC  HL                        ; Step to the quiet count.
-    LD   A,(EX_QUIET)              ; Fetch the short-circuit quiet count.
-    LD   (HL),A                    ; Save it; the right arm may raise it.
-    INC  HL                        ; Step to the operator.
-    LD   A,(EX_OPER)               ; Fetch the pending operator.
-    LD   (HL),A                    ; Save it.
-    INC  HL                        ; Step to the operator offset.
-    LD   DE,(EX_OPPOS)             ; Fetch the operator's source offset.
-    LD   (HL),E                    ; Save its low byte.
-    INC  HL                        ; Step to the high byte.
-    LD   (HL),D                    ; Save its high byte.
-    INC  HL                        ; Step to the left operand's position.
     EX   DE,HL                     ; It is the copy's destination.
-    LD   HL,EX_VPOS                ; The last primary's position is the source.
-    CALL PR_COPY                   ; Save offset, line and column.
-    LD   A,(EX_DEPTH)              ; Fetch the depth again.
-    INC  A                         ; Count the new entry.
-    LD   (EX_DEPTH),A              ; Publish it.
+    LD   HL,EX_LMETA               ; The left's metadata and value,
+    LD   BC,6                      ; six bytes,
+    LDIR                           ; are saved.
+    LD   A,(EX_QUIET)              ; The short-circuit quiet count:
+    LD   (DE),A                    ; saved; the right arm may raise it.
+    INC  DE                        ; Then
+    LD   HL,EX_OPER                ; the operator and its offset,
+    LD   C,3                       ; three bytes (B is zero),
+    LDIR                           ; saved,
+    LD   HL,EX_LAT                 ; and the operands' first offsets,
+    LD   C,4                       ; four bytes,
+    LDIR                           ; saved.
+    LD   HL,EX_DEPTH               ; Count
+    INC  (HL)                      ; the new entry.
     OR   A                         ; Clear carry for success.
-    RET                            ; Return the new depth in A.
+    RET                            ; Pushed.
 
 .FULL:                         ; Sixteen operators are already pending.
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_DEEP                   ; Diagnostic: expression too deep.
 
 ;@ROUTINE IN A,HL OUT A,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,HL
-; Make result A/HL the pending left operand and push it with its context.
+; Make result A/HL the pending left operand, the high bytes of a known
+; value from EX_KVAL, and push it with its context.
 
 EX_SAVE:
     LD   (EX_LMETA),A              ; The result becomes the left metadata.
-    LD   (EX_LVAL),HL              ; And the left value.
+    LD   DE,EX_LVAL                ; And its value:
+    CALL EX_VKEEP                  ; HL, then EX_KVAL's high bytes.
     JR   EX_PUSH                   ; Push them with the operator context.
+
+;@ROUTINE IN DE,HL CLOBBERS BC,DE,HL
+; Store a result's value at DE: the word HL, then the three high bytes of
+; EX_KVAL, which hold a known value's (EX_LIT). A and flags are kept.
+
+EX_VKEEP:                      ; DE is the cell, HL the low word.
+    EX   DE,HL                     ; HL is the cell.
+    LD   (HL),E                    ; The low
+    INC  HL                        ; word,
+    LD   (HL),D                    ; then
+    INC  HL                        ; the high bytes
+    EX   DE,HL                     ; follow it,
+    LD   HL,EX_KVAL+2              ; from
+    LD   BC,3                      ; EX_KVAL.
+    LDIR                           ; Copied.
+    RET                            ; The value is kept.
 
 ;@ROUTINE IN A,HL OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,DE,HL
 ; Make result A/HL the right operand (EX_RMETA, EX_RVAL) and pop the most
-; recent left operand and its context. EX_LPOSP returns the address of the
-; left operand's saved position, for EX_ELEFT. BC is preserved.
+; recent left operand and its context, its first offset and its right
+; operand's again in EX_LAT and EX_RAT, where a diagnostic about either is
+; reported (the reference's leftAt and rightAt). BC is preserved.
 
 EX_POP:
-    LD   (EX_RMETA),A              ; The result becomes the right metadata.
-    LD   (EX_RVAL),HL              ; And the right value.
+    PUSH BC                        ; Keep BC.
+    CALL EX_STASH                  ; The result is the right operand.
 ; Every reduction follows EX_SAVE. Keep the defensive test so a future
 ; parser change cannot turn a broken invariant into a wrapped address
 ; beyond PR_WEND.
@@ -225,59 +240,74 @@ EX_POP:
     DEC  A                         ; Remove the top entry.
     LD   (EX_DEPTH),A              ; Publish the depth.
     CALL EX_SLOT                   ; Address the removed entry.
-    LD   A,(HL)                    ; Fetch the left operand's metadata.
-    LD   (EX_LMETA),A              ; Restore it.
-    INC  HL                        ; Step to the value word.
-    LD   E,(HL)                    ; Fetch its low byte.
-    INC  HL                        ; Step to the high byte.
-    LD   D,(HL)                    ; Fetch its high byte.
-    LD   (EX_LVAL),DE              ; Restore the left value.
-    INC  HL                        ; Step to the quiet count.
-    LD   A,(HL)                    ; Fetch the count saved at the push.
-    LD   (EX_QUIET),A              ; Restore it, ending a quiet right arm.
-    INC  HL                        ; Step to the operator.
-    LD   A,(HL)                    ; Fetch the pending operator.
-    LD   (EX_OPER),A               ; Restore it.
-    INC  HL                        ; Step to the operator offset.
-    LD   E,(HL)                    ; Fetch its low byte.
-    INC  HL                        ; Step to the high byte.
-    LD   D,(HL)                    ; Fetch its high byte.
-    LD   (EX_OPPOS),DE             ; Restore the operator's offset.
-    INC  HL                        ; HL addresses the saved position.
-    LD   (EX_LPOSP),HL             ; Keep it for a left-operand diagnostic.
+    LD   DE,EX_LMETA               ; The left's metadata and value,
+    LD   BC,6                      ; six bytes,
+    LDIR                           ; restored.
+    LD   A,(HL)                    ; The quiet count saved at the push
+    LD   (EX_QUIET),A              ; is restored, ending a quiet right arm.
+    INC  HL                        ; Then
+    LD   DE,EX_OPER                ; the operator and its offset,
+    LD   C,3                       ; three bytes (B is zero),
+    LDIR                           ; restored,
+    LD   DE,EX_LAT                 ; and the operands' first offsets,
+    LD   C,4                       ; four bytes,
+    LDIR                           ; restored.
+    POP  BC                        ; Restore BC.
     OR   A                         ; Clear carry for success.
     RET                            ; Return with both operands in place.
 EX_EPOP:                       ; A pop with nothing pushed.
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_BUG                    ; Diagnostic: internal compiler error.
 
+;@ROUTINE IN A,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Keep result A/HL as the right operand or the expression just parsed:
+; EX_RMETA, and EX_RVAL with a known value's high bytes from EX_KVAL.
+; A is returned with carry clear.
+
+EX_STASH:
+    LD   (EX_RMETA),A              ; The result's type and known flag.
+    LD   DE,EX_RVAL                ; Its value,
+    CALL EX_VKEEP                  ; meaningful when known.
+    OR   A                         ; Clear carry.
+    RET                            ; Kept.
+
+;@ROUTINE OUT A,D,HL CLOBBERS BC,DE
+; Make the expression kept by EX_STASH the latest result again: its
+; value to EX_KVAL, its low word in HL, its metadata in A and D, as
+; EX_FITS and GX_TOREG take it. Flags are kept.
+
+EX_RTOK:
+    LD   HL,EX_RVAL                ; The kept value
+    LD   DE,EX_KVAL                ; is the latest's,
+    LD   BC,5                      ; five bytes.
+    LDIR                           ; Copied.
+    LD   HL,(EX_RVAL)              ; Its low word.
+    LD   A,(EX_RMETA)              ; Its metadata,
+    LD   D,A                       ; in D too.
+    RET                            ; A, D and HL describe it.
+
 ; Range and type failure exits. None returns. A fault inside the discarded
 ; arm of a constant short circuit is reported too, as the reference
 ; compiler reports it.
 
-EX_ERNG:                       ; The latest primary is out of range.
-    LD   HL,EX_VPOS                ; Blame the latest primary's position.
+EX_ERNG:                       ; The right operand is out of range.
+    LD   HL,EX_RAT                 ; At its first token.
     JR   EX_EPOS                   ; Report it there.
 EX_ELEFT:                      ; The left operand is out of range.
-    LD   HL,(EX_LPOSP)             ; Blame the popped left operand.
-EX_EPOS:                       ; Report DG_RANGE at the position at HL.
-    LD   DE,TK_POS                 ; It becomes the diagnostic's position.
-    CALL PR_COPY                   ; Copy offset, line and column.
-EX_EBIG:                       ; Report DG_RANGE at the current token.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_RANGE                  ; Diagnostic: value out of range.
+    LD   A,DG_RANGE                ; out-of-range,
+EX_ELOP:                       ; Diagnostic A at the left operand.
+    LD   HL,EX_LAT                 ; At its first token.
+EX_EPOSA:                      ; Diagnostic A at the offset in the word at HL.
+    JP   DG_AT                     ; Reported; no return.
+EX_EPOS:                       ; Report DG_RANGE at the offset at HL.
+    LD   A,DG_RANGE                ; out-of-range,
+    JR   EX_EPOSA                  ; there.
 EX_ETYPE:                      ; An operand of the wrong type.
     CALL DG_RAISE                  ; Report it.
     DB   DG_CLASH                  ; Diagnostic: type mismatch.
-EX_EXACT:                      ; An exact value the native compiler can't hold.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_EXACT                  ; Diagnostic: native-exact.
 EX_EZERO:                      ; Division by a known zero.
     CALL DG_RAISE                  ; Report it.
     DB   DG_ZERO                   ; Diagnostic: division by zero.
-EX_ECAST:                      ; A constant too large for u8(...).
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_TRUNC                  ; Diagnostic: narrowing loses bits.
 
 ;@ROUTINE OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
 ; Zero if the pending left operand is Boolean. A returns its type.
@@ -288,7 +318,7 @@ EX_LBOOL:
     CP   SY_BOOL                   ; Is it Boolean?
     RET                            ; Return the comparison in zero.
 
-;@ROUTINE OUT A CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,CARRY
+;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Return in A the type of the declaration in progress (AC_DINFO).
 
 EX_DTYPE:
@@ -296,13 +326,43 @@ EX_DTYPE:
     AND  SY_TMASK                  ; Keep the type.
     RET                            ; Return it.
 
-;@ROUTINE OUT C,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,DE,HL
-; Resolve the width of a binary integer operation from both operands in
-; EX_LMETA/EX_LVAL and EX_RMETA/EX_RVAL, returning SY_EXACT, SY_U8 or SY_U16
-; in C with carry clear. A Boolean operand raises DG_CLASH. An exact
-; constant adopts its typed peer's type and must fit it; two exact ones
-; stay exact (the reference's foldExact). Two typed operands widen to u16 if
-; either is u16. B is preserved.
+;@ROUTINE IN A,E OUT CARRY CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY
+; Carry if scalar type A widens implicitly to scalar type E, another
+; (widens, spec 6.4): u8 to u16, i16, u32, i32 and f32; i8 to i16, i32
+; and f32; u16 to u32, i32 and f32; i16 to i32 and f32. BC, DE and HL
+; are kept.
+
+EX_WIDEN:                      ; A is the source, E the target.
+    PUSH HL                        ; Keep HL
+    PUSH BC                        ; and BC.
+    LD   HL,.TABLE                 ; The source's
+    LD   C,A                       ; row
+    LD   B,0                       ; of
+    ADD  HL,BC                     ; targets,
+    LD   A,(HL)                    ; a bit for each, bit 0 for type 1.
+    OR   A                         ; Carry clear.
+    LD   B,E                       ; Rotate the target's bit
+    INC  B                         ; into carry: E rotations,
+    DEC  B                         ; none for
+    JR   Z,.DONE                   ; SY_EXACT (carry clear).
+.ROLL:                         ; B rotations remain.
+    RRCA                           ; The next bit into carry.
+    DJNZ .ROLL                     ; Until the target's.
+.DONE:                         ; Carry is the answer.
+    POP  BC                        ; Restore BC
+    POP  HL                        ; and HL.
+    RET                            ; Carry if it widens.
+.TABLE:                        ; By source: the types it widens to.
+    DB   0,$F2,$E0,0               ; Exact, u8, u16, boolean,
+    DB   $D0,$C0,0,0,0             ; i8, i16, u32, i32, f32.
+
+;@ROUTINE OUT C,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,B,DE,HL
+; Resolve the type of a binary integer operation from both operands in
+; EX_LMETA/EX_LVAL and EX_RMETA/EX_RVAL, returning it in C with carry
+; clear: SY_EXACT when both are exact (the reference's foldExact). A
+; Boolean operand raises DG_CLASH. An exact operand adopts its typed
+; peer's type and must fit it (DG_RANGE); two typed ones take the one the
+; other widens to (commonType), or raise DG_MIXED (mixed-operands).
 
 EX_UNIFY:
     CALL EX_LBOOL                  ; Fetch the left type.
@@ -312,53 +372,57 @@ EX_UNIFY:
     AND  SY_TMASK                  ; Keep its type.
     CP   SY_BOOL                   ; Is it Boolean?
     JR   Z,EX_ETYPE                ; Booleans have no arithmetic.
-    LD   E,A                       ; E is the right type.
+    LD   C,A                       ; C is the right type.
     LD   A,D                       ; Is the left operand typed?
     OR   A                         ; Test for SY_EXACT.
-    JR   NZ,EX_LTYPE               ; Yes: resolve from the left type.
-    LD   A,E                       ; The left is exact; is the right typed?
-    OR   A                         ; Test for SY_EXACT.
-    JR   NZ,.RIGHT                 ; Yes: the left adopts the right's type.
-    LD   C,A                       ; Both exact: the result is exact too,
-    RET                            ; with carry clear (folded unwrapped).
-.RIGHT:                        ; An exact left with a typed right.
-    LD   C,E                       ; The operation takes the right's type.
-    CP   SY_U8                     ; Is it u8?
-    JR   NZ,EX_OK                  ; No: any word fits u16.
-    LD   HL,(EX_LVAL)              ; Fetch the exact left value.
-    LD   A,H                       ; Does it exceed a byte?
-    OR   A                         ; Test its high byte.
-    JR   NZ,EX_ELEFT               ; Yes: the left is out of range.
-EX_OK:                         ; Shared success return.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return the width in C.
-EX_LTYPE:                      ; A typed left; D and E are the two types.
-    LD   A,E                       ; Is the right operand typed?
-    OR   A                         ; Test for SY_EXACT.
-    JR   NZ,.BOTH                  ; Yes: combine the two types.
-    LD   C,D                       ; The exact right adopts the left's type.
-    LD   A,D                       ; Is it u8?
-    CP   SY_U8                     ; Compare with u8.
-    JR   NZ,EX_OK                  ; No: any word fits u16.
-    LD   HL,(EX_RVAL)              ; Fetch the exact right value.
-    LD   A,H                       ; Does it exceed a byte?
-    OR   A                         ; Test its high byte.
-    JP   NZ,EX_ERNG                ; Yes: the right is out of range.
-    JR   EX_OK                     ; It fits.
-.BOTH:                         ; Two typed operands.
-    LD   A,D                       ; Is the left u16?
-    CP   SY_U16                    ; Compare with u16.
-    JR   Z,.U16                    ; Yes: compute at u16.
-    LD   A,E                       ; Is the right u16?
-    CP   SY_U16                    ; Compare with u16.
-    JR   Z,.U16                    ; Yes: u8 widens implicitly.
-    LD   C,SY_U8                   ; Both are u8.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return the width.
-.U16:                          ; At least one operand is u16.
-    LD   C,SY_U16                  ; Compute at u16.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return the width.
+    JR   NZ,.LTYPE                 ; Yes: resolve from the left type.
+    OR   C                         ; Both exact, then:
+    RET  Z                         ; C is exact, carry clear.
+    LD   HL,EX_LVAL                ; The exact left
+    CALL .FITS                     ; must fit the right's type.
+    JP   C,EX_ELEFT                ; It does not: out of range.
+    RET                            ; C is the type; carry is clear.
+.LTYPE:                        ; A typed left: D is it, C the right's.
+    LD   A,C                       ; Is the right exact?
+    OR   A                         ; Then it adopts
+    LD   C,D                       ; the left's type
+    JR   NZ,.BOTH                  ; and
+    LD   HL,EX_RVAL                ; must fit it.
+    CALL .FITS                     ; Does it?
+    RET  NC                        ; Yes: C is the type, carry clear.
+    LD   A,(EX_LMETA)              ; No: out of range, blamed at the left
+    RLCA                           ; after a known left,
+    JP   C,EX_ELEFT                ; at the right
+    JP   EX_ERNG                   ; after a computed one.
+.BOTH:                         ; A is the right's type, D the left's.
+    CP   D                         ; The same?
+    RET  Z                         ; Then that one, in C, carry clear.
+    LD   C,A                       ; C is the right's.
+    LD   E,D                       ; Does the right
+    CALL EX_WIDEN                  ; widen to the left?
+    JR   C,.LEFT                   ; Then the left's.
+    LD   A,D                       ; Does the left
+    LD   E,C                       ; widen to
+    CALL EX_WIDEN                  ; the right?
+    CCF                            ; Then the right's,
+    RET  NC                        ; in C, carry clear.
+    LD   A,DG_MIXED                ; Neither: mixed-operands,
+    LD   HL,EX_RAT                 ; at the right operand.
+    JP   EX_EPOSA                  ; No return.
+.LEFT:                         ; The right widens to the left.
+    LD   C,D                       ; The left's type,
+    OR   A                         ; carry clear.
+    RET                            ; C is the type.
+
+;@ROUTINE IN C,HL OUT CARRY CLOBBERS A,DE
+; Carry when the value at HL does not fit type C. BC and HL are kept.
+
+.FITS:                         ; C is the type.
+    PUSH BC                        ; Keep it.
+    LD   A,C                       ; The type
+    CALL VL_FITS                   ; checked.
+    POP  BC                        ; C is the type.
+    RET                            ; Carry if it does not fit.
 
 ;@ROUTINE IN A,D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
 ; Check that symbol info A (also in D) names a scalar, not a type or an
@@ -383,27 +447,46 @@ EX_KNOWN:
     AND  SY_KNOWN                  ; Test its flag.
     RET                            ; Nonzero only if both are.
 
-;@ROUTINE IN C,HL OUT HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,CARRY,A
-; Reduce constant HL to width C: a u8 result keeps only its low byte.
+;@ROUTINE IN C OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,DE
+; Return the folded value in EX_KVAL as a known result of type C: an
+; exact one must lie in the exact range (DG_RANGE at the left operand,
+; foldExact), a typed one is wrapped to its type (foldTyped). A is the
+; metadata, HL the value's low word. BC is kept.
 
-EX_MASK:
-    LD   A,C                       ; Fetch the operation's width.
-    CP   SY_U8                     ; Is it u8?
-    RET  NZ                        ; No: keep all sixteen bits.
-    LD   H,0                       ; u8 constants wrap modulo 256.
-    RET                            ; Return the masked value.
+EX_FOLD:
+    PUSH BC                        ; Keep the type.
+    LD   HL,EX_KVAL                ; The value:
+    LD   A,C                       ; exact,
+    OR   A                         ; or
+    JR   NZ,.WRAP                  ; typed?
+    CALL VL_RANGE                  ; Exact: in range?
+    JP   C,EX_ELEFT                ; No: out of range.
+    JR   .DONE                     ; It is.
+.WRAP:                         ; Typed: wrapped
+    CALL VL_WRAP                   ; to its type.
+.DONE:                         ; The value is the result.
+    POP  BC                        ; C is the type.
+    LD   HL,(EX_KVAL)              ; Its low word.
+    LD   A,C                       ; Its type,
+    OR   SY_KNOWN                  ; known; carry is clear.
+    RET                            ; The result.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
-; Reduce the integer operation EX_OPER (the token of +, -, *, /, mod, and,
-; or or xor) on the popped operands at the unified width. Known operands
-; fold, wrapping at a typed width; an exact result that leaves 0..65535 is
-; refused with DG_RANGE, since the native compiler folds in sixteen bits
-; where the reference's exact values reach 32. Otherwise the reference's
-; code for the operation is generated (GX_BINOP). A known zero divisor
-; raises DG_ZERO even when the dividend is run-time.
+; Reduce the integer operation EX_OPER (the token of +, -, *, /, mod,
+; and, or, xor, shl or shr) on the popped operands at the unified type
+; (binary). Known operands fold (VALUE.ASM): exact ones exactly, refused
+; outside the exact range, typed ones wrapping at their type; a known zero
+; divisor raises DG_ZERO, at the right after a computed left, as the
+; reference reports it. Otherwise the reference's code for the operation
+; is generated (GX_BINOP). Shifts are EX_SHIFT's.
 
 EX_ARITH:
-    CALL EX_UNIFY                  ; Check the operands; C is the width.
+    LD   A,(EX_OPER)               ; A shift?
+    CP   TK_SHL                    ; shl
+    JP   Z,EX_SHIFT                ; and
+    CP   TK_SHR                    ; shr
+    JP   Z,EX_SHIFT                ; take their own rules.
+    CALL EX_UNIFY                  ; Check the operands; C is the type.
     LD   A,(EX_OPER)               ; Fetch the operator token.
     CP   TK_SLASH                  ; Division?
     JR   Z,.DIVIDES                ; Its divisor may not be a known zero.
@@ -412,24 +495,34 @@ EX_ARITH:
 .DIVIDES:                      ; A division or remainder.
     LD   A,(EX_RMETA)              ; Is the divisor known?
     AND  SY_KNOWN                  ; Test its flag.
-    JR   Z,.CHECKED                ; No: DIV16 checks it at run time.
-    LD   HL,(EX_RVAL)              ; Fetch the known divisor.
-    LD   A,H                       ; Is it zero?
-    OR   L                         ; Test both bytes.
-    JP   Z,EX_EZERO                ; Yes: report it.
+    JR   Z,.CHECKED                ; No: the helper checks it at run time.
+    LD   HL,EX_RVAL                ; The known divisor:
+    LD   B,5                       ; all five bytes
+    XOR  A                         ; ored
+.ZERO:                         ; together
+    OR   (HL)                      ; are zero
+    INC  HL                        ; for
+    DJNZ .ZERO                     ; zero.
+    JR   NZ,.CHECKED               ; It is not.
+    LD   A,(EX_LMETA)              ; A known left
+    RLCA                           ; folds, blamed
+    LD   A,DG_ZERO                 ; at the left;
+    JP   C,EX_ELOP                 ; a computed one
+    LD   HL,EX_RAT                 ; at the divisor.
+    JP   EX_EPOSA                  ; No return.
 .CHECKED:                      ; The operands are acceptable.
     CALL EX_KNOWN                  ; Are both known?
     JR   NZ,.FOLD                  ; Then fold them.
-    PUSH BC                        ; Keep the width.
+    PUSH BC                        ; Keep the type.
     CALL GX_BINOP                  ; Generate the operation.
-    POP  BC                        ; C is the width.
+    POP  BC                        ; C is the type.
     LD   A,C                       ; A run-time result of that type.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
 .FOLD:                         ; Both are known: compute the result.
-    LD   HL,(EX_LVAL)              ; HL is the left value.
-    LD   DE,(EX_RVAL)              ; DE is the right value.
-    LD   A,(EX_OPER)               ; Fetch the operator token.
+    PUSH BC                        ; Keep the type.
+    LD   A,(EX_OPER)               ; The operator:
+    LD   C,A                       ; kept in C.
     CP   TK_PLUS                   ; Addition?
     JR   Z,.PLUS                   ; Fold it.
     CP   TK_MINUS                  ; Subtraction?
@@ -440,83 +533,171 @@ EX_ARITH:
     JR   Z,.DIVMOD                 ; Fold it.
     CP   TK_MOD                    ; Remainder?
     JR   Z,.DIVMOD                 ; Fold it.
-    LD   B,A                       ; Bitwise: keep the operator.
-    LD   A,L                       ; The low bytes first.
-    CALL .BITS                     ; Combine them.
-    LD   L,A                       ; The low result.
-    LD   A,H                       ; Then the high bytes:
-    LD   E,D                       ; D is the right's.
-    CALL .BITS                     ; Combine them.
-    LD   H,A                       ; The high result.
-    JR   .CONST                    ; Mask to the width and return.
+    POP  DE                        ; Bitwise: the type
+    PUSH DE                        ; is E.
+    LD   A,E                       ; Exact operands
+    OR   A                         ; must be
+    JR   NZ,.BITS                  ; from 0 to 2^32-1:
+    LD   A,(EX_LVAL+4)             ; both
+    LD   HL,EX_RVAL+4              ; top
+    OR   (HL)                      ; bytes
+    JP   NZ,EX_ELEFT               ; zero (out-of-range).
+.BITS:                         ; C is the operator.
+    CALL VL_BITS                   ; Combined.
+    JR   .DONE                     ; The result.
 .PLUS:                         ; Addition.
-    ADD  HL,DE                     ; Fold modulo 65536.
-    JR   .CARRY                    ; Carry means an exact value too large.
+    CALL VL_ADD                    ; r = a + b.
+    JR   .DONE                     ; The result.
 .MINUS:                        ; Subtraction.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Fold modulo 65536.
-    JR   .CARRY                    ; Borrow means an exact value below zero.
+    CALL VL_SUB                    ; r = a - b.
+    JR   .DONE                     ; The result.
 .TIMES:                        ; Multiplication.
-    PUSH BC                        ; Keep the width.
-    CALL EX_TIMES                  ; HL is the product, carry if it overflowed.
-    POP  BC                        ; C is the width; POP keeps the carry.
-.CARRY:                        ; Carry if the result left 0..65535.
-    JR   NC,.CONST                 ; It did not.
-    LD   A,C                       ; Is the width exact?
-    OR   A                         ; Typed widths wrap.
-    JR   NZ,.CONST                 ; Keep the wrapped value.
-    JP   EX_EXACT                  ; An exact value beyond 16 bits: refuse it.
+    CALL VL_MUL                    ; r = a times b, carry past 32 bits.
+    POP  BC                        ; The type.
+    PUSH BC                        ; Kept.
+    JR   NC,.DONE                  ; No carry: the product.
+    LD   A,C                       ; An exact product
+    OR   A                         ; that carried
+    JP   Z,EX_ELEFT                ; is out of range.
+    JR   .DONE                     ; A typed one wraps.
 .DIVMOD:                       ; Division and remainder.
-; The divisor check above proves DE nonzero here. Constant unsigned
-; division uses a bounded subtraction loop.
-    PUSH BC                        ; Keep the width in C.
-    LD   BC,0                      ; Clear the quotient.
-.DIVLOOP:                      ; Subtract the divisor once more.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Take the divisor from the remainder.
-    JR   C,.DIVDONE                ; A borrow means it no longer fits.
-    INC  BC                        ; Count one more in the quotient.
-    JR   .DIVLOOP                  ; Continue.
-.DIVDONE:                      ; The last subtraction overshot.
-    ADD  HL,DE                     ; Restore the remainder.
-    LD   A,(EX_OPER)               ; Which result is wanted?
-    CP   TK_MOD                    ; The remainder?
-    JR   Z,.RESULT                 ; Yes: it is in HL.
-    LD   H,B                       ; No: return the quotient...
-    LD   L,C                       ; ...in HL.
-.RESULT:                       ; HL is the folded result.
-    POP  BC                        ; Restore the width.
-.CONST:                        ; HL is a known result of width C.
-    CALL EX_MASK                   ; Wrap it to the width.
-    LD   A,C                       ; The result has the width's type...
-    OR   SY_KNOWN                  ; ...and is known; carry is clear.
-    RET                            ; Return it.
+    CALL VL_DIV                    ; r = a / b, or a mod b.
+.DONE:                         ; EX_KVAL is the result.
+    POP  BC                        ; C is the type.
+    JP   EX_FOLD                   ; Check or wrap it; return.
 
-;@ROUTINE IN A,B,E OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Combine byte A with byte E by the bitwise operator B: `and`, `or` or
-; `xor`.
+;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
+; Reduce shl or shr (EX_OPER) on the popped operands, the left's type the
+; result's (binary, emitShift): an exact left with an exact count folds
+; exactly (a negative count, or a result outside the exact range, is
+; out-of-range), and with any other count has no definite type; a typed
+; known left with a known count folds at its type (a negative count is
+; type-mismatch); a computed left was pushed, and is shifted by a known
+; count, which must be an unsigned integer (GX_SHBY, at most the width),
+; or by a computed one, an unsigned integer (GX_SHVAR). Each diagnostic
+; blames the left operand.
 
-.BITS:                         ; A and E are bytes, B the operator.
-    PUSH BC                        ; Keep the caller's BC.
-    LD   C,A                       ; Keep the left byte.
-    LD   A,B                       ; Which operator?
-    CP   TK_AND                    ; `and`?
-    LD   A,C                       ; The left byte again.
-    JR   Z,.AND                    ; And it.
-    LD   A,B                       ; `xor`?
-    CP   TK_XOR                    ; Or `or`.
-    LD   A,C                       ; The left byte again.
-    JR   Z,.XOR                    ; Exclusive or.
-    OR   E                         ; `or`.
-    JR   .BITDONE                  ; Done.
-.AND:                          ; `and`.
-    AND  E                         ; Combine.
-    JR   .BITDONE                  ; Done.
-.XOR:                          ; `xor`.
-    XOR  E                         ; Combine.
-.BITDONE:                      ; A is the result.
-    POP  BC                        ; Restore BC.
+EX_SHIFT:
+    CALL EX_LBOOL                  ; The left's type:
+    JP   Z,.MISMATCH               ; a Boolean is no number.
+    LD   C,A                       ; C is the left's type.
+    LD   A,(EX_LMETA)              ; Is the left
+    RLCA                           ; known?
+    JR   NC,.EMIT                  ; No: the code shifts it.
+    LD   A,(EX_RMETA)              ; A known left:
+    RLCA                           ; the count must be known.
+    JP   NC,.NOTYPE                ; It is not.
+    LD   A,C                       ; Exact,
+    OR   A                         ; or typed?
+    JR   NZ,.TYPED                 ; Typed: foldTyped.
+    LD   A,(EX_RMETA)              ; Exact: an exact count
+    AND  SY_TMASK                  ; too,
+    JP   NZ,.NOTYPE                ; or no definite type.
+    CALL .COUNT                    ; B is the count, below zero raises
+    JP   C,EX_ELEFT                ; out-of-range.
+    JR   .FOLD                     ; Fold it.
+.TYPED:                        ; A typed left with a known count.
+    CALL .COUNT                    ; B is the count; below zero
+    JP   C,.MISMATCH               ; is a type mismatch.
+.FOLD:                         ; B is the count, at most 40; C the type.
+    PUSH BC                        ; Keep them.
+    CALL VL_LTOK                   ; r = a.
+    POP  BC                        ; The count and the type.
+    INC  B                         ; Plus one, for the loop's test.
+.BIT:                          ; B bits remain, plus one.
+    DEC  B                         ; Any?
+    JP   Z,EX_FOLD                 ; No: the result; return.
+    PUSH BC                        ; Keep the count and the type.
+    LD   A,(EX_OPER)               ; shl?
+    CP   TK_SHL                    ; Then
+    JR   NZ,.HALVE                 ; a doubling,
+    CALL VL_SHL                    ; r times two:
+    LD   A,C                       ; exact,
+    OR   A                         ; it must stay
+    JR   NZ,.NEXT                  ; in range at every step.
+    LD   HL,EX_KVAL                ; Does it?
+    CALL VL_RANGE                  ; No:
+    JP   C,EX_ELEFT                ; out-of-range.
+    JR   .NEXT                     ; The next bit.
+.HALVE:                        ; shr: r halved, rounding down.
+    CALL VL_SAR                    ; As floor division by two.
+.NEXT:                         ; One bit is done.
+    POP  BC                        ; The count and the type.
+    JR   .BIT                      ; The next.
+.EMIT:                         ; A computed left, pushed.
+    LD   A,(EX_RMETA)              ; The count:
+    LD   D,A                       ; its metadata.
+    AND  SY_TMASK                  ; Its type,
+    LD   E,A                       ; in E,
+    CP   SY_BOOL                   ; not a Boolean,
+    JP   Z,.MISMATCH               ; and
+    CALL GX_PROP                   ; unsigned
+    RLCA                           ; (an exact count
+    JP   C,.MISMATCH               ; has no sign).
+    BIT  7,D                       ; A known count?
+    JR   Z,.VARIABLE               ; No: shifted in a loop.
+    PUSH BC                        ; Keep the type.
+    LD   A,C                       ; The left
+    CALL GX_POPV                   ; is popped.
+    CALL .COUNT                    ; B is the count; below zero
+    JP   C,.MISMATCH               ; is a type mismatch.
+    POP  DE                        ; E is the type.
+    PUSH DE                        ; Kept.
+    LD   A,E                       ; The width
+    CALL GX_PROP                   ; in bits:
+    AND  7                         ; eight
+    ADD  A,A                       ; times
+    ADD  A,A                       ; the
+    ADD  A,A                       ; size.
+    CP   B                         ; Below the count?
+    JR   NC,.SHIFT                 ; No: the count.
+    LD   B,A                       ; Yes: the width.
+.SHIFT:                        ; B is the count to shift by.
+    POP  DE                        ; E is the type.
+    PUSH DE                        ; Kept.
+    LD   A,B                       ; The count,
+    LD   C,E                       ; the type:
+    CALL GX_SHBY                   ; shifted.
+    JR   .TYPE                     ; The result.
+.VARIABLE:                     ; A computed count.
+    PUSH BC                        ; Keep the type.
+    CALL GX_SHVAR                  ; Shifted in a loop.
+.TYPE:                         ; The result is the left's type.
+    POP  BC                        ; C is it.
+    LD   A,C                       ; A run-time result.
+    OR   A                         ; Clear carry.
     RET                            ; Return it.
+.MISMATCH:                     ; A count or a left of the wrong type:
+    LD   A,DG_CLASH                ; type-mismatch,
+    JP   EX_ELOP                   ; at the left.
+.NOTYPE:                       ; An exact left needs a type:
+    LD   A,DG_INFER                ; no-definite-type,
+    JP   EX_ELOP                   ; at the left.
+
+;@ROUTINE OUT B,CARRY CLOBBERS A,HL
+; The known count in EX_RVAL, for a fold or a shift: carry when it is
+; negative, otherwise B, at most 40, beyond which every shift is the same.
+
+.COUNT:                        ; The count is EX_RVAL.
+    LD   HL,EX_RVAL+4              ; Its top byte:
+    LD   A,(HL)                    ; negative?
+    RLA                            ; Then
+    RET  C                         ; carry.
+    LD   B,40                      ; At most 40:
+    DEC  HL                        ; any of
+    OR   (HL)                      ; its three
+    DEC  HL                        ; higher
+    OR   (HL)                      ; bytes
+    DEC  HL                        ; makes
+    OR   (HL)                      ; it more,
+    RET  NZ                        ; carry clear.
+    DEC  HL                        ; Otherwise its low byte
+    LD   A,(HL)                    ; is it,
+    CP   B                         ; unless
+    RET  NC                        ; more than 40.
+    LD   B,A                       ; B is the count;
+    OR   A                         ; carry clear.
+    RET                            ; Done.
 
 ;@ROUTINE IN DE,HL OUT HL,CARRY CLOBBERS A,BC,DE,ZERO,SIGN,PARITY,HALFCARRY
 ; Multiply HL by DE modulo 65536, with carry when the true product does

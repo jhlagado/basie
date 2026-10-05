@@ -21,7 +21,7 @@
 ;    SY_CMT    commit the provisional symbol
 ;    SY_GET    return the current NAME's class/type and payload, or fail
 ;
-;  A record is seven bytes (SY_RECB), and the table holds SY_CAP (96):
+;  A record is nine bytes (SY_RECB), and the table holds SY_CAP (96):
 ;
 ;    +0  word  address of the name's spelling in the resident source
 ;    +2  byte  length of the spelling
@@ -30,7 +30,9 @@
 ;    +4  word  payload: a constant's value, the blob ordinal of a program
 ;              variable or aggregate constant, a local's or parameter's
 ;              offset from IX (negative for a local)
-;    +6  byte  an aggregate's type ordinal (SY_TAG)
+;    +6  byte  an aggregate's type ordinal (SY_TAG); for a scalar constant,
+;              +6..+8 are its value's three high bytes (SY_VHI), the
+;              payload its low word
 ;
 ;  The source stays resident through compilation, so a record points at the
 ;  spelling instead of copying it. A declaration is written in two steps:
@@ -119,7 +121,7 @@ SY_FIND:
     RET                            ; Return to the declaration or lookup.
 
 ;@ROUTINE IN A OUT HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Address record A in HL: SY_BASE plus seven times A. A, BC and DE are
+; Address record A in HL: SY_BASE plus nine times A. A, BC and DE are
 ; kept.
 
 SY_AT:
@@ -130,8 +132,8 @@ SY_AT:
     LD   E,L                       ; is DE.
     ADD  HL,HL                     ; Times two,
     ADD  HL,HL                     ; four,
-    ADD  HL,HL                     ; eight; carry is clear.
-    SBC  HL,DE                     ; Less one: times seven, the record size.
+    ADD  HL,HL                     ; eight,
+    ADD  HL,DE                     ; plus one: times nine, the record size.
     LD   DE,SY_BASE                ; The table's base
     ADD  HL,DE                     ; plus the offset.
     POP  DE                        ; Restore DE.

@@ -23,6 +23,8 @@
 ;    CT_GUARD  reject a write to an active for counter
 ;    CT_NOTE   record that the current if arm falls through
 ;    CT_STEP   parse a for loop's constant step
+;    CT_TYPE   a for loop's counter's type from its mode
+;    CT_TEST   compare a for loop's counter with its bound
 ;    CT_WIDE   load a for loop's counter widened to a word
 ;    CT_BOUND  load a for loop's bound into DE
 ;    CT_PAST   leave a for loop when the last comparison says so
@@ -42,8 +44,10 @@
 ;                  enclosing block ends, as the reference's allocLocal does)
 ;    CT_FMODE  +7  if: bit 0 an arm falls through, bit 1 it has an else;
 ;                  for: CT_MINC to (inclusive), CT_MDOWN a negative step,
-;                  CT_MWORD a u16 counter; handle: the temporaries' bytes
-;                  pushed beneath the failing call
+;                  CT_MWORD a word counter, CT_MSIGN a signed one,
+;                  CT_MCMPS a signed comparison, CT_MALL and CT_MNONE an
+;                  exact bound beyond the comparison's type; handle: the
+;                  temporaries' bytes pushed beneath the failing call
 ;    CT_FVAR   +8  for: word, the counter's offset from IX
 ;    CT_FBND   +10 for: word, the bound's offset from IX
 ;    CT_FSTEP  +12 for: word, the step's magnitude
@@ -323,7 +327,7 @@ CT_STEP:
     PUSH BC                        ; Keep the direction.
     CALL PR_TAKE                   ; A is its kind, BC its payload.
     CP   TK_NUM                    ; A literal number?
-    JR   Z,.NUMBER                 ; Its value is in BC.
+    JR   Z,.LITERAL                ; Its value is in BC.
     CP   TK_NAME                   ; A name?
     JR   NZ,CT_ESTEP               ; Anything else is not a step.
     CALL RO_LIB                    ; Is it a predeclared name?
@@ -341,9 +345,22 @@ CT_STEP:
     AND  SY_TYPE+SY_AGGR+SY_CMASK  ; A constant has none of these:
     JR   NZ,CT_ESTEP               ; a type, aggregate or variable.
     LD   A,D                       ; Its type
-    AND  SY_TMASK                  ; is exact, u8 or u16,
+    AND  SY_TMASK                  ; is an integer's,
     CP   SY_BOOL                   ; not Boolean.
     JR   Z,CT_ESTEP                ; A Boolean is no step.
+    INC  HL                        ; Its value's high bytes (SY_VHI):
+    LD   A,(HL)                    ; any
+    INC  HL                        ; is
+    OR   (HL)                      ; beyond
+    INC  HL                        ; any counter
+    OR   (HL)                      ; here, or negative,
+    JR   NZ,CT_ESTEP               ; no step.
+    JR   .NUMBER                   ; BC is the value.
+.LITERAL:                      ; A number:
+    LD   HL,(TK_NHI)               ; beyond sixteen bits
+    LD   A,H                       ; it fits
+    OR   L                         ; no counter here,
+    JR   NZ,CT_ESTEP               ; no step.
 .NUMBER:                       ; BC holds the value.
     LD   D,B                       ; Move it
     LD   E,C                       ; to DE.
@@ -367,10 +384,55 @@ CT_EVAR:
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_COUNT                  ; Bad counter.
 
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Return in A the counter's type from for mode A, its CT_MWORD and
+; CT_MSIGN: u8, u16, i8 or i16. HL is kept.
+
+CT_TYPE:
+    PUSH HL                        ; Keep HL.
+    AND  CT_MWORD+CT_MSIGN         ; The two bits,
+    RRCA                           ; as
+    RRCA                           ; an index,
+    LD   HL,.TABLE                 ; into
+    ADD  A,L                       ; the
+    LD   L,A                       ; types
+    ADC  A,H                       ; by
+    SUB  L                         ; mode,
+    LD   H,A                       ; select
+    LD   A,(HL)                    ; one.
+    POP  HL                        ; Restore HL.
+    RET                            ; A is it.
+.TABLE:                        ; By CT_MWORD and CT_MSIGN:
+    DB   SY_U8,SY_U16,SY_I8,SY_I16 ; byte, word, signed byte, signed word.
+
+;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Compare the counter of the innermost frame, a for loop, with its bound
+; (CT_WIDE, CT_BOUND), leaving carry when the counter is below and zero
+; when they are equal (compare16ToFlags): a signed comparison (CT_MCMPS)
+; flips both sign bits first, LD A,H, XOR $80, LD H,A, LD A,D, XOR $80,
+; LD D,A; then OR A, SBC HL,DE. A returns the frame's mode.
+
+CT_TEST:
+    CALL CT_WIDE                   ; HL is the counter, A the mode.
+    PUSH AF                        ; Keep the mode.
+    CALL CT_BOUND                  ; DE is the bound.
+    POP  AF                        ; The mode:
+    PUSH AF                        ; (kept)
+    AND  CT_MCMPS                  ; a signed comparison?
+    JR   Z,.SBC                    ; No.
+    CALL EM_SEQ                    ; Flip both sign bits:
+    DB   8,$7C,$EE,$80,$67,$7A,$EE,$80,$57 ; H's and D's.
+.SBC:                          ; Then subtract:
+    CALL EM_SEQ                    ; OR A, SBC HL,DE: carry when the
+    DB   3,$B7,$ED,$52             ; counter is below, zero when equal.
+    POP  AF                        ; The mode.
+    RET                            ; Compared.
+
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load the counter of the innermost frame, a for loop, into HL widened to
-; a word (loadCounterWide): a u16 is loaded, a u8 loaded and zero
-; extended. A returns the frame's mode.
+; a word (loadCounterWide): a word is loaded; a byte is loaded, LD L,A,
+; then sign-extended, LD A,L, RLCA, SBC A,A, LD H,A, or not, LD H,0. A
+; returns the frame's mode.
 
 CT_WIDE:
     LD   B,CT_FMODE                ; The mode, then the counter's offset.
@@ -382,18 +444,27 @@ CT_WIDE:
     LD   D,(HL)                    ; offset.
     PUSH AF                        ; Keep the mode to return.
     EX   DE,HL                     ; HL is the offset.
-    AND  CT_MWORD                  ; A u16 counter?
-    LD   A,SY_U16                  ; Load a word.
-    JR   NZ,.LOAD                  ; It is one.
-    DEC  A                         ; Load a byte,
-    CALL GX_FLOAD                  ; A = (IX+d),
-    CALL GX_WIDEN                  ; then LD L,A / LD H,0.
+    CALL CT_TYPE                   ; The counter's type:
+    PUSH AF                        ; (kept)
+    CALL GX_FLOAD                  ; loaded, a byte into A.
+    POP  AF                        ; A word
+    CALL GX_SIZE                   ; is
+    JR   NC,.DONE                  ; in HL;
+    CALL EM_OP                     ; a byte
+    DB   $6F                       ; LD L,A,
+    POP  AF                        ; then
+    PUSH AF                        ; by its
+    AND  CT_MSIGN                  ; sign:
+    JR   NZ,.SIGNED                ; extended,
+    CALL EM_SEQ                    ; or
+    DB   2,$26,0                   ; LD H,0.
+    JR   .DONE                     ; Loaded.
+.SIGNED:                       ; LD A,L, RLCA, SBC A,A, LD H,A:
+    CALL EM_SEQ                    ; the sign
+    DB   4,$7D,$07,$9F,$67         ; in H.
+.DONE:                         ; HL is the counter.
     POP  AF                        ; The mode.
-    RET                            ; HL is the counter.
-.LOAD:                         ; A is SY_U16.
-    CALL GX_FLOAD                  ; HL = the counter.
-    POP  AF                        ; The mode.
-    RET                            ; HL is the counter.
+    RET                            ; Done.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load the bound of the innermost frame, a for loop, into DE (ixWord to

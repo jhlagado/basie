@@ -20,6 +20,10 @@
 ;    EX_SUB    parse a nested expression with its own expected type
 ;    EX_STORE  store a result into a variable
 ;    EX_OPEN   keep the left operand of `and`, `or` or `xor`
+;    EX_INNER  parse a nested expression, keeping the operands' offsets
+;    EX_SHAPE  type or load a shift's left operand before its count
+;    EX_PEEKX, EX_PEEKC  whether the next operand is certainly exact, or
+;              certainly a constant
 
 ; Integer *, / and mod bind tighter than + and -, which bind tighter than
 ; comparisons. B is the minimum precedence: 0 comparison, 1 additive, 2
@@ -40,6 +44,9 @@ EX_CMP:
 
 EX_CLIMB:
     PUSH BC                        ; Keep the minimum precedence.
+    LD   A,(EX_PRIME)              ; Unless the first primary is parsed,
+    OR   A                         ; the left operand's
+    CALL Z,EX_LHS                  ; first token is next.
     CALL EX_UNARY                  ; Parse the leftmost operand.
     POP  BC                        ; Recover the minimum precedence.
 EX_RISE:                       ; A/HL is the left operand so far.
@@ -68,6 +75,10 @@ EX_LOOK:                       ; Is the next token a binary operator?
     JR   Z,.MULPREC                ; Multiplicative.
     CP   TK_MOD                    ; Remainder?
     JR   Z,.MULPREC                ; Multiplicative.
+    CP   TK_SHL                    ; Shifts
+    JR   Z,.MULPREC                ; are
+    CP   TK_SHR                    ; multiplicative
+    JR   Z,.MULPREC                ; too.
     POP  BC                        ; Recover the minimum precedence.
     LD   D,A                       ; Keep the token.
     LD   A,B                       ; Comparisons are allowed only at level 0.
@@ -99,10 +110,14 @@ EX_LOOK:                       ; Is the next token a binary operator?
     CALL PR_TAKE                   ; Consume the operator.
     LD   HL,(TK_POS)               ; Its offset locates its diagnostics...
     LD   (EX_OPPOS),HL             ; ...and any run-time trap.
+    CALL PR_PEEK                   ; The right operand's
+    LD   HL,(TK_POS)               ; first token
+    LD   (EX_RAT),HL               ; (rightAt).
     POP  DE                        ; D is the minimum, E the right level.
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
     PUSH DE                        ; Keep the levels across the push.
+    CALL EX_SHAPE                  ; A shift's left takes a type or loads.
     CALL EX_SAVE                   ; Push the left operand and operator.
     LD   A,(EX_LMETA)              ; A computed left operand
     CALL GX_PUSH                   ; is pushed while the right is computed.
@@ -194,17 +209,8 @@ EX_LOOK:                       ; Is the next token a binary operator?
     LD   A,SY_BOOL                 ; A run-time Boolean.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
-.FOLD:                         ; Both known: order them, unsigned.
-    LD   HL,(EX_LVAL)              ; Fetch the left value.
-    LD   DE,(EX_RVAL)              ; Fetch the right value.
-    OR   A                         ; Clear carry for the comparison.
-    SBC  HL,DE                     ; Compare them.
-    LD   B,2                       ; Equal: bit 1.
-    JR   Z,.ORDERED                ; Equal.
-    LD   B,1                       ; Less: bit 0.
-    JR   C,.ORDERED                ; Less.
-    LD   B,4                       ; Greater: bit 2.
-.ORDERED:                      ; B is the ordering's bit.
+.FOLD:                         ; Both known: order them.
+    CALL VL_CMP                    ; B is the ordering's bit.
     LD   A,(EX_OPER)               ; The relation
     LD   E,A                       ; indexes
     LD   D,0                       ; the table of
@@ -216,17 +222,17 @@ EX_LOOK:                       ; Is the next token a binary operator?
     JR   Z,.CONST                  ; unless it is:
     INC  L                         ; then true.
 .CONST:                        ; HL is the folded Boolean.
-    LD   A,SY_KNOWN+SY_BOOL        ; A known Boolean.
-    OR   A                         ; Clear carry.
-    RET                            ; Return it.
+    LD   B,SY_KNOWN+SY_BOOL        ; A known Boolean.
+    JP   EX_LIT                    ; Return it.
 .TRUE:                         ; By relation: bit 0 less, 1 equal, 2 greater.
     DB   2,5,1,3,4,6               ; = <> < <= > >=.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a `not` expression: Boolean negation or an integer's bitwise
-; complement (GX_NOT), folded when the operand is known. An exact operand
-; takes the expected type, u8 or u16; with neither expected it has no type
-; and is refused (DG_CLASH).
+; complement (GX_NOT), folded when the operand is known, a typed integer
+; wrapped at its type. An exact operand takes the expected type when it
+; is an integer, and must fit it (out-of-range); with none it has no
+; definite type (no-definite-type), both at `not` (spec 9.12).
 ; `not` binds below comparisons and above `and`, so `not a = b` negates
 ; the comparison.
 
@@ -235,48 +241,56 @@ EX_NOT:
     CP   TK_NOT                    ; Is it `not`?
     JP   NZ,EX_CMP                 ; No: parse a comparison-level operand.
     CALL PR_TAKE                   ; Consume `not`.
+    LD   HL,(TK_POS)               ; Its offset,
+    PUSH HL                        ; for its diagnostics.
     CALL EX_NOT                    ; Parse its operand, `not` included.
-    LD   D,A                       ; Keep the operand's metadata.
+    POP  DE                        ; DE is `not`'s offset.
+    LD   B,A                       ; Keep the operand's metadata.
     AND  SY_TMASK                  ; Keep its type,
     LD   C,A                       ; the result's.
     JR   NZ,.TYPED                 ; A typed operand keeps it.
     LD   A,(EX_WANT)               ; An exact one takes the expected type,
-    LD   C,A                       ; which must be an integer (spec 9.12).
-    CP   SY_U16                    ; A u16?
-    JR   Z,.TYPED                  ; Complement it as a word.
-    CP   SY_U8                     ; A u8?
-    JP   NZ,EX_ETYPE               ; Neither: the value has no type.
-    LD   A,H                       ; A u8: the constant
-    OR   A                         ; must fit a byte.
-    JP   NZ,EX_ERNG                ; It does not.
-.TYPED:                        ; C is the result's type.
-    BIT  7,D                       ; SY_KNOWN: is the operand known?
+    LD   C,A                       ; which must be an integer:
+    CALL GX_PROP                   ; a size,
+    BIT  6,A                       ; neither
+    JR   NZ,.NODEF                 ; Boolean nor f32,
+    AND  7                         ; and not
+    JR   Z,.NODEF                  ; exact itself.
+    PUSH DE                        ; Keep the offset.
+    LD   A,C                       ; The value
+    LD   HL,EX_KVAL                ; must fit
+    PUSH BC                        ; (kept)
+    CALL VL_FITS                   ; the type.
+    POP  BC                        ; The metadata and type.
+    POP  HL                        ; The offset:
+    LD   A,DG_RANGE                ; out-of-range
+    JP   C,DG_HERE                 ; at `not`.
+.TYPED:                        ; C is the result's type, B the metadata.
+    BIT  7,B                       ; SY_KNOWN: is the operand known?
     JR   NZ,.FOLD                  ; Yes: fold it.
-    CALL GX_NOT                    ; Complement A or HL.
+    PUSH BC                        ; Keep the type.
+    CALL GX_NOT                    ; Complement the registers.
+    POP  BC                        ; C is the type.
     LD   A,C                       ; A run-time result of type C.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
-.FOLD:                         ; HL is the known operand.
+.FOLD:                         ; EX_KVAL is the known operand.
     LD   A,C                       ; A Boolean?
     CP   SY_BOOL                   ; It flips.
     JR   NZ,.INTCONST              ; An integer complements.
-    LD   A,L                       ; Fetch the truth value.
-    XOR  1                         ; Negate it.
-    LD   L,A                       ; Keep the low result.
-    LD   H,0                       ; Booleans have a zero high byte.
-    JR   .CONST                    ; Return it.
+    LD   A,(EX_KVAL)               ; Its truth value
+    XOR  1                         ; negated,
+    LD   L,A                       ; as
+    LD   H,0                       ; a word,
+    LD   B,SY_KNOWN+SY_BOOL        ; a known Boolean.
+    JP   EX_LIT                    ; Return it.
 .INTCONST:                     ; Complement a known integer.
-    LD   A,L                       ; Fetch the low byte.
-    CPL                            ; Complement it.
-    LD   L,A                       ; Keep the low result.
-    LD   A,H                       ; Fetch the high byte.
-    CPL                            ; Complement it.
-    LD   H,A                       ; Keep the high result.
-    CALL EX_MASK                   ; Wrap it to the width.
-.CONST:                        ; HL is the folded result.
-    LD   A,C                       ; It has type C...
-    OR   SY_KNOWN                  ; ...and is known.
-    RET                            ; Return it with carry clear.
+    CALL VL_NOT                    ; Every bit,
+    JP   EX_FOLD                   ; wrapped to the type; return.
+.NODEF:                        ; No integer type is expected:
+    EX   DE,HL                     ; at `not`,
+    LD   A,DG_INFER                ; no-definite-type.
+    JP   DG_HERE                   ; No return.
 
 ; Boolean `and` and `or` short-circuit: after a computed left operand, OR A
 ; and a jump over the right operand to a label (GX_SKIP), which is defined
@@ -325,6 +339,7 @@ EX_PARSE:
 ; perhaps parsed already (EX_PRIME).
 
 EX_PFROM:
+    LD   (EX_LAT),HL               ; The first operand's offset (leftAt).
     PUSH HL                        ; The offset, kept across the parse.
     CALL EX_LOR                    ; A and HL are the result.
     EX   (SP),HL                   ; HL is the offset, the value kept.
@@ -385,6 +400,12 @@ EX_ORINT:                      ; Integer `or` or `xor`.
 ; (EX_MUTE).
 
 EX_OPEN:
+    PUSH AF                        ; Keep the left
+    PUSH HL                        ; operand.
+    CALL EX_LHS                    ; The token after the operator is
+    LD   (EX_RAT),HL               ; both operands' place (binary's at).
+    POP  HL                        ; The left
+    POP  AF                        ; operand.
     LD   D,A                       ; Keep the metadata.
     AND  SY_TMASK                  ; Its type.
     CP   SY_BOOL                   ; A Boolean?
@@ -448,7 +469,7 @@ EX_LOGIC:
     RLCA                           ; SY_KNOWN into carry.
     JR   C,.KNOWN                  ; Yes: it decided, or the right does.
     LD   HL,(EX_RVAL)              ; The right's value, if known,
-    CALL GX_TOREG                  ; comes into A.
+    CALL GX_TOREG                  ; comes into A (a byte: EX_KVAL unread).
     LD   A,(EX_LVAL)               ; The short circuit's label
     CALL EM_LDEF                   ; is here,
     LD   A,(EX_LVAL)               ; and nothing names it again:
@@ -465,20 +486,22 @@ EX_LOGIC:
     XOR  1                         ; `or`: one decides.
 .DECIDE:                       ; A is zero when the left decides.
     OR   A                         ; Did it?
-    LD   A,SY_KNOWN+SY_BOOL        ; Then the result is the known left.
-    RET  Z                         ; HL is it; carry is clear.
-    LD   A,D                       ; Otherwise the right,
+    LD   B,SY_KNOWN+SY_BOOL        ; Then the result is the known left,
+    JP   Z,EX_LIT                  ; HL; return it.
+    LD   B,D                       ; Otherwise the right,
     LD   HL,(EX_RVAL)              ; known or computed.
-    RET                            ; Carry is clear.
+    JP   EX_LIT                    ; Return it.
 
-;@ROUTINE IN A,E,HL OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
+;@ROUTINE IN A,E,HL OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC
 ; Check result A/HL, the expression just parsed, against destination type
 ; E for assignment, passing or initialization, as the reference's
-; toRegisters does, reporting at the value's first token (EX_START). An
-; exact constant must fit E (DG_RANGE) and may not become a Boolean
-; (DG_CLASH); the only implicit conversion is u8 to u16, and a u16 for a
-; u8 needs an explicit one (DG_CONV); anything else raises DG_CLASH.
-; Returns E with the result's SY_KNOWN in A, the metadata in D.
+; toRegisters and coerceConst do, reporting at the value's first token
+; (EX_START). An exact constant, whole in EX_KVAL, must fit E (DG_RANGE)
+; and may not become a Boolean (DG_CLASH). A typed value fits its own type
+; and those it widens to (EX_WIDEN); any other needs a conversion
+; (DG_CONV), but a known one where only a Boolean or only a number will do
+; is a mismatch (DG_CLASH). Returns E with the result's SY_KNOWN in A, the
+; metadata in D; HL and E are kept.
 
 EX_FITS:
     LD   D,A                       ; Keep the metadata.
@@ -487,30 +510,32 @@ EX_FITS:
     LD   A,E                       ; An exact constant: what is the target?
     CP   SY_BOOL                   ; A Boolean?
     JR   Z,EX_EFIT                 ; A number is not a Boolean.
-    CP   SY_U8                     ; A u8?
-    JR   NZ,.EXACT                 ; No: any word fits u16.
-    LD   A,H                       ; Does the constant exceed a byte?
-    OR   A                         ; Test its high byte.
-    LD   A,DG_RANGE                ; Then it is out of range,
-    JR   NZ,EX_EVAL                ; reported at the value.
-.EXACT:                        ; The constant fits.
-    LD   A,D                       ; Keep its known flag...
-    AND  SY_KNOWN                  ; ...alone...
-    OR   E                         ; ...with the destination type.
-    RET                            ; Return it with carry clear.
+    PUSH DE                        ; Keep the metadata and the target.
+    LD   HL,EX_KVAL                ; The value
+    CALL VL_FITS                   ; must fit it,
+    POP  DE                        ; (restored)
+    LD   HL,(EX_KVAL)              ; (its low word again)
+    LD   A,DG_RANGE                ; else it is out of range,
+    JR   C,EX_EVAL                 ; reported at the value.
+    JR   .FITS                     ; It fits.
 .TYPED:                        ; A is the result's type.
-    CP   E                         ; The destination's type?
-    JR   Z,.SAME                   ; Yes: it fits.
-    CP   SY_BOOL                   ; A Boolean fits nothing else,
-    JR   Z,EX_EFIT                 ; a mismatch.
-    LD   A,E                       ; A number: a u8 widens
-    CP   SY_U16                    ; to a u16;
-    JR   Z,.SAME                   ; it fits.
-    CP   SY_U8                     ; A u16 for a u8 needs a conversion,
-    LD   A,DG_CONV                 ; reported at the value,
-    JR   Z,EX_EVAL                 ; and a number
-    JR   EX_EFIT                   ; is no Boolean.
-.SAME:                         ; The result fits.
+    CP   E                         ; The destination's?
+    JR   Z,.FITS                   ; It fits.
+    CALL EX_WIDEN                  ; Does it widen to it?
+    JR   C,.FITS                   ; Then it fits.
+    BIT  7,D                       ; A computed value needs
+    JR   Z,.CONVERT                ; a conversion;
+    LD   A,D                       ; a known Boolean
+    AND  SY_TMASK                  ; for a number,
+    CP   SY_BOOL                   ; or a known number
+    JR   Z,EX_EFIT                 ; for a Boolean,
+    LD   A,E                       ; is
+    CP   SY_BOOL                   ; a mismatch.
+    JR   Z,EX_EFIT                 ; (type-mismatch)
+.CONVERT:                      ; A conversion is required,
+    LD   A,DG_CONV                 ; reported
+    JR   EX_EVAL                   ; at the value.
+.FITS:                         ; The result fits.
     LD   A,D                       ; Keep its known flag...
     AND  SY_KNOWN                  ; ...alone...
     OR   E                         ; ...with the destination type.
@@ -571,7 +596,7 @@ EX_SUB:
     PUSH AF                        ; waits.
     LD   A,E                       ; The nested one
     LD   (EX_WANT),A               ; is asked for.
-    CALL EX_PARSE                  ; A and HL describe the expression.
+    CALL EX_INNER                  ; A and HL describe the expression.
     POP  DE                        ; D is the enclosing type,
     LD   E,A                       ; E the metadata.
     LD   A,D                       ; The enclosing type
@@ -601,3 +626,153 @@ EX_STORE:
 EX_EFLOW:                      ; A result or exit the routine does not allow.
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_FLOW                   ; Diagnostic: invalid control flow.
+
+;@ROUTINE IN A,HL OUT A,HL CLOBBERS BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Prepare the left operand A/HL of the operator EX_OPER, just taken, for
+; its push (binary): before a shift's count, an exact left whose count is
+; not certainly exact (EX_PEEKX) takes the expected type, which must be an
+; integer (no-definite-type) that it fits (out-of-range), both at the left;
+; then a known typed left whose count is not certainly a constant
+; (EX_PEEKC) is loaded into the registers at its type, to be pushed as a
+; computed one is. Any other left is returned as it is.
+
+EX_SHAPE:
+    LD   D,A                       ; Keep the metadata.
+    LD   A,(EX_OPER)               ; Only a shift's
+    CP   TK_SHL                    ; left
+    JR   Z,.SHIFT                  ; is
+    CP   TK_SHR                    ; prepared.
+    JR   Z,.SHIFT                  ; This is not one:
+.DONE:                         ; D is the metadata.
+    LD   A,D                       ; The left
+    RET                            ; as it is.
+.SHIFT:                        ; A shift's left.
+    BIT  7,D                       ; Computed?
+    JR   Z,.DONE                   ; Then it is pushed.
+    LD   A,D                       ; Exact?
+    AND  SY_TMASK                  ; Then it may
+    JR   NZ,.TYPED                 ; take a type.
+    PUSH DE                        ; Keep the metadata.
+    CALL EX_PEEKX                  ; A certainly exact count?
+    POP  DE                        ; (the metadata)
+    JR   Z,.VALUE                  ; Then it folds exactly.
+    LD   A,(EX_WANT)               ; Otherwise the expected type,
+    LD   C,A                       ; which must be an integer:
+    CALL GX_PROP                   ; a size,
+    BIT  6,A                       ; neither Boolean
+    LD   A,DG_INFER                ; nor f32,
+    JR   NZ,.LEFT                  ; nor
+    LD   A,C                       ; exact
+    OR   A                         ; itself
+    LD   A,DG_INFER                ; (no-definite-type,
+    JR   Z,.LEFT                   ; at the left).
+    LD   HL,EX_KVAL                ; The value
+    LD   A,C                       ; must fit
+    PUSH BC                        ; it
+    CALL VL_FITS                   ; (out-of-range,
+    POP  BC                        ; at the left).
+    LD   A,DG_RANGE                ; It is typed
+    JR   C,.LEFT                   ; from here:
+    LD   A,C                       ; the expected
+    OR   SY_KNOWN                  ; type,
+    LD   D,A                       ; known.
+.TYPED:                        ; A known typed left.
+    PUSH DE                        ; Keep the metadata.
+    CALL EX_PEEKC                  ; A certainly constant count?
+    POP  DE                        ; (the metadata)
+    JR   Z,.VALUE                  ; Then it folds.
+    LD   A,D                       ; Otherwise it loads
+    AND  SY_TMASK                  ; at its type,
+    LD   E,A                       ; from
+    LD   HL,(EX_KVAL)              ; its value,
+    PUSH DE                        ; (kept)
+    CALL GX_TOREG                  ; into the registers,
+    POP  DE                        ; and is computed:
+    LD   D,E                       ; its type alone.
+.VALUE:                        ; D is the metadata.
+    LD   HL,(EX_KVAL)              ; A known value's low word.
+    LD   A,D                       ; The metadata.
+    RET                            ; Ready to push.
+.LEFT:                         ; A is the diagnostic,
+    JP   EX_ELOP                   ; at the left; no return.
+
+;@ROUTINE OUT ZERO CLOBBERS A,BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
+; Z when the next token is certainly an exact operand (peekExactOperand):
+; a number, or the name of an exact constant, predeclared or declared.
+
+EX_PEEKX:
+    LD   C,SY_TMASK                ; Its type must be exact;
+    JR   EX_PEEKK                  ; look.
+
+;@ROUTINE OUT ZERO CLOBBERS A,BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
+; Z when the next token is certainly a constant operand
+; (peekConstOperand): a number, or the name of a scalar constant.
+
+EX_PEEKC:
+    LD   C,0                       ; Any type will do; fall into EX_PEEKK.
+
+;@ROUTINE IN C OUT ZERO CLOBBERS A,BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
+; Z when the next token is a number, or names a scalar constant whose
+; type has none of C's bits.
+
+EX_PEEKK:                      ; C masks the type.
+    PUSH BC                        ; Keep it.
+    CALL PR_PEEK                   ; The next token.
+    POP  BC                        ; C is the mask.
+    CP   TK_NUM                    ; A number
+    RET  Z                         ; is one.
+    CP   TK_NAME                   ; Anything else but a name
+    RET  NZ                        ; is not.
+    PUSH BC                        ; Keep the mask.
+    CALL RO_LIB                    ; A predeclared name?
+    POP  BC                        ; (the mask)
+    JR   NC,.SYMBOL                ; No: perhaps a symbol.
+    JP   P,.NOT                    ; A service is not.
+    AND  C                         ; A constant: its type masked.
+    RET                            ; Z if it is one.
+.SYMBOL:                       ; Not predeclared.
+    PUSH BC                        ; Keep the mask.
+    CALL SY_FIND                   ; A symbol?
+    POP  BC                        ; (the mask)
+    JR   NC,.NOT                   ; No.
+    INC  HL                        ; Its
+    INC  HL                        ; class
+    INC  HL                        ; and type:
+    LD   A,(HL)                    ; a scalar
+    AND  SY_CMASK+SY_TYPE+SY_AGGR  ; constant
+    JR   NZ,.NOT                   ; has none of these,
+    LD   A,(HL)                    ; and its type
+    AND  C                         ; masked
+    RET                            ; is zero.
+.NOT:                          ; Not a constant.
+    OR   1                         ; NZ.
+    RET                            ; Done.
+
+;@ROUTINE OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The next token's offset becomes the left operand's first (EX_LAT, the
+; reference's leftAt); HL returns it.
+
+EX_LHS:                        ; The next token
+    CALL PR_PEEK                   ; is read,
+    LD   HL,(TK_POS)               ; and its offset
+    LD   (EX_LAT),HL               ; kept.
+    RET                            ; HL is it.
+
+;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; EX_PARSE an expression nested in another, a parenthesized one, an
+; index, an argument or a conversion's operand, keeping the enclosing
+; operator's operand offsets (EX_LAT, EX_RAT) across it.
+
+EX_INNER:                      ; A nested expression.
+    LD   HL,(EX_RAT)               ; The enclosing
+    PUSH HL                        ; operator's
+    LD   HL,(EX_LAT)               ; offsets
+    PUSH HL                        ; wait.
+    CALL EX_PARSE                  ; A and HL describe the expression.
+    EX   DE,HL                     ; Its value waits in DE.
+    POP  HL                        ; The offsets
+    LD   (EX_LAT),HL               ; are
+    POP  HL                        ; restored.
+    LD   (EX_RAT),HL               ; Both.
+    EX   DE,HL                     ; HL is the value.
+    RET                            ; A and flags are the expression's.

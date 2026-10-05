@@ -107,7 +107,7 @@ RO_ROOT:
     LD   (RO_OTYPE),A              ; The path's type.
     LD   (RO_PBASE),BC             ; A blob's ordinal or an offset from IX.
     PUSH BC                        ; Keep the payload.
-    LD   BC,1-SY_RECB              ; HL is the record's last byte;
+    LD   BC,-SY_AGT                ; HL is the record's type byte;
     ADD  HL,BC                     ; its start, the name,
     LD   (RO_PROOT),HL             ; a diagnostic may give.
     POP  BC                        ; The payload again.
@@ -343,13 +343,14 @@ RO_INDEX:
     CALL RO_KEEP                   ; Keep the path's block across the index.
     LD   A,SY_U16                  ; An index is a u16.
     CALL EX_SUB                    ; A and HL describe it.
-    LD   (EX_RMETA),A              ; Keep its metadata
-    LD   (EX_RVAL),HL              ; and value.
+    CALL EX_STASH                  ; Keep them.
     CALL RO_BACK                   ; The path's block comes back.
     LD   A,(EX_RMETA)              ; The index's metadata:
-    AND  SY_TMASK                  ; a Boolean
-    CP   SY_BOOL                   ; is no index:
-    JR   Z,.EINDEX                 ; DG_CLASH at the index.
+    AND  SY_TMASK                  ; an exact value
+    JR   Z,.EXACT                  ; from 0 to 65535,
+    CP   SY_U16+1                  ; or a u8 or u16 (checkIndexType);
+    JR   NC,.EINDEX                ; anything else is index-type.
+.TYPED:                        ; The index may be used.
     LD   E,TK_RBRAC                ; The closing bracket.
     CALL PR_NEED                   ; Consume it.
     LD   A,(EX_RMETA)              ; D is the index's
@@ -397,7 +398,14 @@ RO_INDEX:
 .CHAR:                         ; A string's character.
     CALL GA_CHAR                   ; Its address.
     JP   RO_PATH                   ; Continue the path.
-.EINDEX:                       ; A Boolean index.
+.EXACT:                        ; An exact index
+    LD   A,(EX_RVAL+2)             ; must
+    LD   HL,EX_RVAL+3              ; have
+    OR   (HL)                      ; no
+    INC  HL                        ; bits
+    OR   (HL)                      ; above
+    JP   Z,.TYPED                  ; sixteen.
+.EINDEX:                       ; An index of the wrong type or range:
     LD   A,DG_INDEX                ; index-type,
     JR   .ATINDEX                  ; at the index.
 .ERANGE:                       ; A constant index past the end.
@@ -521,13 +529,17 @@ RO_ARGS:
     CP   AG_FIRST                  ; An aggregate?
     JR   NC,.AGGR                  ; Its address is passed.
     CALL RO_ARG                    ; D, E and HL describe the argument.
-    CALL GX_TOREG                  ; The value in A or HL at the type E.
+    CALL GX_TOREG                  ; The value in the registers at type E.
     LD   A,E                       ; A word
-    CP   SY_U16                    ; is pushed as it is;
-    JR   Z,.PUSH                   ; a byte widens first:
-    CALL EM_SEQ                    ; LD L,A, LD H,0.
-    DB   3,$6F,$26,0               ; Append them.
+    CALL GX_SIZE                   ; is pushed as it is;
+    JR   Z,.PUSH                   ; a long's high word first,
+    JR   NC,.LONG                  ; and a byte
+    CALL GX_ZEXT                   ; widens, LD L,A, LD H,0.
     JR   .PUSH                     ; Push the word.
+.LONG:                         ; A long:
+    LD   A,$D5                     ; PUSH DE,
+    CALL GX_PUSHA                  ; two bytes pushed.
+    JR   .PUSH                     ; Then the low word.
 .AGGR:                         ; A is the parameter's aggregate type.
     CP   AG_FILE                   ; A File?
     JR   Z,.FILE                   ; Its value is passed.
@@ -933,8 +945,7 @@ RO_LET:
     CALL RO_KEEP                   ; Keep the place across the value.
     LD   A,(RO_OTYPE)              ; The target's type
     CALL EX_RUN                    ; is wanted of the value.
-    LD   (EX_RMETA),A              ; Keep its metadata
-    LD   (EX_RVAL),HL              ; and a known value.
+    CALL EX_STASH                  ; Keep it.
     CALL RO_BACK                   ; The place comes back.
     LD   A,(RO_OTYPE)              ; The target's type
     LD   E,A                       ; is the value's destination:
@@ -946,11 +957,20 @@ RO_LET:
     CALL GA_STORE                  ; Store at the place.
     JP   AC_ROUTE                  ; Any failure handling; return.
 .THROUGH:                      ; The address is pushed.
+    LD   A,(RO_OTYPE)              ; A long?
+    CALL GX_SIZE                   ; Then
+    JR   C,.SHORT                  ; through
+    JR   Z,.SHORT                  ; BC:
+    CALL EM_SEQ                    ; POP BC, then LD A,L, LD (BC),A,
+    DB   12,$C1,$7D,$02,$03,$7C,$02,$03,$7B,$02,$03,$7A,$02 ; INC BC... for H, E, D.
+    CALL EM_POP2                   ; Two bytes fewer pushed.
+    JP   AC_ROUTE                  ; Any failure handling; return.
+.SHORT:                        ; A byte or a word.
+    PUSH AF                        ; Keep the size's flags.
     CALL GA_POPDE                  ; POP DE, two bytes fewer pushed.
-    LD   A,(RO_OTYPE)              ; A word?
-    CP   SY_U16                    ; Then four bytes.
+    POP  AF                        ; A word?
     LD   A,$12                     ; LD (DE),A for a byte.
-    JR   NZ,.STORE                 ; A byte.
+    JR   C,.STORE                  ; A byte.
     CALL EM_SEQ                    ; EX DE,HL, LD (HL),E, INC HL:
     DB   3,$EB,$73,$23             ; the low byte,
     LD   A,$72                     ; then LD (HL),D.

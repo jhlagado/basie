@@ -67,13 +67,13 @@ number, code, position and arguments against the reference's.
 | `SOURCE.ASM` | `SRC_`, `PT_` | Source parts: the part table, in load order, and the cursor that steps through the parts in stream order |
 | `TOKEN.ASM` | `TK_` | Tokenizer |
 | `TRANSCR.ASM` | `TR_` | The refusal (`DG_NYI`) of constructs whose code generation has not yet moved to blob output |
-| `SYMBOLS.ASM` | `SY_` | Symbol table: 96 records of seven bytes, scoped by blocks (its prefixes), with a bit for each private symbol |
+| `SYMBOLS.ASM` | `SY_` | Symbol table: 96 records of nine bytes, scoped by blocks (its prefixes), with a bit for each private symbol |
 | `PARSER.ASM` | `PR_` | Parser driver |
-| `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file), control (frames, conditions and counted loops), aggregate and routine parsing (routine names and signatures, then calls to routines and services, failable calls, File values and aggregate paths, each kept as a place: static, frame, alias or computed) |
+| `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `VALUE.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `VL_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file; the constants' arithmetic, five-byte values folded as the reference folds them, in `VALUE.ASM`), control (frames, conditions and counted loops), aggregate and routine parsing (routine names and signatures, then calls to routines and services, failable calls, File values and aggregate paths, each kept as a place: static, frame, alias or computed) |
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
 | `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
 | `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels and jumps, frame accounting |
-| `GENEXPR.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening, the operators, comparisons, short circuits and conversions |
+| `GENEXPR.ASM`, `GENOPER.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening and checked conversions, negation and complement (`GENEXPR.ASM`); the binary operators, comparisons and shifts, a long's through the 32-bit helpers (`GENOPER.ASM`) |
 | `GENAGGR.ASM` | `GA_` | Path templates: a place's address, fields and constant elements, checked elements and characters at run-time indexes, loads and stores at a place (a File's four bytes too), aggregate locals zeroed, initialized and copied, and the routine's string literals, placed after its need word |
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, prologues (checked for a forward routine) and exits (through `RETN` when there are arguments), the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
@@ -100,18 +100,18 @@ edited by hand.
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 13,512 |
-| Immutable data | 266 |
-| **Compiler core** | **13,778** |
+| Compiler code | 16,087 |
+| Immutable data | 300 |
+| **Compiler core** | **16,387** |
 | CP/M shell and overlay loader | 658 |
-| **`BASIE.COM`** | **14,439** |
+| **`BASIE.COM`** | **17,048** |
 | Overlay area, after the image | 1,024 |
 | `BASIE.OVL` (six overlays, 5,120 bytes on disk) | 4,608 |
-| Compiler workspace (not in the image) | 3,614 |
+| Compiler workspace (not in the image) | 3,892 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-The image and the overlay area take 15,463 bytes, 11,161 to the 26K target
-and 13,209 to the 28K limit (D43). Every increment follows D43's cycle: the
+The image and the overlay area take 18,072 bytes, 8,552 to the 26K target
+and 10,600 to the 28K limit (D43). Every increment follows D43's cycle: the
 increment, a correctness review, a compression pass, a further review when
 needed, and the census figure in the commit. `tests/native_compiler_test.ts`
 pins the digests of `BASIE.COM` and `BASIE.OVL`, so a change to the

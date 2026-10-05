@@ -691,9 +691,7 @@ AC_DEAD:
 ; HL its value, for GX_TOREG.
 
 AC_VALOK:
-    LD   A,(EX_RMETA)              ; The result's metadata.
-    LD   HL,(EX_RVAL)              ; Its value.
-    CALL EX_FITS                   ; Check it against E.
+    CALL AC_FITTO                  ; Check it against E.
     JP   AC_SAFE                   ; Reject a pending failure.
 
 ;@ROUTINE NORETURN

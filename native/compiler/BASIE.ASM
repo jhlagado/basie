@@ -42,6 +42,7 @@
 %INCLUDE "EXPR.ASM"                ; Expressions: names, operand stack, reduction.
 %INCLUDE "EXTERM.ASM"              ; Expressions: primaries and unary operators.
 %INCLUDE "EXOPER.ASM"              ; Expressions: binary operators and entries.
+%INCLUDE "VALUE.ASM"               ; Expressions: exact and typed constants folded.
 %INCLUDE "CONTROL.ASM"             ; The structured control parser.
 %INCLUDE "AGGR.ASM"                ; Records, arrays, strings and constants.
 %INCLUDE "ROUTINES.ASM"            ; Routine names, parameters, compile entry.
@@ -54,7 +55,8 @@
 %INCLUDE "OUT.ASM"                 ; Output streams.
 %INCLUDE "BLOB.ASM"                ; The blob writer.
 %INCLUDE "EMIT.ASM"                ; Emitter primitives and labels.
-%INCLUDE "GENEXPR.ASM"             ; Expression templates.
+%INCLUDE "GENEXPR.ASM"             ; Expression templates: values.
+%INCLUDE "GENOPER.ASM"             ; Expression templates: operators.
 %INCLUDE "GENAGGR.ASM"             ; Paths, aggregates and string literals.
 %INCLUDE "GENCALL.ASM"             ; Routines, declarations and limits.
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.

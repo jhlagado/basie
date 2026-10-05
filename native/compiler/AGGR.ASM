@@ -20,8 +20,8 @@
 ;    AG_ZERO   zero the object being initialized
 ;    AG_PARSE  parse one initializer for a type at the staging cursor
 ;
-;  Type IDs are one byte. IDs 1..3 are the scalars u8, u16 and Boolean
-;  (AG_U8, AG_U16, AG_BOOL, equal to the SY_ type codes); IDs from AG_FIRST
+;  Type IDs are one byte. IDs 1..8 are the scalars, the SY_ type codes
+;  (STATE.ASM): u8, u16, Boolean, i8, i16, u32, i32 and f32; IDs from AG_FIRST
 ;  index the type table AG_TTAB, 24 four-byte descriptors (AG_TCAP):
 ;
 ;    +0  byte  kind: AG_KREC, AG_KSTR or AG_KARR
@@ -71,8 +71,8 @@ AG_SIZEP:
     RET                            ; Return it in HL.
 
 ;@ROUTINE IN A OUT HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,A,DE
-; Return in HL the extent in bytes of type ID A, with carry clear: one for
-; u8 and Boolean, two for u16, four for a File, the recorded extent for a
+; Return in HL the extent in bytes of type ID A, with carry clear: a
+; scalar's size (GX_PROP), four for a File, the recorded extent for a
 ; dynamic type.
 
 AG_SIZE:
@@ -81,15 +81,11 @@ AG_SIZE:
     RET  Z                         ; Carry is clear.
     CP   AG_FIRST                  ; Is this a table type?
     JR   NC,.DYNAMIC               ; Yes: read its recorded extent.
-    LD   HL,1                      ; u8 and Boolean take one byte.
-    CP   AG_U16                    ; Is it the word type?
-    JR   Z,.WORD                   ; Yes: it takes two.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return one.
-.WORD:                         ; A u16 scalar.
-    INC  L                         ; Two bytes.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return two.
+    CALL GX_PROP                   ; A scalar: its size
+    AND  7                         ; in bytes
+    LD   L,A                       ; is HL
+    LD   H,0                       ; (carry clear).
+    RET                            ; Return it.
 .DYNAMIC:                      ; A record, string or array.
     CALL AG_SIZEP                  ; Address its extent word.
     LD   E,(HL)                    ; Fetch the low byte.
@@ -442,20 +438,21 @@ AG_PARSE:
     AND  SY_KNOWN                  ; Was the value known at compile time?
     LD   A,DG_KNOWN                ; No: a static initializer must be,
     JP   Z,EX_EVAL                 ; reported at the value (not-constant).
-    LD   A,L                       ; Fetch the value's low byte.
-    PUSH DE                        ; Keep the type across the put.
-    PUSH HL                        ; Keep the value.
-    CALL AG_PUT                    ; Stage the low byte.
-    POP  HL                        ; Restore the value.
-    POP  DE                        ; Restore the type.
-    LD   A,E                       ; Is it the word type?
-    CP   AG_U16                    ; Only u16 has a second byte.
-    JR   Z,.UPPER                  ; Stage the high byte too.
+    LD   A,E                       ; The type's
+    CALL AG_SIZE                   ; size: its bytes
+    LD   B,L                       ; of the value
+    LD   HL,EX_KVAL                ; from the lowest,
+.BYTE:                         ; B bytes remain.
+    LD   A,(HL)                    ; The next
+    PUSH BC                        ; is
+    PUSH HL                        ; staged
+    CALL AG_PUT                    ; (encodeScalar).
+    POP  HL                        ; The
+    INC  HL                        ; next
+    POP  BC                        ; byte.
+    DJNZ .BYTE                     ; Until all are staged.
     OR   A                         ; Clear carry for success.
-    RET                            ; One byte staged.
-.UPPER:                        ; Second byte of a u16.
-    LD   A,H                       ; Fetch the high byte.
-    JP   AG_PUT                    ; Stage it and return.
+    RET                            ; The value is staged.
 
 .STRING:                       ; A bounded string.
     EX   DE,HL                     ; Bring the type ID into L.

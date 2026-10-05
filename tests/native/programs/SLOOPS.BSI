@@ -1,0 +1,45 @@
+// Counted loops over the signed types (67b): i8 and i16 counters, bounds
+// whose comparison is signed, a byte counter's exact bound beyond its
+// type compared as a word, and exact bounds beyond any word, where the
+// loop runs until the counter would leave its type or never starts.
+const down as i8 = 3
+
+sub main()
+    var i as i8
+    var j as i16
+    var u as u8
+    var t as i16
+    var b as i16 = -40
+    for i = -5 to 5
+        t = t + i
+    end
+    for j = 100 to -100 step -3
+        t = t + j
+    end
+    for u = 0 until b
+        t = t + 1
+    end
+    for i = 0 to 200 step 7
+        t = t + i
+    end
+    for i = 0 to -200
+        t = t - 1
+    end
+    for i = 5 to 70000 step -1
+        exit
+    end
+    for j = 0 to 70000 step 1000
+        continue
+    end
+    for j = 0 to -70000 step -2
+        if j < -10
+            exit
+        end
+    end
+    for i = 0 to b step down
+        t = t + 1
+    end
+    for j = b to b
+        t = t + j
+    end
+end

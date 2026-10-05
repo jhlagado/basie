@@ -33,7 +33,7 @@
 ;  position in AC_DPOS) while the rest is parsed; its class and type build
 ;  up in AC_DINFO and its payload in AC_DVAL. EX_PREP then writes the
 ;  symbol provisionally and SY_CMT or SY_TAG commits it, so a declaration
-;  cannot refer to itself. The current type is AG_CTYPE: 1..3 for the
+;  cannot refer to itself. The current type is AG_CTYPE: 1..8 for the
 ;  scalars, a type-table ID from AG_FIRST, or AG_VIEW for `string[]`.
 ;
 ;  Workspace. The for loop's scratch below overlays the first seven bytes
@@ -61,7 +61,7 @@ AC_WEND EQU  AC_DELTA+2        ; End of the action scratch (marker).
 AC_FOLD:
     LD   A,SY_EXACT                ; Expect an untyped exact value.
     CALL EX_CONST                  ; Parse with emission off: A metadata, HL value.
-    JR   AC_STASH                  ; Keep the result for the next action.
+    JP   EX_STASH                  ; Keep the result for the next action.
 
 ;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,IX,IY
 ; Island RuntimeExpression: parse an expression of the type in EX_WANT,
@@ -70,16 +70,7 @@ AC_FOLD:
 AC_EXPR:
     LD   A,(EX_WANT)               ; The type the preceding action expects.
     CALL EX_RUN                    ; Parse and emit: A metadata, HL value if known.
-
-;@ROUTINE IN A,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Keep expression result A (metadata) and HL (value) for the action that
-; checks or uses it.
-
-AC_STASH:
-    LD   (EX_RMETA),A              ; The result's type and known flag.
-    LD   (EX_RVAL),HL              ; Its value, meaningful when known.
-    OR   A                         ; Clear carry.
-    RET                            ; Back to the engine.
+    JP   EX_STASH                  ; Keep it for the action that checks it.
 
 ;@ROUTINE OUT A,B,DE,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,HL
 ; Island StepConstant: parse a for loop's step (CT_STEP), adding its
@@ -124,12 +115,15 @@ AC_STRAY:
 
 ; ----------------------------------------------------------------- types
 
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; TypeU8, TypeU16, TypeBoolean: one routine for three contiguous actions.
-; Ordinal A less GR_U8-1 is the type ID 1, 2 or 3 (SY_U8, SY_U16, SY_BOOL).
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; TypeScalar: the type keyword just matched, its type ID the token's
+; payload (PR_LVAL, KEYWORDS.ASM), is the current type. f32 is not yet
+; compiled (DG_NYI).
 
 AC_TYPE:
-    SUB  GR_U8-1                   ; Map the action ordinal to the scalar's type ID.
+    LD   A,(PR_LVAL)               ; The keyword's type ID.
+    CP   SY_U32                    ; u32, i32 and f32
+    JP   NC,TR_OPER                ; are refused for now.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Make type ID A the current type.
@@ -162,21 +156,19 @@ AC_NAMED:
     LD   A,C                       ; The record's type ID.
     JR   AC_USE                    ; Make it current.
 
-;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
+;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE
 ; Return in HL the constant bound just parsed: it must be known
 ; (not-constant), fit a u16 and be nonzero (out-of-range), each reported
 ; at the bound.
 
 AC_COUNT:
-    LD   A,(EX_RMETA)              ; The bound's metadata.
-    LD   D,A                       ; Keep it.
+    CALL EX_RTOK                   ; The bound: A its metadata, HL its value.
     AND  SY_KNOWN                  ; Was it folded to a constant?
     LD   A,DG_KNOWN                ; No: not-constant,
     JP   Z,AG_EVAL                 ; at the bound.
     LD   E,SY_U16                  ; It must fit a u16.
     LD   A,D                       ; Recover the metadata.
     CALL EX_FITS                   ; Check the value against u16.
-    LD   HL,(EX_RVAL)              ; The bound's value.
     LD   A,H                       ; Is it zero?
     OR   L                         ; Test both bytes.
     JP   Z,AG_EBND                 ; A zero bound is out of range.
@@ -304,15 +296,15 @@ AC_WANT:
 AC_IDLE:                       ; BeginTypeBound: AC_FOLD sets its own type.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D
+;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE
 ; FinishConstantExpression: the constant's value must be known
 ; (not-constant otherwise). A Boolean stays Boolean; an exact value or a
-; u8 becomes an exact, untyped constant, and a u16 needs the constant
-; typed (constant-needs-type), as the reference's constDeclaration has
-; it. The type goes to AC_DINFO, the value to AC_DVAL.
+; u8 becomes an exact, untyped constant, and any other type needs the
+; constant typed (constant-needs-type), as the reference's
+; constDeclaration has it. The type goes to AC_DINFO, the value's five
+; bytes to AC_DVAL.
 
 AC_VALUE:
-    LD   HL,(EX_RVAL)              ; The value (reloaded below).
     LD   A,(EX_RMETA)              ; The metadata.
     LD   D,A                       ; Keep it.
     AND  SY_KNOWN                  ; Did it fold?
@@ -320,35 +312,45 @@ AC_VALUE:
     JP   Z,EX_EVAL                 ; at the value.
     LD   A,D                       ; Recover the metadata.
     AND  SY_TMASK                  ; Its type:
-    CP   SY_U16                    ; a u16
+    CP   SY_U8                     ; a u8
+    JR   Z,.EXACT                  ; becomes exact,
+    CP   SY_BOOL                   ; a Boolean
+    JR   Z,.TYPEOK                 ; stays one,
+    OR   A                         ; and any other
     LD   A,DG_UNTYP                ; needs the constant typed,
-    JP   Z,EX_EVAL                 ; at the value.
-    LD   A,D                       ; The type again:
-    AND  SY_U16                    ; of 0, 1 and 3 only the Boolean
-    JR   Z,.TYPEOK                 ; keeps a bit; a number is exact,
-    INC  A                         ; and a Boolean SY_BOOL.
+    JP   NZ,EX_EVAL                ; at the value.
+.EXACT:                        ; An exact constant.
+    XOR  A                         ; No type.
 .TYPEOK:                       ; A is the constant's type.
     LD   (AC_DINFO),A              ; Class constant (zero) with that type.
-    LD   HL,(EX_RVAL)              ; The value.
-    LD   (AC_DVAL),HL              ; Becomes the symbol's payload.
-    OR   A                         ; Clear carry.
+    LD   HL,EX_RVAL                ; The value's five bytes
+    LD   DE,AC_DVAL                ; become the symbol's payload.
+    LD   BC,5                      ; Copied.
+    LDIR                           ; Carry is clear.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,D,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitConstant: declare the scalar constant, at top level or in a block,
-; of type AC_DINFO, exact or typed, and value AC_DVAL.
+; of type AC_DINFO, exact or typed, and value AC_DVAL: its low word is
+; the symbol's payload and its three high bytes follow it (SY_VHI).
 
 AC_CONST:
     LD   A,(AC_DINFO)              ; Its type.
     OR   SY_CONST                  ; Class constant.
     LD   D,A                       ; The symbol's class and type.
-    LD   BC,(AC_DVAL)              ; Its value.
+    LD   BC,(AC_DVAL)              ; Its value's low word.
     CALL EX_PREP                   ; Write the provisional symbol.
+    INC  HL                        ; HL is its payload's high byte: next,
+    EX   DE,HL                     ; SY_VHI,
+    LD   HL,AC_DVAL+2              ; takes the value's
+    LD   BC,3                      ; three high bytes.
+    LDIR                           ; Copied.
     JP   SY_CMT                    ; Commit it and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitAggregateConstant: a typed scalar constant (D20) is declared with
-; its type and the value staged, a u16's two bytes or a byte's one. An
+; its type and the value staged, its bytes read back as the number they
+; are at the type (VL_WRAP: a signed type's sign extended). An
 ; aggregate's staged object is written as a rodata blob and the constant
 ; declared, its payload the blob's ordinal.
 
@@ -356,12 +358,12 @@ AC_ROCMT:
     LD   A,(AG_CTYPE)              ; The constant's type,
     CP   AG_FIRST                  ; a scalar
     JR   NC,.BLOB                  ; or an aggregate.
-    LD   HL,(AG_IBUF)              ; The staged value:
-    CP   SY_U16                    ; a word's two bytes,
-    JR   Z,.WORD                   ; or
-    LD   H,0                       ; a byte's one.
-.WORD:                         ; HL is the value; AC_DINFO the type.
-    LD   (AC_DVAL),HL              ; It is the constant's.
+    LD   HL,AG_IBUF                ; The staged bytes,
+    LD   DE,AC_DVAL                ; four of them,
+    LD   BC,4                      ; are
+    LDIR                           ; the value's,
+    LD   HL,AC_DVAL                ; read as
+    CALL VL_WRAP                   ; the type's number.
     JR   AC_CONST                  ; Declare it.
 .BLOB:                         ; An aggregate constant.
     LD   A,BL_KRO                  ; Read-only data.

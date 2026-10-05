@@ -24,7 +24,8 @@
 ;  returns with carry clear, and the payload depends on the kind:
 ;
 ;    TK_NAME, keyword  TK_PTR = first byte in the source, TK_LEN = length
-;    TK_NUM            BC = value, 0..65535
+;    TK_NUM            BC = value's low word, TK_NHI its high word
+;    TK_TYPE           BC = the type's ID (SY_U8...)
 ;    TK_CHAR           BC = character code
 ;    TK_TEXT           BC = TK_LEN = decoded length, TK_PTR = opening quote
 ;
@@ -36,8 +37,8 @@
 ;  that runs to the line end. A line ends with LF or CR LF; a bare CR is an
 ;  error. A name begins with a letter and continues with letters, digits and
 ;  underscores, up to 255 bytes; case is significant and the keywords are
-;  lower case. A number is decimal (at most 65535), $ hexadecimal (at most
-;  four digits) or % binary (at most sixteen digits), and may not run
+;  lower case. A number is decimal (at most 4,294,967,295), $ hexadecimal
+;  (at most eight digits) or % binary (at most 32 digits), and may not run
 ;  straight into a name byte. A character literal is one printable byte,
 ;  other than an apostrophe or backslash, between apostrophes. A string
 ;  literal holds printable bytes and the escapes \0 \n \r \t \' \" \\ and
@@ -223,11 +224,18 @@ TK_WORD:                       ; The current byte is a letter.
     INC  HL                        ; Next byte of the keyword.
     DJNZ .BYTELOOP                 ; Until the whole keyword agrees.
     LD   A,(HL)                    ; HL is at the kind byte after the keyword.
+    OR   A                         ; A type keyword's
+    JP   M,.TYPE                   ; has bit 7 set.
     CP   TK_END                    ; An `end`
     JP   NZ,TK_DONE                ; (any other keyword returns now)
     LD   HL,(TK_POS)               ; keeps its offset, where the end of a
     LD   (TK_ENDP),HL              ; routine is reported (AC_END).
     JP   TK_DONE                   ; Return the keyword's kind.
+.TYPE:                         ; KW_TYPE plus the type's ID.
+    AND  $7F                       ; The ID
+    LD   C,A                       ; is the payload, B being zero,
+    LD   A,TK_TYPE                 ; of a type keyword.
+    JP   TK_DONE                   ; Return it.
 .SKIP:                         ; B bytes of this keyword remain at HL.
     LD   E,B                       ; DE: the bytes still to pass.
     LD   D,0                       ; Keywords are under 256 bytes.
@@ -240,47 +248,32 @@ TK_WORD:                       ; The current byte is a letter.
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a decimal literal whose first digit is current and return TK_NUM
-; with its value in BC. A value above 65535, or a name byte straight after
-; the digits, is a lexical error. Reached by a jump from TK_NEXT.
+; with its value's low word in BC and its high word in TK_NHI. Every digit
+; is read, as the reference reads them, before a value beyond 32 bits
+; (TK_WIDE), or a name byte straight after the digits, is found
+; malformed: a decimal point and a digit make it a floating-point literal
+; first. Reached by a jump from TK_NEXT.
 
 TK_DIGIT:                      ; The current byte is a decimal digit.
-    LD   HL,0                      ; HL accumulates the value.
-.LOOP:                         ; HL is the value of the digits so far.
-    PUSH HL                        ; The source adapter clobbers HL.
+    XOR  A                         ; Zero:
+    LD   (TK_WIDE),A               ; not past 32 bits,
+    LD   H,A                       ; and the value
+    LD   L,A                       ; so far,
+    LD   (TK_NLO),HL               ; low word
+    LD   (TK_NHI),HL               ; and high word.
+.LOOP:                         ; TK_NLO and TK_NHI are the digits so far.
     CALL SRC_PEEK                  ; Next byte, not yet consumed.
-    POP  HL                        ; Recover the value.
     JR   C,TK_NUMOK                ; The end of the part ends the literal.
-    CP   '0'                       ; Digits begin at '0'.
-    JR   C,TK_TRAIL                ; Not a digit: the literal ends here.
-    CP   '9'+1                     ; Digits end at '9'.
-    JR   NC,TK_TRAIL               ; Not a digit: the literal ends here.
-    SUB  '0'                       ; The digit's value, 0..9.
-    LD   C,A                       ; C keeps the digit through the range test.
-    LD   A,H                       ; HL*10+C fits only up to HL = 6553 ($1999).
-    CP   $19                       ; Compare the high byte with $19.
-    JR   C,.APPEND                 ; HL below $1900: always fits.
-    JR   NZ,TK_WIDE                ; HL $1A00 or more: too large.
-    LD   A,L                       ; The high byte is $19: the low byte decides.
-    CP   $99                       ; Compare the low byte with $99.
-    JR   C,.APPEND                 ; HL below $1999: fits.
-    JR   NZ,TK_WIDE                ; HL above $1999: too large.
-    LD   A,C                       ; HL is 6553: the result is 65530 plus the digit.
-    CP   6                         ; Digits 0..5 stay within 65535.
-    JR   NC,TK_WIDE                ; 65536 or more: too large.
-.APPEND:                       ; HL*10+C cannot overflow now.
-    LD   D,0                       ; DE: the digit, as a word.
-    LD   E,C                       ; C is free once the digit is in E.
-    ADD  HL,HL                     ; HL*2.
-    LD   B,H                       ; BC: HL*2, kept for the sum.
-    LD   C,L                       ; Completes the copy.
-    ADD  HL,HL                     ; HL*4.
-    ADD  HL,HL                     ; HL*8.
-    ADD  HL,BC                     ; HL*8 + HL*2 = HL*10.
-    ADD  HL,DE                     ; Plus the digit.
-    PUSH HL                        ; Keep the value across the adapter.
+    SUB  '0'                       ; A digit's value,
+    CP   10                        ; 0..9?
+    JR   NC,.END                   ; Not a digit: the literal ends here.
+    CALL TK_LOAD                   ; DEHL is the value so far.
+    CALL TK_TEN                    ; Ten times it, plus the digit.
+    CALL TK_SAVE                   ; Kept.
     CALL SRC_TAKE                  ; Consume the digit.
-    POP  HL                        ; Recover the value.
     JR   .LOOP                     ; Scan the next byte.
+.END:                          ; A is the byte less '0'.
+    ADD  A,'0'                     ; The byte again; fall into TK_TRAIL.
 
 ; The literal has ended at the byte in A, which is not consumed. An integer
 ; cannot be followed immediately by a name byte: forms such as 0x2a and
@@ -289,7 +282,7 @@ TK_DIGIT:                      ; The current byte is a decimal digit.
 ; a floating-point literal, not yet compiled (DG_NYI); a point without a
 ; digit after it is malformed. TK_RADIX joins here too.
 
-TK_TRAIL:                      ; A: the byte after the literal; HL: its value.
+TK_TRAIL:                      ; A: the byte after the literal.
     CP   '.'                       ; A decimal point?
     JR   Z,.POINT                  ; A float, or malformed.
     CALL TK_ALNUM                  ; Carry if a letter, digit or underscore.
@@ -309,13 +302,77 @@ TK_TRAIL:                      ; A: the byte after the literal; HL: its value.
 TK_ENUM:                       ; A malformed number.
     CALL DG_RAISE                  ; Raise the diagnostic below.
     DB   DG_FORM                   ; malformed-number, at the number.
-TK_NUMOK:                      ; HL is a complete, valid value.
-    LD   B,H                       ; BC: the payload.
-    LD   C,L                       ; Completes the copy.
+TK_NUMOK:                      ; TK_NLO and TK_NHI are the value.
+    LD   A,(TK_WIDE)               ; Past 32 bits
+    OR   A                         ; is beyond
+    JR   NZ,TK_ENUM                ; a u32: malformed.
+    LD   BC,(TK_NLO)               ; BC: the low word.
     LD   A,TK_NUM                  ; The token kind.
     JP   TK_DONE                   ; Return the number.
-TK_WIDE:                       ; A number beyond sixteen bits,
-    JP   EX_EXACT                  ; which the reference takes as a u32.
+
+;@ROUTINE OUT DE,HL
+; Load the value scanned so far, TK_NHI and TK_NLO, into DEHL. Flags and
+; A are kept.
+
+TK_LOAD:                       ; The value into DEHL.
+    LD   HL,(TK_NLO)               ; Its low word,
+    LD   DE,(TK_NHI)               ; its high word.
+    RET                            ; DEHL.
+
+;@ROUTINE IN DE,HL
+; Keep DEHL as the value scanned so far. Flags and A are kept.
+
+TK_SAVE:                       ; DEHL is the value.
+    LD   (TK_NLO),HL               ; Its low word,
+    LD   (TK_NHI),DE               ; its high word.
+    RET                            ; Kept.
+
+;@ROUTINE IN A,DE,HL OUT DE,HL CLOBBERS A,BC,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; DEHL becomes ten times DEHL plus the digit A, modulo 2^32: eight times
+; plus twice. A carry out of any step marks the value past 32 bits
+; (TK_WIDE).
+
+TK_TEN:                        ; A is the digit.
+    PUSH AF                        ; Keep it.
+    CALL TK_DBL                    ; Twice the value,
+    PUSH DE                        ; kept:
+    PUSH HL                        ; its two words.
+    CALL TK_DBL                    ; Four times,
+    CALL TK_DBL                    ; eight times.
+    POP  BC                        ; Twice's low word
+    ADD  HL,BC                     ; is added,
+    EX   DE,HL                     ; then
+    POP  BC                        ; its high word
+    ADC  HL,BC                     ; with the carry:
+    CALL C,TK_OVER                 ; out of the top, past 32 bits.
+    EX   DE,HL                     ; DEHL is ten times the value.
+    POP  AF                        ; The digit
+    LD   C,A                       ; as
+    LD   B,0                       ; a word
+    ADD  HL,BC                     ; is added
+    RET  NC                        ; to the low word,
+    INC  DE                        ; its carry to the high word,
+    LD   A,D                       ; which
+    OR   E                         ; passes 32 bits
+    RET  NZ                        ; only when it wraps to zero.
+
+;@ROUTINE CLOBBERS A
+; The decimal number scanned has passed 32 bits (TK_WIDE).
+
+TK_OVER:                       ; A carry left the top.
+    LD   A,1                       ; Mark it.
+    LD   (TK_WIDE),A               ; It is malformed once complete.
+    RET                            ; Scanning goes on.
+
+;@ROUTINE IN DE,HL OUT DE,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Double DEHL, marking a carry out of the top (TK_WIDE).
+
+TK_DBL:                        ; DEHL is the value.
+    ADD  HL,HL                     ; The low word doubles,
+    RL   E                         ; its carry
+    RL   D                         ; into the high word.
+    RET  NC                        ; Nothing left the top,
+    JR   TK_OVER                   ; or something did.
 
 ;@ROUTINE IN B OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a character literal: one printable byte between apostrophes, with no
@@ -615,7 +672,7 @@ TK_TAKE:                       ; C: the kind of a token ending at the current by
     LD   A,C                       ; The token kind.
     JP   TK_DONE                   ; Return the token.
 TK_BASED:                      ; C: the descriptor of $ or %.
-    RES  7,C                       ; C: digit limit plus one; bit 4 set for binary.
+    RES  7,C                       ; C: digit limit plus one; bit 5 set for binary.
     LD   B,C                       ; B counts down the digits allowed.
     JR   TK_RADIX                  ; Scan the based number.
 
@@ -704,61 +761,65 @@ TK_ATEND:                      ; SRC_PEEK reported the end of the part.
 
 ;@ROUTINE IN BC OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a $ hexadecimal or % binary literal whose prefix is current. B and C
-; are one more than the digit limit, 5 for hexadecimal and 17 for binary,
-; and bit 4 of C selects binary. Returns TK_NUM with the value in BC.
+; are one more than the digit limit, 9 for hexadecimal and 33 for binary,
+; and bit 5 of C selects binary. Returns TK_NUM with the value's low word
+; in BC and its high word in TK_NHI. A bare prefix, or more digits than
+; 32 bits hold, is malformed.
 
 TK_RADIX:                      ; B, C: the digit limit plus one.
     CALL SRC_TAKE                  ; Consume the prefix.
-    LD   HL,0                      ; HL accumulates the value.
-.LOOP:                         ; HL: value so far; B-1: digits still allowed.
-    LD   D,0                       ; D: the stopping byte, zero for end of part.
-    PUSH HL                        ; The source adapter clobbers HL.
+    XOR  A                         ; Zero:
+    LD   (TK_WIDE),A               ; no carry yet,
+    LD   H,A                       ; and the value
+    LD   L,A                       ; so far,
+    LD   (TK_NLO),HL               ; low word
+    LD   (TK_NHI),HL               ; and high word.
+.LOOP:                         ; B-1 digits are still allowed.
     CALL SRC_PEEK                  ; Next byte, not yet consumed.
-    POP  HL                        ; Recover the value.
-    JR   C,.DONE                   ; The end of the part ends the literal.
-    LD   D,A                       ; Keep the byte for the trailing test.
-    BIT  4,C                       ; 17 has bit 4 set and 5 does not.
+    JR   C,.END                    ; The end of the part ends the literal.
+    PUSH AF                        ; Keep the byte.
+    BIT  5,C                       ; 33 has bit 5 set and 9 does not.
     JR   NZ,.BINARY                ; Binary digits are tested apart.
-    CALL TK_HEX                    ; A: the digit's value, if carry.
-    JR   C,.DIGIT                  ; A hexadecimal digit.
-    JR   .DONE                     ; Any other byte ends the literal.
-.BINARY:                       ; A: the byte; only 0 and 1 are digits.
-    SUB  '0'                       ; The digit's value, if any.
-    JR   C,.DONE                   ; Below '0': the literal ends.
-    CP   2                         ; Only 0 and 1 are binary digits.
-    JR   C,.DIGIT                  ; A binary digit.
-    JR   .DONE                     ; Any other byte ends the literal.
-.DIGIT:                        ; A: the digit's value.
-    DEC  B                         ; One fewer digit allowed.
-    JR   Z,.BAD                    ; More digits than sixteen bits hold.
-    LD   E,A                       ; Keep the digit; A is needed for the merge.
-    BIT  4,C                       ; Set for binary.
-    JR   NZ,.SHIFT                 ; Binary shifts by one bit.
-    ADD  HL,HL                     ; Hexadecimal: the first of four shifts.
-    ADD  HL,HL                     ; The second shift.
-    ADD  HL,HL                     ; The third shift.
-.SHIFT:                        ; The fourth shift is shared with binary.
-    ADD  HL,HL                     ; The low bits are now clear for the digit.
-    LD   A,E                       ; The digit.
-    OR   L                         ; Merged into the cleared low bits.
-    LD   L,A                       ; HL: the value with the new digit.
-    PUSH HL                        ; Keep the value across the adapter.
+    CALL TK_HEX                    ; Carry and its value for a hex digit.
+    JR   .KIND                     ; Decide.
+.BINARY:                       ; Only 0 and 1 are binary digits.
+    SUB  '0'                       ; The digit's value, if any:
+    CP   2                         ; carry for 0 and 1.
+.KIND:                         ; Carry if A is a digit's value.
+    JR   NC,.STOP                  ; Any other byte ends the literal.
+    POP  DE                        ; The byte is not needed.
+    DEC  B                         ; One fewer digit allowed:
+    JP   Z,TK_ENUM                 ; more than 32 bits hold is malformed.
+    PUSH BC                        ; Keep the counts
+    PUSH AF                        ; and the digit.
+    CALL TK_LOAD                   ; DEHL is the value so far.
+    LD   B,1                       ; One shift for binary,
+    BIT  5,C                       ; whose bit
+    JR   NZ,.SHIFT                 ; is set,
+    LD   B,4                       ; four for hexadecimal.
+.SHIFT:                        ; B shifts remain.
+    CALL TK_DBL                    ; Shift one bit.
+    DJNZ .SHIFT                    ; The low bits are now clear.
+    POP  AF                        ; The digit
+    OR   L                         ; joins
+    LD   L,A                       ; them.
+    CALL TK_SAVE                   ; The new value is kept.
     CALL SRC_TAKE                  ; Consume the digit.
-    POP  HL                        ; Recover the value.
+    POP  BC                        ; The counts.
     JR   .LOOP                     ; Scan the next byte.
-.DONE:                         ; D: the stopping byte, or zero.
-    LD   A,B                       ; Digits still allowed, plus one.
-    CP   C                         ; B equals C if no digit was taken.
-    JR   Z,.BAD                    ; Then no digit followed the prefix.
-    LD   A,D                       ; The stopping byte.
-    OR   A                         ; Zero for the end of the part.
-    JP   Z,TK_NUMOK                ; Nothing follows, so nothing can trail.
-    JP   TK_TRAIL                  ; Refuse a name byte straight after.
-.BAD:                          ; A bare prefix, or too many digits.
-    LD   A,B                       ; Were digits taken?
-    CP   C                         ; Then there were too many for 16 bits,
-    JP   NZ,EX_EXACT               ; which the reference takes as a u32;
-    JP   TK_ENUM                   ; with none the number is malformed.
+.STOP:                         ; The byte after the digits is pushed.
+    POP  DE                        ; D is it.
+    CALL .SOME                     ; A digit must have been taken.
+    LD   A,D                       ; The byte after the literal:
+    JP   TK_TRAIL                  ; no name byte may follow.
+.END:                          ; The part ends.
+    CALL .SOME                     ; A digit must have been taken;
+    JP   TK_NUMOK                  ; nothing follows.
+.SOME:                         ; B is C when no digit was taken.
+    LD   A,B                       ; Digits still allowed, plus one:
+    CP   C                         ; equal to the limit, the prefix
+    RET  NZ                        ; is bare
+    JP   TK_ENUM                   ; and malformed.
 
 ; The single-letter string escapes \0 \n \r \t \' \" and \\, searched by
 ; TK_QESC. AGGR's decoder translates them separately.

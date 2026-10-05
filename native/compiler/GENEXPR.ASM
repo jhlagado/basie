@@ -1,21 +1,25 @@
 ;==========================================================================
-;  Expression code generation
+;  Expression code generation: values
 ;==========================================================================
 ;
 ;  The reference compiler's templates for scalar values (ref/compile/
-;  compiler.ts: loadRegisters, storeRegisters, toRegisters), written as the
-;  expression parser (EXPR, EXTERM, EXOPER) and the statement actions reach
-;  each step. A value is in A when it is a u8 or a Boolean and in HL when
-;  it is a u16; a constant is not loaded until something needs it in the
-;  registers, and then at the type that needs it.
+;  compiler.ts: loadRegisters, storeRegisters, toRegisters, widen,
+;  checkedNarrow), written as the expression parser (EXPR, EXTERM, EXOPER)
+;  and the statement actions reach each step; the operators' templates
+;  are in GENOPER.ASM. A value is in A when it is a byte (u8, i8 or a
+;  Boolean), in HL when it is a word (u16 or i16) and in DEHL, HL low,
+;  when it is a long (u32 or i32); a constant is not loaded until
+;  something needs it in the registers, and then at the type that needs
+;  it.
 ;
 ;  Frames. A local or parameter is addressed from IX, the frame pointer: a
 ;  local at a negative offset, a parameter at a positive one (design
-;  decision D41). The reference's ixByte, ixWord, ixStoreA, ixStoreHL and
-;  ixStoreImm reach a slot within IX-128..IX+127 as (IX+d); a slot beyond
-;  that, in a frame larger than 128 bytes, through its computed address,
-;  with the registers the access must keep pushed around it and counted
-;  into the frame (GX_FACC). Each access is described by a table entry:
+;  decision D41). The reference's ixByte, ixWord, ixStoreA, ixStoreHL,
+;  ixStoreDEHL and ixStoreImm reach a slot within IX-128..IX+127 as
+;  (IX+d); a slot beyond that, in a frame larger than 128 bytes, through
+;  its computed address, with the registers the access must keep pushed
+;  around it and counted into the frame (GX_FACC). Each access is
+;  described by a table entry:
 ;
 ;    +0  byte  its size less one
 ;    +1  byte  the bytes the far form pushes
@@ -26,25 +30,77 @@
 ;  An immediate store, LD (HL),n or LD (IX+d),n, takes n from GX_IMMV.
 ;
 ;  Principal entries:
+;    GX_PROP   a scalar type's size and signedness
 ;    GX_LOAD   load a program variable of type A from blob BC
 ;    GX_STORE  store the registers into a program variable of type A
 ;    GX_FLOAD  load the local or parameter of type A at IX+HL
 ;    GX_FPUT   store the registers into the one of type A at IX+HL
 ;    GX_FZERO  zero B bytes of the frame from IX+HL
 ;    GX_TOREG  bring a result into the registers at a destination's type
-;    GX_WIDEN  widen a u8 in A to a u16 in HL
+;    GX_WIDEN  widen the registers from one type to another
+;    GX_ZEXT   widen a byte in A to a word in HL with a zero high byte
+;    GX_TRIM convert the registers with the checks of a narrowing
 ;    GX_PUSH   push a left operand while the right is computed
+;    GX_POPV   pop it again
 ;    GX_PUSHW  PUSH HL, counted
+
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The properties of scalar type A (SY_EXACT..SY_F32, GX_PTAB): its size in
+; bytes in bits 0 to 2, bit 6 for a Boolean or an f32, bit 7 for a signed
+; type. Every other register is kept.
+
+GX_PROP:                       ; A is the type.
+    PUSH HL                        ; Keep HL.
+    LD   HL,GX_PTAB                ; The table
+    ADD  A,L                       ; indexed
+    LD   L,A                       ; by
+    ADC  A,H                       ; the
+    SUB  L                         ; type
+    LD   H,A                       ; is
+    LD   A,(HL)                    ; its entry.
+    POP  HL                        ; Restore HL.
+    RET                            ; A is the properties.
+GX_PTAB:                       ; Size, $40 not an integer, $80 signed.
+    DB   0,1,2,$41                 ; Exact, u8, u16, boolean,
+    DB   $81,$82,4,$84,$C4         ; i8, i16, u32, i32, f32.
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; The size in bytes of scalar type A: 1, 2 or 4, compared with 2, so that
+; carry means a byte and zero a word. Every other register is kept.
+
+GX_SIZE:                       ; A is the type.
+    CALL GX_PROP                   ; Its properties.
+    AND  7                         ; Its size,
+    CP   2                         ; compared with a word's.
+    RET                            ; Carry: a byte; zero: a word.
 
 ;@ROUTINE IN A,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load the program variable at blob BC, of scalar type A: LD A,(nn) for a
-; u8 or Boolean, LD HL,(nn) for a u16.
+; byte, LD HL,(nn) for a word, LD HL,(nn) and LD DE,(nn+2) for a long.
 
 GX_LOAD:                       ; A is the type, BC the variable's ordinal.
-    CP   SY_U16                    ; A word?
+    CALL GX_SIZE                   ; Its size.
     LD   A,$3A                     ; LD A,(nn) for a byte.
-    JR   NZ,GX_ABS                 ; A byte it is.
+    JR   C,GX_ABS                  ; A byte it is.
     LD   A,$2A                     ; LD HL,(nn) for a word.
+    JR   Z,GX_ABS                  ; A word it is.
+    LD   E,$5B                     ; A long: then LD DE,(nn+2).
+
+;@ROUTINE IN A,BC,E CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append opcode A referring to blob BC, then $ED and opcode E referring to
+; it two bytes on: a long's two words.
+
+GX_LONG:                       ; A and E are the opcodes, BC the blob.
+    LD   D,E                       ; Keep the second opcode
+    PUSH DE                        ; in D,
+    PUSH BC                        ; and the blob.
+    CALL GX_ABS                    ; The low word's access.
+    CALL EM_OP                     ; The prefix
+    DB   $ED                       ; of the second.
+    POP  BC                        ; The blob,
+    POP  AF                        ; its opcode,
+    LD   DE,2                      ; two bytes on.
+    JR   GX_ABSD                   ; Append it and return.
 
 ;@ROUTINE IN A,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append opcode A and an ABS16 operand referring to blob BC.
@@ -63,35 +119,48 @@ GX_ABSD:                       ; A is the opcode, BC the target, DE the addend.
 
 ;@ROUTINE IN A,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the registers into the program variable at blob BC, of scalar type
-; A: LD (nn),A for a u8 or Boolean, LD (nn),HL for a u16.
+; A: LD (nn),A for a byte, LD (nn),HL for a word, LD (nn),HL and
+; LD (nn+2),DE for a long.
 
 GX_STORE:                      ; A is the type, BC the variable's ordinal.
-    CP   SY_U16                    ; A word?
+    CALL GX_SIZE                   ; Its size.
     LD   A,$32                     ; LD (nn),A for a byte.
-    JR   NZ,GX_ABS                 ; A byte it is.
+    JR   C,GX_ABS                  ; A byte it is.
     LD   A,$22                     ; LD (nn),HL for a word.
-    JR   GX_ABS                    ; Append it and return.
+    JR   Z,GX_ABS                  ; A word it is.
+    LD   E,$53                     ; A long: then LD (nn+2),DE.
+    JR   GX_LONG                   ; Append both and return.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the local or parameter of scalar type A at IX+HL: A for a u8 or
-; Boolean (ixByte), HL for a u16 (ixWord).
+; Load the local or parameter of scalar type A at IX+HL: A for a byte
+; (ixByte), HL for a word (ixWord), HL then DE for a long.
 
 GX_FLOAD:                      ; A is the type, HL the offset.
+    CALL GX_SIZE                   ; Its size.
     LD   DE,GX_DLDA                ; A byte into A.
-    CP   SY_U16                    ; A word?
-    JR   NZ,GX_FACC                ; No: load the byte.
+    JR   C,GX_FACC                 ; A byte it is.
     LD   DE,GX_DLDHL               ; A word into HL.
+    JR   Z,GX_FACC                 ; A word it is.
+    PUSH HL                        ; A long: keep the offset.
+    CALL GX_FACC                   ; Its low word into HL,
+    POP  HL                        ; then,
+    INC  HL                        ; two
+    INC  HL                        ; bytes on,
+    LD   DE,GX_DLDDE               ; its high word into DE.
     JR   GX_FACC                   ; Load it and return.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the registers into the local or parameter of scalar type A at
-; IX+HL: A for a u8 or Boolean (ixStoreA), HL for a u16 (ixStoreHL).
+; IX+HL: A for a byte (ixStoreA), HL for a word (ixStoreHL), DEHL for a
+; long (ixStoreDEHL).
 
 GX_FPUT:                       ; A is the type, HL the offset.
+    CALL GX_SIZE                   ; Its size.
     LD   DE,GX_DSTA                ; A byte from A.
-    CP   SY_U16                    ; A word?
-    JR   NZ,GX_FACC                ; No: store the byte.
+    JR   C,GX_FACC                 ; A byte it is.
     LD   DE,GX_DSTHL               ; A word from HL.
+    JR   Z,GX_FACC                 ; A word it is.
+    LD   DE,GX_DSTQ                ; A long from DEHL.
     JR   GX_FACC                   ; Store it and return.
 
 ;@ROUTINE IN B,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -254,53 +323,116 @@ GX_DSTN:                       ; ixStoreImm: (IX+offset) = GX_IMMV.
     DB   3,$36,$D1,$E1             ; LD (HL),n, POP DE, POP HL.
     DB   $36,0                     ; LD (IX+d),n.
 
-;@ROUTINE IN D,E,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Bring the result with metadata D and value HL into the registers as type
-; E, which EX_FITS has accepted for it (toRegisters): a known value is
-; loaded at type E, LD A,n or LD HL,nn; a u8 in A becomes a u16 in HL
-; when E is u16; anything else is already in place.
+
+;@ROUTINE IN D,E,HL CLOBBERS A,BC,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Bring the result with metadata D into the registers as type E, which
+; EX_FITS has accepted for it (toRegisters): a known value, its low word
+; in HL and the whole in EX_KVAL, is loaded at type E, LD A,n, LD HL,nn,
+; or LD HL,nn and LD DE,nn for a long; a computed one is widened to E
+; when its type is narrower (GX_WIDEN). DE and HL are kept.
 
 GX_TOREG:                      ; D is the metadata, E the type, HL a known value.
     BIT  7,D                       ; SY_KNOWN: is the value known?
     JR   Z,.HELD                   ; No: it is in the registers.
-    LD   A,E                       ; Load it at the destination's type.
-    CP   SY_U16                    ; A word?
-    JR   Z,.WORD                   ; LD HL,nn.
+    LD   A,E                       ; Load it at the destination's type:
+    CALL GX_SIZE                   ; its size.
+    JR   Z,GX_LDHL                 ; LD HL,nn for a word.
+    JR   NC,.LONG                  ; A long takes two.
     CALL EM_OP                     ; LD A,n.
     DB   $3E                       ; The opcode.
     LD   A,L                       ; The value's low byte
     JP   EM_BYTE                   ; is its operand.
-.WORD:                         ; A u16 destination.
-    CALL EM_OP                     ; LD HL,nn.
-    DB   $21                       ; The opcode.
-    JP   EM_WORD                   ; The value, and return.
-.HELD:                         ; The value is in A or HL.
+.LONG:                         ; A long destination.
+    CALL GX_LDHL                   ; LD HL,low word,
+    PUSH HL                        ; (HL kept)
+    LD   HL,(EX_KVAL+2)            ; then the high word
+    CALL GA_LDDE                   ; as LD DE,nn.
+    POP  HL                        ; HL is the low word again.
+    RET                            ; DEHL is the value.
+.HELD:                         ; The value is in the registers.
     LD   A,D                       ; Its type
     AND  SY_TMASK                  ; alone.
     CP   E                         ; The destination's?
     RET  Z                         ; Nothing to do.
+    PUSH DE                        ; Keep the metadata and the type.
+    LD   D,A                       ; From its type
+    CALL GX_WIDEN                  ; to E.
+    POP  DE                        ; The metadata and the type.
+    RET                            ; The value is in place.
+
+;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD HL,nn, nn in HL.
+
+GX_LDHL:                       ; HL is nn.
+    CALL EM_OP                     ; LD HL,nn:
+    DB   $21                       ; the opcode,
+    JP   EM_WORD                   ; and nn; return.
+
+;@ROUTINE IN D,E CLOBBERS A,BC,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Widen the value in the registers from type D to type E, which it widens
+; to (widen): a byte into HL, sign-extended (LD L,A, RLCA, SBC A,A,
+; LD H,A) or not (LD L,A, LD H,0); then, for a long, HL into DEHL
+; (LD A,H, RLCA, SBC A,A, LD D,A, LD E,A, or LD DE,0). D's signedness
+; decides both. DE and HL are kept.
+
+GX_WIDEN:                      ; D is the type, E the type it becomes.
+    LD   A,D                       ; The source's
+    CALL GX_PROP                   ; properties:
+    LD   C,A                       ; C keeps them.
+    AND  7                         ; A byte?
+    DEC  A                         ; Then
+    JR   NZ,.WORD                  ; it widens to a word first.
+    BIT  7,C                       ; Signed?
+    JR   Z,.ZERO                   ; No: a zero high byte.
+    CALL EM_SEQ                    ; LD L,A, RLCA, SBC A,A, LD H,A:
+    DB   4,$6F,$07,$9F,$67         ; the sign in H.
+    JR   .WORD                     ; Then perhaps a long.
+.ZERO:                         ; Unsigned.
+    CALL GX_ZEXT                   ; LD L,A, LD H,0.
+.WORD:                         ; The value is a word in HL.
+    LD   A,E                       ; Is the destination
+    CALL GX_SIZE                   ; a long?
+    RET  C                         ; A byte: nothing more,
+    RET  Z                         ; nor for a word.
+    BIT  7,C                       ; Signed?
+    JR   Z,.UNSIGNED               ; No: a zero high word.
+    CALL EM_SEQ                    ; LD A,H, RLCA, SBC A,A, LD D,A, LD E,A:
+    DB   5,$7C,$07,$9F,$57,$5F     ; the sign in DE.
+    RET                            ; DEHL is the value.
+.UNSIGNED:                     ; A zero high word:
+    CALL EM_SEQ                    ; LD DE,0.
+    DB   3,$11,0,0                 ; Append it.
+    RET                            ; DEHL is the value.
 
 ;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Widen the u8 in A to a u16 in HL: LD L,A / LD H,0.
+; Widen the byte in A to a word in HL with a zero high byte: LD L,A,
+; LD H,0. DE and HL are kept.
 
-GX_WIDEN:                      ; A u8 must become a u16.
+GX_ZEXT:                       ; A byte becomes a word.
     CALL EM_SEQ                    ; The zero extension:
     DB   3,$6F,$26,0               ; LD L,A, LD H,0.
     RET                            ; The value is in HL.
 
 ;@ROUTINE IN A CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Keep a left operand with metadata A while its right operand is computed
-; (the reference's pushValue): a value in the registers is pushed, PUSH HL
-; for a u16 and PUSH AF for a u8 or Boolean, and counted as two bytes of
-; temporaries; a known value stays in the parser and costs nothing.
+; (the reference's pushValue): a value in the registers is pushed, PUSH AF
+; for a byte, PUSH HL for a word, counted as two bytes of temporaries,
+; and PUSH DE, PUSH HL for a long, counted as four; a known value stays in
+; the parser and costs nothing. BC is kept.
 
 GX_PUSH:                       ; A is the left operand's metadata.
     BIT  7,A                       ; SY_KNOWN: a constant?
     RET  NZ                        ; It needs no code.
-    AND  SY_TMASK                  ; Its type.
-    CP   SY_U16                    ; A word?
+    AND  SY_TMASK                  ; Its type:
+    CALL GX_SIZE                   ; its size.
     LD   A,$F5                     ; PUSH AF: a byte is in A.
-    JR   NZ,GX_PUSHA               ; A byte it is.
+    JR   C,GX_PUSHA                ; A byte it is.
+    JR   Z,GX_PUSHW                ; PUSH HL for a word.
+    CALL EM_OP                     ; A long: PUSH DE
+    DB   $D5                       ; first, the high word,
+    CALL GX_PUSHW                  ; then PUSH HL,
+    LD   A,2                       ; and two more bytes
+    JP   EM_PUSH                   ; counted; return.
 
 ;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append PUSH HL and count its two bytes as temporaries (pushValue). BC
@@ -313,293 +445,188 @@ GX_PUSHA:                      ; A is the push.
     LD   A,2                       ; Two bytes of temporaries.
     JP   EM_PUSH                   ; Count them and return.
 
-;@ROUTINE IN C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Generate the binary operator EX_OPER (a token, or a relation code below
-; 6) of width C on the operands EX_LMETA/EX_LVAL and EX_RMETA/EX_RVAL, not
-; both known, as the reference's binary does. A known left operand is used
-; as an immediate after the right is computed (emitBinaryConstLeft); a left
-; operand in the registers was pushed (GX_PUSH) and is popped beneath a
-; known right (emitBinaryImmediate) or a computed one (the register form).
-; The result is in A or HL.
+;@ROUTINE IN A CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Pop a value of type A that GX_PUSH pushed (popValue): POP AF for a byte,
+; POP HL for a word, POP HL and POP DE for a long, and count it popped.
+; BC is kept.
 
-GX_BINOP:                      ; C is the width, u8 or u16.
-    LD   A,(EX_LMETA)              ; Is the left operand known?
-    RLCA                           ; SY_KNOWN into carry.
-    JR   C,.LEFT                   ; Yes: it becomes an immediate.
-    LD   A,(EX_RMETA)              ; The left was pushed. The right?
-    RLCA                           ; SY_KNOWN into carry.
-    JR   C,.RIGHT                  ; Known: pop the left beneath it.
-    CALL .RWIDEN                   ; Both computed: the right at the width,
-    LD   A,C                       ; then the left back.
-    CP   SY_U16                    ; Words?
-    JR   Z,.WORDS                  ; Then the right goes to DE.
-    CALL EM_SEQ                    ; Bytes: the right to E,
-    DB   2,$5F,$F1                 ; LD E,A, then the left: POP AF.
-    JR   .POPPED                   ; Operate.
-.WORDS:                        ; The right is in HL.
-    CALL EM_OP                     ; EX DE,HL: the right to DE.
-    DB   $EB                       ; Append it.
-    CALL .POPL                     ; The left back into HL.
-.POPPED:                       ; The left is back.
-    CALL EM_POP2                   ; Two bytes fewer pushed.
-    JP   GX_REGS                   ; Operate on the registers and return.
-.RIGHT:                        ; A known right beneath a pushed left.
-    CALL .POPL                     ; The left back, at the width.
-    CALL EM_POP2                   ; Two bytes fewer pushed.
-    LD   HL,(EX_RVAL)              ; The right's value
-    JP   GX_IMM                    ; is the immediate.
-.LEFT:                         ; A known left; the right is computed.
-    CALL .RWIDEN                   ; The right at the width.
-    LD   HL,(EX_LVAL)              ; The left's value.
-    LD   A,(EX_OPER)               ; Does the operator commute?
-    CP   EX_NE+1                   ; = and <> do,
-    JP   C,GX_IMM                  ; so the left is the immediate.
-    CP   TK_STAR                   ; So do *,
-    JP   Z,GX_IMM                  ; and
-    CP   TK_PLUS                   ; +,
-    JP   Z,GX_IMM                  ; and the
-    CP   TK_MINUS                  ; bitwise operators, but not -:
-    JR   Z,.SWAP                   ; it moves the right aside.
-    CALL GX_ALU                    ; The bitwise ones
-    JP   NC,GX_IMM                 ; take the left as the immediate.
-.SWAP:                         ; The right moves aside.
-    LD   A,C                       ; Words?
-    CP   SY_U16                    ; EX DE,HL then LD HL,nn.
-    JR   Z,.SWAPW                  ; Words.
-    CALL EM_SEQ                    ; Bytes: LD E,A,
-    DB   2,$5F,$3E                 ; then LD A,n.
-    LD   A,L                       ; The left
-    CALL EM_BYTE                   ; is n.
-    JP   GX_REGS                   ; Operate on the registers and return.
-.SWAPW:                        ; Words.
-    CALL EM_SEQ                    ; EX DE,HL,
-    DB   2,$EB,$21                 ; then LD HL,nn.
-    CALL EM_WORD                   ; The left is nn.
-    JP   GX_REGS                   ; Operate on the registers and return.
-
-;@ROUTINE IN C CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Widen the computed right operand, a u8 in A, when the width C is u16.
-
-.RWIDEN:                       ; C is the width.
-    LD   A,(EX_RMETA)              ; The right's type.
-    JR   .WIDEN                    ; Widen it if the width needs it.
-
-;@ROUTINE IN C CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Pop the left operand, POP HL for a u16 and POP AF otherwise, and widen
-; it when it is a u8 and the width C is u16.
-
-.POPL:                         ; C is the width.
-    LD   A,(EX_LMETA)              ; The left's type.
-    AND  SY_TMASK                  ; Alone.
-    CP   SY_U16                    ; A word?
-    LD   A,$E1                     ; POP HL.
-    JR   Z,.POP                    ; It is in HL.
-    LD   A,$F1                     ; POP AF.
-.POP:                          ; A is the pop.
+GX_POPV:                       ; A is the value's type.
+    CALL GX_SIZE                   ; Its size.
+    LD   A,$F1                     ; POP AF for a byte.
+    JR   C,.WORD                   ; A byte it is.
+    LD   A,$E1                     ; POP HL for a word.
+    JR   Z,.WORD                   ; A word it is.
+    CALL EM_BYTE                   ; A long: POP HL,
+    LD   A,$D1                     ; then POP DE,
+    CALL EM_BYTE                   ; appended,
+    LD   A,4                       ; and four bytes
+    JP   EM_POP                    ; popped; return.
+.WORD:                         ; A is the pop.
     CALL EM_BYTE                   ; Append it.
-    LD   A,(EX_LMETA)              ; The left's type.
-.WIDEN:                        ; A is an operand's metadata.
-    AND  SY_TMASK                  ; Its type.
-    CP   C                         ; The width's?
-    RET  Z                         ; Then it is in place.
-    LD   A,C                       ; Only a u16 width
-    CP   SY_U16                    ; widens it.
-    RET  NZ                        ; A u8 width never does.
-    JP   GX_WIDEN                  ; LD L,A, LD H,0, and return.
+    JP   EM_POP2                   ; Two bytes popped; return.
 
-;@ROUTINE IN C,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The operator EX_OPER of width C with the immediate HL as its right
-; operand and the other in A or HL (emitBinaryImmediate): ADD, SUB, AND, OR
-; and XOR take a byte immediate; anything else loads it into E or DE and
-; operates on the registers.
+;@ROUTINE IN D,E CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Convert the registers from integer type D to integer type E, which D
+; does not widen to, with the checks of a narrowing (checkedNarrow,
+; checkedNarrow32): a call to TRAP_NAR unless the value fits E, then the
+; value at E's size. The reference's i8 to u16, which it left unchecked
+; and unwidened, is checked and zero-extended (a fault fixed there too).
 
-GX_IMM:                        ; C is the width, HL the immediate.
-    LD   A,C                       ; Words?
-    CP   SY_U16                    ; Then LD DE,nn.
-    JR   Z,.WORD                   ; Load it.
-    LD   A,(EX_OPER)               ; A byte: is it an ALU operator?
-    CALL GX_ALU                    ; A is its register form.
-    JR   C,.LOADE                  ; No: LD E,n.
-    AND  $38                       ; The operation's bits,
-    OR   $C6                       ; as an immediate: ADD A,n and so on.
-    CALL EM_BYTE                   ; Append it.
-    LD   A,L                       ; Its operand
-    JP   EM_BYTE                   ; is the immediate, and return.
-.LOADE:                        ; Through E.
-    CALL EM_OP                     ; LD E,n.
-    DB   $1E                       ; Append it.
-    LD   A,L                       ; Its operand
-    CALL EM_BYTE                   ; is the immediate.
-    JP   GX_REGS                   ; Operate on the registers and return.
-.WORD:                         ; Through DE.
-    CALL EM_OP                     ; LD DE,nn.
-    DB   $11                       ; Append it.
-    CALL EM_WORD                   ; Its operand is the immediate.
-
-;@ROUTINE IN C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The operator EX_OPER of width C on the registers (emitBinaryRegisters):
-; the left in A or HL, the right in E or DE. Arithmetic leaves its result
-; there; a relation leaves a Boolean in A.
-
-GX_REGS:                       ; C is the width.
-    LD   A,(EX_OPER)               ; The operator.
-    CP   EX_GE+1                   ; A relation code?
-    JR   C,GX_REL                  ; Compare.
-    CALL GX_ALU                    ; An ALU operator?
-    JR   C,.MULDIV                 ; No: *, / or mod.
-    LD   B,A                       ; B is its register form, on E.
-    LD   A,C                       ; Words?
-    CP   SY_U16                    ; Then a word sequence.
-    LD   A,B                       ; A byte: the one instruction,
-    JP   NZ,EM_BYTE                ; ADD A,E and so on; return.
-    LD   C,B                       ; C is the operation from here.
-    CP   $83                       ; Word addition?
-    LD   A,$19                     ; ADD HL,DE.
-    JP   Z,EM_BYTE                 ; Append it and return.
-    LD   A,C                       ; Word subtraction?
-    CP   $93                       ; SUB E is its byte form.
-    JR   Z,.SUBW                   ; OR A then SBC HL,DE.
-    CALL EM_OP                     ; Bitwise: LD A,H,
-    DB   $7C                       ; then
-    LD   A,C                       ; the operation
-    DEC  A                         ; on D,
-    CALL EM_BYTE                   ; then
-    CALL EM_SEQ                    ; LD H,A
-    DB   2,$67,$7D                 ; and LD A,L,
-    LD   A,C                       ; the operation
-    CALL EM_BYTE                   ; on E,
-    LD   A,$6F                     ; then LD L,A.
+GX_TRIM:                       ; D is the source's type, E the target's.
+    LD   (GX_TYPES),DE             ; Keep the types.
+    LD   A,D                       ; The source's
+    CALL GX_PROP                   ; properties
+    LD   (GX_PFROM),A              ; are kept,
+    LD   B,A                       ; and the
+    LD   A,E                       ; target's
+    CALL GX_PROP                   ; too.
+    LD   (GX_PTO),A                ; Kept.
+    OR   B                         ; Is either
+    AND  4                         ; a long?
+            JR   NZ,.WIDE          ; Then the 32-bit checks.
+    LD   A,B                       ; Is the source
+    AND  7                         ; a byte?
+    DEC  A                         ; Then
+            JR   Z,.BYTE           ; to a byte or a word.
+    CALL .TOBYTE                   ; A word: to a word?
+            JR   NZ,.WORDS         ; Then u16 to i16, or i16 to u16.
+    LD   A,(GX_PFROM)              ; A word to a byte:
+    AND  (HL)                      ; both signed? (HL is GX_PTO)
+    RLA                            ; Then
+            JR   C,.SIGNS          ; H must be L's sign.
+    CALL .HZERO                    ; Otherwise H must be zero,
+    LD   A,(GX_PTO)                ; and for
+    RLA                            ; an i8
+            JR   NC,.LOW           ; target
+    CALL EM_SEQ                    ; L's top bit clear:
+    DB   2,$7D,$07                 ; LD A,L, RLCA,
+    CALL .IFC                      ; CALL C,TRAP_NAR.
+            JR   .LOW              ; Then the low byte.
+.SIGNS:                        ; i16 to i8.
+    CALL EM_SEQ                    ; LD A,L, RLCA, SBC A,A, XOR H:
+    DB   4,$7D,$07,$9F,$AC         ; zero when H is L's sign;
+    CALL .IFNZ                     ; CALL NZ,TRAP_NAR.
+.LOW:                          ; The value is a byte:
+    LD   A,$7D                     ; LD A,L.
     JP   EM_BYTE                   ; Append it and return.
-.SUBW:                         ; Word subtraction.
-    CALL EM_SEQ                    ; OR A, SBC HL,DE.
-    DB   3,$B7,$ED,$52             ; Carry clear, then subtract.
-    RET                            ; The difference is in HL.
-.MULDIV:                       ; A is *, / or mod.
-    LD   B,A                       ; B is the operator, C the width;
-    PUSH BC                        ; keep both across the code.
-    LD   A,C                       ; Bytes?
-    CP   SY_U16                    ; Words go straight to the helper.
-    JR   Z,.HELPER                 ; Call it.
-    CALL EM_SEQ                    ; Bytes widen to words first:
-    DB   5,$6F,$26,0,$16,0         ; LD L,A, LD H,0, LD D,0.
-.HELPER:                       ; The operator and width are pushed.
-    POP  BC                        ; B is the operator.
-    PUSH BC                        ; Keep it for the result.
-    LD   A,B                       ; Multiplication?
-    CP   TK_STAR                   ; It has its own helper.
-    JR   NZ,.DIVIDE                ; Division and remainder share one.
-    CALL EM_HELP                   ; CALL MUL16,
-    DW   HP_MUL16                  ; its ordinal and stack figure.
-    JR   .CALLED                   ; Then the result.
-.DIVIDE:                       ; / or mod.
-    CALL EM_HELP                   ; CALL DIV16,
-    DW   HP_DIV16                  ; its ordinal and stack figure.
-.CALLED:                       ; HL is the quotient, DE the remainder.
-    POP  BC                        ; B is the operator, C the width.
-    LD   A,C                       ; Bytes?
-    CP   SY_U16                    ; Words want only the remainder moved.
-    JR   Z,.WORDS                  ; Words.
-    LD   A,B                       ; A byte result:
-    CP   TK_MOD                    ; the remainder
-    LD   A,$7B                     ; is LD A,E,
-    JP   Z,EM_BYTE                 ; and return;
-    LD   A,$7D                     ; the quotient LD A,L.
-    JP   EM_BYTE                   ; Append it and return.
-.WORDS:                        ; A word result.
-    LD   A,B                       ; The remainder?
-    CP   TK_MOD                    ; Then EX DE,HL brings it to HL.
-    RET  NZ                        ; The quotient is already there.
-    LD   A,$EB                     ; EX DE,HL.
-    JP   EM_BYTE                   ; Append it and return.
+.BYTE:                         ; From a byte.
+    CALL EM_OP                     ; OR A: its sign
+    DB   $B7                       ; must be clear,
+    LD   A,$FC                     ; CALL M,TRAP_NAR,
+    CALL .TRAP                     ; for u8 to i8 and back;
+    CALL .TOBYTE                   ; and for i8 to u16
+    RET  Z                         ; it is
+    JP   GX_ZEXT                   ; zero-extended.
+.WORDS:                        ; u16 to i16 and back:
+    CALL EM_SEQ                    ; H's sign must be clear,
+    DB   2,$7C,$B7                 ; LD A,H, OR A,
+    LD   A,$FC                     ; CALL M,TRAP_NAR.
+    JP   .TRAP                     ; Append it and return.
+.WIDE:                         ; A long is the source or the target.
+    LD   A,(GX_PFROM)              ; Both
+    AND  (HL)                      ; longs?
+    AND  4                         ; (HL is GX_PTO)
+            JR   Z,.ONE            ; No.
+    CALL EM_SEQ                    ; u32 and i32: D's top bit clear:
+    DB   2,$7A,$17                 ; LD A,D, RLA,
+    JP   .IFC                      ; CALL C,TRAP_NAR; return.
+.ONE:                          ; Just one is a long.
+    LD   A,(GX_PFROM)              ; The source?
+    AND  4                         ; Then
+            JR   Z,.TOLONG         ; narrower to a long.
+    LD   A,(GX_PFROM)              ; A long to narrower:
+    AND  (HL)                      ; both signed?
+    RLA                            ; Then DE must be
+            JR   NC,.DEZERO        ; H's sign,
+    CALL EM_SEQ                    ; LD A,H, RLA, SBC A,A, CP E,
+    DB   4,$7C,$17,$9F,$BB         ; CALL NZ,TRAP_NAR,
+    CALL .IFNZ                     ; then
+    CALL EM_OP                     ; CP D,
+    DB   $BA                       ; CALL NZ,TRAP_NAR;
+    CALL .IFNZ                     ; and for a byte
+    CALL .TOBYTE                   ; H must be L's sign:
+            JR   NZ,.LOWEST        ; LD A,L, RLA,
+    CALL EM_SEQ                    ; SBC A,A,
+    DB   4,$7D,$17,$9F,$BC         ; CP H,
+    CALL .IFNZ                     ; CALL NZ,TRAP_NAR.
+            JR   .LOWEST           ; Then the low byte, if a byte.
+.DEZERO:                       ; Otherwise DE must be zero:
+    CALL EM_SEQ                    ; LD A,D, OR E,
+    DB   2,$7A,$B3                 ; CALL NZ,TRAP_NAR;
+    CALL .IFNZ                     ; for a byte,
+    CALL .TOBYTE                   ; H too:
+    CALL Z,.HZERO                  ; LD A,H, OR A, CALL NZ,TRAP_NAR.
+    LD   A,(GX_PTO)                ; A signed target
+    RLA                            ; needs its own top bit
+            JR   NC,.LOWEST        ; clear:
+    CALL .TOBYTE                   ; L's for a byte,
+    LD   A,$7D                     ; LD A,L,
+            JR   Z,.TOP            ; or
+    LD   A,$7C                     ; LD A,H for a word,
+.TOP:                          ; A is the load.
+    CALL EM_BYTE                   ; Append it,
+    CALL EM_OP                     ; then RLA,
+    DB   $17                       ; and
+    CALL .IFC                      ; CALL C,TRAP_NAR.
+.LOWEST:                       ; A byte target is in L:
+    CALL .TOBYTE                   ; LD A,L;
+    RET  NZ                        ; a word is in HL.
+    JP   .LOW                      ; Append it and return.
+.TOLONG:                       ; A byte or a word to a long:
+    LD   A,(GX_PFROM)              ; signed to unsigned
+    RLA                            ; needs the sign clear;
+            JR   C,.CLEAR          ; anything else widens.
+    LD   DE,(GX_TYPES)             ; The types again:
+    JP   GX_WIDEN                  ; widened; return.
+.CLEAR:                        ; i8 or i16 to u32.
+    LD   A,(GX_PFROM)              ; A byte's top bit is A's,
+    AND  7                         ; a word's H's:
+    DEC  A                         ; LD A,A
+    LD   A,$7F                     ; for a byte,
+            JR   Z,.SIGN           ; or
+    LD   A,$7C                     ; LD A,H.
+.SIGN:                         ; A is the load.
+    CALL EM_BYTE                   ; Append it,
+    CALL EM_OP                     ; then RLA,
+    DB   $17                       ; and
+    CALL .IFC                      ; CALL C,TRAP_NAR.
+    LD   A,(GX_PFROM)              ; A byte
+    AND  7                         ; is
+    DEC  A                         ; zero-extended
+    CALL Z,GX_ZEXT                 ; to a word,
+    CALL EM_SEQ                    ; and the high word
+    DB   3,$11,0,0                 ; is LD DE,0.
+    RET                            ; DEHL is the value.
 
-;@ROUTINE IN A,C CLOBBERS A,BC,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The relation A (EX_EQ..EX_GE) of width C, the left in A or HL and the
-; right in E or DE, as a Boolean in A: a comparison that leaves carry when
-; the left is less, or when they are equal, then SBC A,A and AND 1 for =,
-; < and > or INC A for <>, >= and <=.
+;@ROUTINE OUT HL,ZERO CLOBBERS A,CARRY,SIGN,PARITY,HALFCARRY
+; Z when the narrowing's target is a byte; HL addresses GX_PTO.
 
-GX_REL:                        ; A is the relation, C the width.
-    LD   B,A                       ; Keep it.
-    LD   A,C                       ; Words?
-    CP   SY_U16                    ; They compare in HL.
-    LD   C,B                       ; C is the relation from here.
-    JR   Z,.WORDS                  ; Compare words.
-    LD   A,C                       ; Bytes: an equality?
-    CP   EX_LT                     ; = and <> are below <.
-    JR   NC,.ORDER                 ; No: an order.
-    CALL EM_SEQ                    ; SUB E, then SUB 1 sets carry
-    DB   3,$93,$D6,1               ; only when they were equal.
-    JR   .TAIL                     ; Make the Boolean.
-.ORDER:                        ; < <= > >= on bytes.
-    CALL .SWAP                     ; Z if the operands swap (<= and >).
-    JR   NZ,.CPE                   ; < and >= compare as they are.
-    CALL EM_SEQ                    ; LD D,A, LD A,E, LD E,D:
-    DB   3,$57,$7B,$5A             ; the right is now the left.
-.CPE:                          ; Compare A with E.
-    CALL EM_OP                     ; CP E: carry if A is less.
-    DB   $BB                       ; Append it.
-    JR   .TAIL                     ; Make the Boolean.
-.WORDS:                        ; Words in HL and DE.
-    CALL .SWAP                     ; <= and > swap them.
-    LD   A,$EB                     ; EX DE,HL.
-    CALL Z,EM_BYTE                 ; Swap them.
-    CALL EM_SEQ                    ; OR A, SBC HL,DE:
-    DB   3,$B7,$ED,$52             ; carry if HL is less.
-    LD   A,C                       ; An equality?
-    CP   EX_LT                     ; = and <> are below <.
-    JR   NC,.TAIL                  ; No: carry decides.
-    CALL EM_SEQ                    ; LD A,H, OR L, SUB 1: carry
-    DB   4,$7C,$B5,$D6,1           ; only when they were equal.
-.TAIL:                         ; Carry holds the answer, or its inverse.
-    CALL EM_OP                     ; SBC A,A: $FF when carry.
-    DB   $9F                       ; Append it.
-    BIT  0,C                       ; <>, <= and >= are odd.
-    LD   A,$3C                     ; INC A: 0 when carry, 1 otherwise.
-    JP   NZ,EM_BYTE                ; Append it and return.
-    CALL EM_SEQ                    ; AND 1: 1 when carry.
-    DB   2,$E6,1                   ; The Boolean.
-    RET                            ; It is in A.
+.TOBYTE:                       ; Is the target a byte?
+    LD   HL,GX_PTO                 ; Its properties:
+    LD   A,(HL)                    ; its size
+    AND  7                         ; less
+    DEC  A                         ; one.
+    RET                            ; Z for a byte.
 
-;@ROUTINE IN C OUT ZERO CLOBBERS A
-; Z when relation C swaps its operands: <= and >, which compare the right
-; with the left.
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD A,H, OR A and CALL NZ,TRAP_NAR: H must be zero.
 
-.SWAP:                         ; C is the relation.
-    LD   A,C                       ; Is it
-    CP   EX_LE                     ; <=,
-    RET  Z                         ; which swaps,
-    CP   EX_GT                     ; or >?
-    RET                            ; Z if it swaps.
+.HZERO:                        ; H must be zero.
+    CALL EM_SEQ                    ; LD A,H, OR A,
+    DB   2,$7C,$B7                 ; then CALL NZ.
 
-;@ROUTINE IN A OUT A,CARRY CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
-; Carry clear if token A is +, -, `and`, `or` or `xor`, with A its byte
-; operation on E: ADD A,E, SUB E, AND E, OR E or XOR E. Carry otherwise.
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append CALL NZ,TRAP_NAR (.IFNZ), CALL C,TRAP_NAR (.IFC), or the trap
+; site whose CALL cc opcode is A (.TRAP).
 
-GX_ALU:                        ; A is an operator token.
-    PUSH HL                        ; Keep the caller's HL.
-    PUSH BC                        ; And BC.
-    LD   HL,.TABLE                 ; Token and operation pairs.
-    LD   B,5                       ; Five of them.
-.SCAN:                         ; HL is the next pair.
-    CP   (HL)                      ; This token?
-    INC  HL                        ; Its operation follows.
-    JR   Z,.FOUND                  ; Found.
-    INC  HL                        ; The next pair.
-    DJNZ .SCAN                     ; Until the table ends.
-    SCF                            ; Not an ALU operator.
-    JR   .DONE                     ; Return carry.
-.FOUND:                        ; HL is the operation.
-    LD   A,(HL)                    ; A is it; carry is clear.
-.DONE:                         ; Restore the caller's registers.
-    POP  BC                        ; BC
-    POP  HL                        ; and HL.
-    RET                            ; Carry says which.
-.TABLE:                        ; The ALU operators on E.
-    DB   TK_PLUS,$83               ; + is ADD A,E.
-    DB   TK_MINUS,$93              ; - is SUB E.
-    DB   TK_AND,$A3                ; `and` is AND E.
-    DB   TK_OR,$B3                 ; `or` is OR E.
-    DB   TK_XOR,$AB                ; `xor` is XOR E.
+.IFNZ:                         ; CALL NZ.
+    LD   A,$C4                     ; Its opcode.
+            JR   .TRAP             ; Append it.
+.IFC:                          ; CALL C.
+    LD   A,$DC                     ; Its opcode.
+.TRAP:                         ; A is the opcode.
+    LD   L,HP_TRUNC&$FF            ; The narrowing trap.
+    JP   EM_TRAP                   ; Append the site and return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Compare two Booleans for = or <>, relation A, not both known: the left
@@ -635,14 +662,15 @@ GX_BOOL:                       ; A is EX_EQ or EX_NE.
     DB   2,$EE,1                   ; XOR 1.
     RET                            ; The Boolean is in A.
 
-;@ROUTINE IN D CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Negate the computed value of type D in place: NEG for a u8; for a u16,
-; EX DE,HL, LD HL,0, OR A, SBC HL,DE.
+;@ROUTINE IN D CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Negate the computed value of type D in place (negate): NEG for a byte;
+; for a word, EX DE,HL, LD HL,0, OR A, SBC HL,DE; for a long, NEG32.
 
-GX_NEG:                        ; D is the type, u8 or u16.
-    LD   A,D                       ; Words?
-    CP   SY_U16                    ; Then subtract from zero.
-    JR   Z,.WORD                   ; Negate HL.
+GX_NEG:                        ; D is the type.
+    LD   A,D                       ; Its size.
+    CALL GX_SIZE                   ; A byte?
+    JR   Z,.WORD                   ; A word.
+    JR   NC,.LONG                  ; A long.
     CALL EM_SEQ                    ; NEG.
     DB   2,$ED,$44                 ; A is negated.
     RET                            ; Done.
@@ -650,38 +678,35 @@ GX_NEG:                        ; D is the type, u8 or u16.
     CALL EM_SEQ                    ; EX DE,HL, LD HL,0, OR A, SBC HL,DE.
     DB   7,$EB,$21,0,0,$B7,$ED,$52 ; HL is zero less the value.
     RET                            ; Done.
+.LONG:                         ; DEHL, through the runtime:
+    CALL EM_HELP                   ; CALL NEG32,
+    DW   HP_LNEG                   ; its ordinal and stack figure.
+    RET                            ; Done.
 
 ;@ROUTINE IN C CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Complement the computed value of type C in place: XOR 1 for a Boolean,
-; CPL for a u8, and each byte of HL for a u16.
+; Complement the computed value of type C in place (unaryNot): XOR 1 for
+; a Boolean, CPL for a byte, and each byte of HL, then of DE, for a word
+; or a long.
 
 GX_NOT:                        ; C is the type.
     LD   A,C                       ; A Boolean?
     CP   SY_BOOL                   ; It flips.
     JR   Z,.FLIP                   ; XOR 1.
-    CP   SY_U8                     ; A byte?
+    CALL GX_SIZE                   ; A byte?
     LD   A,$2F                     ; CPL.
-    JP   Z,EM_BYTE                 ; Append it and return.
+    JP   C,EM_BYTE                 ; Append it and return.
+    PUSH AF                        ; Keep the size's flags.
     CALL EM_SEQ                    ; A word: LD A,H, CPL, LD H,A,
     DB   6,$7C,$2F,$67,$7D,$2F,$6F ; LD A,L, CPL, LD L,A.
+    POP  AF                        ; A long
+    RET  Z                         ; has DE too:
+    CALL EM_SEQ                    ; LD A,D, CPL, LD D,A,
+    DB   6,$7A,$2F,$57,$7B,$2F,$5F ; LD A,E, CPL, LD E,A.
     RET                            ; Done.
 .FLIP:                         ; A Boolean.
     CALL EM_SEQ                    ; XOR 1.
     DB   2,$EE,1                   ; It flips.
     RET                            ; Done.
-
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; u8(...) of a computed u16 (checkedNarrow): trap unless the high byte is
-; zero, then take the low byte: LD A,H, OR A, CALL NZ,TRAP_NAR, LD A,L.
-
-GX_BYTE:                       ; The value is in HL.
-    CALL EM_SEQ                    ; LD A,H, OR A,
-    DB   2,$7C,$B7                 ; then
-    LD   A,$C4                     ; CALL NZ
-    LD   L,HP_TRUNC&$FF            ; to the narrowing trap.
-    CALL EM_TRAP                   ; Append it.
-    LD   A,$7D                     ; LD A,L.
-    JP   EM_BYTE                   ; Append it and return.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open the short circuit of `and` (A is TK_AND) or `or` after a computed

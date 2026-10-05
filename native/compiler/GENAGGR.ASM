@@ -138,17 +138,21 @@ GA_MOVE:                       ; HL is the offset.
     RET                            ; The place has moved.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the scalar of type RO_OTYPE at the place into A or HL
-; (loadDesignator): from a static place LD A,(nn) or LD HL,(nn); from the
-; frame (IX+d) near or far; through an alias or a computed address LD
-; A,(HL), or LD E,(HL), INC HL, LD D,(HL), EX DE,HL for a word.
+; Load the scalar of type RO_OTYPE at the place into the registers
+; (loadDesignator): from a static place LD A,(nn), LD HL,(nn), or for a
+; long LD HL,(nn) and LD DE,(nn+2); from the frame (IX+d) near or far;
+; through an alias or a computed address LD A,(HL), or LD E,(HL), INC HL,
+; LD D,(HL), EX DE,HL for a word, and for a long LD E,(HL), INC HL,
+; LD D,(HL), INC HL, PUSH DE, LD E,(HL), INC HL, LD D,(HL), POP HL
+; (loadRegistersIndirect).
 
 GA_LOAD:                       ; RO_PLACE is the place.
-    LD   DE,GX_DLDA                ; A byte for the frame,
+    LD   A,(RO_OTYPE)              ; Its type's
+    CALL GX_SIZE                   ; size:
+    LD   DE,GX_DLDA                ; a byte for the frame,
     LD   BC,$3A7E                  ; LD A,(nn) or LD A,(HL),
-    LD   A,(RO_OTYPE)              ; unless
-    CP   SY_U16                    ; it is a word:
-    JR   NZ,GA_ACC                 ; then
+    JR   C,GA_ACC                  ; for a byte;
+    JR   NZ,.LONG                  ; a long's two words;
     LD   DE,GX_DLDHL               ; a word for the frame,
     LD   BC,$2A00                  ; LD HL,(nn), or the sequence.
     CALL GA_ACC                    ; The access: a sequence when C is zero.
@@ -156,19 +160,28 @@ GA_LOAD:                       ; RO_PLACE is the place.
     CALL EM_SEQ                    ; A word through HL:
     DB   4,$5E,$23,$56,$EB         ; LD E,(HL), INC HL, LD D,(HL), EX DE,HL.
     RET                            ; HL is the value.
+.LONG:                         ; Four bytes.
+    LD   A,(RO_PKIND)              ; Static or in the frame,
+    CP   GA_ALIAS                  ; they load
+            JR   C,GA_LDF          ; as a File's do.
+    CALL GA_ADDR                   ; Otherwise through the address:
+    CALL EM_SEQ                    ; LD E,(HL), INC HL, LD D,(HL), INC HL,
+    DB   9,$5E,$23,$56,$23,$D5,$5E,$23,$56,$E1 ; PUSH DE, the high word, POP HL.
+    RET                            ; DEHL is the value.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Store A or HL, of type RO_OTYPE, into the scalar at a place that is not
-; computed (storeRegisters): LD (nn),A or LD (nn),HL for a static place,
-; (IX+d) near or far for the frame. A computed place takes the address
-; first (RO_LET).
+; Store the registers, of type RO_OTYPE, into the scalar at a place that
+; is not computed (storeRegisters): LD (nn),A or LD (nn),HL for a static
+; place, (IX+d) near or far for the frame, and a long as a File is
+; (GA_STF). A computed place takes the address first (RO_LET).
 
 GA_STORE:                      ; RO_PLACE is the place.
-    LD   DE,GX_DSTA                ; A byte for the frame,
+    LD   A,(RO_OTYPE)              ; Its type's
+    CALL GX_SIZE                   ; size:
+    LD   DE,GX_DSTA                ; a byte for the frame,
     LD   BC,$3200                  ; or LD (nn),A,
-    LD   A,(RO_OTYPE)              ; unless
-    CP   SY_U16                    ; it is a word:
-    JR   NZ,GA_ACC                 ; then
+    JR   C,GA_ACC                  ; for a byte;
+    JR   NZ,GA_STF                 ; a long as a File;
     LD   DE,GX_DSTHL               ; a word for the frame,
     LD   B,$22                     ; or LD (nn),HL.
 

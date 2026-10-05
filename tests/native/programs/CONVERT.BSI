@@ -1,0 +1,35 @@
+// Conversions among the byte and word types (67b): widenings, implicit
+// or written, and the checked narrowings, each trapping (TRAP_NAR)
+// unless the value fits: a word's high byte, a byte's sign, the sign of
+// i16's low byte against its high one; and known values converted at
+// compile time.
+var ub as u8 = 200
+var sb as i8 = -3
+var uw as u16 = 300
+var sw as i16 = -300
+
+sub main()
+    var b as u8
+    var c as i8
+    var w as u16
+    var v as i16
+    w = ub
+    v = sb
+    v = ub
+    w = u16(ub)
+    v = i16(sb)
+    b = u8(uw)
+    b = u8(sw)
+    b = u8(sb)
+    c = i8(ub)
+    c = i8(uw)
+    c = i8(sw)
+    w = u16(sw)
+    w = u16(sb)
+    v = i16(uw)
+    v = i16(ub)
+    c = i8(100)
+    w = u16(-0)
+    b = u8(c) + u8(v)
+    v = i16(u8(c)) + i16(i8(w))
+end

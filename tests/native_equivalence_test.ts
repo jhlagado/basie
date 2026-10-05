@@ -58,6 +58,9 @@ const CONFORMANCE: Record<string, string> = {
   PRIVPART: "tests/conformance/structure/private-across-parts.bsi",
   PRIVLOC: "tests/conformance/structure/private-is-part-local.bsi",
   INCONCE: "tests/conformance/structure/include-once.bsi",
+  NEGIDX: "tests/conformance/expressions/negative-index-conversion-traps.bsi",
+  NEGUNS: "tests/conformance/types/negative-to-unsigned-traps.bsi",
+  BYTEWORD: "tests/conformance/types/byte-to-word-conversion.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -128,6 +131,17 @@ const CLAIMED: Record<string, string[]> = {
     "KEYS",
   ],
   "67a: include and private": ["INCMAIN", "PRIVPART", "PRIVLOC", "INCONCE"],
+  "67b: signed bytes and words, shifts and exact values": [
+    "SIGNED",
+    "SHIFTS",
+    "EXACT",
+    "CONVERT",
+    "SLOOPS",
+    "RUNNUM",
+    "NEGIDX",
+    "NEGUNS",
+    "BYTEWORD",
+  ],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -243,11 +257,14 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
 // (stage d) to locals and (stage e) to parameters, some (stage f) inside
 // an if or a while, (stage h) with fields, elements and characters as
 // operands and targets, (stage i) with predeclared constants as operands
-// and locals whose types are inferred, one from a service's result, and
+// and locals whose types are inferred, one from a service's result,
 // (67a) with locals declared after a statement and inside the if or the
-// while, typed constants as operands: each compiles to the reference's
-// streams, or both compilers refuse it. The generator is deterministic,
-// so a failure names a statement that can be rerun.
+// while, typed constants as operands, and (67b) with i8 and i16
+// variables, fields and elements, signed and wide exact constants,
+// shifts and conversions to every byte and word type: each compiles to
+// the reference's streams, or both compilers refuse it, with the same
+// diagnostic at the same place. The generator is deterministic, so a
+// failure names a statement that can be rerun.
 Deno.test("c to i: random expressions compile as the reference compiles them", async () => {
   let seed = 654;
   const rnd = (n: number) => {
@@ -266,6 +283,10 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     "256",
     "300",
     "65535",
+    "70000",
+    "-5",
+    "4294967295",
+    "-200",
     "endOfInput",
     "binaryMode",
     "invalid",
@@ -279,19 +300,27 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     "wds[2]",
     "s.length",
     "s[b and 3]",
+    "r.p",
+    "sarr[a and 1]",
   ];
   const integer = (d: number): string => {
     if (d <= 0 || rnd(3) === 0) {
       const leaf = rnd(10);
       return leaf < 4
-        ? pick([...nums, "k", "big", "'A'", "tk", "tw"])
+        ? pick([...nums, "k", "big", "'A'", "tk", "tw", "ti", "tn"])
         : leaf < 8
-        ? pick(["a", "b", "x", "y"])
+        ? pick(["a", "b", "x", "y", "p", "q"])
         : pick(paths);
     }
-    const r = rnd(10);
-    if (r === 0) return `u8(${integer(d - 1)})`;
-    if (r === 1) return `u16(${integer(d - 1)})`;
+    const r = rnd(12);
+    if (r === 0) {
+      return `${pick(["u8", "i8", "u16", "i16"])}(${integer(d - 1)})`;
+    }
+    if (r === 1) {
+      return `${integer(d - 1)} ${pick(["shl", "shr"])} ${
+        pick(["1", "9", "a", "k"])
+      }`;
+    }
     if (r === 2) return `(${integer(d - 1)})`;
     if (r === 3) return `-${integer(d - 1)}`;
     if (r === 4) return `not ${integer(d - 1)}`;
@@ -313,27 +342,29 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     return `${boolean(d - 1)} ${pick(["and", "or"])} ${boolean(d - 1)}`;
   };
   const names = "var a as u8 = 200\nvar b as u8 = 9\nvar x as u16 = 1000\n" +
-    "var y as u16 = 2\nvar f as boolean\nvar g as boolean = true\n";
+    "var y as u16 = 2\nvar f as boolean\nvar g as boolean = true\n" +
+    "var p as i8 = -7\nvar q as i16 = -300\n";
   const consts =
     "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n" +
-    "const tk as u8 = 99\nconst tw as u16 = 4000\n";
+    "const tk as u8 = 99\nconst tw as u16 = 4000\nconst ti as i8 = -9\n" +
+    "const tn as i16 = -3000\n";
   const params = "a as u8, b as u8, x as u16, y as u16, f as boolean, " +
-    "g as boolean";
-  const record = "record rec\nm as u8\nn as u16\ng as boolean\nend\n";
+    "g as boolean, p as i8, q as i16";
+  const record = "record rec\nm as u8\nn as u16\ng as boolean\np as i16\nend\n";
   const objects = "var r as rec\nvar arr as u8[4]\nvar wds as u16[3]\n" +
-    'var s as string[5] = "abcd"\n';
+    'var s as string[5] = "abcd"\nvar sarr as i8[2]\n';
   const aggregates = record + objects;
   // (h) The fourth head makes the aggregates locals too; (i) the fifth
   // infers the locals' types from their initializers.
   const inferred = "var a = u8(200)\nvar b = currentUser() + 9\n" +
     "var x = u16(1000)\nvar y = u16(a) - 198\nvar f = a < 100\n" +
-    "var g = true\n";
+    "var g = true\nvar p = i8(-7)\nvar q = i16(a) - 500\n";
   const heads = [
     [`${aggregates}${names}${consts}sub main()\n`, ""],
     [`${aggregates}${consts}sub main()\n${names}`, ""],
     [
       `${aggregates}${consts}sub run(${params})\n`,
-      "sub main()\nrun(200, 9, 1000, 2, false, true)\nend\n",
+      "sub main()\nrun(200, 9, 1000, 2, false, true, -7, -300)\nend\n",
     ],
     [`${record}${consts}sub main()\n${names}${objects}`, ""],
     [`${aggregates}${consts}sub main()\n${inferred}`, ""],
@@ -346,11 +377,11 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     const [head, tail] = heads[i % heads.length];
     const kind = rnd(4);
     const statement = kind === 0
-      ? `${pick(["a", "b", "arr[b and 3]", "r.m", "s[a and 3]"])} = ${
-        integer(4)
-      }`
+      ? `${
+        pick(["a", "b", "arr[b and 3]", "r.m", "s[a and 3]", "p", "sarr[1]"])
+      } = ${integer(4)}`
       : kind === 1
-      ? `${pick(["x", "y", "wds[x mod 3]", "r.n"])} = ${integer(4)}`
+      ? `${pick(["x", "y", "wds[x mod 3]", "r.n", "q", "r.p"])} = ${integer(4)}`
       : kind === 2
       ? `${pick(["f", "g", "r.g"])} = ${boolean(4)}`
       : `${pick(["arr[1]", "wds[y and 1]"])} = ${integer(3)}`;
@@ -379,16 +410,17 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
       stamp: run.disk.has("RANDOM.$DR") ? stampOf(run.disk, "RANDOM") : 1,
     });
     if (!ref.ok) {
+      // Refused alike: the reference's diagnostic, at its line and column.
+      if (!("diagnostics" in ref)) throw new Error("no diagnostic");
+      const want = ref.diagnostics[0];
+      const m = run.output.match(/ (\d+):(\d+): (\d+): /);
       assertEquals(
-        run.output !== "",
-        true,
+        m ? [Number(m[3]), Number(m[1]), Number(m[2])] : run.output,
+        [want.number, want.line, want.column],
         `the reference refuses ${body}`,
       );
       continue;
     }
-    // The one refusal allowed: an exact value outside 0..65535, which the
-    // native compiler cannot fold (native-exact; native compiler plan §5).
-    if (/: 192: /.test(run.output)) continue;
     assertEquals(run.output, "", body);
     same(body, run.disk.get("RANDOM.$DR"), ref.objects.directory);
     same(body, run.disk.get("RANDOM.$BY"), ref.objects.bytes);
@@ -433,6 +465,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
       "67a: declarations anywhere, block scope, typed and local constants"
     ],
     ...CLAIMED["67a: include and private"],
+    ...CLAIMED["67b: signed bytes and words, shifts and exact values"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -467,7 +500,11 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
       }
     }
     if (want.output !== undefined) assertEquals(expected, want.output, name);
-    if (name === "RECURSE" || name === "RUNFLOW") {
+    if (
+      ["RECURSE", "RUNFLOW", "RUNNUM", "NEGIDX", "NEGUNS", "BYTEWORD"].includes(
+        name,
+      )
+    ) {
       assertEquals(/^TRAP narrowing/.test(expected), true);
     }
     if (name === "LOOPTRAP") {
@@ -707,6 +744,46 @@ const REFUSED: Record<string, string> = {
     "forward sub f()\nsub f()\nend\nsub main()\nend\n",
   "a completed forward declared again":
     "forward sub f()\nsub f\nend\nsub f()\nend\nsub main()\nend\n",
+  // 67b: the signed types, shifts, conversions and exact values.
+  "mixed signs in an operation":
+    "var a as u16\nvar b as i16\nsub main()\na = a + b\nend\n",
+  "an i8 assigned to a u16":
+    "var a as u16\nvar b as i8 = 3\nsub main()\na = b\nend\n",
+  "a negative shift count": "var a as u8\nsub main()\na = a shl -1\nend\n",
+  "a signed shift count":
+    "var a as u8\nvar s as i8 = 1\nsub main()\na = a shl s\nend\n",
+  "a conversion to Boolean": "var a as u8\nsub main()\na = boolean(1)\nend\n",
+  "a Boolean converted":
+    "var a as u8\nvar f as boolean\nsub main()\na = u8(f)\nend\n",
+  "a decimal number beyond 32 bits":
+    "var a as u16\nsub main()\na = 5000000000\nend\n",
+  "an exact result beyond 32 bits":
+    "var a as u16\nsub main()\na = 4294967295 + 1 - 1\nend\n",
+  "an i8 index":
+    "var cells as u8[4]\nvar i as i8 = 1\nsub main()\ncells[i] = 1\nend\n",
+  "a negative constant index":
+    "var cells as u8[4]\nsub main()\ncells[-1] = 1\nend\n",
+  "a step beyond an i8 counter":
+    "sub main()\nvar i as i8\nfor i = 0 to 10 step 128\nend\nend\n",
+  "a negative named step":
+    "sub main()\nvar i as i16\nconst s as i8 = -2\nfor i = 0 to 10 step s\nend\nend\n",
+  "an i8 assigned 200": "var c as i8\nsub main()\nc = 200\nend\n",
+  "an exact conversion that does not fit":
+    "var c as i8\nsub main()\nc = i8(200)\nend\n",
+  "an exact shift beyond the range":
+    "var w as u16\nsub main()\nw = (1 shl 40) shr 30\nend\n",
+  "an exact negative and": "var w as u16\nsub main()\nw = -1 and 3\nend\n",
+  "an exact product beyond 32 bits":
+    "var w as u16\nsub main()\nw = 65536 * 65536\nend\n",
+  "a constant of mixed signs": "const k = u8(3) + i8(2)\nsub main()\nend\n",
+  "an untyped constant of an i16 value": "const k = i16(3)\nsub main()\nend\n",
+  "an exact division by zero": "var w as u16\nsub main()\nw = 7 / 0\nend\n",
+  "a signed division by zero": "var w as i16\nsub main()\nw = w / 0\nend\n",
+  "an i8 bound for a u8 counter":
+    "sub main()\nvar i as u8\nvar b as i8 = 3\nfor i = 0 to b\nend\nend\n",
+  "a hexadecimal number of nine digits":
+    "var a as i8\nsub main()\na = $FFFFFFFFF\nend\n",
+  "a number running into a name": "var a as u8\nsub main()\na = 12a\nend\n",
 };
 
 /** The code of a message number, from the message table. */

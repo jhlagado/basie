@@ -1,0 +1,38 @@
+// Exact values beyond sixteen bits and below zero (67b): they fold as the
+// reference's do, from -2^31 to 2^32-1, and only the result must fit
+// where it goes; typed constants of the signed types keep their values
+// and wrap at their types when they fold.
+const big = 4000000000
+const small = -2000000000
+const back = big - 3999990000
+const neg = -5
+const mask = $FFFF0000 and $12345678
+const ti8 as i8 = -100
+const ti16 as i16 = -30000
+const tw as u16 = 65535
+var w as u16
+var v as i16
+var b as u8
+var c as i8
+
+sub main()
+    w = back
+    w = 100000 / 1000 + 65000
+    w = mask shr 16
+    w = (big - big) + 1
+    w = -small / 40000
+    v = neg * 1000
+    v = small / 100000
+    v = ti16 + 1
+    v = ti16 * 2
+    c = ti8 - 50
+    c = ti8
+    c = -128
+    b = 70000 mod 256
+    w = tw + 1
+    w = $FFFFFFFF shr 16
+    w = not 0
+    v = -(-32768 + 1)
+    c = neg
+    w = 1000000 / -neg / 200 - 1000
+end
