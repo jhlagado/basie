@@ -1393,8 +1393,8 @@ export class Compiler {
         this.refuseOpenView(actual, at, "a local");
       }
       if (isAggregate(actual)) {
-        if (v.kind !== "address") {
-          fail("type-mismatch", at, "an aggregate initializer is required");
+        if (v.kind !== "address" || !sameType(v.type, actual)) {
+          fail("type-mismatch", at, `a ${typeName(actual)} is required`);
         }
         if (isOwningType(actual)) {
           fail("owning-copy", at, `${typeName(actual)} can't be copied`);
