@@ -1,0 +1,20 @@
+// Discarded arms of constant short circuits that hold paths, string
+// literals and inner short circuits: their code is not written and their
+// literals are not placed, while the stack they would use is still counted,
+// as the reference discards them (65.4 h).
+var x as boolean
+var y as u16 = 3
+var c as u8[4]
+var i as u8 = 1
+
+sub long(s as string[]) as boolean
+    return s.length > 2
+end
+
+sub main()
+    x = false and long("abc")
+    x = true or (c[i] > 1 and long("xy"))
+    x = false and (y > 1 and y < 5)
+    y = 19279
+    x = long("done")
+end

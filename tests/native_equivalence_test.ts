@@ -66,6 +66,7 @@ const CLAIMED: Record<string, string[]> = {
     "GRID",
     "INNERBND",
     "RECTRAP",
+    "DISCARD",
   ],
 };
 
