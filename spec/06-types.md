@@ -130,7 +130,7 @@ A record must have finite size. A field therefore must not contain its own recor
 
 Selecting a scalar field produces a scalar occurrence of the field's declared type. Selecting an aggregate field produces a storage path or aggregate alias with the field's exact aggregate type. Selection does not expose a byte offset or address to source code.
 
-Chapter 8 defines record declaration and field syntax. Runtime byte offsets and packed layout belong to the Z80 runtime and backend contract.
+Chapter 8 defines record declaration and field syntax. Runtime byte offsets and packed layout belong to the [code generation contract](../docs/code-generation.md).
 
 ## 6.7 Fixed-array types
 
@@ -169,7 +169,7 @@ The `.length` intrinsic applies only when the postfix base has bounded-string ty
 
 A string literal remains a contextual static initializer, not a general aggregate expression. As an argument it may bind only a read-only `string[]` parameter, where the compiler supplies it as a constant (Chapter 13, Section 13.4); a `var` parameter needs a named writable object. `string[]` is not a slice: it always views one complete bounded-string object, has no offset or independently chosen length, and cannot be rebound.
 
-This chapter fixes the semantic domain and capacity, not the stored layout. Chapter 7 defines storage identity and lifetime, Chapter 8 defines declaration initialization, and the Z80 runtime and backend contract defines the physical representation and byte encoding. That representation preserves embedded zero bytes, logical lengths through 253, and alias-visible byte mutation.
+This chapter fixes the semantic domain and capacity, not the stored layout. Chapter 7 defines storage identity and lifetime, Chapter 8 defines declaration initialization, and the [code generation contract](../docs/code-generation.md) defines the physical representation and byte encoding. That representation preserves embedded zero bytes, logical lengths through 253, and alias-visible byte mutation.
 
 ## 6.9 Aggregate aliases and address separation
 

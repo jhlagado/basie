@@ -11,7 +11,7 @@ The language under design is named **Basie 1.0**. It has one source language: no
 
 This specification defines the source-language syntax, static semantics, runtime semantics, required diagnostics, specified safety failures, and abstract compilation-input contract of Basie 1.0. It defines the conditions for a source program or compiler to claim Basie 1.0 conformance.
 
-The separate Basie runtime documents ([CP/M target](../docs/cpm-target.md), [object format](../docs/object-format.md)) defines the packed data representation, direct-code integrity rules, runtime boundary, and target execution obligations. Non-normative implementation plans and design papers record compiler strategies and project constraints; they do not add source-language semantics.
+The separate implementation contracts define how a program is represented and run: [code generation](../docs/code-generation.md) (frames, calls and helpers), [memory safety](../docs/memory-safety.md) (the pool and handle machinery), [services](../docs/services.md) (the services Chapter 16 makes normative), the [CP/M target](../docs/cpm-target.md) and the [object format](../docs/object-format.md). Non-normative implementation plans and design papers record compiler strategies and project constraints; they do not add source-language semantics.
 
 Basie is implemented twice: a reference toolchain in TypeScript, and a native compiler and linker, `BASIE.COM` and `BLINK.COM`, that run on CP/M 2.2 and emit Z80 machine code directly. The native compiler has a budget of 24K (Chapter 2). That budget does not create a smaller Basie dialect or alter the meaning of a conforming program.
 
@@ -20,10 +20,10 @@ Basie is implemented twice: a reference toolchain in TypeScript, and a native co
 When repository materials disagree, apply this order:
 
 1. This specification governs Basie 1.0 source syntax and semantics.
-2. The Basie Z80 Runtime and Backend Contract governs packed representation, generated-code integrity, runtime services, and direct Z80 execution. It cannot change the meaning required by this specification.
+2. The implementation contracts named in Section 1.2 govern representation, generated code, the runtime and its services. They cannot change the meaning this specification requires; [services](../docs/services.md) is normative for the services as Chapter 16 says.
 3. The implementation plan is non-normative. It records construction order, budgets, measurements, and implementation choices.
 4. Architecture and design-rationale papers explain decisions but do not override either authority.
-5. Conformance tests provide evidence that an implementation follows the specifications. A conflicting test is a test defect, not a language amendment.
+5. Conformance tests provide evidence that an implementation follows the specifications. A conflicting test is a test defect, not a language amendment. The examples Chapter 21 calls normative are normative as statements of this specification's rules, not as a separate authority.
 
 An unwritten rule cannot be supplied by a lower-ranked document. Until this specification states the rule, the point remains unresolved for Basie 1.0 conformance.
 
@@ -51,7 +51,7 @@ A conforming Basie 1.0 source program:
 
 Exceeding one compiler's documented capacity does not affect a program's language conformance. The compiler may reject the program with a capacity diagnostic; that diagnostic reports an implementation limit rather than a source-language violation.
 
-The complete accepted programs in Chapter 21 form the minimum conformance corpus. A conforming compiler and execution environment must compile and execute each program under its stated inputs without a capacity diagnostic or an `activation-capacity` trap. An implementation may publish smaller limits than another implementation only above this floor. This requirement establishes a minimum useful implementation without creating a language profile or changing the conformance of larger source programs.
+The complete accepted programs in Chapter 21 form the minimum conformance corpus. A conforming compiler and execution environment must compile and execute each program under its stated inputs without a capacity diagnostic, and without an `activation-capacity` trap except in a program whose stated purpose is to show one. An implementation may publish smaller limits than another implementation only above this floor. This requirement establishes a minimum useful implementation without creating a language profile or changing the conformance of larger source programs.
 
 A program can use this complete working revision to establish conformance. Such a claim identifies the exact specification revision because the draft may still change before the 1.0 freeze.
 
