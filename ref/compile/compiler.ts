@@ -2242,7 +2242,16 @@ export class Compiler {
       this.ixWord(alias, "DE");
       r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE
       r.blob.jpIf(JP_NZ, none);
-      r.blob.u8(0xeb); // EX DE,HL: HL = the record
+      // The owner word only says some slot holds this record at its start;
+      // the slot's pool word says it is a slot of this pool (7.14).
+      r.blob.u8(0xeb, 0xe5); // EX DE,HL: HL = the record; PUSH HL
+      this.push(2);
+      r.blob.u8(0x2b, 0x56, 0x2b, 0x5e); // DEC HL; LD D,(HL); DEC HL; LD E,(HL)
+      r.blob.u8(0x21); // LD HL,info
+      r.blob.abs16(pools[0].ordinal);
+      r.blob.u8(0xb7, 0xed, 0x52, 0xe1); // OR A; SBC HL,DE; POP HL
+      this.pop(2);
+      r.blob.jpIf(JP_NZ, none);
       this.callHelper(Helper.ID_MAKE);
       r.blob.jp(done);
       r.blob.defineLabel(none);

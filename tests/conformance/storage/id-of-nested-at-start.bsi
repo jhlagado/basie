@@ -1,0 +1,39 @@
+// id(n) of a record nested at the start of a node: its address is the
+// node's, but the slot's pool word shows it is not a node of the pool (7.14;
+// review finding B4).
+// spec: 7.14
+// expect output: none\r\n
+forward pool nodes
+forward pool subs
+
+record Sub
+    x as u16
+end
+
+record Node
+    inner as Sub
+    value as u16
+    next as nodes?
+end
+
+pool nodes as Node[8]
+pool subs as Sub[8]
+
+sub poke(var s as Sub) fails
+    var i = id(s)
+    select i
+    case some(j)
+        writeText(console, "some\r\n") else fail
+    case none
+        writeText(console, "none\r\n") else fail
+    end
+end
+
+sub bump(var n as Node) fails
+    poke(n.inner) else fail
+end
+
+sub main() fails
+    var h = new nodes()
+    bump(h) else fail
+end
