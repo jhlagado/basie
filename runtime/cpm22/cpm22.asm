@@ -3,8 +3,12 @@
 ; Built into CPM22.BRL by tools/brl.ts. Each blob starts at a "; @blob" line:
 ;
 ;   ; @blob ORDINAL KIND NAME [align=N] [helper=CC] [since=V]
+;                                [stack=N] [indirect=NAME]
 ;
-; and runs to the next one. Labels: a blob's entry is the only global label it
+; and runs to the next one. A helper's stack figures are computed from its
+; code (tools/stack.ts) and published in docs/helper-table.md, not written
+; here: stack=N states one only where the analysis can't follow the code, and
+; indirect= names where an indirect jump goes. Labels: a blob's entry is the only global label it
 ; needs, written AREA_WHAT with an underscore; everything internal is a private
 ; .label, which ATOM scopes to the enclosing global. A blob refers to another by its first label, and
 ; to the linker's pseudo-objects by the names the tool defines: MAIN, IMAGE,
@@ -352,7 +356,7 @@ PUT_DEC: LD      H,0
 ; @blob $016 code MUL16 helper=2
 ; HL = HL * DE modulo 65536. The low 16 bits are the same for signed and
 ; unsigned operands, so one helper serves every 16-bit multiply (D5).
-; Uses A and BC. Stack: 2.
+; Uses A and BC.
 MUL16:  LD      B,H
         LD      C,L             ; BC = the left operand
         LD      HL,0
@@ -370,7 +374,7 @@ MUL16:  LD      B,H
 ; @blob $017 code DIV16 helper=2
 ; Unsigned: HL = HL / DE, DE = HL mod DE. A zero divisor traps with
 ; division-by-zero, reporting the program's call (code generation §6).
-; Uses A and BC. Stack: 2.
+; Uses A and BC.
 DIV16:  LD      A,D
         OR      E
         JP      Z,TRAP_DIV      ; the stack holds only the return address
@@ -398,7 +402,7 @@ DIV16:  LD      A,D
 
 ; @blob $018 code DIV16S helper=2
 ; Signed: HL = HL / DE truncating toward zero; DE = the remainder, with the
-; dividend's sign (spec §9.8). -32768 / -1 wraps to -32768. Stack: 8.
+; dividend's sign (spec §9.8). -32768 / -1 wraps to -32768.
 DIV16S: LD      A,D
         OR      E
         JP      Z,TRAP_DIV      ; before anything is pushed
@@ -446,7 +450,7 @@ DIV16S: LD      A,D
 ; @blob $019 code STR_SETL helper=2
 ; Set a string's length: HL = the string, E = the new length, D = its
 ; capacity. A length beyond the capacity traps with bounds. Bytes exposed by
-; a longer length are zeroed (D25). Uses A, BC, DE. Stack: 4.
+; a longer length are zeroed (D25). Uses A, BC, DE.
 STR_SETL:
         LD      A,E
         CP      D
@@ -493,7 +497,7 @@ POOL_VAR:
 
 ; @blob $01B code POOL_TRY helper=2
 ; HL = pool info. Returns HL = a zeroed record, or 0 when the pool is full.
-; Takes the oldest free slot, else the next never-used one. Stack: 10.
+; Takes the oldest free slot, else the next never-used one.
 POOL_TRY:
         PUSH    HL              ; the info
         LD      E,(HL)
@@ -624,7 +628,7 @@ POOL_TRY:
 ; @blob $01C code POOL_DEL helper=2
 ; HL = a record. Frees it and everything it owns, without recursion: a work
 ; list threaded through the link words (memory safety §5.10). A child is
-; freed only when its link names the slot being freed. Uses IY. Stack: 8.
+; freed only when its link names the slot being freed. Uses IY.
 POOL_DEL:
         PUSH    HL
         DEC     HL
@@ -805,7 +809,6 @@ POOL_DEL:
 ; @blob $01D code OBJ_FREE helper=2
 ; HL = an object outside any pool (a local aggregate), DE = its descriptor.
 ; Frees the handles in its owning fields and stores none in them.
-; Stack: 12 (calls POOL_DEL).
 OBJ_FREE:
         PUSH    HL
         POP     IY              ; IY = the object
@@ -881,7 +884,7 @@ OBJ_FREE:
 
 ; @blob $01E code ID_CHK helper=2
 ; HL = an identifier's address, DE = its generation. Traps stale-handle
-; unless the slot is still that occupant. Preserves HL and DE. Stack: 4.
+; unless the slot is still that occupant. Preserves HL and DE.
 ID_CHK: LD      A,H
         OR      L
         JP      Z,TRAP_STA
@@ -903,7 +906,7 @@ ID_CHK: LD      A,H
 
 ; @blob $01F code ID_TEST helper=2
 ; HL = address, DE = generation. Returns Z when the identifier is none or
-; stale, NZ when live. Preserves HL and DE. Never traps. Stack: 4.
+; stale, NZ when live. Preserves HL and DE. Never traps.
 ID_TEST:
         LD      A,H
         OR      L
@@ -929,7 +932,7 @@ ID_TEST:
 ; @blob $023 code OWN_SET helper=2
 ; Store an owning handle: HL = the new value or 0, DE = the location,
 ; BC = the owning record or 0. Frees the old value first (memory safety
-; §5.3), then stores, then sets the new value's link. Stack: 14.
+; §5.3), then stores, then sets the new value's link.
 OWN_SET:
         PUSH    HL
         PUSH    DE
@@ -965,7 +968,7 @@ OWN_SET:
 ; @blob $024 code OWN_SETC helper=2
 ; As OWN_SET, after the cycle check (memory safety §5.9): the owner BC and
 ; its owners must not include the value. Traps ownership-cycle before any
-; change. Stack: 16.
+; change.
 OWN_SETC:
         LD      A,H
         OR      L
@@ -1004,7 +1007,7 @@ OWN_SETC:
 ; @blob $025 code LINK0 helper=2
 ; HL = an owning handle or 0. Clears its owner link: the value is now held
 ; by a local, a parameter or a temporary (memory safety §5.9). Preserves
-; HL and DE. Stack: 4.
+; HL and DE.
 LINK0:  LD      A,H
         OR      L
         RET     Z
@@ -1021,7 +1024,7 @@ LINK0:  LD      A,H
 
 ; @blob $026 code ID_MAKE helper=2
 ; HL = an owning handle or 0. Returns the identifier DEHL: DE = the slot's
-; generation, or 0 for none. Stack: 4.
+; generation, or 0 for none.
 ID_MAKE:
         LD      DE,0
         LD      A,H
@@ -1048,7 +1051,6 @@ MATH_VAR:
         DS      8
 
 ; @blob $028 code ADD32 helper=2
-; Stack: 6.
 ADD32:  EXX
         PUSH    DE
         PUSH    HL
@@ -1062,7 +1064,6 @@ ADD32:  EXX
         RET
 
 ; @blob $029 code SUB32 helper=2
-; Stack: 6.
 SUB32:  EXX
         PUSH    DE
         PUSH    HL
@@ -1077,7 +1078,7 @@ SUB32:  EXX
         RET
 
 ; @blob $02A code CMP32U helper=2
-; Unsigned compare. Stack: 8.
+; Unsigned compare.
 CMP32U: EXX
         PUSH    DE
         PUSH    HL
@@ -1101,7 +1102,7 @@ CMP32U: EXX
         RET
 
 ; @blob $02B code CMP32S helper=2
-; Signed compare: flip both sign bits, then compare unsigned. Stack: 8.
+; Signed compare: flip both sign bits, then compare unsigned.
 CMP32S: LD      A,D
         XOR     $80
         LD      D,A
@@ -1113,7 +1114,7 @@ CMP32S: LD      A,D
         JP      CMP32U
 
 ; @blob $02C code NEG32 helper=2
-; DEHL = -DEHL. Stack: 2.
+; DEHL = -DEHL.
 NEG32:  XOR     A
         SUB     L
         LD      L,A
@@ -1129,7 +1130,7 @@ NEG32:  XOR     A
         RET
 
 ; @blob $02D code MUL32 helper=2
-; DEHL = DEHL * DE'HL' modulo 2^32. Uses IY and MATH_VAR. Stack: 4.
+; DEHL = DEHL * DE'HL' modulo 2^32. Uses IY and MATH_VAR.
 MUL32:  LD      IY,MATH_VAR
         LD      (IY+0),L
         LD      (IY+1),H
@@ -1168,7 +1169,7 @@ MUL32:  LD      IY,MATH_VAR
 
 ; @blob $02E code DIV32U helper=2
 ; Unsigned: DEHL = DEHL / DE'HL', and DE'HL' = the remainder. A zero divisor
-; traps with division-by-zero. Uses IY and MATH_VAR. Stack: 4.
+; traps with division-by-zero. Uses IY and MATH_VAR.
 DIV32U: EXX
         LD      A,H
         OR      L
@@ -1238,7 +1239,7 @@ DIV32U: EXX
 
 ; @blob $02F code DIV32S helper=2
 ; Signed: truncating quotient in DEHL, remainder with the dividend's sign in
-; DE'HL'. Stack: 10.
+; DE'HL'.
 DIV32S: EXX
         LD      A,H
         OR      L
@@ -1271,7 +1272,6 @@ DIV32S: EXX
         JP      NEG32
 
 ; @blob $030 code AND32 helper=2
-; Stack: 6.
 AND32:  EXX
         PUSH    DE
         PUSH    HL
@@ -1293,7 +1293,6 @@ AND32:  EXX
         RET
 
 ; @blob $031 code OR32 helper=2
-; Stack: 6.
 OR32:   EXX
         PUSH    DE
         PUSH    HL
@@ -1315,7 +1314,6 @@ OR32:   EXX
         RET
 
 ; @blob $032 code XOR32 helper=2
-; Stack: 6.
 XOR32:  EXX
         PUSH    DE
         PUSH    HL
@@ -1337,7 +1335,7 @@ XOR32:  EXX
         RET
 
 ; @blob $033 code SHL32 helper=2
-; DEHL shifted left by A bits; 32 or more gives 0. Stack: 2.
+; DEHL shifted left by A bits; 32 or more gives 0.
 SHL32:  OR      A
         RET     Z
         CP      32
@@ -1353,7 +1351,7 @@ SHL32:  OR      A
         RET
 
 ; @blob $034 code SHR32U helper=2
-; DEHL shifted right by A bits, zero-filled. Stack: 2.
+; DEHL shifted right by A bits, zero-filled.
 SHR32U: OR      A
         RET     Z
         CP      32
@@ -1370,7 +1368,7 @@ SHR32U: OR      A
         RET
 
 ; @blob $035 code SHR32S helper=2
-; DEHL shifted right by A bits, sign-filled; 32 or more gives 0 or -1. Stack: 2.
+; DEHL shifted right by A bits, sign-filled; 32 or more gives 0 or -1.
 SHR32S: OR      A
         RET     Z
         CP      32

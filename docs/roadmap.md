@@ -92,7 +92,7 @@ Each step adds conformance programs and runs them end to end.
 | 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | (done except the stack bound's recursion tests: see step 46) | Nucleus examples |
 | 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | runtime 32-bit helpers (done; 32-bit loop counters and select subjects still pending) | Edge-value tests |
 | 39 | Ref | `f32` through helpers, literal conversion, constant folding | `runtime/cpm22/f32.asm`, verified against IEEE single on 400 vectors (done) | Conversion and rounding tests |
-| 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | | Scope and inference tests |
+| 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | (done; `declarations/` and `scopes/` in the corpus) | Scope and inference tests |
 | 41 | Ref | `select` on integers, characters and ranges; dispatch shapes | (done: integers, characters, ranges) | Dispatch tests |
 | 42 | Ref | Local aggregates, `var` parameters, arrays of arrays, `assert` | (done) | Tests |
 | 43 | Ref | Pools, handles, `new`, `new?`, `move`, freeing, temporaries | `ref/compile/compiler.ts`, runtime pool helpers (done) | Memory-safety tests, accepted and rejected |
@@ -109,11 +109,11 @@ M5 starts alongside M4: each compiler step needs its helpers.
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
-| 50 | RT | 16-bit and 8-bit helpers: multiply, divide, compare, copy, bounds | Runtime blobs | Unit tests on the Z80 runtime |
-| 51 | RT | 32-bit helpers | | Exhaustive edge tests against host arithmetic |
-| 52 | RT | `f32` helpers: add, subtract, multiply, divide, compare, conversions, with flush-to-zero and traps | | Tests against host IEEE arithmetic |
-| 53 | RT | Pools: allocation, `new?`, freeing with descriptors, the link test, generations, the cycle walk | | Tests including the reviews' programs |
-| 54 | RT | Stack checks, trap reporters, startup and exit, the `OPTIONS` word | | Startup tests under both harnesses |
+| 50 | RT | 16-bit and 8-bit helpers: multiply, divide, compare, copy, bounds | Runtime blobs (done; `tests/integer_test.ts` checks the multiply and divides against host arithmetic) | Unit tests on the Z80 runtime |
+| 51 | RT | 32-bit helpers | (done; `tests/integer_test.ts`: 6,604 edge and random cases against BigInt) | Exhaustive edge tests against host arithmetic |
+| 52 | RT | `f32` helpers: add, subtract, multiply, divide, compare, conversions, with flush-to-zero and traps | (done; `tests/f32_test.ts`: 400 cases against host IEEE single) | Tests against host IEEE arithmetic |
+| 53 | RT | Pools: allocation, `new?`, freeing with descriptors, the link test, generations, the cycle walk | (done; `storage/` in the corpus, with the reviews' programs, under both harnesses) | Tests including the reviews' programs |
+| 54 | RT | Stack checks, trap reporters, startup and exit, the `OPTIONS` word | (done; `tests/brl_test.ts`, the trap programs, and the corpus under real CP/M) | Startup tests under both harnesses |
 | 55 | RT | Services: console and printer, then files, then the command line and machine | `runtime/cpm22/services.asm` (done; 16 conformance programs in `services/`) | z80-services conformance vectors; CP/M harness tests |
 | 56 | RT | Publish every helper's size and stack figure in the helper table, with interface keys | [Helper table](helper-table.md), `tools/stack.ts`, `tools/helpertable.ts` (done; figures computed and checked by measurement) | Linker compatibility tests |
 | 57 | RT | Standard library in Basie: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/`, [standard library](standard-library.md) (done; 8 conformance programs in `library/`) | Library tests |

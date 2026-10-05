@@ -4,13 +4,12 @@
  * result, which must equal Math.fround's.
  */
 import { assertEquals } from "@std/assert";
-import { Blob } from "../ref/compile/emit.ts";
-import { Helper } from "../ref/compile/helpers.ts";
-import { runtimeLibrary } from "../ref/compile/index.ts";
-import { link } from "../ref/link/link.ts";
-import { defaultHeader } from "../ref/object/program.ts";
-import { Kind } from "../ref/object/types.ts";
-import { runCom } from "./harness/cpm.ts";
+import {
+  type Case,
+  flagsResult,
+  rng,
+  runHelpers,
+} from "./harness/helper-driver.ts";
 
 const F = {
   FADD: 0x03a,
@@ -34,8 +33,6 @@ const OPS = [
   F.F2I,
   F.F2U,
 ];
-
-type Case = { op: number; a: number; b: number };
 
 const bits = (x: number) => {
   const v = new DataView(new ArrayBuffer(4));
@@ -90,15 +87,6 @@ function expect(c: Case): number | undefined {
   }
 }
 
-/** A deterministic generator. */
-function rng(seed: number) {
-  let s = seed >>> 0;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s;
-  };
-}
-
 function randomFloatBits(next: () => number): number {
   const r = next();
   const kind = r % 8;
@@ -144,125 +132,15 @@ function cases(seed: number, count: number): Case[] {
   return out;
 }
 
-/** The driver: runs every case and prints its result as 8 hex digits. */
-function driver(table: Case[]): { records: unknown[]; bytes: Uint8Array } {
-  const code = new Blob(0x400, Kind.code, "main");
-  const data = new Blob(0x401, Kind.rodata, "table");
-  for (const c of table) {
-    data.u8(c.op);
-    data.u32(c.a);
-    data.u32(c.b);
-  }
-  data.u8(0xff);
-  const next = code.newLabel();
-  const done = code.newLabel();
-  const print = code.newLabel();
-  const hex2 = code.newLabel();
-  const skipOps: number[] = [];
-  code.u8(0xdd, 0x21); // LD IX,table
-  code.abs16(0x401);
-  code.defineLabel(next);
-  code.u8(0xdd, 0x7e, 0); // LD A,(IX+0)
-  code.u8(0xfe, 0xff); // CP $FF
-  code.jpIf(0xca, done);
-  code.u8(0xf5); // PUSH AF
-  code.u8(0xdd, 0x6e, 5, 0xdd, 0x66, 6, 0xdd, 0x5e, 7, 0xdd, 0x56, 8); // b into DEHL
-  code.u8(0xd9); // EXX
-  code.u8(0xdd, 0x6e, 1, 0xdd, 0x66, 2, 0xdd, 0x5e, 3, 0xdd, 0x56, 4); // a into DEHL
-  code.u8(0xf1); // POP AF
-  // dispatch
-  const after = code.newLabel();
-  OPS.forEach((ordinal, i) => {
-    const skip = code.newLabel();
-    skipOps.push(skip);
-    code.u8(0xfe, i); // CP i
-    code.jpIf(0xc2, skip);
-    code.callBlob(ordinal);
-    if (ordinal === F.FCMP) {
-      // DEHL = carry | Z<<1
-      code.u8(0xf5); // PUSH AF: keep the flags
-      code.u8(0x9f, 0xe6, 0x01, 0x6f); // SBC A,A; AND 1; LD L,A
-      code.u8(0xf1); // POP AF
-      code.u8(0x3e, 0x00); // LD A,0: flags intact
-      const nz = code.newLabel();
-      code.jpIf(0xc2, nz);
-      code.u8(0x3e, 0x02); // LD A,2
-      code.defineLabel(nz);
-      code.u8(0xb5, 0x6f, 0x26, 0x00, 0x11, 0x00, 0x00); // OR L; LD L,A; LD H,0; LD DE,0
-    }
-    code.jp(after);
-    code.defineLabel(skip);
-  });
-  code.defineLabel(after);
-  code.u8(0xcd); // CALL print
-  code.labelOperand(print);
-  code.u8(0x01, 9, 0, 0xdd, 0x09); // LD BC,9; ADD IX,BC
-  code.jp(next);
-  code.defineLabel(done);
-  code.u8(0xb7, 0xc9); // OR A; RET
-  // print DEHL as hex, then CRLF
-  code.defineLabel(print);
-  code.u8(0x7a, 0xcd); // LD A,D; CALL hex2
-  code.labelOperand(hex2);
-  code.u8(0x7b, 0xcd); // LD A,E
-  code.labelOperand(hex2);
-  code.u8(0x7c, 0xcd); // LD A,H
-  code.labelOperand(hex2);
-  code.u8(0x7d, 0xcd); // LD A,L
-  code.labelOperand(hex2);
-  code.u8(0x3e, 13);
-  code.callBlob(Helper.CONOUT);
-  code.u8(0x3e, 10);
-  code.callBlob(Helper.CONOUT);
-  code.u8(0xc9);
-  // hex2: print A as two hex digits, preserving HL and DE
-  code.defineLabel(hex2);
-  code.u8(0xe5, 0xd5, 0xf5); // PUSH HL; PUSH DE; PUSH AF
-  code.u8(0x0f, 0x0f, 0x0f, 0x0f); // RRCA x4
-  code.u8(0xe6, 0x0f, 0xc6, 0x90, 0x27, 0xce, 0x40, 0x27); // AND $0F; ADD $90; DAA; ADC $40; DAA
-  code.callBlob(Helper.CONOUT);
-  code.u8(0xf1); // POP AF
-  code.u8(0xe6, 0x0f, 0xc6, 0x90, 0x27, 0xce, 0x40, 0x27);
-  code.callBlob(Helper.CONOUT);
-  code.u8(0xd1, 0xe1, 0xc9); // POP DE; POP HL; RET
-  code.finish();
-  data.finish();
-  const blobs = [code, data];
-  const records = blobs.map((b) => ({
-    type: "blob" as const,
-    kind: b.kind,
-    ordinal: b.ordinal,
-    size: b.bytes.length,
-    root: false,
-    align: 0,
-    references: b.references,
-  }));
-  return {
-    records: [
-      ...records,
-      { type: "entry", ordinal: 0x400 },
-      { type: "limits", stackReserve: 64, largestFrame: 0, flags: 0 },
-    ],
-    bytes: Uint8Array.from([...code.bytes, ...data.bytes]),
-  };
-}
-
 Deno.test("f32 helpers agree with IEEE single arithmetic", async () => {
-  const library = await runtimeLibrary();
   const table = cases(12345, 400);
-  const program = driver(table);
-  const dir = {
-    header: defaultHeader({ helperKey: library.keys[0] }),
-    records: program.records as never,
-    trailer: {
-      blobCount: 2,
-      byteStreamLength: program.bytes.length,
-      highestOrdinal: 0x401,
-    },
-  };
-  const result = link(library, dir, program.bytes, {});
-  const run = runCom(result.output, { maxSteps: 50_000_000 });
-  const lines = run.output.split("\r\n").filter((l) => l.length > 0);
+  const lines = await runHelpers(
+    OPS.map((ordinal) => ({
+      ordinal,
+      after: ordinal === F.FCMP ? flagsResult : undefined,
+    })),
+    table,
+  );
   const failures: string[] = [];
   table.forEach((c, i) => {
     const got = lines[i];

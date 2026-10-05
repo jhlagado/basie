@@ -18,7 +18,7 @@ FP_VAR: DS      24
 
 ; @blob $037 code FP_UNPK helper=2
 ; Unpack DEHL into M, XA, SA and DE'HL' into N, XB, SB. Leaves IY = FP_VAR
-; and DEHL intact. Stack: 8.
+; and DEHL intact.
 FP_UNPK:
         LD      IY,FP_VAR
         PUSH    DE
@@ -73,7 +73,7 @@ FP_UNPK:
         RET
 
 ; @blob $038 code FP_SHR helper=2
-; N >>= A, with the bits shifted out gathered into a sticky bit 0. Stack: 2.
+; N >>= A, with the bits shifted out gathered into a sticky bit 0.
 FP_SHR: OR      A
         RET     Z
         CP      32
@@ -102,7 +102,7 @@ FP_SHR: OR      A
 ; @blob $039 code FP_PACK helper=2
 ; Normalize M (shifting left, or once right from bit 31), round to nearest
 ; even on the guard bits, and pack with the sign at +12 and the exponent at
-; +13. Returns DEHL, with carry set when the exponent overflows. Stack: 2.
+; +13. Returns DEHL, with carry set when the exponent overflows.
 FP_PACK:
         LD      A,(IY+0)
         OR      (IY+1)
@@ -199,7 +199,7 @@ FP_PACK:
         RET
 
 ; @blob $03A code FADD helper=2
-; DEHL = DEHL + DE'HL'. Stack: 12.
+; DEHL = DEHL + DE'HL'.
 FADD:   CALL    FP_UNPK
         LD      A,(IY+8)
         OR      A
@@ -321,7 +321,7 @@ FADD:   CALL    FP_UNPK
         RET
 
 ; @blob $03B code FSUB helper=2
-; DEHL = DEHL - DE'HL': negate the right and add. Stack: 12.
+; DEHL = DEHL - DE'HL': negate the right and add.
 FSUB:   EXX
         LD      A,D
         XOR     $80
@@ -330,7 +330,7 @@ FSUB:   EXX
         JP      FADD
 
 ; @blob $03C code FMUL helper=2
-; DEHL = DEHL * DE'HL'. Stack: 12.
+; DEHL = DEHL * DE'HL'.
 FMUL:   CALL    FP_UNPK
         LD      A,(IY+10)
         XOR     (IY+11)
@@ -440,7 +440,7 @@ FMUL:   CALL    FP_UNPK
         RET
 
 ; @blob $03D code FDIV helper=2
-; DEHL = DEHL / DE'HL'. A zero divisor traps division-by-zero. Stack: 12.
+; DEHL = DEHL / DE'HL'. A zero divisor traps division-by-zero.
 FDIV:   CALL    FP_UNPK
         LD      A,(IY+9)
         OR      A
@@ -555,7 +555,7 @@ FDIV:   CALL    FP_UNPK
 
 ; @blob $03E code FCMP helper=2
 ; Compare DEHL with DE'HL': carry = left < right, Z = equal. Both zeros are
-; equal. Stack: 10.
+; equal.
 FCMP:   CALL    .CANON
         EXX
         CALL    .CANON
@@ -590,7 +590,7 @@ FCMP:   CALL    .CANON
         RET
 
 ; @blob $03F code I2F helper=2
-; DEHL = f32 of the i32 in DEHL, rounded to nearest even. Stack: 8.
+; DEHL = f32 of the i32 in DEHL, rounded to nearest even.
 I2F:    LD      IY,FP_VAR
         LD      A,D
         AND     $80
@@ -600,13 +600,13 @@ I2F:    LD      IY,FP_VAR
         JP      FP_INT
 
 ; @blob $040 code U2F helper=2
-; DEHL = f32 of the u32 in DEHL, rounded to nearest even. Stack: 8.
+; DEHL = f32 of the u32 in DEHL, rounded to nearest even.
 U2F:    LD      IY,FP_VAR
         LD      (IY+12),0
         JP      FP_INT
 
 ; @blob $043 code FP_INT helper=2
-; DEHL = a magnitude, the sign at FP_VAR+12: pack it as an f32. Stack: 4.
+; DEHL = a magnitude, the sign at FP_VAR+12: pack it as an f32.
 FP_INT: LD      (IY+0),L
         LD      (IY+1),H
         LD      (IY+2),E
@@ -617,7 +617,7 @@ FP_INT: LD      (IY+0),L
 
 ; @blob $041 code F2I helper=2
 ; DEHL = the i32 of the f32 in DEHL, truncated toward zero; traps narrowing
-; when it does not fit. Stack: 6.
+; when it does not fit.
 F2I:    LD      A,D
         AND     $80
         LD      C,A             ; the sign
@@ -643,7 +643,7 @@ F2I:    LD      A,D
 
 ; @blob $042 code F2U helper=2
 ; DEHL = the u32 of the f32 in DEHL, truncated toward zero; traps narrowing
-; when negative or too large. Stack: 6.
+; when negative or too large.
 F2U:    LD      A,D
         AND     $80
         JR      Z,.POS
@@ -659,7 +659,7 @@ F2U:    LD      A,D
 
 ; @blob $044 code FP_MAG helper=2
 ; DEHL = an f32 → DEHL = its magnitude truncated to an integer; carry set
-; when it is 2^32 or more. Stack: 2.
+; when it is 2^32 or more.
 FP_MAG: LD      A,D
         ADD     A,A
         LD      B,A
