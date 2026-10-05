@@ -9,12 +9,15 @@ import { buildLibrary } from "../../tools/brl.ts";
 import { Compiler, NotImplemented } from "./compiler.ts";
 import { CompileError } from "./diagnostics.ts";
 import { HELPER_VERSION } from "./helpers.ts";
+import { messageNumber } from "./messages.ts";
 import { loadSource, type SourceOptions } from "./source.ts";
 
 export { NotImplemented };
 
 export type Diagnostic = {
   code: string;
+  /** The message number in BASIE.MSG (D39). */
+  number: number;
   line: number;
   column: number;
   /** The part's name, as the line table records it. */
@@ -127,6 +130,7 @@ export async function compile(
         ok: false,
         diagnostics: [{
           code: e.code,
+          number: messageNumber(e.code) ?? 0,
           line: e.position.line,
           column: e.position.column,
           part: partNames[e.position.part] ?? `part ${e.position.part}`,

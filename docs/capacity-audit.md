@@ -473,6 +473,7 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 | Name in name stream | 31 bytes | `u8`, truncated for reports only | format §9 |
 | Line-table entries | 65,535 | `u16` count | format §11 |
 | Library and file offsets | 4 GB | `u32` | format §7.1 |
+| Message file | 65,535 messages; text 255 bytes each; numbers in ranges of 20 to 40 | `u16` offsets, a length byte; ranges in docs/diagnostics.md | Representation; the ranges are a convention, and a full range takes the next free block |
 | Blob-library tool | about 240 blobs per build | `tools/brl.ts`: 0x100 shifts within 64K | Section 2, item 6 |
 | ATOM's pending-reference arena | 8K by default; `tools/brl.ts` asks for 20K | ATOM `nativeMemoryLayout`; found when the runtime reached 68 blobs | Tool limit; raise again if a build fails with an output-sink error |
 | ATOM relative jumps | 128 bytes | Z80 `JR`; ATOM reports it at the label reached | The tool now names the error |
