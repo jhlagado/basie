@@ -387,6 +387,7 @@ PHASEE: LD      A,(O_FLAGS)
         LD      A,(SYM_ON)
         OR      B
         RET     Z
+        LD      (WK_NM),A       ; walks reset the name readers
         ; the names: NAME.$NM if it exists, and the library's section
         LD      IX,NM_FD
         LD      A,(DR_FD+FD_FCB)
@@ -437,6 +438,10 @@ PHASEE: LD      A,(O_FLAGS)
         CALL    .LIVE
         LD      A,S_TEXT
         CALL    .LIVE
+        LD      A,S_DATA
+        CALL    .LIVE
+        LD      HL,(IMG_END)    ; BSS's padding counts from the image's
+        LD      (PREVEND),HL    ; end, past COPY
         LD      A,S_BSS
         CALL    .LIVE
         LD      A,(MAP_ON)
@@ -466,26 +471,9 @@ PHASEE: LD      A,(O_FLAGS)
         CALL    F_CLOSE
         JP      C,REPFAIL
         RET
-; The live passes of section A, with the name readers reset each walk.
-.LIVE:  LD      (SEL_SEC),A
-        LD      HL,MAPLIVE
-        LD      (WK_CB),HL
-        LD      A,7
-.CLS:   LD      (SEL_CLS),A
-        CALL    PRESENT
-        JR      Z,.SKIPC
-        XOR     A
-        CALL    NM_RESET
-        XOR     A
-        CALL    WALK
-        LD      A,1
-        CALL    NM_RESET
-        LD      A,1
-        CALL    WALK
-.SKIPC: LD      A,(SEL_CLS)
-        SUB     1
-        JR      NC,.CLS
-        RET
+; The live passes of section A.
+.LIVE:  LD      HL,MAPLIVE
+        JP      SECTION
 
 ; Create report IX of type DE, NAME.TYP on the output drive.
 REPOPEN:
@@ -849,14 +837,7 @@ REMOVED:
         LD      (TOT_PR),HL
         LD      HL,MAPDEAD
         LD      (WK_CB),HL
-        XOR     A
-        CALL    NM_RESET
-        XOR     A
-        CALL    WALK
-        LD      A,1
-        CALL    NM_RESET
-        LD      A,1
-        CALL    WALK
+        CALL    WALK2
         CALL    MTI
         DB      13,10,"TOTALS",13,10
         DB      "Program   kept ",0

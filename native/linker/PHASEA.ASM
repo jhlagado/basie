@@ -22,6 +22,7 @@ F_LIVE  EQU     $20
 F_ALIAS EQU     $40
 F_ROOT  EQU     $80
 K_CODE  EQU     0
+K_DATA  EQU     2
 K_BSS   EQU     3
 K_START EQU     4
 P_MAIN  EQU     $FFE0
@@ -882,8 +883,13 @@ OPENDIR:
         JP      ERRFILE
 .MAGIC: DB      "BSIP"
 
-; Check the options and output kind against the profile (linker §3).
+; Check the options and output kind against the profile (linker §3). ROM
+; targets, class 3 and above, are not implemented: L-RESERVED.
 PROFCHK:
+        LD      HL,206          ; L-RESERVED
+        LD      A,(LIBH+42)     ; the target class
+        CP      3
+        JP      NC,ERRPLAIN
         LD      HL,203          ; L-OPTION
         LD      A,(O_FLAGS)
         AND     OF_B

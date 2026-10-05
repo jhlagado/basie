@@ -6,8 +6,9 @@
 ; reference linker's order. Phase D makes the same passes, copying each blob
 ; from its byte stream and patching its references as they come.
 ;
-; This version writes .COM images for CP/M (class 1) targets, without a
-; separate DATA section (option R): the cases the CPM22 profile builds.
+; With option R, data blobs leave TEXT for a separate DATA section after it,
+; followed by COPY, DATA written again byte for byte (linker §7.3). ROM
+; targets (class 3 and above) are refused in Phase A.
 
 PROF    EQU     LIBH+42         ; the profile block's fields (object format §5)
 PR_CLASS EQU    PROF+0
@@ -18,17 +19,21 @@ PR_TOP  EQU     PROF+6
 PR_OPTS EQU     PROF+16
 PR_FILE EQU     PROF+20
 
-S_START EQU     0               ; sections, for SEL_SEC
-S_TEXT  EQU     1
-S_BSS   EQU     2
+S_TEXT  EQU     2               ; sections, for SEL_SEC: kinds 3 and 4
+S_BSS   EQU     3               ; are the sections of their blobs, and DATA
+S_START EQU     4               ; is TEXT with OF_R's bit
+S_DATA  EQU     S_TEXT+OF_R
 
 CURSOR: DW      0               ; the next free address
 SEL_SEC: DB     0               ; the pass's section
 SEL_CLS: DB     0               ; and alignment class
 IMG_END: DW     0
-TXT_END: DW     0
+SEC_BEG: DW     0               ; Phase C: the section's start
+SEC_SET: DB     0               ; nonzero once its first blob is placed
+DAT_BEG: DW     0
+DAT_END: DW     0
 BSS_BEG: DW     0
-BSS_SET: DB     0
+EM_DLT: DW      0               ; Phase D: COPY's distance from DATA
 FREEADR: DW     0
 RESERVE: DW     0
 FILEADR: DW     0
@@ -38,6 +43,7 @@ OUTPOS: DW      0               ; Phase D: the address written up to
 WK_OWN: DB      0               ; the directory being walked: 0 library
 WK_CB:  DW      0               ; the routine called for each blob
 WK_KIND: DB     0
+WK_NM:  DB      0               ; nonzero: walks reset the name readers
 WK_OFF: DW      0               ; the blob's byte-stream offset
 WK_ENT: DW      0               ; the blob's entry
 SRC_FD: DW      0               ; Phase D: the byte stream being copied
@@ -46,11 +52,21 @@ PSEUDO: DS      40              ; MAIN to FILECOUNT: address, size
 
 ; ---- walking a directory ---------------------------------------------------
 
+; Walk the library's directory, then the program's.
+WALK2:  XOR     A
+        CALL    WALK
+        LD      A,1
 ; Walk the library's directory (A = 0) or the program's (A = 1), calling
 ; WK_CB for each blob with WK_ENT, WK_KIND, D_SIZE, D_NREFS and WK_OFF set
 ; and the directory at its first reference. The callback consumes the
-; references, with REFSKIP or by copying the blob.
+; references, with REFSKIP or by copying the blob. In Phase E (WK_NM) the
+; owner's name reader starts again with each walk.
 WALK:   LD      (WK_OWN),A
+        LD      HL,WK_NM
+        INC     (HL)
+        DEC     (HL)
+        CALL    NZ,NM_RESET
+        LD      A,(WK_OWN)
         OR      A
         JR      NZ,.PROG
         LD      IX,LIB_FD
@@ -188,39 +204,36 @@ SELECT: LD      HL,(WK_ENT)
         LD      A,(SEL_CLS)
         CP      (HL)
         RET     NZ
-        LD      A,(WK_KIND)
-        LD      B,A
-        LD      A,(SEL_SEC)
-        CP      S_START
-        JR      Z,.START
-        CP      S_BSS
-        JR      Z,.BSS
-        LD      A,B             ; TEXT: code, rodata and data
-        CP      K_BSS
-        JR      NC,.NO
-        CP      A               ; Z
-        RET
-.START: LD      A,B
-        CP      K_START
-        RET
-.BSS:   LD      A,B
-        CP      K_BSS
+        LD      A,(WK_KIND)     ; the blob's section: code and rodata
+        CP      K_DATA          ; are TEXT; data is TEXT or, under R, DATA
+        JR      NC,.KIND
+        LD      A,S_TEXT
+.KIND:  JR      NZ,.SEC
+        LD      A,(O_FLAGS)
+        AND     OF_R
+        OR      S_TEXT
+.SEC:   LD      HL,SEL_SEC
+        CP      (HL)
         RET
 .NO:    OR      1               ; NZ
         RET
 
-; Make the passes of one section: for each class from 7 down, the library's
-; directory then the program's. HL = the routine for each blob.
-PASSES: LD      (WK_CB),HL
-        LD      A,7
+; Make the passes of section A, calling HL for each blob: for each class
+; from 7 down that has a live blob (linker §10), the library's directory
+; then the program's. DATA has passes only under option R.
+SECTION:
+        LD      (SEL_SEC),A
+        LD      (WK_CB),HL
+        CP      S_DATA
+        JR      NZ,.GO
+        LD      A,(O_FLAGS)
+        AND     OF_R
+        RET     Z
+.GO:    LD      A,7
 .CLASS: LD      (SEL_CLS),A
-        CALL    PRESENT         ; skip a class with no live blob (linker §10)
-        JR      Z,.NEXT
-        XOR     A
-        CALL    WALK
-        LD      A,1
-        CALL    WALK
-.NEXT:  LD      A,(SEL_CLS)
+        CALL    PRESENT
+        CALL    NZ,WALK2
+        LD      A,(SEL_CLS)
         SUB     1
         JR      NC,.CLASS
         RET
@@ -244,23 +257,24 @@ PHASEC: XOR     A               ; the CRCs were checked in Phase A
         LD      HL,(PR_BASE)
         LD      (CURSOR),HL
         LD      A,S_START
-        LD      (SEL_SEC),A
-        LD      HL,PLACE
-        CALL    PASSES
+        CALL    PLACESEC
         LD      A,S_TEXT
-        LD      (SEL_SEC),A
-        LD      HL,PLACE
-        CALL    PASSES
-        LD      HL,(CURSOR)
-        LD      (TXT_END),HL
+        CALL    PLACESEC
+        LD      A,S_DATA        ; empty, at TEXT's end, without R
+        CALL    PLACESEC
+        LD      (DAT_BEG),HL
+        LD      (DAT_END),DE
+        EX      DE,HL           ; COPY follows DATA: the image ends at
+        PUSH    HL              ; DATA's end plus its size
+        OR      A
+        SBC     HL,DE
+        POP     DE
+        ADD     HL,DE
         LD      (IMG_END),HL
-        LD      (BSS_BEG),HL
-        XOR     A
-        LD      (BSS_SET),A
+        LD      (CURSOR),HL
         LD      A,S_BSS
-        LD      (SEL_SEC),A
-        LD      HL,PLACE
-        CALL    PASSES
+        CALL    PLACESEC
+        LD      (BSS_BEG),HL
         ; the file table, after BSS, when the program uses files
         LD      A,(O_FILES)
         OR      A
@@ -331,6 +345,20 @@ PHASEC: XOR     A               ; the CRCs were checked in Phase A
         LD      HL,219          ; L-FIT-NOMINAL: a warning only
         JP      WARNING
 
+; Place section A: HL = its start, DE = its end. The first blob placed is
+; of the largest class present, so the section starts at its address, which
+; is the cursor rounded up to that class (linker §6.3).
+PLACESEC:
+        LD      HL,(CURSOR)
+        LD      (SEC_BEG),HL
+        LD      HL,SEC_SET
+        LD      (HL),0
+        LD      HL,PLACE
+        CALL    SECTION
+        LD      HL,(SEC_BEG)
+        LD      DE,(CURSOR)
+        RET
+
 ; Place the blob just read, if it is in the pass, and skip its references.
 PLACE:  CALL    SELECT
         JP      NZ,REFSKIP
@@ -339,15 +367,12 @@ PLACE:  CALL    SELECT
         ADD     HL,DE
         LD      A,(HL)
         CALL    ALIGNUP         ; HL = CURSOR rounded up
-        LD      A,(SEL_SEC)
-        CP      S_BSS
-        JR      NZ,.SET
-        LD      A,(BSS_SET)     ; BSS starts at its first blob
+        LD      A,(SEC_SET)     ; the section starts at its first blob
         OR      A
         JR      NZ,.SET
-        INC     A
-        LD      (BSS_SET),A
-        LD      (BSS_BEG),HL
+        DEC     A
+        LD      (SEC_SET),A
+        LD      (SEC_BEG),HL
 .SET:   EX      DE,HL           ; DE = the address
         LD      HL,(WK_ENT)
         INC     HL
@@ -479,22 +504,29 @@ PSEUDOS:
         EX      DE,HL
         LD      HL,PSEUDO+16
         CALL    .PUT
-        LD      DE,(TXT_END)    ; DATA and DATACOPY: empty, at TEXT's end
-        LD      BC,0
+        LD      HL,(DAT_END)    ; DATA, then DATACOPY: COPY, at DATA's
+        LD      DE,(DAT_BEG)    ; end, of DATA's size (empty, at TEXT's
+        OR      A               ; end, without R)
+        SBC     HL,DE
+        LD      B,H
+        LD      C,L
         LD      HL,PSEUDO+20
         CALL    .PUT
+        LD      DE,(DAT_END)
         LD      HL,PSEUDO+24
         CALL    .PUT
-        LD      E,4             ; OPTIONS: 1 keep the CCP, 4 a line table
-        LD      A,(O_FLAGS)
-        AND     OF_N
-        JR      Z,.LINES
-        LD      E,0
-.LINES: LD      A,(O_FLAGS)
-        AND     OF_B
-        JR      Z,.OPTS
-        INC     E
-.OPTS:  LD      D,0
+        LD      A,(O_FLAGS)     ; OPTIONS: 1 keep the CCP (B), 2 re-runnable
+        XOR     OF_N            ; (R), 4 a line table (not N): bits 5, 4
+        RRCA                    ; and 3 of the flags, reversed
+        RRCA
+        RRCA
+        LD      DE,0
+        LD      B,3
+.OPT:   RRA
+        RL      E
+        DJNZ    .OPT
+        LD      B,D             ; BC = 0
+        LD      C,D
         LD      HL,PSEUDO+28
         CALL    .PUT
         LD      DE,(FILEADR)    ; FILES
@@ -574,13 +606,18 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         LD      (OUTPOS),HL
         LD      (HX_ADDR),HL
         LD      A,S_START
-        LD      (SEL_SEC),A
-        LD      HL,EMIT
-        CALL    PASSES
+        CALL    EMITSEC
         LD      A,S_TEXT
-        LD      (SEL_SEC),A
-        LD      HL,EMIT
-        CALL    PASSES
+        CALL    EMITSEC
+        LD      A,S_DATA
+        CALL    EMITSEC
+        LD      HL,(DAT_END)    ; COPY: the DATA passes again, with the
+        LD      DE,(DAT_BEG)    ; output DATA's size further on
+        OR      A
+        SBC     HL,DE
+        LD      (EM_DLT),HL
+        LD      A,S_DATA
+        CALL    EMITSEC
         ; .COM and .BIN: zeros to the end of the record; .HEX: the last
         ; data record, the end record, then $1A. Padding is in the CRC.
         LD      A,(O_KIND)
@@ -606,6 +643,11 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         CALL    F_CLOSE
         JP      C,DISKERR
         JP      LN_CLOSE
+
+; Write section A.
+EMITSEC:
+        LD      HL,EMIT
+        JP      SECTION
 
 ; HL = the output's 8-character name and A its drive: option O's, else the
 ; first part's.
@@ -673,16 +715,20 @@ EMIT:   CALL    SELECT
         XOR     A
         CALL    LN_BLOB
         JP      REFSKIP
-.SEL:   ; padding up to the blob's address
+.SEL:   ; padding up to the blob's address, or in COPY its copy's
         LD      HL,(WK_ENT)
         LD      DE,E_ADDR
         ADD     HL,DE
         LD      E,(HL)
         INC     HL
         LD      D,(HL)          ; DE = the address
-        PUSH    DE
+        LD      HL,(EM_DLT)
+        LD      A,H
+        OR      L
+        ADD     HL,DE           ; keeps Z
+        PUSH    HL
         LD      A,1
-        CALL    LN_BLOB         ; its line-table entries
+        CALL    Z,LN_BLOB       ; its line-table entries, but not in COPY
         POP     DE
         LD      HL,(OUTPOS)
 .PAD:   LD      A,L
@@ -695,7 +741,10 @@ EMIT:   CALL    SELECT
         CALL    OUTB
         INC     HL
         JR      .PAD
-.SRC:   ; the blob's bytes: the library's byte section or the program's stream
+.SRC:   LD      BC,(D_SIZE)     ; the output position moves past the blob
+        ADD     HL,BC
+        LD      (OUTPOS),HL
+        ; the blob's bytes: the library's byte section or the program's stream
         LD      A,(WK_OWN)
         OR      A
         JR      NZ,.PSRC
@@ -736,24 +785,7 @@ EMIT:   CALL    SELECT
         CALL    PATCH
         JR      .REF
 .REST:  LD      HL,(D_SIZE)
-        CALL    COPYTO
-        LD      HL,(OUTPOS)     ; the output position moves past the blob
-        LD      DE,(WK_ENT)
-        INC     DE
-        LD      A,(DE)
-        LD      C,A
-        INC     DE
-        LD      A,(DE)
-        LD      B,A
-        INC     DE
-        LD      A,(DE)
-        LD      L,A
-        INC     DE
-        LD      A,(DE)
-        LD      H,A
-        ADD     HL,BC
-        LD      (OUTPOS),HL
-        RET
+        JP      COPYTO
 
 ; Copy source bytes to the output until D_REFEND reaches HL.
 COPYTO: LD      DE,(D_REFEND)

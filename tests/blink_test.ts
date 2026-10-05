@@ -363,3 +363,220 @@ for (const path of PROGRAMS) {
     );
   });
 }
+
+const {
+  readLibrary,
+} = await import("../ref/object/library.ts");
+const { readNameStream, readLineStream } = await import(
+  "../ref/object/streams.ts"
+);
+const {
+  readByteStream,
+  readProgramDirectory,
+  writeByteStream,
+  writeProgramDirectory,
+} = await import("../ref/object/program.ts");
+const { link } = await import("../ref/link/link.ts");
+const { writeMap, writeSymbols } = await import("../ref/link/reports.ts");
+const { Form, Kind, Pseudo } = await import("../ref/object/types.ts");
+type Objects = {
+  directory: Uint8Array;
+  bytes: Uint8Array;
+  lines: Uint8Array;
+  names: Uint8Array;
+};
+
+/**
+ * Link the objects with BLINK under `tail` and with the reference linker
+ * under `rerunnable`, and compare the output file, the line table and, for
+ * .COM, the map and the symbol file.
+ */
+function compareLink(objects: Objects, tail: string, rerunnable: boolean) {
+  const lib = readLibrary(library);
+  const dir = readProgramDirectory(objects.directory);
+  const lines = readLineStream(objects.lines);
+  const hex = tail.includes(".HEX");
+  const result = link(lib, dir, readByteStream(objects.bytes).data, {
+    rerunnable,
+    output: hex ? "hex" : "com",
+    byteStreamStamp: dir.header.stamp,
+    lines: { stamp: lines.stamp, parts: lines.parts, blobs: lines.blobs },
+  });
+  const names = new Map([
+    ...readNameStream(lib.names!).names,
+    ...readNameStream(objects.names).names,
+  ]);
+  const run = runCom(blink, {
+    tail,
+    files: {
+      "BASIE.MSG": MSG,
+      "CPM22.BRL": library,
+      "PROG.$DR": objects.directory,
+      "PROG.$BY": objects.bytes,
+      "PROG.$LN": objects.lines,
+      "PROG.$NM": objects.names,
+    },
+    maxSteps: 300_000_000,
+  });
+  assertEquals(run.output, "");
+  assertEquals(run.disk.get(hex ? "PROG.HEX" : "PROG.COM"), result.output);
+  const table = run.disk.get("PROG.LIN")!;
+  assertEquals(table.subarray(0, result.lineTable!.length), result.lineTable);
+  if (hex) return result;
+  const map = writeMap(result, {
+    programName: "PROG",
+    libraryName: "CPM22.BRL",
+    runtimeIdentity: lib.runtimeIdentity,
+    profileIdentity: lib.profileIdentity,
+    outputKind: ".COM",
+    profile: lib.profile,
+    names,
+  });
+  const got = new TextDecoder().decode(
+    run.disk.get("PROG.MAP")!.subarray(0, map.length),
+  );
+  assertEquals(got, map);
+  const symbols = writeSymbols(result, names);
+  assertEquals(run.disk.get("PROG.SYM")!.subarray(0, symbols.length), symbols);
+  return result;
+}
+
+const R_PROGRAMS = [
+  "examples/ADVENT.BSI",
+  "examples/BUGS.BSI",
+  "examples/DUMP.BSI",
+  "tests/conformance/basics/hello.bsi",
+  "tests/conformance/library/random-numbers.bsi",
+  "tests/conformance/storage/lru-cache.bsi",
+];
+
+for (const path of R_PROGRAMS) {
+  Deno.test(`with option R BLINK matches the reference for ${path}`, async () => {
+    const result = await compile(path);
+    if (!result.ok) throw new Error(JSON.stringify(result));
+    const linked = compareLink(result.objects, "PROG [R,M,Y]", true);
+    const data = linked.blobs.filter((b) => b.live && b.kind === Kind.data);
+    const p = linked.pseudo.get(Pseudo.DATA)!;
+    assertEquals(p.size, data.reduce((n, b) => n + b.size, 0));
+  });
+}
+
+/**
+ * hello.bsi with more blobs: two aligned and two unaligned data blobs whose
+ * references reach code, bss, other data and the DATA, DATACOPY, IMAGE and
+ * BSS pseudo-objects in every form, and a rodata blob in TEXT that refers to
+ * DATA.
+ */
+function withData(): Objects {
+  if (!hello.ok) throw new Error();
+  const dir = readProgramDirectory(HELLO_DR);
+  const bytes = [...readByteStream(HELLO_BY).data];
+  const main = dir.records.find((r) => r.type === "entry")!;
+  if (main.type !== "entry") throw new Error();
+  let next = Math.max(
+    ...dir.records.map((r) => r.type === "blob" ? r.ordinal : 0),
+  ) + 1;
+  const [a, b, c, d, bss, ro] = [
+    next++,
+    next++,
+    next++,
+    next++,
+    next++,
+    next++,
+  ];
+  const ref = (offset: number, form: number, target: number, addend = 0) => ({
+    offset,
+    form: form as 0,
+    target,
+    addend,
+  });
+  const blob = (
+    kind: number,
+    ordinal: number,
+    content: number[],
+    references: ReturnType<typeof ref>[],
+    align = 0,
+    root = true,
+  ) => {
+    if (kind !== Kind.bss) bytes.push(...content);
+    return {
+      type: "blob" as const,
+      kind: kind as 0,
+      ordinal,
+      size: content.length,
+      root,
+      align,
+      references,
+    };
+  };
+  const added = [
+    blob(Kind.data, a, [0, 0, 0, 0, 0, 0, 0, 0, 0x11], [
+      ref(0, Form.ABS16, main.ordinal),
+      ref(2, Form.ABS16, bss, 2),
+      ref(4, Form.ABS16, Pseudo.DATACOPY),
+      ref(6, Form.SIZE16, Pseudo.DATA),
+    ]),
+    blob(Kind.data, b, [0, 0, 0, 0, 0x55], [
+      ref(0, Form.LO8, Pseudo.DATA),
+      ref(1, Form.HI8, Pseudo.DATACOPY),
+      ref(2, Form.ABS16, a, 1),
+    ], 3),
+    blob(Kind.data, c, [0, 0, 0, 0, 0x77], [
+      ref(0, Form.SIZE16, Pseudo.IMAGE),
+      ref(2, Form.ABS16, Pseudo.BSS),
+    ]),
+    blob(Kind.data, d, [0, 0, 0x66], [ref(0, Form.ABS16, ro, 6)], 2),
+    blob(Kind.bss, bss, new Array(6).fill(0), [], 0, false),
+    blob(Kind.rodata, ro, [0, 0, 0, 0, 0, 0, 0x99], [
+      ref(0, Form.ABS16, Pseudo.DATA),
+      ref(2, Form.SIZE16, Pseudo.DATACOPY),
+      ref(4, Form.ABS16, b),
+    ]),
+  ];
+  const last = dir.records.findLastIndex((r) => r.type === "blob");
+  const records = [
+    ...dir.records.slice(0, last + 1),
+    ...added,
+    ...dir.records.slice(last + 1),
+  ];
+  const stream = Uint8Array.from(bytes);
+  return {
+    directory: writeProgramDirectory(dir.header, records, stream.length),
+    bytes: writeByteStream(dir.header.stamp, stream),
+    lines: HELLO_LN,
+    names: hello.objects.names,
+  };
+}
+
+Deno.test("with option R BLINK places DATA and COPY as the reference does", () => {
+  const objects = withData();
+  const r = compareLink(objects, "PROG [R,M,Y]", true);
+  const data = r.pseudo.get(Pseudo.DATA)!;
+  const copy = r.pseudo.get(Pseudo.DATACOPY)!;
+  // By class: b (8-byte), 3 bytes' padding, d (4-byte), then a and c.
+  assertEquals(data.size, 5 + 3 + 3 + 9 + 5);
+  assertEquals(copy.address, data.address + data.size);
+  assertEquals(copy.size, data.size);
+  assertEquals(data.address % 8, 0);
+  const first = r.blobs.find((x) => x.address === data.address)!;
+  assertEquals(first.padding > 0, true); // TEXT's end rounded up
+  // Without R the same blobs stay in TEXT.
+  compareLink(objects, "PROG [M,Y]", false);
+  // Intel HEX carries COPY too.
+  compareLink(objects, "PROG [R,O=PROG.HEX]", true);
+});
+
+Deno.test("BLINK refuses a ROM profile (class 3), which it doesn't implement", () => {
+  const lib = library.slice();
+  lib[42] = 3;
+  assertEquals(
+    run("HELLO", {
+      "BASIE.MSG": MSG,
+      "CPM22.BRL": lib,
+      "HELLO.$DR": HELLO_DR,
+      "HELLO.$BY": HELLO_BY,
+      "HELLO.$LN": HELLO_LN,
+    }),
+    error(206),
+  );
+});
