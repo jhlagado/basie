@@ -299,7 +299,6 @@ startup moves the DMA address before any disk operation
 | `setUser(user as u8) fails` | Change the user number, 0 to 15 | BDOS 32 |
 | `driveReadOnly(drive as u8) as boolean` | Whether a drive is read-only | BDOS 29 |
 | `freeMemory() as u16` | Bytes between the end of `BSS` and the stack | — |
-| `clock(var now as DateTime) fails` | Date and time on CP/M 3; `notAvailable` on 2.2 | CP/M 3 BDOS 105 |
 
 A program that asks the user to change disks must call `resetDisks` or
 `resetDrive` afterwards; otherwise CP/M marks the drive read-only.
@@ -377,7 +376,8 @@ ports and Nucleus's procedures are.
 **Gaps in the shared contracts.** These are recorded here to be proposed to
 z80-services, and Basie doesn't wait for them: raw keys and key status, the
 printer, a named-file profile with update and append, directory operations, and
-a clock.
+a clock. A clock service (CP/M 3 BDOS 105) is deferred to a later revision of
+this document, which will define its `DateTime` record; revision 2 has none.
 
 **The gateway's storage roles.** The CP/M provider implements `byteGateway/0`'s
 storage roles over two files chosen by the test harness, so that the

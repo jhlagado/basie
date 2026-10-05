@@ -92,7 +92,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C10 | major (closed) | 14.4 allows `else fail` only on scalar local declarations; the grammar and compiler allow any expression initializer. | Any expression initializer |
 | C11 | major (closed) | `move` in `assert` conditions and `and`/`or` operands is accepted. | Reject |
 | C12 | major (closed) | `File` comparison is specified but rejected. | Implement |
-| C13 | major | `clock` and `DateTime` are in services revision 2 but have no layout and no implementation. | Define and implement, or remove |
+| C13 | major (closed) | `clock` and `DateTime` are in services revision 2 but have no layout and no implementation. | Define and implement, or remove |
 | C14 | major (closed) | Whether an unreachable end of a loop body counts as a back edge. | Only when it can complete |
 | C15 | major (closed) | Handle parameters without `var` can be assigned, against 10.4. | Scalar and handle parameters are local copies |
 | C16 | major | "When the compiler proves" makes validity depend on cleverness. | Only constant operands |
@@ -103,7 +103,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C21 | minor | 14.6 examples call `readStorageByte`, which doesn't exist. | Use `readInputByte` |
 | C22 | minor | `head = move head.next` compiles under no declaration. | Use `h.next` |
 | C23 | minor | Three places say a trap frees slots; 15.1 says it frees none. | Exclude traps |
-| C24 | minor | 16.2 omits `textMode` and `binaryMode`. | Add |
+| C24 | minor (closed) | 16.2 omits `textMode` and `binaryMode`. | Add |
 | C25 | minor | `File` is absent from chapter 6 and the assignment and parameter rules. | Classify it |
 | C26 | minor | `as var` results as `var` arguments are accepted but unstated. | State |
 | C27 | minor | `var x as T[]` taking `T[N]` is missing from 13.4. | Add |
