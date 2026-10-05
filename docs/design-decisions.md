@@ -978,3 +978,37 @@ program reviewable through the increment, review and compression cycle of D43.
 **Rejected.** Keeping AZM syntax behind the translation layer. It keeps the long
 names, but it leaves two dialects, a ledger of unreadable eight-character
 aliases in every listing, and contracts that nothing checks.
+
+### D45. The native compiler's output equals the reference compiler's
+
+From step 65.4, `BASIE.COM` writes the same `$DR`, `$BY`, `$LN` and `$NM`
+streams as the reference compiler for every program it accepts, byte for
+byte. The back end forked from Nucleus is rewritten to the reference's code
+templates (`ref/compile/compiler.ts`, `ref/compile/emit.ts`) as each
+construct is brought across. Its front end, the tokenizer, the LL(1) parser
+and the actions, stays, and the semantic transcript is flushed and replayed
+once per routine and top-level declaration. That way a routine's emitter
+knows its frame, its need and its literals before it writes the routine.
+
+The check is the conformance corpus. A test compiles each program the native
+compiler claims with both compilers and compares the streams. Until native
+branch shrinking exists, the reference compiles with shrinking off for this
+comparison. The claimed set only grows: a program once claimed must keep
+matching.
+
+**Why.** The reference was built as an executable model of the native
+algorithms (implementation plan). Comparing behaviour would catch a wrong
+answer only when a test happens to observe it. Comparing streams catches
+every divergence, in the program that first shows it. About 9K of compiler
+code is still to be written, and a byte oracle is what keeps it honest. It
+also makes the line streams, names and diagnostics positions match, which
+behavioural tests would not see.
+
+**Cost.** The native compiler inherits the reference's choices, including
+some that are not the smallest code it could emit. An improvement to code
+quality is made in the reference first and then carried across, so the two
+never drift.
+
+**Rejected.** Keeping Nucleus's stack-machine templates and comparing
+behaviour only. That makes it harder to find divergences, and the templates
+would be rewritten anyway when D41's register conventions reach expressions.
