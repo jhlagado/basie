@@ -1,0 +1,49 @@
+; Checked semantic-operation buffer for the counted-loop and array slices.
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
+TR_PUT:
+    LD   B,A
+    LD   HL,(TR_PTR)
+    LD   DE,TR_LIM
+    OR   A
+    SBC  HL,DE
+    ADD  HL,DE
+    JR   Z,TR_FULL
+.ROOM:
+    LD   A,B
+    LD   (HL),A
+    INC  HL
+    LD   (TR_PTR),HL
+    OR   A
+    RET
+TR_FULL:
+    CALL DG_RAISE
+    DB   DG_SINK
+
+;@ROUTINE IN A,HL OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE
+TR_PUTHL:
+    PUSH HL
+    CALL TR_PUT
+    POP  HL
+    RET
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
+TR_OPER:
+    LD   B,A
+    LD   A,(TR_CNT)
+    CP   255
+    JR   Z,TR_FULL
+    LD   A,B
+    CALL TR_PUT
+    RET  C
+    LD   HL,TR_CNT
+    INC  (HL)
+    XOR  A
+    RET
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+TR_CLOSE:
+    LD   A,(TR_CNT)
+    LD   (TR_BASE),A
+    OR   A
+    RET

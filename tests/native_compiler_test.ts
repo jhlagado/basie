@@ -1,42 +1,30 @@
 /**
- * The native compiler (roadmap step 64): the fork builds byte-identically to
- * Nucleus's image, its proof passes, and it stays within the budget of design
- * decision D43.
+ * BASIE.COM's image: ATOM assembles the compiler's sources (design decision
+ * D44) to the image recorded here, and it stays within the budget of D43.
  */
 import { assertEquals } from "@std/assert";
-import { buildCompiler } from "../native/compiler/build.ts";
-import { runProof } from "../native/compiler/proof.ts";
+import { buildBasie } from "../native/compiler/build.ts";
 
 const TARGET = 26 * 1024;
 const LIMIT = 28 * 1024;
 
-Deno.test("the forked compiler runs its flat-target proof", async () => {
-  const outcome = await runProof(
-    "native/compiler/proofs/flat-target-z80-slice-proof.json",
-  );
-  assertEquals(outcome.failures, []);
-  assertEquals(outcome.instructions, 1_055_183);
-  assertEquals(outcome.cycles, 10_384_694);
-});
-
-Deno.test("the compiler is byte-identical to the fork and within budget", async () => {
-  const image = await buildCompiler();
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(image.hex),
-  );
+Deno.test("BASIE.COM is the recorded image and within budget", async () => {
+  const image = await buildBasie();
+  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(image.com));
   const hex = [...new Uint8Array(digest)]
     .map((b) => b.toString(16).padStart(2, "0")).join("");
-  // Nucleus commit 8d1ed07's image. This changes with the first Basie stage.
-  assertEquals(
-    hex,
-    "6e496733450801b108b44c0e6880f74c94541a421f80c033d0a1a2f27b3f6a22",
-  );
+  // Step 65.0: byte-identical to the AZM build of step 65.2. A change to the
+  // compiler updates this digest and the sizes below in the same commit.
+  assertEquals(hex, DIGEST);
   assertEquals(image.core, 15_286);
-  assertEquals(image.core <= LIMIT, true, `over the ${LIMIT}-byte limit`);
+  assertEquals(image.com.length, 16_075);
+  assertEquals(image.com.length <= LIMIT, true, `over the ${LIMIT}-byte limit`);
   console.log(
-    `  compiler core ${image.core} bytes: ${
-      TARGET - image.core
-    } to the target, ${LIMIT - image.core} to the limit`,
+    `  BASIE.COM ${image.com.length} bytes: ${
+      TARGET - image.com.length
+    } to the target, ${LIMIT - image.com.length} to the limit`,
   );
 });
+
+const DIGEST =
+  "ea0ce9efabb5f90041bc2c2325f81a59ed40cd67cc4221e661d8c9103d60a9d8";

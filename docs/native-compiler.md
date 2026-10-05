@@ -9,8 +9,9 @@
 
 ## 1. What was forked
 
-At step 64, `native/compiler/asm/vertical-slice/` holds the Nucleus compiler
-from Nucleus commit `8d1ed07`. Its core measures 15,286 bytes. A compilation
+At step 64, `native/compiler/` held the Nucleus compiler from Nucleus commit
+`8d1ed07`, in AZM syntax; at step 65.0 it became ATOM source (D44), with the
+file names below. Its core measures 15,286 bytes. A compilation
 runs in three phases that never overlap:
 
 1. **Parse.** The LL(1) engine parses every source part and appends
@@ -105,7 +106,12 @@ widening:
   classes, read inside the expression island.
 
 That brings the count to about 60. The decision is made when the tables are
-regenerated (step 67), with the count recorded.
+regenerated (step 67), with the count recorded. The new generator writes ATOM
+under the naming scheme of the conversion: `GR_ROWn` prediction rows and
+`GR_ALTn` productions, directories `GR_ROWX`, `GR_ALTX`, `GR_ALTXH` and
+`GR_ACTX`, counts `GR_ROW_N`, `GR_ALT_N` and `GR_ACT_N`, and `GR_START`. It
+computes the row and production offsets itself, because ATOM takes a forward
+reference only as one symbol and a small addend.
 
 ## 3. Step 65 in increments
 
@@ -114,7 +120,7 @@ Each increment keeps a working, tested compiler. Each follows the D43 cycle
 
 | # | Increment | Checked by |
 | --- | --- | --- |
-| 65.0 | Convert the fork to ATOM source (D44): stage 1, mechanical, byte-identical, with 8.3 file names, the conditionals resolved and temporary names; stage 2, module by module, names under the label convention and line-by-line commentary, byte-identical | The ATOM image equals the AZM image; then each curated module leaves it unchanged |
+| 65.0 | Convert the fork to ATOM source (D44). Stage 1 (done): 29 files with 8.3 names, the conditionals resolved and every one of 2,094 names given an ATOM name under the label convention (`tools/atomize/*.json`), byte-identical to the AZM build; the AZM tree, its translation layer and the proof harness removed. Stage 2: line-by-line commentary, module by module, byte-identical | The ATOM image equals the AZM image; then each commented module leaves it unchanged |
 | 65.1 | ~~Move `BLINK`'s CP/M core to a shared directory~~ Withdrawn: `BLINK` is written for ATOM and the compiler in AZM syntax, so sharing source would need a second translation, and it saves no bytes, the programs being separate. The shell takes `BLINK`'s algorithms (name characters, record I/O) in the compiler's dialect | — |
 | 65.2 | The `BASIE.COM` shell: a second composition, `asm/basie/basie.asm`, of the forked modules at `$0100` behind a CP/M shell that reads the parts named on the command line into memory, compiles them, prints a diagnostic as `NAME.BSI LINE:COLUMN Error N`, and deletes `A:$$$.SUB` on failure. Output goes to stub sinks. The proof composition stays as the front end's regression oracle (done: `tests/basie_native_test.ts`; `BASIE.COM` 16,075 bytes, the shell 634 bytes of code and 152 of data) | `BASIE.COM` under the CP/M harness compiles programs of one and several parts from files and reports diagnostics with their part, line and column |
 | 65.2b | The library header and key check and the compilation stamp (toolchain §3.1); options in brackets | Refused libraries and options as the reference toolchain refuses them |

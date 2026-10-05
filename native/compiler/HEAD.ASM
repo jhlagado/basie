@@ -1,0 +1,6 @@
+ORG  $0100
+MM_BEG:
+    JP   SH_START
+
+    ORG  MM_RBASE
+MM_CBEG:

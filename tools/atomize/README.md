@@ -1,17 +1,16 @@
 # Naming the converted compiler
 
-The forked Nucleus compiler is converted to ATOM source by
-[`tools/atomize.ts`](../atomize.ts) (design decision D44). Each JSON file
+The forked Nucleus compiler was converted to ATOM source at step 65.0 by
+`tools/atomize.ts` (design decision D44), which was removed once the AZM
+sources went; it is in the history at commit `fb22d8a`. Each JSON file
 here maps every name a group of modules defines, from its Nucleus spelling to
 its ATOM name: `"TokenizerNext": "TK_NEXT"` for a global, `"TokenizerSkipByte":
 ".SKIP"` for a private label. Together they are the record of what each Nucleus
 name became.
 
-`deno run --config deno.runtime.json -A tools/atomize.ts sheets` writes
-`sheets/FILE.tsv`, a line per definition. The columns are the name, its status,
-its Nucleus file and line, its reference count and the other files that use
-it. `check FILE.ASM ...` validates the maps, listing missing names only for the
-files given and every conflict anywhere.
+The tool wrote worksheets of every definition with the status Skate's rule
+gives it (global, or private under its owner), and checked the maps for
+length, uniqueness and scope before writing the files.
 
 ## Rules
 

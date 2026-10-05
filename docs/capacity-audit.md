@@ -546,7 +546,8 @@ computed exactly from frames and helper figures.
 
 ## 4. Nucleus constants the native compiler would inherit
 
-From `../nucleus/asm/vertical-slice/*.asmi`. Each is a defect if it survives
+From Nucleus's `asm/vertical-slice/*.asmi`, now `native/compiler/STATE.ASM`,
+`CALLWORK.ASM` and `TGTWORK.ASM` under ATOM names. Each is a defect if it survives
 the fork unchanged.
 
 | Nucleus constant | Value | Basie replacement |

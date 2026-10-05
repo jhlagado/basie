@@ -1,15 +1,12 @@
-# Nucleus grammar
+# Nucleus grammar (reference)
 
 This directory contains the machine-readable grammar used by the packed LL(1)
 parser. The language specification remains authoritative for source-language
 meaning; these files make its current Stage 7 syntax executable and testable.
 
-| File                        | Purpose                                                                                                                    |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `stage7-grammar.json`       | Grammar productions, external parser islands, and prediction diagnostics.                                                  |
-| `generate-stage7.ts`        | Computes nullable, FIRST, FOLLOW, and prediction sets; rejects conflicts and packed-field overflow.                        |
-| `stage7-tables.asmi`        | Generated prediction, production, and action tables included by the compiler; each row marks its final production in-band. |
-| `stage7-proof-actions.asmi` | Generated action aliases used only by the isolated engine proof.                                                           |
+`stage7-grammar.json` is Nucleus's grammar, from which `../GRAMMAR.ASM` was
+generated. The generator wrote AZM and was retired when the compiler moved to
+ATOM (D44); step 67 replaces it with a generator for Basie's grammar.
 
 Expressions, name-led statements, and type-directed aggregate initializers are
 deliberate external islands. They require precedence or symbol and type
