@@ -29,7 +29,7 @@ P_FILES EQU     $FFE8
 P_FCNT  EQU     $FFE9
 STKROOM EQU   $0300           ; kept below the stack for calls and messages
 
-LIBH:   DS      40              ; the library header
+LIBH:   DS      64              ; the library header and profile block
 PRGH:   DS      20              ; the program directory's header
 LT_BASE: DW     0
 LT_COUNT: DW    0

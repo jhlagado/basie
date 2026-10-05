@@ -5,6 +5,7 @@
 %INCLUDE "MSG.ASM"
 %INCLUDE "TAIL.ASM"
 %INCLUDE "PHASEA.ASM"
+%INCLUDE "PHASECD.ASM"
 
 ; BLINK: link a compiled Basie program (docs/linker.md; toolchain §5).
 ;
@@ -45,6 +46,8 @@ START:  LD      HL,(TOP)
         LD      A,(O_FLAGS2)
         AND     OF2_W
         CALL    NZ,DUMP
+        CALL    PHASEC
+        CALL    PHASED
         LD      DE,RC_OK
         JP      EXITRC
 
@@ -78,7 +81,7 @@ OPENLIB:
 ; Carry after a diagnostic.
 LIBHEAD:
         LD      HL,LIBH
-        LD      B,40
+        LD      B,64            ; the header and the profile block
 .READ:  PUSH    HL
         PUSH    BC
         CALL    F_GETB

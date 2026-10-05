@@ -15,9 +15,10 @@ const { compile } = await import("../ref/compile/index.ts");
 const hello = await compile("tests/conformance/basics/hello.bsi");
 if (!hello.ok) throw new Error("hello didn't compile");
 const HELLO_DR = hello.objects.directory;
+const HELLO_BY = hello.objects.bytes;
 
 function run(tail: string, files: Record<string, Uint8Array> = {}) {
-  return runCom(blink, { tail, files }).output;
+  return runCom(blink, { tail, files, maxSteps: 200_000_000 }).output;
 }
 
 const error = (n: number, args: string[] = []) =>
@@ -37,6 +38,7 @@ Deno.test("BLINK finds and checks the library, and its CRC with V", () => {
     "BASIE.MSG": MSG,
     "CPM22.BRL": library,
     "HELLO.$DR": HELLO_DR,
+    "HELLO.$BY": HELLO_BY,
   };
   assertEquals(run("HELLO", files), "");
   assertEquals(run("HELLO [V]", files), "");
@@ -73,6 +75,7 @@ Deno.test("BLINK looks for the library named by P=", () => {
       "BASIE.MSG": MSG,
       "OTHER.BRL": library,
       "HELLO.$DR": HELLO_DR,
+      "HELLO.$BY": HELLO_BY,
     }),
     "",
   );
@@ -83,6 +86,7 @@ Deno.test("BLINK refuses bad and repeated options", () => {
     "BASIE.MSG": MSG,
     "CPM22.BRL": library,
     "HELLO.$DR": HELLO_DR,
+    "HELLO.$BY": HELLO_BY,
   };
   assertEquals(run("HELLO [Q]", files), error(224, ["Q"]));
   assertEquals(run("HELLO [M,M]", files), error(224, ["M"]));
@@ -129,7 +133,9 @@ for (const path of PROGRAMS) {
         "BASIE.MSG": MSG,
         "CPM22.BRL": library,
         "PROG.$DR": result.objects.directory,
+        "PROG.$BY": result.objects.bytes,
       },
+      maxSteps: 100_000_000,
     });
     assertEquals(run.output, "");
     const tables = readTables(run.disk.get("PROG.$TB")!);
@@ -145,7 +151,11 @@ for (const path of PROGRAMS) {
 }
 
 Deno.test("BLINK checks the program against the library", () => {
-  const files = { "BASIE.MSG": MSG, "CPM22.BRL": library };
+  const files = {
+    "BASIE.MSG": MSG,
+    "CPM22.BRL": library,
+    "HELLO.$BY": HELLO_BY,
+  };
   const otherKey = HELLO_DR.slice();
   otherKey[12] ^= 1; // the helper-table key
   assertEquals(run("HELLO", { ...files, "HELLO.$DR": otherKey }), error(201));
@@ -160,3 +170,24 @@ Deno.test("BLINK checks the program against the library", () => {
     error(200, ["HELLO.$DR"]),
   );
 });
+
+for (const path of PROGRAMS) {
+  Deno.test(`BLINK writes the reference's image for ${path}`, async () => {
+    const result = await compile(path);
+    if (!result.ok) throw new Error(JSON.stringify(result));
+    const run = runCom(blink, {
+      tail: "PROG",
+      files: {
+        "BASIE.MSG": MSG,
+        "CPM22.BRL": library,
+        "PROG.$DR": result.objects.directory,
+        "PROG.$BY": result.objects.bytes,
+      },
+      maxSteps: 100_000_000,
+    });
+    assertEquals(run.output, "");
+    const image = run.disk.get("PROG.$$$")!;
+    assertEquals(image.length, result.com.length);
+    assertEquals(image, result.com);
+  });
+}
