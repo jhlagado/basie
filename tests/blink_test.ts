@@ -7,6 +7,8 @@ import { assertEquals } from "@std/assert";
 import { formatMessage, messageFile } from "../ref/compile/messages.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
 import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
+import { intelHex } from "../ref/link/link.ts";
+import { crc16 } from "../ref/object/crc.ts";
 
 const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));
 const library = (await buildRuntime()).file;
@@ -100,6 +102,51 @@ Deno.test("BLINK refuses bad and repeated options", () => {
   assertEquals(run("HELLO [M, Y, F=6, STACK=512, O=B:OUT.HEX]", files), "");
   assertEquals(run("HELLO,UTIL [K]", files), "");
   assertEquals(run("TOOLONGNAME", files), error(224, ["TOOLONGNAME"]));
+  assertEquals(run("HELLO [O=OUT.TXT]", files), error(224, ["O=OUT.TXT"]));
+});
+
+Deno.test("BLINK writes .BIN and Intel HEX images (linker §7.5, §7.6)", () => {
+  if (!hello.ok) throw new Error();
+  const files = {
+    "BASIE.MSG": MSG,
+    "CPM22.BRL": library,
+    "HELLO.$DR": HELLO_DR,
+    "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
+  };
+  const opts = { maxSteps: 100_000_000 };
+  let run = runCom(blink, { tail: "HELLO [O=HELLO.BIN]", files, ...opts });
+  assertEquals(run.output, "");
+  assertEquals(run.disk.get("HELLO.BIN"), hello.com);
+  run = runCom(blink, { tail: "HELLO [O=HELLO.HEX]", files, ...opts });
+  assertEquals(run.output, "");
+  const hex = intelHex(hello.link.image, hello.link.imageBase);
+  assertEquals(run.disk.get("HELLO.HEX"), hex);
+  // The line table carries the CRC of the output file as written.
+  const table = run.disk.get("HELLO.LIN")!.subarray(0, hello.lineTable!.length);
+  const crc = crc16(hex);
+  assertEquals([table.at(-4), table.at(-3)], [crc & 0xff, crc >> 8]);
+});
+
+Deno.test("BLINK checks the options and output kind against the profile", () => {
+  const files = {
+    "BASIE.MSG": MSG,
+    "HELLO.$DR": HELLO_DR,
+    "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
+  };
+  const profile = (kinds: number, options: number, base = 0x100) => {
+    const lib = library.slice();
+    lib[43] = kinds;
+    lib[44] = base & 0xff;
+    lib[45] = base >> 8;
+    lib[58] = options;
+    return { ...files, "CPM22.BRL": lib };
+  };
+  assertEquals(run("HELLO [B]", profile(7, 2)), error(203));
+  assertEquals(run("HELLO [R]", profile(7, 1)), error(203));
+  assertEquals(run("HELLO [O=X.HEX]", profile(3, 3)), error(204));
+  assertEquals(run("HELLO", profile(7, 3, 0x200)), error(204));
 });
 
 /** Read NAME.$TB: [ordinal, flags, size] per defined entry, and uses-files. */

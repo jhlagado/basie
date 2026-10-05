@@ -75,11 +75,7 @@ MTH4:   LD      A,H
         RRCA
         CALL    .H1
         POP     AF
-.H1:    AND     $0F
-        ADD     A,$90
-        DAA
-        ADC     A,$40
-        DAA
+.H1:    CALL    HEXDIG
         JP      MTB
 
 ; Write the 24-bit two's-complement value A:HL in decimal, right-aligned in

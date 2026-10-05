@@ -16,6 +16,7 @@ O_ODRV: DB      0               ; O=: the output drive, name and type
 O_ONAM: DS      8,' '
 O_OTYP: DB      "COM"
 O_OSET: DB      0               ; 1 when O= was given
+O_KIND: DB      1               ; the output kind: 1 .COM, 2 .BIN, 4 .HEX
 O_FILES:
         DB      0               ; F=: file-table entries, or 0
 O_STACK:
@@ -255,10 +256,34 @@ T_OPTION:
         LD      BC,3            ; HL = F_TY, just after F_NM
         LD      DE,O_OTYP
         LDIR
-.OTYPED:
+.OTYPED:                        ; the type names the kind; others are bad
+        LD      HL,.KINDS
+        LD      C,1
+.KIND:  PUSH    HL
+        LD      DE,O_OTYP
+        LD      B,3
+.KCH:   LD      A,(DE)
+        CP      (HL)
+        INC     DE
+        INC     HL
+        JR      NZ,.KNO
+        DJNZ    .KCH
+        POP     HL
+        LD      A,C
+        LD      (O_KIND),A
         POP     HL
         OR      A
         RET
+.KNO:   POP     HL
+        INC     HL
+        INC     HL
+        INC     HL
+        SLA     C
+        BIT     3,C
+        JR      Z,.KIND
+        POP     HL
+        JP      .BAD
+.KINDS: DB      "COMBINHEX"
 .F:     LD      A,12
         CALL    .ONCE
         RET     C

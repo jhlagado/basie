@@ -153,13 +153,17 @@ ERRORD: PUSH    HL
         RRCA
         CALL    .HEX1
         POP     AF
-.HEX1:  AND     $0F
+.HEX1:  CALL    HEXDIG
+        LD      (HL),A
+        INC     HL
+        RET
+
+; A = the hex digit for A's low four bits, in ASCII.
+HEXDIG: AND     $0F
         ADD     A,$90
         DAA
         ADC     A,$40
         DAA
-        LD      (HL),A
-        INC     HL
         RET
 
 ; ---- tables ------------------------------------------------------------------
@@ -869,7 +873,7 @@ OPENDIR:
         OR      L
         LD      HL,202          ; L-STAMP: stamp 0
         JP      Z,ERRPLAIN
-        RET
+        JR      PROFCHK
 .COMPAT:
         LD      HL,201          ; L-COMPAT
         JP      ERRPLAIN
@@ -877,6 +881,38 @@ OPENDIR:
         LD      HL,200          ; L-FORMAT
         JP      ERRFILE
 .MAGIC: DB      "BSIP"
+
+; Check the options and output kind against the profile (linker §3).
+PROFCHK:
+        LD      HL,203          ; L-OPTION
+        LD      A,(O_FLAGS)
+        AND     OF_B
+        JR      Z,.NOB
+        LD      A,(LIBH+58)     ; option support: bit 0 keep the CCP
+        RRA
+        JP      NC,ERRPLAIN
+.NOB:   LD      A,(O_FLAGS)
+        AND     OF_R
+        JR      Z,.NOR
+        LD      A,(LIBH+58)     ; bit 1 re-runnable
+        AND     2
+        JP      Z,ERRPLAIN
+.NOR:   INC     HL              ; L-OUTPUT
+        LD      A,(LIBH+43)     ; the output kinds
+        LD      DE,O_KIND
+        EX      DE,HL
+        AND     (HL)
+        EX      DE,HL
+        JP      Z,ERRPLAIN
+        LD      A,(DE)          ; .COM needs image base $0100
+        DEC     A
+        RET     NZ
+        LD      DE,(LIBH+44)
+        DEC     D
+        LD      A,D
+        OR      E
+        RET     Z
+        JP      ERRPLAIN
 
 ; HL = the library's key for the program's helper-table version. The key
 ; table is a count, then a key per version. The library file stays at IX's

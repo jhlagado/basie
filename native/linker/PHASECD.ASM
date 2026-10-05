@@ -572,6 +572,7 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         CALL    LN_OPEN
         LD      HL,(PR_BASE)
         LD      (OUTPOS),HL
+        LD      (HX_ADDR),HL
         LD      A,S_START
         LD      (SEL_SEC),A
         LD      HL,EMIT
@@ -580,15 +581,25 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         LD      (SEL_SEC),A
         LD      HL,EMIT
         CALL    PASSES
-        ; .COM: zeros to the end of the last record, in the image's CRC
-.PAD:   LD      HL,(OUTPOS)
-        LD      A,L
-        AND     $7F
-        JR      Z,.PADDED
-        XOR     A
-        CALL    OUTB
+        ; .COM and .BIN: zeros to the end of the record; .HEX: the last
+        ; data record, the end record, then $1A. Padding is in the CRC.
+        LD      A,(O_KIND)
+        CP      4
+        LD      C,0
+        JR      NZ,.PAD
+        CALL    HX_FLUSH
+        LD      HL,HX_END
+        LD      B,13
+.END:   LD      A,(HL)
+        CALL    OUTR
         INC     HL
-        LD      (OUTPOS),HL
+        DJNZ    .END
+        LD      C,$1A
+.PAD:   LD      A,(OUT_FD+FD_POS)
+        OR      A
+        JR      Z,.PADDED
+        LD      A,C
+        CALL    OUTR
         JR      .PAD
 .PADDED:
         LD      IX,OUT_FD
@@ -898,9 +909,16 @@ SRCB:   PUSH    IX
         JP      C,R_SHORT
         RET
 
-; Write A to the output, adding it to the image's CRC. Preserves BC, DE,
-; HL, IX.
+; Write image byte A to the output: as itself, or into a .HEX record.
+; Preserves BC, DE, HL, IX.
 OUTB:   PUSH    HL
+        LD      HL,O_KIND
+        BIT     2,(HL)
+        POP     HL
+        JR      NZ,HX_PUT
+; Write A to the output file, adding it to the image's CRC. Preserves BC,
+; DE, HL, IX.
+OUTR:   PUSH    HL
         LD      HL,IMG_CRC
         CALL    CRC_UPD
         POP     HL
@@ -916,3 +934,86 @@ OUTB:   PUSH    HL
         POP     IX
         RET     NC
         JP      DISKERR
+
+; ---- Intel HEX (linker §7.6) -------------------------------------------------
+
+HX_ADDR: DW     0               ; the address of the record being filled
+HX_CNT: DB      0               ; its bytes so far
+HX_BUF: DS      16
+HX_END: DB      ":00000001FF",13,10
+
+; Add image byte A to the record, writing it when full. Preserves BC, DE,
+; HL, IX.
+HX_PUT: PUSH    HL
+        PUSH    DE
+        LD      HL,HX_CNT
+        LD      E,(HL)
+        INC     (HL)
+        LD      D,0
+        LD      HL,HX_BUF
+        ADD     HL,DE
+        LD      (HL),A
+        LD      A,E
+        POP     DE
+        POP     HL
+        CP      15
+        RET     NZ
+; Write the record, if it has any bytes: colon, count, address, type 00,
+; data and checksum in hex, then CR LF. Preserves BC, DE, HL, IX.
+HX_FLUSH:
+        LD      A,(HX_CNT)
+        OR      A
+        RET     Z
+        PUSH    HL
+        PUSH    BC
+        LD      B,A
+        LD      A,':'
+        CALL    OUTR
+        LD      C,0             ; the sum
+        LD      A,B
+        CALL    HX_HEX
+        LD      HL,(HX_ADDR)
+        LD      A,H
+        CALL    HX_HEX
+        LD      A,L
+        CALL    HX_HEX
+        XOR     A
+        CALL    HX_HEX
+        LD      A,L             ; the next record's address
+        ADD     A,B
+        LD      L,A
+        ADC     A,H
+        SUB     L
+        LD      H,A
+        LD      (HX_ADDR),HL
+        LD      HL,HX_BUF
+.DATA:  LD      A,(HL)
+        CALL    HX_HEX
+        INC     HL
+        DJNZ    .DATA
+        XOR     A               ; B = 0 now
+        LD      (HX_CNT),A
+        SUB     C
+        CALL    HX_HEX
+        LD      A,13
+        CALL    OUTR
+        LD      A,10
+        CALL    OUTR
+        POP     BC
+        POP     HL
+        RET
+
+; Write A in two hex digits and add it to C. Preserves B, DE, HL, IX.
+HX_HEX: PUSH    AF
+        ADD     A,C
+        LD      C,A
+        POP     AF
+        PUSH    AF
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        CALL    .NIB
+        POP     AF
+.NIB:   CALL    HEXDIG
+        JP      OUTR
