@@ -363,8 +363,9 @@ When the program has a line stream and option `N` is not given, the linker
 writes the line table during Phase D, in address order, with no sorting:
 
 - Before the first write pass, it writes the header, copying the part names
-  from the line stream's part records, which all precede its blob-lines records
-  and were read in Phase A.
+  from the line stream's part records in part order. A part record may come
+  anywhere before the first entry naming it, so `BLINK.COM` reads the stream
+  once for each part to find its record.
 - In each write pass except those for `COPY`, for every live blob other than a
   program `code` blob, it writes a start entry (object format, Section 11) as it
   emits the blob.

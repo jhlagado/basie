@@ -120,17 +120,11 @@ entries' old ones (`NM_SLOT`).
 The D44 pass read every line and changed no code. It found these faults, to
 be fixed with tests against the reference linker:
 
-1. The name stream's magic, stamp and CRC are not checked, and a name over
-   31 bytes overruns its slot.
-2. Phase A misses three of the reference's checks: a reference-count escape
-   below 255, `SIZE16` naming an alias read after the reference, and the
-   trailer's highest ordinal.
-3. Several diagnostics name the wrong file (`OUT_TEXT` never set, `RD_NAME`
+1. Several diagnostics name the wrong file (`OUT_TEXT` never set, `RD_NAME`
    left on `NAME.$LT`, `.LIBKEY`, `DG_DISK`, `REP_FAIL`).
-4. `LN_OPEN` assumes part records come first and in order.
-5. Smaller: `REP_DEC` above 999,999, the debugger margin and the map totals
-   in 16 bits, an unchecked backup rename and an unchecked open of the
-   library's name section.
+2. Smaller: `REP_DEC` above 999,999, the debugger margin and the map totals in
+   16 bits, an unchecked backup rename and an unchecked open of the library's
+   name section.
 
 Dead bytes for the next compression pass: `.HASPREV`, `.BASE`, `EDGE_TOP`, a
 never-taken test in `.ONCE`, two spare jumps and a redundant `PUSH BC`/`POP

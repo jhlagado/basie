@@ -80,7 +80,8 @@ LK_START:                      ; Entered from the jump at $0100.
     JR   C,LK_FAIL                 ; L-TRUNCATED.
 .DONE:                         ; The library is sound.
     CALL LIB_ARG                   ; The library's name, for messages.
-    CALL PA_RUN                    ; Phase A: read and check the directories.
+    CALL PA_RUN                    ; Phase A: read and check the directories,
+    CALL NM_CHECK                  ; and the names, for options M and Y.
     CALL PB_RUN                    ; Phase B: mark what is live.
     LD   A,(OP_EXTRA)              ; Option W:
     AND  OX_W                      ; dump the tables,

@@ -21,8 +21,8 @@
 ;  one record per named blob, in directory order (object format §9). Each
 ;  owner's reader holds one pending record, its ordinal in NM_ORD and its
 ;  name in NM_PEND; a blob takes the pending name when the ordinals match,
-;  and the reader moves on. The readers check neither the header's magic
-;  and stamp nor the trailer's CRC.
+;  and the reader moves on. NM_CHECK has checked both in Phase A: magic,
+;  version, stamp, names of 1 to 31 bytes, and CRC.
 ;
 ;  Memory: the reports' FDs share memory with Phase D's, which are finished
 ;  with by publication: the library's byte section, the byte stream, the
@@ -39,6 +39,7 @@ NM_FD EQU  LN_FD               ; The program's name stream, NAME.$NM.
 NM_TYPE:                       ; Its type.
     DB   "$NM"                     ; Three characters.
 NM_LIB EQU  LT_FD              ; The library again, for its name section.
+NM_TEXT EQU  LN_TEXT           ; NAME.$NM as text, in Phase A only.
 REP_FD:                        ; The report being written: MAP_FD or SY_FD.
     DW   0                         ; Set before each piece of output.
 MAP_ON:                        ; Nonzero when the map is written (option M).
@@ -354,6 +355,97 @@ REP_TEXT:                      ; A report's name as text.
 
 ; ---- names -------------------------------------------------------------------
 
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; With option M or Y, check in Phase A, while RD_BYTE keeps the CRC, the
+; names the reports will read (object format §9): the library's name
+; section, if it has one, and NAME.$NM, if it exists, whose stamp must be
+; the directory's. L-FORMAT, L-STAMP or L-TRUNCATED otherwise.
+
+NM_CHECK:                      ; Both directories are read.
+    LD   A,(OP_FLAGS)              ; Options M and Y
+    AND  OF_M+OF_Y                 ; read the names.
+    RET  Z                         ; Neither: nothing reads them.
+    LD   HL,LIB_TEXT               ; The library's name section first,
+    LD   (RD_NAME),HL              ; named as the library.
+    LD   HL,(LIB_HEAD+24)          ; Its offset, 24 bits,
+    LD   A,(LIB_HEAD+26)           ; or 0
+    LD   B,A                       ; when the library
+    OR   H                         ; has
+    OR   L                         ; no names.
+    JR   Z,.PROG                   ; None.
+    LD   A,B                       ; A:HL is the offset.
+    LD   IX,LIB_FD                 ; The library's FD; each walk seeks again.
+    CALL FIL_SEEK                  ; Go there.
+    JP   C,DG_SHORT                ; Beyond the file.
+    CALL .STREAM                   ; Check it; its stamp is not compared.
+.PROG:                         ; NAME.$NM, on the directory's drive.
+    LD   IX,NM_FD                  ; Phase D's line-stream FD, free until then.
+    LD   A,(DIR_FD+FD_FCB)         ; The directory's drive,
+    LD   HL,CMD_NAME               ; NAME,
+    LD   DE,NM_TYPE                ; type $NM.
+    CALL FIL_INIT                  ; Set up the FCB.
+    LD   HL,CMD_NAME               ; Its name as text,
+    LD   DE,NM_TEXT                ; into NM_TEXT,
+    LD   BC,NM_TYPE                ; with its type.
+    CALL FIL_TEXT                  ; NAME.$NM.
+    LD   HL,NM_TEXT                ; The file being read,
+    LD   (RD_NAME),HL              ; for diagnostics.
+    CALL FIL_OPEN                  ; Open it; carry if it doesn't exist.
+    RET  C                         ; The program has no names.
+    CALL .STREAM                   ; Check it: HL is its stamp,
+    LD   DE,(DIR_HEAD+6)           ; which must be the directory's.
+    OR   A                         ; Clear carry for the subtraction.
+    SBC  HL,DE                     ; Equal?
+    RET  Z                         ; The names belong to the directory.
+    LD   HL,202                    ; L-STAMP.
+    JP   DG_PLAIN                  ; Report it.
+
+;@ROUTINE IN IX OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Check the name stream at IX, returning its stamp: magic BSIN, version
+; 1.0, records with names of 1 to 31 bytes, and the CRC after ordinal 0.
+
+.STREAM:                       ; IX is at the stream's first byte.
+    CALL CRC_NEW                   ; The CRC covers everything before it.
+    LD   HL,.MAGIC                 ; Compare the magic
+    LD   B,4                       ; over four bytes.
+.MAG:                          ; HL walks the magic.
+    CALL RD_BYTE                   ; The next byte.
+    CP   (HL)                      ; Does it match?
+    JR   NZ,.BAD                   ; Not a name stream.
+    INC  HL                        ; The next magic byte.
+    DJNZ .MAG                      ; Until all four match.
+    CALL RD_BYTE                   ; The major version
+    CP   1                         ; must be 1.
+    JR   NZ,.BAD                   ; Unknown.
+    CALL RD_BYTE                   ; The minor version
+    OR   A                         ; must be 0.
+    JR   NZ,.BAD                   ; Higher.
+    CALL RD_WORD                   ; The stamp,
+    PUSH HL                        ; kept for the caller.
+.REC:                          ; IX is at a record.
+    CALL RD_WORD                   ; Its ordinal;
+    LD   A,H                       ; 0 begins
+    OR   L                         ; the trailer.
+    JR   Z,.END                    ; Check the CRC.
+    CALL RD_BYTE                   ; The name's length,
+    LD   B,A                       ; counted in B,
+    DEC  A                         ; must be
+    CP   31                        ; 1 to 31,
+    JR   NC,.BAD                   ; the slot's size.
+.CH:                           ; Skip the name.
+    CALL RD_BYTE                   ; A character.
+    DJNZ .CH                       ; Until B are read.
+    JR   .REC                      ; The next record.
+.END:                          ; The CRC follows.
+    CALL RD_CRCOK                  ; Check it.
+    POP  HL                        ; HL is the stamp.
+    RET                            ; The stream is sound.
+.BAD:                          ; A malformed stream.
+    LD   HL,200                    ; L-FORMAT.
+    JP   DG_FILE                   ; Report it with the name.
+.MAGIC:                        ; The name stream's magic.
+    DB   "BSIN"                    ; Basie name stream.
+
 ;@ROUTINE IN A CLOBBERS A,B,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Point the name reader of owner A (0 library, 1 program) at its first
 ; record, if it has names at all, and read that record.
@@ -385,7 +477,7 @@ NM_RESET:                      ; Called at the start of each walk in Phase E.
     CALL FIL_SEEK                  ; Go there.
     RET  C                         ; Beyond the file: no names.
     LD   B,8                       ; The header: magic, version, stamp,
-.HEAD:                         ; skipped unchecked.
+.HEAD:                         ; skipped, as NM_CHECK has checked it.
     CALL FIL_GETB                  ; A header byte.
     RET  C                         ; Too short: no names.
     DJNZ .HEAD                     ; Until all eight are skipped.
@@ -423,8 +515,8 @@ NM_PICK:                       ; NM_OWN is 0 or 1.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read NM_OWN's next record into its pending slot; at the end (ordinal 0)
-; or at the end of the file, its have flag clears. A name longer than its
-; 31-byte slot is not refused.
+; or at the end of the file, its have flag clears. NM_CHECK has refused a
+; name longer than the 31-byte slot.
 
 NM_READ:                       ; NM_OWN's reader is at a record.
     CALL NM_PICK                   ; IX is its file.

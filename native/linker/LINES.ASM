@@ -25,7 +25,7 @@
 ;  The stream is read once, forward, in step with the directory: Phase D's
 ;  TEXT passes meet the program's code blobs in directory order, and the
 ;  stream holds a record for each, in the same order. The part names are
-;  copied from the part records, which must all come first, in part order.
+;  copied from the part records, which may come anywhere, in any order.
 
 LN_FD:                         ; The FD that reads NAME.$LN.
     DS   FD_SIZE                   ; Phase E reuses it for NAME.$NM.
@@ -120,8 +120,10 @@ LT_WORD:                       ; HL is the word.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open the line stream and the line table, and write the table's header:
-; the part names, from the stream's part records. Leave LN_TAG holding the
-; tag of the first blob-lines record, or $FF. Nothing under option N.
+; the part names, from the stream's part records, one pass for each part,
+; since they may come in any order and among the blob-lines records. Leave
+; LN_TAG holding the tag of the first blob-lines record, or $FF. Nothing
+; under option N.
 
 LN_OPEN:                       ; Called by Phase D before the first section.
     LD   A,(OP_FLAGS)              ; Option N:
@@ -162,13 +164,8 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     CALL LN_BYTE                   ; The part's number.
     CALL LN_BYTE                   ; Its name's length.
     LD   D,A                       ; D counts the name's characters.
-.SKIPNAME:                     ; Skip the name.
-    LD   A,D                       ; Any left?
-    OR   A                         ; Zero when done.
-    JR   Z,.COUNT                  ; The next record.
-    CALL LN_BYTE                   ; Skip a character.
-    DEC  D                         ; One fewer.
-    JR   .SKIPNAME                 ; Go on.
+    CALL LN_SKIP                   ; Skip the name.
+    JR   .COUNT                    ; The next record.
 .COUNTED:                      ; BC is the number of parts.
     PUSH BC                        ; Keep it for the header.
     LD   IX,LT_FD                  ; The line table, NAME.$LT on the output drive:
@@ -207,26 +204,52 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     XOR  A                         ; No output name, no library name:
     CALL LT_BYTE                   ; two empty
     CALL LT_BYTE                   ; names.
-    CALL .HEAD                     ; Second pass: from the start again,
-.NAMES:                        ; copying the part names.
+    LD   B,C                       ; B is the count,
+    LD   C,A                       ; C the part sought, from 0.
+.PARTS:                        ; A pass for each part, in part order.
+    LD   A,C                       ; Every part
+    CP   B                         ; written?
+    JR   Z,.FIRST                  ; Then the blob-lines records.
+    PUSH BC                        ; Keep the count and the part.
+    CALL .HEAD                     ; From the start again.
+.FIND:                         ; Find part C's record.
     CALL LN_BYTE                   ; A record's tag.
     CP   1                         ; A part record?
-    JR   NZ,.FIRST                 ; The parts are done.
-    CALL LN_BYTE                   ; The part's number, taken as in order.
+    JR   Z,.PART                   ; Is it the one?
+    INC  A                         ; The trailer, $FF:
+    JR   Z,.BAD                    ; the part is missing or repeated.
+    CALL .SKIPREC                  ; A blob-lines record.
+    JR   .FIND                     ; The next.
+.PART:                         ; A part record.
+    CALL LN_BYTE                   ; The part's number,
+    LD   E,A                       ; in E.
     CALL LN_BYTE                   ; The name's length,
-    LD   D,A                       ; counted in D,
-    CALL LT_BYTE                   ; and written.
+    LD   D,A                       ; counted in D.
+    POP  BC                        ; C is the part sought,
+    PUSH BC                        ; still kept.
+    LD   A,E                       ; Is this
+    CP   C                         ; its record?
+    JR   Z,.COPY                   ; Copy its name.
+    CALL LN_SKIP                   ; Skip the name.
+    JR   .FIND                     ; The next record.
+.COPY:                         ; D is the name's length.
+    LD   A,D                       ; The length,
+    CALL LT_BYTE                   ; written.
 .NAME:                         ; Copy the name.
     LD   A,D                       ; Any left?
     OR   A                         ; Zero when done.
-    JR   Z,.NAMES                  ; The next record.
+    JR   Z,.COPIED                 ; The part is written.
     CALL LN_BYTE                   ; A character,
     CALL LT_BYTE                   ; copied.
     DEC  D                         ; One fewer.
     JR   .NAME                     ; Go on.
-.FIRST:                        ; A is the first other record's tag.
-    LD   (LN_TAG),A                ; LN_BLOB reads its record.
-    RET                            ; The header is written.
+.COPIED:                       ; The next part.
+    POP  BC                        ; The count and the part,
+    INC  C                         ; the next part.
+    JR   .PARTS                    ; Find it.
+.FIRST:                        ; Every part is written.
+    CALL .HEAD                     ; From the start again,
+    JP   LN_NEXT                   ; to the first blob-lines record; return.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Go to the stream's start and check its header and stamp, starting
@@ -460,16 +483,22 @@ LN_NEXT:                       ; LN_FD is at a record's tag.
     CALL LN_BYTE                   ; Its part number,
     CALL LN_BYTE                   ; and its name's length,
     LD   D,A                       ; counted in D.
-.NAME:                         ; Skip the name.
-    LD   A,D                       ; Any left?
-    OR   A                         ; Zero when done.
-    JR   Z,LN_NEXT                 ; The next record.
-    CALL LN_BYTE                   ; Skip a character.
-    DEC  D                         ; One fewer.
-    JR   .NAME                     ; Go on.
+    CALL LN_SKIP                   ; Skip the name.
+    JR   LN_NEXT                   ; The next record.
 .SET:                          ; A is a blob-lines tag or $FF.
     LD   (LN_TAG),A                ; Kept for LN_BLOB or LN_CLOSE.
     RET                            ; Done.
+
+;@ROUTINE IN D CLOBBERS A,D,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Skip D bytes of the line stream: a part record's name.
+
+LN_SKIP:                       ; D is the count.
+    LD   A,D                       ; Any left?
+    OR   A                         ; Zero when done.
+    RET  Z                         ; Skipped.
+    CALL LN_BYTE                   ; Skip a byte.
+    DEC  D                         ; One fewer.
+    JR   LN_SKIP                   ; Go on.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Finish the line table: the stream must be at its trailer, whose CRC is

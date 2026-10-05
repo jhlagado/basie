@@ -481,14 +481,19 @@ PA_NEXT:                       ; IX is at a record's header byte.
     LD   (RD_SIZE),HL              ; Keep it.
     LD   A,H                       ; Is it zero?
     OR   L                         ; A blob has at least one byte.
-    LD   HL,207                    ; L-BLOB: a blob of size 0.
-    JP   Z,DG_PLAIN                ; Report it.
+    JR   Z,.BADBLOB                ; L-BLOB: a blob of size 0.
     CALL RD_BYTE                   ; The reference count, or 255 for a word.
     LD   L,A                       ; HL is the count,
     LD   H,0                       ; zero-extended.
     CP   255                       ; The escape?
     JR   NZ,.COUNT                 ; A count below 255.
-    CALL RD_WORD                   ; The count as a word; one below 255 is not refused.
+    CALL RD_WORD                   ; The count as a word,
+    INC  H                         ; which must be
+    DEC  H                         ; 255 or more:
+    JR   NZ,.COUNT                 ; it is above 255,
+    LD   A,L                       ; or its low byte
+    INC  A                         ; is 255;
+    JR   NZ,.BADBLOB               ; else L-BLOB.
 .COUNT:                        ; HL is the reference count.
     LD   (REF_CNT),HL              ; Keep it for PA_REFS.
     LD   A,(RD_HEAD)               ; Checks on the kind.
@@ -500,13 +505,11 @@ PA_NEXT:                       ; IX is at a record's header byte.
     JR   NZ,.ALIGNOK               ; nor be in the program.
     LD   A,(RD_OWNER)              ; Is this the program?
     OR   A                         ; Owner 1.
-    LD   HL,207                    ; L-BLOB: startup in the program.
-    JP   NZ,DG_PLAIN               ; Report it.
+    JR   NZ,.BADBLOB               ; L-BLOB: startup in the program.
 .NOALIGN:                      ; Code or startup.
     LD   A,(RD_HEAD)               ; Bits 5-7: the alignment.
     AND  $E0                       ; Must be zero.
-    LD   HL,207                    ; L-BLOB: aligned code or startup.
-    JP   NZ,DG_PLAIN               ; Report it.
+    JR   NZ,.BADBLOB               ; L-BLOB: aligned code or startup.
 .ALIGNOK:                      ; C is the kind.
     LD   A,C                       ; A bss blob has no bytes,
     CP   K_BSS                     ; so nothing to patch.
@@ -514,8 +517,10 @@ PA_NEXT:                       ; IX is at a record's header byte.
     LD   HL,(REF_CNT)              ; Does it have references?
     LD   A,H                       ; Test the count
     OR   L                         ; for zero.
-    LD   HL,207                    ; L-BLOB: bss with references.
-    JP   NZ,DG_PLAIN               ; Report it.
+    JR   Z,.NOTBSS                 ; None, as a bss blob must have.
+.BADBLOB:                      ; A malformed blob record.
+    LD   HL,207                    ; L-BLOB.
+    JP   DG_PLAIN                  ; Report it.
 .NOTBSS:                       ; The library's first record.
     LD   A,(RD_OWNER)              ; Only the library's first record is noted.
     OR   A                         ; The program?
@@ -923,16 +928,7 @@ PA_TRAIL:                      ; The $FF that begins the trailer is read.
     CALL RD_WORD                   ; The highest ordinal.
     LD   (RD_HIGH),HL              ; PA_RUN compares the library's.
     CALL RD_BYTE                   ; Reserved.
-    LD   HL,(CRC_VAL)              ; The CRC of everything so far,
-    PUSH HL                        ; kept.
-    CALL RD_RAW                    ; The stored CRC's low byte,
-    LD   E,A                       ; read without adding it,
-    CALL RD_RAW                    ; and its high byte.
-    LD   D,A                       ; DE is the stored CRC.
-    POP  HL                        ; HL is the computed CRC.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Equal?
-    JP   NZ,DG_SHORT               ; The CRC.
+    CALL RD_CRCOK                  ; The CRC of everything before it.
     LD   HL,(RD_TOTAL)             ; The records account for the stream:
     LD   DE,(RD_BYTES)             ; the sum of their sizes is its length.
     OR   A                         ; Clear carry for the subtraction.
@@ -943,3 +939,21 @@ PA_TRAIL:                      ; The $FF that begins the trailer is read.
     LD   HL,211                    ; L-LIMITS: blobs after LIMITS.
     JP   NZ,DG_PLAIN               ; Report it.
     RET                            ; The directory is read: to .READDIR's caller.
+
+;@ROUTINE IN IX CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Read the stored CRC that comes next, without adding it to CRC_VAL, and
+; check it against CRC_VAL. L-TRUNCATED for the file RD_NAME names if they
+; differ.
+
+RD_CRCOK:                      ; CRC_VAL covers everything before the CRC.
+    LD   HL,(CRC_VAL)              ; The CRC computed,
+    PUSH HL                        ; kept.
+    CALL RD_RAW                    ; The stored CRC's low byte,
+    LD   E,A                       ; read without adding it,
+    CALL RD_RAW                    ; and its high byte.
+    LD   D,A                       ; DE is the stored CRC.
+    POP  HL                        ; HL is the computed CRC.
+    OR   A                         ; Clear carry for the subtraction.
+    SBC  HL,DE                     ; Equal?
+    RET  Z                         ; The file is intact.
+    JP   DG_SHORT                  ; L-TRUNCATED.

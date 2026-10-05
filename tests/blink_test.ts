@@ -3,7 +3,7 @@
  * files, CRC and diagnostics (roadmap step 59), and its Phase A and B tables,
  * compared with the reference linker's (step 60).
  */
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { formatMessage, messageFile } from "../ref/compile/messages.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
 import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
@@ -36,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 10_871);
+  assertEquals(blink.length, 11_073);
 });
 
 const BLINK_DIGEST =
-  "3542dda1d835f2971809ee51538d33490e9e37341204c8ed43ec2efcdba2f225";
+  "bcc670df1c39dd88747f1b48e3b23085805d9118e4767996383b386079ef7114";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
@@ -609,7 +609,7 @@ Deno.test("BLINK refuses a ROM profile (class 3), which it doesn't implement", (
 
 // ---- faults found by the commentary pass (native/linker/README.md) --------
 
-const { writeNameStream } = await import(
+const { writeNameStream, writeLineStream } = await import(
   "../ref/object/streams.ts"
 );
 const { LinkError } = await import("../ref/link/link.ts");
@@ -823,5 +823,94 @@ Deno.test("BLINK reports L-FIT-IMAGE and L-FIT-MEMORY when placement passes $FFF
   for (const [objects, tail, want] of cases) {
     assertEquals(referenceError(objects, tail.includes("R")), want, tail);
     assertEquals(runObjects(objects, tail), error(want), tail);
+  }
+});
+
+Deno.test("BLINK checks count escapes and trailers as the reference does", () => {
+  /** hello's directory with bytes [from, to) replaced, its CRC remade. */
+  const patch = (from: number, to: number, put: number[]) => {
+    const bytes = [
+      ...HELLO_DR.subarray(0, from),
+      ...put,
+      ...HELLO_DR.subarray(to, HELLO_DR.length - 2),
+    ];
+    const crc = crc16(Uint8Array.from(bytes));
+    return Uint8Array.from([...bytes, crc & 0xff, crc >> 8]);
+  };
+  // hello's one blob: header, size, then its count of 2 at offset 23,
+  // written as an escape: L-BLOB.
+  assertEquals(HELLO_DR[23], 2);
+  const escaped = { ...extendHello([]), directory: patch(23, 24, [255, 2, 0]) };
+  assertEquals(referenceError(escaped), 207);
+  assertEquals(runObjects(escaped, "PROG"), error(207));
+  // The program trailer's highest ordinal is not checked, by either.
+  const at = HELLO_DR.length - 5;
+  const high = { ...extendHello([]), directory: patch(at, at + 2, [0, 5]) };
+  assertEquals(referenceError(high), undefined);
+  assertEquals(runObjects(high, "PROG"), "");
+  // The library's must agree with its header.
+  const lib = library.slice();
+  lib[36] += 1;
+  assertThrows(() => readLibrary(lib), ObjectError, "L-TRUNCATED");
+  assertEquals(runObjects(high, "PROG", lib), error(214, ["CPM22.BRL"]));
+});
+
+Deno.test("BLINK checks the name stream when it writes a map or symbol file", () => {
+  const objects = extendHello([]);
+  const names = objects.names;
+  const encode = (name: string) => {
+    const bytes = [..."BSIN"].map((c) => c.charCodeAt(0));
+    bytes.push(1, 0, 1, 0, 0x00, 0x04, name.length);
+    bytes.push(...[...name].map((c) => c.charCodeAt(0)), 0, 0);
+    const crc = crc16(Uint8Array.from(bytes));
+    return Uint8Array.from([...bytes, crc & 0xff, crc >> 8]);
+  };
+  assertEquals(encode("main"), names);
+  const magic = names.slice();
+  magic[0] ^= 1;
+  const damaged = names.slice();
+  damaged[damaged.length - 1] ^= 1;
+  assertThrows(() => readNameStream(magic), ObjectError, "L-FORMAT");
+  assertThrows(() => readNameStream(damaged), ObjectError, "L-TRUNCATED");
+  const cases: [Uint8Array, string][] = [
+    [magic, error(200, ["PROG.$NM"])],
+    [writeNameStream(2, [{ ordinal: 0x400, name: "main" }]), error(202)],
+    [damaged, error(214, ["PROG.$NM"])],
+    [encode("x".repeat(40)), error(200, ["PROG.$NM"])],
+    [encode(""), error(200, ["PROG.$NM"])],
+  ];
+  for (const [stream, want] of cases) {
+    const bad = { ...objects, names: stream };
+    assertEquals(runObjects(bad, "PROG [M]"), want);
+    assertEquals(runObjects(bad, "PROG [Y]"), want);
+    // Without a report the names are not read.
+    assertEquals(runObjects(bad, "PROG"), "");
+  }
+});
+
+Deno.test("BLINK takes part records in any order before the entries naming them", () => {
+  const { stamp, parts, blobs } = readLineStream(HELLO_LN);
+  const [part] = parts;
+  const body = writeLineStream(stamp, [], blobs);
+  const record = (index: number, name: string) => [
+    1,
+    index,
+    name.length,
+    ...[...name].map((c) => c.charCodeAt(0)),
+  ];
+  const stream = (...pieces: number[][]) => {
+    const bytes = [...body.subarray(0, 8), ...pieces.flat(), 0xff];
+    const crc = crc16(Uint8Array.from(bytes));
+    return Uint8Array.from([...bytes, crc & 0xff, crc >> 8]);
+  };
+  const blobLines = [...body.subarray(8, body.length - 3)];
+  for (
+    const lines of [
+      stream(record(1, "B:OTHER.BSI"), record(0, part), blobLines),
+      stream(record(0, part), blobLines, record(1, "B:OTHER.BSI")),
+    ]
+  ) {
+    assertEquals(readLineStream(lines).parts, [part, "B:OTHER.BSI"]);
+    compareLink(extendHello([], [], [], lines), "PROG [M,Y]", false);
   }
 });
