@@ -190,7 +190,7 @@ moved argument. A non-optional local moved into a `new?` argument is
 
 **Moving.** An owning handle held in a variable, parameter or field is handed on
 only with `move`, which leaves `none` behind (D19). Fresh values, the results of
-`new` and of routines returning owning types, need no `move`.
+`new` and of routines returning owning handles, need no `move`.
 
 **Freeing** is automatic (D18). A slot is freed:
 

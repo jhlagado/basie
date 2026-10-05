@@ -210,7 +210,7 @@ A local variable may be declared at any statement position in a routine body (de
 - a direct call to a failing routine followed by `else fail` (Chapter 14); or
 - for a declared record, array or string type, a static initializer (Section 8.9), which may then use only constants.
 
-An initializer for an owning handle follows the transfer rules of Chapter 7: a fresh value, the result of `new` or of a routine returning an owning type, is stored directly; an existing owner must be written with `move`.
+An initializer for an owning handle follows the transfer rules of Chapter 7: a fresh value, the result of `new` or of a routine returning an owning handle, is stored directly; an existing owner must be written with `move`.
 
 **Inference.** A local declared without `as` takes the type of its initializer (design decision D21), which must have a **definite type**:
 

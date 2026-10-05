@@ -92,7 +92,7 @@ Scalar assignment copies a value. Aggregate assignment copies a whole aggregate 
 
 The compiler evaluates both paths once and validates both extents before the first destination byte changes; a trap leaves the destination unchanged. Under the type and containment rules, two aggregate designators are either identical or disjoint, so no overlap check is needed; an assignment of an object to itself has no effect.
 
-**Owning types are not copied.** A record or array that contains an owning handle, directly or through nested records and arrays, is an owning type (Chapter 6). An object of owning type cannot be the source of an aggregate assignment, or be passed by copy, unless it is fresh. Its handles move only through `move` (Section 7.11).
+**Owning types are not copied.** A record or array that contains an owning handle, directly or through nested records and arrays, is an owning type (Chapter 6). An object of owning type cannot be the source of an aggregate assignment, or be passed by copy. No aggregate value is fresh: aggregate results are aliases (Chapter 6, Section 6.5). Its handles move only through `move` (Section 7.11).
 
 ## 7.9 Pools, slots and handles
 
@@ -134,7 +134,7 @@ The pool must be complete (not only forward-declared) at a `new`.
 
 An owning handle held in a variable, parameter or field is handed on only by `move x` (design decision D19), which yields the handle and leaves `none` in `x`. Chapter 9 defines `move` as an expression.
 
-A **fresh** owning value, the result of `new`, of `new?`, or of a routine whose result is an owning type, needs no `move`. Binding an owning argument to an owning parameter transfers ownership to the callee; the argument must be fresh or a `move`.
+A **fresh** owning value, the result of `new`, of `new?`, or of a routine whose result is an owning handle, needs no `move`. Binding an owning argument to an owning parameter transfers ownership to the callee; the argument must be fresh or a `move`.
 
 Storing into an owning location (Chapter 10, Section 10.4) requires a right side that is `none`, fresh or a `move`. Copying an owner, as in `a = b` with `b` an owning handle, is invalid.
 

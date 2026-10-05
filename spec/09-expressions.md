@@ -80,7 +80,7 @@ Expression checking records a type and one of these categories:
 | Designator | A path to storage, which reads as its value in an expression, and may be written when its root is writable |
 | Aggregate designator | A path to a record, array or string; selected, indexed, copied by exact-type assignment, or passed as an alias |
 | Aggregate result | An alias returned by a call, consumed within the statement (Chapter 7) |
-| Fresh owning value | The result of `new`, `new?`, a `move`, or a call returning an owning type; may be stored in an owning location |
+| Fresh owning value | The result of `new`, `new?`, a `move`, or a call returning an owning handle; may be stored in an owning location |
 
 A **designator** begins with a variable, constant, parameter or local, and continues through field and index suffixes, and through field selections on non-optional handles. A bare aggregate designator is valid only where aggregate storage, an alias or an assignment operand is required. Basie has no aggregate comparison and no automatic copy of an aggregate argument or result.
 
