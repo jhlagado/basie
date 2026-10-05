@@ -1,0 +1,23 @@
+// A u16 stored through a var parameter into a field beyond its fourth byte
+// lands whole: the field's offset is added without losing the value.
+// spec: 13.4
+// expect output: B\r\n
+
+record Triple
+    a as u16
+    b as u16
+    c as u16
+end
+
+var t as Triple
+
+sub set(var p as Triple)
+    p.c = 66
+end
+
+sub main() fails
+    set(t)
+    writeOutputByte(u8(t.c)) else fail
+    writeOutputByte(13) else fail
+    writeOutputByte(10) else fail
+end

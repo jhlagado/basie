@@ -3420,13 +3420,29 @@ export class Compiler {
     };
   }
 
+  /**
+   * A computed base is addressed, and its address pushed, before an index
+   * is parsed: the index's code would otherwise overwrite what the base's
+   * address is computed from (an outer index, or a call's result in HL).
+   * Its address is popped again beneath the element's offset.
+   */
+  private pushComputedBase(d: Designator): boolean {
+    if (d.place.kind !== "computed") return false;
+    this.emitAddress(d);
+    this.routine!.blob.u8(0xe5); // PUSH HL
+    this.push(2);
+    return true;
+  }
+
   private indexArray(d: Designator, _at: Token): Designator {
     const arr = d.type as Type & { kind: "array" | "openArray" };
     const element = arr.element;
     const stride = sizeOf(element);
     const idxAt = this.token;
+    const pushed = this.pushComputedBase(d);
     const idx = this.expression(U16);
     this.checkIndexType(idx, idxAt);
+    const r = this.routine!;
     if (idx.kind === "const" && arr.kind === "array") {
       const i = this.indexValue(idx, idxAt);
       if (i >= arr.length) {
@@ -3436,10 +3452,21 @@ export class Compiler {
           `index ${i} is out of range for ${typeName(arr)}`,
         );
       }
-      return this.offsetPlace(d, i * stride, element, d.readonly);
+      if (!pushed) return this.offsetPlace(d, i * stride, element, d.readonly);
+      return this.offsetPlace(
+        {
+          ...d,
+          compute: () => {
+            r.blob.u8(0xe1); // POP HL: the base
+            this.pop(2);
+          },
+        },
+        i * stride,
+        element,
+        d.readonly,
+      );
     }
     const base = d;
-    const r = this.routine!;
     const compute = () => {
       // Index into HL (u16), bounds check, scale, add base.
       if (idx.kind === "const") {
@@ -3450,9 +3477,11 @@ export class Compiler {
       }
       this.boundsCheck(base, arr);
       this.scaleHL(stride);
-      r.blob.u8(0xe5); // PUSH HL
-      this.push(2);
-      this.emitAddress(base);
+      if (!pushed) {
+        r.blob.u8(0xe5); // PUSH HL
+        this.push(2);
+        this.emitAddress(base);
+      }
       r.blob.u8(0xd1); // POP DE
       this.pop(2);
       r.blob.u8(0x19); // ADD HL,DE
@@ -3516,6 +3545,7 @@ export class Compiler {
 
   private indexString(d: Designator, at: Token): Designator {
     const idxAt = this.token;
+    const pushed = this.pushComputedBase(d);
     const idx = this.expression(U16);
     this.checkIndexType(idx, idxAt);
     const base = d;
@@ -3525,15 +3555,16 @@ export class Compiler {
         r.blob.u8(0x21);
         r.blob.u16(this.indexValue(idx, idxAt));
       } else this.toRegisters(idx, U16, idxAt);
-      r.blob.u8(0xe5); // PUSH HL
-      this.push(2);
-      this.emitAddress(base); // HL = the string (length byte)
-      r.blob.u8(0xd1); // POP DE: the index
+      if (pushed) {
+        r.blob.u8(0xeb, 0xe1); // EX DE,HL: the index; POP HL: the string
+      } else {
+        r.blob.u8(0xe5); // PUSH HL
+        this.push(2);
+        this.emitAddress(base); // HL = the string (length byte)
+        r.blob.u8(0xd1); // POP DE: the index
+      }
       this.pop(2);
-      // Check index < length: length in (HL).
-      r.blob.u8(0x7e, 0xbb); // LD A,(HL); CP E  -> carry if length < index... need index < length
-      // index < length  <=>  length > index  <=> not (length <= index). CP E computes A-E: carry if A<E.
-      // We need trap when index >= length, i.e. when NOT (index < length) i.e. A <= E: carry clear and ... A==E too.
+      // The index must be below the length, the byte at (HL).
       r.blob.u8(0x7b, 0xbe); // LD A,E; CP (HL): carry iff index < length
       r.blob.callBlobIf(JP_NC, Helper.TRAP_BOUNDS);
       r.blob.u8(0x7a, 0xb7); // LD A,D; OR A: a 16-bit index with a high byte is out of range
@@ -3868,17 +3899,27 @@ export class Compiler {
         this.ixWord(place.offset, "HL");
         this.addConst(place.add);
         r.blob.u8(0x77); // LD (HL),A
-      } else if (size === 2) {
+      } else if (size === 2 && place.add <= 3) {
         r.blob.u8(0xeb); // EX DE,HL: value in DE
         this.ixWord(place.offset, "HL");
         this.addConst(place.add);
         r.blob.u8(0x73, 0x23, 0x72); // LD (HL),E; INC HL; LD (HL),D
+      } else if (size === 2) {
+        // A field beyond +3 is added through DE, so the value waits pushed.
+        r.blob.u8(0xe5); // PUSH HL
+        this.push(2);
+        this.ixWord(place.offset, "HL");
+        this.addConst(place.add);
+        r.blob.u8(0xd1, 0x73, 0x23, 0x72); // POP DE; LD (HL),E; INC HL; LD (HL),D
+        this.pop(2);
       } else {
         r.blob.u8(0xd5, 0xe5); // PUSH DE; PUSH HL
+        this.push(4);
         this.ixWord(place.offset, "HL");
         this.addConst(place.add);
         r.blob.u8(0xd1, 0x73, 0x23, 0x72, 0x23); // POP DE; LD (HL),E; INC HL; LD (HL),D; INC HL
         r.blob.u8(0xd1, 0x73, 0x23, 0x72); // POP DE; LD (HL),E; INC HL; LD (HL),D
+        this.pop(4);
       }
       return;
     }
@@ -4164,39 +4205,38 @@ export class Compiler {
           "a read-only object can't be passed to a var parameter",
         );
       }
+      // The view's word, its capacity or length: a number known now, or
+      // the word of an open view passed on. The address comes first, so
+      // that nothing is pushed between a path's parse and its code.
+      let word: number | Designator;
       if (t.kind === "openString") {
-        if (d.type.kind === "string") {
-          r.blob.u8(0x11);
-          r.blob.u16(d.type.capacity);
-          r.blob.u8(0xd5);
-        } else if (d.type.kind === "openString") {
-          const word = this.openViewWord(d);
-          this.loadRegisters(U16, word.place);
-          r.blob.u8(0xe5);
-        } else fail("type-mismatch", at, "a string is required");
+        if (d.type.kind === "string") word = d.type.capacity;
+        else if (d.type.kind === "openString") word = this.openViewWord(d);
+        else fail("type-mismatch", at, "a string is required");
       } else {
         const elem = (t as { element: Type }).element;
         if (d.type.kind === "array" && sameType(d.type.element, elem)) {
-          r.blob.u8(0x11);
-          r.blob.u16(d.type.length);
-          r.blob.u8(0xd5);
+          word = d.type.length;
         } else if (
           d.type.kind === "openArray" && sameType(d.type.element, elem)
         ) {
-          const word = this.openViewWord(d);
-          this.loadRegisters(U16, word.place);
-          r.blob.u8(0xe5);
+          word = this.openViewWord(d);
         } else {fail(
             "type-mismatch",
             at,
             `a ${typeName(elem)} array is required`,
           );}
       }
-      this.push(2);
       this.emitAddress(d);
       if (d.rechecks) this.passCopy(d.type, p, at);
-      r.blob.u8(0xe5);
-      this.push(2);
+      if (typeof word! === "number") {
+        r.blob.u8(0x11); // LD DE,word
+        r.blob.u16(word);
+      } else {
+        this.ixWord((word!.place as { offset: number }).offset, "DE");
+      }
+      r.blob.u8(0xd5, 0xe5); // PUSH DE: the word; PUSH HL: the address
+      this.push(4);
       return 4;
     }
     if (isAggregate(t)) {
@@ -4278,14 +4318,14 @@ export class Compiler {
           );
         }
         this.noteDirect(d);
-        if (d.slotTemp !== undefined) {
-          this.ixWord(d.slotTemp, "HL");
-        } else r.blob.u8(0x21, 0, 0);
-        r.blob.u8(0xe5); // PUSH HL: the owner word
-        this.push(2);
+        // The location first: its code writes the frame temporary that
+        // holds the owner word.
         this.emitAddress(d);
-        r.blob.u8(0xe5); // PUSH HL: the location
-        this.push(2);
+        if (d.slotTemp !== undefined) {
+          this.ixWord(d.slotTemp, "DE");
+        } else r.blob.u8(0x11, 0, 0); // LD DE,0
+        r.blob.u8(0xd5, 0xe5); // PUSH DE: the owner word; PUSH HL: the location
+        this.push(4);
         return 4;
       }
       const v = this.expression(t);

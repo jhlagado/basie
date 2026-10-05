@@ -1,0 +1,39 @@
+// Each computed index of a path is applied to the element the indexes
+// before it select: an inner index does not overwrite an outer one, nor
+// the address of a call's result, and a character reached that way is
+// passed whole to a string[] parameter.
+// spec: 6.2, 9.5, 13.4
+// expect output: ABCDEF\r\n
+
+record Row
+    cells as u8[3]
+    name as string[4]
+end
+
+var grid as u8[3][4]
+var rows as Row[2]
+var i as u8 = 1
+var j as u8 = 2
+
+sub second() as Row
+    return rows[1]
+end
+
+sub first(s as string[]) as u8
+    return s[0]
+end
+
+sub main() fails
+    grid[1][2] = 'A'
+    rows[1].cells[2] = 'B'
+    rows[1].name = "CD"
+    grid[2][1] = 'E'
+    writeOutputByte(grid[i][j]) else fail
+    writeOutputByte(rows[i].cells[j]) else fail
+    writeOutputByte(rows[i].name[i - 1]) else fail
+    writeOutputByte(second().name[i]) else fail
+    writeOutputByte(grid[j][i]) else fail
+    writeOutputByte(first(rows[i].name) + 3) else fail
+    writeOutputByte(13) else fail
+    writeOutputByte(10) else fail
+end
