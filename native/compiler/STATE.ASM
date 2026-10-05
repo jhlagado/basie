@@ -1,27 +1,81 @@
-; Fixed compiler state for the scalar-local, counted-loop, and array slice.
+;==========================================================================
+;  Compiler workspace and shared constants
+;==========================================================================
+;
+;  The first part of the compiler's workspace, from MM_WBASE ($4800), and
+;  the constants that every phase shares: token kinds, diagnostic numbers,
+;  symbol classes, aggregate type ordinals, transcript operation codes and
+;  relation codes. CALLWORK.ASM and TGTWORK.ASM continue the workspace to
+;  TG_END. Nothing here is initialised by the image: PR_RESET and the
+;  phase entries clear what each phase needs.
+;
+;  A compilation runs in phases that never overlap: the parser reads the
+;  source and appends to the semantic transcript; the transcript is closed;
+;  the code generators replay it into placed code. Nucleus therefore lays
+;  the state of a later phase over the dead state of an earlier one. Each
+;  overlay below is safe only because its two users are never live at once.
+;
+;    Offset  Size  Block
+;    +$000     27  source cursor, current token, diagnostic (PR_BASE)
+;                  emit phase: emitter scratch over the same bytes
+;    +$01B    512  semantic transcript: count byte, then operations
+;    +$21B     13  retained forward signature, parser lookahead
+;                  emit phase: EM_READP, the replay cursor
+;    +$228     99  symbol table: count, slot cursors, sixteen records
+;    +$28B    243  expression state and the operand stack
+;    +$37E     33  short-circuit branch stack (emit phase)
+;    +$39F    193  control frames while parsing; labels and fixups in emit
+;    +$460     36  output segment block and the bss length
+;    +$484   2221  aggregate types, records, fields, the static image
+;    +$D31         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;
+;  The overlays of the first block. TR_PTR and TR_CNT, the transcript's
+;  cursor and count, share bytes with DG_POS..DG_COL: a diagnostic ends
+;  parsing, and DG_ISSUE writes the whole record. The emitter's words
+;  share bytes with the source cursor, token and transcript fields, which
+;  are dead once the transcript is closed, but SRC_ID and TK_POS..TK_COL
+;  stay intact so that an emit-time diagnostic can still name a position.
+;  The generators borrow EM_ORG, EM_HEAD, EM_XFIX and EM_FFIX as scratch
+;  under their own names (GX_WIDTH, GX_POS, GC_COUNT, GC_MODE, GC_STEP,
+;  GC_POS, GC_TOP, GC_EXIT).
+;
+;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
+;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
+;  PARSER.ASM DG_* and PR_*; TRANSCR.ASM TR_*; SYMBOLS.ASM, ACTIONS.ASM and
+;  ROUTINES.ASM the symbol table; EXPR.ASM EX_*; ACTIONS.ASM AC_*;
+;  CONTROL.ASM and ACTIONS.ASM CT_*; AGGR.ASM and ACTIONS.ASM AG_*; and in
+;  the emit phase EMIT.ASM, TARGET.ASM and the GEN modules EM_*, GX_*, GC_*.
 
-PR_BASE EQU  MM_WBASE
+PR_BASE EQU  MM_WBASE          ; First byte of the compiler workspace.
 
-SRC_ID EQU  PR_BASE+$00
-SRC_PTR EQU  PR_BASE+$01
-SRC_END EQU  PR_BASE+$03
-SRC_POS EQU  PR_BASE+$05
-SRC_LINE EQU  PR_BASE+$07
-SRC_COL EQU  PR_BASE+$09
-TK_LIVE EQU  PR_BASE+$0B
-TK_NEST EQU  PR_BASE+$0C
+; Source cursor (SOURCE.ASM) and line state (TOKEN.ASM).
 
-TK_POS EQU  PR_BASE+$0D
-TK_LINE EQU  PR_BASE+$0F
-TK_COL EQU  PR_BASE+$11
-TK_PTR EQU  PR_BASE+$13
-TK_LEN EQU  PR_BASE+$15
+SRC_ID EQU  PR_BASE+$00        ; Byte: identity of the current part.
+SRC_PTR EQU  PR_BASE+$01       ; Word: address of the next source byte.
+SRC_END EQU  PR_BASE+$03       ; Word: exclusive end of the current part.
+SRC_POS EQU  PR_BASE+$05       ; Word: byte offset within the part.
+SRC_LINE EQU  PR_BASE+$07      ; Word: line number, from one.
+SRC_COL EQU  PR_BASE+$09       ; Word: column number, from one.
+TK_LIVE EQU  PR_BASE+$0B       ; Byte: nonzero once this line has a token.
+TK_NEST EQU  PR_BASE+$0C       ; Byte: open brackets, so line ends are blank.
 
-DG_CODE EQU  PR_BASE+$16
-DG_PART EQU  PR_BASE+$17
-DG_POS EQU  PR_BASE+$18
-DG_LINE EQU  PR_BASE+$1A
-DG_COL EQU  PR_BASE+$1C
+; The current token (TOKEN.ASM). TK_POS..TK_COL is a six-byte position
+; record of offset, line and column, which PR_COPY moves as a unit.
+
+TK_POS EQU  PR_BASE+$0D        ; Word: offset where the token starts.
+TK_LINE EQU  PR_BASE+$0F       ; Word: line where the token starts.
+TK_COL EQU  PR_BASE+$11        ; Word: column where the token starts.
+TK_PTR EQU  PR_BASE+$13        ; Word: address of a name's first byte.
+TK_LEN EQU  PR_BASE+$15        ; Byte: length of a name or decoded string.
+
+; The diagnostic (PARSER.ASM, DG_ISSUE). The shell prints it after a
+; failed compilation. DG_POS..DG_COL is a copy of the token's position.
+
+DG_CODE EQU  PR_BASE+$16       ; Byte: diagnostic number, zero for none.
+DG_PART EQU  PR_BASE+$17       ; Byte: SRC_ID of the part at fault.
+DG_POS EQU  PR_BASE+$18        ; Word: offset of the token at fault.
+DG_LINE EQU  PR_BASE+$1A       ; Word: its line.
+DG_COL EQU  PR_BASE+$1C        ; Word: its column.
 
 ; A diagnostic ends parsing, so the live semantic sink may reuse the eventual
 ; offset and line fields. DG_CODE and DG_PART remain clear on
@@ -29,520 +83,470 @@ DG_COL EQU  PR_BASE+$1C
 ; The high byte of DG_LINE and both bytes of DG_COL extend
 ; past PR_STEND into the dead semantic buffer. The diagnostic is
 ; terminal, so no semantic byte remains live.
-TR_PTR EQU  PR_BASE+$18
-TR_CNT EQU  PR_BASE+$1A
+TR_PTR EQU  PR_BASE+$18        ; Word: next free transcript byte (TRANSCR).
+TR_CNT EQU  PR_BASE+$1A        ; Byte: operations appended so far.
 
 ; Emission begins only after parsing succeeds. Its scratch words therefore
 ; overlay dead source, token, diagnostic, and sink fields. SRC_ID and
 ; TK_POS..TK_COL remain intact for an emitter diagnostic.
-EM_PTR EQU  PR_BASE+$03
-EM_ORG EQU  PR_BASE+$05
-EM_HEAD EQU  PR_BASE+$07
-EM_XFIX EQU  PR_BASE+$09
-EM_FFIX EQU  PR_BASE+$0B
-EM_UFIX EQU  PR_BASE+$19
-EM_FIXAT EQU  PR_BASE+$13
-EM_LIM EQU  PR_BASE+$15
-EM_DFIX EQU  PR_BASE+$17
+EM_PTR EQU  PR_BASE+$03        ; Word: target address of the next code byte.
+EM_ORG EQU  PR_BASE+$05        ; Word: generator scratch (GX_WIDTH, GC_COUNT).
+EM_HEAD EQU  PR_BASE+$07       ; Word: generator scratch (GX_POS, GC_STEP).
+EM_XFIX EQU  PR_BASE+$09       ; Word: a pending branch over a trap body.
+EM_FFIX EQU  PR_BASE+$0B       ; Word: a second pending branch over a trap.
+EM_UFIX EQU  PR_BASE+$19       ; Word: a loop step's pending overflow exit.
+EM_FIXAT EQU  PR_BASE+$13      ; Word: address EM_FIXJR is patching.
+EM_LIM EQU  PR_BASE+$15        ; Word: code bytes the output may still take.
+EM_DFIX EQU  PR_BASE+$17       ; Word: operand of the latest TG_STUB.
 
-PR_STEND EQU  PR_BASE+$1B
-TR_BASE EQU  PR_STEND
-TR_BODY EQU  TR_BASE+1
+PR_STEND EQU  PR_BASE+$1B      ; End of the first block.
+
+; The semantic transcript (TRANSCR.ASM). TR_CLOSE copies TR_CNT into the
+; count byte when parsing succeeds; GX_WALK replays from TR_BODY.
+TR_BASE EQU  PR_STEND          ; Byte: operation count of the closed transcript.
+TR_BODY EQU  TR_BASE+1         ; First operation byte.
 ; The leading byte is an operation count and the remaining 511 bytes are a
-; bounded variable-width transcript. Word aggregate operands must not make the
-; complete Chapter 21 program depend on the retired byte-extent encoding.
-TR_LIM EQU  TR_BASE+$200
+; bounded variable-width transcript. Word aggregate operands keep a
+; complete program within these bytes without a separate extent encoding.
+TR_LIM EQU  TR_BASE+$200       ; Exclusive end; TR_PUT raises DG_SINK here.
 
-; Host-only source-map trace ports. Every instruction that uses these equates
-; is conditionally absent unless the target compiler sets DebugHooks to one.
-; OUT (n),A exposes the full port as (A << 8) | n; hosts classify the low byte.
-DT_SRC EQU  $D8
-DT_DECL EQU  $D9
-DT_PUSH EQU  $DA
-DT_POP EQU  $DB
-DT_SUB EQU  $DC
-DT_BEGIN EQU  $DD
-DT_DONE EQU  $DE
-DT_BYTE EQU  $DF
-
-; One retained forward signature is enough for the first routine-call slice.
-; The source bytes remain stable, so exact names are retained as pointer/length
-; pairs rather than copied into another buffer.
-PR_FNAME EQU  TR_LIM+$00
-PR_FNLEN EQU  TR_LIM+$02
-PR_FARG EQU  TR_LIM+$03
-PR_FALEN EQU  TR_LIM+$05
-PR_FORD EQU  TR_LIM+$06
-PR_FDONE EQU  TR_LIM+$07
-PR_FTYPE EQU  TR_LIM+$08
-PR_FRES EQU  TR_LIM+$09
+; A retained forward signature: the name of a routine declared before its
+; body, kept as a pointer and length into the resident source. +$03..+$05
+; held its parameter's name and +$08..+$09 its types. PR_RESET clears
+; PR_FORD and nothing sets it again, so EX_ISFWD never matches; the bytes
+; are dead in practice.
+PR_FNAME EQU  TR_LIM+$00       ; Word: the forward name's spelling.
+PR_FNLEN EQU  TR_LIM+$02       ; Byte: its length, read through TK_SAME.
+PR_FORD EQU  TR_LIM+$06        ; Byte: nonzero while a forward is pending.
+PR_FDONE EQU  TR_LIM+$07       ; Byte: forward completed; only cleared.
 
 ; The predictive expression path keeps one token of lookahead. $FF denotes an
 ; empty lookahead cell; token ordinals occupy the low half of the byte range.
-PR_LKIND EQU  TR_LIM+$0A
-PR_LVAL EQU  TR_LIM+$0B
+PR_LKIND EQU  TR_LIM+$0A       ; Byte: buffered token kind, or $FF.
+PR_LVAL EQU  TR_LIM+$0B        ; Word: the buffered token's payload.
 
 ; Source bytes remain resident through compilation, so a scalar symbol keeps
 ; the exact spelling as a pointer and length instead of copying name bytes.
 ; The entry at SY_CNT is provisional until the declaration initializer
-; succeeds; lookup sees only the committed prefix.
-SY_CNT EQU  TR_LIM+$0D
-SY_LSLOT EQU  TR_LIM+$0E
-SY_GSLOT EQU  TR_LIM+$0F
-SY_BASE EQU  TR_LIM+$10
-SY_RECB EQU  6
-SY_CAP EQU  16
-SY_LIM EQU  SY_BASE+SY_RECB*SY_CAP
+; succeeds; lookup sees only the committed prefix. Records are laid out in
+; SYMBOLS.ASM.
+SY_CNT EQU  TR_LIM+$0D         ; Byte: committed symbols.
+SY_LSLOT EQU  TR_LIM+$0E       ; Byte: next free byte of the routine frame.
+SY_GSLOT EQU  TR_LIM+$0F       ; Byte: cleared by PR_RESET, never read.
+SY_BASE EQU  TR_LIM+$10        ; First symbol record.
+SY_RECB EQU  6                 ; Bytes in one symbol record.
+SY_CAP EQU  16                 ; Symbol records in the table.
+SY_LIM EQU  SY_BASE+SY_RECB*SY_CAP ; Exclusive end of the symbol table.
 
-; Expression metadata is deliberately explicit in the correctness build.
-; A bounded stack retains the left operand of recursive expression parses;
-; each entry is metadata plus a constant value word. The later compression
-; pass may overlay this state once its liveness has been measured.
-EX_WANT EQU  SY_LIM+$00
-EX_LIVE EQU  SY_LIM+$01
-EX_QUIET EQU  SY_LIM+$02
-EX_DEPTH EQU  SY_LIM+$03
-EX_RMETA EQU  SY_LIM+$04
-EX_RVAL EQU  SY_LIM+$05
-EX_LMETA EQU  SY_LIM+$07
-EX_LVAL EQU  SY_LIM+$08
-EX_OPER EQU  SY_LIM+$0A
-EX_OPPOS EQU  SY_LIM+$0B
-AC_DINFO EQU  SY_LIM+$0D
-AC_DVAL EQU  SY_LIM+$0E
-AC_DNAME EQU  SY_LIM+$10
-AC_DLEN EQU  SY_LIM+$12
-EX_CPOS EQU  SY_LIM+$13
-AC_DPOS EQU  SY_LIM+$15            ; offset, line, column
-EX_VPOS EQU  SY_LIM+$1B            ; offset, line, column
-EX_LPOSP EQU  SY_LIM+$21
-EX_STACK EQU  SY_LIM+$23
-EX_STCAP EQU  16
-EX_STLEN EQU  13
-EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN
+; Expression state (EXPR.ASM). An expression returns metadata in A (type
+; in SY_TMASK, SY_KNOWN when the value is exact) and an exact value in HL.
+; A bounded stack retains the left operand of each pending binary operator.
+; An entry is thirteen bytes: metadata, value word, EX_QUIET, operator,
+; operator offset word and the six-byte position of the left value.
+EX_WANT EQU  SY_LIM+$00        ; Byte: type the context expects.
+EX_LIVE EQU  SY_LIM+$01        ; Byte: nonzero to append operations.
+EX_QUIET EQU  SY_LIM+$02       ; Byte: nonzero while faults fold to values.
+EX_DEPTH EQU  SY_LIM+$03       ; Byte: entries on the operand stack.
+EX_RMETA EQU  SY_LIM+$04       ; Byte: right operand's metadata.
+EX_RVAL EQU  SY_LIM+$05        ; Word: right operand's exact value.
+EX_LMETA EQU  SY_LIM+$07       ; Byte: left operand's metadata.
+EX_LVAL EQU  SY_LIM+$08        ; Word: left operand's exact value.
+EX_OPER EQU  SY_LIM+$0A        ; Byte: pending relation code or operator.
+EX_OPPOS EQU  SY_LIM+$0B       ; Word: source offset for its trap.
+
+; The declaration being parsed (ACTIONS.ASM), restored as the current name
+; when its symbol is finally written.
+AC_DINFO EQU  SY_LIM+$0D       ; Byte: class and type of the new symbol.
+AC_DVAL EQU  SY_LIM+$0E        ; Word: its payload, value or offset.
+AC_DNAME EQU  SY_LIM+$10       ; Word: spelling, kept by TK_KEEP.
+AC_DLEN EQU  SY_LIM+$12        ; Byte: length of the spelling.
+EX_CPOS EQU  SY_LIM+$13        ; Word: statement offset; written, not read.
+AC_DPOS EQU  SY_LIM+$15        ; Six bytes: the declared name's position.
+EX_VPOS EQU  SY_LIM+$1B        ; Six bytes: the latest value's position.
+EX_LPOSP EQU  SY_LIM+$21       ; Word: popped left value's position record.
+EX_STACK EQU  SY_LIM+$23       ; First operand-stack entry.
+EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
+EX_STLEN EQU  13               ; Bytes in one entry.
+EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
 
 ; Boolean short-circuit emission retains one forward patch per nesting level.
-GX_BCNT EQU  EX_STLIM+$00
-GX_BBASE EQU  EX_STLIM+$01
-GX_BCAP EQU  16
-GX_BLIM EQU  GX_BBASE+GX_BCAP*2
+GX_BCNT EQU  EX_STLIM+$00      ; Byte: open and/or branches.
+GX_BBASE EQU  EX_STLIM+$01     ; Words: each branch's operand address.
+GX_BCAP EQU  16                ; Nesting levels; DG_ANDOR when exceeded.
+GX_BLIM EQU  GX_BBASE+GX_BCAP*2 ; Exclusive end of the branch stack.
 
 ; Structured-control parsing and Z80 emission occur in disjoint phases.
 ; The parser uses bounded ten-byte control frames; after successful parsing the
 ; Z80 backend reuses the same region for absolute labels and branch fixups.
-CT_BASE EQU  GX_BLIM
-CT_DEPTH EQU  CT_BASE+$00
-CT_LABNO EQU  CT_BASE+$01
-CT_GLOBS EQU  CT_BASE+$02
-CT_RKIND EQU  CT_BASE+$03
-CT_RTYPE EQU  CT_BASE+$04
-CT_FALLS EQU  CT_BASE+$05
-CT_FTAB EQU  CT_BASE+$08
-CT_FLEN EQU  10
-CT_FCAP EQU  8
-CT_FLIM EQU  CT_FTAB+CT_FLEN*CT_FCAP
+; A frame holds: +0 kind; +1, +2, +3 its label ordinals (first, continue,
+; exit); +4 a for loop's counter slot; +5 its mode; +6 its step word; +8
+; a trap offset word.
+CT_BASE EQU  GX_BLIM           ; First byte of the control block.
+CT_DEPTH EQU  CT_BASE+$00      ; Byte: open control frames.
+CT_LABNO EQU  CT_BASE+$01      ; Byte: next free label ordinal.
+CT_RKIND EQU  CT_BASE+$03      ; Byte: routine kind; written, not read.
+CT_RTYPE EQU  CT_BASE+$04      ; Byte: result type; written, not read.
+CT_FALLS EQU  CT_BASE+$05      ; Byte: nonzero while the body can fall through.
+CT_FTAB EQU  CT_BASE+$08       ; First control frame.
+CT_FLEN EQU  10                ; Bytes in one frame.
+CT_FCAP EQU  8                 ; Frames; DG_NEST when exceeded.
+CT_FLIM EQU  CT_FTAB+CT_FLEN*CT_FCAP ; Exclusive end of the frames.
 
-CT_KIF EQU  1
-CT_KLOOP EQU  2
-CT_KFOR EQU  3
-CT_KTRAP EQU  4
-CT_RNONE EQU  0
-CT_RVAL EQU  1
-CT_RDEST EQU  31
-CT_FKIND EQU  0
-CT_FDEST EQU  1
-CT_FCONT EQU  2
-CT_FEXIT EQU  3
-CT_FVAR EQU  4
-CT_FMODE EQU  5
-CT_FSTEP EQU  6
-CT_FTRAP EQU  8
-CT_NOVAR EQU  $FF
+CT_KIF EQU  1                  ; Frame kind: if, elseif, else.
+CT_KLOOP EQU  2                ; Frame kind: while loop.
+CT_KFOR EQU  3                 ; Frame kind: counted for loop.
+CT_KTRAP EQU  4                ; Frame kind: failure handler.
+CT_RVAL EQU  1                 ; Routine kind: returns a value.
+CT_RDEST EQU  31               ; Label of the single value routine.
+CT_FKIND EQU  0                ; Frame field: kind.
+CT_FDEST EQU  1                ; Frame field: first label.
+CT_FCONT EQU  2                ; Frame field: continue label.
+CT_FEXIT EQU  3                ; Frame field: exit label.
+CT_FVAR EQU  4                 ; Frame field: counter slot or CT_NOVAR.
+CT_FMODE EQU  5                ; Frame field: for-loop mode bits.
+CT_FSTEP EQU  6                ; Frame field: step word.
+CT_FTRAP EQU  8                ; Frame field: trap offset word.
+CT_NOVAR EQU  $FF              ; No counter: the frame is not a for loop.
 
-GC_FCNT EQU  CT_BASE+$00
-GC_VALID EQU  CT_BASE+$01
-GC_LCAP EQU  32
-GC_LADDR EQU  GC_VALID+GC_LCAP
-GC_FTAB EQU  GC_LADDR+GC_LCAP*2
-GC_FLEN EQU  3
-GC_FCAP EQU  32
-GC_FLIM EQU  GC_FTAB+GC_FLEN*GC_FCAP
-; Published program metadata must survive source parsing. It therefore cannot
-; overlay SRC_PTR as the earlier non-atomic slices did.
-EM_GCODE EQU  GC_FLIM
-; Four target-adapter segments. Each retained entry is base then exclusive
-; limit. Code and rodata have published image bytes;
-; data and bss describe runtime storage initialized by the generated startup.
-EM_GRO EQU  EM_GCODE+2
-EM_GDATA EQU  EM_GRO+2
-EM_GBSS EQU  EM_GDATA+2
-EM_PCODE EQU  EM_GBSS+2
-EM_PRO EQU  EM_PCODE+2
-EM_PDATA EQU  EM_PRO+2
-EM_PBSS EQU  EM_PDATA+2
-EM_STAB EQU  EM_PBSS+2
-EM_STLEN EQU  4
-EM_STCAP EQU  4
-EM_STLIM EQU  EM_STAB+EM_STLEN*EM_STCAP
-EM_SLO EQU  0
-EM_SHI EQU  2
-EM_SCODE EQU  0
-EM_SRO EQU  1
-EM_SDATA EQU  2
-EM_SBSS EQU  3
-EM_ECODE EQU  EM_STAB+EM_STLEN*EM_SCODE
-EM_ERO EQU  EM_STAB+EM_STLEN*EM_SRO
-EM_EDATA EQU  EM_STAB+EM_STLEN*EM_SDATA
-EM_EBSS EQU  EM_STAB+EM_STLEN*EM_SBSS
-EM_ROPTR EQU  EM_STLIM             ; word
-PR_BSS EQU  EM_ROPTR+2             ; word
-EM_WEND EQU  PR_BSS+2
+; The emit phase's view of the control block (GENCTRL.ASM). GC_VALID holds
+; one byte per label, nonzero (bank plus one) once it is placed; GC_LADDR
+; its address. A fixup is three bytes: label ordinal with bank and far
+; flags, then the address of the word operand to patch.
+GC_FCNT EQU  CT_BASE+$00       ; Byte: fixups recorded.
+GC_VALID EQU  CT_BASE+$01      ; Bytes: label placed flags.
+GC_LCAP EQU  32                ; Labels; ordinals are five bits.
+GC_LADDR EQU  GC_VALID+GC_LCAP ; Words: label addresses.
+GC_FTAB EQU  GC_LADDR+GC_LCAP*2 ; First fixup record.
+GC_FLEN EQU  3                 ; Bytes in one fixup.
+GC_FCAP EQU  32                ; Fixups; DG_FIXUP when exceeded.
+GC_FLIM EQU  GC_FTAB+GC_FLEN*GC_FCAP ; Exclusive end of the fixups.
 
-; Stage 6 retains aggregate type and layout metadata for the complete
-; compilation. Type IDs 1..3 are the predefined scalars; IDs 4 and above name
-; bounded four-byte descriptors. Record field offsets remain live for the
-; later selection stage, while the complete static image survives into Z80
-; emission.
-AG_BASE EQU  EM_WEND
-AG_MODE EQU  AG_BASE+$00
-AG_TCNT EQU  AG_BASE+$01
-AG_RCNT EQU  AG_BASE+$02
-AG_FCNT EQU  AG_BASE+$03
-AG_LEVEL EQU  AG_BASE+$04
+; Nucleus kept the published sizes of the four output segments (code,
+; rodata, data, bss) here and a table of their bases and limits. No code
+; reads these fields any longer. TGTWORK.ASM reuses the block for the
+; per-bank tables TG_ROTAB (from +2) and TG_BTAB (from +16).
+EM_GCODE EQU  GC_FLIM          ; Word: generated code size; unused.
+EM_GRO EQU  EM_GCODE+2         ; Word: generated rodata size; unused.
+EM_GDATA EQU  EM_GRO+2         ; Word: generated data size; unused.
+EM_GBSS EQU  EM_GDATA+2        ; Word: generated bss size; unused.
+EM_PCODE EQU  EM_GBSS+2        ; Word: published code size; unused.
+EM_PRO EQU  EM_PCODE+2         ; Word: published rodata size; unused.
+EM_PDATA EQU  EM_PRO+2         ; Word: published data size; unused.
+EM_PBSS EQU  EM_PDATA+2        ; Word: published bss size; unused.
+EM_STAB EQU  EM_PBSS+2         ; Segment table: base and limit words.
+EM_STLEN EQU  4                ; Bytes in one segment entry.
+EM_STCAP EQU  4                ; Segment entries.
+EM_STLIM EQU  EM_STAB+EM_STLEN*EM_STCAP ; Exclusive end of the table.
+EM_ROPTR EQU  EM_STLIM         ; Word: rodata cursor; unused.
+PR_BSS EQU  EM_ROPTR+2         ; Word: bss bytes the program needs.
+EM_WEND EQU  PR_BSS+2          ; End of the block.
+
+; Aggregate type and layout metadata lasts the whole compilation. Type IDs
+; 1..3 are the predefined scalars; IDs 4 and above name bounded four-byte
+; descriptors. Record field offsets stay live for field selection, and the
+; complete static image survives into Z80 emission.
+AG_BASE EQU  EM_WEND           ; First byte of the aggregate block.
+AG_MODE EQU  AG_BASE+$00       ; Byte: set by PR_PARSE, cleared by PR_RESET.
+AG_TCNT EQU  AG_BASE+$01       ; Byte: descriptors in the type table.
+AG_RCNT EQU  AG_BASE+$02       ; Byte: records in the record table.
+AG_FCNT EQU  AG_BASE+$03       ; Byte: fields in the field table.
+AG_LEVEL EQU  AG_BASE+$04      ; Byte: initializer nesting depth.
 ; Nonzero once an explicit initializer has supplied at least one value. The
 ; value is a Boolean allocation choice, not a retained element count.
-AG_GIVEN EQU  AG_BASE+$05
-AG_CTYPE EQU  AG_BASE+$06
-AG_CFIDX EQU  AG_BASE+$07
-AG_CFCNT EQU  AG_BASE+$08
-AG_CSIZE EQU  AG_BASE+$09          ; word
-AG_OPOS EQU  AG_BASE+$0B           ; word
-AG_OSIZE EQU  AG_BASE+$0D          ; word
-AG_NKIND EQU  AG_BASE+$0F
-AG_NAUX EQU  AG_BASE+$10
-AG_NDIM EQU  AG_BASE+$11           ; word
-AG_NSIZE EQU  AG_BASE+$13          ; word
-AG_OEND EQU  AG_BASE+$15           ; word
-AG_STEND EQU  AG_BASE+$17
+AG_GIVEN EQU  AG_BASE+$05      ; Byte: an initializer value was given.
+AG_CTYPE EQU  AG_BASE+$06      ; Byte: type ID of the current object.
+AG_CFIDX EQU  AG_BASE+$07      ; Byte: first field of the current record.
+AG_CFCNT EQU  AG_BASE+$08      ; Byte: fields of the current record.
+AG_CSIZE EQU  AG_BASE+$09      ; Word: extent of the current record.
+AG_OPOS EQU  AG_BASE+$0B       ; Word: offset reached in the object.
+AG_OSIZE EQU  AG_BASE+$0D      ; Word: extent of the current object.
+AG_NKIND EQU  AG_BASE+$0F      ; Byte: candidate descriptor's kind.
+AG_NAUX EQU  AG_BASE+$10       ; Byte: its element type or capacity.
+AG_NDIM EQU  AG_BASE+$11       ; Word: its element count or length.
+AG_NSIZE EQU  AG_BASE+$13      ; Word: its extent in bytes.
+AG_OEND EQU  AG_BASE+$15       ; Word: end of the current object.
+AG_STEND EQU  AG_BASE+$17      ; End of the aggregate scalars.
 
-AG_TTAB EQU  AG_STEND
-AG_TLEN EQU  4
-AG_TCAP EQU  8
-AG_TLIM EQU  AG_TTAB+AG_TLEN*AG_TCAP
-AG_TKIND EQU  0
-AG_TAUX EQU  1
-AG_TDIM EQU  2                     ; word
+; The type table: one four-byte descriptor per aggregate type, interned so
+; that equal types share an ID. AG_NKIND..AG_NDIM is built in the same
+; shape and compared or copied as a block.
+AG_TTAB EQU  AG_STEND          ; First type descriptor.
+AG_TLEN EQU  4                 ; Bytes in one descriptor.
+AG_TCAP EQU  8                 ; Descriptors; DG_META when exceeded.
+AG_TLIM EQU  AG_TTAB+AG_TLEN*AG_TCAP ; Exclusive end of the type table.
+AG_TKIND EQU  0                ; Descriptor field: AG_KREC, KSTR or KARR.
+AG_TAUX EQU  1                 ; Descriptor field: element type or capacity.
+AG_TDIM EQU  2                 ; Descriptor field: length, a word.
 ; Every dynamic type retains its complete nonzero extent as a word. Strings
 ; remain byte-capacity values, while arrays and records may occupy the complete
 ; selected program-data region.
-AG_XTAB EQU  AG_TLIM
-AG_XLIM EQU  AG_XTAB+2*AG_TCAP
+AG_XTAB EQU  AG_TLIM           ; Words: each type's extent in bytes.
+AG_XLIM EQU  AG_XTAB+2*AG_TCAP ; Exclusive end of the extents.
 
-AG_RTAB EQU  AG_XLIM
-AG_RLEN EQU  2
-AG_RCAP EQU  5
-AG_RLIM EQU  AG_RTAB+AG_RLEN*AG_RCAP
-AG_RFIDX EQU  0
-AG_RFCNT EQU  1
+; The record table: where each record type's fields lie in the field table.
+AG_RTAB EQU  AG_XLIM           ; First record entry.
+AG_RLEN EQU  2                 ; Bytes in one record entry.
+AG_RCAP EQU  5                 ; Record types; DG_META when exceeded.
+AG_RLIM EQU  AG_RTAB+AG_RLEN*AG_RCAP ; Exclusive end of the record table.
+AG_RFIDX EQU  0                ; Record field: index of its first field.
+AG_RFCNT EQU  1                ; Record field: number of fields.
 
-AG_FTAB EQU  AG_RLIM
-AG_FLEN EQU  6
-AG_FCAP EQU  12
-AG_FLIM EQU  AG_FTAB+AG_FLEN*AG_FCAP
-AG_FNAME EQU  0
-AG_FNLEN EQU  2
-AG_FTYPE EQU  3
-AG_FPOS EQU  4                     ; word
+; The field table: every record's fields, in declaration order.
+AG_FTAB EQU  AG_RLIM           ; First field entry.
+AG_FLEN EQU  6                 ; Bytes in one field entry.
+AG_FCAP EQU  12                ; Fields in all; DG_META when exceeded.
+AG_FLIM EQU  AG_FTAB+AG_FLEN*AG_FCAP ; Exclusive end of the field table.
+AG_FNAME EQU  0                ; Field entry: spelling, a word.
+AG_FNLEN EQU  2                ; Field entry: spelling length.
+AG_FTYPE EQU  3                ; Field entry: type ID.
+AG_FPOS EQU  4                 ; Field entry: byte offset, a word.
 
 ; One type ID per ordinary symbol is enough because the ordinary symbol table
 ; owns name identity and the payload word owns the program-data offset.
-AG_SYTAB EQU  AG_FLIM
-AG_SYLIM EQU  AG_SYTAB+SY_CAP
+AG_SYTAB EQU  AG_FLIM          ; Bytes: type ID of each symbol, by index.
+AG_SYLIM EQU  AG_SYTAB+SY_CAP  ; Exclusive end of the symbol types.
 
-AG_DLEN EQU  AG_SYLIM              ; word
-AG_ROLEN EQU  AG_DLEN+2            ; word
+AG_DLEN EQU  AG_SYLIM          ; Word: initialised data in the image.
+AG_ROLEN EQU  AG_DLEN+2        ; Word: read-only constants after it.
 ; One complete object is built in scratch. Published rodata keeps initialized
 ; data first and aggregate-constant bytes in a read-only suffix.
-AG_IBUF EQU  AG_ROLEN+2
-AG_ICAP EQU  1024
-AG_DATA EQU  AG_IBUF+AG_ICAP
-AG_DCAP EQU  1024
-AG_DLIM EQU  AG_DATA+AG_DCAP
-AG_WEND EQU  AG_DLIM
-PR_WEND EQU  AG_WEND
+AG_IBUF EQU  AG_ROLEN+2        ; One object's initializer, built here.
+AG_ICAP EQU  1024              ; Bytes of initializer scratch.
+AG_DATA EQU  AG_IBUF+AG_ICAP   ; The static image: data, then rodata.
+AG_DCAP EQU  1024              ; Bytes of static image.
+AG_DLIM EQU  AG_DATA+AG_DCAP   ; Exclusive end of the static image.
+AG_WEND EQU  AG_DLIM           ; End of the aggregate block.
+PR_WEND EQU  AG_WEND           ; End of this file's workspace.
 
-AG_LCAP EQU  4
+AG_LCAP EQU  4                 ; Initializer nesting levels; DG_INITS beyond.
 
 ; Emission follows successful parsing and may overlay the retained forward.
-EM_READP EQU  PR_FNAME
-EM_ENTRY EQU  PR_FARG
-EM_CFIX EQU  PR_FALEN
-EM_IFIX EQU  PR_FORD
+EM_READP EQU  PR_FNAME         ; Word: replay cursor in the transcript.
 
-TK_EOF EQU  0
-TK_EOL EQU  1
-TK_NAME EQU  2
-TK_CHAR EQU  3
-TK_NUM EQU  4
-TK_LPAR EQU  5
-TK_RPAR EQU  6
-TK_EQ EQU  7
-TK_SUB EQU  8
-TK_FAILS EQU  9
-TK_OR EQU  10
-TK_FAIL EQU  11
-TK_END EQU  12
-TK_VAR EQU  13
-TK_AS EQU  14
-TK_U8 EQU  15
-TK_FOR EQU  16
-TK_UNTIL EQU  17
-TK_LBRAC EQU  18
-TK_RBRAC EQU  19
-TK_COMMA EQU  20
-TK_FORW EQU  21
-TK_RET EQU  22
-TK_IF EQU  23
-TK_MINUS EQU  24
-TK_PLUS EQU  25
-TK_STAR EQU  26
-TK_U16 EQU  27
-TK_BOOL EQU  28
-TK_TRUE EQU  29
-TK_FALSE EQU  30
-TK_CONST EQU  31
-TK_SLASH EQU  32
-TK_LT EQU  33
-TK_LE EQU  34
-TK_GT EQU  35
-TK_GE EQU  36
-TK_NE EQU  37
-TK_NOT EQU  38
-TK_AND EQU  39
-TK_ELSIF EQU  40
-TK_ELSE EQU  41
-TK_WHILE EQU  42
-TK_TO EQU  43
-TK_STEP EQU  44
-TK_EXIT EQU  45
-TK_CONT EQU  46
-TK_TEXT EQU  47
-TK_REC EQU  48
-TK_STR EQU  49
-TK_DOT EQU  50
-TK_HANDL EQU  51
+; Token kinds, as TK_NEXT returns them in A. Grammar terminals use the same
+; ordinals, so they stay below $40. The spellings are in KEYWORDS.ASM.
+
+TK_EOF EQU  0                  ; End of the last source part.
+TK_EOL EQU  1                  ; End of a line that produced a token.
+TK_NAME EQU  2                 ; Name: TK_PTR and TK_LEN.
+TK_CHAR EQU  3                 ; Character literal: code in BC.
+TK_NUM EQU  4                  ; Number: value in BC.
+TK_LPAR EQU  5                 ; Left parenthesis.
+TK_RPAR EQU  6                 ; Right parenthesis.
+TK_EQ EQU  7                   ; Equals sign: assignment or equality.
+TK_SUB EQU  8                  ; Keyword sub.
+TK_FAILS EQU  9                ; Keyword fails.
+TK_OR EQU  10                  ; Keyword or.
+TK_FAIL EQU  11                ; Keyword fail.
+TK_END EQU  12                 ; Keyword end.
+TK_VAR EQU  13                 ; Keyword var.
+TK_AS EQU  14                  ; Keyword as.
+TK_U8 EQU  15                  ; Keyword u8.
+TK_FOR EQU  16                 ; Keyword for.
+TK_UNTIL EQU  17               ; Keyword until.
+TK_LBRAC EQU  18               ; Left bracket.
+TK_RBRAC EQU  19               ; Right bracket.
+TK_COMMA EQU  20               ; Comma.
+TK_FORW EQU  21                ; Keyword forward.
+TK_RET EQU  22                 ; Keyword return.
+TK_IF EQU  23                  ; Keyword if.
+TK_MINUS EQU  24               ; Minus sign.
+TK_PLUS EQU  25                ; Plus sign.
+TK_STAR EQU  26                ; Asterisk: multiplication.
+TK_U16 EQU  27                 ; Keyword u16.
+TK_BOOL EQU  28                ; Keyword boolean.
+TK_TRUE EQU  29                ; Keyword true.
+TK_FALSE EQU  30               ; Keyword false.
+TK_CONST EQU  31               ; Keyword const.
+TK_SLASH EQU  32               ; Slash: division.
+TK_LT EQU  33                  ; Less than.
+TK_LE EQU  34                  ; Less than or equal.
+TK_GT EQU  35                  ; Greater than.
+TK_GE EQU  36                  ; Greater than or equal.
+TK_NE EQU  37                  ; Not equal.
+TK_NOT EQU  38                 ; Keyword not.
+TK_AND EQU  39                 ; Keyword and.
+TK_ELSIF EQU  40               ; Keyword elseif.
+TK_ELSE EQU  41                ; Keyword else.
+TK_WHILE EQU  42               ; Keyword while.
+TK_TO EQU  43                  ; Keyword to.
+TK_STEP EQU  44                ; Keyword step.
+TK_EXIT EQU  45                ; Keyword exit.
+TK_CONT EQU  46                ; Keyword continue.
+TK_TEXT EQU  47                ; String literal: TK_PTR, decoded TK_LEN.
+TK_REC EQU  48                 ; Keyword record.
+TK_STR EQU  49                 ; Keyword string.
+TK_DOT EQU  50                 ; Full stop: field selection.
+TK_HANDL EQU  51               ; Keyword handle.
 ; Ordinal 52 is intentionally unused so later token ordinals remain stable.
-TK_XOR EQU  53
-TK_MOD EQU  54
-TK_ASSRT EQU  55
+TK_XOR EQU  53                 ; Keyword xor.
+TK_MOD EQU  54                 ; Keyword mod.
+TK_ASSRT EQU  55               ; Keyword assert.
 
-DG_NONE EQU  0
-DG_LEX EQU  1
-DG_MAIN EQU  17
-DG_WRITE EQU  22
-DG_INDEX EQU  29
-DG_INUSE EQU  36
-DG_TOP EQU  37
-DG_BYTES EQU  38
-DG_DIM EQU  39
-DG_SINK EQU  40
-DG_REACH EQU  41
-DG_READ EQU  45
-DG_DATUM EQU  51
-DG_RTYPE EQU  52
-DG_PROTO EQU  53
-DG_UNMET EQU  54
-DG_DUP EQU  55
-DG_SYMS EQU  56
-DG_UNDEF EQU  57
-DG_VALUE EQU  58
-DG_TYPE EQU  59
-DG_CLASH EQU  60
-DG_RANGE EQU  61
-DG_ZERO EQU  62
-DG_TRUNC EQU  63
-DG_CHAIN EQU  64
-DG_DEEP EQU  65
-DG_ANDOR EQU  66
-DG_BUG EQU  67
-DG_NEST EQU  68
-DG_LABEL EQU  69
-DG_FIXUP EQU  70
-DG_BOOL EQU  71
-DG_LOOP EQU  72
-DG_COUNT EQU  73
-DG_STEP EQU  74
-DG_FLOW EQU  75
-DG_META EQU  76
-DG_INITS EQU  77
-DG_SHAPE EQU  78
-DG_ITEMS EQU  79
-DG_LONG EQU  80
-DG_DATA EQU  81
+; Diagnostic numbers, as DG_CODE reports them and the shell prints them.
+; Only the numbers some path raises are named; the gaps are Nucleus
+; diagnostics this compiler cannot produce.
+
+DG_LEX EQU  1                  ; A byte or literal the tokenizer refuses.
+DG_INUSE EQU  36               ; An active loop counter written or reused.
+DG_TOP EQU  37                 ; No main, or not a top-level declaration.
+DG_SINK EQU  40                ; The transcript is full.
+DG_REACH EQU  41               ; A relative branch out of range.
+DG_UNMET EQU  54               ; A forward routine never defined.
+DG_DUP EQU  55                 ; A name declared twice.
+DG_SYMS EQU  56                ; The symbol table is full.
+DG_UNDEF EQU  57               ; A name not declared.
+DG_VALUE EQU  58               ; A scalar value expected.
+DG_TYPE EQU  59                ; A type expected.
+DG_CLASH EQU  60               ; Operand types do not agree.
+DG_RANGE EQU  61               ; An exact value outside its type.
+DG_ZERO EQU  62                ; Division by an exact zero.
+DG_TRUNC EQU  63               ; An exact u8(...) that loses bits.
+DG_CHAIN EQU  64               ; Comparisons chained without and/or.
+DG_DEEP EQU  65                ; Expressions or calls nested too deep.
+DG_ANDOR EQU  66               ; and/or nested too deep.
+DG_BUG EQU  67                 ; An internal inconsistency.
+DG_NEST EQU  68                ; Control statements nested too deep.
+DG_LABEL EQU  69               ; Control labels exhausted.
+DG_FIXUP EQU  70               ; The branch fixup table is full.
+DG_LOOP EQU  72                ; exit or continue outside a loop.
+DG_COUNT EQU  73               ; An invalid for-loop counter.
+DG_STEP EQU  74                ; An invalid for-loop step.
+DG_FLOW EQU  75                ; A value routine can end without return.
+DG_META EQU  76                ; Type, record or field tables full.
+DG_INITS EQU  77               ; Initializers nested too deep.
+DG_SHAPE EQU  78               ; An initializer of the wrong shape.
+DG_ITEMS EQU  79               ; Too many or too few initializer items.
+DG_LONG EQU  80                ; A string literal longer than its type.
+DG_DATA EQU  81                ; Program data too large.
 ; Bounded string capacity is at most 253; use u8[N] plus a scalar length for
 ; an unterminated, caller-managed buffer.
-DG_SIZE EQU  90
-DG_FALSE EQU  91
-DG_SEG EQU  92
-DG_ROCAP EQU  93
-DG_CONST EQU  94
-DG_EMPTY EQU  82
-DG_BOUND EQU  83
+DG_SIZE EQU  90                ; A string capacity above 253.
+DG_FALSE EQU  91               ; An assert that is exactly false.
+DG_ROCAP EQU  93               ; Read-only constants too large.
+DG_CONST EQU  94               ; Assignment to a read-only object.
+DG_EMPTY EQU  82               ; A record with no fields.
+DG_BOUND EQU  83               ; An array or string bound out of range.
 
 ; Ordinary token mismatches encode the token ordinal directly. Named-value
 ; mismatches retain their context-specific diagnostic codes above.
-DG_TOKEN EQU  $80
-DG_EOF EQU  DG_TOKEN+TK_EOF
-DG_NAME EQU  DG_TOKEN+TK_NAME
-DG_EOL EQU  DG_TOKEN+TK_EOL
-DG_CHAR EQU  DG_TOKEN+TK_CHAR
-DG_NUM EQU  DG_TOKEN+TK_NUM
-DG_LPAR EQU  DG_TOKEN+TK_LPAR
-DG_RPAR EQU  DG_TOKEN+TK_RPAR
-DG_EQ EQU  DG_TOKEN+TK_EQ
-DG_SUB EQU  DG_TOKEN+TK_SUB
-DG_FAILS EQU  DG_TOKEN+TK_FAILS
-DG_OR EQU  DG_TOKEN+TK_OR
-DG_KFAIL EQU  DG_TOKEN+TK_FAIL
-DG_END EQU  DG_TOKEN+TK_END
-DG_VAR EQU  DG_TOKEN+TK_VAR
-DG_AS EQU  DG_TOKEN+TK_AS
-DG_U8 EQU  DG_TOKEN+TK_U8
-DG_FOR EQU  DG_TOKEN+TK_FOR
-DG_UNTIL EQU  DG_TOKEN+TK_UNTIL
-DG_LBRAC EQU  DG_TOKEN+TK_LBRAC
-DG_RBRAC EQU  DG_TOKEN+TK_RBRAC
-DG_COMMA EQU  DG_TOKEN+TK_COMMA
-DG_FORW EQU  DG_TOKEN+TK_FORW
-DG_RET EQU  DG_TOKEN+TK_RET
-DG_IF EQU  DG_TOKEN+TK_IF
-DG_MINUS EQU  DG_TOKEN+TK_MINUS
-DG_PLUS EQU  DG_TOKEN+TK_PLUS
-DG_STAR EQU  DG_TOKEN+TK_STAR
-DG_TEXT EQU  DG_TOKEN+TK_TEXT
+DG_TOKEN EQU  $80              ; PR_NEED raises DG_TOKEN plus the kind expected.
+DG_EOF EQU  DG_TOKEN+TK_EOF    ; End of source expected.
+DG_EOL EQU  DG_TOKEN+TK_EOL    ; End of line expected.
+DG_LPAR EQU  DG_TOKEN+TK_LPAR  ; Left parenthesis expected.
+DG_RPAR EQU  DG_TOKEN+TK_RPAR  ; Right parenthesis expected.
+DG_EQ EQU  DG_TOKEN+TK_EQ      ; Equals sign expected.
+DG_SUB EQU  DG_TOKEN+TK_SUB    ; sub expected.
+DG_KFAIL EQU  DG_TOKEN+TK_FAIL ; fail expected.
+DG_END EQU  DG_TOKEN+TK_END    ; end expected.
+DG_VAR EQU  DG_TOKEN+TK_VAR    ; var expected.
+DG_FOR EQU  DG_TOKEN+TK_FOR    ; for expected.
+DG_FORW EQU  DG_TOKEN+TK_FORW  ; forward expected.
+DG_RET EQU  DG_TOKEN+TK_RET    ; return expected.
+DG_IF EQU  DG_TOKEN+TK_IF      ; if expected.
 
-SY_EXACT EQU  0
-SY_U8 EQU  1
-SY_U16 EQU  2
-SY_BOOL EQU  3
-SY_TMASK EQU  $03
-SY_KNOWN EQU  $80
-SY_CONST EQU  $00
-SY_GLOB EQU  $04
-SY_LOCAL EQU  $08
-SY_PARAM EQU  $0C
-SY_CMASK EQU  $0C
-SY_TYPE EQU  $40
-SY_AGGR EQU  $80
-SY_RTYPE EQU  SY_TYPE
-SY_AGLOB EQU  SY_AGGR+SY_GLOB
+; Scalar types and symbol information. An expression's metadata byte and a
+; symbol's class/type byte share the low bits: the type in SY_TMASK. The
+; symbol byte adds its storage class in SY_CMASK and the flags SY_TYPE and
+; SY_AGGR; the metadata byte uses bit 7 as SY_KNOWN instead.
 
-AG_U8 EQU  SY_U8
-AG_U16 EQU  SY_U16
-AG_BOOL EQU  SY_BOOL
-AG_FIRST EQU  4
-AG_KREC EQU  4
-AG_KSTR EQU  5
-AG_KARR EQU  6
+SY_EXACT EQU  0                ; Type: an exact constant not yet typed.
+SY_U8 EQU  1                   ; Type: u8.
+SY_U16 EQU  2                  ; Type: u16.
+SY_BOOL EQU  3                 ; Type: boolean.
+SY_TMASK EQU  $03              ; Mask of the type bits.
+SY_KNOWN EQU  $80              ; Metadata flag: the value is exact, in HL.
+SY_CONST EQU  $00              ; Class: a constant.
+SY_GLOB EQU  $04               ; Class: a program variable.
+SY_LOCAL EQU  $08              ; Class: a local of the current routine.
+SY_PARAM EQU  $0C              ; Class: a parameter of the current routine.
+SY_CMASK EQU  $0C              ; Mask of the class bits.
+SY_TYPE EQU  $40               ; Symbol flag: the name is a record type.
+SY_AGGR EQU  $80               ; Symbol flag: the object is an aggregate.
+SY_RTYPE EQU  SY_TYPE          ; Information byte of a record type name.
+SY_AGLOB EQU  SY_AGGR+SY_GLOB  ; Information byte of an aggregate variable.
+
+AG_U16 EQU  SY_U16             ; Type ID of u16; IDs 1..3 are the scalars.
+AG_FIRST EQU  4                ; First type ID of the type table.
+AG_KREC EQU  4                 ; Descriptor kind: record.
+AG_KSTR EQU  5                 ; Descriptor kind: bounded string.
+AG_KARR EQU  6                 ; Descriptor kind: array.
 ; Parameter-only open bounded-string view. It is never interned in the
 ; aggregate type table and therefore remains outside its compact ordinals.
-AG_VIEW EQU  $7C
+AG_VIEW EQU  $7C               ; Type ID of an open string parameter.
 
-SY_CU8 EQU  SY_CONST+SY_U8
-SY_C16 EQU  SY_CONST+SY_U16
-SY_CBOOL EQU  SY_CONST+SY_BOOL
-SY_GU8 EQU  SY_GLOB+SY_U8
-SY_G16 EQU  SY_GLOB+SY_U16
-SY_GBOOL EQU  SY_GLOB+SY_BOOL
-SY_LU8 EQU  SY_LOCAL+SY_U8
-SY_L16 EQU  SY_LOCAL+SY_U16
-SY_LBOOL EQU  SY_LOCAL+SY_BOOL
+; Transcript operation codes. GX_WALK dispatches OP_DEF8 (20) through
+; OP_VIEW (110, CALLWORK.ASM) through GX_OPTAB; the handler each code
+; reaches is named below. A code may carry operand bytes after it, which
+; its handler reads. Codes below 20 are no longer used, and 23, 26 and 27
+; are retired: their slots reject the transcript.
 
-OP_VAR8 EQU  1
-OP_UNTIL EQU  2
-OP_WRITE EQU  3
-OP_RAISE EQU  4
-OP_LOOP EQU  5
-OP_LEAVE EQU  6
-OP_ARRAY EQU  7
-OP_READ EQU  8
-OP_RES8 EQU  9
-OP_ELEM8 EQU  10
-OP_WRU8 EQU  11
-OP_LCALL EQU  12
-OP_WRLOC EQU  13
-OP_BODY8 EQU  14
-OP_IFZ EQU  15
-OP_RETP EQU  16
-OP_ENDIF EQU  17
-OP_RECUR EQU  18
-OP_CLOSE EQU  19
-OP_DEF8 EQU  20
-OP_MAIN EQU  21
-OP_LOC8 EQU  22
-OP_LIT8 EQU  23
-OP_LDG8 EQU  24
-OP_LDL8 EQU  25
-OP_TIMES EQU  26
-OP_PLUS EQU  27
-OP_STG8 EQU  28
-OP_STL8 EQU  29
-OP_WRVAL EQU  30
-OP_HALT EQU  31
-OP_DEF16 EQU  32
-OP_LOC16 EQU  33
-OP_LIT16 EQU  34
-OP_LDG16 EQU  35
-OP_LDL16 EQU  36
-OP_ADD8 EQU  37
-OP_ADD16 EQU  38
-OP_SUB8 EQU  39
-OP_SUB16 EQU  40
-OP_MUL8 EQU  41
-OP_MUL16 EQU  42
-OP_DIV8 EQU  43
-OP_DIV16 EQU  44
-OP_NEG8 EQU  45
-OP_NEG16 EQU  46
-OP_NOT8 EQU  47
-OP_NOT16 EQU  48
-OP_LNOT EQU  49
-OP_AND8 EQU  50
-OP_AND16 EQU  51
-OP_OR8 EQU  52
-OP_OR16 EQU  53
-OP_XOR8 EQU  54
-OP_XOR16 EQU  55
-OP_MOD8 EQU  56
-OP_MOD16 EQU  57
-OP_CMP8 EQU  58
-OP_CMP16 EQU  59
-OP_LCMP EQU  60
-OP_TRUNC EQU  61
-OP_STG16 EQU  62
-OP_STL16 EQU  63
-OP_CAND EQU  64
-OP_COR EQU  65
-OP_JOIN EQU  66
-OP_LABEL EQU  67
-OP_IFNOT EQU  68
-OP_JUMP EQU  69
-OP_FOR EQU  70
-OP_TEST EQU  71
-OP_NEXT EQU  72
-OP_CLEAN EQU  73
-OP_FUNC EQU  74
-OP_LDP8 EQU  75
-OP_LDP16 EQU  76
-OP_FCALL EQU  77
-OP_RET EQU  78
-OP_STP8 EQU  79
-OP_STP16 EQU  80
-OP_ENDFN EQU  81
+OP_DEF8 EQU  20                ; .DATA8: a u8 data byte; unused.
+OP_MAIN EQU  21                ; .MAIN: begin main; unused.
+OP_LOC8 EQU  22                ; GX_VAR8: reserve a u8 local.
+OP_LDG8 EQU  24                ; GX_LD8: push a u8 global.
+OP_LDL8 EQU  25                ; GX_LDX8: push a u8 local.
+OP_STG8 EQU  28                ; GX_ST8: pop into a u8 global.
+OP_STL8 EQU  29                ; GX_STX8: pop into a u8 local.
+OP_WRVAL EQU  30               ; GX_WRITE: write a u8 value; unused.
+OP_HALT EQU  31                ; GX_EXIT: end main; unused.
+OP_DEF16 EQU  32               ; .DATA16: a u16 data word; unused.
+OP_LOC16 EQU  33               ; GX_VAR16: reserve a u16 local.
+OP_LIT16 EQU  34               ; GX_NUM16: push a literal.
+OP_LDG16 EQU  35               ; GX_LD16: push a u16 global.
+OP_LDL16 EQU  36               ; GX_LDX16: push a u16 local.
+OP_ADD8 EQU  37                ; GX_ADD8: u8 addition.
+OP_ADD16 EQU  38               ; GX_ADD16: u16 addition.
+OP_SUB8 EQU  39                ; GX_SUB8: u8 subtraction.
+OP_SUB16 EQU  40               ; GX_SUB16: u16 subtraction.
+OP_MUL8 EQU  41                ; GX_MUL8: u8 multiplication.
+OP_MUL16 EQU  42               ; GX_MUL16: u16 multiplication.
+OP_DIV8 EQU  43                ; GX_DIV8: u8 division.
+OP_DIV16 EQU  44               ; GX_DIV16: u16 division.
+OP_NEG8 EQU  45                ; GX_NEG8: u8 negation.
+OP_NEG16 EQU  46               ; GX_NEG16: u16 negation.
+OP_NOT8 EQU  47                ; GX_NOT8: u8 complement.
+OP_NOT16 EQU  48               ; GX_NOT16: u16 complement.
+OP_LNOT EQU  49                ; GX_FLIP: boolean not.
+OP_AND8 EQU  50                ; GX_AND8: u8 bitwise and.
+OP_AND16 EQU  51               ; GX_AND16: u16 bitwise and.
+OP_OR8 EQU  52                 ; GX_OR8: u8 bitwise or.
+OP_OR16 EQU  53                ; GX_OR16: u16 bitwise or.
+OP_XOR8 EQU  54                ; GX_XOR8: u8 exclusive or.
+OP_XOR16 EQU  55               ; GX_XOR16: u16 exclusive or.
+OP_MOD8 EQU  56                ; GX_MOD8: u8 remainder.
+OP_MOD16 EQU  57               ; GX_MOD16: u16 remainder.
+OP_CMP8 EQU  58                ; GX_RELOP: compare u8 values.
+OP_CMP16 EQU  59               ; GX_RELOP: compare u16 values.
+OP_LCMP EQU  60                ; GX_RELOP: compare booleans.
+OP_TRUNC EQU  61               ; GX_FIT8: checked narrowing to u8.
+OP_STG16 EQU  62               ; GX_ST16: pop into a u16 global.
+OP_STL16 EQU  63               ; GX_STX16: pop into a u16 local.
+OP_CAND EQU  64                ; GX_ANDIF: open a short-circuit and.
+OP_COR EQU  65                 ; GX_ORIF: open a short-circuit or.
+OP_JOIN EQU  66                ; GX_JOIN: close the innermost and/or.
+OP_LABEL EQU  67               ; GC_LABEL: place a control label.
+OP_IFNOT EQU  68               ; GC_IFNOT: branch to a label if false.
+OP_JUMP EQU  69                ; GC_JUMP: jump to a label.
+OP_FOR EQU  70                 ; GC_FOR: set up a counted loop.
+OP_TEST EQU  71                ; GC_TEST: test a counted loop's end.
+OP_NEXT EQU  72                ; GC_NEXT: step a counted loop.
+OP_CLEAN EQU  73               ; GC_DROP: discard a counted loop's state.
+OP_FUNC EQU  74                ; GX_ENTER: begin the value routine; unused.
+OP_LDP8 EQU  75                ; GX_LDX8: push a u8 parameter.
+OP_LDP16 EQU  76               ; GX_LDX16: push a u16 parameter.
+OP_FCALL EQU  77               ; GX_CALL: call the value routine; unused.
+OP_RET EQU  78                 ; GX_RET: return a scalar.
+OP_STP8 EQU  79                ; GX_STX8: pop into a u8 parameter.
+OP_STP16 EQU  80               ; GX_STX16: pop into a u16 parameter.
+OP_ENDFN EQU  81               ; GX_CLOSE: end the value routine; unused.
 
-EX_EQ EQU  0
-EX_NE EQU  1
-EX_LT EQU  2
-EX_LE EQU  3
-EX_GT EQU  4
-EX_GE EQU  5
+; Relation codes: EXPR.ASM appends one after a comparison; GX_RELOP
+; passes it to RT_CMP16 in A, and GC_TEST uses it for loop ends.
+
+EX_EQ EQU  0                   ; Equal.
+EX_NE EQU  1                   ; Not equal.
+EX_LT EQU  2                   ; Less than.
+EX_LE EQU  3                   ; Less than or equal.
+EX_GT EQU  4                   ; Greater than.
+EX_GE EQU  5                   ; Greater than or equal.
