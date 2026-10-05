@@ -11,6 +11,7 @@
 %INCLUDE "PHASED.ASM"
 %INCLUDE "LINES.ASM"
 %INCLUDE "PUBLISH.ASM"
+%INCLUDE "REPORT.ASM"
 %INCLUDE "PHASEE.ASM"
 
 ; BLINK: link a compiled Basie program (docs/linker.md; toolchain §5).
