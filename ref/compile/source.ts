@@ -105,10 +105,11 @@ export function loadSource(
         (name as Token & { kind: "string" }).bytes,
       )
         .toUpperCase();
-      // The type is required (4.3.2). The reference toolchain maps every
-      // drive to its folders, so a drive letter is accepted and set aside.
+      // The type is required and a wildcard refused (4.3.2). The reference
+      // toolchain maps every drive to its folders, so a drive letter is
+      // accepted and set aside.
       text = text.replace(/^[A-P]:/, "");
-      if (!/^[^.:]{1,8}\.[^.:]{1,3}$/.test(text)) {
+      if (!/^[^.:*?]{1,8}\.[^.:*?]{1,3}$/.test(text)) {
         fail(
           "include-syntax",
           name,
@@ -117,10 +118,10 @@ export function loadSource(
       }
       const resolved = resolve(text, dirname(path));
       if (resolved === undefined) {
-        fail("include-missing", name, `${text} not found`);
+        fail("include-missing", name, `${text} not found`, [text]);
       }
       if (open.has(resolved!)) {
-        fail("include-cycle", name, `${text} includes itself`);
+        fail("include-cycle", name, `${text} includes itself`, [text]);
       }
       if (!loaded.has(resolved!)) {
         load(resolved!, reader.read(resolved!)!);

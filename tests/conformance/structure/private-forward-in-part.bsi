@@ -1,0 +1,9 @@
+// A private forward must be completed in its own part: one left open in
+// PRIVFWD.BSI is reported there, at its forward, when the part ends.
+// spec: 5.11
+// expect error: forward-incomplete at 2:9
+
+include "PRIVFWD.BSI"
+
+sub main()
+end

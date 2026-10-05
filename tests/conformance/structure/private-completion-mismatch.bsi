@@ -1,0 +1,12 @@
+// A forward's completion repeats its visibility: a public forward
+// completed as private is a mismatch (5.11, rule 4).
+// spec: 5.11
+// expect error: forward-mismatch at 8:13
+
+forward sub helper()
+
+private sub helper
+end
+
+sub main()
+end

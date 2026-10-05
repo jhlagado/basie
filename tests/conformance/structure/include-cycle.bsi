@@ -1,0 +1,9 @@
+// A part that includes, through another, a part still open is a cycle,
+// reported at the include that closes it, in CYCLEB.BSI.
+// spec: 4.3.2
+// expect error: include-cycle at 2:9
+
+include "CYCLEA.BSI"
+
+sub main()
+end

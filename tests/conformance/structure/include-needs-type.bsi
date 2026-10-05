@@ -1,0 +1,8 @@
+// An include name needs its type (4.3.2, rule 2).
+// spec: 4.3.2
+// expect error: include-syntax at 5:9
+
+include "STRINGS"
+
+sub main()
+end

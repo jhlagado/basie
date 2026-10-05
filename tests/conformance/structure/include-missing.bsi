@@ -1,0 +1,9 @@
+// An include of a part that is not on either drive is reported at its
+// name.
+// spec: 4.3.2
+// expect error: include-missing at 6:9
+
+include "NOSUCH.BSI"
+
+sub main()
+end

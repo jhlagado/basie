@@ -1,0 +1,6 @@
+// A part for include-once.bsi; TWICEB.BSI includes it again.
+const base = 2
+
+sub fromA() as u8
+    return base
+end

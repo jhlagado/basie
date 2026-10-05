@@ -1,0 +1,2 @@
+// A part for include-cycle.bsi: it includes CYCLEB.BSI, which includes it.
+include "CYCLEB.BSI"
