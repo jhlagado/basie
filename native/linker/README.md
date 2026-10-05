@@ -114,3 +114,35 @@ defined twice in one scope; `verify.ts` must print `VERIFIED`. Give a new map
 its own file in a fresh directory, since `apply.ts` applies every map it finds,
 and `blink.json` must not be applied again: some of its new names are other
 entries' old ones (`NM_SLOT`).
+
+## Findings of the commentary pass
+
+The D44 pass read every line and changed no code. It found these faults, to
+be fixed with tests against the reference linker:
+
+1. The symbol file's alias check reads an alias's base from its address
+   field after Phase C has replaced it with the alias's address, so named
+   aliases can be left out of the symbol file.
+2. An alias's name record stalls the name reader (`NM_GET`): the walks skip
+   control records, so every later blob of that owner loses its name.
+3. Two aliases at one address give only one symbol-file row.
+4. The name stream's magic, stamp and CRC are not checked, and a name over
+   31 bytes overruns its slot.
+5. Phase A misses three of the reference's checks: a reference-count escape
+   below 255, `SIZE16` naming an alias read after the reference, and the
+   trailer's highest ordinal.
+6. Growing the program table multiplies the ordinal by eight unchecked, so a
+   large or sparse ordinal can wrap and clear memory instead of reporting
+   `L-CAP-TABLES`.
+7. Placement can wrap past `$FFFF` unnoticed, so `L-FIT-IMAGE` and
+   `L-FIT-MEMORY` do not fire.
+8. Several diagnostics name the wrong file (`OUT_TEXT` never set, `RD_NAME`
+   left on `NAME.$LT`, `.LIBKEY`, `DG_DISK`, `REP_FAIL`).
+9. `LN_OPEN` assumes part records come first and in order.
+10. Smaller: `REP_DEC` above 999,999, the debugger margin and the map totals
+    in 16 bits, an unchecked backup rename and an unchecked open of the
+    library's name section.
+
+Dead bytes for the next compression pass: `.HASPREV`, `.BASE`, `EDGE_TOP`, a
+never-taken test in `.ONCE`, two spare jumps and a redundant `PUSH BC`/`POP
+BC` in `MSG.ASM`.
