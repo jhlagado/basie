@@ -110,6 +110,20 @@ has no overlays left but the diagnostic position's.
 table and the 511-byte transcript. Each is replaced at the stage that first
 needs it, and the audit and the limits register are updated in the same commit.
 
+**Source.** The parts stay resident for the whole compilation, as the
+fork's did. At 67a, which brought `include` and so many more parts, the
+choice between keeping them resident and streaming them with a name heap
+was made for keeping them, for now: every record that names something
+(symbols, routines, parameters, fields, string literals) points at its
+spelling in the source, and a diagnostic's line and column are counted
+from the source; streaming would need a heap for every name and a
+diagnostic that reads the part again. The source area is about 29.75K on
+a 62K system and the whole standard library 17.4K, so programs that
+include all of it still fit. The move is planned with the capacity tables
+(67h), whose hashed symbol table needs the name heap anyway, and before
+the image's growth toward the 26K target moves the workspace up and the
+source area shrinks toward 22K.
+
 **Grammar encoding.** The packed LL(1) tables give terminals `$00` to `$3F`:
 64 kinds. Basie has 55 keywords, 17 punctuators and 7 other token kinds, 79 in
 all. The plan is to fold token classes so that the grammar never needs the
