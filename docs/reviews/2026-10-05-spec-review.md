@@ -59,7 +59,7 @@ fixes it names the finding, as B1, A3 and so on).
 | B12 | major (closed) | Exact arithmetic is done in host doubles: intermediates outside the range are neither rejected nor exact. | Check every intermediate |
 | B13 | major (closed) | "Parameters without `var` are read-only, except scalar parameters" excludes handle parameters, which `move n` needs. | Add handle parameters |
 | B14 | major (closed) | Open views (`string[]`, `T[]`) are accepted as local initializers and results, and then crash the compiler. | Diagnose them |
-| B15 | major | String literals: chapter 9 admits them only in initializers and read-only arguments, chapter 17 in every argument; the compiler also accepts `s = "abc"` and literals in `new`. | Name every position |
+| B15 | major (closed) | String literals: chapter 9 admits them only in initializers and read-only arguments, chapter 17 in every argument; the compiler also accepts `s = "abc"` and literals in `new`. | Name every position |
 | B16 | major (closed) | Whether an aggregate field reached through an owning local is copied or aliased is unclear; the compiler aliases. | Lease semantics for owner paths |
 | B17 | minor | Chapter 6 omits handle fields, exact indexes, arrays of arrays and handles, and `T[]` identity. | Add |
 | B18 | minor | Homes of `P` and `id P` omit routine results. | Add |

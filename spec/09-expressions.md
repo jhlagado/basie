@@ -33,12 +33,20 @@ conversion          ::= numeric-type "(" expression ")"
 numeric-type        ::= "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
 designator          ::= NAME { "[" expression "]" | "." NAME }
 postfix-suffix      ::= argument-list | "[" expression "]" | "." NAME
-argument-list       ::= "(" [ expression { "," expression } ] ")"
+argument-list       ::= "(" [ argument { "," argument } ] ")"
+argument            ::= expression | STRING
 ```
 
 `id` is the contextual word of Chapter 3: it begins the `id(...)` form only when the next token is `(` and no local, parameter or other visible binding named `id` exists at that point; otherwise it is an ordinary `NAME`. Chapter 17 incorporates this fragment into the complete grammar. The semantic rules below reject suffix combinations that the compact syntax admits but Basie does not.
 
-A string literal is not a general expression primary. It is admitted as a static initializer (Chapter 8), as an argument for a read-only `string[]` parameter (Chapter 13), and in the other positions that a later chapter names explicitly.
+A string literal is not a general expression primary. It is admitted in exactly these positions, each with a bounded-string destination:
+
+- a static initializer, and the initializer of a local of string type (Chapter 8);
+- the right side of an assignment to a bounded string, which sets its bytes and length (Chapter 10, Section 10.4);
+- an argument for a read-only `string[]` parameter (Chapter 13); and
+- a `new` argument for a field of string type (Section 9.13).
+
+In each, a literal longer than the destination's capacity is invalid. Anywhere else, including an argument for a `var` parameter or a scalar, it is invalid.
 
 ## 9.3 Precedence and associativity
 
