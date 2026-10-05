@@ -60,10 +60,11 @@ export function readLineStream(bytes: Uint8Array) {
     const tag = r.u8();
     if (tag === 0xff) break;
     if (tag === 0x01) {
-      if (blobs.length > 0) {
-        throw new ObjectError("L-FORMAT", "part record after blob lines");
-      }
+      // A part record may come anywhere before the first entry naming it.
       const index = r.u8();
+      if (index === 255 || parts[index] !== undefined) {
+        throw new ObjectError("L-FORMAT", `part record ${index}`);
+      }
       parts[index] = r.ascii(r.u8());
     } else if (tag === 0x02) {
       const ordinal = r.u16();
@@ -81,6 +82,9 @@ export function readLineStream(bytes: Uint8Array) {
         if (control & 0x80) part = r.u8();
         if (part === undefined) {
           throw new ObjectError("L-FORMAT", "first line entry has no part");
+        }
+        if (parts[part] === undefined) {
+          throw new ObjectError("L-FORMAT", `part ${part} is not yet named`);
         }
         entries.push({ offset, part, source: r.u16() });
         last = offset;

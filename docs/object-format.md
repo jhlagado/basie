@@ -471,9 +471,12 @@ line-stream = line-header part-record* blob-lines* line-trailer
 | Line trailer | tag `$FF`, CRC `u16` over every preceding byte |
 
 Part records name each source part with the name the compiler opened, such as
-`B:MAIN.BSI`. **All part records come first,** in part order, before any
-blob-lines record; the compiler knows every part from the command line before
-it compiles anything. Parts are numbered from 0; 255 is reserved.
+`B:MAIN.BSI`. A part record may come anywhere in the stream, but before the
+first entry that names its part. A single-pass compiler discovers parts only as
+it reads their `include` lines, and fixes a part's number once that part's own
+includes are loaded, before it compiles any of the part's declarations; it
+writes the part record then. Each part is named once. Parts are numbered from
+0; 255 is reserved.
 
 The compiler writes a blob-lines record for each `code` blob at the same time as
 the blob's directory record, so blob-lines records are in directory order.
