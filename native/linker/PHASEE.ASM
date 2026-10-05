@@ -50,6 +50,29 @@ MTI:    EX      (SP),HL
         EX      (SP),HL
         RET
 
+; Start a line of the summary: CR LF, then the inline zero-terminated label
+; after the CALL, padded with spaces to 19 columns.
+MTL:    CALL    MTCRLF
+        EX      (SP),HL
+        LD      B,19
+.CH:    LD      A,(HL)
+        INC     HL
+        OR      A
+        JR      Z,.PAD
+        CALL    MTB
+        DEC     B
+        JR      .CH
+.PAD:   LD      A,' '
+        CALL    MTB
+        DJNZ    .PAD
+        EX      (SP),HL
+        RET
+
+; Two spaces, between the columns of a blob's row.
+MT2:    CALL    MTI
+        DB      "  ",0
+        RET
+
 MTCRLF: LD      A,13
         CALL    MTB
         LD      A,10
@@ -72,6 +95,13 @@ MTH4:   LD      A,H
 .H1:    CALL    HEXDIG
         JP      MTB
 
+; Write the unsigned value HL in decimal, unpadded.
+MTU0:   LD      B,0
+; Write the unsigned value HL in decimal, right-aligned in B columns.
+MTU16:  XOR     A
+        JR      MTDEC
+; Write A:HL, below, unpadded.
+MTD0:   LD      B,0
 ; Write the 24-bit two's-complement value A:HL in decimal, right-aligned in
 ; B columns (0: no padding). Preserves IX.
 MTDEC:  PUSH    IX
@@ -175,9 +205,6 @@ MTDEC0: PUSH    BC
         DB      $0A,$00,$00     ; 10
         DB      0,0,0
 
-; Write the unsigned value HL in decimal, right-aligned in B columns.
-MTU16:  XOR     A
-        JP      MTDEC
 
 ; Write the kind name of kind A, padded to 7 characters.
 MTKIND: LD      L,A
@@ -487,34 +514,30 @@ SUMMARY:
         INC     HL
         DJNZ    .NAME
 .NAMED: CALL    MTCRLF
-        CALL    MTCRLF
-        CALL    MTI
-        DB      "Library            ",0
+        CALL    MTL
+        DB      "Library",0
         LD      HL,LIB_TXT
         CALL    MTS
-        CALL    MTCRLF
-        CALL    MTI
-        DB      "Runtime, profile   ",0
+        CALL    MTL
+        DB      "Runtime, profile",0
         LD      HL,(LIBH+6)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         CALL    MTI
         DB      ", ",0
         LD      HL,(LIBH+10)
-        LD      B,0
-        CALL    MTU16
-        CALL    MTCRLF
-        CALL    MTI
-        DB      "Output             .",0
+        CALL    MTU0
+        CALL    MTL
+        DB      "Output",0
+        LD      A,'.'
+        CALL    MTB
         LD      HL,O_OTYP
         LD      B,3
 .TYPE:  LD      A,(HL)
         CALL    MTB
         INC     HL
         DJNZ    .TYPE
-        CALL    MTCRLF
-        CALL    MTI
-        DB      "Image              ",0
+        CALL    MTL
+        DB      "Image",0
         LD      HL,(PR_BASE)
         CALL    MTHEX4
         CALL    MTI
@@ -527,42 +550,38 @@ SUMMARY:
         LD      DE,(PR_BASE)
         OR      A
         SBC     HL,DE
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         CALL    MTI
-        DB      " bytes",13,10
-        DB      "BSS                ",0
+        DB      " bytes",0
+        CALL    MTL
+        DB      "BSS",0
         LD      HL,(PSEUDO+8)
         CALL    MTHEX4
         CALL    MTI
         DB      ", ",0
         LD      HL,(PSEUDO+10)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         CALL    MTI
-        DB      " bytes",13,10
-        DB      "Stack reserve      ",0
+        DB      " bytes",0
+        CALL    MTL
+        DB      "Stack reserve",0
         LD      HL,(RESERVE)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         CALL    MTI
         DB      " bytes; largest frame ",0
         LD      HL,(LIMITS+2)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         LD      A,(LIMITS+4)
         AND     1
         JR      Z,.NOREC
         CALL    MTI
         DB      "; recursion present",0
-.NOREC: CALL    MTCRLF
-        CALL    MTI
-        DB      "Required top       ",0
+.NOREC: CALL    MTL
+        DB      "Required top",0
         CALL    REQUIRED        ; A:HL
         CALL    MTHEX4          ; its low 16 bits, as the reference prints
-        CALL    MTCRLF
-        CALL    MTI
-        DB      "Image limit        ",0
+        CALL    MTL
+        DB      "Image limit",0
         LD      HL,(PR_LIMIT)
         CALL    MTHEX4
         CALL    MTI
@@ -572,29 +591,26 @@ SUMMARY:
         XOR     A
         SBC     HL,DE
         SBC     A,0
-        LD      B,0
-        CALL    MTDEC
-        CALL    MTCRLF
-        CALL    MTI
-        DB      "Nominal top        ",0
+        CALL    MTD0
+        CALL    MTL
+        DB      "Nominal top",0
         LD      HL,(PR_TOP)
         CALL    MTHEX4
         CALL    MTI
         DB      ", margin ",0
         LD      HL,(PR_TOP)     ; nominal top - required, 24-bit
         CALL    .MINUSREQ
-        LD      B,0
-        CALL    MTDEC
-        CALL    MTCRLF
+        CALL    MTD0
+        CALL    MTL
+        DB      "Under a debugger",0
         CALL    MTI
-        DB      "Under a debugger   margin ",0
+        DB      "margin ",0
         LD      HL,(PR_TOP)
         LD      DE,(PROF+18)    ; the debugger margin
         OR      A
         SBC     HL,DE
         CALL    .MINUSREQ
-        LD      B,0
-        CALL    MTDEC
+        CALL    MTD0
         CALL    MTCRLF
         JP      MTCRLF
 ; A:HL = HL - REQUIRED, as a 24-bit signed value.
@@ -637,29 +653,25 @@ MAPLIVE:
         LD      (REP_FD),HL
         LD      HL,(MP_ADDR)
         CALL    MTHEX4
-        CALL    MTI
-        DB      "  ",0
+        CALL    MT2
         LD      HL,(D_SIZE)
         LD      B,5
         CALL    MTU16
-        CALL    MTI
-        DB      "  ",0
+        CALL    MT2
         LD      A,(WK_KIND)
         CALL    MTKIND
-        CALL    MTI
-        DB      "  ",0
+        CALL    MT2
         LD      HL,(MP_ADDR)    ; the padding paid
         LD      DE,(PREVEND)
         OR      A
         SBC     HL,DE
         LD      B,3
         CALL    MTU16
-        CALL    MTI
-        DB      "  ",0
+        CALL    MT2
         LD      HL,(D_PREV)
         CALL    MTHEX4
-        CALL    MTI
-        DB      "    ",0
+        CALL    MT2
+        CALL    MT2
         LD      HL,NAMEBUF
         CALL    MTS
         CALL    MTCRLF
@@ -822,23 +834,19 @@ REMOVED:
         DB      13,10,"TOTALS",13,10
         DB      "Program   kept ",0
         LD      HL,(TOT_PK)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         CALL    MTI
         DB      ", removed ",0
         LD      HL,(TOT_PR)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         CALL    MTI
         DB      13,10,"Library   kept ",0
         LD      HL,(TOT_LK)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         CALL    MTI
         DB      ", removed ",0
         LD      HL,(TOT_LR)
-        LD      B,0
-        CALL    MTU16
+        CALL    MTU0
         JP      MTCRLF
 
 TOT_LK: DW      0
@@ -877,17 +885,14 @@ MAPDEAD:
         JP      NZ,REFSKIP
         LD      HL,(D_PREV)
         CALL    MTHEX4
-        CALL    MTI
-        DB      "  ",0
+        CALL    MT2
         LD      HL,(D_SIZE)
         LD      B,5
         CALL    MTU16
-        CALL    MTI
-        DB      "  ",0
+        CALL    MT2
         LD      A,(WK_KIND)
         CALL    MTKIND
-        CALL    MTI
-        DB      "  ",0
+        CALL    MT2
         LD      HL,NAMEBUF
         CALL    MTS
         CALL    MTCRLF
