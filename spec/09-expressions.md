@@ -90,7 +90,7 @@ A conversion is written with the target type's name: `u8(x)`, `i8(x)`, `u16(x)`,
 
 - if the conversion is an implicit widening (Chapter 6, Section 6.4), or the identity, produces the same value in the target type;
 - between integer types otherwise, produces the same value if the target type can represent it, and otherwise traps with `narrowing`;
-- from an integer type to `f32`, rounds `u32` and `i32` values to nearest, ties to even, and is exact for the others;
+- from an integer type to `f32`, rounds `u32` and `i32` values to nearest, ties to even, and is exact for the others; an exact operand is rounded the same way, so `f32(16777217)` is 16777216;
 - from `f32` to an integer type, truncates toward zero, and traps with `narrowing` if the truncated value does not fit.
 
 A conversion whose operand is known during compilation and does not fit is diagnosed instead of generating a guaranteed trap. Conversions never extract low bytes, reduce modulo a width, or reinterpret bits. There is no conversion to or from `boolean`, between handles and integers, or between aggregate types.

@@ -55,8 +55,8 @@ fixes it names the finding, as B1, A3 and so on).
 | B8 | major (closed) | Exact operands of `not`, `shl`, `shr` and bitwise operators: 9.7 and 9.10 conflict; the compiler rejects `var x as u8 = 1 shl 3`. | Define them from the context type |
 | B9 | major (closed) | 8.10 says literals have no definite type, but 9.7 types `true`, characters, floats and comparisons, and the compiler accepts `var f = true`. | Restrict 8.10 to exact integers |
 | B10 | major | Character literals are exact in one place and `u8` in another; substituting a constant for its literal changes validity. | One rule, stated once |
-| B11 | major | `var f as f32 = 16777217` is accepted and rounds silently, though an exact integer adopts `f32` only when representable. | Reject; define `f32(...)` on exact operands |
-| B12 | major | Exact arithmetic is done in host doubles: intermediates outside the range are neither rejected nor exact. | Check every intermediate |
+| B11 | major (closed) | `var f as f32 = 16777217` is accepted and rounds silently, though an exact integer adopts `f32` only when representable. | Reject; define `f32(...)` on exact operands |
+| B12 | major (closed) | Exact arithmetic is done in host doubles: intermediates outside the range are neither rejected nor exact. | Check every intermediate |
 | B13 | major (closed) | "Parameters without `var` are read-only, except scalar parameters" excludes handle parameters, which `move n` needs. | Add handle parameters |
 | B14 | major (closed) | Open views (`string[]`, `T[]`) are accepted as local initializers and results, and then crash the compiler. | Diagnose them |
 | B15 | major | String literals: chapter 9 admits them only in initializers and read-only arguments, chapter 17 in every argument; the compiler also accepts `s = "abc"` and literals in `new`. | Name every position |

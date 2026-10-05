@@ -1,0 +1,9 @@
+// Every exact intermediate must lie in -2147483648 to 4294967295, even when
+// the final value would (8.6; review finding B12).
+// spec: 8.6
+// expect error: out-of-range at 6:11
+
+const X = 4294967295 * 4294967295 - 4294967295 * 4294967294 - 2
+
+sub main()
+end

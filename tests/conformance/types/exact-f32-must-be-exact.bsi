@@ -1,0 +1,9 @@
+// An exact integer adopts f32 only when exactly representable; f32(...)
+// converts with rounding instead (6.4, 9.6; review finding B11).
+// spec: 6.4, 9.6
+// expect error: out-of-range at 8:20
+
+sub main()
+    var ok as f32 = f32(16777217)
+    var f as f32 = 16777217
+end

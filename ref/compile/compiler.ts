@@ -855,6 +855,11 @@ export class Compiler {
     if (!fits(v.value, to.name)) {
       fail("out-of-range", at, `${v.value} doesn't fit ${to.name}`);
     }
+    if (to.name === "f32" && Math.fround(v.value) !== v.value) {
+      // An exact integer adopts f32 only when exactly representable (6.4);
+      // f32(...) converts with rounding instead.
+      fail("out-of-range", at, `${v.value} isn't exactly an f32: convert it`);
+    }
     return { kind: "const", type: to, value: v.value };
   }
 
@@ -5070,7 +5075,31 @@ export class Compiler {
     return t.kind === "name" && this.scopes.lookup(t.text)?.kind === "const";
   }
 
+  /**
+   * Fold an exact operation. Every exact result, final or intermediate, must
+   * lie in -2^31 to 2^32 - 1 (8.6); within that range doubles are exact.
+   */
   private foldExact(op: string, a: number, b: number, at: Token): Value {
+    const v = this.foldExactRaw(op, a, b, at);
+    if (
+      typeof v.value === "number" &&
+      (v.value < -2147483648 || v.value > 4294967295)
+    ) {
+      fail(
+        "out-of-range",
+        at,
+        "an exact value outside -2147483648 to 4294967295",
+      );
+    }
+    return v;
+  }
+
+  private foldExactRaw(
+    op: string,
+    a: number,
+    b: number,
+    at: Token,
+  ): Value & { kind: "const" } {
     switch (op) {
       case "+":
         return { kind: "const", value: a + b };
