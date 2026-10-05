@@ -1,57 +1,41 @@
-; Writable state for the direct-Z80 counted-loop proof target.
+;==========================================================================
+;  Nucleus runtime state
+;==========================================================================
+;
+;  The layout of the runtime's writable state, which follows its jump
+;  vectors in the target's writable memory (RTIDENT.ASM). Generated code
+;  reads and writes these bytes by absolute address: a generator passes
+;  NAME-RT_BASE to TG_VAR, which adds the state base of the linked target,
+;  so RT_BASE's own value is only an origin for the offsets.
+;
+;    +$00 RT_RUN    run state: RT_OK or RT_TRAP once the program ends
+;    +$01 RT_TNUM   trap number
+;    +$02 RT_TSUB   routine that trapped
+;    +$03 RT_TPOS   source offset of the trap (word)
+;    +$05 RT_TERR   unhandled error code
+;    +$06 RT_DEPTH  active routine count, checked by RT_CLAIM
+;    +$07           activation limit, read only by the runtime
+;    +$08           scalar slot, unused by this compiler
+;    +$09 RT_ARENA  activation arena, RT_ACAP bytes
+;    +$11 RT_SP     stack pointer saved before main allocates its frame
+;    +$13 RT_IX     frame pointer saved with it
+;    +$15           far-return arena, sixteen bytes, to RT_SLEN
+;
+;  The startup's terminal dispatch (TG_BOOT) and the trap sites (EM_TRAP,
+;  EM_STOP, EM_STRAY) write the run state and trap record; GX_SAVE and
+;  GX_RESET emit the saves and restores of RT_SP and RT_IX.
 
-RT_BASE EQU  MM_XBASE
-RT_RUN EQU  RT_BASE+$00
-RT_TNUM EQU  RT_BASE+$01
-RT_TSUB EQU  RT_BASE+$02
-RT_TPOS EQU  RT_BASE+$03
-RT_TERR EQU  RT_BASE+$05
-RT_DEPTH EQU  RT_BASE+$06
-RT_LIMIT EQU  RT_BASE+$07
-RT_SLOT EQU  RT_BASE+$08
-RT_ARENA EQU  RT_BASE+$09
-RT_ACAP EQU  8
-RT_SP EQU  RT_ARENA+RT_ACAP
-RT_IX EQU  RT_SP+2
-RT_END EQU  RT_IX+2
+RT_BASE EQU  MM_XBASE              ; Origin of the offsets below.
+RT_RUN EQU  RT_BASE+$00            ; Run state byte.
+RT_TNUM EQU  RT_BASE+$01           ; Trap number byte.
+RT_TSUB EQU  RT_BASE+$02           ; Trapping routine byte.
+RT_TPOS EQU  RT_BASE+$03           ; Trap source offset word.
+RT_TERR EQU  RT_BASE+$05           ; Unhandled error code byte.
+RT_DEPTH EQU  RT_BASE+$06          ; Active routine count byte.
+RT_ARENA EQU  RT_BASE+$09          ; Activation arena.
+RT_ACAP EQU  8                     ; Bytes in the activation arena.
+RT_SP EQU  RT_ARENA+RT_ACAP        ; Saved root stack pointer word.
+RT_IX EQU  RT_SP+2                 ; Saved root frame pointer word.
 
-RT_READY EQU  1
-RT_OK EQU  2
-RT_TRAP EQU  3
-
-RT_IOERR EQU  MM_IO+$00
-RT_IOCNT EQU  MM_IO+$01
-RT_WLEN EQU  MM_IO+$02
-RT_WBUF EQU  MM_IO+$03
-RT_WCAP EQU  4
-RT_RLEN EQU  MM_IO+$07
-RT_RPOS EQU  MM_IO+$08
-RT_RERR EQU  MM_IO+$09
-RT_RBUF EQU  MM_IO+$0A
-RT_RCAP EQU  4
-RT_DRLEN EQU  MM_IO+$0E
-RT_DRPOS EQU  MM_IO+$0F
-RT_DRERR EQU  MM_IO+$10
-RT_DRBUF EQU  MM_IO+$11
-RT_DRCAP EQU  4
-RT_DWLEN EQU  MM_IO+$15
-RT_DWPOS EQU  MM_IO+$16
-RT_DWERR EQU  MM_IO+$17
-RT_DWBUF EQU  MM_IO+$18
-RT_DWCAP EQU  4
-RT_IOEND EQU  RT_DWBUF+RT_DWCAP
-
-RT_LSIZE EQU  54
-RT_LFAIL EQU  30
-RT_LEND EQU  MM_GBASE+RT_LSIZE
-
-RT_ASIZE EQU  74
-RT_AIERR EQU  0
-RT_AIDX EQU  10
-RT_AOERR EQU  22
-RT_AEND EQU  MM_GBASE+RT_ASIZE
-
-RT_CSIZE EQU  99
-RT_CFAIL EQU  95
-RT_CCAP EQU  203
-RT_CEND EQU  MM_GBASE+RT_CSIZE
+RT_OK EQU  2                       ; Run state: the program succeeded.
+RT_TRAP EQU  3                     ; Run state: the program trapped.
