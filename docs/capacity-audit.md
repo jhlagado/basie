@@ -510,6 +510,7 @@ comes from its method.
 | Recursion depth | memory; each cycle passes a checked forward-declared routine | confirmed |
 | Stack reserve | `need(main)` + guard band, raised by `STACK=` | confirmed |
 | Guard band | profile value, 64 bytes in `CPM22` | confirmed |
+| Helper stack figures | computed per helper by `tools/stack.ts`; the largest ending path is 26 bytes, within the guard band ([helper table](helper-table.md)) | confirmed; a test checks every ending path against the guard band and every measured figure against the computed one |
 | Nucleus | `ActivationCapacity` = 8, a fixed activation-depth limit | must not be inherited |
 
 No conservative estimate here may become a language restriction. `need(R)` is

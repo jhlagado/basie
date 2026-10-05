@@ -517,7 +517,9 @@ need(R) = frame(R) + helperStack(R)
 ```
 
 `helperStack(R)` comes from the stack figures published for each runtime
-helper.
+helper in the [helper table](helper-table.md). Those figures are computed from
+the helpers' code, so a hand estimate can't understate them: the first
+computation found writeText using 24 bytes where 8 had been assumed.
 
 `frame(R)` is the largest total of locals and temporaries live at any one point
 in `R`: blocks nested inside one another add up, while blocks side by side share

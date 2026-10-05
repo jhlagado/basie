@@ -13,8 +13,22 @@ export type Outcome =
   | { status: "pending"; reason: string }
   | { status: "fail"; reason: string };
 
-/** Run one test's source against its expectations. */
-export async function runTest(path: string, source: string): Promise<Outcome> {
+/** Stack bytes by ordinal: returning calls, and calls that ended the run. */
+export type StackUse = {
+  returning: Map<number, number>;
+  ending: Map<number, number>;
+};
+
+/**
+ * Run one test's source against its expectations. With `stackUse`, every
+ * runtime blob the program calls is probed, and the most stack bytes one call
+ * to it used is merged in by ordinal.
+ */
+export async function runTest(
+  path: string,
+  source: string,
+  stackUse?: StackUse,
+): Promise<Outcome> {
   const expected = parseExpectations(source);
   let result;
   try {
@@ -69,13 +83,26 @@ export async function runTest(path: string, source: string): Promise<Outcome> {
   if (expected.error || expected.linkError) {
     return { status: "fail", reason: "compiled, but a failure was expected" };
   }
-  return compare(expected, result.com, result.lineTable);
+  let probes: Map<number, number> | undefined;
+  if (stackUse) {
+    probes = new Map();
+    for (const [ordinal, address] of result.addresses) {
+      if (ordinal < 0x400) probes.set(address, ordinal);
+    }
+  }
+  return compare(expected, result.com, result.lineTable, probes, stackUse);
+}
+
+function merge(into: Map<number, number>, from: Map<number, number>) {
+  for (const [k, v] of from) into.set(k, Math.max(into.get(k) ?? 0, v));
 }
 
 function compare(
   expected: Expectations,
   com: Uint8Array,
   lineTable?: Uint8Array,
+  probes?: Map<number, number>,
+  stackUse?: StackUse,
 ): Outcome {
   let run;
   try {
@@ -83,7 +110,12 @@ function compare(
       input: expected.input,
       tail: expected.tail,
       files: expected.files,
+      probes,
     });
+    if (stackUse) {
+      merge(stackUse.returning, run.stackUse);
+      merge(stackUse.ending, run.endingStackUse);
+    }
   } catch (e) {
     return {
       status: "fail",

@@ -28,6 +28,10 @@ export type CpmRun = {
   returnCode: number | undefined;
   /** The disk after the run: file name to contents. */
   disk: Map<string, Uint8Array>;
+  /** For each probed key, the most stack bytes one returning call used. */
+  stackUse: Map<number, number>;
+  /** The same for calls that never returned: a trap or an exit. */
+  endingStackUse: Map<number, number>;
 };
 
 export type CpmOptions = {
@@ -40,7 +44,15 @@ export type CpmOptions = {
   maxSteps?: number;
   /** Drives (0 for A) that BDOS 29 reports read-only. */
   readOnlyDrives?: number[];
+  /**
+   * Entry addresses to measure, mapped to a key. Each CALL to one records the
+   * bytes the call used below the stack pointer it was made with: the return
+   * address and everything the routine pushed, its own calls included.
+   */
+  probes?: Map<number, number>;
 };
+
+const CALLS = new Set([0xcd, 0xc4, 0xcc, 0xd4, 0xdc, 0xe4, 0xec, 0xf4, 0xfc]);
 
 /** Assemble an ATOM source file and return its image. */
 export async function assembleFile(path: string) {
@@ -110,8 +122,17 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
   let search: string[] = [];
   let drive = 0;
   let user = 0;
+  const probes = options.probes;
+  const stackUse = new Map<number, number>();
+  const endingStackUse = new Map<number, number>();
+  type Probe = { key: number; sp: number; low: number; ret: number };
+  const active: Probe[] = [];
+  let lastPc = -1;
+  const retire = (a: Probe, into = stackUse) =>
+    into.set(a.key, Math.max(into.get(a.key) ?? 0, a.sp + 2 - a.low));
 
   for (let steps = 0; steps < maxSteps; steps += 1) {
+    if (probes) probe();
     if (cpu.pc === 0x0000 || cpu.pc === 0xff03) {
       return finish("warm-boot", steps);
     }
@@ -121,6 +142,7 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
       const lo = mem[cpu.sp], hi = mem[(cpu.sp + 1) & 0xffff];
       cpu.sp = (cpu.sp + 2) & 0xffff;
       cpu.pc = lo | (hi << 8);
+      lastPc = -1;
       continue;
     }
     cycles += runtime.step().cycles ?? 0;
@@ -132,7 +154,39 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
   );
 
   function finish(exit: CpmRun["exit"], steps: number): CpmRun {
-    return { output, exit, steps, cycles, returnCode, disk };
+    for (const a of active) retire(a, endingStackUse);
+    return {
+      output,
+      exit,
+      steps,
+      cycles,
+      returnCode,
+      disk,
+      stackUse,
+      endingStackUse,
+    };
+  }
+
+  /**
+   * Before each instruction: retire the probes whose calls have returned (to
+   * their return address, with the stack above the call's), deepen the rest,
+   * and start one at a probed entry reached by a CALL.
+   */
+  function probe() {
+    const sp = cpu.sp, pc = cpu.pc;
+    for (let k = active.length - 1; k >= 0; k -= 1) {
+      if (pc === active[k].ret && sp > active[k].sp) {
+        while (active.length > k) retire(active.pop()!);
+        break;
+      }
+    }
+    for (const a of active) if (sp < a.low) a.low = sp;
+    const key = probes!.get(pc);
+    if (
+      key !== undefined && lastPc >= 0 && CALLS.has(mem[lastPc]) &&
+      (mem[sp] | (mem[(sp + 1) & 0xffff] << 8)) === lastPc + 3
+    ) active.push({ key, sp, low: sp, ret: lastPc + 3 });
+    lastPc = pc;
   }
 
   function result(value: number) {

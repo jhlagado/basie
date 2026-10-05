@@ -35,6 +35,12 @@ import { crc16 } from "../ref/object/crc.ts";
 import { type Profile, writeLibrary } from "../ref/object/library.ts";
 import { writeNameStream } from "../ref/object/streams.ts";
 import {
+  analyzeStack,
+  type StackBlob,
+  StackError,
+  type StackFigure,
+} from "./stack.ts";
+import {
   type BlobRecord,
   Form,
   Kind,
@@ -52,6 +58,10 @@ type BlobSource = {
   align: number;
   helper?: number;
   since: number;
+  /** A stated stack figure (tools/stack.ts), for code it can't follow. */
+  stack?: number;
+  /** Where the blob's indirect jump goes (tools/stack.ts). */
+  indirect?: string;
   text: string;
 };
 
@@ -184,6 +194,8 @@ export function parseSource(source: string): Parsed {
         align,
         helper: kv.helper === undefined ? undefined : number(kv.helper),
         since: number(kv.since ?? "1"),
+        stack: kv.stack === undefined ? undefined : number(kv.stack),
+        indirect: kv.indirect,
         text: "",
       });
       (blobs.at(-1) as BlobSource & { lines: string[] }).lines = current;
@@ -291,10 +303,25 @@ async function assemble(dir: string, file: string, parts: string[]) {
   return { at, symbols };
 }
 
+/** One row of the published helper table (object format §10). */
+export type HelperRow = {
+  ordinal: number;
+  name: string;
+  kind: KindCode;
+  convention: number;
+  since: number;
+  size: number;
+} & StackFigure;
+
 export type BuiltLibrary = {
   file: Uint8Array;
   names: Map<number, string>;
   helperKeys: number[];
+  helperVersion: number;
+  /** Every helper, in ordinal order, with its size and stack figures. */
+  helpers: HelperRow[];
+  /** The stack figures of every code blob, helper or not, by ordinal. */
+  stack: Map<number, StackFigure>;
 };
 
 /** Inline `; @include FILE` lines, relative to `dir`. */
@@ -340,6 +367,7 @@ export async function buildLibrary(
   const records: BlobRecord[] = [];
   const bytes: number[] = [];
   const names = new Map<number, string>();
+  const stackBlobs: StackBlob[] = [];
   p.blobs.forEach((blob, i) => {
     const end = `Z__${(i + 1).toString(16).padStart(3, "0")}`;
     const startA = sym(a, blob.name);
@@ -397,6 +425,21 @@ export async function buildLibrary(
       own.push(0, 0);
       o += 1;
     }
+    if (blob.kind === Kind.code) {
+      stackBlobs.push({
+        ordinal: blob.ordinal,
+        name: blob.name,
+        bytes: own,
+        references: new Map(
+          references.map((r) => [r.offset, {
+            target: r.target,
+            addend: r.addend,
+          }]),
+        ),
+        stack: blob.stack,
+        indirect: blob.indirect,
+      });
+    }
     if (blob.kind !== Kind.bss) bytes.push(...own);
     else if (own.some((x) => x !== 0)) {
       throw new BrlError(`${blob.name}: a bss blob holds no bytes`);
@@ -413,6 +456,30 @@ export async function buildLibrary(
     names.set(blob.ordinal, blob.name);
   });
   const helperKeys = interfaceKeys(p);
+  let figures: Map<number, StackFigure>;
+  try {
+    figures = analyzeStack(stackBlobs);
+  } catch (e) {
+    if (e instanceof StackError) throw new BrlError(e.message);
+    throw e;
+  }
+  const helpers: HelperRow[] = p.blobs
+    .filter((b) => b.helper !== undefined)
+    .sort((x, y) => x.ordinal - y.ordinal)
+    .map((b) => {
+      const f = figures.get(b.ordinal);
+      if (!f) throw new BrlError(`${b.name}: a helper must be code`);
+      return {
+        ordinal: b.ordinal,
+        name: b.name,
+        kind: b.kind,
+        convention: b.helper!,
+        since: b.since,
+        size: records.find((r) => r.type === "blob" && r.ordinal === b.ordinal)!
+          .size,
+        ...f,
+      };
+    });
   const file = writeLibrary({
     runtimeIdentity: p.runtimeIdentity,
     helperVersion: p.helperVersion,
@@ -426,7 +493,14 @@ export async function buildLibrary(
       [...names].map(([ordinal, name]) => ({ ordinal, name })),
     ),
   });
-  return { file, names, helperKeys };
+  return {
+    file,
+    names,
+    helperKeys,
+    helperVersion: p.helperVersion,
+    helpers,
+    stack: figures,
+  };
 }
 
 /**

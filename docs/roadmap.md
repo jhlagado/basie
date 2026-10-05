@@ -115,7 +115,7 @@ M5 starts alongside M4: each compiler step needs its helpers.
 | 53 | RT | Pools: allocation, `new?`, freeing with descriptors, the link test, generations, the cycle walk | | Tests including the reviews' programs |
 | 54 | RT | Stack checks, trap reporters, startup and exit, the `OPTIONS` word | | Startup tests under both harnesses |
 | 55 | RT | Services: console and printer, then files, then the command line and machine | `runtime/cpm22/services.asm` (done; 16 conformance programs in `services/`) | z80-services conformance vectors; CP/M harness tests |
-| 56 | RT | Publish every helper's size and stack figure in the helper table, with interface keys | Helper table | Linker compatibility tests |
+| 56 | RT | Publish every helper's size and stack figure in the helper table, with interface keys | [Helper table](helper-table.md), `tools/stack.ts`, `tools/helpertable.ts` (done; figures computed and checked by measurement) | Linker compatibility tests |
 | 57 | RT | Standard library in Basie: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/` | Library tests |
 | 58 | RT | Example programs: a text adventure, a file utility, a game with a pool | `examples/` | Run under the full harness |
 

@@ -1,21 +1,35 @@
 /**
- * The runtime's helper table, version 1: the ordinal and calling convention
- * of every helper and service in CPM22.BRL (object format §10). The
- * compiler carries this table; a test checks it against the runtime source.
+ * What the compiler knows of the runtime's helpers (object format §10). The
+ * ordinals, conventions and stack figures come from the generated helper
+ * table (helper-table.ts, from the runtime source); this module names the
+ * helpers the code generator calls and gives each service its Basie
+ * signature. A test checks the two agree.
  *
  * Conventions: 1 = a service with a Basie signature, called with arguments
  * on the stack; 2 = a register helper.
  */
+import { HELPER_KEYS, HELPER_TABLE, HELPER_VERSION } from "./helper-table.ts";
 
-export const HELPER_VERSION = 1;
+export { HELPER_KEYS, HELPER_TABLE, HELPER_VERSION };
 
-export type HelperEntry = {
+/** The interface key of the helper-table version the compiler is built for. */
+export const HELPER_KEY = HELPER_KEYS[HELPER_VERSION - 1];
+
+const FIGURES = new Map(HELPER_TABLE.map((h) => [h.ordinal, h]));
+
+/** The stack figure of a helper: bytes a returning call uses. */
+export function helperStack(ordinal: number): number {
+  const h = FIGURES.get(ordinal);
+  if (!h) throw new Error(`no helper at ordinal ${ordinal}`);
+  return h.stack;
+}
+
+export type ServiceEntry = {
   name: string;
   ordinal: number;
-  convention: 1 | 2;
-  /** For services: the Basie signature, parsed by the compiler. */
-  signature?: string;
-  /** Stack bytes the helper itself uses beyond its arguments. */
+  /** The Basie signature, parsed by the compiler. */
+  signature: string;
+  /** Stack bytes a returning call uses (the helper table's figure). */
   stack: number;
 };
 
@@ -90,119 +104,61 @@ export const TRAP_REPORTERS: Record<string, number> = {
   assertion: Helper.TRAP_ASSERTION,
 };
 
-/** Services, with the signatures the compiler predeclares (services.md). */
-export const SERVICES: HelperEntry[] = [
-  {
-    name: "writeText",
-    ordinal: 0x020,
-    convention: 1,
-    signature: "sub writeText(f as File, s as string[]) fails",
-    stack: 8,
-  },
-  {
-    name: "writeByte",
-    ordinal: 0x021,
-    convention: 1,
-    signature: "sub writeByte(f as File, b as u8) fails",
-    stack: 8,
-  },
-];
-
-/** [ordinal, signature, stack bytes] for every other service (services.md). */
-const MORE_SERVICES: [number, string, number][] = [
-  [0x022, "sub writeOutputByte(b as u8) fails", 8],
-  [0x06d, "sub readByte(f as File) as u8 fails", 24],
-  [0x06e, "sub readInputByte() as u8 fails", 12],
-  [0x06f, "sub readKey() as u8", 8],
-  [0x070, "sub keyReady() as boolean", 8],
-  [0x071, "sub readLine(f as File, var line as string[]) fails", 24],
-  [0x072, "sub openRead(name as string[], mode as u8) as File fails", 24],
-  [0x073, "sub openWrite(name as string[], mode as u8) as File fails", 24],
-  [0x074, "sub openAppend(name as string[], mode as u8) as File fails", 24],
-  [0x075, "sub openUpdate(name as string[]) as File fails", 24],
-  [0x076, "sub close(f as File) fails", 32],
-  [0x077, "sub abort(f as File)", 24],
-  [0x078, "sub flush(f as File) fails", 24],
+/** [ordinal, signature] for every service (services.md). */
+const SERVICE_SIGNATURES: [number, string][] = [
+  [0x020, "sub writeText(f as File, s as string[]) fails"],
+  [0x021, "sub writeByte(f as File, b as u8) fails"],
+  [0x022, "sub writeOutputByte(b as u8) fails"],
+  [0x06d, "sub readByte(f as File) as u8 fails"],
+  [0x06e, "sub readInputByte() as u8 fails"],
+  [0x06f, "sub readKey() as u8"],
+  [0x070, "sub keyReady() as boolean"],
+  [0x071, "sub readLine(f as File, var line as string[]) fails"],
+  [0x072, "sub openRead(name as string[], mode as u8) as File fails"],
+  [0x073, "sub openWrite(name as string[], mode as u8) as File fails"],
+  [0x074, "sub openAppend(name as string[], mode as u8) as File fails"],
+  [0x075, "sub openUpdate(name as string[]) as File fails"],
+  [0x076, "sub close(f as File) fails"],
+  [0x077, "sub abort(f as File)"],
+  [0x078, "sub flush(f as File) fails"],
   [
     0x079,
     "sub readBlock(f as File, var buf as u8[], count as u16) as u16 fails",
-    24,
   ],
-  [0x07a, "sub writeBlock(f as File, buf as u8[], count as u16) fails", 24],
-  [0x07b, "sub seek(f as File, position as u32) fails", 24],
-  [0x07c, "sub position(f as File) as u32 fails", 8],
-  [0x07d, "sub size(f as File) as u32 fails", 24],
-  [0x07e, "sub exists(name as string[]) as boolean fails", 16],
-  [0x07f, "sub delete(name as string[]) fails", 16],
-  [0x080, "sub rename(oldName as string[], newName as string[]) fails", 16],
+  [0x07a, "sub writeBlock(f as File, buf as u8[], count as u16) fails"],
+  [0x07b, "sub seek(f as File, position as u32) fails"],
+  [0x07c, "sub position(f as File) as u32 fails"],
+  [0x07d, "sub size(f as File) as u32 fails"],
+  [0x07e, "sub exists(name as string[]) as boolean fails"],
+  [0x07f, "sub delete(name as string[]) fails"],
+  [0x080, "sub rename(oldName as string[], newName as string[]) fails"],
   [
     0x081,
     "sub findFirst(pattern as string[], var name as string[]) as boolean fails",
-    16,
   ],
-  [0x082, "sub findNext(var name as string[]) as boolean fails", 16],
-  [0x084, "sub commandTail(var text as string[])", 4],
-  [0x085, "sub resetDisks()", 8],
-  [0x086, "sub resetDrive(drive as u8)", 8],
-  [0x087, "sub currentDrive() as u8", 8],
-  [0x088, "sub selectDrive(drive as u8) fails", 8],
-  [0x089, "sub currentUser() as u8", 8],
-  [0x08a, "sub setUser(user as u8) fails", 8],
-  [0x08b, "sub driveReadOnly(drive as u8) as boolean", 8],
-  [0x08c, "sub freeMemory() as u16", 4],
+  [0x082, "sub findNext(var name as string[]) as boolean fails"],
+  [0x084, "sub commandTail(var text as string[])"],
+  [0x085, "sub resetDisks()"],
+  [0x086, "sub resetDrive(drive as u8)"],
+  [0x087, "sub currentDrive() as u8"],
+  [0x088, "sub selectDrive(drive as u8) fails"],
+  [0x089, "sub currentUser() as u8"],
+  [0x08a, "sub setUser(user as u8) fails"],
+  [0x08b, "sub driveReadOnly(drive as u8) as boolean"],
+  [0x08c, "sub freeMemory() as u16"],
 ];
-for (const [ordinal, signature, stack] of MORE_SERVICES) {
-  const name = signature.match(/^sub (\w+)/)![1];
-  SERVICES.push({ name, ordinal, convention: 1, signature, stack });
-}
+
+/** Services, with the signatures the compiler predeclares (services.md). */
+export const SERVICES: ServiceEntry[] = SERVICE_SIGNATURES.map((
+  [ordinal, signature],
+) => ({
+  name: signature.match(/^sub (\w+)/)![1],
+  ordinal,
+  signature,
+  stack: helperStack(ordinal),
+}));
 export const NUCLEUS_SHORTHANDS = SERVICES.filter((x) =>
   x.name === "writeOutputByte" || x.name === "readInputByte"
-);
-
-export const REGISTER_HELPERS: HelperEntry[] = [
-  { name: "RETN", ordinal: Helper.RETN, convention: 2, stack: 4 },
-  { name: "STKCHK", ordinal: Helper.STKCHK, convention: 2, stack: 2 },
-  { name: "CONOUT", ordinal: Helper.CONOUT, convention: 2, stack: 8 },
-  { name: "MUL16", ordinal: Helper.MUL16, convention: 2, stack: 2 },
-  { name: "DIV16", ordinal: Helper.DIV16, convention: 2, stack: 2 },
-  { name: "DIV16S", ordinal: Helper.DIV16S, convention: 2, stack: 8 },
-  { name: "STR_SETL", ordinal: Helper.STR_SETL, convention: 2, stack: 4 },
-  { name: "POOL_TRY", ordinal: Helper.POOL_TRY, convention: 2, stack: 10 },
-  { name: "POOL_DEL", ordinal: Helper.POOL_DEL, convention: 2, stack: 8 },
-  { name: "OBJ_FREE", ordinal: Helper.OBJ_FREE, convention: 2, stack: 12 },
-  { name: "ID_CHK", ordinal: Helper.ID_CHK, convention: 2, stack: 4 },
-  { name: "ID_TEST", ordinal: Helper.ID_TEST, convention: 2, stack: 4 },
-  { name: "OWN_SET", ordinal: Helper.OWN_SET, convention: 2, stack: 14 },
-  { name: "OWN_SETC", ordinal: Helper.OWN_SETC, convention: 2, stack: 16 },
-  { name: "LINK0", ordinal: Helper.LINK0, convention: 2, stack: 4 },
-  { name: "ID_MAKE", ordinal: Helper.ID_MAKE, convention: 2, stack: 4 },
-  { name: "ADD32", ordinal: Helper.ADD32, convention: 2, stack: 6 },
-  { name: "SUB32", ordinal: Helper.SUB32, convention: 2, stack: 6 },
-  { name: "CMP32U", ordinal: Helper.CMP32U, convention: 2, stack: 8 },
-  { name: "CMP32S", ordinal: Helper.CMP32S, convention: 2, stack: 8 },
-  { name: "NEG32", ordinal: Helper.NEG32, convention: 2, stack: 2 },
-  { name: "MUL32", ordinal: Helper.MUL32, convention: 2, stack: 4 },
-  { name: "DIV32U", ordinal: Helper.DIV32U, convention: 2, stack: 4 },
-  { name: "DIV32S", ordinal: Helper.DIV32S, convention: 2, stack: 10 },
-  { name: "AND32", ordinal: Helper.AND32, convention: 2, stack: 6 },
-  { name: "OR32", ordinal: Helper.OR32, convention: 2, stack: 6 },
-  { name: "XOR32", ordinal: Helper.XOR32, convention: 2, stack: 6 },
-  { name: "SHL32", ordinal: Helper.SHL32, convention: 2, stack: 2 },
-  { name: "SHR32U", ordinal: Helper.SHR32U, convention: 2, stack: 2 },
-  { name: "SHR32S", ordinal: Helper.SHR32S, convention: 2, stack: 2 },
-  { name: "FADD", ordinal: Helper.FADD, convention: 2, stack: 12 },
-  { name: "FSUB", ordinal: Helper.FSUB, convention: 2, stack: 12 },
-  { name: "FMUL", ordinal: Helper.FMUL, convention: 2, stack: 12 },
-  { name: "FDIV", ordinal: Helper.FDIV, convention: 2, stack: 12 },
-  { name: "FCMP", ordinal: Helper.FCMP, convention: 2, stack: 10 },
-  { name: "I2F", ordinal: Helper.I2F, convention: 2, stack: 8 },
-  { name: "U2F", ordinal: Helper.U2F, convention: 2, stack: 8 },
-  { name: "F2I", ordinal: Helper.F2I, convention: 2, stack: 6 },
-  { name: "F2U", ordinal: Helper.F2U, convention: 2, stack: 6 },
-];
-
-export const HELPER_STACK: Record<number, number> = Object.fromEntries(
-  REGISTER_HELPERS.map((h) => [h.ordinal, h.stack]),
 );
 
 /** Predeclared constants (spec §16.2). */

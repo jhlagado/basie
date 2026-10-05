@@ -155,9 +155,14 @@ use and the largest `need` of the routines called.
 Helpers and services are library blobs reached by `CALL` with this same
 convention: arguments on the stack for services (they are ordinary Basie
 signatures), and in registers for arithmetic helpers, as the helper table
-states per helper. Each helper publishes its stack use. The table's interface
-key ([object format](object-format.md) §10) covers each helper's ordinal,
-kind and calling-convention code, so a change here changes the key.
+states per helper. Each helper publishes its stack use in the
+[helper table](helper-table.md): the figures are computed from the helper's
+code by a static analysis and checked against stack use measured under the
+corpus, never written by hand. The table's interface key
+([object format](object-format.md) §10) covers each helper's ordinal, kind
+and calling-convention code, so a change here changes the key. The compiler
+carries the table, generated from the runtime source, and writes its key
+into every program it compiles.
 
 ## 9. Why these choices
 

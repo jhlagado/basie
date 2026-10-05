@@ -524,7 +524,8 @@ helper, with its kind and calling convention. It is published as a generated
 source file that is compiled into the compiler, so the compiler knows each
 helper's ordinal without reading the library. The table is **append-only**: a
 new version may define ordinals in unused slots but never renumbers, removes or
-changes an existing one.
+changes an existing one. The `CPM22` runtime's table, with each helper's
+size and stack figures, is published as the [helper table](helper-table.md).
 
 **Interface key.** Each version of the helper table has a 16-bit key: the CRC of
 a canonical description of every helper defined in that version (ordinal, kind

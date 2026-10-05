@@ -248,11 +248,11 @@ function driver(table: Case[]): { records: unknown[]; bytes: Uint8Array } {
 }
 
 Deno.test("f32 helpers agree with IEEE single arithmetic", async () => {
-  const { library, keys } = await runtimeLibrary();
+  const library = await runtimeLibrary();
   const table = cases(12345, 400);
   const program = driver(table);
   const dir = {
-    header: defaultHeader({ helperKey: keys[0] }),
+    header: defaultHeader({ helperKey: library.keys[0] }),
     records: program.records as never,
     trailer: {
       blobCount: 2,

@@ -8,7 +8,7 @@ import { defaultHeader } from "../object/program.ts";
 import { buildLibrary } from "../../tools/brl.ts";
 import { Compiler, NotImplemented } from "./compiler.ts";
 import { CompileError } from "./diagnostics.ts";
-import { HELPER_VERSION } from "./helpers.ts";
+import { HELPER_KEY, HELPER_VERSION } from "./helpers.ts";
 import { messageNumber } from "./messages.ts";
 import { loadSource, type SourceOptions } from "./source.ts";
 
@@ -46,12 +46,9 @@ export type CompileOptions = SourceOptions & {
 };
 
 let cachedLibrary: Library | undefined;
-let cachedKeys: number[] | undefined;
 
 /** The CPM22 runtime library, built once from its source. */
-export async function runtimeLibrary(): Promise<
-  { library: Library; keys: number[] }
-> {
+export async function runtimeLibrary(): Promise<Library> {
   if (!cachedLibrary) {
     const root = new URL("../../", import.meta.url).pathname;
     const source = await Deno.readTextFile(`${root}runtime/cpm22/cpm22.asm`);
@@ -61,9 +58,8 @@ export async function runtimeLibrary(): Promise<
       `${root}runtime/cpm22`,
     );
     cachedLibrary = readLibrary(built.file);
-    cachedKeys = built.helperKeys;
   }
-  return { library: cachedLibrary, keys: cachedKeys! };
+  return cachedLibrary;
 }
 
 /** Compile and link one Basie program to a .COM image. */
@@ -71,9 +67,7 @@ export async function compile(
   mainPath: string,
   options: CompileOptions = {},
 ): Promise<CompileResult> {
-  const { library, keys } = options.library
-    ? { library: options.library, keys: options.library.keys }
-    : await runtimeLibrary();
+  const library = options.library ?? await runtimeLibrary();
   const root = new URL("../../", import.meta.url).pathname;
   const libraryDirs = options.libraryDirs ?? [`${root}lib`];
   let partNames: string[] = [];
@@ -97,7 +91,9 @@ export async function compile(
         stamp,
         runtimeIdentity: library.runtimeIdentity,
         helperVersion: HELPER_VERSION,
-        helperKey: keys[HELPER_VERSION - 1],
+        // The key of the table compiled into the compiler: the linker
+        // refuses a library whose key for this version differs.
+        helperKey: HELPER_KEY,
         profileIdentity: library.profileIdentity,
       }),
       records: program.records,

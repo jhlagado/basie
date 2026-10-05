@@ -12,11 +12,10 @@ import { Blob, dataBlob, JP_C, JP_NC, JP_NZ, JP_Z } from "./emit.ts";
 import {
   CONSOLE_FILE,
   Helper,
-  HELPER_STACK,
   HELPER_VERSION,
+  helperStack,
   PREDECLARED_CONSTANTS,
   PRINTER_FILE,
-  REGISTER_HELPERS,
   SERVICES,
   TRAP_REPORTERS,
 } from "./helpers.ts";
@@ -1105,7 +1104,10 @@ export class Compiler {
       blob.u8(0x2a); // LD HL,(need): the pair label marks need(R)
       blob.labelOperand(state.pairLabel);
       blob.callBlob(Helper.STKCHK);
-      state.helperStack = Math.max(state.helperStack, 2);
+      state.helperStack = Math.max(
+        state.helperStack,
+        helperStack(Helper.STKCHK),
+      );
     }
     blob.u8(0xdd, 0xe5); // PUSH IX
     blob.u8(0xdd, 0x21, 0, 0); // LD IX,0
@@ -1138,7 +1140,7 @@ export class Compiler {
       blob.u8(0xfd, 0x21); // LD IY,n
       blob.u16(argBytes);
       blob.jpBlob(Helper.RETN);
-      state.helperStack = Math.max(state.helperStack, 4);
+      state.helperStack = Math.max(state.helperStack, helperStack(Helper.RETN));
     }
     // The frame and need pair, then the literals.
     const frame = -state.deepest;
@@ -1203,7 +1205,7 @@ export class Compiler {
   private callHelper(ordinal: number): void {
     const r = this.routine!;
     r.blob.callBlob(ordinal);
-    r.helperStack = Math.max(r.helperStack, HELPER_STACK[ordinal] ?? 2);
+    r.helperStack = Math.max(r.helperStack, helperStack(ordinal));
   }
 
   private noteCall(callee: Symbol & { kind: "routine" }, at: Token): void {
@@ -2315,7 +2317,7 @@ export class Compiler {
           r.blob.abs16(Helper.POOL_DEL);
           r.helperStack = Math.max(
             r.helperStack,
-            HELPER_STACK[Helper.POOL_DEL],
+            helperStack(Helper.POOL_DEL),
           );
           r.blob.u8(0x21, 0, 0); // LD HL,0
           this.storeRegisters(U16, sym.storage);
@@ -3673,7 +3675,7 @@ export class Compiler {
       r.blob.u8(0x7c, 0xb5); // LD A,H; OR L
       r.blob.u8(0xc4); // CALL NZ,POOL_DEL
       r.blob.abs16(Helper.POOL_DEL);
-      r.helperStack = Math.max(r.helperStack, HELPER_STACK[Helper.POOL_DEL]);
+      r.helperStack = Math.max(r.helperStack, helperStack(Helper.POOL_DEL));
     }
   }
 
@@ -5346,5 +5348,5 @@ export function reporterOrdinal(reason: string): number {
   return TRAP_REPORTERS[reason];
 }
 
-export { CompileError, HELPER_VERSION, REGISTER_HELPERS };
+export { CompileError, HELPER_VERSION };
 void dataBlob;

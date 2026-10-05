@@ -93,7 +93,7 @@ STARTUP:
         RET                     ; still on the CCP's stack
 .MSG:   DB      "Not enough memory\r\n$"
 
-; @blob $002 code EXIT
+; @blob $002 code EXIT indirect=FL_END
 ; cpm-target §5. DE = return code. A program that opened files has set
 ; EXIT_HK, which closes them first (services §7): A = 0 after a normal
 ; return, $FF after a failure or a trap.
@@ -178,7 +178,7 @@ PUTS:   LD      A,(DE)
         INC     DE
         JR      PUTS
 
-; @blob $007 code CON_OUT helper=1
+; @blob $007 code CON_OUT helper=2 indirect=bios
 ; Write the byte in A to the console unchanged (services §3.1). BDOS 6 reads
 ; $FF as a request for input, so that byte goes to the BIOS's CON_OUT.
 ; Preserves HL.
@@ -208,7 +208,7 @@ TRAP_BND:
         JP      TRAP
 .WHY:   DB      "bounds$"
 
-; @blob $009 code RETN helper=2
+; @blob $009 code RETN helper=2 stack=2
 ; The shared epilogue (code generation §3). IY = bytes of arguments to drop.
 ; Preserves A, F, HL and DE: results and the failure flag.
 RETN:   EX      AF,AF'
