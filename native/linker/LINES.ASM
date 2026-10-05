@@ -143,6 +143,8 @@ LN_OPEN:
         XOR     A
         CALL    F_MAKE
         JP      C,DISKERR
+        LD      A,1
+        LD      (LT_MADE),A
         LD      HL,$FFFF
         LD      (LT_CRC),HL
         LD      HL,0

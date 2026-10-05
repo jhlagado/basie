@@ -1288,5 +1288,6 @@ DISKERR:
         LD      DE,(R_NAME)
         LD      (M_ARG1),DE
         CALL    ERROR
+        CALL    ABANDON
         LD      DE,RC_DISK
         JP      EXITRC

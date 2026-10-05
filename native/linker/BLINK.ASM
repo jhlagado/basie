@@ -7,6 +7,7 @@
 %INCLUDE "PHASEA.ASM"
 %INCLUDE "PHASECD.ASM"
 %INCLUDE "LINES.ASM"
+%INCLUDE "PUBLISH.ASM"
 
 ; BLINK: link a compiled Basie program (docs/linker.md; toolchain §5).
 ;
@@ -32,7 +33,9 @@ START:  LD      HL,(TOP)
         LD      HL,223          ; L-USAGE
         CALL    ERROR
         JR      FAILED
-.NAMED: CALL    OPENLIB
+.NAMED: LD      A,1             ; from here a failure cleans up (toolchain §6.2)
+        LD      (LINKING),A
+        CALL    OPENLIB
         JR      C,FAILED
         CALL    LIBHEAD
         JR      C,FAILED
@@ -49,11 +52,17 @@ START:  LD      HL,(TOP)
         CALL    NZ,DUMP
         CALL    PHASEC
         CALL    PHASED
+        CALL    PUBLISH
         LD      DE,RC_OK
         JP      EXITRC
 
-FAILED: LD      DE,RC_LINK
+FAILED: LD      A,(LINKING)
+        OR      A
+        CALL    NZ,ABANDON
+        LD      DE,RC_LINK
         JP      EXITRC
+
+LINKING: DB     0
 
 ; Open NAME.BRL: on the drive option L gives, else the first part's drive,
 ; then A: (toolchain §5.3). Carry after a diagnostic.

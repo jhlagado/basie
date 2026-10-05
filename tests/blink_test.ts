@@ -193,11 +193,11 @@ for (const path of PROGRAMS) {
       maxSteps: 100_000_000,
     });
     assertEquals(run.output, "");
-    const image = run.disk.get("PROG.$$$")!;
+    const image = run.disk.get("PROG.COM")!;
     assertEquals(image.length, result.com.length);
     assertEquals(image, result.com);
     // The line table, padded to whole records on the disk.
-    const table = run.disk.get("PROG.$LT")!;
+    const table = run.disk.get("PROG.LIN")!;
     assertEquals(table.subarray(0, result.lineTable!.length), result.lineTable);
   });
 }
@@ -214,6 +214,59 @@ Deno.test("with option N BLINK needs no line stream and writes no line table", (
     maxSteps: 100_000_000,
   });
   assertEquals(run.output, "");
-  assertEquals(run.disk.has("HELLO.$LT"), false);
-  assertEquals(run.disk.has("HELLO.$$$"), true);
+  assertEquals(run.disk.has("HELLO.LIN"), false);
+  assertEquals(run.disk.has("HELLO.COM"), true);
+});
+
+Deno.test("BLINK publishes: a backup, the line table, no intermediates", () => {
+  const files = {
+    "BASIE.MSG": MSG,
+    "CPM22.BRL": library,
+    "HELLO.$DR": HELLO_DR,
+    "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
+    "HELLO.COM": new Uint8Array(128).fill(0x76),
+    "HELLO.LIN": new Uint8Array(128).fill(1),
+  };
+  const opts = { maxSteps: 100_000_000 };
+  let run = runCom(blink, { tail: "HELLO", files, ...opts });
+  assertEquals(run.output, "");
+  assertEquals(run.disk.get("HELLO.COM"), hello.com);
+  assertEquals(run.disk.get("HELLO.BAK"), files["HELLO.COM"]);
+  assertEquals(
+    run.disk.get("HELLO.LIN")!.subarray(0, hello.lineTable!.length),
+    hello.lineTable,
+  );
+  for (const t of ["$DR", "$BY", "$LN", "$$$", "$LT"]) {
+    assertEquals(run.disk.has(`HELLO.${t}`), false, t);
+  }
+  // Z: no backup; K: the intermediates stay.
+  run = runCom(blink, { tail: "HELLO [Z,K]", files, ...opts });
+  assertEquals(run.disk.has("HELLO.BAK"), false);
+  assertEquals(run.disk.has("HELLO.$DR"), true);
+  // O=: another name and type.
+  run = runCom(blink, { tail: "HELLO [O=OTHER.COM]", files, ...opts });
+  assertEquals(run.disk.get("OTHER.COM"), hello.com);
+  assertEquals(run.disk.get("HELLO.COM"), files["HELLO.COM"]);
+});
+
+Deno.test("a failed link leaves the outputs and removes the temporaries", () => {
+  const noStamp = HELLO_DR.slice();
+  noStamp[6] = 0;
+  noStamp[7] = 0;
+  const files = {
+    "BASIE.MSG": MSG,
+    "CPM22.BRL": library,
+    "HELLO.$DR": noStamp,
+    "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
+    "HELLO.COM": new Uint8Array(128).fill(0x76),
+  };
+  const run = runCom(blink, { tail: "HELLO", files, maxSteps: 100_000_000 });
+  assertEquals(run.output, error(202));
+  assertEquals(run.disk.get("HELLO.COM"), files["HELLO.COM"]);
+  assertEquals(run.disk.has("HELLO.$DR"), false);
+  // A mistyped option is not a link: nothing is deleted.
+  const typo = runCom(blink, { tail: "HELLO [Q]", files });
+  assertEquals(typo.disk.has("HELLO.$DR"), true);
 });

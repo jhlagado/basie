@@ -522,6 +522,8 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         XOR     A               ; .COM: the last record padded with zeros
         CALL    F_MAKE
         JP      C,DISKERR
+        LD      A,1
+        LD      (OUT_MADE),A
         ; the library's byte section, through a second FD
         LD      IX,LIBB_FD
         LD      A,(O_LDRV)
