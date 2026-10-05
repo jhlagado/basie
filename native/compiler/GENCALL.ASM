@@ -72,6 +72,8 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     XOR  A                         ; Kind code, no root flag, no alignment.
     CALL BL_BEGIN                  ; Start the blob.
     CALL EM_OPEN                   ; No frame, temporaries or labels yet.
+    XOR  A                         ; No string literals
+    LD   (RO_LCNT),A               ; either.
     LD   A,(SRC_ID)                ; The part, counted from one,
     DEC  A                         ; is the line stream's part, from zero.
     LD   HL,(AC_DPOS+2)            ; The line of the routine's name.
@@ -169,6 +171,7 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     ADD  HL,DE                     ; return address.
     PUSH HL                        ; Keep it to return.
     CALL EM_WORD                   ; The need word.
+    CALL GA_LITS                   ; The string literals follow it.
     CALL BL_END                    ; Write the blob.
     LD   HL,(BL_ORD)               ; Its ordinal.
     LD   DE,(RG_NAME)              ; Its name,

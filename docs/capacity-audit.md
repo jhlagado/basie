@@ -271,7 +271,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   (`EM_LCAP`): from 65.4 (f) each control statement frees its labels when it
   ends and `and` and `or` theirs when they join, so the bound is nesting, not
   routine length; and on the routine's encoded references, 512 bytes
-  (`BL_RCAP`).
+  (`BL_RCAP`). A string literal's operand is chained the same way, through
+  an entry of the routine's literal table, 16 of six bytes (`RO_LCAP`,
+  `DG_LITS` beyond), which places each literal after the need word.
 
 ### 3.5 Routine code buffer
 
@@ -303,7 +305,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 - **Maximum:** ref: memory. Native: TBD. Nucleus: `AggregateTypeCapacity` = 8
   interned aggregate types, `AggregateRecordCapacity` = 5,
   `AggregateFieldCapacity` = 12 fields in total; type-metadata capacity has its
-  own diagnostic.
+  own diagnostic. At 65.4 (h) the native compiler holds 24 types
+  (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all (`AG_FCAP`),
+  `DG_META` beyond ([limits](limits.md) §5.1).
 - **Dimensions:** distinct types, nesting of arrays of arrays (D32), records,
   pools and handle types, interned descriptor count, bytes per descriptor.
   Ownership descriptors for owning types also go to `rodata` (memory safety
@@ -578,9 +582,9 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 | `Stage7RoutineCapacity` | 4 | §3.25. At 65.4 (e), 32 records of twelve bytes (`RO_RCAP`) holding each routine's ordinal, need and argument bytes |
 | `Stage7ParameterCapacity` | 16 (program-wide) | §3.3: at least 32 per routine. At 65.4 (e), 64 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine |
 | `Stage7CallFrameCapacity` | 4 | §3.21: call nesting. At 65.4 (e) a call being parsed keeps its state on the machine stack; calls nest eight deep in arguments (`RO_NCAP`) |
-| `AggregateRecordCapacity` | 5 | §3.7, §3.26 |
-| `AggregateFieldCapacity` | 12 (in total) | §3.12: at least 64 per record |
-| `AggregateTypeCapacity` | 8 | §3.7 |
+| `AggregateRecordCapacity` | 5 | §3.7, §3.26. At 65.4 (h), 16 (`AG_RCAP`) |
+| `AggregateFieldCapacity` | 12 (in total) | §3.12: at least 64 per record. At 65.4 (h), 48 in all records together (`AG_FCAP`) |
+| `AggregateTypeCapacity` | 8 | §3.7. At 65.4 (h), 24 (`AG_TCAP`) |
 | `AggregateInitializerDepthCapacity` | 4 | §3.22: at least 32 |
 | `AggregateInitializerCapacity`, `StaticImageCapacity` | 1,024 bytes | the static image is *gone* (each declaration is written as its blob at once); one object's initializer is still staged in 1,024 bytes (`AG_ICAP`), to be streamed |
 | `ControlFrameCapacity` | 8 | §3.20: at least 32. At 65.4 (f) still 8 (`CT_FCAP`), each frame sixteen bytes holding its labels, the label count and frame size to restore, and a for loop's counter, bound and step |

@@ -49,6 +49,7 @@
 %INCLUDE "BLOB.ASM"                ; The blob writer.
 %INCLUDE "EMIT.ASM"                ; Emitter primitives and labels.
 %INCLUDE "GENEXPR.ASM"             ; Expression templates.
+%INCLUDE "GENAGGR.ASM"             ; Paths, aggregates and string literals.
 %INCLUDE "GENCALL.ASM"             ; Routines, declarations and limits.
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.
 %INCLUDE "SHELL.ASM"               ; The CP/M shell, last in the image.

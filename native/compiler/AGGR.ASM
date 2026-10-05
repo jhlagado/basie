@@ -22,7 +22,7 @@
 ;
 ;  Type IDs are one byte. IDs 1..3 are the scalars u8, u16 and Boolean
 ;  (AG_U8, AG_U16, AG_BOOL, equal to the SY_ type codes); IDs from AG_FIRST
-;  index the type table AG_TTAB, eight four-byte descriptors (AG_TCAP):
+;  index the type table AG_TTAB, 24 four-byte descriptors (AG_TCAP):
 ;
 ;    +0  byte  kind: AG_KREC, AG_KSTR or AG_KARR
 ;    +1  byte  record ordinal, string capacity or array element type
@@ -278,11 +278,10 @@ AG_PUT:
 
 ;@ROUTINE IN B OUT A,B,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE,HL
 ; Stage the current string literal as a bounded string of capacity B: the
-; length byte, then the payload decoded straight from the resident source.
-; TK_LEN is the decoded length and TK_PTR addresses the opening quote. The
-; object is already zero, so the cursor simply skips the padding and the
-; terminator. Escapes are \xHH, \0, \n, \r and \t; any other escaped
-; character stands for itself.
+; length byte, then the payload decoded straight from the resident source
+; (AG_CHAR). TK_LEN is the decoded length and TK_PTR addresses the opening
+; quote. The object is already zero, so the cursor simply skips the
+; padding and the terminator.
 
 AG_TEXT:
     LD   A,(TK_LEN)                ; Fetch the decoded length.
@@ -299,49 +298,7 @@ AG_TEXT:
     LD   A,C                       ; Are characters left?
     OR   A                         ; Test the count.
     JR   Z,.PAD                    ; No: skip the padding.
-    LD   A,(HL)                    ; Fetch a source character.
-    INC  HL                        ; Consume it.
-    CP   '\\'                      ; Does a backslash begin an escape?
-    JR   NZ,.WRITE                 ; No: stage the character as it is.
-    LD   A,(HL)                    ; Fetch the escape letter.
-    INC  HL                        ; Consume it.
-    CP   'x'                       ; Two hexadecimal digits follow?
-    JR   Z,.HEX                    ; Decode them.
-    CP   '0'                       ; A NUL byte?
-    JR   Z,.ZERO                   ; Stage zero.
-    CP   'n'                       ; A line feed?
-    JR   Z,.NEWLINE                ; Stage LF.
-    CP   'r'                       ; A carriage return?
-    JR   Z,.RETURN                 ; Stage CR.
-    CP   't'                       ; A tab?
-    JR   Z,.TAB                    ; Stage HT.
-    JR   .WRITE                    ; Any other escape is the character itself.
-.HEX:                          ; Decode \xHH; the tokenizer checked it.
-    LD   A,(HL)                    ; Fetch the high digit.
-    INC  HL                        ; Consume it.
-    CALL TK_HEX                    ; Convert it to a nibble.
-    ADD  A,A                       ; Shift it up one bit.
-    ADD  A,A                       ; Two bits.
-    ADD  A,A                       ; Three bits.
-    ADD  A,A                       ; Into the high nibble.
-    LD   D,A                       ; Keep the high nibble.
-    LD   A,(HL)                    ; Fetch the low digit.
-    INC  HL                        ; Consume it.
-    CALL TK_HEX                    ; Convert it to a nibble.
-    OR   D                         ; Combine the two nibbles.
-    JR   .WRITE                    ; Stage the byte.
-.ZERO:                         ; \0 is a NUL byte.
-    XOR  A                         ; Form zero.
-    JR   .WRITE                    ; Stage it.
-.NEWLINE:                      ; \n is a line feed.
-    LD   A,10                      ; Form LF.
-    JR   .WRITE                    ; Stage it.
-.RETURN:                       ; \r is a carriage return.
-    LD   A,13                      ; Form CR.
-    JR   .WRITE                    ; Stage it.
-.TAB:                          ; \t is a horizontal tab.
-    LD   A,9                       ; Form HT, then stage it.
-.WRITE:                        ; Stage one decoded byte.
+    CALL AG_CHAR                   ; A is the next byte, decoded.
     PUSH BC                        ; Keep padding and count across the put.
     PUSH HL                        ; Keep the source pointer.
     CALL AG_PUT                    ; Stage the byte.
@@ -359,8 +316,60 @@ AG_TEXT:
     OR   A                         ; Clear carry for success.
     RET                            ; Return to the initializer parser.
 
-; Initializer shape failures. Neither returns.
+;@ROUTINE IN HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Decode the string literal's character at HL, which the tokenizer has
+; checked, into A, and step HL past it. Escapes are \xHH, \0, \n, \r and
+; \t; any other escaped character stands for itself. BC and DE are kept.
 
+AG_CHAR:                       ; HL is the source.
+    LD   A,(HL)                    ; Fetch a source character.
+    INC  HL                        ; Consume it.
+    CP   '\\'                      ; Does a backslash begin an escape?
+    RET  NZ                        ; No: it is the byte.
+    LD   A,(HL)                    ; Fetch the escape letter.
+    INC  HL                        ; Consume it.
+    CP   'x'                       ; Two hexadecimal digits follow?
+    JR   Z,.HEX                    ; Decode them.
+    PUSH BC                        ; Keep the caller's BC.
+    LD   C,0                       ; \0 is a NUL byte,
+    CP   '0'                       ; if it is one;
+    JR   Z,.CODE                   ; return it.
+    LD   C,10                      ; \n is a line feed,
+    CP   'n'                       ; if it is one;
+    JR   Z,.CODE                   ; return it.
+    LD   C,13                      ; \r is a carriage return,
+    CP   'r'                       ; if it is one;
+    JR   Z,.CODE                   ; return it.
+    LD   C,9                       ; \t is a tab,
+    CP   't'                       ; if it is one;
+    JR   NZ,.SAME                  ; otherwise the letter stands for itself.
+.CODE:                         ; C is the byte.
+    LD   A,C                       ; Return it.
+.SAME:                         ; A is the byte.
+    POP  BC                        ; Restore BC.
+    RET                            ; Done.
+.HEX:                          ; \xHH: two digits follow.
+    PUSH DE                        ; Keep the caller's DE.
+    LD   A,(HL)                    ; Fetch the high digit.
+    INC  HL                        ; Consume it.
+    CALL TK_HEX                    ; Convert it to a nibble.
+    ADD  A,A                       ; Shift it up one bit.
+    ADD  A,A                       ; Two bits.
+    ADD  A,A                       ; Three bits.
+    ADD  A,A                       ; Into the high nibble.
+    LD   D,A                       ; Keep the high nibble.
+    LD   A,(HL)                    ; Fetch the low digit.
+    INC  HL                        ; Consume it.
+    CALL TK_HEX                    ; Convert it to a nibble.
+    OR   D                         ; Combine the two nibbles.
+    POP  DE                        ; Restore DE.
+    RET                            ; A is the byte.
+
+; Initializer and literal failures. None returns.
+
+AG_ELONG:                      ; A string literal longer than its string.
+    CALL DG_RAISE                  ; Report it.
+    DB   DG_LONG                   ; Diagnostic: string too long.
 AG_EINIT:                      ; The wrong bracket or token for the type.
     CALL DG_RAISE                  ; Report it.
     DB   DG_SHAPE                  ; Diagnostic: initializer shape mismatch.
@@ -457,8 +466,7 @@ AG_PARSE:
     CP   B                         ; Compare it with the capacity.
     JR   C,.DECODE                 ; Shorter fits.
     JR   Z,.DECODE                 ; Exactly full fits.
-    CALL DG_RAISE                  ; Longer does not; report it.
-    DB   DG_LONG                   ; Diagnostic: string too long.
+    JR   AG_ELONG                  ; Longer does not; report it.
 .DECODE:                       ; The literal fits.
 ; AG_ZERO has already zeroed the whole object, so decoding need write only
 ; the length and payload bytes.

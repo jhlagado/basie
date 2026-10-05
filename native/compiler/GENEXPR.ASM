@@ -46,11 +46,16 @@ GX_LOAD:                       ; A is the type, BC the variable's ordinal.
 ; Append opcode A and an ABS16 operand referring to blob BC.
 
 GX_ABS:                        ; A is the opcode, BC the target.
+    LD   DE,0                      ; No addend; fall into GX_ABSD.
+
+;@ROUTINE IN A,BC,DE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append opcode A and an ABS16 operand referring to blob BC, DE bytes on.
+
+GX_ABSD:                       ; A is the opcode, BC the target, DE the addend.
     CALL EM_BYTE                   ; The opcode.
     LD   H,B                       ; HL is the target,
     LD   L,C                       ; the variable's blob.
-    LD   DE,0                      ; With no addend:
-    JP   EM_REF                    ; its address, and return.
+    JP   EM_REF                    ; Its address, and return.
 
 ;@ROUTINE IN A,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the registers into the program variable at blob BC, of scalar type

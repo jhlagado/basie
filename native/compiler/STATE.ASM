@@ -4,10 +4,9 @@
 ;
 ;  The first part of the compiler's workspace, from MM_WBASE ($4800), and
 ;  the constants that every phase shares: token kinds, diagnostic numbers,
-;  symbol classes, aggregate type ordinals, transcript operation codes and
-;  relation codes. CALLWORK.ASM continues the workspace to LL_WEND. Nothing
-;  here is initialised by the image: PR_RESET and the routine entries clear
-;  what each needs.
+;  symbol classes, aggregate type ordinals and relation codes. CALLWORK.ASM
+;  continues the workspace to LL_WEND. Nothing here is initialised by the
+;  image: PR_RESET and the routine entries clear what each needs.
 ;
 ;  The compiler makes one pass. The parser reads the source and the code
 ;  generators write each routine and top-level declaration as a blob while
@@ -23,8 +22,8 @@
 ;    +$0B7    673  symbol table: count, 96 records of seven bytes
 ;    +$358    240  expression state and the operand stack
 ;    +$448    130  control: depth, fallthrough, eight frames of sixteen bytes
-;    +$4CA   1177  aggregate types, records, fields, the initializer staging
-;    +$963         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$4CA   1511  aggregate types, records, fields, the initializer staging
+;    +$AB1         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -199,7 +198,7 @@ AG_STEND EQU  AG_BASE+$17      ; End of the aggregate scalars.
 ; shape and compared or copied as a block.
 AG_TTAB EQU  AG_STEND          ; First type descriptor.
 AG_TLEN EQU  4                 ; Bytes in one descriptor.
-AG_TCAP EQU  8                 ; Descriptors; DG_META when exceeded.
+AG_TCAP EQU  24                ; Descriptors; DG_META when exceeded.
 AG_TLIM EQU  AG_TTAB+AG_TLEN*AG_TCAP ; Exclusive end of the type table.
 AG_TKIND EQU  0                ; Descriptor field: AG_KREC, KSTR or KARR.
 AG_TAUX EQU  1                 ; Descriptor field: element type or capacity.
@@ -213,7 +212,7 @@ AG_XLIM EQU  AG_XTAB+2*AG_TCAP ; Exclusive end of the extents.
 ; The record table: where each record type's fields lie in the field table.
 AG_RTAB EQU  AG_XLIM           ; First record entry.
 AG_RLEN EQU  2                 ; Bytes in one record entry.
-AG_RCAP EQU  5                 ; Record types; DG_META when exceeded.
+AG_RCAP EQU  16                ; Record types; DG_META when exceeded.
 AG_RLIM EQU  AG_RTAB+AG_RLEN*AG_RCAP ; Exclusive end of the record table.
 AG_RFIDX EQU  0                ; Record field: index of its first field.
 AG_RFCNT EQU  1                ; Record field: number of fields.
@@ -221,7 +220,7 @@ AG_RFCNT EQU  1                ; Record field: number of fields.
 ; The field table: every record's fields, in declaration order.
 AG_FTAB EQU  AG_RLIM           ; First field entry.
 AG_FLEN EQU  6                 ; Bytes in one field entry.
-AG_FCAP EQU  12                ; Fields in all; DG_META when exceeded.
+AG_FCAP EQU  48                ; Fields in all; DG_META when exceeded.
 AG_FLIM EQU  AG_FTAB+AG_FLEN*AG_FCAP ; Exclusive end of the field table.
 AG_FNAME EQU  0                ; Field entry: spelling, a word.
 AG_FNLEN EQU  2                ; Field entry: spelling length.
@@ -388,65 +387,6 @@ AG_KARR EQU  6                 ; Descriptor kind: array.
 ; Parameter-only open bounded-string view. It is never interned in the
 ; aggregate type table and therefore remains outside its compact ordinals.
 AG_VIEW EQU  $7C               ; Type ID of an open string parameter.
-
-; Transcript operation codes. The parser still appends them for the
-; constructs whose code generation has not yet moved to blob output (native
-; compiler plan, 65.4), and TR_OPER refuses every one with DG_NYI, so none
-; is ever replayed. Each comment names the Nucleus handler that once
-; replayed it. Codes below 20 are no longer used, and 23, 26 and 27 are
-; retired.
-
-OP_DEF8 EQU  20                ; .DATA8: a u8 data byte; unused.
-OP_MAIN EQU  21                ; .MAIN: begin main; unused.
-OP_LOC8 EQU  22                ; GX_VAR8: reserve a u8 local.
-OP_LDG8 EQU  24                ; GX_LD8: push a u8 global.
-OP_LDL8 EQU  25                ; GX_LDX8: push a u8 local.
-OP_STG8 EQU  28                ; GX_ST8: pop into a u8 global.
-OP_STL8 EQU  29                ; GX_STX8: pop into a u8 local.
-OP_WRVAL EQU  30               ; GX_WRITE: write a u8 value; unused.
-OP_HALT EQU  31                ; GX_EXIT: end main; unused.
-OP_DEF16 EQU  32               ; .DATA16: a u16 data word; unused.
-OP_LOC16 EQU  33               ; GX_VAR16: reserve a u16 local.
-OP_LIT16 EQU  34               ; GX_NUM16: push a literal.
-OP_LDG16 EQU  35               ; GX_LD16: push a u16 global.
-OP_LDL16 EQU  36               ; GX_LDX16: push a u16 local.
-OP_ADD8 EQU  37                ; GX_ADD8: u8 addition.
-OP_ADD16 EQU  38               ; GX_ADD16: u16 addition.
-OP_SUB8 EQU  39                ; GX_SUB8: u8 subtraction.
-OP_SUB16 EQU  40               ; GX_SUB16: u16 subtraction.
-OP_MUL8 EQU  41                ; GX_MUL8: u8 multiplication.
-OP_MUL16 EQU  42               ; GX_MUL16: u16 multiplication.
-OP_DIV8 EQU  43                ; GX_DIV8: u8 division.
-OP_DIV16 EQU  44               ; GX_DIV16: u16 division.
-OP_NEG8 EQU  45                ; GX_NEG8: u8 negation.
-OP_NEG16 EQU  46               ; GX_NEG16: u16 negation.
-OP_NOT8 EQU  47                ; GX_NOT8: u8 complement.
-OP_NOT16 EQU  48               ; GX_NOT16: u16 complement.
-OP_LNOT EQU  49                ; GX_FLIP: boolean not.
-OP_AND8 EQU  50                ; GX_AND8: u8 bitwise and.
-OP_AND16 EQU  51               ; GX_AND16: u16 bitwise and.
-OP_OR8 EQU  52                 ; GX_OR8: u8 bitwise or.
-OP_OR16 EQU  53                ; GX_OR16: u16 bitwise or.
-OP_XOR8 EQU  54                ; GX_XOR8: u8 exclusive or.
-OP_XOR16 EQU  55               ; GX_XOR16: u16 exclusive or.
-OP_MOD8 EQU  56                ; GX_MOD8: u8 remainder.
-OP_MOD16 EQU  57               ; GX_MOD16: u16 remainder.
-OP_CMP8 EQU  58                ; GX_RELOP: compare u8 values.
-OP_CMP16 EQU  59               ; GX_RELOP: compare u16 values.
-OP_LCMP EQU  60                ; GX_RELOP: compare booleans.
-OP_TRUNC EQU  61               ; GX_FIT8: checked narrowing to u8.
-OP_STG16 EQU  62               ; GX_ST16: pop into a u16 global.
-OP_STL16 EQU  63               ; GX_STX16: pop into a u16 local.
-OP_CAND EQU  64                ; GX_ANDIF: open a short-circuit and.
-OP_COR EQU  65                 ; GX_ORIF: open a short-circuit or.
-OP_JOIN EQU  66                ; GX_JOIN: close the innermost and/or.
-OP_FUNC EQU  74                ; GX_ENTER: begin the value routine; unused.
-OP_LDP8 EQU  75                ; GX_LDX8: push a u8 parameter.
-OP_LDP16 EQU  76               ; GX_LDX16: push a u16 parameter.
-OP_FCALL EQU  77               ; GX_CALL: call the value routine; unused.
-OP_STP8 EQU  79                ; GX_STX8: pop into a u8 parameter.
-OP_STP16 EQU  80               ; GX_STX16: pop into a u16 parameter.
-OP_ENDFN EQU  81               ; GX_CLOSE: end the value routine; unused.
 
 ; Relation codes: EXPR.ASM keeps the pending comparison as one of them in
 ; EX_OPER, and the comparison templates (GENEXPR.ASM) select by it.

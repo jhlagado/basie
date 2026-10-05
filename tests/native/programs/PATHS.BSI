@@ -1,0 +1,70 @@
+// Fields, elements and characters of program variables and constants,
+// read and written: constant and run-time indexes at both widths, bounds
+// checked against each array and string, records inside records and
+// arrays, and arrays and strings inside records (65.4 h).
+record point
+    x as u8
+    y as u16
+    on as boolean
+end
+
+record shape
+    name as string[6]
+    at as point
+    corners as point[3]
+    marks as u8[5]
+end
+
+var p as point
+var s as shape
+var shapes as shape[3]
+var cells as u8[4]
+var words as u16[300]
+var title as string[12] = "paths"
+const primes as u8[5] = [2, 3, 5, 7, 11]
+const origin as point = (1, 2, true)
+var i as u8 = 1
+var j as u8 = 2
+var w as u16 = 299
+var x as u8
+var y as u16
+var f as boolean
+
+sub main()
+    x = p.x
+    y = p.y
+    f = p.on
+    p.x = 7
+    p.y = 1000
+    p.on = not f
+    x = cells[3]
+    cells[0] = 9
+    x = cells[i]
+    cells[j] = x + 1
+    y = words[w]
+    words[w] = y + 1
+    words[i] = words[w] + words[j]
+    y = words[299]
+    s.at.x = 3
+    s.at.y = s.at.y + 1
+    s.corners[2].y = 40000
+    s.corners[i].x = s.corners[j].x
+    s.marks[4] = 1
+    s.marks[i] = s.marks[j]
+    shapes[2].at.on = true
+    shapes[i].at.y = shapes[j].corners[i].y
+    shapes[i].marks[j] = 5
+    x = shapes[j].marks[i] + shapes[1].marks[2]
+    x = title.length
+    x = title[0]
+    x = title[i]
+    title[j] = 'A'
+    x = s.name.length + s.name[i]
+    shapes[i].name[j] = 'z'
+    x = shapes[j].name[i]
+    x = primes[4] + primes[i]
+    y = origin.y
+    f = origin.on and primes[j] > 3
+    x = cells[cells[i]]
+    y = words[cells[j] + w - 299]
+end

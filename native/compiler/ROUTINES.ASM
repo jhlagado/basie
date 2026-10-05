@@ -5,9 +5,8 @@
 ;  Keep the tables of routines and parameters that the grammar actions
 ;  (ACTIONS.ASM) fill as they parse routine declarations: look names up,
 ;  reject names already in use, enrol parameters and bind each one as a
-;  symbol of the routine's frame. CALLS.ASM parses the calls, services and
-;  aggregate paths that use these tables; their code generation is still
-;  to come, so they reach the transcript and are refused (TRANSCR.ASM).
+;  symbol of the routine's frame. CALLS.ASM parses the calls and the
+;  aggregate paths that use these tables.
 ;
 ;  The module also holds the compile entry PR_BUILD, which parses the
 ;  program, writing its blobs as it goes, then its entry and limits.

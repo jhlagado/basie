@@ -9,21 +9,24 @@
 ;  from MM_WBASE ($4800).
 ;
 ;    Offset  Size  Block
-;    +$963     22  routine state: counts, the signature being parsed, the
-;                  path and the call being checked (RO_BASE)
-;    +$979    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$AF9    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$BF9      3  multipart source cursor (SRC_DESC, SRC_LEFT)
-;    +$BFC      2  PR_SP, the stack DG_ISSUE restores
-;    +$BFE     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$C3F         LL_WEND, the end of the compiler workspace, 3,135 bytes
+;    +$AB1     29  routine state: counts, the signature being parsed, the
+;                  call being checked and the path in hand (RO_BASE)
+;    +$ACE    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$C4E    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$D4E     96  the routine's string literals: 16 of six bytes (RO_LTAB)
+;    +$DAE      3  multipart source cursor (SRC_DESC, SRC_LEFT)
+;    +$DB1      2  PR_SP, the stack DG_ISSUE restores
+;    +$DB3     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$DF4         LL_WEND, the end of the compiler workspace, 3,572 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
 ;  failure-routing fields as the grammar's actions run; ROUTINES.ASM writes
-;  the tables and the path and call fields; EXPR.ASM clears RO_PEND for
-;  each expression and RO_FAILS (CALLS.ASM) sets it and RO_KEPT. Source names
-;  stay resident, so a record keeps a name as its address and length.
+;  the tables; CALLS.ASM the path in hand (RO_PLACE), which GENAGGR.ASM
+;  moves on, and RO_ESC, which EXTERM.ASM's names set too; GENAGGR.ASM the
+;  literals, which RG_OPEN clears for each routine; EXPR.ASM clears RO_PEND
+;  for each expression and RO_FAILS (CALLS.ASM) sets it and RO_KEPT. Source
+;  names stay resident, so a record keeps a name as its address and length.
 ;
 ;  A routine record (RO_RLEN bytes), one per declared routine other than
 ;  main, in declaration order:
@@ -71,19 +74,31 @@ RO_CTYPE EQU  RO_BASE+$03      ; Byte: its result type ordinal, zero for none.
 RO_CPIDX EQU  RO_BASE+$04      ; Byte: its first parameter record.
 RO_CPCNT EQU  RO_BASE+$05      ; Byte: its parameters so far.
 RO_GLOBS EQU  RO_BASE+$06      ; Byte: SY_CNT as a body opens; AC_END drops locals to it.
-RO_OTYPE EQU  RO_BASE+$07      ; Byte: type of the path, operand or parameter in hand.
-RO_OSIZE EQU  RO_BASE+$08      ; Word: element or aggregate size of the path in hand.
-RO_OPOS EQU  RO_BASE+$0A       ; Word: a field offset or an array's length.
-RO_ACNT EQU  RO_BASE+$0C       ; Byte: scratch for paths and returns.
-RO_DPOS EQU  RO_BASE+$0D       ; Word: source offset of an index or statement.
-RO_DEPTH EQU  RO_BASE+$0F      ; Byte: calls whose arguments are being parsed.
-RO_CFLAG EQU  RO_BASE+$10      ; Byte: flags of the routine being compiled.
-RO_PEND EQU  RO_BASE+$11       ; Byte: $80 and a failure's label while it is unconsumed.
-RO_KEPT EQU  RO_BASE+$12       ; Byte: temporaries' bytes beneath a handled call.
-RO_MFLAG EQU  RO_BASE+$13      ; Byte: main's flags, as main has no routine record.
-RO_VCAP EQU  RO_BASE+$14       ; Byte: offset of an open string's capacity word.
-RO_CARGS EQU  RO_BASE+$15      ; Byte: the routine's argument bytes, removed by RETN.
-RO_STEND EQU  RO_BASE+$16      ; End of the routine state; the tables follow.
+RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.
+RO_CFLAG EQU  RO_BASE+$08      ; Byte: flags of the routine being compiled.
+RO_PEND EQU  RO_BASE+$09       ; Byte: $80 and a failure's label while it is unconsumed.
+RO_KEPT EQU  RO_BASE+$0A       ; Byte: temporaries' bytes beneath a handled call.
+RO_MFLAG EQU  RO_BASE+$0B      ; Byte: main's flags, as main has no routine record.
+RO_CARGS EQU  RO_BASE+$0C      ; Byte: the routine's argument bytes, removed by RETN.
+RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
+RO_LCNT EQU  RO_BASE+$0E       ; Byte: string literals of the routine (RO_LTAB).
+; The path in hand (GENAGGR.ASM): its place and type, as the reference's
+; Designator holds them, and the position of the index being parsed. The
+; fourteen bytes are kept on the machine stack across a nested parse.
+RO_PLACE EQU  RO_BASE+$0F      ; First byte of the path's block.
+RO_PKIND EQU  RO_PLACE+0       ; Byte: GA_BLOB, GA_FRAME, GA_ALIAS or GA_HELD.
+RO_PRO EQU  RO_PLACE+1         ; Byte: nonzero when the path is read-only.
+RO_PBASE EQU  RO_PLACE+2       ; Word: a static place's blob, an alias's word at IX+n.
+RO_PADD EQU  RO_PLACE+4        ; Word: bytes on from the base, or a frame place's offset.
+RO_OTYPE EQU  RO_PLACE+6       ; Byte: type of the path, operand or parameter in hand.
+RO_PPUSH EQU  RO_PLACE+7       ; Byte: nonzero when an index's computed base is pushed.
+RO_IPOS EQU  RO_PLACE+8        ; Six bytes: the position of the index's first token.
+RO_PWORD EQU  7                ; Words in the block, RO_PLACE to RO_STEND.
+RO_STEND EQU  RO_PLACE+14      ; End of the routine state; the tables follow.
+GA_BLOB EQU  0                 ; Place: static, in a blob.
+GA_FRAME EQU  1                ; Place: the frame, at IX+offset.
+GA_ALIAS EQU  2                ; Place: through an address word in the frame.
+GA_HELD EQU  3                 ; Place: computed, in HL.
 
 RO_RTAB EQU  RO_STEND          ; Routine table: RO_RCAP records.
 RO_RLEN EQU  12                ; Bytes in one routine record.
@@ -108,7 +123,16 @@ RO_PNLEN EQU  2                ; Byte: length of the name.
 RO_PTYPE EQU  3                ; Byte: its type ordinal.
 
 RO_NCAP EQU  8                 ; Calls nested in arguments; DG_DEEP beyond.
-RO_WEND EQU  RO_PLIM           ; End of the routine workspace.
+
+; The string literals of the routine being compiled (GENAGGR.ASM), placed
+; after its need word when it closes. An entry is six bytes: the address of
+; its operand's addend word among the references, the source address of
+; its opening quote, its decoded length and the bytes it occupies.
+RO_LTAB EQU  RO_PLIM           ; Literal table: RO_LCAP entries.
+RO_LLEN EQU  6                 ; Bytes in one literal entry.
+RO_LCAP EQU  16                ; Literals in one routine; DG_LITS beyond.
+RO_LLIM EQU  RO_LTAB+RO_LLEN*RO_LCAP ; Exclusive end of the literal table.
+RO_WEND EQU  RO_LLIM           ; End of the routine workspace.
 
 ; The shell's descriptor table and the source bytes stay outside the
 ; compiler workspace, so the adapter keeps only these three bytes.
@@ -131,26 +155,12 @@ RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
 
 
-; Operation codes of routines, calls, aggregates and failure, continuing
-; STATE.ASM's. Each comment names the parser routine that writes it and the
-; Nucleus handler that once replayed it; TR_OPER refuses them all (DG_NYI).
-OP_FIELD EQU  89               ; RO_FIELD: add a field offset; RG_FIELD.
-OP_INDEX EQU  90               ; RO_ITEM: checked element address; RG_INDEX.
-OP_LDX8 EQU  91                ; RO_LOAD: load a byte through an address; RG_GET8.
-OP_LDX16 EQU  92               ; RO_LOAD: load a word through an address; RG_GET16.
-OP_STX8 EQU  93                ; RO_LET: store a byte through an address; RG_PUT8.
-OP_STX16 EQU  94               ; RO_LET: store a word through an address; RG_PUT16.
-OP_COPY EQU  95                ; RO_LET: checked aggregate copy; RG_COPY.
-OP_LEN EQU  96                 ; RO_SEL: a bounded string's length; RG_LEN.
-OP_CHAR EQU  97                ; RO_CHAR: checked string character; RG_CHAR.
-OP_ABORT EQU  99               ; Written by nothing; its slot dispatches to RG_FATAL.
-OP_VLEN EQU  108               ; RO_SEL: an open string's length; OS_LEN.
-OP_VCHAR EQU  109              ; RO_OSIDX: an open string's character; OS_CHAR.
 ; Predefined names in KW_NAMES order: six services, refused for now (65.4
 ; i), then error constants.
 RO_ERRS EQU  6                 ; First error constant; constant n has value n-5.
 
 DG_PROCS EQU  84               ; Diagnostic: more than RO_RCAP routines (AC_SIG).
 DG_PARAM EQU  85               ; Diagnostic: more than RO_PCAP parameters (RO_ENROL).
+DG_LITS EQU  86                ; Diagnostic: more than RO_LCAP literals in a routine (GA_LIT).
 DG_LEAK EQU  87                ; Diagnostic: a call's failure is not handled.
 DG_FILES EQU  88               ; Diagnostic: part count outside 1 to SRC_CAP.

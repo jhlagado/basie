@@ -1,0 +1,54 @@
+// Whole records, arrays and strings copied by assignment from variables,
+// constants, elements, fields, parameters and calls' results, string
+// literals copied into strings, and scalars selected from parameters and
+// from calls' aggregate results (65.4 h).
+record entry
+    key as u8
+    text as string[5]
+    hits as u16[2]
+end
+
+var a as entry
+var b as entry
+var table as entry[4]
+var line as string[5]
+var copy as string[5]
+var counts as u16[2]
+const blank as entry = (0, "none", [0, 0])
+var i as u8 = 1
+var x as u8
+var y as u16
+
+sub pick(n as u8) as entry
+    return table[n]
+end
+
+sub hitsOf(e as entry) as u16[2]
+    x = e.key + e.text[0] + e.text.length
+    y = e.hits[i]
+    return counts
+end
+
+sub firstOf(s as string[5]) as u8
+    return s[0]
+end
+
+sub main()
+    a = b
+    b = blank
+    table[2] = a
+    table[i] = table[2]
+    a.text = "hello"
+    copy = a.text
+    line = ""
+    table[i].text = "ab"
+    table[i].hits = counts
+    counts = table[3].hits
+    a = pick(i)
+    counts = hitsOf(table[i])
+    x = pick(2).key
+    y = pick(i).hits[1]
+    x = pick(i).text[i] + pick(1).text.length
+    y = hitsOf(a)[i]
+    x = firstOf(table[i].text) + firstOf(line)
+end

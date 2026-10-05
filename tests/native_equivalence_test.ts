@@ -22,6 +22,7 @@ const CONFORMANCE: Record<string, string> = {
   NARROW: "tests/conformance/types/narrowing-traps.bsi",
   DIVZERO: "tests/conformance/expressions/division-by-zero-traps.bsi",
   LOOPTRAP: "tests/conformance/statements/loop-range-traps.bsi",
+  BOUNDS: "tests/conformance/basics/trap-bounds.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -52,6 +53,14 @@ const CLAIMED: Record<string, string[]> = {
   ],
   "f: control flow": ["IFS", "LOOPS", "FORS", "FLOW", "LOOPTRAP"],
   "g: failure": ["FAILURE", "RUNFLOW"],
+  "h: records, arrays and strings": [
+    "PATHS",
+    "COPIES",
+    "VIEWS",
+    "FARPATH",
+    "RUNPATHS",
+    "BOUNDS",
+  ],
 };
 
 /** Compile NAME with BASIE.COM and the options; return the disk. */
@@ -119,10 +128,11 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
 
 // Random assignments over the stage (c) subset, to program variables,
 // (stage d) to locals and (stage e) to parameters, some (stage f) inside
-// an if or a while: each compiles to the reference's streams, or both
+// an if or a while, (stage h) with fields, elements and characters as
+// operands and targets: each compiles to the reference's streams, or both
 // compilers refuse it. The generator is deterministic, so a failure names a
 // statement that can be rerun.
-Deno.test("c to f: random expressions compile as the reference compiles them", async () => {
+Deno.test("c to h: random expressions compile as the reference compiles them", async () => {
   let seed = 654;
   const rnd = (n: number) => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
@@ -130,11 +140,24 @@ Deno.test("c to f: random expressions compile as the reference compiles them", a
   };
   const pick = <T>(a: T[]) => a[rnd(a.length)];
   const nums = ["0", "1", "2", "7", "15", "200", "255", "256", "300", "65535"];
+  const paths = [
+    "r.m",
+    "r.n",
+    "arr[1]",
+    "arr[a and 3]",
+    "wds[b mod 3]",
+    "wds[2]",
+    "s.length",
+    "s[b and 3]",
+  ];
   const integer = (d: number): string => {
     if (d <= 0 || rnd(3) === 0) {
-      return rnd(5) < 2
+      const leaf = rnd(10);
+      return leaf < 4
         ? pick([...nums, "k", "big", "'A'"])
-        : pick(["a", "b", "x", "y"]);
+        : leaf < 8
+        ? pick(["a", "b", "x", "y"])
+        : pick(paths);
     }
     const r = rnd(10);
     if (r === 0) return `u8(${integer(d - 1)})`;
@@ -147,7 +170,7 @@ Deno.test("c to f: random expressions compile as the reference compiles them", a
   };
   const boolean = (d: number): string => {
     if (d <= 0 || rnd(4) === 0) {
-      return pick(["f", "g", "true", "false", "yes", "no"]);
+      return pick(["f", "g", "true", "false", "yes", "no", "r.g"]);
     }
     const r = rnd(7);
     if (r === 0) return `not ${boolean(d - 1)}`;
@@ -165,22 +188,29 @@ Deno.test("c to f: random expressions compile as the reference compiles them", a
     "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n";
   const params = "a as u8, b as u8, x as u16, y as u16, f as boolean, " +
     "g as boolean";
+  const aggregates = "record rec\nm as u8\nn as u16\ng as boolean\nend\n" +
+    "var r as rec\nvar arr as u8[4]\nvar wds as u16[3]\n" +
+    'var s as string[5] = "abcd"\n';
   const heads = [
-    [`${names}${consts}sub main()\n`, ""],
-    [`${consts}sub main()\n${names}`, ""],
+    [`${aggregates}${names}${consts}sub main()\n`, ""],
+    [`${aggregates}${consts}sub main()\n${names}`, ""],
     [
-      `${consts}sub run(${params})\n`,
+      `${aggregates}${consts}sub run(${params})\n`,
       "sub main()\nrun(200, 9, 1000, 2, false, true)\nend\n",
     ],
   ];
   for (let i = 0; i < 300; i++) {
     const [head, tail] = heads[i % heads.length];
-    const kind = rnd(3);
+    const kind = rnd(4);
     const statement = kind === 0
-      ? `${pick(["a", "b"])} = ${integer(4)}`
+      ? `${pick(["a", "b", "arr[b and 3]", "r.m", "s[a and 3]"])} = ${
+        integer(4)
+      }`
       : kind === 1
-      ? `${pick(["x", "y"])} = ${integer(4)}`
-      : `${pick(["f", "g"])} = ${boolean(4)}`;
+      ? `${pick(["x", "y", "wds[x mod 3]", "r.n"])} = ${integer(4)}`
+      : kind === 2
+      ? `${pick(["f", "g", "r.g"])} = ${boolean(4)}`
+      : `${pick(["arr[1]", "wds[y and 1]"])} = ${integer(3)}`;
     // (f) Every fifth statement sits in an if or a while with a random
     // condition.
     const body = i % 5 !== 4
@@ -224,9 +254,10 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     "BASIE.MSG": messageFile(),
     "CPM22.BRL": (await buildRuntime()).file,
   };
-  // TRAP's arithmetic decides which of its two narrowings traps; RECURSE
-  // and RUNFLOW reach their last statement's trap only when their results
-  // are right; LOOPTRAP traps leaving its counter's type.
+  // TRAP's arithmetic decides which of its two narrowings traps; RECURSE,
+  // RUNFLOW and RUNPATHS reach their last statement's trap only when their
+  // results are right; LOOPTRAP traps leaving its counter's type, BOUNDS
+  // indexing past an array's end.
   const run = [
     "EMPTY",
     "TRAP",
@@ -239,6 +270,9 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     "FAILURE",
     "RUNFLOW",
     "LOOPTRAP",
+    "PATHS",
+    "RUNPATHS",
+    "BOUNDS",
   ];
   for (const name of run) {
     const disk = native(name);
@@ -261,6 +295,9 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     }
     if (name === "LOOPTRAP") {
       assertEquals(/^TRAP loop-range/.test(expected), true);
+    }
+    if (name === "RUNPATHS" || name === "BOUNDS") {
+      assertEquals(/^TRAP bounds/.test(expected), true);
     }
   }
 });
@@ -343,6 +380,52 @@ const REFUSED: Record<string, string> = {
     "sub f() as u8 fails\nreturn 1\nend\nsub main() fails\nvar i as u8\nfor i = f() else fail to 3\nend\nend\n",
   "else fail followed by a handler":
     "var e as u8\nsub f() fails\nend\nsub main() fails\nf() else fail handle e\nend\nend\n",
+  // h: records, arrays and strings.
+  "a constant index past the end":
+    "var c as u8[4]\nsub main()\nc[4] = 1\nend\n",
+  "a record indexed":
+    "record r\na as u8\nend\nvar v as r\nsub main()\nv[0] = 1\nend\n",
+  "a field of an array": "var c as u8[4]\nsub main()\nc.a = 1\nend\n",
+  "a field of a scalar field":
+    "record r\na as u8\nend\nvar v as r\nsub main()\nv.a.b = 1\nend\n",
+  "a field the record lacks":
+    "record r\na as u8\nend\nvar v as r\nsub main()\nv.b = 1\nend\n",
+  "a Boolean index": "var c as u8[4]\nsub main()\nc[true] = 1\nend\n",
+  "a field of a constant assigned":
+    "record r\na as u8\nend\nconst k as r = (1)\nsub main()\nk.a = 2\nend\n",
+  "a field of a parameter assigned":
+    "record r\na as u8\nend\nsub f(p as r)\np.a = 2\nend\nsub main()\nend\n",
+  "a string's length assigned":
+    "var s as string[4]\nsub main()\ns.length = 2\nend\n",
+  "a declared string's capacity":
+    "var s as string[4]\nvar x as u8\nsub main()\nx = s.capacity\nend\n",
+  "a literal longer than its string":
+    'var s as string[4]\nsub main()\ns = "hello"\nend\n',
+  "a literal copied to an array": 'var c as u8[4]\nsub main()\nc = "ab"\nend\n',
+  "a copy between strings of two capacities":
+    "var s as string[4]\nvar t as string[5]\nsub main()\ns = t\nend\n",
+  "a call's result passed as a view":
+    "var s as string[4]\nsub g() as string[4]\nreturn s\nend\nsub f(v as string[])\nend\nsub main()\nf(g())\nend\n",
+  "a scalar passed as a view":
+    "var x as u8\nsub f(v as string[])\nend\nsub main()\nf(x)\nend\n",
+  "an array passed as a view":
+    "var c as u8[4]\nsub f(v as string[])\nend\nsub main()\nf(c)\nend\n",
+  "a result rooted at a parameter's field":
+    "record r\nc as u8[2]\nend\nsub f(p as r) as u8[2]\nreturn p.c\nend\nsub main()\nend\n",
+  "a result whose path a local indexes":
+    "var t as u8[2][2]\nsub g() as u8[2][2]\nreturn t\nend\nsub f() as u8[2]\nvar i as u8\nreturn g()[i]\nend\nsub main()\nend\n",
+  "an aggregate result of the wrong type":
+    "var s as string[8]\nsub f() as u8[4]\nreturn s\nend\nsub main()\nend\n",
+  "an aggregate as a scalar value":
+    "var c as u8[4]\nvar x as u8\nsub main()\nx = c\nend\n",
+  "an element of an aggregate result's scalar":
+    "record r\na as u8\nend\nvar v as r\nsub f() as r\nreturn v\nend\nvar x as u8\nsub main()\nx = f().a.b\nend\n",
+  "a local named in a returned path": Deno.readTextFileSync(
+    "tests/conformance/statements/return-local-alias.bsi",
+  ),
+  "an open string as a local": Deno.readTextFileSync(
+    "tests/conformance/types/open-view-not-local.bsi",
+  ),
 };
 
 for (const [what, text] of Object.entries(REFUSED)) {

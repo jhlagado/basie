@@ -16,7 +16,6 @@
 ;    PR_TAKE   consume and return the next token
 ;    PR_NEED   consume the next token, which must be of kind E
 ;    PR_LEFT, PR_RIGHT, PR_EQUAL  PR_NEED for "(", ")" and "="
-;    PR_EMITC  append an operation and its one-byte operand (refused)
 ;    PR_ETERM  raise DG_VALUE, a missing or malformed value
 ;    PR_RESET  clear the parse state before a compilation
 ;
@@ -143,17 +142,6 @@ PR_RIGHT:
 PR_EQUAL:
     LD   E,TK_EQ                   ; The expected kind.
     JR   PR_NEED                   ; Consume and check it.
-
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; Append operation A followed by the operand byte in C, which is kept
-; across TR_OPER.
-
-PR_EMITC:
-    PUSH BC                        ; TR_OPER clobbers B; keep the operand in C.
-    CALL TR_OPER                   ; Append and count the opcode.
-    POP  BC                        ; Recover the operand.
-    LD   A,C                       ; Pass it to TR_PUT.
-    JP   TR_PUT                    ; Append it and return.
 
 ;@ROUTINE NORETURN
 ; Raise DG_VALUE: a value was required here.

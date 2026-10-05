@@ -38,11 +38,12 @@ byte for byte. A construct not yet generated this way is refused with Error
 | `TRANSCR.ASM` | `TR_` | The refusal (`DG_NYI`) of constructs whose code generation has not yet moved to blob output |
 | `SYMBOLS.ASM` | `SY_` | Symbol table: 96 records of seven bytes |
 | `PARSER.ASM` | `PR_` | Parser driver |
-| `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file), control (frames, conditions and counted loops), aggregate and routine parsing (routine names and signatures, then calls, failable calls and aggregate paths) |
+| `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file), control (frames, conditions and counted loops), aggregate and routine parsing (routine names and signatures, then calls, failable calls and aggregate paths, each kept as a place: static, frame, alias or computed) |
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
 | `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
 | `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels and jumps, frame accounting |
 | `GENEXPR.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening, the operators, comparisons, short circuits and conversions |
+| `GENAGGR.ASM` | `GA_` | Path templates: a place's address, fields and constant elements, checked elements and characters at run-time indexes, loads and stores at a place, and the routine's string literals, placed after its need word |
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, prologues (checked for a forward routine) and exits (through `RETN` when there are arguments), the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
 | `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams (deleted after a failure unless option `K`), diagnostics |
@@ -56,15 +57,15 @@ a generator for Basie's grammar that writes ATOM under the `GR_` scheme
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 11,140 |
-| Immutable data | 389 |
-| **Compiler core** | **11,529** |
+| Compiler code | 11,911 |
+| Immutable data | 397 |
+| **Compiler core** | **12,308** |
 | CP/M shell | 1,054 |
-| **`BASIE.COM`** | **12,586** |
-| Compiler workspace (not in the image) | 3,135 |
+| **`BASIE.COM`** | **13,365** |
+| Compiler workspace (not in the image) | 3,572 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 14,038 bytes to the 26K target and 16,086 to the 28K limit (D43).
+That leaves 13,259 bytes to the 26K target and 15,307 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change

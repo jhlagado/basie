@@ -115,6 +115,8 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 65) beyond | measured against the stack at step 68 |
 | Names visible at once | 96 (`SY_CAP`): the program's constants, variables and record types with the current routine's parameters and locals; `DG_SYMS` (Error 56) beyond | the hashed, scoped symbol table (step 67) |
 | One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` beyond | writing initializers to the blob as they are parsed |
+| Aggregate types | 24 distinct string and array types and records (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all records together (`AG_FCAP`); `DG_META` (Error 76) beyond | the scoped symbol table and type descriptors (step 67) |
+| String literals in one routine | 16 (`RO_LCAP`), each placed after the routine's need word; `DG_LITS` (Error 86) beyond | measured at step 68 |
 | Constructs compiled | those of the claimed programs of 65.4 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 95) | the later stages of 65.4 |
 | Exact constant values | 0 to 65,535 while folding; a value outside it, a negative one included, is refused (`DG_RANGE`, Error 61) where the spec allows −2^31 to 2^32 − 1 | 32-bit folding with the 32-bit types (step 67) |
 

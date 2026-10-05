@@ -100,7 +100,8 @@ EX_NAME:
     LD   E,A                       ; E is the variable's type.
     LD   A,D                       ; Recover the symbol info.
     AND  SY_CMASK                  ; Keep the storage class.
-    CP   SY_GLOB                   ; A program variable?
+    SUB  SY_GLOB                   ; A program variable?
+    LD   (RO_ESC),A                ; Nonzero when it is in the frame.
     LD   A,E                       ; Its type.
     PUSH DE                        ; Keep it.
     JR   Z,.GLOBAL                 ; A program variable loads by address.

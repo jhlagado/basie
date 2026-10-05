@@ -158,7 +158,7 @@ AC_STMT:
 .ASSIGN:                       ; The name is a variable.
     CALL AC_FIND                   ; A is its class and type, BC its payload.
     AND  SY_AGGR                   ; An aggregate?
-    JP   NZ,RO_LET                 ; Assign through its path.
+    JP   NZ,RO_LET                 ; Assign to its path.
     LD   A,D                       ; The class and type.
     CALL EX_CLASS                  ; A scalar? A is its class.
     CP   SY_LOCAL                  ; A local?
@@ -198,8 +198,8 @@ AC_RET:
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Island ReturnValue: a routine without a result may not return a value
 ; (DG_FLOW). Parse a scalar expression, or an aggregate path or call whose
-; address is generated into HL, its type going to RO_OTYPE and whether it
-; is rooted at a parameter to RO_ACNT.
+; address is generated into HL, its type going to RO_OTYPE and whether its
+; root is in the frame to RO_ESC.
 
 AC_YIELD:
     LD   A,(RO_CTYPE)              ; The routine's result type.
@@ -210,18 +210,15 @@ AC_YIELD:
     CALL EX_RUN                    ; Parse and emit the scalar value.
     JP   AC_STASH                  ; Keep it for AC_RETOP.
 .AGGR:                         ; The result is an aggregate.
-    CALL RO_AGGR                   ; Parse its path; A is its type.
-    LD   (RO_OTYPE),A              ; Keep it for AC_RETOP,
-    LD   A,C                       ; with whether a parameter
-    LD   (RO_ACNT),A               ; roots it.
-    RET                            ; Back to the engine.
+    JP   RO_AGGR                   ; Parse its path; RO_OTYPE is its type.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitReturn (emitReturn): check the value against the result type
 ; (DG_CLASH) with no failure pending and bring a scalar into A or HL at
-; that type; an aggregate's address is in HL already, and may not be
-; rooted at a parameter, whose storage would escape (DG_CLASH; the
-; reference's alias-escapes, there being no `from` here). Then the success
+; that type; an aggregate's address is in HL already, and its path may
+; not be rooted in the frame, a local or a parameter, whose storage would
+; escape (RO_ESC; DG_CLASH for the reference's alias-escapes, there being
+; no `from` here). Then the success
 ; return (RG_RET), and what follows is unreachable.
 
 AC_RETOP:
@@ -239,8 +236,8 @@ AC_RETOP:
     LD   A,(RO_OTYPE)              ; The value's type...
     CP   D                         ; ...must be the same type.
     JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
-    LD   A,(RO_ACNT)               ; Is it rooted at a parameter?
-    OR   A                         ; Its storage is the caller's:
+    LD   A,(RO_ESC)                ; Is its root in the frame?
+    OR   A                         ; Its storage would escape:
     JP   NZ,EX_ETYPE               ; raise DG_CLASH.
     CALL AC_SAFE                   ; No failure may be pending.
 .RETURN:                       ; The result is in the registers.

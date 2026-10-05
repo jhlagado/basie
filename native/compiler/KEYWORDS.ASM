@@ -12,6 +12,7 @@
 ;    KW_PUNCT  single-character punctuators, searched by TK_NEXT
 ;    KW_MAIN   the spelling `main`, compared by EX_MAIN
 ;    KW_LEN    the spelling `length`, compared by the field parser
+;    KW_CAP    the spelling `capacity`, likewise
 ;    KW_ID     the spelling `id`, which no routine may take (AC_SIG)
 ;    KW_NAMES  predefined services and error constants, searched by RO_LIB
 ;
@@ -88,6 +89,7 @@ KW_PCNT EQU  9                 ; Entries in KW_PUNCT.
 
 KW_MAIN: DB   "main"           ; The program's entry routine, four bytes.
 KW_LEN: DB   "length"          ; The string length field, six bytes.
+KW_CAP: DB   "capacity"        ; An open string's capacity field, eight bytes.
 KW_ID: DB   "id"               ; The conversion no routine may be named.
 
 ; Predefined services and error constants are ordinary NAME tokens to the

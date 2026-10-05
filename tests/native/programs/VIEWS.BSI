@@ -1,0 +1,46 @@
+// Open strings: string[] parameters read through their view, their length,
+// capacity and characters, passed string literals, declared strings,
+// strings reached through paths, and views passed on (65.4 h).
+record person
+    name as string[10]
+    age as u8
+end
+
+var people as person[3]
+var greeting as string[20] = "hello"
+var i as u8 = 1
+var x as u8
+var y as u16
+
+sub count(s as string[]) as u8
+    return s.length
+end
+
+sub room(s as string[]) as u16
+    return s.capacity
+end
+
+sub nth(s as string[], n as u8) as u8
+    return s[n]
+end
+
+sub both(a as string[], b as string[]) as u8
+    x = count(a) + nth(b, 0)
+    y = room(a) + room(b)
+    return nth(a, i) + b.length
+end
+
+sub main()
+    x = count("abc")
+    x = count("")
+    x = count(greeting)
+    y = room("\r\n")
+    y = room(greeting)
+    x = nth("xyz", 2)
+    x = nth(greeting, i)
+    people[i].name = "basie"
+    x = count(people[i].name)
+    x = nth(people[2].name, i + 1)
+    x = both(greeting, people[i].name)
+    x = both("left", "right") + both(people[0].name, "\x41")
+end

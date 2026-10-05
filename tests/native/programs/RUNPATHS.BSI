@@ -1,0 +1,43 @@
+// Records, arrays and strings, run: fields, elements and characters
+// written and read in a loop, a record copied whole, a string summed
+// through an open string, a call's result indexed. The last statement
+// indexes past the end of an array, and traps there, only when every
+// result is right (65.4 h).
+record item
+    code as u8
+    name as string[6]
+    weights as u16[3]
+end
+
+var items as item[4]
+var cells as u8[5]
+var total as u16
+
+sub sum(s as string[]) as u16
+    var t as u16 = 0
+    var k as u8 = 0
+    while k < s.length
+        t = t + s[k]
+        k = k + 1
+    end
+    return t
+end
+
+sub nameOf(n as u8) as string[6]
+    return items[n].name
+end
+
+sub main()
+    var i as u8 = 0
+    while i < 4
+        items[i].code = i * 3
+        items[i].name = "abc"
+        items[i].name[2] = 'a' + i
+        items[i].weights[2] = 100 * i
+        i = i + 1
+    end
+    items[3] = items[1]
+    total = sum(items[3].name) + items[2].weights[2] + items[3].code
+    total = total + items[3].weights[2] + nameOf(2)[2] - sum("hi")
+    cells[u8(total - 481)] = 1
+end
