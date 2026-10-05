@@ -458,11 +458,11 @@ GX_REGS:                       ; C is the width.
     CP   TK_STAR                   ; It has its own helper.
     JR   NZ,.DIVIDE                ; Division and remainder share one.
     CALL EM_HELP                   ; CALL MUL16,
-    DB   $16,2                     ; ordinal $16, two bytes of stack.
+    DW   HP_MUL16                  ; its ordinal and stack figure.
     JR   .CALLED                   ; Then the result.
 .DIVIDE:                       ; / or mod.
     CALL EM_HELP                   ; CALL DIV16,
-    DB   $17,2                     ; ordinal $17, two bytes of stack.
+    DW   HP_DIV16                  ; its ordinal and stack figure.
 .CALLED:                       ; HL is the quotient, DE the remainder.
     POP  BC                        ; B is the operator, C the width.
     LD   A,C                       ; Bytes?
@@ -645,10 +645,10 @@ GX_NOT:                        ; C is the type.
 
 GX_BYTE:                       ; The value is in HL.
     CALL EM_SEQ                    ; LD A,H, OR A,
-    DB   3,$7C,$B7,$C4             ; CALL NZ to
-    LD   HL,$000B                  ; the narrowing trap,
-    LD   DE,0                      ; with no addend.
-    CALL EM_REF                    ; Its address.
+    DB   2,$7C,$B7                 ; then
+    LD   A,$C4                     ; CALL NZ
+    LD   L,HP_TRUNC&$FF            ; to the narrowing trap.
+    CALL EM_TRAP                   ; Append it.
     LD   A,$7D                     ; LD A,L.
     JP   EM_BYTE                   ; Append it and return.
 

@@ -36,6 +36,7 @@
 ;    EM_WORD   append the word in HL
 ;    EM_SEQ    append the inline counted byte sequence after the CALL
 ;    EM_REF    append an ABS16 reference to blob HL with addend DE
+;    EM_TRAP   append CALL cc to a trap reporter
 ;    EM_HELP   append CALL helper, the inline ordinal and stack figure
 ;    EM_JPH    append JP helper likewise
 ;    EM_PUSH   count A bytes pushed; EM_POP counts them popped (EM_POP2: two)
@@ -119,6 +120,17 @@ EM_SEQ:                        ; The inline count and bytes follow.
     EX   (SP),HL                   ; the return address; HL is restored.
     RET                            ; Continue after the sequence.
 
+;@ROUTINE IN A,L CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append a trap site, CALL cc to a trap reporter (emit.ts callBlobIf): the
+; opcode A, then an ABS16 reference to helper L. A trap site counts no
+; stack figure, as the reference's counts none.
+
+EM_TRAP:                       ; A is CALL cc, L the trap's ordinal.
+    CALL EM_BYTE                   ; The opcode.
+    LD   H,0                       ; HL is the helper's ordinal,
+    LD   D,H                       ; with no
+    LD   E,H                       ; addend; fall into EM_REF.
+
 ;@ROUTINE IN DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append an ABS16 reference to blob HL with addend DE and its placeholder,
 ; unless code is being discarded.
@@ -138,9 +150,9 @@ EM_JPH:                        ; The ordinal and figure follow the CALL.
     JR   EM_HCALL                  ; As a CALL is appended.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append CALL helper, where the CALL is followed by two inline bytes: the
-; helper's ordinal (below $100) and its stack figure, the bytes a returning
-; call uses (helper table). The figure raises EM_STACK, as the reference's
+; Append CALL helper, where the CALL is followed by its HP_ word (HELPERS.ASM):
+; the helper's ordinal (below $100) and its stack figure, the bytes a
+; returning call uses (helper table). The figure raises EM_STACK, as the reference's
 ; callHelper does, even in discarded code.
 
 EM_HELP:                       ; The ordinal and figure follow the CALL.

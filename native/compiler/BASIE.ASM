@@ -26,6 +26,7 @@
 %INCLUDE "MEMORY.ASM"              ; Memory map: image, workspace, source.
 %INCLUDE "STATE.ASM"               ; Parser workspace and shared constants.
 %INCLUDE "CALLWORK.ASM"            ; Routines, calls, source parts, LL stack.
+%INCLUDE "HELPERS.ASM"             ; Runtime helpers: ordinals and stack figures.
 %INCLUDE "HEAD.ASM"                ; The jump to the shell at $0100.
 %INCLUDE "SOURCE.ASM"              ; Source parts, read byte by byte.
 %INCLUDE "TOKEN.ASM"               ; The tokenizer.

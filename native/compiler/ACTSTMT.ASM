@@ -661,10 +661,10 @@ AC_NEXT:
     LD   A,SY_U16                  ; is stored as it is.
     JR   NZ,.STORE                 ; It is one.
     CALL EM_SEQ                    ; A u8: LD A,H, OR A,
-    DB   3,$7C,$B7,$C4             ; CALL NZ to
-    LD   HL,$000F                  ; the loop-range trap,
-    LD   DE,0                      ; with no addend,
-    CALL EM_REF                    ; its address;
+    DB   2,$7C,$B7                 ; then
+    LD   A,$C4                     ; CALL NZ
+    LD   L,HP_LOOP&$FF             ; to the loop-range trap;
+    CALL EM_TRAP                   ; append it.
     CALL EM_OP                     ; LD A,L,
     DB   $7D                       ; the byte.
     LD   A,SY_U8                   ; Store a byte.

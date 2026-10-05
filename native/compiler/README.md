@@ -31,6 +31,7 @@ byte for byte. A construct not yet generated this way is refused with Error
 | --- | --- | --- |
 | `MEMORY.ASM` | `MM_` | Memory map: the image, workspaces and resident source |
 | `STATE.ASM`, `CALLWORK.ASM` | various | Workspace layout, diagnostic numbers, transcript operations, token kinds |
+| `HELPERS.ASM` | `HP_` | The runtime helpers the generators call: ordinal and stack figure, generated with the reference's helper table by `deno task helpers` (`tests/helper_table_test.ts` checks it is current) |
 | `HEAD.ASM` | `MM_` | The jump to the shell at `$0100` |
 | `SOURCE.ASM` | `SRC_` | Source parts |
 | `TOKEN.ASM` | `TK_` | Tokenizer |
@@ -55,15 +56,15 @@ a generator for Basie's grammar that writes ATOM under the `GR_` scheme
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 11,139 |
+| Compiler code | 11,140 |
 | Immutable data | 389 |
-| **Compiler core** | **11,528** |
+| **Compiler core** | **11,529** |
 | CP/M shell | 1,054 |
-| **`BASIE.COM`** | **12,585** |
+| **`BASIE.COM`** | **12,586** |
 | Compiler workspace (not in the image) | 3,135 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 14,039 bytes to the 26K target and 16,087 to the 28K limit (D43).
+That leaves 14,038 bytes to the 26K target and 16,086 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change

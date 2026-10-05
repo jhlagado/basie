@@ -86,7 +86,7 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     LD   A,RG_PAIR                 ; and the need word's address,
     CALL EM_LREF                   ; through the pair label.
     CALL EM_HELP                   ; CALL STK_CHK,
-    DB   $0A,2                     ; ordinal $0A, two bytes of stack.
+    DW   HP_STACK                  ; its ordinal and stack figure.
 .FRAME:                        ; The frame is built.
     CALL EM_SEQ                    ; The frame pointer, then LD HL,nn:
     DB   9,$DD,$E5,$DD,$21,0,0,$DD,$39,$21 ; PUSH IX, LD IX,0, ADD IX,SP.
@@ -133,7 +133,7 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     DB   2,$FD,$21                 ; the opcode,
     CALL EM_WORD                   ; and the bytes as its operand.
     CALL EM_JPH                    ; JP RETN, which removes them,
-    DB   $09,2                     ; ordinal $09, two bytes of stack.
+    DW   HP_RETN                   ; its ordinal and stack figure.
 .EXITED:                       ; The frame and need words follow.
     LD   HL,(EM_DEEP)              ; The frame: the deepest point reached.
     LD   DE,(RG_LARGE)             ; Is it the largest of any routine?
