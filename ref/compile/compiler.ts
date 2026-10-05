@@ -5050,7 +5050,14 @@ export class Compiler {
         );
       }
       // Emit: right is in registers; left is a constant: materialize as DE/E.
-      return this.emitBinaryConstLeft(op, left.value as number, type!, leftAt);
+      // The constant takes the operation's type, so one out of its range is
+      // refused rather than truncated (8.4).
+      return this.emitBinaryConstLeft(
+        op,
+        this.coerceConst(left, type!, leftAt).value as number,
+        type!,
+        leftAt,
+      );
     }
     // A typed constant shifted by a count in registers: load it, so it takes
     // the register path, which pushes the left before the count.
