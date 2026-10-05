@@ -23,6 +23,8 @@ const CONFORMANCE: Record<string, string> = {
   DIVZERO: "tests/conformance/expressions/division-by-zero-traps.bsi",
   LOOPTRAP: "tests/conformance/statements/loop-range-traps.bsi",
   BOUNDS: "tests/conformance/basics/trap-bounds.bsi",
+  INNERBND: "tests/conformance/types/inner-bound-traps.bsi",
+  RECTRAP: "tests/conformance/scopes/recursion-traps.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -60,6 +62,10 @@ const CLAIMED: Record<string, string[]> = {
     "FARPATH",
     "RUNPATHS",
     "BOUNDS",
+    "LOCALAGG",
+    "GRID",
+    "INNERBND",
+    "RECTRAP",
   ],
 };
 
@@ -188,9 +194,11 @@ Deno.test("c to h: random expressions compile as the reference compiles them", a
     "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n";
   const params = "a as u8, b as u8, x as u16, y as u16, f as boolean, " +
     "g as boolean";
-  const aggregates = "record rec\nm as u8\nn as u16\ng as boolean\nend\n" +
-    "var r as rec\nvar arr as u8[4]\nvar wds as u16[3]\n" +
+  const record = "record rec\nm as u8\nn as u16\ng as boolean\nend\n";
+  const objects = "var r as rec\nvar arr as u8[4]\nvar wds as u16[3]\n" +
     'var s as string[5] = "abcd"\n';
+  const aggregates = record + objects;
+  // (h) The fourth head makes the aggregates locals too.
   const heads = [
     [`${aggregates}${names}${consts}sub main()\n`, ""],
     [`${aggregates}${consts}sub main()\n${names}`, ""],
@@ -198,6 +206,7 @@ Deno.test("c to h: random expressions compile as the reference compiles them", a
       `${aggregates}${consts}sub run(${params})\n`,
       "sub main()\nrun(200, 9, 1000, 2, false, true)\nend\n",
     ],
+    [`${record}${consts}sub main()\n${names}${objects}`, ""],
   ];
   for (let i = 0; i < 300; i++) {
     const [head, tail] = heads[i % heads.length];
@@ -257,7 +266,8 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
   // TRAP's arithmetic decides which of its two narrowings traps; RECURSE,
   // RUNFLOW and RUNPATHS reach their last statement's trap only when their
   // results are right; LOOPTRAP traps leaving its counter's type, BOUNDS
-  // indexing past an array's end.
+  // and INNERBND indexing past an array's end, RECTRAP recursing without
+  // end.
   const run = [
     "EMPTY",
     "TRAP",
@@ -273,6 +283,10 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     "PATHS",
     "RUNPATHS",
     "BOUNDS",
+    "LOCALAGG",
+    "GRID",
+    "INNERBND",
+    "RECTRAP",
   ];
   for (const name of run) {
     const disk = native(name);
@@ -296,8 +310,11 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     if (name === "LOOPTRAP") {
       assertEquals(/^TRAP loop-range/.test(expected), true);
     }
-    if (name === "RUNPATHS" || name === "BOUNDS") {
+    if (["RUNPATHS", "BOUNDS", "INNERBND"].includes(name)) {
       assertEquals(/^TRAP bounds/.test(expected), true);
+    }
+    if (name === "RECTRAP") {
+      assertEquals(/^TRAP activation-capacity/.test(expected), true);
     }
   }
 });
@@ -426,6 +443,19 @@ const REFUSED: Record<string, string> = {
   "an open string as a local": Deno.readTextFileSync(
     "tests/conformance/types/open-view-not-local.bsi",
   ),
+  "a local copied from a string of another capacity":
+    "var t as string[5]\nsub main()\nvar s as string[4] = t\nend\n",
+  "a local array's initializer one short":
+    "sub main()\nvar a as u8[3] = [1, 2]\nend\n",
+  "a literal longer than a local string":
+    'sub main()\nvar s as string[2] = "abc"\nend\n',
+  "a zero array bound": "sub main()\nvar a as u8[0]\nend\n",
+  "an array bound that is a variable":
+    "var n as u8 = 2\nsub main()\nvar a as u8[n]\nend\n",
+  "an inner index past its own bound":
+    "var g as u8[2][3]\nsub main()\ng[1][3] = 1\nend\n",
+  "a local record from a call that fails, unhandled":
+    "record r\na as u8\nend\nvar v as r\nsub f() as r fails\nreturn v\nend\nsub main()\nvar x as r = f()\nend\n",
 };
 
 for (const [what, text] of Object.entries(REFUSED)) {

@@ -6,7 +6,12 @@ meaning; these files make its current Stage 7 syntax executable and testable.
 
 `stage7-grammar.json` is Nucleus's grammar, from which `../GRAMMAR.ASM` was
 generated. The generator wrote AZM and was retired when the compiler moved to
-ATOM (D44); step 67 replaces it with a generator for Basie's grammar.
+ATOM (D44); step 67 replaces it with a generator for Basie's grammar. Until
+then `GRAMMAR.ASM` is edited by hand, and this file is kept in step with each
+edit: at 65.4 (h) a local takes any type, its initializer is the
+`LocalInitializer` island, and an array type takes any number of dimensions,
+built from the innermost once the type is complete (`SaveArrayBound`,
+`MakeArrayTypes`).
 
 Expressions, name-led statements, and type-directed aggregate initializers are
 deliberate external islands. They require precedence or symbol and type

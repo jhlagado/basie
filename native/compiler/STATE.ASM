@@ -16,14 +16,15 @@
 ;
 ;    Offset  Size  Block
 ;    +$000     27  source cursor, current token, diagnostic (PR_BASE)
-;    +$01B    153  emitter and routine generation: frame accounting, the
+;    +$01B    154  emitter and routine generation: frame accounting, the
 ;                  routine's labels, ordinals and the program's limits
-;    +$0B4      3  parser lookahead
-;    +$0B7    673  symbol table: count, 96 records of seven bytes
-;    +$358    240  expression state and the operand stack
-;    +$448    130  control: depth, fallthrough, eight frames of sixteen bytes
-;    +$4CA   1511  aggregate types, records, fields, the initializer staging
-;    +$AB1         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$0B5      3  parser lookahead
+;    +$0B8    673  symbol table: count, 96 records of seven bytes
+;    +$359    240  expression state and the operand stack
+;    +$449    130  control: depth, fallthrough, eight frames of sixteen bytes
+;    +$4CB   1527  aggregate types, records, fields, array bounds, the
+;                  initializer staging
+;    +$AC2         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -91,7 +92,8 @@ RG_PATCH EQU  RG_LARGE+2       ; Word: the offset of the prologue's frame operan
 RG_NAME EQU  RG_PATCH+2        ; Word: the routine's name, for the name stream.
 RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
 RG_FWD EQU  RG_NLEN+1          ; Byte: nonzero once a routine is declared forward.
-EM_WEND EQU  RG_FWD+1          ; End of the emitter's state.
+GX_IMMV EQU  RG_FWD+1          ; Byte: the immediate of a frame byte's store (GX_DSTN).
+EM_WEND EQU  GX_IMMV+1         ; End of the emitter's state.
 
 ; The predictive expression path keeps one token of lookahead. $FF denotes an
 ; empty lookahead cell; token ordinals occupy the low half of the byte range.
@@ -172,7 +174,7 @@ CT_MWORD EQU  4                ; For mode: the counter is a u16.
 ; 1..3 are the predefined scalars; IDs 4 and above name bounded four-byte
 ; descriptors. Record field offsets stay live for field selection.
 AG_BASE EQU  CT_FLIM           ; First byte of the aggregate block.
-AG_MODE EQU  AG_BASE+$00       ; Byte: set by PR_PARSE, cleared by PR_RESET.
+AG_DCNT EQU  AG_BASE+$00       ; Byte: array bounds waiting in AG_DSTK.
 AG_TCNT EQU  AG_BASE+$01       ; Byte: descriptors in the type table.
 AG_RCNT EQU  AG_BASE+$02       ; Byte: records in the record table.
 AG_FCNT EQU  AG_BASE+$03       ; Byte: fields in the field table.
@@ -191,7 +193,11 @@ AG_NAUX EQU  AG_BASE+$10       ; Byte: its element type or capacity.
 AG_NDIM EQU  AG_BASE+$11       ; Word: its element count or length.
 AG_NSIZE EQU  AG_BASE+$13      ; Word: its extent in bytes.
 AG_OEND EQU  AG_BASE+$15       ; Word: end of the current object.
-AG_STEND EQU  AG_BASE+$17      ; End of the aggregate scalars.
+; The bounds of a type's array dimensions, outermost first, kept until the
+; type is complete and built from the innermost (AC_DIM, AC_ARRAY).
+AG_DSTK EQU  AG_BASE+$17       ; AG_DCAP words: the bounds.
+AG_DCAP EQU  8                 ; Dimensions of one array type; DG_BOUND beyond.
+AG_STEND EQU  AG_DSTK+2*AG_DCAP ; End of the aggregate scalars.
 
 ; The type table: one four-byte descriptor per aggregate type, interned so
 ; that equal types share an ID. AG_NKIND..AG_NDIM is built in the same

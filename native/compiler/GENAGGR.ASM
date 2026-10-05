@@ -40,6 +40,10 @@
 ;    GA_STORE  store the registers into the scalar at the place
 ;    GA_ITEM   address an array element at a run-time index
 ;    GA_CHAR   address a string's character, checked against its length
+;    GA_ZERO   zero a local (zeroFrame)
+;    GA_FILL   store a local's staged initializer (storeBytesToFrame)
+;    GA_COPY   copy an aggregate into a local (copyToFrame)
+;    GA_LDIR   LD BC,n and LDIR
 ;    GA_LIT    LD HL, a string literal
 ;    GA_LITS   place the routine's literals
 
@@ -105,11 +109,17 @@ GA_ADDS:                       ; HL is the constant.
     LD   A,H                       ; Zero?
     OR   L                         ; Then
     RET  Z                         ; nothing is added.
-    CALL EM_OP                     ; LD DE,n,
-    DB   $11                       ; the opcode,
-    CALL EM_WORD                   ; and n.
+    CALL GA_LDDE                   ; LD DE,n.
     LD   A,$19                     ; ADD HL,DE.
     JP   EM_BYTE                   ; Append it and return.
+
+;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD DE,n, n in HL.
+
+GA_LDDE:                       ; HL is n.
+    CALL EM_OP                     ; LD DE,n:
+    DB   $11                       ; the opcode,
+    JP   EM_WORD                   ; and n; return.
 
 ;@ROUTINE IN HL CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Move the place in hand on by HL bytes, a field's or an element's offset
@@ -213,10 +223,8 @@ GA_ITEM:                       ; D and HL are the index.
     LD   E,(HL)                    ; low byte
     INC  HL                        ; and
     LD   D,(HL)                    ; high byte.
-    CALL EM_OP                     ; LD DE,length:
-    DB   $11                       ; the opcode,
-    EX   DE,HL                     ; and the length
-    CALL EM_WORD                   ; as its operand.
+    EX   DE,HL                     ; The length:
+    CALL GA_LDDE                   ; LD DE,length.
     CALL EM_SEQ                    ; OR A, SBC HL,DE:
     DB   3,$B7,$ED,$52             ; no borrow when the index is past it,
     LD   A,$D4                     ; so CALL NC
@@ -230,17 +238,20 @@ GA_ITEM:                       ; D and HL are the index.
     LD   A,(RO_PPUSH)              ; Is the base pushed?
     RRCA                           ; Then pop it:
     JR   C,.POP                    ; POP DE.
-    CALL EM_OP                     ; Otherwise keep the offset:
-    DB   $E5                       ; PUSH HL,
-    LD   A,2                       ; two bytes
-    CALL EM_PUSH                   ; pushed,
+    CALL GX_PUSHW                  ; Otherwise keep the offset: PUSH HL,
     CALL GA_ADDR                   ; while the base is addressed.
 .POP:                          ; The other operand is pushed.
-    CALL EM_OP                     ; POP DE.
-    DB   $D1                       ; Append it.
-    CALL EM_POP2                   ; Two bytes fewer pushed.
+    CALL GA_POPDE                  ; POP DE, two bytes fewer pushed.
     LD   A,$19                     ; ADD HL,DE: the element's address.
     JP   EM_BYTE                   ; Append it and return.
+
+;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append POP DE and count two bytes popped (pop). BC is kept.
+
+GA_POPDE:                      ; A temporary goes to DE.
+    CALL EM_OP                     ; POP DE.
+    DB   $D1                       ; Append it.
+    JP   EM_POP2                   ; Two bytes fewer pushed; return.
 
 ;@ROUTINE IN D,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Address a character of the string at the place (indexString): the index,
@@ -262,10 +273,7 @@ GA_CHAR:                       ; D and HL are the index.
     DB   2,$EB,$E1                 ; The index is in DE.
     JR   .CHECK                    ; Check it.
 .BASE:                         ; The string is addressed now.
-    CALL EM_OP                     ; PUSH HL:
-    DB   $E5                       ; the index waits,
-    LD   A,2                       ; two bytes
-    CALL EM_PUSH                   ; pushed,
+    CALL GX_PUSHW                  ; PUSH HL: the index waits,
     CALL GA_ADDR                   ; while the string is addressed,
     CALL EM_OP                     ; then POP DE
     DB   $D1                       ; brings it back.
@@ -331,6 +339,81 @@ GA_SCALE:                      ; HL is the stride.
     CALL EM_SEQ                    ; EX DE,HL, ADD HL,HL, EX DE,HL:
     DB   3,$EB,$29,$EB             ; DE doubles.
     JR   .BIT                      ; The next bit.
+
+;@ROUTINE IN BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Zero the BC bytes of a local at the frame place in hand (zeroFrame):
+; four or fewer one at a time (ixStoreImm); more with LD (HL),0 at its
+; address, then LD D,H, LD E,L, INC DE, LD BC,size-1, LDIR.
+
+GA_ZERO:                       ; BC is the size.
+    LD   A,B                       ; Four bytes
+    OR   A                         ; or fewer?
+    JR   NZ,.MANY                  ; More.
+    LD   A,C                       ; The size
+    CP   5                         ; is below five:
+    JR   NC,.MANY                  ; no, more.
+    LD   B,C                       ; B bytes
+    LD   HL,(RO_PADD)              ; from the local's offset
+    JP   GX_FZERO                  ; are zeroed; return.
+.MANY:                         ; More than four bytes.
+    DEC  BC                        ; The first is zeroed alone.
+    PUSH BC                        ; Keep the rest's count.
+    CALL GA_ADDR                   ; The local's address,
+    CALL EM_SEQ                    ; then LD (HL),0, LD D,H, LD E,L, INC DE:
+    DB   5,$36,0,$54,$5D,$13       ; each byte copies the one before.
+    POP  HL                        ; The rest's count.
+    JR   GA_LDIR                   ; LD BC,count, LDIR; return.
+
+;@ROUTINE IN BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Store the BC bytes staged in AG_IBUF into a local at the frame place in
+; hand, one LD (IX+d),n each, near or far (storeBytesToFrame).
+
+GA_FILL:                       ; BC is the size.
+    LD   HL,(RO_PADD)              ; The local's first byte.
+    LD   DE,AG_IBUF                ; The staged bytes.
+.BYTE:                         ; BC bytes remain.
+    LD   A,(DE)                    ; The next byte
+    LD   (GX_IMMV),A               ; is the immediate.
+    PUSH BC                        ; Keep the count,
+    PUSH DE                        ; the source
+    PUSH HL                        ; and the offset.
+    LD   DE,GX_DSTN                ; LD (IX+d),n.
+    CALL GX_FACC                   ; Store this byte.
+    POP  HL                        ; The offset
+    INC  HL                        ; of the next byte,
+    POP  DE                        ; and
+    INC  DE                        ; its source.
+    POP  BC                        ; One byte
+    DEC  BC                        ; fewer.
+    LD   A,B                       ; Any left?
+    OR   C                         ; Zero when none.
+    JR   NZ,.BYTE                  ; Store the next.
+    RET                            ; The local holds its initializer.
+
+;@ROUTINE IN BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Copy the BC bytes at the address in HL into a local at the frame place
+; in hand (copyToFrame): PUSH HL, the local's address, EX DE,HL, POP HL,
+; LD BC,size, LDIR.
+
+GA_COPY:                       ; BC is the size; the source is in HL.
+    PUSH BC                        ; Keep the size.
+    CALL GX_PUSHW                  ; PUSH HL: the source waits,
+    CALL GA_ADDR                   ; while the local is addressed.
+    CALL EM_SEQ                    ; EX DE,HL, POP HL:
+    DB   2,$EB,$E1                 ; DE is the local, HL the source.
+    CALL EM_POP2                   ; Two bytes fewer pushed.
+    POP  HL                        ; The size.
+
+;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD BC,n and LDIR: copy n bytes from HL to DE at run time.
+
+GA_LDIR:                       ; HL is the count.
+    CALL EM_OP                     ; LD BC,n:
+    DB   $01                       ; the opcode,
+    CALL EM_WORD                   ; and n.
+    CALL EM_SEQ                    ; LDIR.
+    DB   2,$ED,$B0                 ; Append it.
+    RET                            ; The copy is written.
 
 ;@ROUTINE IN B CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append LD HL,literal for the string literal just read (TK_PTR, TK_LEN),

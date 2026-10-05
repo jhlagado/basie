@@ -307,7 +307,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   `AggregateFieldCapacity` = 12 fields in total; type-metadata capacity has its
   own diagnostic. At 65.4 (h) the native compiler holds 24 types
   (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all (`AG_FCAP`),
-  `DG_META` beyond ([limits](limits.md) §5.1).
+  `DG_META` beyond, and an array type of up to eight dimensions
+  (`AG_DCAP`, `DG_BOUND` beyond), whose bounds wait until the type is
+  complete ([limits](limits.md) §5.1).
 - **Dimensions:** distinct types, nesting of arrays of arrays (D32), records,
   pools and handle types, interned descriptor count, bytes per descriptor.
   Ownership descriptors for owning types also go to `rodata` (memory safety

@@ -45,7 +45,7 @@
 ;    EM_LDEF   define a label at the current offset
 ;    EM_JUMP   append JP or JP cc to a label
 ;    EM_LFREE  free the last label allocated
-;    EM_ALLOC  allocate a frame slot (allocLocal)
+;    EM_ALLOC  allocate a frame slot of A bytes (allocLocal); EM_ALLOW of DE
 ;    EM_LINE   mark the line of the statement at the lookahead
 ;
 ;  Workspace (STATE.ASM): EM_FRAME to EM_LLIM. A full label table raises
@@ -345,12 +345,14 @@ EM_LFREE:                      ; A is the label.
 ;@ROUTINE IN A OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Allocate A bytes in the frame (allocLocal): the frame grows, may be the
 ; deepest yet, and HL returns the new slot's offset from IX, negative.
+; EM_ALLOW allocates DE bytes.
 
 EM_ALLOC:                      ; A is the size.
+    LD   E,A                       ; DE is
+    LD   D,0                       ; the size.
+EM_ALLOW:                      ; DE is the size.
     LD   HL,(EM_FRAME)             ; The locals' bytes
-    LD   E,A                       ; grow
-    LD   D,0                       ; by
-    ADD  HL,DE                     ; the size.
+    ADD  HL,DE                     ; grow by it.
     LD   (EM_FRAME),HL             ; The frame holds the slot.
     PUSH HL                        ; Keep the size.
     XOR  A                         ; Nothing is pushed, but the frame

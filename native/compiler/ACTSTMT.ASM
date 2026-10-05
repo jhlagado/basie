@@ -8,7 +8,7 @@
 ;  and labels are CONTROL.ASM's.
 ;
 ;  Principal entries:
-;    AC_LOCAL, AC_INIT, AC_ZERO, AC_ADOPT, AC_BIND  local declarations
+;    AC_LOCAL, AC_INIT, AC_LINIT, AC_ZERO, AC_ADOPT, AC_BIND  local declarations
 ;    AC_STMT   island NameStatement: a call or an assignment
 ;    AC_RET, AC_YIELD, AC_RETOP, AC_BARE  return statements
 ;    AC_GOTO   exit and continue
@@ -26,24 +26,29 @@
 ; ------------------------------------------------------------------ locals
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; SaveLocalType: declare a scalar local of the current type, provisionally
-; so that its initializer cannot use it, and expect an initializer of its
+; SaveLocalType: declare a local of the current type, a scalar or an
+; aggregate (an open string cannot be one: DG_CLASH), provisionally so
+; that its initializer cannot use it, and expect an initializer of its
 ; type. Its offset from IX is the frame's size once it is allocated,
 ; negated (allocLocal); the frame grows only when the local is committed
 ; (AC_BIND), after its initializer, as the reference's does.
 
 AC_LOCAL:
-    LD   A,(AG_CTYPE)              ; The local's scalar type,
-    LD   E,A                       ; kept,
-    OR   SY_LOCAL                  ; with class local,
-    LD   (AC_DINFO),A              ; is its information byte,
-    LD   D,A                       ; for EX_PREP.
-    LD   A,E                       ; Its type
-    CALL EX_WIDTH                  ; is one or two bytes wide.
-    LD   C,A                       ; BC is
-    LD   B,0                       ; its size.
-    LD   HL,(EM_FRAME)             ; The frame's size
-    ADD  HL,BC                     ; with the local in it,
+    LD   A,(AG_CTYPE)              ; The local's type.
+    CP   AG_VIEW                   ; An open string
+    JP   Z,EX_ETYPE                ; is a parameter type only.
+    LD   D,SY_AGGR+SY_LOCAL        ; An aggregate local's class,
+    CP   AG_FIRST                  ; unless
+    JR   NC,.CLASS                 ; it is a scalar:
+    OR   SY_LOCAL                  ; then its type with class local.
+    LD   D,A                       ; D is its information byte.
+.CLASS:                        ; D is the information byte.
+    LD   A,D                       ; It is
+    LD   (AC_DINFO),A              ; the declaration's.
+    LD   A,(AG_CTYPE)              ; The type's
+    CALL AG_SIZE                   ; size, HL,
+    LD   BC,(EM_FRAME)             ; with the frame's size
+    ADD  HL,BC                     ; added,
     XOR  A                         ; negated:
     SUB  L                         ; the low byte,
     LD   C,A                       ; then
@@ -51,6 +56,8 @@ AC_LOCAL:
     SUB  H                         ; with the borrow.
     LD   B,A                       ; BC is the local's offset,
     LD   (AC_DVAL),BC              ; its payload.
+    LD   A,(AC_DINFO)              ; D is its
+    LD   D,A                       ; information byte.
     CALL EX_PREP                   ; Write the provisional symbol.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
@@ -62,6 +69,47 @@ AC_TOVAR:
 
 AC_INIT EQU  AC_TOVAR          ; BeginLocalInitializer: expect the local's type.
 
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Island LocalInitializer: a scalar local's is a run-time expression
+; (AC_EXPR). An aggregate's is a static initializer when it begins with a
+; parenthesis, a bracket or a string literal, staged as a program
+; variable's is (AC_IMAGE), its bytes stored into the frame when the local
+; is committed, which AC_STAGE in EX_RMETA tells AC_BIND; otherwise a
+; path or call of the local's type (DG_CLASH), its address in HL, copied
+; into the frame when it is committed (AC_LCOPY).
+
+AC_LINIT:
+    LD   A,(AG_CTYPE)              ; The local's type.
+    CP   AG_FIRST                  ; A scalar?
+    JP   C,AC_EXPR                 ; A run-time expression.
+    CALL PR_PEEK                   ; How does it begin?
+    CP   TK_LPAR                   ; A record's fields,
+    JR   Z,.IMAGE                  ; or
+    CP   TK_LBRAC                  ; an array's elements,
+    JR   Z,.IMAGE                  ; or
+    CP   TK_TEXT                   ; a string literal
+    JR   Z,.IMAGE                  ; is static.
+    CALL RO_AGGR                   ; A path or call: A is its type.
+    LD   B,A                       ; It must be
+    LD   A,(AG_CTYPE)              ; the local's
+    CP   B                         ; type,
+    JP   NZ,EX_ETYPE               ; else DG_CLASH.
+    LD   A,AC_LCOPY                ; Its address is in HL,
+    JR   .KIND                     ; copied when the local is committed.
+.IMAGE:                        ; A static initializer.
+    LD   A,(AC_DINFO)              ; Keep the local's class:
+    PUSH AF                        ; AC_OBJ and AC_IMAGE use AC_DINFO.
+    LD   A,(AG_CTYPE)              ; The local's type:
+    CALL AC_OBJ                    ; size and zero the staging,
+    CALL AC_IMAGE                  ; parse the initializer into it,
+    CALL AC_EXACT                  ; which must fill it.
+    POP  AF                        ; The local's class
+    LD   (AC_DINFO),A              ; again.
+    LD   A,AC_STAGE                ; Its bytes are staged.
+.KIND:                         ; A says what the initializer was.
+    LD   (EX_RMETA),A              ; AC_BIND reads it.
+    RET                            ; Back to the engine.
+
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; DefaultLocalInitializer: without an initializer a local is zeroed in
 ; the frame (zeroFrame), which AC_NONE in EX_RMETA tells AC_BIND.
@@ -72,12 +120,14 @@ AC_ZERO:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; FinishLocalInitializer: the value must fit the local's type. A pending
-; failure must be followed by `else fail`; without one, a following else
-; raises DG_LEAK.
+; FinishLocalInitializer: a scalar's value must fit the local's type. A
+; pending failure must be followed by `else fail`; without one, a
+; following else raises DG_LEAK.
 
 AC_ADOPT:
-    CALL AC_FIT                    ; Check the value against the local's type.
+    LD   A,(AG_CTYPE)              ; A scalar local's
+    CP   AG_FIRST                  ; value
+    CALL C,AC_FIT                  ; must fit its type.
     LD   A,(RO_PEND)               ; Is a failure pending?
     OR   A                         ; Zero means none.
     JP   NZ,AC_RELAY               ; Require `else fail`.
@@ -105,18 +155,28 @@ AC_FITTO:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitLocal: allocate the local in the frame (allocLocal), then store its
-; initial value there, brought into the registers at its type, or zero it
-; when it has no initializer; commit its symbol.
+; initial value there, a scalar brought into the registers at its type,
+; or zero it when it has no initializer (zeroFrame); an aggregate's
+; staged bytes are stored (storeBytesToFrame) or its source copied
+; (copyToFrame). Commit its symbol, an aggregate's with its type.
 
 AC_BIND:
-    CALL EX_DTYPE                  ; The local's type
-    CALL EX_WIDTH                  ; is A bytes wide.
-    PUSH AF                        ; Keep the size.
-    CALL EM_ALLOC                  ; The frame holds the local.
-    POP  BC                        ; B is the size.
-    LD   A,(EX_RMETA)              ; Was there an initializer?
-    CP   AC_NONE                   ; Not when the default was taken.
-    JR   Z,.ZERO                   ; Zero the local.
+    LD   A,(AG_CTYPE)              ; The local's type
+    CALL AG_SIZE                   ; is HL bytes long.
+    PUSH HL                        ; Keep the size.
+    EX   DE,HL                     ; The frame
+    CALL EM_ALLOW                  ; holds the local.
+    LD   (RO_PADD),HL              ; Its place, for an aggregate:
+    LD   A,GA_FRAME                ; in the frame
+    LD   (RO_PKIND),A              ; at its offset.
+    POP  BC                        ; BC is its size.
+    LD   A,(EX_RMETA)              ; How is it initialized?
+    CP   AC_NONE                   ; Not at all?
+    JR   Z,.ZERO                   ; Zero it.
+    CP   AC_STAGE                  ; Staged bytes?
+    JR   Z,.IMAGE                  ; Store them.
+    CP   AC_LCOPY                  ; A source's address?
+    JR   Z,.COPY                   ; Copy it.
     LD   D,A                       ; D is the value's metadata,
     CALL EX_DTYPE                  ; E the local's type,
     LD   E,A                       ; HL a known
@@ -127,10 +187,19 @@ AC_BIND:
     LD   BC,(AC_DVAL)              ; and its offset.
     CALL EX_STORE                  ; Store the value.
     JP   SY_CMT                    ; The local is now in scope.
-.ZERO:                         ; B is the local's size.
-    LD   HL,(AC_DVAL)              ; Its offset.
-    CALL GX_FZERO                  ; Zero its bytes.
-    JP   SY_CMT                    ; The local is now in scope.
+.ZERO:                         ; BC is the local's size.
+    CALL GA_ZERO                   ; Zero its bytes.
+    JR   .COMMIT                   ; Commit it.
+.IMAGE:                        ; BC is the local's size.
+    CALL GA_FILL                   ; Store the staged bytes.
+    JR   .COMMIT                   ; Commit it.
+.COPY:                         ; BC is the local's size.
+    CALL GA_COPY                   ; Copy the source into it.
+.COMMIT:                       ; The local holds its value.
+    LD   A,(AG_CTYPE)              ; Its type:
+    CP   AG_FIRST                  ; a scalar's symbol
+    JP   C,SY_CMT                  ; is committed,
+    JP   SY_TAG                    ; an aggregate's with its type.
 
 ; -------------------------------------------------------------- statements
 
@@ -621,10 +690,7 @@ AC_NEXT:
     CALL CT_DEF                    ; starts here.
     CALL CT_WIDE                   ; HL is the counter; A the mode.
     PUSH AF                        ; Keep the mode.
-    CALL EM_OP                     ; PUSH HL,
-    DB   $E5                       ; the counter,
-    LD   A,2                       ; two bytes
-    CALL EM_PUSH                   ; of temporaries.
+    CALL GX_PUSHW                  ; PUSH HL, the counter, two bytes pushed.
     CALL CT_BOUND                  ; DE is the bound.
     POP  AF                        ; The mode.
     PUSH AF                        ; Kept.

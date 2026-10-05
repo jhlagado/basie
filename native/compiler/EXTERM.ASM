@@ -141,22 +141,14 @@ EX_PAREN:
 ; type is restored before returning the operand in A/HL.
 
 EX_CAST:
-    LD   A,(EX_WANT)               ; Fetch the enclosing expected type.
-    PUSH AF                        ; Save it across the operand.
-    XOR  A                         ; Nothing is expected inside
-    LD   (EX_WANT),A               ; the conversion.
     CALL PR_LEFT                   ; Require the opening parenthesis.
-    CALL EX_PARSE                  ; Parse the operand.
-    LD   D,A                       ; Keep its metadata.
-    PUSH DE                        ; Save it across the closing token.
-    PUSH HL                        ; Save its value.
+    XOR  A                         ; Nothing is expected inside the conversion.
+    CALL EX_SUB                    ; Parse the operand; the type is restored.
+    PUSH AF                        ; Save its metadata, carry clear,
+    PUSH HL                        ; and its value.
     CALL PR_RIGHT                  ; Require the closing parenthesis.
     POP  HL                        ; Recover the value.
-    POP  DE                        ; Recover the metadata.
-    POP  AF                        ; Recover the enclosing expected type.
-    LD   (EX_WANT),A               ; Restore it for the rest of the expression.
-    LD   A,D                       ; Return the operand's metadata.
-    OR   A                         ; Clear carry for success.
+    POP  AF                        ; Recover the metadata.
     RET                            ; Return the operand.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY

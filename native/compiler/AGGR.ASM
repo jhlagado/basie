@@ -184,8 +184,6 @@ AG_FITRW:
 
 ; Failure exits shared with the type and declaration actions. None returns.
 
-AG_ENEST:                      ; An array of arrays, entered with AF pushed.
-    POP  AF                        ; Drop it; DG_ISSUE resets SP in any case.
 AG_EFORM:                      ; A type or bound that is not admitted.
     CALL DG_RAISE                  ; Report it.
     DB   DG_BOUND                  ; Diagnostic: invalid type form or bound.

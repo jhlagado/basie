@@ -23,7 +23,7 @@
 ;    RO_FUNC   expression hook: a routine call as a value
 ;    RO_OBJ    expression hook: a scalar selected from an aggregate
 ;    RO_CAUSE  expression hook: an error constant's code
-;    RO_KEEP   push a block of words; RO_BACK pops it back
+;    RO_KEEP   push the path's block; RO_BACK pops it back
 ;
 ;  Escapes. The reference refuses a result rooted in a local or parameter
 ;  (alias-escapes) by the root of the last path parsed (lastAddressRoot):
@@ -52,11 +52,13 @@ RO_SYM:
     OR   A                         ; With carry clear.
     RET                            ; D, BC and A describe the symbol.
 
-;@ROUTINE IN B,HL CLOBBERS B,DE,HL,IY
-; Push the B words at HL on the machine stack, for RO_BACK to restore: a
-; path's block, or more, across a nested parse that would overwrite it.
+;@ROUTINE CLOBBERS B,DE,HL,IY
+; Push the path's block (RO_PLACE) on the machine stack, for RO_BACK to
+; restore, across a nested parse that would overwrite it.
 
-RO_KEEP:                       ; HL is the block, B its words.
+RO_KEEP:                       ; The block is RO_PWORD words.
+    LD   HL,RO_PLACE               ; Its first word.
+    LD   B,RO_PWORD                ; Its words.
     POP  IY                        ; The return address.
 .WORD:                         ; B words remain at HL.
     LD   E,(HL)                    ; DE is
@@ -67,10 +69,12 @@ RO_KEEP:                       ; HL is the block, B its words.
     DJNZ .WORD                     ; Until the block is kept.
     JP   (IY)                      ; Return.
 
-;@ROUTINE IN B,HL CLOBBERS B,DE,HL,IY
-; Pop B words that RO_KEEP pushed back into the block that ends at HL.
+;@ROUTINE CLOBBERS B,DE,HL,IY
+; Pop the path's block that RO_KEEP pushed back into RO_PLACE.
 
-RO_BACK:                       ; HL is the block's end, B its words.
+RO_BACK:                       ; The block is RO_PWORD words.
+    LD   HL,RO_STEND               ; Its end.
+    LD   B,RO_PWORD                ; Its words.
     POP  IY                        ; The return address.
 .WORD:                         ; B words remain.
     POP  DE                        ; The last word kept
@@ -292,13 +296,8 @@ RO_INDEX:
     LD   A,(RO_PKIND)              ; Is the base computed?
     CP   GA_HELD                   ; Then its address waits pushed.
     JR   NZ,.KEEP                  ; Otherwise it is addressed later.
-    PUSH BC                        ; Keep the flag.
-    CALL EM_OP                     ; PUSH HL,
-    DB   $E5                       ; appended,
-    LD   A,2                       ; two bytes
-    CALL EM_PUSH                   ; pushed.
-    POP  BC                        ; Bit 0 of RO_PPUSH:
-    INC  C                         ; the base is pushed.
+    CALL GX_PUSHW                  ; PUSH HL, two bytes pushed; C is kept.
+    INC  C                         ; Bit 0 of RO_PPUSH: the base is pushed.
 .KEEP:                         ; C holds the two flags.
     LD   A,C                       ; Record
     LD   (RO_PPUSH),A              ; them.
@@ -306,21 +305,12 @@ RO_INDEX:
     LD   HL,TK_POS                 ; its position
     LD   DE,RO_IPOS                ; is where an index
     CALL PR_COPY                   ; out of range is reported.
-    LD   HL,RO_PLACE               ; Keep the path's block
-    LD   B,RO_PWORD                ; across the index.
-    CALL RO_KEEP                   ; Push it.
-    LD   A,(EX_WANT)               ; Keep the enclosing expression's wanted type.
-    PUSH AF                        ; Push it.
+    CALL RO_KEEP                   ; Keep the path's block across the index.
     LD   A,SY_U16                  ; An index is a u16.
-    LD   (EX_WANT),A               ; Ask for one.
-    CALL EX_PARSE                  ; A and HL describe the index.
+    CALL EX_SUB                    ; A and HL describe it.
     LD   (EX_RMETA),A              ; Keep its metadata
     LD   (EX_RVAL),HL              ; and value.
-    POP  AF                        ; The enclosing wanted type
-    LD   (EX_WANT),A               ; is restored.
-    LD   HL,RO_STEND               ; The path's block
-    LD   B,RO_PWORD                ; comes back.
-    CALL RO_BACK                   ; Pop it.
+    CALL RO_BACK                   ; The path's block comes back.
     LD   A,(EX_RMETA)              ; The index's metadata:
     AND  SY_TMASK                  ; a Boolean
     CP   SY_BOOL                   ; is no index:
@@ -387,21 +377,10 @@ RO_INDEX:
 ; GX_TOREG takes them.
 
 RO_ARG:
-    LD   D,A                       ; Keep the expected type.
-    LD   A,(EX_WANT)               ; Keep the enclosing expression's wanted type
-    LD   B,A                       ; in B,
-    PUSH BC                        ; across the nested parse,
-    PUSH DE                        ; with the expected type.
-    LD   A,D                       ; Ask for the expected type.
-    LD   (EX_WANT),A               ; The argument's wanted type.
-    CALL EX_PARSE                  ; A and HL describe the argument.
-    POP  DE                        ; Recover the expected type.
-    POP  BC                        ; Recover the enclosing wanted type
-    LD   C,A                       ; (the argument's metadata to C)
-    LD   A,B                       ; and restore it.
-    LD   (EX_WANT),A               ; The enclosing expression resumes.
-    LD   E,D                       ; EX_FITS takes the destination in E,
-    LD   A,C                       ; the metadata in A.
+    PUSH AF                        ; Keep the expected type.
+    CALL EX_SUB                    ; A and HL describe the argument.
+    POP  DE                        ; D is the expected type,
+    LD   E,D                       ; EX_FITS's destination.
     JP   EX_FITS                   ; Check it against the parameter's type.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
@@ -482,10 +461,7 @@ RO_CALL:
     CP   B                         ; The types must be the same.
     JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
 .PUSH:                         ; The argument is in HL.
-    CALL EM_OP                     ; PUSH HL.
-    DB   $E5                       ; Append it.
-    LD   A,2                       ; Two bytes are pushed
-    CALL EM_PUSH                   ; until the call returns.
+    CALL GX_PUSHW                  ; PUSH HL, pushed until the call returns.
     POP  DE                        ; The parameters.
     INC  D                         ; The next parameter.
     DEC  E                         ; One fewer to parse.
@@ -605,9 +581,7 @@ RO_VIEW:
     ADD  A,2                       ; With its length byte and terminator
     LD   B,A                       ; it occupies B bytes.
     PUSH BC                        ; Keep them.
-    CALL EM_OP                     ; LD DE,length:
-    DB   $11                       ; the opcode,
-    CALL EM_WORD                   ; the length,
+    CALL GA_LDDE                   ; LD DE,length,
     CALL .PUSHDE                   ; pushed.
     POP  BC                        ; The literal's size.
     JP   GA_LIT                    ; LD HL,literal; return.
@@ -629,11 +603,9 @@ RO_VIEW:
     LD   H,0                       ; HL.
     PUSH HL                        ; Keep it.
     CALL GA_ADDR                   ; The address first.
-    CALL EM_OP                     ; LD DE,capacity:
-    DB   $11                       ; the opcode,
-    POP  HL                        ; and the capacity
-    CALL EM_WORD                   ; as its operand.
-    JR   .PUSHDE                   ; Pushed; return.
+    POP  HL                        ; The capacity:
+    CALL GA_LDDE                   ; LD DE,capacity,
+    JR   .PUSHDE                   ; pushed; return.
 .PASS:                         ; The view's address word is at IX+RO_PBASE.
     LD   HL,(RO_PBASE)             ; Its capacity word
     INC  HL                        ; lies
@@ -740,22 +712,13 @@ RO_LET:
     JR   NC,.COPY                  ; Copy it whole.
     LD   A,(RO_PKIND)              ; A computed place?
     CP   GA_HELD                   ; Its address
-    JR   NZ,.VALUE                 ; is in HL:
-    CALL EM_OP                     ; PUSH HL,
-    DB   $E5                       ; appended,
-    LD   A,2                       ; two bytes
-    CALL EM_PUSH                   ; pushed.
-.VALUE:                        ; The value follows.
-    LD   HL,RO_PLACE               ; Keep the place
-    LD   B,RO_PWORD                ; across the value.
-    CALL RO_KEEP                   ; Push it.
+    CALL Z,GX_PUSHW                ; is in HL: PUSH HL, two bytes pushed.
+    CALL RO_KEEP                   ; Keep the place across the value.
     LD   A,(RO_OTYPE)              ; The target's type
     CALL EX_RUN                    ; is wanted of the value.
     LD   (EX_RMETA),A              ; Keep its metadata
     LD   (EX_RVAL),HL              ; and a known value.
-    LD   HL,RO_STEND               ; The place
-    LD   B,RO_PWORD                ; comes back.
-    CALL RO_BACK                   ; Pop it.
+    CALL RO_BACK                   ; The place comes back.
     LD   A,(RO_OTYPE)              ; The target's type
     LD   E,A                       ; is the value's destination:
     CALL AC_FITTO                  ; it must fit; D, E and HL describe it,
@@ -766,9 +729,7 @@ RO_LET:
     CALL GA_STORE                  ; Store at the place.
     JP   AC_ROUTE                  ; Any failure handling; return.
 .THROUGH:                      ; The address is pushed.
-    CALL EM_OP                     ; POP DE.
-    DB   $D1                       ; Append it.
-    CALL EM_POP2                   ; Two bytes fewer pushed.
+    CALL GA_POPDE                  ; POP DE, two bytes fewer pushed.
     LD   A,(RO_OTYPE)              ; A word?
     CP   SY_U16                    ; Then four bytes.
     LD   A,$12                     ; LD (DE),A for a byte.
@@ -785,10 +746,7 @@ RO_LET:
 .COPY:                         ; Copy an aggregate of type A.
     PUSH AF                        ; Keep the type.
     CALL GA_ADDR                   ; The target's address,
-    CALL EM_OP                     ; PUSH HL,
-    DB   $E5                       ; appended,
-    LD   A,2                       ; two bytes
-    CALL EM_PUSH                   ; pushed.
+    CALL GX_PUSHW                  ; PUSH HL, two bytes pushed.
     POP  AF                        ; The target's type.
     PUSH AF                        ; Kept.
     CALL PR_PEEK                   ; A string literal?
@@ -799,17 +757,11 @@ RO_LET:
     CP   D                         ; The types must be the same.
     JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
 .COPIED:                       ; A is the type; the source is in HL.
-    CALL AG_SIZE                   ; HL is its size.
-    PUSH HL                        ; Keep it.
-    CALL EM_OP                     ; POP DE: the target.
-    DB   $D1                       ; Append it.
-    CALL EM_POP2                   ; Two bytes fewer pushed.
-    CALL EM_OP                     ; LD BC,size:
-    DB   $01                       ; the opcode,
-    POP  HL                        ; the size
-    CALL EM_WORD                   ; as its operand.
-    CALL EM_SEQ                    ; LDIR.
-    DB   2,$ED,$B0                 ; Append it.
+    PUSH AF                        ; Keep the type.
+    CALL GA_POPDE                  ; POP DE, the target.
+    POP  AF                        ; The type's
+    CALL AG_SIZE                   ; size, HL:
+    CALL GA_LDIR                   ; LD BC,size, LDIR.
     JP   AC_ROUTE                  ; Any failure handling; return.
 .TEXT:                         ; A literal into a string.
     POP  AF                        ; The target's type.

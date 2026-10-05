@@ -17,7 +17,7 @@
 ;    EX_FITS   check a result against a destination type
 ;    EX_RUN    parse a run-time expression, generating its code
 ;    EX_CONST  parse an expression that must be known, for constants
-;    EX_WIDTH  return a scalar type's storage width
+;    EX_SUB    parse a nested expression with its own expected type
 ;    EX_STORE  store a result into a variable
 ;    EX_OPEN   keep the left operand of `and`, `or` or `xor`
 
@@ -510,16 +510,25 @@ EX_CONST:
     LD   (EX_DEPTH),A              ; Empty the operand stack.
     JP   EX_PARSE                  ; Parse the expression.
 
-;@ROUTINE IN A OUT A CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,CARRY
-; Return the storage width of scalar type A: two bytes for u16, one for u8
-; and Boolean. Locals and parameters advance their frame slot by it.
+;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; Parse an expression nested in another, an index, an argument or a
+; conversion's operand, with expected type A, and restore the enclosing
+; expression's expected type after it. A and HL describe the nested one.
 
-EX_WIDTH:
-    CP   SY_U16                    ; Is it a word?
-    LD   A,1                       ; Assume one byte.
-    RET  NZ                        ; u8 and Boolean take one.
-    INC  A                         ; u16 takes two.
-    RET                            ; Return it.
+EX_SUB:
+    LD   E,A                       ; The nested expected type.
+    LD   A,(EX_WANT)               ; The enclosing one
+    PUSH AF                        ; waits.
+    LD   A,E                       ; The nested one
+    LD   (EX_WANT),A               ; is asked for.
+    CALL EX_PARSE                  ; A and HL describe the expression.
+    POP  DE                        ; D is the enclosing type,
+    LD   E,A                       ; E the metadata.
+    LD   A,D                       ; The enclosing type
+    LD   (EX_WANT),A               ; is restored.
+    LD   A,E                       ; The metadata.
+    OR   A                         ; Carry clear.
+    RET                            ; A and HL are the result.
 
 ;@ROUTINE IN D,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the value in the registers into the variable with symbol info D: a

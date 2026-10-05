@@ -23,6 +23,8 @@
 ;    then count and bytes: its code after the address, HL = IX+offset
 ;    then the near form's operations on (IX+d), (IX+d+1), ended by zero
 ;
+;  An immediate store, LD (HL),n or LD (IX+d),n, takes n from GX_IMMV.
+;
 ;  Principal entries:
 ;    GX_LOAD   load a program variable of type A from blob BC
 ;    GX_STORE  store the registers into a program variable of type A
@@ -31,6 +33,8 @@
 ;    GX_FZERO  zero B bytes of the frame from IX+HL
 ;    GX_TOREG  bring a result into the registers at a destination's type
 ;    GX_WIDEN  widen a u8 in A to a u16 in HL
+;    GX_PUSH   push a left operand while the right is computed
+;    GX_PUSHW  PUSH HL, counted
 
 ;@ROUTINE IN A,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load the program variable at blob BC, of scalar type A: LD A,(nn) for a
@@ -92,17 +96,21 @@ GX_FPUT:                       ; A is the type, HL the offset.
 
 ;@ROUTINE IN B,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Zero the B bytes of the frame from IX+HL, one at a time (zeroFrame, for
-; a local without an initializer, through ixStoreImm).
+; a local of four bytes or fewer without an initializer, through
+; ixStoreImm).
 
-GX_FZERO:                      ; B bytes remain from offset HL.
+GX_FZERO:                      ; B bytes from offset HL.
+    XOR  A                         ; The immediate
+    LD   (GX_IMMV),A               ; is zero.
+.BYTE:                         ; B bytes remain from offset HL.
     PUSH BC                        ; Keep the count
     PUSH HL                        ; and the offset.
-    LD   DE,GX_DZERO               ; LD (IX+d),0.
+    LD   DE,GX_DSTN                ; LD (IX+d),0.
     CALL GX_FACC                   ; Zero this byte.
     POP  HL                        ; The offset
     INC  HL                        ; of the next byte.
     POP  BC                        ; The count.
-    DJNZ GX_FZERO                  ; Until every byte is zero.
+    DJNZ .BYTE                     ; Until every byte is zero.
     RET                            ; The local is clear.
 
 ;@ROUTINE IN DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -130,8 +138,8 @@ GX_FACC:                       ; DE is the entry, HL the offset.
     LD   A,L                       ; The displacement
     CALL EM_BYTE                   ; follows it.
     LD   A,(DE)                    ; Was it LD (IX+d),n?
-    CP   $36                       ; Its immediate is the zero
-    LD   A,0                       ; of zeroFrame.
+    CP   $36                       ; Its immediate
+    LD   A,(GX_IMMV)               ; is GX_IMMV.
     CALL Z,EM_BYTE                 ; Append it.
     INC  L                         ; The next byte of the slot.
     INC  DE                        ; The next operation.
@@ -189,6 +197,7 @@ GX_FACC:                       ; DE is the entry, HL the offset.
 
 ;@ROUTINE IN DE OUT DE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the count byte's bytes at DE, at least one; DE is left after them.
+; LD (HL),n takes its immediate from GX_IMMV.
 
 .COPY:                         ; DE is the count.
     LD   A,(DE)                    ; B is
@@ -196,7 +205,12 @@ GX_FACC:                       ; DE is the entry, HL the offset.
 .BYTE:                         ; B bytes remain.
     INC  DE                        ; The next
     LD   A,(DE)                    ; byte.
-    CALL EM_BYTE                   ; Append it.
+    CALL EM_BYTE                   ; Append it; A is kept.
+    CP   $36                       ; LD (HL),n?
+    JR   NZ,.NEXT                  ; No.
+    LD   A,(GX_IMMV)               ; Its immediate
+    CALL EM_BYTE                   ; follows it.
+.NEXT:                         ; The byte is written.
     DJNZ .BYTE                     ; Until the count is done.
     INC  DE                        ; DE is after them.
     RET                            ; The code is appended.
@@ -228,11 +242,11 @@ GX_DSTHL:                      ; ixStoreHL: (IX+offset) = HL.
     DB   2,$D5,$E5                 ; PUSH DE, PUSH HL;
     DB   6,$D1,$73,$23,$72,$EB,$D1 ; POP DE, LD (HL),E, INC HL, LD (HL),D, EX DE,HL, POP DE.
     DB   $75,$74,0                 ; LD (IX+d),L, LD (IX+d+1),H.
-GX_DZERO:                      ; ixStoreImm: (IX+offset) = 0.
+GX_DSTN:                       ; ixStoreImm: (IX+offset) = GX_IMMV.
     DB   0,6                       ; One byte; the far form pushes six.
     DB   2,$E5,$D5                 ; PUSH HL, PUSH DE;
-    DB   4,$36,0,$D1,$E1           ; LD (HL),0, POP DE, POP HL.
-    DB   $36,0                     ; LD (IX+d),0.
+    DB   3,$36,$D1,$E1             ; LD (HL),n, POP DE, POP HL.
+    DB   $36,0                     ; LD (IX+d),n.
 
 ;@ROUTINE IN D,E,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Bring the result with metadata D and value HL into the registers as type
@@ -279,10 +293,16 @@ GX_PUSH:                       ; A is the left operand's metadata.
     RET  NZ                        ; It needs no code.
     AND  SY_TMASK                  ; Its type.
     CP   SY_U16                    ; A word?
-    LD   A,$E5                     ; PUSH HL.
-    JR   Z,.WORD                   ; A word is in HL.
     LD   A,$F5                     ; PUSH AF: a byte is in A.
-.WORD:                         ; A is the push.
+    JR   NZ,GX_PUSHA               ; A byte it is.
+
+;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append PUSH HL and count its two bytes as temporaries (pushValue). BC
+; is kept.
+
+GX_PUSHW:                      ; A word in HL waits.
+    LD   A,$E5                     ; PUSH HL.
+GX_PUSHA:                      ; A is the push.
     CALL EM_BYTE                   ; Append it.
     LD   A,2                       ; Two bytes of temporaries.
     JP   EM_PUSH                   ; Count them and return.

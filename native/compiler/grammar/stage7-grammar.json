@@ -101,6 +101,21 @@
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
+    ],
+    "LocalInitializer": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenLeftBracket",
+      "TokenStringLiteral",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
     ]
   },
   "productions": [
@@ -302,7 +317,7 @@
         "TokenName",
         "a:RetainDeclarationName",
         "TokenAs",
-        "scalar-type",
+        "type",
         "a:SaveLocalType",
         "local-initializer-opt",
         "TokenNewline",
@@ -314,7 +329,7 @@
       "rhs": [
         "TokenEquals",
         "a:BeginLocalInitializer",
-        "x:RuntimeExpression",
+        "x:LocalInitializer",
         "a:FinishLocalInitializer"
       ]
     },
@@ -445,7 +460,10 @@
     },
     { "lhs": "for-step-opt", "rhs": ["a:DefaultForStep"] },
 
-    { "lhs": "type", "rhs": ["type-atom", "type-array-opt"] },
+    {
+      "lhs": "type",
+      "rhs": ["type-atom", "type-array-opt", "a:MakeArrayTypes"]
+    },
     { "lhs": "type-atom", "rhs": ["scalar-type"] },
     { "lhs": "type-atom", "rhs": ["TokenName", "a:ResolveRecordType"] },
     {
@@ -469,7 +487,8 @@
         "a:BeginTypeBound",
         "x:ConstantExpression",
         "TokenRightBracket",
-        "a:MakeArrayType"
+        "a:SaveArrayBound",
+        "type-array-opt"
       ]
     },
     { "lhs": "type-array-opt", "rhs": [] },

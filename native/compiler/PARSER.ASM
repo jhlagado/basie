@@ -162,8 +162,8 @@ PR_RESET:
     LD   (DG_PART),A               ; And no failing part.
     LD   (SY_CNT),A                ; No symbols.
     LD   (RG_FWD),A                ; No forward routines.
-    LD   HL,AG_MODE                ; The aggregate counters, AG_MODE..AG_GIVEN.
-    LD   B,AG_GIVEN-AG_MODE+1      ; Their byte count.
+    LD   HL,AG_DCNT                ; The aggregate counters, AG_DCNT..AG_GIVEN.
+    LD   B,AG_GIVEN-AG_DCNT+1      ; Their byte count.
 .LOOP:                         ; Clear one aggregate counter.
     LD   (HL),A                    ; Zero it.
     INC  HL                        ; Step to the next.

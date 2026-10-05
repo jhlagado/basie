@@ -9,15 +9,15 @@
 ;  from MM_WBASE ($4800).
 ;
 ;    Offset  Size  Block
-;    +$AB1     29  routine state: counts, the signature being parsed, the
+;    +$AC2     29  routine state: counts, the signature being parsed, the
 ;                  call being checked and the path in hand (RO_BASE)
-;    +$ACE    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$C4E    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$D4E     96  the routine's string literals: 16 of six bytes (RO_LTAB)
-;    +$DAE      3  multipart source cursor (SRC_DESC, SRC_LEFT)
-;    +$DB1      2  PR_SP, the stack DG_ISSUE restores
-;    +$DB3     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$DF4         LL_WEND, the end of the compiler workspace, 3,572 bytes
+;    +$ADF    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$C5F    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$D5F     96  the routine's string literals: 16 of six bytes (RO_LTAB)
+;    +$DBF      3  multipart source cursor (SRC_DESC, SRC_LEFT)
+;    +$DC2      2  PR_SP, the stack DG_ISSUE restores
+;    +$DC4     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$E05         LL_WEND, the end of the compiler workspace, 3,589 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and

@@ -43,7 +43,7 @@ byte for byte. A construct not yet generated this way is refused with Error
 | `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
 | `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels and jumps, frame accounting |
 | `GENEXPR.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening, the operators, comparisons, short circuits and conversions |
-| `GENAGGR.ASM` | `GA_` | Path templates: a place's address, fields and constant elements, checked elements and characters at run-time indexes, loads and stores at a place, and the routine's string literals, placed after its need word |
+| `GENAGGR.ASM` | `GA_` | Path templates: a place's address, fields and constant elements, checked elements and characters at run-time indexes, loads and stores at a place, aggregate locals zeroed, initialized and copied, and the routine's string literals, placed after its need word |
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, prologues (checked for a forward routine) and exits (through `RETN` when there are arguments), the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
 | `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams (deleted after a failure unless option `K`), diagnostics |
@@ -51,21 +51,23 @@ byte for byte. A construct not yet generated this way is refused with Error
 `GRAMMAR.ASM` was generated from Nucleus's grammar (`grammar/stage7-grammar.json`).
 The generator, which wrote AZM, was retired with the conversion. Step 67 brings
 a generator for Basie's grammar that writes ATOM under the `GR_` scheme
-([native compiler](../../docs/native-compiler.md) §2).
+([native compiler](../../docs/native-compiler.md) §2). Until then the tables
+are edited by hand and the JSON is kept in step with them (65.4 h: locals of
+any type, and arrays of arrays).
 
 ## State
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 11,911 |
+| Compiler code | 12,060 |
 | Immutable data | 397 |
-| **Compiler core** | **12,308** |
+| **Compiler core** | **12,457** |
 | CP/M shell | 1,054 |
-| **`BASIE.COM`** | **13,365** |
-| Compiler workspace (not in the image) | 3,572 |
+| **`BASIE.COM`** | **13,514** |
+| Compiler workspace (not in the image) | 3,589 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 13,259 bytes to the 26K target and 15,307 to the 28K limit (D43).
+That leaves 13,110 bytes to the 26K target and 15,158 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change

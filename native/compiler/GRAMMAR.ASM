@@ -48,7 +48,7 @@
 GR_ROW_N EQU  42                   ; Nonterminals, one row each.
 GR_ALT_N EQU  69                   ; Productions.
 GR_SPLIT EQU  35                   ; First production in the high directory.
-GR_ACT_N EQU  74                   ; Actions in GR_ACTX.
+GR_ACT_N EQU  76                   ; Actions in GR_ACTX.
 GR_START EQU  $40                  ; Start symbol: compilation-unit, row 0.
 GR_STMT EQU  $40+25                ; The statement nonterminal, row 25.
 GR_LOCAL EQU  $40+22               ; The local-declaration nonterminal, row 22.
@@ -447,16 +447,16 @@ GR_ALTXH:
     DB   82                        ; GR_ALT57-GR_ALTHI; for-step-opt
     DB   85                        ; GR_ALT58-GR_ALTHI; for-step-opt
     DB   86                        ; GR_ALT59-GR_ALTHI; type
-    DB   88                        ; GR_ALT60-GR_ALTHI; type-atom
-    DB   89                        ; GR_ALT61-GR_ALTHI; type-atom
-    DB   91                        ; GR_ALT62-GR_ALTHI; type-atom
-    DB   95                        ; GR_ALT63-GR_ALTHI; string-capacity
-    DB   98                        ; GR_ALT64-GR_ALTHI; string-capacity
-    DB   99                        ; GR_ALT65-GR_ALTHI; type-array-opt
-    DB   104                       ; GR_ALT66-GR_ALTHI; scalar-type
-    DB   106                       ; GR_ALT67-GR_ALTHI; scalar-type
-    DB   108                       ; GR_ALT68-GR_ALTHI; scalar-type
-    DB   110                       ; GR_ALT_E-GR_ALTHI
+    DB   89                        ; GR_ALT60-GR_ALTHI; type-atom
+    DB   90                        ; GR_ALT61-GR_ALTHI; type-atom
+    DB   92                        ; GR_ALT62-GR_ALTHI; type-atom
+    DB   96                        ; GR_ALT63-GR_ALTHI; string-capacity
+    DB   99                        ; GR_ALT64-GR_ALTHI; string-capacity
+    DB   100                       ; GR_ALT65-GR_ALTHI; type-array-opt
+    DB   106                       ; GR_ALT66-GR_ALTHI; scalar-type
+    DB   108                       ; GR_ALT67-GR_ALTHI; scalar-type
+    DB   110                       ; GR_ALT68-GR_ALTHI; scalar-type
+    DB   112                       ; GR_ALT_E-GR_ALTHI
 GR_ALTXE:                          ; End of the production directories.
 
 ; Production bodies, each right side stored right to left.
@@ -522,9 +522,9 @@ GR_ALT28:                          ; routine-body
 GR_ALT29:                          ; local-list
     DB   $55,$56
 GR_ALT30:                          ; local-declaration
-    DB   $a0,TK_EOL,$57,$9f,$69,TK_AS,$82,TK_NAME,TK_VAR
+    DB   $a0,TK_EOL,$57,$9f,$65,TK_AS,$82,TK_NAME,TK_VAR
 GR_ALT31:                          ; local-initializer-opt
-    DB   $a3,$a2,$a1,TK_EQ
+    DB   $a3,$cb,$a1,TK_EQ
 GR_ALT32:                          ; local-initializer-opt
     DB   $a4
 GR_ALT33:                          ; statement-sequence
@@ -581,7 +581,7 @@ GR_ALT57:                          ; for-step-opt
 GR_ALT58:                          ; for-step-opt
     DB   $c1
 GR_ALT59:                          ; type
-    DB   $68,$66
+    DB   $ca,$68,$66
 GR_ALT60:                          ; type-atom
     DB   $69
 GR_ALT61:                          ; type-atom
@@ -593,7 +593,7 @@ GR_ALT63:                          ; string-capacity
 GR_ALT64:                          ; string-capacity
     DB   $c5
 GR_ALT65:                          ; type-array-opt
-    DB   $c6,TK_RBRAC,$83,$c3,TK_LBRAC
+    DB   $68,$c6,TK_RBRAC,$83,$c3,TK_LBRAC
 GR_ALT66:                          ; scalar-type
     DB   $c7,TK_U8
 GR_ALT67:                          ; scalar-type
@@ -675,10 +675,12 @@ GR_ACTX:
     DW   AC_IDLE                   ; a:BeginTypeBound
     DW   AC_STR                    ; a:MakeStringType
     DW   AC_OPEN                   ; a:MakeOpenStringType
-    DW   AC_ARRAY                  ; a:MakeArrayType
+    DW   AC_DIM                    ; a:SaveArrayBound
     DW   AC_TYPE                   ; a:TypeU8, parameter 1
     DW   AC_TYPE                   ; a:TypeU16, parameter 2
     DW   AC_TYPE                   ; a:TypeBoolean, parameter 3
+    DW   AC_ARRAY                  ; a:MakeArrayTypes
+    DW   AC_LINIT                  ; x:LocalInitializer
 GR_ACTXE:                          ; End of the action directory.
 
 GR_TAB_E:                          ; End of the generated tables (marker).

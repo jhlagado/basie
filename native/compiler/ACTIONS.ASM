@@ -21,7 +21,8 @@
 ;  Principal entries here, in GR_ACTX order of use:
 ;    AC_FOLD, AC_EXPR, AC_IMAGE, AC_BY  islands: constant expression,
 ;              run-time expression, static initializer, for step
-;    AC_TYPE, AC_NAMED, AC_STR, AC_OPEN, AC_ARRAY  set the current type
+;    AC_TYPE, AC_NAMED, AC_STR, AC_OPEN  set the current type
+;    AC_DIM, AC_ARRAY  keep array bounds, then build the arrays from them
 ;    AC_VALUE, AC_CONST  scalar constant declarations
 ;    AC_ROOBJ, AC_ROCMT  aggregate constant declarations
 ;    AC_PROVE  compile-time assertions
@@ -36,11 +37,14 @@
 ;  scalars, a type-table ID from AG_FIRST, or AG_VIEW for `string[]`.
 ;
 ;  Workspace. The for loop's scratch below overlays the first seven bytes
-;  of AG_IBUF, the initializer staging buffer, which is used only by
-;  top-level declarations and is dead inside a routine. It is laid out as
-;  a for frame's fields from CT_FMODE, to which AC_FORDO copies it.
+;  of AG_IBUF, the initializer staging buffer, which holds a declaration's
+;  static initializer only from its parse to its commit, and a for loop's
+;  header is never inside one. It is laid out as a for frame's fields from
+;  CT_FMODE, to which AC_FORDO copies it.
 
 AC_NONE EQU  $FF               ; EX_RMETA of a local without an initializer.
+AC_STAGE EQU  $FE              ; EX_RMETA of an aggregate local's static initializer.
+AC_LCOPY EQU  $FD              ; EX_RMETA of an aggregate local copied from a source.
 AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode (CT_MINC...).
 AC_INDEX EQU  AC_MODE+1        ; Word: the counter's offset from IX.
 AC_BOUND EQU  AC_INDEX+2       ; Word: the bound's offset from IX.
@@ -202,30 +206,57 @@ AC_OPEN:
     LD   A,AG_VIEW                 ; The open-string view.
     JR   AC_USE                    ; Make it current.
 
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
+; SaveArrayBound: keep an array dimension's bound (AC_COUNT) until the
+; type is complete; at most AG_DCAP (DG_BOUND).
+
+AC_DIM:
+    CALL AC_COUNT                  ; HL is the bound.
+    EX   DE,HL                     ; Keep it in DE.
+    LD   HL,AG_DCNT                ; The bounds waiting:
+    LD   A,(HL)                    ; is there room
+    CP   AG_DCAP                   ; for another?
+    JP   NC,AG_EFORM               ; No: raise DG_BOUND.
+    INC  (HL)                      ; Count it.
+    ADD  A,A                       ; Its word
+    LD   L,A                       ; in
+    LD   H,0                       ; the stack
+    PUSH DE                        ; (the bound kept)
+    LD   DE,AG_DSTK                ; of
+    ADD  HL,DE                     ; bounds.
+    POP  DE                        ; The bound
+    LD   (HL),E                    ; goes
+    INC  HL                        ; there.
+    LD   (HL),D                    ; Both bytes.
+    RET                            ; Back to the engine.
+
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; MakeArrayType: an array of N elements of the current type. The element
-; may not be a view (DG_BOUND) or an array (DG_BOUND); the extent must fit
-; the 1 KiB data image (DG_DATA).
+; MakeArrayTypes: once a type's dimensions are parsed, build its arrays
+; from the innermost, the last bound kept, out (parseType): each an array
+; of its bound's elements of the current type, interned and made current.
+; The element may not be a view (DG_BOUND); the extent must fit the 1 KiB
+; data image (DG_DATA). Nothing is done without dimensions.
 
 AC_ARRAY:
+    LD   HL,AG_DCNT                ; Any bounds
+    LD   A,(HL)                    ; waiting?
+    OR   A                         ; None:
+    RET  Z                         ; the type is complete.
+    DEC  (HL)                      ; The last one is used:
+    DEC  A                         ; its index,
+    ADD  A,A                       ; and its word
+    LD   L,A                       ; in
+    LD   H,0                       ; the stack
+    LD   DE,AG_DSTK                ; of
+    ADD  HL,DE                     ; bounds:
+    LD   C,(HL)                    ; BC is
+    INC  HL                        ; the
+    LD   B,(HL)                    ; count.
+    LD   (AG_NDIM),BC              ; The candidate's count.
     LD   A,(AG_CTYPE)              ; The element type.
     CP   AG_VIEW                   ; An open string?
     JP   Z,AG_EFORM                ; Has no fixed size: raise DG_BOUND.
-    CP   AG_FIRST                  ; A scalar?
-    JR   C,.ELEMENT                ; Any scalar is a valid element.
-    PUSH AF                        ; Keep the element's ID.
-    CALL AG_DESC                   ; HL addresses its descriptor.
-    LD   A,(HL)                    ; Its kind.
-    CP   AG_KARR                   ; Another array?
-    JP   Z,AG_ENEST                ; Raise DG_BOUND, dropping the saved ID.
-    POP  AF                        ; Recover the element's ID.
-.ELEMENT:                      ; A is a valid element type.
     LD   (AG_NAUX),A               ; The candidate's element type.
-    CALL AC_COUNT                  ; HL is the element count.
-    LD   (AG_NDIM),HL              ; The candidate's count.
-    LD   B,H                       ; Count the elements...
-    LD   C,L                       ; ...in BC.
-    LD   A,(AG_NAUX)               ; The element type.
     CALL AG_SIZE                   ; HL is one element's extent.
     LD   D,H                       ; Keep it...
     LD   E,L                       ; ...in DE.
@@ -241,7 +272,8 @@ AC_ARRAY:
     LD   (AG_NSIZE),HL             ; The candidate's extent.
     LD   A,AG_KARR                 ; An array.
     LD   (AG_NKIND),A              ; The candidate's kind.
-    JR   AC_REUSE                  ; Intern it and make it current.
+    CALL AC_REUSE                  ; Intern it and make it current.
+    JR   AC_ARRAY                  ; The next dimension out.
 
 ; -------------------------------------------------------- scalar constants
 
