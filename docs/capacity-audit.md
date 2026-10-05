@@ -259,6 +259,12 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 - **Status:** **needs a decision** (Section 2, item 1). Covers forward jumps,
   literal addresses and jump-table addresses. In-order references already
   spill to `MAIN.$RF` and have no limit.
+- **Native compiler at 65.4:** forward jumps cost nothing per jump. Each is
+  written at once as an in-order reference whose addend word holds the link
+  to the previous pending operand of the same label, and defining the label
+  writes its offset into every addend on the chain (`EMIT.ASM`, `EM_LREF`,
+  `EM_LDEF`). The bound is on labels, 32 per routine (`EM_LCAP`), and on the
+  routine's encoded references, 512 bytes (`BL_RCAP`).
 
 ### 3.5 Routine code buffer
 
@@ -546,9 +552,9 @@ computed exactly from frames and helper figures.
 
 ## 4. Nucleus constants the native compiler would inherit
 
-From Nucleus's `asm/vertical-slice/*.asmi`, now `native/compiler/STATE.ASM`,
-`CALLWORK.ASM` and `TGTWORK.ASM` under ATOM names. Each is a defect if it survives
-the fork unchanged.
+From Nucleus's `asm/vertical-slice/*.asmi`, now `native/compiler/STATE.ASM`
+and `CALLWORK.ASM` under ATOM names. Each is a defect if it survives the fork
+unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 
 | Nucleus constant | Value | Basie replacement |
 | --- | ---: | --- |
@@ -560,20 +566,20 @@ the fork unchanged.
 | `AggregateFieldCapacity` | 12 (in total) | §3.12: at least 64 per record |
 | `AggregateTypeCapacity` | 8 | §3.7 |
 | `AggregateInitializerDepthCapacity` | 4 | §3.22: at least 32 |
-| `AggregateInitializerCapacity`, `StaticImageCapacity` | 1,024 bytes | streamed; no limit |
+| `AggregateInitializerCapacity`, `StaticImageCapacity` | 1,024 bytes | the static image is *gone* (each declaration is written as its blob at once); one object's initializer is still staged in 1,024 bytes (`AG_ICAP`), to be streamed |
 | `ControlFrameCapacity` | 8 | §3.20: at least 32 |
 | `ExpressionStackCapacity` | 16 | §3.21: at least 32 |
 | `HybridLL1StackCapacity` | 64 | parser stack, TBD |
-| `EmitControlFixupCapacity`, `EmitControlLabelCapacity` | 32 each | §3.4: per-routine deferred list |
-| `EmitBooleanFixupCapacity` | 16 | §3.4 |
+| `EmitControlFixupCapacity`, `EmitControlLabelCapacity` | 32 each | fixups *gone*: pending operands are chained through their references' addend words (`EMIT.ASM`, no limit); labels are per routine, 32 (`EM_LCAP`), §3.4 |
+| `EmitBooleanFixupCapacity` | 16 | *gone*: `and` and `or` use routine labels |
 | `SourcePartCapacity` | 8 | §3.17: 255 |
 | `ActivationCapacity` | 8 | §3.30: memory |
-| `SegmentCapacity` | 4 | object-format blobs; none |
+| `SegmentCapacity` | 4 | *gone*: object-format blobs |
 | `ServiceInputCapacity` and similar | 4 | `F=n` file table, §3.16 |
-| `GeneratedRoDataCapacity` | 1K | streamed; none |
-| `RuntimeProgramDataCapacity`, `RuntimeReadOnlyCapacity` | 2K, 4K | linker places everything; none |
-| Semantic transcript | 511 bytes, 255 operations, for the whole program | flushed per routine and top-level declaration; bounded by the largest routine ([native compiler](native-compiler.md) §2) |
-| Routine label ordinals | 5 bits, shared with control labels | 16-bit blob ordinals; control labels per routine |
+| `GeneratedRoDataCapacity` | 1K | *gone*: each constant is its own rodata blob |
+| `RuntimeProgramDataCapacity`, `RuntimeReadOnlyCapacity` | 2K, 4K | *gone*: the linker places everything |
+| Semantic transcript | 511 bytes, 255 operations, for the whole program | *gone*: code is generated as it is parsed, into a routine's blob ([native compiler](native-compiler.md) §2); the constructs not yet moved are refused (`DG_NYI`) |
+| Routine label ordinals | 5 bits, shared with control labels | blobs take 16-bit ordinals from `$0400` (`RG_ORD`); control labels are still the parser's, until 65.4 (f) |
 | LL(1) terminal encoding | 64 terminal kinds (`$00`–`$3F`) | Basie needs 79 token kinds; token classes fold them to about 60 (native compiler §2); decided at step 67 |
 
 ## 5. Source-code discipline

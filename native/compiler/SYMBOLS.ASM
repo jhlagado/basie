@@ -21,9 +21,9 @@
 ;    +0  word  address of the name's spelling in the resident source
 ;    +2  byte  length of the spelling
 ;    +3  byte  class and type: SY_TMASK type, SY_CMASK storage class,
-;              SY_TYPE for a type name, SY_AGGR for an aggregate; an
-;              aggregate constant keeps its bank in bits 4..5 (TG_BMASK)
-;    +4  word  payload: a constant's value or a variable's storage offset
+;              SY_TYPE for a type name, SY_AGGR for an aggregate
+;    +4  word  payload: a constant's value, the blob ordinal of a program
+;              variable or aggregate constant, a local's frame slot
 ;
 ;  The source stays resident through compilation, so a record points at the
 ;  spelling instead of copying it. A declaration is written in two steps:

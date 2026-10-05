@@ -1,7 +1,9 @@
 /**
  * BASIE.COM, the native compiler in its CP/M shell (native compiler plan
  * 65.2), under the CP/M harness: the command line, source parts read from
- * files, and diagnostics. Output is discarded until blob output (65.4).
+ * files, and diagnostics. The streams it writes are checked against the
+ * reference compiler's by tests/native_equivalence_test.ts; constructs not
+ * yet generated are refused with Error 95 (65.4).
  */
 import { assertEquals } from "@std/assert";
 import { buildBasie } from "../native/compiler/build.ts";
@@ -15,8 +17,8 @@ function run(tail: string, files: Record<string, string | Uint8Array> = {}) {
 
 const USAGE = "Usage: BASIE PART[,PART...] [OPTIONS]\r\n";
 
-const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\n" +
-  "value = value * 2\nend\n";
+// Statements come with stages (b) and (c) of 65.4.
+const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\nend\n";
 
 Deno.test("BASIE with no part prints its usage", () => {
   assertEquals(run(""), "Usage: BASIE PART[,PART...] [OPTIONS]\r\n");
@@ -41,7 +43,10 @@ Deno.test("a failed build deletes A:$$$.SUB; a good one leaves it", () => {
 Deno.test("BASIE reports a part it can't find", () => {
   assertEquals(run("MAIN"), "MAIN.BSI not found\r\n");
   assertEquals(run("B:MAIN"), "B:MAIN.BSI not found\r\n");
-  assertEquals(run("MAIN.TXT", { "MAIN.BSI": PROGRAM }), "MAIN.TXT not found\r\n");
+  assertEquals(
+    run("MAIN.TXT", { "MAIN.BSI": PROGRAM }),
+    "MAIN.TXT not found\r\n",
+  );
 });
 
 Deno.test("BASIE compiles a program from a file", () => {
@@ -57,7 +62,8 @@ Deno.test("BASIE compiles a program of several parts", () => {
     "DATA.BSI": "var result as u8\n",
     "MAIN.BSI": "sub main()\nresult = 12\nend\n",
   };
-  assertEquals(run("DATA, MAIN", files), "");
+  // Assignment comes with stage (b) of 65.4.
+  assertEquals(run("DATA, MAIN", files), "MAIN.BSI 2:10 Error 95\r\n");
   assertEquals(run("MAIN,DATA", files), "MAIN.BSI 2:1 Error 57\r\n");
   const later = { ...files, "MAIN.BSI": "sub main()\nresult = missing\nend\n" };
   assertEquals(run("DATA,MAIN", later), "MAIN.BSI 2:10 Error 57\r\n");
@@ -72,8 +78,8 @@ Deno.test("BASIE reports a diagnostic with its part, line and column", () => {
 });
 
 Deno.test("the source may fill memory to 1K below the BDOS entry", () => {
-  // The harness's BDOS entry is $E406, so the source runs from $5800 to $E006.
-  const room = 0xe006 - 0x5800;
+  // The harness's BDOS entry is $E406, so the source runs from $6800 to $E006.
+  const room = 0xe006 - 0x6800;
   const fill = (size: number) => {
     let text = PROGRAM;
     while (text.length < size - 70) text += "// " + "x".repeat(60) + "\n";

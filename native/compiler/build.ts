@@ -43,8 +43,11 @@ async function build(): Promise<BasieImage> {
   if (at("LL_WEND") > at("SH_WBEG")) {
     throw new Error("the compiler's workspace runs into the shell's");
   }
-  if (at("SH_WEND") > at("MM_SRC")) {
-    throw new Error("the shell's workspace runs into the source");
+  if (at("SH_WEND") > at("MM_BLOB")) {
+    throw new Error("the shell's workspace runs into the blob writer's");
+  }
+  if (at("BL_WEND") > at("MM_SRC")) {
+    throw new Error("the blob writer's workspace runs into the source");
   }
   const com = comBytes(image).slice(0, at("MM_END") - at("MM_BEG"));
   return {

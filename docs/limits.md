@@ -103,12 +103,14 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | Limit | Value | Until |
 | --- | --- | --- |
 | Source parts on the command line | 8 (Nucleus `SourcePartCapacity`) | `include` and the part stack (step 67) |
-| Source text, all parts together | resident, from `$5800` to 1K below the BDOS entry: about 33.75K on a 62K system | the streaming source adapter with a name heap |
+| Source text, all parts together | resident, from `$6800` (after the blob writer's 3.7K workspace) to 1K below the BDOS entry: about 29.75K on a 62K system | the streaming source adapter with a name heap |
 | Compiler stack | 1K below the BDOS entry | measured at step 68 |
-| Placed program image | 4K (the forked proof target), output discarded | blob output (65.4) |
 | One blob's bytes | 2,048 (`BL_CCAP`); a larger routine is refused | branch shrinking and unbuffered writing of large routines |
 | One blob's references | 512 bytes encoded (`BL_RCAP`), about 100 references | the 128-byte buffer spilling to `NAME.$RF` (toolchain §3.2) |
 | One blob's line entries | 512 bytes encoded (`BL_LCAP`), about 120 statements | spilling with the references |
+| Labels in one routine | 32 (`EM_LCAP`), two of them the exit and the need word; `DG_LABEL` beyond | a label table released by nesting (step 67) |
+| One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` beyond | writing initializers to the blob as they are parsed |
+| Constructs compiled | those of the claimed programs of 65.4 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 95) | the later stages of 65.4 |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)
 

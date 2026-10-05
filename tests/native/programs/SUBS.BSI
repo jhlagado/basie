@@ -1,0 +1,10 @@
+sub first()
+end
+
+sub second() fails
+    return
+end
+
+sub main()
+    return
+end

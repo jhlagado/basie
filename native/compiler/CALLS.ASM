@@ -133,12 +133,9 @@ RO_ALIAS:
     JR   RO_TYPED                  ; Return the type.
 
 ;@ROUTINE IN BC,D OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
-; Root a path at an aggregate constant, which must be in the current bank.
+; Root a path at an aggregate constant.
 
 RO_FIXED:
-    PUSH BC                        ; Keep the offset.
-    CALL TG_MUST                   ; The constant must be in this bank.
-    POP  BC                        ; Recover the offset.
     LD   A,OP_REFRO                ; Push a constant's address.
     JR   RO_ALIAS                  ; Write it with the offset.
 
@@ -605,21 +602,7 @@ RO_CALL:
     CP   AG_VIEW                   ; An open string passes its own view on.
     JR   Z,.TYPEOK                 ; It fits.
     CALL RO_CAP                    ; Raise DG_CLASH unless it is a string.
-.TYPEOK:                       ; Check the argument's bank.
-; A cross-bank aggregate parameter must originate at a direct
-; program root. Diagnose through the ordinary call-frame unwind.
-    CALL RO_TOP                    ; HL addresses this call's frame.
-    LD   DE,RO_NFLAG               ; The callee's flags hold its bank.
-    ADD  HL,DE                     ; HL addresses them.
-    LD   D,(HL)                    ; Read them.
-    CALL TG_SAME                   ; Is the callee in this bank?
-    JR   Z,.BANKOK                 ; Then any address reaches it.
-    LD   A,C                       ; Is the path rooted at a program variable?
-    OR   A                         ; RO_AGGR returned that in C.
-    JR   NZ,.BANKOK                ; Program data is reachable from any bank.
-    LD   A,DG_CFG                  ; Anything else is not.
-    CALL DG_ISSUE                  ; Raise DG_CFG.
-.BANKOK:                       ; The argument is acceptable.
+.TYPEOK:                       ; The argument is acceptable.
     CALL AC_SAFE                   ; A failable call cannot be an argument.
     LD   A,(RO_DTYPE)              ; The parameter's type.
     CP   AG_VIEW                   ; Is it an open string?
@@ -689,13 +672,6 @@ RO_CALL:
     LD   (RO_DFLAG),A              ; RO_PUB writes them.
     LD   HL,RO_DEPTH               ; Release the frame.
     DEC  (HL)                      ; One call shallower.
-    LD   A,(RO_DTYPE)              ; Does the call return an aggregate?
-    CP   AG_FIRST                  ; Compare with the first aggregate type.
-    JR   C,.RESULTOK               ; A scalar result is in HL.
-    LD   A,(RO_DFLAG)              ; An aggregate's address lies in the callee's bank.
-    LD   D,A                       ; D holds the callee's flags.
-    CALL TG_MUST                   ; That bank must be this one.
-.RESULTOK:                     ; Check the use of a failable call.
     LD   A,(RO_DFLAG)              ; Can the callee fail?
     AND  RO_FFAIL                  ; Test its failable flag.
     JR   Z,.FAILOK                 ; A call that cannot fail goes anywhere.
@@ -915,21 +891,13 @@ RO_CAP:
     OR   A                         ; Carry clear.
     RET                            ; A is the capacity.
 
-;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Write a call's three handling bytes as zeros and keep their address in
-; RO_MODEP. The statement's `else fail` or handler sets them afterwards:
-; the mode, the handler's label and the carriers kept beneath the call.
+;@ROUTINE NORETURN
+; Write a call's three handling bytes, which the statement's `else fail` or
+; handler would set: the mode, the handler's label and the carriers kept
+; beneath the call. Calls are refused until they are compiled (DG_NYI).
 
 RO_PAD:
-    LD   HL,(TR_PTR)               ; The handling bytes start here.
-    LD   (RO_MODEP),HL             ; The actions patch them through this.
-    LD   C,3                       ; Three bytes.
-    XOR  A                         ; Mode zero (no handling) until the statement says more.
-.LOOP:                         ; Write one byte.
-    CALL TR_PUT                    ; Write zero; A is kept.
-    DEC  C                         ; One fewer.
-    JR   NZ,.LOOP                  ; Write all three.
-    RET                            ; The bytes are reserved.
+    JP   TR_PUT                    ; Refuse the call.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; The expression parser's hook for an aggregate symbol, the current NAME:

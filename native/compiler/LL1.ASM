@@ -4,8 +4,8 @@
 ;
 ;  A table-driven predictive parser. A stack of grammar symbols starts as
 ;  the start symbol; the engine pops one symbol at a time until the stack
-;  is empty, by which point the whole program has been read and its
-;  semantic transcript written. The tables are in GRAMMAR.ASM; the actions
+;  is empty, by which point the whole program has been read and its blobs
+;  written. The tables are in GRAMMAR.ASM; the actions
 ;  they name are in ACTIONS.ASM.
 ;
 ;  Principal entry:
@@ -22,19 +22,18 @@
 ;  diagnostic is raised. The chosen production's right side is pushed in
 ;  one copy: bodies are stored reversed, so the copy leaves the leftmost
 ;  symbol on top. An action is called with its ordinal in A; it consumes
-;  any tokens it needs, appends to the transcript and returns, or raises
-;  a diagnostic, which abandons the build (PARSER.ASM).
+;  any tokens it needs, generates code or records what it has parsed and
+;  returns, or raises a diagnostic, which abandons the build (PARSER.ASM).
 ;
 ;  Workspace: LL_DEPTH, a byte counting the symbols on the stack, then
-;  LL_STACK, LL_CAP bytes with the top of stack at LL_STACK+LL_DEPTH-1.
-;  Both overlay the target layout fields (TG_LBASE..TG_LEND), which are
-;  dead until parsing has finished. LL_WEND marks the end of the whole
-;  compiler workspace for the build's boundary check.
+;  LL_STACK, LL_CAP bytes with the top of stack at LL_STACK+LL_DEPTH-1,
+;  after PR_SP (CALLWORK.ASM). LL_WEND marks the end of the whole compiler
+;  workspace for the build's boundary check.
 
 LL_CAP EQU  64                 ; Grammar stack capacity in symbols.
-LL_DEPTH EQU  TG_WEND          ; Symbols on the stack (byte).
+LL_DEPTH EQU  PR_SP+2          ; Symbols on the stack (byte).
 LL_STACK EQU  LL_DEPTH+1       ; The stack; LL_STACK+0 is the bottom.
-LL_WEND EQU  TG_END            ; End of compiler workspace (marker).
+LL_WEND EQU  LL_STACK+LL_CAP   ; End of compiler workspace (marker).
 DG_LLCAP EQU  87               ; Grammar stack overflow; DG_LEAK is also 87.
 
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY
@@ -88,6 +87,8 @@ LL_PARSE:
 ; production byte, the last alternative of the row.
 
 .NONTERM:                      ; A is $40 plus the row number.
+    CP   GR_STMT                   ; A statement begins at the lookahead:
+    CALL Z,EM_LINE                 ; its code starts on the lookahead's line.
     SUB  $40                       ; A is the row number.
     LD   L,A                       ; Index the row directory...
     LD   H,0                       ; ...as a word offset.

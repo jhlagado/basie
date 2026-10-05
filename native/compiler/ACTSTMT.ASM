@@ -259,18 +259,16 @@ AC_RETOP:
 AC_RETOK:
     JP   AC_DEAD                   ; Mark it.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitBareReturn: `return` without a value, allowed only without a
-; result (DG_FLOW). It is emitted as the routine's end operation with a
-; zero operand, as falling off the end would be.
+; result (DG_FLOW). It is the success return (RG_RET), as falling off the
+; end would be.
 
 AC_BARE:
     LD   A,(RO_CTYPE)              ; The routine's result type.
     OR   A                         ; None?
     JP   NZ,EX_EFLOW               ; A value is required: raise DG_FLOW.
-    CALL AC_ENDOP                  ; The routine's end operation...
-    XOR  A                         ; ...with no result type...
-    CALL TR_PUT                    ; ...appended.
+    CALL RG_RET                    ; OR A if it can fail, then JP exit.
     JR   AC_RETOK                  ; Nothing follows the return.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL

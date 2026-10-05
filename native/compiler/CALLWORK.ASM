@@ -4,18 +4,20 @@
 ;
 ;  The second part of the compiler workspace, which continues STATE.ASM's
 ;  at AG_WEND, and the constants of routines, calls, services and the
-;  multipart source. TGTWORK.ASM continues the workspace from SRC_WEND.
-;  Offsets are from MM_WBASE ($4800).
+;  multipart source, then the parse driver's saved SP and the LL(1) stack
+;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
+;  from MM_WBASE ($4800).
 ;
 ;    Offset  Size  Block
-;    +$D31     30  routine state: counts, the signature being parsed, the
+;    +$717     30  routine state: counts, the signature being parsed, the
 ;                  path and the call being checked (RO_BASE)
-;                  emit phase: RG_FLAGS..RG_KEPT over its first five bytes
-;    +$D4F     32  routine table: four records of eight bytes (RO_RTAB)
-;    +$D6F     64  parameter table: sixteen records of four bytes (RO_PTAB)
-;    +$DAF     32  call frames: four records of eight bytes (RO_NTAB)
-;    +$DCF      3  multipart source cursor (SRC_DESC, SRC_LEFT)
-;    +$DD2         SRC_WEND, where TGTWORK.ASM begins
+;    +$735     32  routine table: four records of eight bytes (RO_RTAB)
+;    +$755     64  parameter table: sixteen records of four bytes (RO_PTAB)
+;    +$795     32  call frames: four records of eight bytes (RO_NTAB)
+;    +$7B5      3  multipart source cursor (SRC_DESC, SRC_LEFT)
+;    +$7B8      2  PR_SP, the stack DG_ISSUE restores
+;    +$7BA     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$7FB         LL_WEND, the end of the compiler workspace, 2,043 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_WEND before parsing. ACTIONS.ASM writes the
 ;  signature, body and failure-routing fields as the grammar's actions
@@ -31,7 +33,7 @@
 ;    +4 byte  RO_RPCNT  number of parameters
 ;    +5 byte  RO_RTYPE  result type ordinal, zero for none
 ;    +6 byte  RO_RDEST  label of its body: RO_LBASE plus its index
-;    +7 byte  RO_RFLAG  RO_FFAIL, RO_FOPEN and the bank in bits 4..5
+;    +7 byte  RO_RFLAG  RO_FFAIL and RO_FOPEN
 ;  AC_SIG writes the name and the first parameter when a signature begins;
 ;  AC_PUB writes the rest and counts the record in RO_RCNT. A forward is
 ;  published with RO_FOPEN set, and AC_IMPL clears it when the body comes.
@@ -58,15 +60,9 @@
 ;  When the arguments end, RO_CALL copies the top frame into RO_DEST,
 ;  RO_DTYPE, RO_ACNT, RO_DPOS and RO_DFLAG, pops it and publishes OP_CALL.
 ;
-;  In the emit phase the tables and counts are dead. GENCALL.ASM keeps a
-;  call's flags and handling bytes in RG_FLAGS, RG_MODE, RG_HDEST and
-;  RG_KEPT over the first five bytes, and reuses the scratch fields
-;  RO_OTYPE..RO_DPOS by their own names, as parsing left nothing in them.
-;
 ;  The multipart cursor belongs to SOURCE.ASM: SRC_LOAD keeps the address
 ;  of the next part's descriptor in SRC_DESC, SRC_OPEN sets SRC_LEFT, the
-;  tokenizer's TK_ATEND advances it at each part boundary and TG_HOME reads
-;  the current part's ordinal from it. SRC_LEFT packs three fields:
+;  tokenizer's TK_ATEND advances it at each part boundary. SRC_LEFT packs three fields:
 ;    bits 0..2  parts still to come (SRC_CNT)
 ;    bits 3..5  manifest ordinal of the current part (SRC_ORD)
 ;    bit 7      the line end owed at the part boundary has been returned
@@ -113,7 +109,7 @@ RO_RPIDX EQU  3                ; Byte: its first parameter record.
 RO_RPCNT EQU  4                ; Byte: its number of parameters.
 RO_RTYPE EQU  5                ; Byte: its result type ordinal, zero for none.
 RO_RDEST EQU  6                ; Byte: the label of its body.
-RO_RFLAG EQU  7                ; Byte: its flags and bank.
+RO_RFLAG EQU  7                ; Byte: its flags.
 
 RO_PTAB EQU  RO_RLIM           ; Parameter table: RO_PCAP records.
 RO_PLEN EQU  4                 ; Bytes in one parameter record.
@@ -141,21 +137,15 @@ RO_WEND EQU  RO_NLIM           ; End of the routine workspace; PR_PARSE clears t
 ; compiler workspace, so the adapter keeps only these three bytes.
 SRC_DESC EQU  RO_WEND          ; Word: address of the next part's descriptor.
 SRC_LEFT EQU  SRC_DESC+2       ; Byte: parts to come, current ordinal, boundary flag.
-SRC_WEND EQU  SRC_LEFT+1       ; End of the source cursor; TGTWORK.ASM begins.
+SRC_WEND EQU  SRC_LEFT+1       ; End of the source cursor.
+; PR_BUILD saves the caller's SP here, so that a diagnostic (DG_ISSUE)
+; returns straight to the caller from any depth of the parse.
+PR_SP EQU  SRC_WEND            ; Word: SP that DG_ISSUE restores.
 SRC_DLEN EQU  5                ; Bytes in one part descriptor: identity, start, end.
 SRC_CAP EQU  8                 ; Source parts a compilation accepts; DG_FILES beyond.
 SRC_CNT EQU  $07               ; SRC_LEFT bits 0..2: parts still to come.
 SRC_STEP EQU  8                ; One ordinal step; TK_ATEND adds SRC_STEP-1.
 SRC_ORD EQU  $38               ; SRC_LEFT bits 3..5: ordinal of the current part.
-
-; The emit phase begins only after parsing has closed the transcript, so
-; GENCALL's call fields overlay the dead routine counts.
-RG_BASE EQU  RO_BASE           ; Emit phase: call state over RO_RCNT..RO_CPIDX.
-RG_FLAGS EQU  RG_BASE+$00      ; Byte: callee flags (RG_CALL), or a handler's class.
-RG_TYPE EQU  RG_BASE+$01       ; Byte: unused; nothing reads or writes it.
-RG_MODE EQU  RG_BASE+$02       ; Byte: handling mode of the call (RG_RULES).
-RG_HDEST EQU  RG_BASE+$03      ; Byte: label of the call's handler.
-RG_KEPT EQU  RG_BASE+$04       ; Byte: carriers held below the call's result.
 
 ; Labels: control flow takes 0 to CT_LLIM-1, main's body RO_MDEST, and
 ; routine n's body RO_LBASE+n, up to 31, the last of GC_LCAP.
@@ -167,11 +157,6 @@ RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.
 RO_FMAIN EQU  2                ; Routine flag: it is main.
 RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body.
-; A routine's flags and an aggregate constant's symbol class carry the bank
-; of the source part that declared it in bits 4..5. Banks matter only when
-; the target descriptor names more than one.
-TG_BCAP EQU  4                 ; Banks a target descriptor may name.
-TG_BMASK EQU  $30              ; Bank field: bits 4..5 (TG_PACK, TG_SPLIT).
 
 ; A failable call's handling mode, the first of its three handling bytes.
 ; Zero means none was attached, which the parser never allows.
@@ -179,13 +164,11 @@ RO_MPASS EQU  1                ; Handling: propagate the failure (else fail).
 RO_MTRAP EQU  3                ; Handling: jump to the statement's handler.
 
 ; Operation codes of routines, calls, aggregates and failure, continuing
-; the dense range of GX_OPTAB (GENEXPR.ASM). Each comment names the parser
-; routine that writes it and the handler that replays it.
-OP_PROC EQU  82                ; AC_BEGIN: open a routine; RG_ENTER.
+; STATE.ASM's. Each comment names the parser routine that writes it and the
+; Nucleus handler that once replayed it; TR_OPER refuses them all (DG_NYI).
 OP_BIND EQU  83                ; RO_BIND: copy an argument into the frame; RG_BIND.
 OP_CALL EQU  84                ; RO_PUB: call a routine or service; RG_CALL.
 OP_RETA EQU  85                ; AC_RETOP: return an aggregate; RG_RET.
-OP_ENDP EQU  86                ; AC_ENDOP: end a routine that cannot fail; RG_CLOSE.
 OP_REFG EQU  87                ; RO_ROOT: push a global's address; RG_GLOB.
 OP_REFP EQU  88                ; RO_BYREF: push a parameter's address; RG_PARAM.
 OP_FIELD EQU  89               ; RO_FIELD: add a field offset; RG_FIELD.
@@ -201,11 +184,9 @@ OP_FAIL EQU  98                ; AC_THROW: fail with an error code; RG_FAIL.
 OP_ABORT EQU  99               ; Written by nothing; its slot dispatches to RG_FATAL.
 OP_RETF EQU  100               ; AC_RETOP: succeed from a failable routine; RG_RETOK.
 OP_RETAF EQU  101              ; AC_RETOP: succeed with an aggregate; RG_RETOK.
-OP_ENDF EQU  102               ; AC_ENDOP: end a failable routine; RG_ENDOK.
 OP_HSKIP EQU  103              ; AC_ONERR: jump over a handler; RG_SKIP.
 OP_HOPEN EQU  104              ; AC_ONERR: enter a handler; RG_CATCH.
 OP_HDONE EQU  105              ; AC_NOERR: place the label after it; RG_JOIN.
-OP_ENTRY EQU  106              ; AC_ENTRY: the startup wrapper around main; RG_MAIN.
 OP_REFRO EQU  107              ; RO_FIXED: push a constant's address; RG_CONST.
 OP_VLEN EQU  108               ; RO_SEL: an open string's length; OS_LEN.
 OP_VCHAR EQU  109              ; RO_OSIDX: an open string's character; OS_CHAR.

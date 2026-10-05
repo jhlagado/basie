@@ -1012,3 +1012,11 @@ never drift.
 **Rejected.** Keeping Nucleus's stack-machine templates and comparing
 behaviour only. That makes it harder to find divergences, and the templates
 would be rewritten anyway when D41's register conventions reach expressions.
+
+**Amended at step 65.4 (a).** The transcript is not flushed and replayed
+after all. The native compiler generates each construct's code as it parses
+it, as the reference compiler does, into the blob writer's routine buffer,
+which already gives the emitter what the replay was meant to: the frame is
+patched into the prologue when the routine ends, the frame and need words
+and the literals come after the code, and forward jumps are resolved when
+their labels are defined ([native compiler](native-compiler.md) §2).

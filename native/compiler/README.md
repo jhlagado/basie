@@ -19,24 +19,31 @@ deno task census:basie       size by file, against the 26K target and 28K limit
 `BASIE.ASM` includes the others in image order. ATOM assembles each included
 file before its includer, so the list is the layout.
 
+Code is generated as it is parsed, in the reference compiler's templates,
+and each routine and top-level declaration is written as a blob (design
+decision D45; [native compiler](../../docs/native-compiler.md) §2 and §3,
+65.4). `tests/native_equivalence_test.ts` compiles every claimed program in
+`tests/native/programs` with both compilers and compares the four streams
+byte for byte. A construct not yet generated this way is refused with Error
+95 (`DG_NYI`).
+
 | File | Area | Contents |
 | --- | --- | --- |
-| `MEMORY.ASM` | `MM_` | Memory map: the image, workspaces, resident source and the forked target's regions |
-| `STATE.ASM`, `CALLWORK.ASM`, `TGTWORK.ASM` | various | Workspace layout, diagnostic numbers, transcript operations, token kinds |
-| `RTSTATE.ASM`, `RTIDENT.ASM` | `RT_` | The Nucleus runtime's state and identity, until blob output (65.4) |
+| `MEMORY.ASM` | `MM_` | Memory map: the image, workspaces and resident source |
+| `STATE.ASM`, `CALLWORK.ASM` | various | Workspace layout, diagnostic numbers, transcript operations, token kinds |
 | `HEAD.ASM` | `MM_` | The jump to the shell at `$0100` |
 | `SOURCE.ASM` | `SRC_` | Source parts |
 | `TOKEN.ASM` | `TK_` | Tokenizer |
-| `TRANSCR.ASM` | `TR_` | Semantic transcript |
+| `TRANSCR.ASM` | `TR_` | The refusal (`DG_NYI`) of constructs whose code generation has not yet moved to blob output |
 | `SYMBOLS.ASM` | `SY_` | Symbol table |
 | `PARSER.ASM` | `PR_` | Parser driver |
 | `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file), control, aggregate and routine parsing (routine names and signatures, then calls and aggregate paths) |
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
-| `EMIT.ASM` | `EM_` | Emitter primitives |
-| `TARGET.ASM` | `TG_` | Placed output, deleted at 65.4 |
-| `GENEXPR.ASM`, `GENCTRL.ASM`, `GENCALL.ASM`, `GENAGGR.ASM`, `GENTMPL.ASM` | `GX_`, `GC_`, `RG_`, `GA_`, `GT_` | Code generation and its templates |
+| `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
+| `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels, frame accounting |
+| `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
-| `SHELL.ASM` | `SH_`, `PUB_` | The CP/M shell and the output stubs |
+| `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams, diagnostics |
 
 `GRAMMAR.ASM` was generated from Nucleus's grammar (`grammar/stage7-grammar.json`).
 The generator, which wrote AZM, was retired with the conversion. Step 67 brings
@@ -47,14 +54,15 @@ a generator for Basie's grammar that writes ATOM under the `GR_` scheme
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 14,893 |
+| Compiler code | 10,999 |
 | Immutable data | 393 |
-| **Compiler core** | **15,286** |
-| CP/M shell | 858 |
-| **`BASIE.COM`** | **16,147** |
-| Workspace (not in the image) | 3,609 |
+| **Compiler core** | **11,392** |
+| CP/M shell | 984 |
+| **`BASIE.COM`** | **12,379** |
+| Compiler workspace (not in the image) | 2,043 |
+| Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 10,477 bytes to the 26K target and 12,525 to the 28K limit (D43).
+That leaves 14,245 bytes to the 26K target and 16,293 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change
@@ -62,4 +70,4 @@ to the compiler updates the digest and the sizes in the same commit.
 
 The line-by-line commentary that D44 asks for is stage 2 of the conversion,
 module by module. Until a module has had that pass, its comments are
-Nucleus's.
+Nucleus's. Code written since follows D44 from its first line.

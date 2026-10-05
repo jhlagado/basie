@@ -182,7 +182,7 @@ OUT_BYTE:                      ; A is the byte.
 ; Finish the stream at IX: pad a partly filled record with zeros, write it,
 ; and close the file. Readers find each stream's end from its contents.
 
-OUT_END:                     ; IX is the stream.
+OUT_END:                       ; IX is the stream.
     LD   A,(IX+OUT_POS)            ; Is a record partly filled?
     OR   A                         ; Zero means the last record was written.
     JR   Z,.SHUT                   ; Then only the close remains.

@@ -5,8 +5,8 @@
 ;  The helpers every parsing module shares. The LL(1) engine (LL1.ASM)
 ;  drives the parse; the expression, control, aggregate and routine
 ;  parsers and the grammar actions read tokens through PR_PEEK and
-;  PR_TAKE, insist on tokens through PR_NEED, append to the semantic
-;  transcript and report errors through DG_ISSUE.
+;  PR_TAKE, insist on tokens through PR_NEED and report errors through
+;  DG_ISSUE.
 ;
 ;  Principal entries:
 ;    DG_ISSUE  record diagnostic A at the current token and abandon the build
@@ -16,7 +16,7 @@
 ;    PR_TAKE   consume and return the next token
 ;    PR_NEED   consume the next token, which must be of kind E
 ;    PR_LEFT, PR_RIGHT, PR_EQUAL  PR_NEED for "(", ")" and "="
-;    PR_EMITC  append an operation and its one-byte operand
+;    PR_EMITC  append an operation and its one-byte operand (refused)
 ;    PR_ETERM  raise DG_VALUE, a missing or malformed value
 ;    PR_RESET  clear the parse state before a compilation
 ;
@@ -24,8 +24,7 @@
 ;  DG_ISSUE stores the code in DG_CODE, the source part in DG_PART and the
 ;  current token's position in DG_POS, DG_LINE and DG_COL, then reloads SP
 ;  from PR_SP and returns carry set. A diagnostic therefore unwinds every
-;  nested parse at once, back to PR_BUILD's caller (or, during code
-;  generation, to the TG_ABORT frame PR_BUILD pushes). No routine returns
+;  nested parse at once, back to PR_BUILD's caller. No routine returns
 ;  failure to its caller, so the carry outputs in the contracts of the
 ;  parsing routines are always clear when they return.
 ;
@@ -53,7 +52,7 @@ DG_ISSUE:
     POP  BC                        ; Restore BC.
     LD   SP,(PR_SP)                ; Discard every frame above PR_BUILD's.
     SCF                            ; Carry reports the failure.
-    RET                            ; Return from PR_BUILD (or into TG_ABORT).
+    RET                            ; Return from PR_BUILD.
 
 ;@ROUTINE NORETURN
 ; Raise the diagnostic whose code is the byte after the CALL: `CALL DG_RAISE`
@@ -125,13 +124,6 @@ PR_TAKE:
 ; and each use saves two over an inline `LD E,kind` and `CALL PR_NEED`.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,E,HL
-; Require an end of line. Nothing calls this entry; its bytes are dead.
-
-.NEEDEOL:
-    LD   E,TK_EOL                  ; The expected kind.
-    JR   PR_NEED                   ; Consume and check it.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,E,HL
 ; Require "(".
 
 PR_LEFT:
@@ -143,13 +135,6 @@ PR_LEFT:
 
 PR_RIGHT:
     LD   E,TK_RPAR                 ; The expected kind.
-    JR   PR_NEED                   ; Consume and check it.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,E,HL
-; Require `as`. Nothing calls this entry; its bytes are dead.
-
-.NEEDAS:
-    LD   E,TK_AS                   ; The expected kind.
     JR   PR_NEED                   ; Consume and check it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,E,HL
@@ -177,50 +162,33 @@ PR_ETERM:
     LD   A,DG_VALUE                ; The missing-value diagnostic.
     JR   DG_ISSUE                  ; Abandon the build.
 
-;@ROUTINE IN A,DE,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; Open source part A over the byte range [HL,DE) and reset the parse
-; state. Nothing calls this entry (PR_BUILD opens the parts through
-; SRC_OPEN); its bytes are dead.
-
-.START:
-    PUSH AF                        ; Keep the part id.
-    XOR  A                         ; No later parts follow this one.
-    LD   (SRC_LEFT),A              ; Clear the multipart state.
-    POP  AF                        ; Recover the part id.
-    CALL SRC_INIT                  ; Point the adapter at it; fall into PR_RESET.
-
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,HL
 ; Clear the state one compilation accumulates: the diagnostic, the
-; transcript, the lookahead, the symbol table, the aggregate and data
-; extents and the retained forward signature. Returns A zero.
+; lookahead, the symbol table, the aggregate counters, the retained forward
+; signature, the next ordinal (the program's base, $0400) and the largest
+; frame. Returns A zero.
 
 PR_RESET:
     XOR  A                         ; Zero for every cleared field.
     LD   (DG_CODE),A               ; No diagnostic yet.
     LD   (DG_PART),A               ; And no failing part.
-    LD   HL,TR_BODY                ; The transcript's first operation byte.
-    LD   (TR_PTR),HL               ; Start appending there.
-    LD   (TR_CNT),A                ; No operations yet.
-    LD   (TR_BASE),A               ; And none published.
-    LD   A,$FF                     ; The empty-lookahead marker.
-    LD   (PR_LKIND),A              ; No token is buffered.
-    XOR  A                         ; Zero again for the symbol table.
     LD   (SY_CNT),A                ; No symbols.
     LD   (SY_LSLOT),A              ; No local frame bytes allocated.
     LD   (SY_GSLOT),A              ; No global slots allocated.
-    XOR  A                         ; A is already zero.
+    LD   (PR_FDONE),A              ; No forward signature completed.
+    LD   (PR_FORD),A               ; And none retained.
     LD   HL,AG_MODE                ; The aggregate counters, AG_MODE..AG_GIVEN.
     LD   B,AG_GIVEN-AG_MODE+1      ; Their byte count.
 .LOOP:                         ; Clear one aggregate counter.
     LD   (HL),A                    ; Zero it.
     INC  HL                        ; Step to the next.
     DJNZ .LOOP                     ; Until all are clear.
-    LD   (AG_DLEN),A               ; Initialised data is empty...
-    LD   (AG_DLEN+1),A             ; ...both bytes.
-    LD   (AG_ROLEN),A              ; Read-only data is empty...
-    LD   (AG_ROLEN+1),A            ; ...both bytes.
-    LD   (PR_BSS),A                ; Uninitialised data is empty...
-    LD   (PR_BSS+1),A              ; ...both bytes.
-    LD   (PR_FDONE),A              ; No forward signature completed.
-    LD   (PR_FORD),A               ; And none retained.
-    RET                            ; A returns zero.
+    LD   H,A                       ; No frame yet:
+    LD   L,A                       ; the largest
+    LD   (RG_LARGE),HL             ; is zero.
+    LD   H,$04                     ; The first blob takes the
+    LD   (RG_ORD),HL               ; program's ordinal base, $0400.
+    DEC  A                         ; The empty-lookahead marker, $FF:
+    LD   (PR_LKIND),A              ; no token is buffered.
+    XOR  A                         ; Return A zero.
+    RET                            ; The compilation starts clean.

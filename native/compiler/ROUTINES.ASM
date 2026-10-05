@@ -6,17 +6,14 @@
 ;  (ACTIONS.ASM) fill as they parse routine declarations: look names up,
 ;  reject names already in use, enrol parameters and bind each one as a
 ;  symbol of the routine's frame. CALLS.ASM parses the calls, services and
-;  aggregate paths that use these tables. Both write operations to the
-;  semantic transcript, which GENCALL.ASM replays into code once parsing
-;  is complete.
+;  aggregate paths that use these tables; their code generation is still
+;  to come, so they reach the transcript and are refused (TRANSCR.ASM).
 ;
-;  The module also holds the compile entry PR_BUILD, which runs the parse
-;  and emit phases, and the bank helpers (TG_) of the forked placed target.
-;  BASIE.COM's shell describes a single bank, so every bank check passes;
-;  the helpers go with placed output at 65.4.
+;  The module also holds the compile entry PR_BUILD, which parses the
+;  program, writing its blobs as it goes, then its entry and limits.
 ;
 ;  Principal entries:
-;    PR_BUILD  compile the source parts for a target: parse, then emit
+;    PR_BUILD  compile the source parts
 ;    PR_PARSE  clear the routine workspace and parse the whole program
 ;    RO_FIND   find the current name among the routines, or main
 ;    RO_LIB    find the current name among the services and error constants
@@ -35,7 +32,7 @@
 ;    +5  byte  result type: zero, a scalar type or an aggregate type
 ;    +6  byte  label ordinal, RO_LBASE + index (main's body is RO_MDEST)
 ;    +7  byte  flags: RO_FFAIL, RO_FMAIN, RO_FOPEN (declared, body not
-;              yet seen), and the bank in bits 4..5
+;              yet seen)
 ;
 ;  The parameter table (RO_PTAB) holds sixteen parameters of four bytes:
 ;  the spelling's address and length, then the type, AG_VIEW for an open
@@ -139,168 +136,30 @@ RO_LIB:
     OR   A                         ; Report no match.
     RET                            ; Carry is clear.
 
-;@ROUTINE IN A,HL,IX OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
-; Compile A source parts, described at HL, for the target described at IX:
-; parse, then emit. Carry clear reports success. A diagnostic in either
-; phase returns carry set, with DG_CODE, DG_PART and DG_POS describing it.
+;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
+; Compile A source parts, described at HL, into the blob writer's streams,
+; which the caller has opened (BL_OPEN): every blob, then the entry and
+; limits records. Carry clear reports success. A diagnostic returns carry
+; set, with DG_CODE, DG_PART and DG_POS describing it.
 
 PR_BUILD:
     LD   (PR_SP),SP                ; A diagnostic returns from here.
-    LD   (TG_DESC),IX              ; Keep the target descriptor.
     PUSH AF                        ; Keep the part count.
     PUSH HL                        ; Keep the part descriptors.
     CALL PR_RESET                  ; Clear the parser's state.
     POP  HL                        ; Recover the part descriptors.
     POP  AF                        ; Recover the part count.
-    PUSH AF                        ; Keep the count across SRC_OPEN.
     CALL SRC_OPEN                  ; Open the first part.
-    POP  BC                        ; B is the part count.
-    LD   A,B                       ; A is the part count.
-; Validate every bank-bearing descriptor field before source
-; semantics can retain a bank ordinal. A is the bounded part count.
-    LD   B,A                       ; B is already the count of parts to check.
-    LD   IX,(TG_DESC)              ; Address the target descriptor.
-    LD   A,(IX+TG_DBCNT)           ; Read its bank count.
-    OR   A                         ; A target needs at least one bank.
-    JR   Z,.BADCFG                 ; Reject zero banks.
-    CP   TG_BCAP+1                 ; At most TG_BCAP banks are supported.
-    JR   NC,.BADCFG                ; Reject more.
-    LD   (TG_BCNT),A               ; Keep the bank count.
-    LD   C,A                       ; C bounds the bank ordinals.
-    LD   A,(IX+TG_DEB)             ; Read the entry bank.
-    CP   C                         ; Is it one of the banks?
-    JR   NC,.BADCFG                ; Reject an entry bank out of range.
-    LD   (TG_EBANK),A              ; Keep the entry bank.
-    LD   L,(IX+TG_DPART)           ; Address the parts' bank bytes, one per part.
-    LD   H,(IX+TG_DPART+1)         ; High byte of their address.
-.BANKLOOP:                     ; Check one part's bank.
-    LD   A,(HL)                    ; Read the part's bank.
-    CP   C                         ; Is it one of the banks?
-    JR   NC,.BADCFG                ; Reject a bank out of range.
-    INC  HL                        ; Next part.
-    DJNZ .BANKLOOP                 ; Check every part.
-    LD   HL,TG_ROTAB               ; Clear the per-bank constant lengths.
-    LD   B,TG_ROLIM-TG_ROTAB       ; The table's size in bytes.
-    XOR  A                         ; Zero each byte.
-.WIPE:                         ; Clear one byte.
-    LD   (HL),A                    ; Store zero.
-    INC  HL                        ; Next byte.
-    DJNZ .WIPE                     ; Clear the whole table.
-    CALL PR_PARSE                  ; Parse every part into the transcript.
-; A diagnostic during generation restores this synthetic frame and
-; returns directly through the one target-output abort path. A
-; successful generation returns normally and discards the frame.
-    LD   HL,TG_ABORT               ; From here a diagnostic returns to TG_ABORT.
-    PUSH HL                        ; TG_ABORT abandons the output, then returns.
-    LD   (PR_SP),SP                ; DG_ISSUE restores this stack.
-    CALL GA_BUILD                  ; Emit the program.
-    POP  HL                        ; Discard the abort continuation.
-    RET                            ; Return GA_BUILD's result.
-.BADCFG:                       ; The descriptor names an impossible bank.
-    JP   TG_DENY                   ; Raise DG_CFG.
+    CALL PR_PARSE                  ; Parse every part, writing its blobs.
+    CALL RG_END                    ; The entry and limits records.
+    OR   A                         ; Carry clear: success.
+    RET                            ; The caller closes the streams.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL,IX
-; Return in A the bank of the source part being parsed, from the
-; descriptor's part-bank array.
-
-TG_HOME:
-    LD   A,(SRC_LEFT)              ; Bits 3..5 hold the part's ordinal.
-    AND  SRC_ORD                   ; Keep the ordinal.
-    RRCA                           ; Shift the ordinal down one bit.
-    RRCA                           ; And another.
-    RRCA                           ; Bits 0..2 now hold it.
-    LD   E,A                       ; Form it as a word.
-    LD   D,0                       ; At most SRC_CAP parts.
-    LD   IX,(TG_DESC)              ; Address the target descriptor.
-    LD   L,(IX+TG_DPART)           ; Address the parts' bank bytes.
-    LD   H,(IX+TG_DPART+1)         ; One byte per part.
-    ADD  HL,DE                     ; HL addresses this part's byte.
-    LD   A,(HL)                    ; Read its bank.
-    OR   A                         ; Return carry clear.
-    RET                            ; A is the bank.
-
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL,IX
-; Add the current part's bank, in bits 4..5, to flag byte A, whose low
-; flag bits are kept.
-
-TG_PACK:
-    LD   B,A                       ; Keep the flags.
-    CALL TG_HOME                   ; A is the current bank.
-    RLCA                           ; Shift the bank up one bit.
-    RLCA                           ; And another.
-    RLCA                           ; And another.
-    RLCA                           ; Bits 4..5, TG_BMASK, now hold it.
-    OR   B                         ; Merge it with the flags.
-    RET                            ; A is the packed flag byte.
-
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Extract the bank from bits 4..5 of flag byte A. Each rotate moves a zero
-; bit into carry, so the result has carry clear.
-
-TG_SPLIT:
-    AND  TG_BMASK                  ; Keep the bank bits.
-    RRCA                           ; Shift the bank down one bit.
-    RRCA                           ; And another.
-    RRCA                           ; And another.
-    RRCA                           ; Bits 0..1 hold it, and carry is clear.
-    RET                            ; A is the bank.
-
-;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
-; Return in HL the address of bank A's aggregate-constant length word.
-
-TG_LENAT:
-    LD   L,A                       ; Form the bank as a word.
-    LD   H,0                       ; At most TG_BCAP banks.
-    ADD  HL,HL                     ; One word per bank.
-    LD   DE,TG_ROTAB               ; The table's base.
-    ADD  HL,DE                     ; HL addresses the bank's word.
-    OR   A                         ; Return carry clear.
-    RET                            ; A still holds the bank.
-
-;@ROUTINE IN D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,B,DE,HL,IX
-; Compare the bank in bits 4..5 of flag byte D with the current part's
-; bank: Z if they are the same.
-
-TG_SAME:
-    LD   B,D                       ; Keep the flags.
-    CALL TG_HOME                   ; A is the current bank.
-    RLCA                           ; Shift the bank up one bit.
-    RLCA                           ; And another.
-    RLCA                           ; And another.
-    RLCA                           ; Bits 4..5 now line up with D's.
-    XOR  B                         ; Differences show as set bits.
-    AND  TG_BMASK                  ; Compare only the bank bits.
-    RET                            ; Z if the banks agree.
-
-;@ROUTINE IN D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,B,DE,HL,IX
-; Require the bank in flag byte D to be the current part's; otherwise raise
-; DG_CFG, which does not return.
-
-TG_MUST:
-    CALL TG_SAME                   ; Are the banks the same?
-    RET  Z                         ; Then the reference is reachable.
-    JP   TG_DENY                   ; Raise DG_CFG.
-
-;@ROUTINE OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,D,E,HL,IX
-; Require the current part to be in the entry bank, as main must be;
-; otherwise raise DG_CFG, which does not return.
-
-TG_ENTRY:
-    CALL TG_HOME                   ; A is the current bank.
-    LD   D,A                       ; Keep it for the comparison.
-    LD   A,(TG_EBANK)              ; The bank the program starts in.
-    CP   D                         ; Is main's part there?
-    RET  Z                         ; Then main is reachable at startup.
-    JP   TG_DENY                   ; Raise DG_CFG.
-
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Clear the routine workspace and the control labels, run the LL(1) parser
-; over every source part and close the transcript. PR_BUILD calls this with
-; A zero; AG_MODE, set to one here, is read nowhere.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Clear the routine workspace and the control labels and run the LL(1)
+; parser over every source part.
 
 PR_PARSE:
-    INC  A                         ; One.
-    LD   (AG_MODE),A               ; Nothing reads AG_MODE.
     LD   HL,RO_BASE                ; Clear the routine workspace.
     LD   B,RO_WEND-RO_BASE         ; Its tables, frames and fields are all bytes.
     XOR  A                         ; Zero each byte.
@@ -309,8 +168,7 @@ PR_PARSE:
     INC  HL                        ; Next byte.
     DJNZ .WIPE                     ; Clear the whole workspace.
     LD   (CT_LABNO),A              ; Number control labels from zero.
-    CALL LL_PARSE                  ; Parse the program.
-    JP   TR_CLOSE                  ; Publish the transcript and return.
+    JP   LL_PARSE                  ; Parse the program and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Reject a routine name that is an ordinary symbol, an earlier routine,

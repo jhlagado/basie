@@ -7,9 +7,7 @@
 ;  aggregate constant into a staged image of the object's bytes. The
 ;  grammar actions (ACTIONS.ASM) build each type's candidate descriptor and
 ;  intern it here; at a declaration they size and zero the object, call
-;  AG_PARSE, and copy the staged bytes into the data image, which the code
-;  generator (GENAGGR.ASM) publishes only after the whole program has
-;  compiled. Initializers do not enter the semantic transcript.
+;  AG_PARSE, and write the staged bytes as the object's blob (RG_DATA).
 ;
 ;  Principal entries:
 ;    AG_REUSE  intern a string or array descriptor, sharing an identical one
@@ -18,8 +16,7 @@
 ;    AG_SIZE   return the extent in bytes of any type ID
 ;    AG_FIELD  address a record field's entry
 ;    AG_FRESH  reject a field name already used in the record being declared
-;    AG_FITRW  check one extent against the 1 KiB data image
-;    AG_FITRO  check the data image with read-only constants appended
+;    AG_FITRW  check one extent against the 1 KiB initializer staging
 ;    AG_ZERO   zero the object being initialized
 ;    AG_PARSE  parse one initializer for a type at the staging cursor
 ;
@@ -41,7 +38,7 @@
 ;  is zeroed first, so an initializer writes only what it supplies and a
 ;  string's padding and terminator need no writes. Nested initializers are
 ;  bounded at four levels (AG_LCAP). Every extent is bounded at 1024 bytes,
-;  the size of both the staging buffer and the data image.
+;  the size of the staging buffer.
 
 ;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE
 ; Address the four-byte descriptor of dynamic type ID A in HL. A returns the
@@ -166,9 +163,9 @@ AG_REUSE:
     RET                            ; Return to the type action.
 
 ;@ROUTINE IN HL OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Accept an extent HL of at most 1024 bytes ($0400), the size of the data
-; image, with carry clear; a larger one raises DG_DATA. Used for one
-; object, array or record and for the data image's running total.
+; Accept an extent HL of at most 1024 bytes ($0400), the size of the
+; initializer staging (AG_ICAP), with carry clear; a larger one raises
+; DG_DATA. Used for one object, array or record.
 
 AG_FITRW:
     LD   A,H                       ; Judge the extent by its high byte first.
@@ -177,33 +174,13 @@ AG_FITRW:
     JR   NZ,.FULL                  ; Above $04FF never fits.
     LD   A,L                       ; Between them only $0400 itself fits.
     OR   A                         ; Is the low byte zero?
-    JR   NZ,.FULL                  ; No: it exceeds the image.
+    JR   NZ,.FULL                  ; No: it exceeds the staging.
 .OK:                           ; The extent fits.
     OR   A                         ; Clear carry for success.
     RET                            ; Return the extent unchanged.
-.FULL:                         ; The extent exceeds the image.
+.FULL:                         ; The extent exceeds the staging.
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_DATA                   ; Diagnostic: program data too large.
-
-;@ROUTINE IN HL OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; As AG_FITRW, for the data image with an aggregate constant's bytes added
-; to its read-only suffix. Exhaustion raises DG_ROCAP, naming the constant
-; as the declaration that ran out of room.
-
-AG_FITRO:
-    LD   A,H                       ; Judge the extent by its high byte first.
-    CP   4                         ; Below $0400 always fits.
-    JR   C,.OK                     ; Accept it.
-    JR   NZ,.FULL                  ; Above $04FF never fits.
-    LD   A,L                       ; Between them only $0400 itself fits.
-    OR   A                         ; Is the low byte zero?
-    JR   NZ,.FULL                  ; No: it exceeds the image.
-.OK:                           ; The extent fits.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return the extent unchanged.
-.FULL:                         ; The constants exceed the image.
-    CALL DG_RAISE                  ; Report it; no return.
-    DB   DG_ROCAP                  ; Diagnostic: read-only data too large.
 
 ; Failure exits shared with the type and declaration actions. None returns.
 

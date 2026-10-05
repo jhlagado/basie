@@ -84,12 +84,26 @@ Replacing the fat trap sites and the parameter copying should shrink the
 compiler.
 
 **Streaming.** One transcript for the whole program caps a program at 255
-operations. Basie flushes the transcript at the end of each routine and each
-top-level declaration. The routine is then replayed into a 2K-to-4K routine
-buffer, and written out as one `$BY` run and one `$DR` record. The record's
-size and reference count must come before its references, which is why the
-routine is buffered. Every workspace overlay of §1 has to be re-checked under
-streaming, because parse and emit state now coexist.
+operations. The plan was to flush the transcript at the end of each routine
+and each top-level declaration and replay it into a routine buffer. At 65.4
+the native compiler instead generates each construct's code as it parses it,
+as the reference compiler does, straight into the blob writer's buffer
+(`BLOB.ASM`, 2K): nothing a routine's emitter needs is unknown while it
+writes. The frame is patched into the prologue when the routine ends (the
+reference patches it the same way), the frame and need words come after the
+code, forward jumps are chained through the addend words of their
+references and resolved when the label is defined (`EMIT.ASM`), and the
+literals of stage (h) will follow the need word as the reference's do. So
+there is no transcript and no replay: a second representation of every
+construct, and the code to write and read it, would cost bytes and offer
+nothing the blob buffer does not. The expression parser's operand stack
+already holds what the reference's recursive descent keeps on its call
+stack, so the reference's templates map onto its reduction steps (§3,
+65.4 c). The parser's transcript entry points remain only as the refusal of
+constructs not yet moved (`TRANSCR.ASM`, `DG_NYI`). The routine is still
+buffered whole because its record's size and reference count must come
+before its references. Parse and emit state now coexist, so the workspace
+has no overlays left but the diagnostic position's.
 
 **Tables.** Every Nucleus table is proof-sized
 ([capacity audit](capacity-audit.md) §4). The worst are the 16-entry symbol
@@ -125,7 +139,7 @@ Each increment keeps a working, tested compiler. Each follows the D43 cycle
 | 65.2 | The `BASIE.COM` shell: a second composition of the forked modules (now `BASIE.ASM` and `SHELL.ASM`) at `$0100` behind a CP/M shell that reads the parts named on the command line into memory, compiles them, prints a diagnostic as `NAME.BSI LINE:COLUMN Error N`, and deletes `A:$$$.SUB` on failure. Output goes to stub sinks. (done: `tests/basie_native_test.ts`; `BASIE.COM` 16,075 bytes, the shell 634 bytes of code and 152 of data) | `BASIE.COM` under the CP/M harness compiles programs of one and several parts from files and reports diagnostics with their part, line and column |
 | 65.2b | The library header and key check and the compilation stamp (toolchain §3.1); options in brackets | Refused libraries and options as the reference toolchain refuses them |
 | 65.3 | The blob writer: routine buffer, in-order reference buffer spilling to `$RF`, and the `$DR`, `$BY`, `$LN` and `$NM` writers with headers, trailers and CRCs (done without the spill: `OUT.ASM`, 236 bytes, and `BLOB.ASM`, 929 bytes, not yet in `BASIE.COM`; `tests/blob_writer_test.ts` writes hello's streams byte-identical to the reference's, links them with `BLINK` and runs the program, and covers every escape, form and line rule against the reference's writers) | Unit programs whose streams the reference linker accepts and links |
-| 65.4 | Placed output replaced by blob output whose streams equal the reference compiler's (D45). In stages, each a program set that must match: (a) `sub main()` with an empty body, through BLOB.ASM, with ordinals, the entry and limits records and the D41 prologue and epilogue; (b) top-level variables and constants as data, rodata and bss blobs, with references; (c) 16-bit expressions and assignment in the reference's templates; (d) locals and frames; (e) routine calls, parameters, results and `RETN`; (f) `if`, `while`, `for`, `exit`, `continue`; (g) failure, `fail`, `else fail`, `handle`; (h) records, arrays and strings; (i) services through the compiled-in helper table. The transcript is flushed per routine; `TARGET.ASM` and the Nucleus runtime identity go | Each stage's programs compile to the reference's streams (shrinking off), link with `BLINK` and run |
+| 65.4 | Placed output replaced by blob output whose streams equal the reference compiler's (D45). In stages, each a program set that must match: (a) `sub main()` with an empty body, through BLOB.ASM, with ordinals, the entry and limits records and the D41 prologue and epilogue; (b) top-level variables and constants as data, rodata and bss blobs, with references; (c) 16-bit expressions and assignment in the reference's templates; (d) locals and frames; (e) routine calls, parameters, results and `RETN`; (f) `if`, `while`, `for`, `exit`, `continue`; (g) failure, `fail`, `else fail`, `handle`; (h) records, arrays and strings; (i) services through the compiled-in helper table. Code is generated as it is parsed, not replayed (§2, Streaming); `TARGET.ASM` and the Nucleus runtime identity go. **(a) done:** the shell opens the four streams on the first part's drive and name (options `N`, `M` and `Y` read), names the parts, and closes them; routines without parameters become code blobs with the D41 prologue, success return, exit sequence and frame and need words, and bare `return`; declarations are written as data and bss blobs; the entry and limits records end the directory. `TARGET.ASM`, `TGTWORK.ASM`, `RTSTATE.ASM`, `RTIDENT.ASM`, `GENEXPR.ASM`, `GENCTRL.ASM`, `GENTMPL.ASM`, `GENAGGR.ASM` and the old emitter were deleted, with the shell's output stubs and the bank checks; everything else reaching the transcript is refused (Error 95). Claimed: `EMPTY`, `FAILS`, `SUBS`. `BASIE.COM` 12,379 bytes | Each stage's programs compile to the reference's streams (shrinking off), link with `BLINK` and run (`tests/native_equivalence_test.ts`) |
 | 65.5 | Chaining: the loader at the top of memory runs `BLINK.COM` with the build's tail | `BASIE HELLO` under the harness produces a `HELLO.COM` that runs |
 
 The language at the end of step 65 is the Nucleus subset of Basie. Test
@@ -173,7 +187,7 @@ are what it found, to be dealt with by the step named.
 | `EXOPER.ASM`, `EX_ORS` | `xor` keeps its left operand with `EX_SAVE`, not `EX_HOLD`, so a pending failable call is not checked: `f() xor g()`, with only `f` failable, loses `f`'s failure | step 67, with a conformance program |
 | `CALLS.ASM`, `RO_SEL` | A `CP AG_FIRST` has no branch after it (Nucleus's type-error jump sat in a conditional this configuration removes), so `r.a.x` with `r.a` a `u8` looks up a field in a non-record type | step 67 |
 | `CALLS.ASM`, `RO_ERNG` | A constant index's range error sets only the offset, so it is reported at the closing bracket's line and column | step 67 |
-| `GENCTRL.ASM`, `GC_PEND` | The label range check `AND $1F` / `CP 32` cannot fail; labels stay below 32 today | 65.4, when labels become per routine |
+| `GENCTRL.ASM`, `GC_PEND` | The label range check `AND $1F` / `CP 32` cannot fail; labels stay below 32 today | gone with `GENCTRL.ASM` (65.4 a); routine labels are checked against `EM_LCAP` |
 | `LL1.ASM`, `CALLWORK.ASM` | `DG_LLCAP` and `DG_LEAK` share the number 87 | step 66, with the message file |
 | `ACTSTMT.ASM`, `AC_GOTO` | `exit` and `continue` do not clear `CT_FALLS`, so an `if` whose arms all end in `exit` inside a routine with a result may be refused with `DG_FLOW` | step 67 |
 | `ACTIONS.ASM`, `AC_BOUND` | Has no effect: `AC_FOLD`, which always follows, overwrites `EX_WANT`; the bound is checked later by `AC_COUNT` | first compression pass |
@@ -182,10 +196,11 @@ are what it found, to be dealt with by the step named.
 **Dead code and data** (bytes for the compression passes): the forward-signature
 test (`PR_FORD` is only cleared, so `EX_ISFWD` never matches); unreachable
 labels in `EXTERM.ASM` and `EXOPER.ASM`; handlers for transcript operations no
-parser path writes, among them `RG_FATAL`; the banked paths that survive in
-`GENAGGR.ASM` and `GENCALL.ASM`; fields written and never read (`EX_CPOS`,
-`CT_RKIND`, `CT_RTYPE`, `AG_MODE`, `SY_GSLOT`); a 34-byte block of `STATE.ASM`
-that only hosts two target tables; and a score of redundant instructions
+parser path writes, among them `RG_FATAL` (gone at 65.4 a, with the replay);
+the banked paths that survive in `GENAGGR.ASM` and `GENCALL.ASM` (gone at
+65.4 a); fields written and never read (`EX_CPOS`, `CT_RKIND` and `CT_RTYPE`,
+gone at 65.4 a, `AG_MODE`, `SY_GSLOT`); a 34-byte block of `STATE.ASM` that
+only hosts two target tables (gone at 65.4 a); and a score of redundant instructions
 (`LD B,A` after `LD A,B`, `CALL` then `RET`, jumps to the next line). Most go
 with the placed output at 65.4; the rest are the first compression pass.
 

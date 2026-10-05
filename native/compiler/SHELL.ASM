@@ -5,34 +5,39 @@
 ;  The CP/M shell of BASIE.COM (toolchain §2, §5). The CCP loads the image at
 ;  $0100, whose first instruction jumps to SH_START. The shell reads the
 ;  command tail at $0080, loads each source part it names into memory
-;  above the compiler's workspace, and hands the parts to PR_BUILD, which
-;  parses them into the semantic transcript, closes it and replays it into
-;  placed Z80 code. A diagnostic is printed as NAME.BSI LINE:COLUMN Error N,
+;  above the compiler's workspace, opens the intermediate streams NAME.$DR,
+;  $BY, $LN and $NM on the first part's drive and with its name (toolchain
+;  §3.2), names each part in the line stream, and hands the parts to
+;  PR_BUILD, which compiles them into blobs; it then closes the streams.
+;  A diagnostic is printed as NAME.BSI LINE:COLUMN Error N,
 ;  with the forked compiler's number, until the message file replaces it
 ;  (step 66). The stack and the source occupy the CCP's memory, so every
 ;  exit is a warm boot through $0000.
 ;
 ;  Command line: PART[,PART...] [OPTIONS]. A part is [d:]name[.type], of
-;  type BSI when it names none, and spaces may surround the commas. Options
-;  in brackets are accepted and not yet read.
+;  type BSI when it names none, and spaces may surround the commas. Of the
+;  options in brackets only the flags N (no line stream) and M and Y (a
+;  name stream) are read yet; the rest are accepted and ignored until the
+;  command line is read in full (native compiler plan 65.2b).
 ;
 ;  Principal entries:
 ;    SH_START  the program entry, reached from the jump at $0100
-;    PUB_*     the output sinks the forked compiler calls; they discard
-;              placed output until blob output replaces them (65.4)
+;    OUT_FAIL  the output streams' failure: a full disk or directory
 ;
 ;  Failure: a malformed command line, a missing part, more than SRC_CAP
-;  parts, source too large for memory, or a compiler diagnostic prints one
-;  line and then deletes A:$$$.SUB, which stops a running SUBMIT job under
-;  CP/M 2.2 (toolchain §5.4). The CP/M 3 return code is not yet set.
+;  parts, source too large for memory, a full disk or a compiler
+;  diagnostic prints one line and then deletes A:$$$.SUB, which stops a
+;  running SUBMIT job under CP/M 2.2 (toolchain §5.4). The streams of a
+;  failed compilation are left as they were written. The CP/M 3 return
+;  code is not yet set.
 ;
 ;  Memory: SP starts at the BDOS entry. The parts are packed upward from
 ;  MM_SRC, each ending at its first $1A, and must stay MM_STACK bytes below
 ;  the BDOS entry, which leaves that much for the stack. The workspace,
-;  SH_WBEG to SH_WEND below MM_SRC, holds the load state, one FCB, the part
+;  SH_WBEG to SH_WEND below MM_BLOB, holds the load state, one FCB, the part
 ;  descriptors PR_BUILD reads (five bytes each: the part's 1-based id, its
-;  start and its exclusive end) and each part's 11-character CP/M name for
-;  diagnostics.
+;  start and its exclusive end), each part's 11-character CP/M name for
+;  diagnostics and the line stream, and the part name being written.
 ;
 ;  Registers: every BDOS call is taken to change every register, IX and IY
 ;  included. SH_CHAR saves AF, BC, DE and HL around its call.
@@ -56,7 +61,8 @@ SH_PCNT EQU  SH_PBEG+2         ; Byte: parts loaded, so the next part's index.
 SH_FCB EQU  SH_PCNT+1          ; SH_FLEN bytes: the FCB of every BDOS file call.
 SH_PARTS EQU  SH_FCB+SH_FLEN   ; SRC_CAP descriptors of 5 bytes: id, start, end.
 SH_NAMES EQU  SH_PARTS+SRC_CAP*5 ; SRC_CAP slots of SH_SLOT bytes, by index.
-SH_WEND EQU  SH_NAMES+SRC_CAP*SH_SLOT ; The build checks this is at or below MM_SRC.
+SH_TEXT EQU  SH_NAMES+SRC_CAP*SH_SLOT ; 12 bytes: a part's name as NAME.TYP.
+SH_WEND EQU  SH_TEXT+12        ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN
 ; Load the parts the command tail names, compile them and warm boot, after
@@ -85,7 +91,7 @@ SH_START:                      ; Entered from the jump at $0100.
     OR   A                         ; Is this the end of the tail?
     JR   Z,.TAILDONE               ; Then the parts are complete.
     CP   '['                       ; Do the options begin here?
-    JR   Z,.TAILDONE               ; They are not yet read, so the parts are complete.
+    JR   Z,.TAILDONE               ; With no part before them: a usage error below.
 .PART:                         ; HL is at a part's first character.
     CALL .LOAD                     ; Parse the name, load the part, add its descriptor.
     CALL .SPACES                   ; A is the character after the name and any spaces.
@@ -103,15 +109,76 @@ SH_START:                      ; Entered from the jump at $0100.
     JR   Z,.TAILDONE               ; Then the parts are complete.
     CP   '['                       ; Otherwise only the options may follow.
     JP   NZ,SH_USAGE               ; Anything else is a malformed command line.
-.TAILDONE:                     ; Every part named has been loaded.
+.TAILDONE:                     ; A is '[' with HL after it, or the end.
+    LD   C,BL_LNOUT                ; By default a line stream and no names.
+    CP   '['                       ; Are there options?
+    CALL Z,.OPTIONS                ; Read the flags among them into C.
     LD   A,(SH_PCNT)               ; A is the number of parts.
     OR   A                         ; Was any part named?
     JP   Z,SH_USAGE                ; A command line needs at least one.
+    LD   A,C                       ; The streams the options want.
+    LD   HL,SH_HEAD                ; The directory's header,
+    LD   DE,SH_NAMES               ; and the first part's drive and name.
+    CALL BL_OPEN                   ; Open the streams.
+    XOR  A                         ; Name each part in the line stream,
+.NAMES:                        ; A is the next part's index.
+    PUSH AF                        ; Keep it.
+    CALL SH_TYPED                  ; HL is its name as NAME.TYP, B the length.
+    POP  AF                        ; A is the index.
+    PUSH AF                        ; Keep it.
+    CALL BL_PART                   ; Write its part record.
+    POP  AF                        ; The index again.
+    INC  A                         ; The next part.
+    LD   HL,SH_PCNT                ; Is there one?
+    CP   (HL)                      ; The count ends them.
+    JR   C,.NAMES                  ; Name it.
     LD   HL,SH_PARTS               ; PR_BUILD takes the count in A, descriptors at HL.
-    LD   IX,SH_DESC                ; IX is the forked compiler's target descriptor.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
     JP   C,SH_DIAG                 ; Print it and fail.
+    CALL BL_CLOSE                  ; Write the trailers and close the streams.
     JP   0                         ; Success: warm boot, and a SUBMIT job runs on.
+
+;@ROUTINE IN C,HL OUT C CLOBBERS A,B,E,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Read the options from HL, just after '[', to the ']' or the end of the
+; tail. An option of one letter is a flag: N clears BL_LNOUT in C, M and Y
+; set BL_NMOUT. Every other option is not yet read.
+
+.OPTIONS:                      ; HL is after '[' or a comma.
+    CALL .SPACES                   ; A is the option's first character.
+    LD   E,A                       ; Keep it: a flag is that letter alone.
+    LD   B,0                       ; B counts its characters, spaces aside.
+.OPTCHAR:                      ; HL is in the option.
+    LD   A,(HL)                    ; The next character.
+    OR   A                         ; The end of the tail ends the options.
+    JR   Z,.OPTEND                 ; As does
+    CP   ','                       ; a comma, before another option,
+    JR   Z,.OPTEND                 ; or
+    CP   ']'                       ; the closing bracket.
+    JR   Z,.OPTEND                 ; The option is complete.
+    INC  HL                        ; Step over the character.
+    CP   ' '                       ; A space is not counted.
+    JR   Z,.OPTCHAR                ; Read on.
+    INC  B                         ; Count the character.
+    JR   .OPTCHAR                  ; Read on.
+.OPTEND:                       ; A ends the option, B is its length.
+    DJNZ .OPTNEXT                  ; Longer than one letter: not yet read.
+    LD   A,E                       ; A flag: which?
+    CP   'N'                       ; No line stream?
+    JR   NZ,.NAMED                 ; No: perhaps a name stream.
+    RES  0,C                       ; Clear BL_LNOUT.
+.NAMED:                        ; A is the flag.
+    CP   'M'                       ; The map
+    JR   Z,.TABLES                 ; and
+    CP   'Y'                       ; the symbol file
+    JR   NZ,.OPTNEXT               ; need the names.
+.TABLES:                       ; M or Y.
+    SET  1,C                       ; Set BL_NMOUT.
+.OPTNEXT:                      ; HL is at what ended the option.
+    LD   A,(HL)                    ; Is it a comma?
+    INC  HL                        ; Step over it.
+    CP   ','                       ; Then another option follows.
+    JR   Z,.OPTIONS                ; Read it.
+    RET                            ; The options are read.
 
 ;@ROUTINE IN HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Skip the spaces at HL. A is the first other byte and HL its address; the
@@ -366,6 +433,44 @@ SH_PNAME:                      ; A is a part index below SRC_CAP.
     ADD  HL,DE                     ; HL is the name slot.
     RET                            ; Return the slot in HL.
 
+;@ROUTINE IN A OUT B,HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Spell the name of part A (0-based) as the reference compiler names a part
+; in the line stream, NAME.TYP without padding or drive, at SH_TEXT: HL
+; addresses it and B is its length.
+
+SH_TYPED:                      ; A is a part index.
+    CALL SH_PNAME                  ; HL is its saved drive, name and type.
+    INC  HL                        ; Skip the drive.
+    LD   DE,SH_TEXT                ; The spelling is built here.
+    LD   B,8                       ; The name's eight characters,
+    CALL .FIELD                    ; less their padding.
+    LD   A,'.'                     ; A dot
+    LD   (DE),A                    ; separates it
+    INC  DE                        ; from the type.
+    LD   B,3                       ; The type's three characters,
+    CALL .FIELD                    ; less their padding.
+    EX   DE,HL                     ; HL is the spelling's end.
+    LD   DE,SH_TEXT                ; Its start.
+    OR   A                         ; Clear carry.
+    SBC  HL,DE                     ; HL is its length,
+    LD   B,L                       ; at most twelve.
+    EX   DE,HL                     ; HL is the spelling.
+    RET                            ; B is its length.
+
+;@ROUTINE IN B,DE,HL OUT DE,HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Copy the B characters at HL to DE, leaving out the spaces that pad them.
+
+.FIELD:                        ; B characters remain at HL.
+    LD   A,(HL)                    ; The next one.
+    INC  HL                        ; HL moves on whether or not it is kept.
+    CP   ' '                       ; Spaces are padding.
+    JR   Z,.PAD                    ; Leave it out.
+    LD   (DE),A                    ; Keep anything else.
+    INC  DE                        ; Move on.
+.PAD:                          ; The character is done.
+    DJNZ .FIELD                    ; Until the field is copied.
+    RET                            ; DE is after the copy.
+
 ; ---- diagnostics and failure ------------------------------------------------
 
 ;@ROUTINE NORETURN
@@ -378,8 +483,7 @@ SH_DIAG:                       ; Reached on carry from PR_BUILD.
     OR   A                         ; Zero means that no part was current.
     JR   Z,.NUMBER                 ; Then print only the number.
     DEC  A                         ; The id less one is the index of its saved name.
-    CALL SH_PNAME                  ; HL is that name.
-    CALL SH_SHOW                   ; Print it as NAME.TYP.
+    CALL SH_SHOW                   ; Print it as D:NAME.TYP.
     LD   A,' '                     ; A space separates the name from the position.
     CALL SH_CHAR                   ; Print it.
     LD   HL,(DG_LINE)              ; The line, counted from 1.
@@ -419,7 +523,6 @@ SH_RERR:                       ; .LOAD had a read status other than 0 or 1.
 SH_NAMED:                      ; DE is the message that follows the name.
     PUSH DE                        ; Keep it across the name.
     LD   A,(SH_PCNT)               ; The count is still this part's index.
-    CALL SH_PNAME                  ; HL is its saved name.
     CALL SH_SHOW                   ; Print it as D:NAME.TYP.
     POP  HL                        ; HL is the message.
     JR   SH_FAIL                   ; Print it and fail.
@@ -472,38 +575,29 @@ SH_QUIT:                       ; Every failure ends here, its message printed.
 
 ; ---- console ----------------------------------------------------------------
 
-;@ROUTINE IN HL CLOBBERS A,B,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Print the saved drive and name at HL as D:NAME.TYP, without padding, and
-; without the drive when the part was on the current drive.
+;@ROUTINE IN A CLOBBERS A,B,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Print the saved name of part A (0-based) as D:NAME.TYP, without padding,
+; and without the drive when the part was on the current drive.
 
-SH_SHOW:                       ; HL is a saved slot: drive byte, name, type.
+SH_SHOW:                       ; A is a part's index.
+    PUSH AF                        ; Keep it for the name.
+    CALL SH_PNAME                  ; HL is its saved drive, name and type.
     LD   A,(HL)                    ; A is the drive: 0 current, 1 for A:.
-    INC  HL                        ; HL is the name.
     OR   A                         ; Was a drive named?
     JR   Z,.NAME                   ; No: print the name alone.
     ADD  A,'A'-1                   ; Make the drive a letter.
     CALL SH_CHAR                   ; Print it.
     LD   A,':'                     ; Then the colon.
     CALL SH_CHAR                   ; Print it.
-.NAME:                         ; HL is the eight-character name.
-    LD   B,8                       ; The name field has eight characters.
-    CALL .CHARS                    ; Print them; HL moves to the type.
-    LD   A,'.'                     ; An FCB stores no dot.
-    CALL SH_CHAR                   ; Print one between the name and the type.
-    LD   B,3                       ; The type field has three characters.
-
-;@ROUTINE IN B,HL OUT HL CLOBBERS A,B,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Print the B characters at HL, skipping the spaces that pad them, and
-; leave HL after them. SH_SHOW calls it for the name and falls in for the
-; type.
-
-.CHARS:                        ; B characters of the field remain.
-    LD   A,(HL)                    ; A is the next character.
-    INC  HL                        ; HL moves on whether or not it prints.
-    CP   ' '                       ; Spaces are padding.
-    CALL NZ,SH_CHAR                ; Print anything else.
-    DJNZ .CHARS                    ; Until the field is done.
-    RET                            ; After the type, this returns from SH_SHOW.
+.NAME:                         ; The drive is printed if there was one.
+    POP  AF                        ; A is the index.
+    CALL SH_TYPED                  ; HL is NAME.TYP, B its length.
+.CHARS:                        ; B characters remain at HL.
+    LD   A,(HL)                    ; Print
+    CALL SH_CHAR                   ; the next.
+    INC  HL                        ; Move on.
+    DJNZ .CHARS                    ; Until the name is printed.
+    RET                            ; The caller prints what follows.
 
 ;@ROUTINE IN HL CLOBBERS A,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Print the zero-terminated text at HL.
@@ -572,36 +666,21 @@ SH_CHAR:                       ; A is the character.
 
 ; ---- output ----------------------------------------------------------------
 
-;@ROUTINE OUT CARRY CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
-; The forked compiler's output sinks. EM_BYTE, EM_FIXJR and EM_FIXW call
-; PUB_BYTE, PUB_FIXB and PUB_FIXW for each placed byte and patch, and TARGET
-; calls the rest. Placed output is discarded until blob output replaces it
-; (native compiler plan, 65.4): every call succeeds, carry clear, A kept.
+;@ROUTINE NORETURN
+; The output streams' failure (OUT.ASM): the disk or its directory is full.
+; Report it and fail.
 
-PUB_OPEN:                      ; Open a generation for the descriptor at IX.
-PUB_BYTE:                      ; Place byte A at address HL in bank C.
-PUB_FIXB:                      ; Patch byte A at address HL in bank C.
-PUB_FIXW:                      ; Patch word DE at address HL in bank C.
-PUB_RT:                        ; Place the BC-byte runtime of identity DE at HL.
-PUB_INIT:                      ; Place the initialized vectors and state at HL.
-PUB_FLAT:                      ; Accept the map of single-bank output at IX.
-PUB_BANK:                      ; Banked output's tables; SH_DESC has only one bank.
-PUB_CMT:                       ; Commit the generation.
-PUB_UNDO:                      ; Abandon the generation after a failure.
-    OR   A                         ; Clear carry: the sink reports success.
-    RET                            ; A is unchanged for callers that test it.
+OUT_FAIL:                      ; A stream could not be written or made.
+    LD   HL,SH_DMSG                ; The disk-full message.
+    JP   SH_FAIL                   ; Print it and fail.
 
 ; ---- data -------------------------------------------------------------------
 
-SH_DESC:                       ; The forked compiler's target (TG_D*), until 65.4.
-    DW   RT_IDENT                  ; TG_DRT: the runtime identity TG_OPEN requires.
-    DW   $8000,$1000               ; TG_DIMG, TG_DICAP: a 4K image at $8000.
-    DW   $4000,$1000               ; TG_DRAM, TG_DRCAP: 4K writable at $4000, apart from the image.
-    DB   1                         ; TG_DFLAG: TG_FSP, the program selects its own stack.
-    DB   1,0                       ; TG_DBCNT, TG_DEB: one bank, the entry in bank 0.
-    DW   .BANKS                    ; TG_DPART: the bank of each part.
-.BANKS:                        ; One entry for each of SRC_CAP parts.
-    DB   0,0,0,0,0,0,0,0           ; Every part is in bank 0, the only bank.
+SH_HEAD:                       ; The program directory's header (object format §4.1).
+    DB   "BSIP",1,0                ; Magic, version 1.0.
+    DW   1,1,1,$5524               ; Stamp, runtime, helper version and key,
+    DW   1,$0400                   ; profile, ordinal base: the CPM22 library's.
+    DB   0,0                       ; No flags; padding.
 SH_VALID:                      ; The marks a CP/M name may contain (services §4.1).
     DB   "!#$%&'()-@^_`{}~"        ; Sixteen, the count .CHAR's CPIR searches.
 SH_TYPE:                       ; The type of a part that names none.
@@ -616,6 +695,8 @@ SH_RMSG:                       ; Follows the name of a part CP/M could not read.
     DB   " read error",0           ; A disk error, not the end of the file.
 SH_PMSG:                       ; A ninth part was named.
     DB   "More than 8 source parts",0 ; 8 is SRC_CAP.
+SH_DMSG:                       ; A stream could not be written.
+    DB   "Disk full",0             ; Or the directory: either ends the build.
 SH_LMSG:                       ; The parts would reach the stack's reserve.
     DB   "Source too large",0      ; The source's end may not pass SH_LIMIT.
 SH_UMSG:                       ; Any malformed command line.

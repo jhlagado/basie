@@ -580,7 +580,7 @@ BL_ENTRY:                      ; HL is main's ordinal.
 ; Write the limits control record: stack reserve HL, largest frame DE and
 ; flags A (object format §5.3).
 
-BL_LIMIT:                     ; HL is the reserve, DE the frame, A the flags.
+BL_LIMIT:                      ; HL is the reserve, DE the frame, A the flags.
     PUSH IX                        ; Keep the caller's IX.
     LD   IX,BL_DR                  ; The directory stream.
     PUSH AF                        ; Keep the flags for last.

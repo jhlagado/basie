@@ -26,8 +26,9 @@
 ;  calls, its own body included. A routine's label is RO_LBASE plus its
 ;  index; main's is RO_MDEST. RO_FOPEN in a routine's flags marks a
 ;  forward whose body is still to come, and main's flags live in
-;  RO_MFLAG. The target bank bits that TG_PACK, TG_MUST and TG_ENTRY
-;  manage are always zero under BASIE.COM's one-bank descriptor.
+;  RO_MFLAG. A body is written as a blob while it is parsed: AC_BEGIN and
+;  AC_ENTRY open it (RG_OPEN) and AC_END closes it (RG_CLOSE). Forward
+;  routines and parameters are refused (DG_NYI) until calls are compiled.
 ;
 ;  Failure. A call to a failable routine or service leaves RO_PEND set and
 ;  RO_MODEP addressing three handling bytes that end its OP_CALL: the mode
@@ -143,11 +144,9 @@ AC_SIG:
     LD   (HL),A                    ; ...is its first parameter...
     LD   (RO_CPIDX),A              ; ...in the record and the signature.
     CALL AC_CLEAR                  ; No parameters or result yet; A is zero.
-    CALL TG_PACK                   ; Add the current bank to the flags.
-    LD   (RO_CFLAG),A              ; The routine's flags.
+    LD   (RO_CFLAG),A              ; The routine's flags: none yet.
     RET                            ; Back to the engine.
 .MAIN:                         ; Open main's signature.
-    CALL TG_ENTRY                  ; Main must be in the entry bank.
     LD   A,(RO_MFLAG)              ; Was main declared forward?
     AND  RO_FOPEN                  ; Then its body uses the short form.
     JP   NZ,EX_EDUP                ; A second signature is a duplicate.
@@ -156,8 +155,7 @@ AC_SIG:
     LD   (RO_CUR),A                ; Mark it.
     CALL AC_CLEAR                  ; No parameters or result.
     LD   A,RO_FMAIN                ; Main's flag...
-    CALL TG_PACK                   ; ...with the current bank...
-    LD   (RO_CFLAG),A              ; ...are its flags.
+    LD   (RO_CFLAG),A              ; ...begins its flags.
     RET                            ; Back to the engine.
 .FULL:                         ; The routine table is full.
     CALL DG_RAISE                  ; Abandon the build.
@@ -165,9 +163,12 @@ AC_SIG:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; BeginForward: build the signature as AC_SIG does and mark it open: its
-; body comes later, in the short form `sub NAME`.
+; body comes later, in the short form `sub NAME`. Refused for now (DG_NYI):
+; a forward takes its ordinal at the declaration and its body's prologue
+; checks the stack, which come with calls (native compiler plan 65.4 e).
 
 AC_PROTO:
+    CALL TR_OPER                   ; Refuse the forward declaration.
     CALL AC_SIG                    ; Build the signature.
     LD   A,(RO_CFLAG)              ; Its flags.
     OR   RO_FOPEN                  ; Waiting for a body.
@@ -289,18 +290,11 @@ AC_IMPL:
     LD   A,(HL)                    ; Its flags.
     BIT  2,A                       ; RO_FOPEN: still waiting for a body?
     JP   Z,EX_EDUP                 ; No: a second body is a duplicate.
-    LD   D,A                       ; The flags, for the bank check.
-    PUSH AF                        ; Keep them.
-    PUSH HL                        ; Keep their address.
-    CALL TG_MUST                   ; The body must be in the forward's bank.
-    POP  HL                        ; Recover the address.
-    POP  AF                        ; Recover the flags.
     AND  $FB                       ; Clear RO_FOPEN: the body is here.
     LD   (HL),A                    ; In the record...
     LD   (RO_CFLAG),A              ; ...and the signature.
     JR   AC_BEGIN                  ; Open the body.
 .MAIN:                         ; The body of a forward main.
-    CALL TG_ENTRY                  ; Main must be in the entry bank.
     LD   A,(RO_MFLAG)              ; Main's flags.
     BIT  2,A                       ; Was main declared forward?
     JR   Z,.MISSING                ; No: the short form needs a forward.
@@ -365,32 +359,22 @@ AC_SCOPE:
     RET                            ; A is zero.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Open a routine's body: record its result kind and type (CT_RKIND and
-; CT_RTYPE, unread), emit OP_PROC label,parameters,bank and bind each
-; parameter to its frame slot (RO_BIND).
+; Open a routine's body: begin its blob, named from its record (RG_OPEN),
+; make its start reachable and bind each parameter to its frame slot
+; (RO_BIND), which refuses it for now.
 
 AC_BEGIN:
     CALL AC_SCOPE                  ; Enter the body's scope.
-    LD   A,(RO_CTYPE)              ; Does the routine return a value?
-    OR   A                         ; Zero means no result.
-    LD   A,CT_RVAL                 ; Assume it returns one.
-    JR   NZ,.KINDOK                ; It does.
-    XOR  A                         ; It does not: CT_RNONE.
-.KINDOK:                       ; A is the result kind.
-    LD   (CT_RKIND),A              ; Recorded, though nothing reads it now.
-    LD   A,(RO_CTYPE)              ; The result type.
-    LD   (CT_RTYPE),A              ; Likewise recorded and unread.
-    LD   A,1                       ; The body's start is reachable.
-    LD   (CT_FALLS),A              ; Control falls into it.
-    LD   A,OP_PROC                 ; Open a routine.
-    CALL TR_OPER                   ; Append it.
-    LD   A,(RO_DEST)               ; Its label.
-    CALL TR_PUT                    ; Append it.
-    LD   A,(RO_CPCNT)              ; Its parameter count.
-    CALL TR_PUT                    ; Append it.
-    LD   A,(RO_CFLAG)              ; Its flags...
-    CALL TG_SPLIT                  ; ...reduced to the bank.
-    CALL TR_PUT                    ; Append it.
+    LD   A,(RO_CUR)                ; The routine's record
+    CALL RO_SUBAT                  ; is at HL; its name comes first:
+    LD   E,(HL)                    ; the spelling's
+    INC  HL                        ; address
+    LD   D,(HL)                    ; in DE,
+    INC  HL                        ; then
+    LD   B,(HL)                    ; its length.
+    EX   DE,HL                     ; HL is the name.
+    CALL RG_OPEN                   ; Begin the routine's blob.
+    CALL AC_LIVE                   ; The body's start is reachable.
     LD   A,(RO_CPCNT)              ; Bind each parameter:
     LD   B,A                       ; B counts those left,
     LD   A,(RO_CPIDX)              ; D is the parameter entry,
@@ -413,23 +397,21 @@ AC_BEGIN:
     DEC  B                         ; One fewer.
     JR   .BINDLOOP                 ; Bind it.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; Open main's body: keep its flags, emit OP_ENTRY flags,bank, enter the
-; scope and make the body reachable. Main has no result.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Open main's body: keep its flags, enter the scope, begin its blob and
+; keep its ordinal for the entry record, and make the body reachable.
+; Main has no result.
 
 AC_ENTRY:
     LD   A,(RO_CFLAG)              ; Main's flags...
     LD   (RO_MFLAG),A              ; ...are kept.
-    LD   A,OP_ENTRY                ; Open main.
-    CALL TR_OPER                   ; Append it.
-    LD   A,(RO_CFLAG)              ; Its flags.
-    CALL TR_PUT                    ; Append them.
-    LD   A,(RO_CFLAG)              ; Its flags again...
-    CALL TG_SPLIT                  ; ...reduced to the bank.
-    CALL TR_PUT                    ; Append it.
     CALL AC_SCOPE                  ; Enter the scope; A is zero.
-    LD   (RO_CTYPE),A              ; Main has no result type...
-    LD   (CT_RKIND),A              ; ...and returns no value; fall into AC_LIVE.
+    LD   (RO_CTYPE),A              ; Main has no result type.
+    LD   HL,KW_MAIN                ; Its name,
+    LD   B,4                       ; four characters.
+    CALL RG_OPEN                   ; Begin main's blob.
+    LD   HL,(BL_ORD)               ; Its ordinal
+    LD   (RG_MAIN),HL              ; is the program's entry; fall into AC_LIVE.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Control can reach this point.
@@ -440,51 +422,34 @@ AC_LIVE:
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; EndSub: close main's body, or close a routine's: one with a result may
-; not fall off its end (DG_FLOW). Emit the end operation with the result
-; type and discard the routine's parameters and locals.
+; not fall off its end (DG_FLOW). Write the blob (RG_CLOSE), keep main's
+; need for the limits record and discard the routine's parameters and
+; locals.
 
 AC_END:
     LD   A,(RO_CUR)                ; The routine closed.
     INC  A                         ; Is it main?
-    JR   Z,AC_CLOSE                ; Yes: close main.
+    JR   Z,.CLOSE                  ; Main has no result.
     LD   A,(RO_CTYPE)              ; Does it return a value?
     OR   A                         ; Zero means no result.
-    JR   Z,.EMIT                   ; Then falling off the end is a return.
+    JR   Z,.CLOSE                  ; Then falling off the end is a return.
     LD   A,(CT_FALLS)              ; Can control reach the end?
     OR   A                         ; Zero means every path returned.
     JP   NZ,EX_EFLOW               ; Raise DG_FLOW: a path returns no value.
-.EMIT:                         ; Close the routine.
-    CALL AC_ENDOP                  ; Append the end operation.
-    LD   A,(RO_CTYPE)              ; Its operand is the result type.
-    CALL TR_PUT                    ; Append it.
+.CLOSE:                        ; Close the routine.
+    CALL RG_CLOSE                  ; Write its blob; HL is its need.
+    LD   A,(RO_CUR)                ; Was it main?
+    INC  A                         ; $FF becomes zero.
+    JR   NZ,.SCOPE                 ; No: its need is not the program's.
+    LD   (RG_NEED),HL              ; Main's need sets the stack reserve.
+.SCOPE:                        ; Leave the routine's scope.
     LD   A,(RO_GLOBS)              ; Keep only the global symbols.
     LD   (SY_CNT),A                ; Parameters and locals go out of scope.
     XOR  A                         ; The next body's frame...
     LD   (SY_LSLOT),A              ; ...starts empty.
     RET                            ; Back to the engine.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; Append the routine's end operation: OP_ENDF for a failable routine,
-; otherwise OP_ENDP. The caller appends its operand.
-
-AC_ENDOP:
-    LD   A,(RO_CFLAG)              ; The routine's flags.
-    AND  RO_FFAIL                  ; Failable?
-    LD   A,OP_ENDP                 ; Assume not.
-    JR   Z,.PICKED                 ; It is not.
-    LD   A,OP_ENDF                 ; It is.
-.PICKED:                       ; A is the end operation.
-    JP   TR_OPER                   ; Append it and return.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; Close main's body: the end operation with a zero result type.
-
-AC_CLOSE:
-    CALL AC_ENDOP                  ; Append the end operation.
-    XOR  A                         ; No result type.
-    JP   TR_PUT                    ; Append it and return.
 
 ; ----------------------------------------------------------------- failure
 

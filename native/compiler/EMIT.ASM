@@ -2,498 +2,303 @@
 ;  Emitter primitives
 ;==========================================================================
 ;
-;  The lowest layer of the emit phase. Once the parser has closed the
-;  semantic transcript, GX_WALK replays it one operation at a time, and the
-;  generators (GX_, GC_, RG_, GA_) build Z80 code from these primitives:
-;  append a byte, a word, an opcode with its operand, a fixed byte
-;  sequence or a two-byte idiom; patch a displacement or a word written
-;  earlier; and read operands back from the transcript.
+;  The lowest layer of code generation. The generators (GENEXPR.ASM and
+;  GENCALL.ASM) write the routine being parsed into the blob writer's
+;  buffer (BLOB.ASM) through these primitives, as the reference compiler's
+;  Blob does (ref/compile/emit.ts): bytes, words, references to other
+;  blobs, calls to runtime helpers and labels within the routine. They
+;  also keep the frame accounting of the reference's RoutineState: the
+;  bytes pushed as temporaries, the deepest frame reached and the largest
+;  stack figure of a helper called, from which the routine's frame and
+;  need words are computed when it ends.
 ;
-;  Every byte passes through EM_BYTE. It checks the capacity left in the
-;  output region (EM_LIM), hands the byte, its target address (EM_PTR) and
-;  the output bank (TG_OBANK) to the sink PUB_BYTE, and advances EM_PTR.
-;  Patches go to PUB_FIXB and PUB_FIXW. The sinks are SHELL.ASM's stubs,
-;  which discard the placed output until blob output replaces it (65.3,
-;  65.4). A full region or a failing sink raises a diagnostic, which
-;  unwinds to the compile entry, so every primitive that returns has
-;  succeeded and returns carry clear.
+;  Quiet code. While EX_QUIET is nonzero the parser is in the right arm of
+;  an `and` or `or` whose constant left operand decides it, which the
+;  reference compiles and then discards (Compiler.suppress). Every
+;  primitive that writes to the blob writes nothing then; the frame
+;  accounting still runs, as the reference's does.
 ;
-;  EM_BYTE keeps A, C and DE, which lets EM_WORD and EM_OPB hold the
-;  second byte in C across the first call. EM_OP, EM_ENDOP and EM_IDIOM
-;  take their operand from the byte after the CALL, which costs one byte
-;  at each call site instead of a register load.
+;  Labels. A label is an offset in the routine, EM_NONE until defined. An
+;  operand naming a defined label is a self-reference: an ABS16 reference
+;  to the routine's own ordinal with the label's offset as the addend. An
+;  operand naming a label not yet defined is written the same way with a
+;  placeholder addend, $FFFF, which is nonzero so that the encoded
+;  reference has room for its addend word; the label keeps a chain of the
+;  addresses of those addend words in BL_REFS, each word holding the next
+;  link until EM_LDEF writes the label's offset into all of them. So the
+;  references come out in offset order, as the reference compiler sorts
+;  them, and pending operands cost no table space.
 ;
 ;  Principal entries:
-;    EM_BYTE   append the byte in A
-;    EM_WORD   append the word in HL, low byte first
-;    EM_OPW    append opcode A and the word in HL (EM_CALL, EM_LDHL,
-;              EM_LDBC and EM_PUTA fix the opcode)
-;    EM_OPB    append opcode A and the byte in C (EM_LDA: LD A,n)
-;    EM_OP     append the inline byte after the CALL, return past it
-;    EM_ENDOP  append the inline byte, return to the caller's caller
-;    EM_IDIOM  append the two-byte idiom whose EP_ index follows the CALL
-;    EM_BYTES  copy B template bytes from HL (EM_PAIR, EM_THREE, EM_FOUR,
-;              EM_FIVE and EM_EIGHT fix the count); EM_BLOCK copies BC
-;    EM_JRCC   append JR opcode A with a zero displacement (EM_JR, EM_JRNC)
-;    EM_FIXJR  patch the displacement at DE to reach HL (EM_LAND: to here)
-;    EM_FIXW   patch the word at DE with HL
-;    EM_TOVAR  append LD (nn),A for the runtime-state offset in DE
-;    EM_TRAP   append the trap record and the terminal jump (EM_STOP,
-;              EM_DONE; EM_STRAY sets up an unhandled-error trap)
-;    EM_READB  read the next transcript byte (EM_READW a word, EM_READA
-;              a global's target address)
-;    EM_LEAVE  append the frame epilogue; GT_ENTER holds the prologue
+;    EM_OPEN   start the frame accounting and labels of a routine
+;    EM_QUIET  NZ while code is being discarded
+;    EM_BYTE   append the byte in A (EM_OP: the inline byte after the CALL)
+;    EM_WORD   append the word in HL
+;    EM_SEQ    append the inline counted byte sequence after the CALL
+;    EM_REF    append an ABS16 reference to blob HL with addend DE
+;    EM_HELP   append CALL helper, the inline ordinal and stack figure
+;    EM_PUSH   count A bytes pushed; EM_POP counts them popped
+;    EM_LNEW   allocate a label
+;    EM_LREF   append the operand naming a label
+;    EM_LDEF   define a label at the current offset
+;    EM_LINE   mark the line of the statement at the lookahead
 ;
-;  Workspace (STATE.ASM): EM_PTR is the target address of the next byte,
-;  EM_LIM the bytes left in the output region, EM_FIXAT EM_FIXJR's operand
-;  address and EM_READP the transcript read pointer. All of them overlay
-;  parser state that is dead once the transcript is closed.
+;  Workspace (STATE.ASM): EM_FRAME to EM_LLIM. A full label table raises
+;  DG_LABEL; a blob too large for its buffers raises DG_BLOB (BL_OVER).
 
-;@ROUTINE IN A OUT CARRY CLOBBERS B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append the byte in A at EM_PTR through the output sink. A full output
-; region raises DG_IMAGE and a sink failure an output diagnostic; neither
-; returns.
+;@ROUTINE CLOBBERS A,B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Start a routine: no frame, nothing pushed, no helper or callee stack, no
+; labels.
 
-EM_BYTE:                       ; A is the byte for address EM_PTR.
-    LD   B,A                       ; Keep the byte while A tests the capacity.
-    LD   HL,(EM_LIM)               ; HL counts the bytes the region can still take.
-    LD   A,H                       ; Test the count for zero.
-    OR   L                         ; Is the region already full?
-    JP   Z,TG_FULL                 ; Then the image cannot hold the program.
-    DEC  HL                        ; This byte takes one place.
-    LD   (EM_LIM),HL               ; Publish the reduced capacity.
-    LD   HL,(EM_PTR)               ; HL is the byte's target address.
-    PUSH BC                        ; Keep the byte and the caller's C across the sink.
-    LD   A,(TG_OBANK)              ; Fetch the bank that receives output.
-    LD   C,A                       ; The sink takes the bank in C.
-    LD   A,B                       ; And the byte in A.
-    PUSH HL                        ; Keep the target address across the sink.
-    CALL PUB_BYTE                  ; Write the byte; carry reports a sink failure.
-    POP  HL                        ; Recover the byte's target address.
-    POP  BC                        ; Recover the byte and the caller's C.
-    JP   C,TG_FAIL                 ; A failed sink ends the compilation.
-    INC  HL                        ; The next byte goes one address higher.
-    LD   (EM_PTR),HL               ; Advance the output cursor.
-    OR   A                         ; Report success with carry clear.
-    RET                            ; A still holds the byte.
+EM_OPEN:                       ; A routine's blob has begun.
+    LD   HL,EM_FRAME               ; The accounting words and the label count
+    LD   B,EM_LTAB-EM_FRAME        ; lie together before the labels.
+    XOR  A                         ; Every one starts at zero.
+.LOOP:                         ; B bytes remain to clear.
+    LD   (HL),A                    ; Clear one.
+    INC  HL                        ; Move to the next.
+    DJNZ .LOOP                     ; Until the label count is clear too.
+    RET                            ; The routine owns nothing yet.
 
-;@ROUTINE NORETURN
-; Append the byte that follows the CALL and return to the caller's caller,
-; so that CALL EM_ENDOP and its DB end a generator in four bytes. Clobbers
-; B and HL as EM_BYTE does, with A holding the byte and carry clear.
+;@ROUTINE OUT ZERO
+; NZ while the parser is in a discarded arm (EX_QUIET nonzero), when
+; nothing may be written to the blob. Every register but F is kept.
 
-EM_ENDOP:                      ; The inline byte is the generator's last.
-    POP  HL                        ; HL addresses the inline byte; it is not pushed back.
-    LD   A,(HL)                    ; Fetch the byte to emit.
-    JR   EM_BYTE                   ; EM_BYTE's RET goes to the caller's caller.
+EM_QUIET:                      ; Is code being discarded?
+    PUSH HL                        ; Keep the caller's HL.
+    LD   HL,EX_QUIET               ; The count of discarded arms open.
+    INC  (HL)                      ; INC then DEC leaves it unchanged
+    DEC  (HL)                      ; and sets Z only when it is zero.
+    POP  HL                        ; Restore HL; POP keeps the flags.
+    RET                            ; NZ: discard.
 
-;@ROUTINE NORETURN
-; Append the byte that follows the CALL and return past it. Clobbers B
-; and HL as EM_BYTE does, with A holding the byte and carry clear.
+;@ROUTINE CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the byte that follows the CALL and return past it.
 
-EM_OP:                         ; The inline byte is one opcode to emit.
-    POP  HL                        ; HL addresses the inline byte.
-    LD   A,(HL)                    ; Fetch the byte to emit.
+EM_OP:                         ; The inline byte is one opcode.
+    POP  HL                        ; HL addresses it.
+    LD   A,(HL)                    ; Fetch it.
     INC  HL                        ; Step over it.
-    PUSH HL                        ; Return to the instruction after the byte.
-    JR   EM_BYTE                   ; Emit it and return through EM_BYTE.
+    PUSH HL                        ; Return past it.
 
-;@ROUTINE NORETURN
-; Append the two-byte idiom whose EP_ index is the byte after the CALL,
-; and return past that byte. Clobbers A, B, DE and HL with carry clear; C
-; is kept, so a caller may hold a displacement there.
+;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the byte in A to the routine's blob, unless code is being
+; discarded. Every register but F is kept.
 
-EM_IDIOM:                      ; The inline byte is an EP_ index.
-    POP  HL                        ; HL addresses the inline index.
-    LD   A,(HL)                    ; Fetch the idiom's index.
-    INC  HL                        ; Step over it.
-    PUSH HL                        ; Return to the instruction after the index.
-    ADD  A,A                       ; Each idiom is two bytes.
-    LD   L,A                       ; Form the byte offset as a word.
-    LD   H,0                       ; The largest offset is 26.
-    LD   DE,.IDIOMS                ; Base of the idiom table.
-    ADD  HL,DE                     ; HL addresses the idiom's first byte.
-    JR   EM_PAIR                   ; Emit both bytes and return.
+EM_BYTE:                       ; A is the byte.
+    CALL EM_QUIET                  ; Is code being discarded?
+    RET  NZ                        ; Then write nothing.
+    JP   BL_BYTE                   ; Append it; BL_BYTE keeps A, BC, DE, HL.
 
-EP_DECSP EQU  0                ; DEC SP twice: reserve a two-byte local.
-EP_LDLO EQU  1                 ; LD L,(IX+d); the caller emits d.
-EP_LDHI EQU  2                 ; LD H,(IX+d); the caller emits d.
-EP_STLO EQU  3                 ; LD (IX+d),L; the caller emits d.
-EP_STHI EQU  4                 ; LD (IX+d),H; the caller emits d.
-EP_ARGS EQU  5                 ; Pop the right operand to DE and the left to HL.
-EP_TOPDE EQU  6                ; Copy the stack top into DE and keep it.
-EP_TESTL EQU  7                ; Zero flag from L: a canonical boolean.
-EP_TESTH EQU  8                ; Zero flag from H: the value fits a byte.
-EP_POPA EQU  9                 ; Pop a carrier and take its low byte in A.
-EP_FIELD EQU  10               ; Pop the base to HL, then LD DE,nn; caller emits nn.
-EP_ARGSX EQU  11               ; Pop the top to HL and the next to DE.
-EP_ZEROH EQU  12               ; LD H,0: widen a byte in L.
-EP_LDIR EQU  13                ; LDIR: copy BC bytes from HL to DE.
-.IDIOMS:                       ; Fourteen two-byte idioms, in EP_ order.
-    DB   $3B,$3B                   ; DEC SP / DEC SP: room for a u16 local.
-    DB   $DD,$6E                   ; LD L,(IX+d): low byte of a local.
-    DB   $DD,$66                   ; LD H,(IX+d): high byte of a local.
-    DB   $DD,$75                   ; LD (IX+d),L: store a local's low byte.
-    DB   $DD,$74                   ; LD (IX+d),H: store a local's high byte.
-    DB   $D1,$E1                   ; POP DE / POP HL: both binary operands.
-    DB   $D1,$D5                   ; POP DE / PUSH DE: read the top without popping.
-    DB   $7D,$B7                   ; LD A,L / OR A: test a boolean for false.
-    DB   $7C,$B7                   ; LD A,H / OR A: test for a zero high byte.
-    DB   $E1,$7D                   ; POP HL / LD A,L: a u8 value into A.
-    DB   $E1,$11                   ; POP HL / LD DE,nn: an offset to add.
-    DB   $E1,$D1                   ; POP HL / POP DE: operands in the other order.
-    DB   $26,$00                   ; LD H,0: zero-extend L.
-    DB   $ED,$B0                   ; LDIR: block copy.
+;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the word in HL, low byte first.
 
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append the word in HL, low byte first, as a Z80 operand is stored.
+EM_WORD:                       ; HL is the word.
+    LD   A,L                       ; The low byte first.
+    CALL EM_BYTE                   ; Append it.
+    LD   A,H                       ; Then the high byte.
+    JR   EM_BYTE                   ; Append it and return.
 
-EM_WORD:                       ; HL is the word to emit.
-    LD   C,H                       ; EM_BYTE keeps C, so park the high byte there.
-    LD   A,L                       ; The low byte comes first.
-    CALL EM_BYTE                   ; Emit the low byte.
-    LD   A,C                       ; Then the high byte.
-    JR   EM_BYTE                   ; Emit it and return.
+;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the sequence that follows the CALL: a count byte, then that many
+; bytes. Return past it. HL is kept.
 
-;@ROUTINE IN B,HL OUT CARRY CLOBBERS A,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Copy B template bytes from HL. A fixed sequence is cheaper as data once
-; two or more generators need four or more of the same bytes.
+EM_SEQ:                        ; The inline count and bytes follow.
+    EX   (SP),HL                   ; HL addresses them; the caller's HL waits.
+    LD   B,(HL)                    ; B is the count.
+.LOOP:                         ; B bytes remain.
+    INC  HL                        ; Step to the next.
+    LD   A,(HL)                    ; Fetch it.
+    CALL EM_BYTE                   ; Append it.
+    DJNZ .LOOP                     ; Until the sequence is written.
+    INC  HL                        ; HL is past the sequence,
+    EX   (SP),HL                   ; the return address; HL is restored.
+    RET                            ; Continue after the sequence.
 
-EM_BYTES:                      ; B counts the bytes at HL.
-    PUSH BC                        ; Keep the caller's BC.
-    LD   C,B                       ; Widen the count to BC.
-    LD   B,0                       ; At most 255 bytes.
-    CALL EM_BLOCK                  ; Copy them through EM_BYTE.
-    POP  BC                        ; Restore the caller's BC.
-    RET                            ; HL now addresses the byte after the template.
+;@ROUTINE IN DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append an ABS16 reference to blob HL with addend DE and its placeholder,
+; unless code is being discarded.
 
-;@ROUTINE IN BC,HL OUT CARRY CLOBBERS A,BC,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Copy the BC bytes at HL through the checked output sink.
+EM_REF:                        ; HL is the target, DE the addend.
+    CALL EM_QUIET                  ; Is code being discarded?
+    RET  NZ                        ; Then write nothing.
+    XOR  A                         ; Form ABS16.
+    JP   BL_REF                    ; Append it and return.
 
-EM_BLOCK:                      ; BC counts the bytes left to copy from HL.
-    LD   A,B                       ; Test the remaining count.
-    OR   C                         ; Is the copy complete?
-    RET  Z                         ; Then return with carry clear.
-    LD   A,(HL)                    ; Fetch the next source byte.
-    INC  HL                        ; Step the source pointer.
-    PUSH BC                        ; EM_BYTE clobbers B.
-    PUSH HL                        ; And HL.
-    CALL EM_BYTE                   ; Append the byte.
-    POP  HL                        ; Recover the source pointer.
-    POP  BC                        ; Recover the count.
-    DEC  BC                        ; One byte fewer to copy.
-    JR   EM_BLOCK                  ; Continue until BC is zero.
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append CALL helper, where the CALL is followed by two inline bytes: the
+; helper's ordinal (below $100) and its stack figure, the bytes a returning
+; call uses (helper table). The figure raises EM_STACK, as the reference's
+; callHelper does, even in discarded code.
 
-; Fixed-count entries for EM_BYTES: copy 8, 5, 4, 3 or 2 template bytes
-; from HL. Each sets B to its count and shares the jump in EM_TAIL.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Copy the eight template bytes at HL.
-
-EM_EIGHT:                      ; HL addresses an eight-byte template.
-    LD   B,8                       ; Eight bytes: the frame prologue.
-    JR   EM_TAIL                   ; Copy them.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Copy the five template bytes at HL.
-
-EM_FIVE:                       ; HL addresses a five-byte template.
-    LD   B,5                       ; Five bytes.
-    JR   EM_TAIL                   ; Copy them.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Copy the four template bytes at HL.
-
-EM_FOUR:                       ; HL addresses a four-byte template.
-    LD   B,4                       ; Four bytes.
-    JR   EM_TAIL                   ; Copy them.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Copy the three template bytes at HL.
-
-EM_THREE:                      ; HL addresses a three-byte template.
-    LD   B,3                       ; Three bytes.
-    JR   EM_TAIL                   ; Copy them.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Copy the two template bytes at HL. EM_IDIOM ends here.
-
-EM_PAIR:                       ; HL addresses a two-byte template.
-    LD   B,2                       ; Two bytes: one idiom.
-
-;@ROUTINE IN B,HL OUT CARRY CLOBBERS A,HL,SIGN,PARITY,HALFCARRY,ZERO
-; The fixed-count entries' shared jump to EM_BYTES.
-
-EM_TAIL:                       ; B is the count for EM_BYTES.
-    JR   EM_BYTES                  ; Copy B bytes from HL.
-
-;@ROUTINE IN DE,HL OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Patch the JR displacement byte at DE so that the jump reaches HL. The
-; displacement counts from the byte after it, the end of the JR. A target
-; out of reach raises DG_REACH and does not return.
-
-EM_FIXJR:                      ; DE is the displacement byte, HL the target.
-    LD   (EM_FIXAT),DE             ; Keep the operand address for the sink.
-    INC  DE                        ; The CPU adds the displacement to the next address.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; HL is the signed distance to the target.
-    LD   C,L                       ; Keep the candidate displacement.
-    LD   A,C                       ; Take its sign bit.
-    ADD  A,A                       ; Carry is bit 7 of the displacement.
-    SBC  A,A                       ; A is its sign extension: $00 or $FF.
-    CP   H                         ; A distance in -128..127 has exactly that high byte.
-    JR   NZ,.TOOFAR                ; Any other distance is out of JR's reach.
-.STORE:                        ; The displacement fits in one byte.
-    LD   B,C                       ; Keep the displacement while A fetches the bank.
-    LD   HL,(EM_FIXAT)             ; HL is the operand address for the sink.
-    LD   A,(TG_OBANK)              ; Fetch the bank that holds the operand.
-    LD   C,A                       ; The sink takes the bank in C.
-    LD   A,B                       ; And the byte in A.
-    CALL PUB_FIXB                  ; Rewrite the operand; carry reports a sink failure.
-    JP   C,TG_FAIL                 ; A failed sink ends the compilation.
-    OR   A                         ; Report success with carry clear.
-    RET                            ; The branch now lands on its target.
-.TOOFAR:                       ; The generated JR cannot reach its target.
-    CALL DG_RAISE                  ; Report the code-size limit of a short branch.
-    DB   DG_REACH                  ; Diagnostic: branch target out of reach.
-
-; Small instruction emitters shared by the generators. The entries share
-; one opcode-and-operand tail instead of repeating it in every semantic
-; operation.
-
-;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append opcode A followed by the word operand in HL.
-
-EM_OPW:                        ; A is the opcode, HL its word operand.
-    PUSH HL                        ; EM_BYTE clobbers HL.
-    CALL EM_BYTE                   ; Emit the opcode.
-    POP  HL                        ; Recover the operand.
-    JR   EM_WORD                   ; Emit it, low byte first.
-
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append CALL nn for the address in HL.
-
-EM_CALL:                       ; HL is the routine to call.
+EM_HELP:                       ; The ordinal and figure follow the CALL.
+    POP  HL                        ; HL addresses them.
+    LD   E,(HL)                    ; E is the ordinal.
+    INC  HL                        ; Then
+    LD   A,(HL)                    ; the stack figure.
+    INC  HL                        ; Return past both.
+    PUSH HL                        ; The return address.
+    LD   HL,EM_STACK               ; The largest figure so far (a byte).
+    CP   (HL)                      ; Is this one larger?
+    JR   C,.SMALLER                ; No: keep the old one.
+    LD   (HL),A                    ; Yes: it is the largest.
+.SMALLER:                      ; EM_STACK is up to date.
     LD   A,$CD                     ; CALL nn.
-    JR   EM_OPW                    ; Emit it with HL as nn.
+    CALL EM_BYTE                   ; Append the opcode.
+    LD   L,E                       ; HL is the helper's ordinal
+    LD   H,0                       ; as a word.
+    LD   D,H                       ; With no addend:
+    LD   E,H                       ; DE is zero.
+    JR   EM_REF                    ; Append the reference and return.
 
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append LD HL,nn for the word in HL.
+;@ROUTINE IN A CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Count A bytes pushed as temporaries, and raise EM_DEEP to the frame and
+; pushes now reached if that is deeper (the reference's push).
 
-EM_LDHL:                       ; HL is the value to load at run time.
-    LD   A,$21                     ; LD HL,nn.
-    JR   EM_OPW                    ; Emit it with HL as nn.
+EM_PUSH:                       ; A is the bytes pushed.
+    LD   HL,(EM_TEMPS)             ; The bytes already pushed.
+    LD   E,A                       ; DE is the bytes
+    LD   D,0                       ; just pushed.
+    ADD  HL,DE                     ; The new total.
+    LD   (EM_TEMPS),HL             ; Keep it.
+    LD   DE,(EM_FRAME)             ; With the locals' bytes,
+    ADD  HL,DE                     ; HL is the depth reached.
+    EX   DE,HL                     ; DE is the depth.
+    LD   HL,(EM_DEEP)              ; Is it deeper than any before?
+    OR   A                         ; Clear carry.
+    SBC  HL,DE                     ; Carry if DE is deeper.
+    RET  NC                        ; No: nothing changes.
+    LD   (EM_DEEP),DE              ; Yes: it is the deepest.
+    RET                            ; The frame word will cover it.
 
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append LD BC,nn for the word in HL.
+;@ROUTINE IN A CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Count A bytes popped (the reference's pop).
 
-EM_LDBC:                       ; HL is the value to load at run time.
-    LD   A,$01                     ; LD BC,nn.
-    JR   EM_OPW                    ; Emit it with HL as nn.
+EM_POP:                        ; A is the bytes popped.
+    LD   HL,(EM_TEMPS)             ; The bytes pushed.
+    LD   E,A                       ; DE is the bytes
+    LD   D,0                       ; just popped.
+    OR   A                         ; Clear carry.
+    SBC  HL,DE                     ; Fewer remain.
+    LD   (EM_TEMPS),HL             ; Keep the count.
+    RET                            ; The deepest point stays recorded.
 
-;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append LD (nn),A for the address in HL.
+;@ROUTINE OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Allocate a label, undefined and with no operand waiting: A is its
+; number and HL its entry. DG_LABEL when the routine has used them all.
 
-EM_PUTA:                       ; HL is the address to store A into.
-    LD   A,$32                     ; LD (nn),A.
-    JR   EM_OPW                    ; Emit it with HL as nn.
+EM_LNEW:                       ; A label is wanted.
+    LD   HL,EM_LCNT                ; The labels used so far.
+    LD   A,(HL)                    ; A is the new label's number.
+    CP   EM_LCAP                   ; Is there one left?
+    JR   NC,.FULL                  ; No: refuse the routine.
+    INC  (HL)                      ; Count it.
+    CALL EM_LAT                    ; HL is its entry; A is kept.
+    PUSH HL                        ; Keep the entry.
+    LD   (HL),EM_NONE&$FF          ; The offset is EM_NONE:
+    INC  HL                        ; undefined,
+    LD   (HL),EM_NONE/$100         ; both bytes.
+    INC  HL                        ; The chain head
+    LD   (HL),0                    ; is zero:
+    INC  HL                        ; no operand
+    LD   (HL),0                    ; waits.
+    POP  HL                        ; HL is the entry again.
+    RET                            ; A is the label.
+.FULL:                         ; Every label is in use.
+    CALL DG_RAISE                  ; Report it; no return.
+    DB   DG_LABEL                  ; Labels exhausted.
 
-;@ROUTINE IN DE OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append LD (nn),A where nn is the runtime-state byte at offset DE from
-; RT_BASE, at the address the linked runtime gives it.
+;@ROUTINE IN A OUT HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; HL addresses label A's entry, EM_LTAB plus four times A. A is kept.
 
-EM_TOVAR:                      ; DE is an offset into the runtime state.
-    CALL TG_VAR                    ; HL is that state byte's target address.
-    JR   EM_PUTA                   ; Emit the store into it.
+EM_LAT:                        ; A is a label.
+    LD   L,A                       ; HL is the label
+    LD   H,0                       ; as a word,
+    ADD  HL,HL                     ; times two,
+    ADD  HL,HL                     ; times four, the entry's size.
+    PUSH DE                        ; Keep the caller's DE.
+    LD   DE,EM_LTAB                ; The table's base
+    ADD  HL,DE                     ; plus the offset.
+    POP  DE                        ; Restore DE.
+    RET                            ; HL is the entry.
 
-;@ROUTINE IN A,C OUT CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append opcode A followed by the byte operand in C.
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the 16-bit operand naming label A (emit.ts labelOperand): a
+; self-reference to its offset when it is defined, otherwise a reference
+; with a placeholder addend added to the label's chain.
 
-EM_OPB:                        ; A is the opcode, C its byte operand.
-    CALL EM_BYTE                   ; Emit the opcode; EM_BYTE keeps C.
-    LD   A,C                       ; Then the operand.
-    JP   EM_BYTE                   ; Emit it and return.
+EM_LREF:                       ; A is the label.
+    CALL EM_QUIET                  ; Is code being discarded?
+    RET  NZ                        ; Then write nothing.
+    CALL EM_LAT                    ; HL is its entry.
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; its offset,
+    LD   D,(HL)                    ; EM_NONE if undefined.
+    INC  HL                        ; HL is the chain head.
+    LD   A,D                       ; Is the offset EM_NONE?
+    AND  E                         ; Both bytes $FF
+    INC  A                         ; make zero here.
+    JR   Z,.PENDING                ; Undefined: chain the operand.
+    LD   HL,(BL_ORD)               ; Defined: the routine itself,
+    JP   EM_REF                    ; with the offset as the addend.
+.PENDING:                      ; DE is EM_NONE, a nonzero placeholder.
+    PUSH HL                        ; Keep the chain head's address.
+    LD   HL,(BL_ORD)               ; The routine itself.
+    CALL EM_REF                    ; The reference, with its addend word.
+    POP  HL                        ; HL is the chain head.
+    LD   DE,(BL_RPTR)              ; The addend word is the last two bytes
+    DEC  DE                        ; of the encoded references:
+    DEC  DE                        ; DE addresses it.
+    LD   A,(HL)                    ; The old head's low byte
+    LD   (DE),A                    ; becomes the link,
+    LD   (HL),E                    ; and the addend word the head.
+    INC  HL                        ; Then
+    INC  DE                        ; the high bytes:
+    LD   A,(HL)                    ; the old head's
+    LD   (DE),A                    ; into the link,
+    DEC  DE                        ; and the word's address
+    LD   (HL),D                    ; into the head.
+    RET                            ; The operand waits for EM_LDEF.
 
-;@ROUTINE IN A OUT CARRY CLOBBERS A,B,C,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append LD A,n for the byte in A.
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Define label A at the blob's current offset (emit.ts defineLabel): write
+; the offset into the addend word of every operand waiting on its chain.
 
-EM_LDA:                        ; A is the value to load at run time.
-    LD   C,A                       ; It becomes the operand.
-    LD   A,$3E                     ; LD A,n.
-    JR   EM_OPB                    ; Emit the pair.
+EM_LDEF:                       ; A is the label.
+    CALL EM_LAT                    ; HL is its entry.
+    LD   DE,(BL_LEN)               ; DE is the current offset.
+    LD   (HL),E                    ; It is the label's offset,
+    INC  HL                        ; low byte
+    LD   (HL),D                    ; and high byte.
+    INC  HL                        ; HL is the chain head.
+    LD   C,(HL)                    ; BC is the first
+    INC  HL                        ; waiting addend word,
+    LD   B,(HL)                    ; zero when none waits.
+.WALK:                         ; BC is the next word, or zero.
+    LD   A,B                       ; Is the chain at its end?
+    OR   C                         ; A zero link ends it.
+    RET  Z                         ; Every operand has its offset.
+    LD   L,C                       ; HL is
+    LD   H,B                       ; the addend word.
+    LD   C,(HL)                    ; BC is the next link,
+    LD   (HL),E                    ; and the word becomes
+    INC  HL                        ; the label's
+    LD   B,(HL)                    ; offset,
+    LD   (HL),D                    ; both bytes.
+    JR   .WALK                     ; Resolve the next.
 
-;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append the normal end of the program: set the run state to RT_OK and
-; jump to the startup code's terminal dispatch.
+;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A statement begins: the code from the blob's current offset belongs to
+; the line of the lookahead token, its first (Compiler.statement). The
+; LL(1) engine calls this as it expands the statement nonterminal. A is
+; kept.
 
-EM_DONE:                       ; The program has completed.
-    LD   A,RT_OK                   ; Run state for normal completion.
-    JR   EM_STOP                   ; Record it and leave through the terminal.
-
-;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append the common trap record and terminal jump. At run time A carries
-; the trap number and HL the source offset of the failing operation.
-
-EM_TRAP:                       ; The generated code reaches here with A and HL set.
-    LD   DE,RT_TNUM-RT_BASE        ; Address the trap-number byte.
-    CALL EM_TOVAR                  ; Emit LD (RT_TNUM),A.
-    CALL EM_OP                     ; Emit the inline opcode.
-    DB   $AF                       ; XOR A: no trap subcode.
-    LD   DE,RT_TSUB-RT_BASE        ; Address the subcode byte.
-    CALL EM_TOVAR                  ; Emit LD (RT_TSUB),A.
-    LD   DE,RT_TPOS-RT_BASE        ; Address the source-offset word.
-    CALL TG_VAR                    ; HL is its target address.
-    LD   A,$22                     ; LD (nn),HL.
-    CALL EM_OPW                    ; Emit the store of the source offset.
-    LD   A,RT_TRAP                 ; The run state that marks a trap.
-
-;@ROUTINE IN A OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append the end of a run: store run state A in RT_RUN and jump to the
-; terminal dispatch, through the far-jump vector when the code being
-; emitted is not in the entry bank. BASIE.COM's target has one bank.
-
-EM_STOP:                       ; A is the run state to record.
-    CALL EM_LDA                    ; Emit LD A,state.
-    LD   DE,RT_RUN-RT_BASE         ; Address the run-state byte.
-    CALL EM_TOVAR                  ; Emit LD (RT_RUN),A.
-    LD   A,(TG_EBANK)              ; Fetch the bank that holds the startup code.
-    LD   D,A                       ; Keep it for the comparison.
-    LD   A,(TG_OBANK)              ; Fetch the bank receiving this code.
-    CP   D                         ; Is the terminal dispatch in the same bank?
-    JR   Z,.NEAR                   ; Then a plain JP reaches it.
-    LD   A,D                       ; The far jump needs the entry bank.
-    CALL EM_LDA                    ; Emit LD A,bank.
-    LD   HL,(TG_TERM)              ; HL is the terminal dispatch's address.
-    CALL EM_LDHL                   ; Emit LD HL,terminal.
-    LD   A,10                      ; Vector 10 jumps into another bank.
-    JP   EM_JUMPV                  ; Emit JP through the runtime vector.
-.NEAR:                         ; Same bank as the startup code.
-    LD   HL,(TG_TERM)              ; HL is the terminal dispatch's address.
-    LD   A,$C3                     ; JP nn.
-    JR   EM_OPW                    ; Emit JP terminal.
-
-;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Set up an unhandled-error trap: at run time A carries the error a
-; routine returned and HL the failing source offset. The caller then
-; emits the trap body, which sees the trap number this loads into A.
-
-EM_STRAY:                      ; A holds the error at run time.
-    LD   DE,RT_TERR-RT_BASE        ; Address the unhandled-error byte.
-    CALL EM_TOVAR                  ; Emit LD (RT_TERR),A.
-    LD   A,6                       ; Trap number 6: unhandled error.
-    JR   EM_LDA                    ; Emit LD A,6 for the trap body.
-
-;@ROUTINE OUT DE,CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append JR with a zero displacement; DE returns its address for EM_LAND.
-
-EM_JR:                         ; An unconditional short branch.
-    LD   A,$18                     ; JR e.
-    JR   EM_JRCC                   ; Emit it with a placeholder.
-
-;@ROUTINE OUT DE,CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append JR NC with a zero displacement; DE returns its address. Runtime
-; helpers report failure in carry, so this skips a failure path.
-
-EM_JRNC:                       ; Branch when the helper succeeded.
-    LD   A,$30                     ; JR NC,e.
-
-;@ROUTINE IN A OUT DE,CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append JR opcode A with a zero displacement and return its address in
-; DE, for EM_LAND or EM_FIXJR to patch once the target is known.
-
-EM_JRCC:                       ; A is a JR or JR cc opcode.
-    CALL EM_BYTE                   ; Emit the opcode.
-    LD   HL,(EM_PTR)               ; HL is where the displacement goes.
-    PUSH HL                        ; Keep it for the caller.
-    XOR  A                         ; A placeholder displacement.
-    CALL EM_BYTE                   ; Emit it.
-    POP  DE                        ; DE returns the displacement's address.
-    RET                            ; Carry is clear from EM_BYTE.
-
-;@ROUTINE IN DE,HL OUT CARRY CLOBBERS A,SIGN,PARITY,HALFCARRY,ZERO
-; Patch the word operand at address DE with the value in HL.
-
-EM_FIXW:                       ; DE is the operand, HL its value.
-    PUSH BC                        ; Keep the caller's BC across the sink.
-    LD   A,(TG_OBANK)              ; Fetch the bank that holds the operand.
-    LD   C,A                       ; The sink takes the bank in C.
-    CALL PUB_FIXW                  ; Rewrite the word; carry reports a sink failure.
-    POP  BC                        ; Restore the caller's BC.
-    JP   C,TG_FAIL                 ; A failed sink ends the compilation.
-    OR   A                         ; Report success with carry clear.
-    RET                            ; The operand now holds HL.
-
-;@ROUTINE IN DE OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Patch the JR displacement at DE to land at the current output position.
-
-EM_LAND:                       ; DE is a JR displacement emitted earlier.
-    LD   HL,(EM_PTR)               ; The target is the next byte to be emitted.
-    JP   EM_FIXJR                  ; Patch the displacement to reach it.
-
-; Read operands from the semantic transcript, which TR_CLOSE has closed.
-; EM_READP overlays the retained forward signature (PR_FNAME), so reading
-; may begin only after parsing. The operation count bounds the dispatch;
-; each handler knows the fixed width of its operands.
-
-RG_BEG:                        ; A Nucleus extent marker that nothing reads.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS HL,SIGN,PARITY,HALFCARRY
-; Return the next transcript byte in A, with zero set when it is zero.
-
-EM_READB:                      ; EM_READP addresses the next operand byte.
-    LD   HL,(EM_READP)             ; HL is the read position.
-    LD   A,(HL)                    ; Fetch the byte.
-    INC  HL                        ; Advance past it.
-    LD   (EM_READP),HL             ; Publish the new read position.
-    OR   A                         ; Zero flag for callers testing a flag operand.
-    RET                            ; Carry is clear.
-
-;@ROUTINE OUT DE,CARRY CLOBBERS A,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Return the next transcript word in DE; words are stored low byte first.
-
-EM_READW:                      ; The next two operand bytes form a word.
-    CALL EM_READB                  ; Read the low byte.
-    LD   E,A                       ; It is the word's low half.
-    CALL EM_READB                  ; Read the high byte.
-    LD   D,A                       ; DE is the word.
-    RET                            ; Carry is clear from EM_READB.
-
-; A global's word operand has bit 15 set for zero-initialised storage
-; (bss) and its offset from the region's base in the low 15 bits. Both
-; bases are fixed when the target opens, before any code is emitted, so
-; the address is final. Scalar locals use the IX frame instead (GT_ENTER).
-
-;@ROUTINE OUT HL,CARRY CLOBBERS A,DE,SIGN,PARITY,HALFCARRY,ZERO
-; Read a global's tagged word operand and return its target address in HL.
-
-EM_READA:                      ; The next word is a global's tagged offset.
-    CALL EM_READW                  ; DE is the tagged offset.
-    BIT  7,D                       ; Is it in zero-initialised storage?
-    JR   Z,.DATA                   ; No: it is initialised data.
-    RES  7,D                       ; Strip the tag; DE is the offset into bss.
-    LD   HL,(TG_BSS)               ; HL is the bss base.
-    JR   .OFFSET                   ; Add the offset.
-.DATA:                         ; An initialised global.
-    LD   HL,(TG_CDATA)             ; HL is the initialised-data base.
-.OFFSET:                       ; HL is the region base, DE the offset.
-    ADD  HL,DE                     ; HL is the global's target address.
-    OR   A                         ; Report success with carry clear.
-    RET                            ; The caller emits an access to HL.
-
-;@ROUTINE OUT CARRY CLOBBERS A,B,HL,SIGN,PARITY,HALFCARRY,ZERO
-; Append the frame epilogue GT_LEAVE: drop the locals and restore the
-; caller's IX. The caller emits the RET that follows.
-
-EM_LEAVE:                      ; The routine is returning.
-    LD   HL,GT_LEAVE               ; The four-byte epilogue.
-    JP   EM_FOUR                   ; Emit it.
-
-; The routine frame. GT_ENTER saves the caller's IX and points IX at the
-; new frame; locals are then reserved below IX and addressed at negative
-; displacements, so they stay per activation. The expression stack lies
-; below the locals and is empty at every statement boundary.
-
-GT_ENTER:                      ; Eight bytes: the frame prologue.
-    DB   $DD,$E5,$DD,$21,$00,$00,$DD,$39 ; PUSH IX / LD IX,0 / ADD IX,SP: IX = frame.
-GT_LEAVE:                      ; Four bytes: the frame epilogue.
-    DB   $DD,$F9,$DD,$E1           ; LD SP,IX / POP IX: drop locals, restore IX.
+EM_LINE:                       ; A statement is about to be parsed.
+    PUSH AF                        ; Keep the caller's A.
+    CALL PR_PEEK                   ; The statement's first token is read:
+    LD   A,(SRC_ID)                ; its part, counted from one,
+    DEC  A                         ; is the line stream's part, from zero,
+    LD   HL,(TK_LINE)              ; and its line.
+    CALL BL_LINE                   ; Mark it.
+    POP  AF                        ; Restore A.
+    RET                            ; Parse the statement.

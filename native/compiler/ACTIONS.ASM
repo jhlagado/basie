@@ -5,8 +5,8 @@
 ;  The semantic actions of the grammar. The LL(1) engine calls one when it
 ;  pops an action symbol, through GR_ACTX, with the action's ordinal in A
 ;  (LL1.ASM). Actions never choose productions. They check what has just
-;  been parsed, record it in the symbol, type and routine tables, append
-;  operations to the semantic transcript, and at the grammar's islands
+;  been parsed, record it in the symbol, type and routine tables, generate
+;  its code or write its blob (GENCALL.ASM), and at the grammar's islands
 ;  (x: in GR_ACTX) hand over to a hand-written parser for an expression,
 ;  an initializer, a for step or a name statement. An action reports an
 ;  error through DG_ISSUE, which abandons the build, so actions return
@@ -297,58 +297,15 @@ AC_CONST:
     CALL EX_PREP                   ; Write the provisional symbol.
     JP   SY_CMT                    ; Commit it and return.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
-; CommitAggregateConstant: append the staged object to the read-only data
-; and declare the constant, whose payload is its offset in that segment.
-; The read-only data follows the initialised data in AG_DATA; together
-; they must fit 1 KiB (DG_ROCAP).
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; CommitAggregateConstant: write the staged object as a rodata blob and
+; declare the constant, whose payload is the blob's ordinal.
 
 AC_ROCMT:
-    CALL TG_HOME                   ; A is the current part's bank (always 0).
-    LD   (AC_DINFO),A              ; Hold it briefly.
-    CALL TG_LENAT                  ; HL addresses that bank's read-only length.
-    PUSH HL                        ; Keep the address.
-    LD   C,(HL)                    ; BC is the length so far...
-    INC  HL                        ; ...low byte first...
-    LD   B,(HL)                    ; ...then high.
-    LD   (AC_DVAL),BC              ; The constant's offset in the segment.
-    LD   HL,(AG_OSIZE)             ; The object's extent.
-    ADD  HL,BC                     ; The bank's new read-only length.
-    LD   E,L                       ; Move it...
-    LD   D,H                       ; ...to DE.
-    POP  HL                        ; Recover the length's address.
-    LD   (HL),E                    ; Store the new length...
-    INC  HL                        ; ...low byte first...
-    LD   (HL),D                    ; ...then high.
-    LD   A,(AC_DINFO)              ; The bank.
-    RLCA                           ; Move it...
-    RLCA                           ; ...to bits...
-    RLCA                           ; ...4 and...
-    RLCA                           ; ...5.
-    OR   SY_AGGR+SY_CONST          ; An aggregate constant in that bank.
-    LD   (AC_DINFO),A              ; The symbol's information byte.
-    LD   BC,(AG_ROLEN)             ; Dead: BC is reloaded below.
-    LD   D,SY_AGGR+SY_CONST        ; Dead: D is reloaded below.
-    LD   A,(AC_DINFO)              ; The information byte.
-    LD   D,A                       ; For EX_PREP.
-    LD   BC,(AC_DVAL)              ; The payload: the segment offset.
+    LD   A,BL_KRO                  ; Read-only data.
+    CALL RG_DATA                   ; Write it; BC is its ordinal.
+    LD   D,SY_AGGR+SY_CONST        ; An aggregate constant.
     CALL EX_PREP                   ; Write the provisional symbol.
-    LD   BC,(AG_ROLEN)             ; The read-only bytes so far.
-    LD   HL,(AG_OSIZE)             ; Plus this object...
-    ADD  HL,BC                     ; ...is the new read-only length...
-    LD   DE,(AG_DLEN)              ; ...and with the initialised data...
-    ADD  HL,DE                     ; ...the whole image.
-    CALL AG_FITRO                  ; Past 1 KiB: raise DG_ROCAP.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Remove the initialised data again.
-    LD   (AG_ROLEN),HL             ; The new read-only length.
-    LD   HL,AG_DATA                ; The image...
-    ADD  HL,DE                     ; ...past the initialised data...
-    ADD  HL,BC                     ; ...past the earlier constants.
-    EX   DE,HL                     ; DE is where the object goes.
-    LD   HL,AG_IBUF                ; The staged object.
-    LD   BC,(AG_OSIZE)             ; Its extent.
-    LDIR                           ; Append it to the read-only data.
     LD   A,(AG_CTYPE)              ; The constant's type ID.
     JP   SY_TAG                    ; Record it and commit the symbol.
 
@@ -427,114 +384,31 @@ AC_EXACT:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; CommitProgramVariable: place the object in initialised data if it had an
-; initializer, otherwise in bss, and declare it.
+; CommitProgramVariable: write the object as a data blob if it had an
+; initializer, otherwise as a bss blob, and declare it with the blob's
+; ordinal as its payload. A scalar's information byte is its type with
+; class SY_GLOB; an aggregate is SY_AGLOB, its type ID kept by SY_TAG.
 
 AC_ALLOC:
     LD   A,(AG_GIVEN)              ; Was an initializer given?
     OR   A                         ; Zero means none.
-    JR   Z,.BSS                    ; Place it in bss.
-    JR   AC_DATA                   ; Place it in initialised data.
+    LD   A,BL_KDATA                ; Initialised data.
+    JR   Z,.BSS                    ; None: bss.
+    CALL RG_DATA                   ; The staged bytes; BC is the ordinal.
+    JR   .DECLARE                  ; Declare it.
 .BSS:                          ; No initializer.
-    JR   AC_BSS                    ; Place it in bss.
-
-;@ROUTINE IN BC OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-; Declare the program variable with payload BC, its offset in its segment.
-; A scalar's information byte is its type with class SY_GLOB; an aggregate
-; is SY_AGLOB, its type ID kept by SY_TAG.
-
-AC_ENTER:
-    PUSH BC                        ; Keep the payload.
+    CALL RG_BSS                    ; Its size only; BC is the ordinal.
+.DECLARE:                      ; BC is the blob's ordinal.
     LD   A,(AC_DINFO)              ; The object's type ID.
     CP   AG_FIRST                  ; A scalar?
-    JR   C,.SCALAR                 ; Its type is its information.
-    LD   D,SY_AGLOB                ; An aggregate program variable.
-    JR   .PREPARE                  ; Write the symbol.
-.SCALAR:                       ; A is the scalar type.
-    OR   SY_GLOB                   ; Class program variable.
-    LD   D,A                       ; The information byte.
-.PREPARE:                      ; D is the information byte.
+    LD   D,SY_AGLOB                ; Assume an aggregate program variable.
+    JR   NC,.PREPARE               ; It is one.
+    OR   SY_GLOB                   ; A scalar: class program variable,
+    LD   D,A                       ; with its type.
+.PREPARE:                      ; D is the information byte, BC the ordinal.
     CALL EX_PREP                   ; Write the provisional symbol.
-    POP  BC                        ; Recover the payload.
     LD   A,(AC_DINFO)              ; The type ID.
-    CALL SY_TAG                    ; Record it and commit the symbol.
-    OR   A                         ; Clear carry.
-    RET                            ; Back to the engine.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Place an initialised object. The data image AG_DATA holds the
-; initialised data and then the read-only constants, so the constants are
-; first moved up by the object's size; their offsets count from the start
-; of their own segment and do not change. The staged bytes are then copied
-; in, and BC, the payload, is the object's data offset with bit 15 clear.
-
-AC_DATA:
-    LD   DE,(AG_DLEN)              ; The object goes at the end of the data.
-    CALL AC_GROW                   ; AG_OPOS is its offset, HL the new data length.
-    PUSH HL                        ; Keep the new length.
-    LD   DE,(AG_ROLEN)             ; With the read-only data after it...
-    ADD  HL,DE                     ; ...the image's new length...
-    CALL AG_FITRW                  ; ...must fit 1 KiB (DG_DATA).
-    POP  HL                        ; Recover the new data length.
-    LD   (AG_DLEN),HL              ; Commit it.
-    LD   BC,(AG_ROLEN)             ; How many read-only bytes to move?
-    LD   A,B                       ; None?
-    OR   C                         ; Test both bytes.
-    JR   Z,.SHIFTED                ; Nothing to move.
-    LD   HL,AG_DATA                ; The image...
-    LD   DE,(AG_OPOS)              ; ...past the old data...
-    ADD  HL,DE                     ; ...is where the constants start...
-    ADD  HL,BC                     ; ...and past them...
-    DEC  HL                        ; ...their last byte.
-    LD   DE,(AG_OSIZE)             ; The distance to move them.
-    PUSH HL                        ; Keep the source end.
-    ADD  HL,DE                     ; The destination end.
-    EX   DE,HL                     ; DE is the destination end.
-    POP  HL                        ; HL is the source end.
-    LDDR                           ; Move the constants up, last byte first.
-.SHIFTED:                      ; The object's place is free.
-    LD   A,(AC_DINFO)              ; The object's type ID.
-    CALL AG_SIZE                   ; HL is its extent.
-    LD   B,H                       ; Count it...
-    LD   C,L                       ; ...in BC.
-    LD   HL,AG_IBUF                ; The staged object.
-    LD   DE,(AG_OPOS)              ; Its data offset.
-    PUSH HL                        ; Keep the source.
-    LD   HL,AG_DATA                ; The image...
-    ADD  HL,DE                     ; ...at that offset.
-    EX   DE,HL                     ; DE is the destination.
-    POP  HL                        ; HL is the staged object.
-    LDIR                           ; Copy it into the data.
-    LD   BC,(AG_OPOS)              ; The payload: the data offset, bit 15 clear.
-    OR   A                         ; Clear carry.
-    JR   AC_ENTER                  ; Declare the variable.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Place an object without an initializer in bss. BC, the payload, is its
-; bss offset with bit 15 set.
-
-AC_BSS:
-    LD   DE,(PR_BSS)               ; The object goes at the end of bss.
-    CALL AC_GROW                   ; DE is its offset, HL the new bss length.
-    LD   (PR_BSS),HL               ; Commit it.
-    LD   B,D                       ; The payload...
-    LD   C,E                       ; ...is the offset...
-    SET  7,B                       ; ...marked as bss.
-    OR   A                         ; Clear carry.
-    JP   AC_ENTER                  ; Declare the variable.
-
-;@ROUTINE IN DE OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Place the current object at offset DE of a segment: AG_OPOS and DE
-; return DE, HL the segment's new length. Data and bss each have the same
-; 1 KiB limit as an aggregate object (DG_DATA).
-
-AC_GROW:
-    LD   (AG_OPOS),DE              ; The object's offset.
-    LD   A,(AC_DINFO)              ; Its type ID.
-    CALL AG_SIZE                   ; HL is its extent.
-    LD   DE,(AG_OPOS)              ; Recover the offset.
-    ADD  HL,DE                     ; The segment's new length.
-    JP   AG_FITRW                  ; Must fit 1 KiB.
+    JP   SY_TAG                    ; Record it and commit the symbol.
 
 ; ------------------------------------------------------------- records
 

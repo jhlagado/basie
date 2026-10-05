@@ -50,6 +50,7 @@ GR_ALT_N EQU  69                   ; Productions.
 GR_SPLIT EQU  35                   ; First production in the high directory.
 GR_ACT_N EQU  74                   ; Actions in GR_ACTX.
 GR_START EQU  $40                  ; Start symbol: compilation-unit, row 0.
+GR_STMT EQU  $40+25                ; The statement nonterminal, row 25.
 GR_EXIT EQU  46                    ; Action ordinal of EmitExit (AC_GOTO).
 GR_CONT EQU  47                    ; Action ordinal of EmitContinue (AC_GOTO).
 GR_TO EQU  61                      ; Action ordinal of ForTo (AC_FORTO).

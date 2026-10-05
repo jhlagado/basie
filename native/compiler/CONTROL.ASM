@@ -5,8 +5,8 @@
 ;  The support the grammar actions use to parse if, while, for, exit,
 ;  continue and handle. Each open construct has a control frame; its
 ;  labels are numbered here and the actions append OP_LABEL, OP_JUMP and
-;  OP_IFNOT operations that name them. Code generation (GENCTRL.ASM)
-;  replays the operations and resolves the labels to addresses.
+;  OP_IFNOT operations that name them. Their code generation moves to
+;  blob output at 65.4 (f); until then the transcript refuses them.
 ;
 ;  Principal entries:
 ;    CT_PUSH   open a frame of a given kind
@@ -37,9 +37,7 @@
 ;
 ;  Labels are numbered from zero in CT_LABNO for the whole program; the
 ;  routine bodies own labels RO_MDEST (27) to 31, so control flow has
-;  labels 0 to 26 (CT_LLIM) and a 28th raises DG_LABEL. Frames exist only
-;  while parsing: code generation reuses the region for its label and
-;  fixup tables.
+;  labels 0 to 26 (CT_LLIM) and a 28th raises DG_LABEL.
 
 ;@ROUTINE IN A OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return in HL the address of frame A, CT_FTAB+10A. A is unchanged.
