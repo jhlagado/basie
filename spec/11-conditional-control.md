@@ -101,7 +101,7 @@ A `select` is either an **integer selection** or a **handle selection**, chosen 
 
 The subject has an integer type: `u8`, `i8`, `u16`, `i16`, `u32` or `i32`. A character literal is a `u8` value (Chapter 6), so selections on characters are `u8` selections. `move` is invalid.
 
-Each label is a constant expression, or a range `low to high` of two. Every label value must be representable in the subject's type, and in a range `low` must not exceed `high`. No value may be covered by two labels, in the same arm or in different arms; an overlap is diagnosed as `duplicate-case`. `some` and `none` arms are invalid.
+Each label is a constant expression, or a range `low to high` of two. Each label is converted to the subject's type as an assignment would convert it: an exact label must fit the type, and a typed constant label must widen to it without a conversion, so a `u16` constant can't label a `u8` subject even when its value would fit (Chapter 6, Section 6.4). In a range `low` must not exceed `high`. No value may be covered by two labels, in the same arm or in different arms; an overlap is diagnosed as `duplicate-case`. `some` and `none` arms are invalid.
 
 The subject is evaluated once, before any label is compared. If its value is covered by a label, that arm's body executes. Otherwise the `case else` body executes if present; with no `case else`, no body executes. The arms need not cover every value.
 
