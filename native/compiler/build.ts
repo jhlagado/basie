@@ -20,15 +20,51 @@ export type CompilerImage = {
   core: number;
 };
 
-let cached: Promise<CompilerImage> | undefined;
+/** BASIE.COM: the compiler in its CP/M shell (native compiler plan 65.2). */
+export const BASIE_ENTRY = "basie/basie.asm";
+
+export type BasieImage = CompilerImage & {
+  /** The .COM file's bytes, from $0100 to the end of the image. */
+  com: Uint8Array;
+};
+
+const cached = new Map<string, Promise<CompilerImage>>();
 
 /** The image, built once per process: ATOM takes most of a minute. */
-export function buildCompiler(): Promise<CompilerImage> {
-  return cached ??= build();
+export function buildCompiler(entry = ENTRY): Promise<CompilerImage> {
+  let image = cached.get(entry);
+  if (!image) cached.set(entry, image = build(entry));
+  return image;
 }
 
-async function build(): Promise<CompilerImage> {
-  const result = await assembleAtomSource(ENTRY);
+/** BASIE.COM, checked to end below its workspace. */
+export async function buildBasie(): Promise<BasieImage> {
+  const image = await buildCompiler(BASIE_ENTRY);
+  const start = image.symbols["BasieImageStart"];
+  const end = image.symbols["BasieImageEnd"];
+  const at = (name: string) => image.symbols[name];
+  if (end > at("CompilerWorkBase")) {
+    throw new Error(`BASIE.COM ends at ${end}, over its workspace`);
+  }
+  if (at("HybridLL1WorkspaceEnd") > at("BasieWorkBase")) {
+    throw new Error("the compiler's workspace runs into the shell's");
+  }
+  if (at("BasieWorkEnd") > at("SourceBase")) {
+    throw new Error("the shell's workspace runs into the source");
+  }
+  const memory = new Uint8Array(0x10000);
+  for (const line of image.hex.split(/\r?\n/)) {
+    if (!line.startsWith(":")) continue;
+    const bytes = line.slice(1).match(/../g)!.map((b) => parseInt(b, 16));
+    if (bytes[3] === 0) {
+      memory.set(bytes.slice(4, 4 + bytes[0]), (bytes[1] << 8) | bytes[2]);
+    }
+  }
+  return { ...image, com: memory.slice(start, end) };
+}
+
+async function build(entry: string): Promise<CompilerImage> {
+  const result = await assembleAtomSource(entry);
   const symbols = { ...result.symbols, ...result.addresses };
   const at = (name: string) => {
     const value = symbols[name];
@@ -49,4 +85,6 @@ if (import.meta.main) {
   console.log(
     `compiler core ${image.core} bytes: code ${image.code}, immutable ${image.immutable}`,
   );
+  const basie = await buildBasie();
+  console.log(`BASIE.COM ${basie.com.length} bytes`);
 }

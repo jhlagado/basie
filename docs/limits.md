@@ -95,6 +95,18 @@ These are minimums unless a row says otherwise. Resources not yet listed (includ
 | Initialised data and constants | no compiler limit | Written to the byte stream, not held in memory |
 | Routine size | no compiler limit | Routines too large for the routine buffer are written unbuffered |
 
+**The native compiler today.** These minimums are the target for the finished
+`BASIE.COM`. Until each table is replaced, the native compiler is held to the
+forked Nucleus tables ([capacity audit](capacity-audit.md) §4) and to the
+following limits of its CP/M shell (step 65.2, [native compiler](native-compiler.md) §3):
+
+| Limit | Value | Until |
+| --- | --- | --- |
+| Source parts on the command line | 8 (Nucleus `SourcePartCapacity`) | `include` and the part stack (step 67) |
+| Source text, all parts together | resident, from `$5800` to 1K below the BDOS entry: about 33.75K on a 62K system | the streaming source adapter with a name heap |
+| Compiler stack | 1K below the BDOS entry | measured at step 68 |
+| Placed program image | 4K (the forked proof target), output discarded | blob output (65.4) |
+
 ### 5.2 Linker (`BLINK.COM`, 12.0K, about 44.7K for tables)
 
 Measured on a CP/M 2.2 system with BDOS at `$E406` (57K transient area),

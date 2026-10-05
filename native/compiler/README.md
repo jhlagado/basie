@@ -11,6 +11,7 @@ Basie has not yet chosen its licence.
 | Path | Contents |
 | --- | --- |
 | `asm/vertical-slice/` | The compiler, in AZM syntax, as forked |
+| `asm/basie/` | `BASIE.COM`: the forked modules behind a CP/M shell ([native compiler](../../docs/native-compiler.md) §3) |
 | `grammar/` | The packed LL(1) grammar, its tables and generator |
 | `tools/` | The source translation that lets ATOM assemble AZM syntax |
 | `proofs/` | Proof manifests, run by `proof.ts` |

@@ -170,6 +170,12 @@ unchanged. **Working position:** at roadmap step 64 the fork is audited
 table by table against Section 4 before any Basie feature is added, and each
 table gets a named constant, a budget and an overflow class.
 
+**At step 65.2** the tables are unchanged. `BASIE.COM` adds a CP/M shell with
+three limits of its own, all Reject class and all temporary: eight source parts
+on the command line, resident source text (about 33.75K on a 62K system) and
+a 1K stack. They are listed in [limits](limits.md) §5.1 under "The native
+compiler today", each with the step that removes it.
+
 ### 2.4 Workspace budget for `BASIE.COM` (Implementation)
 
 The minimums in [limits](limits.md) §5.1 are not backed by a model showing

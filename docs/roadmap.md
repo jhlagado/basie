@@ -136,7 +136,7 @@ Each stage keeps a working compiler, and the census runs on every commit.
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
 | 64 | Native | Fork the Nucleus compiler into `native/compiler/`; build and run its existing proofs | Baseline (done: byte-identical image, proof passes; core 15,286 bytes, 11,338 to the 26K target) | Nucleus proofs pass |
-| 65 | Native | Replace placed output with blob output; chain to `BLINK` | Increments 65.1 to 65.5 of the [native compiler](native-compiler.md) plan | Nucleus examples link and run |
+| 65 | Native | Replace placed output with blob output; chain to `BLINK` | Increments 65.1 to 65.5 of the [native compiler](native-compiler.md) plan (65.2 done: the CP/M shell; `BASIE.COM` 16,075 bytes, 10,549 to the 26K target) | Nucleus examples link and run |
 | 66 | Native | Message file and overlay mechanism | `BASIE.MSG`, `BASIE.OVL` | Diagnostics match the reference |
 | 67 | Native | Steps 38 to 48 in order, each as a native stage | | Corpus behaviour identical to the reference after each stage; census within budget |
 | 68 | Native | Capacity measurement: largest compilable program, symbol counts, build times | Measured limits | Published |
