@@ -162,7 +162,7 @@ ws        = a space
 | Option | Meaning | Default |
 | --- | --- | --- |
 | `P=name` | Blob library `name.BRL` | `CPM22` |
-| `L=d` | Drive holding the blob library | look on the first part's drive, then on `A:` |
+| `L=d` | Drive holding the blob library and the standard library's source parts | the blob library: the first part's drive, then `A:`; an included part: the including part's drive, then `A:` |
 | `S=d` | Drive for intermediate files | the first part's drive |
 | `O=[d:]name.type` | Output drive, name and kind (`.COM`, `.BIN` or `.HEX`) | the first part's drive and name, `.COM` |
 | `K` | Keep intermediate files, including after a failure | delete them |

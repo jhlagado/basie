@@ -388,6 +388,10 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 - **Cause:** one-byte part numbers in the line stream (format §8) and the line
   table. A representation maximum.
 - **Status:** confirmed as a format maximum. The compiler's own limit is TBD.
+- **Reference toolchain:** takes one part on its command line (`deno task
+  basie NAME.BSI`); every other part comes through `include`. It identifies a
+  part by its resolved host path and maps every drive letter to its folders.
+  These are limits of the reference tool, not of the language.
 
 ### 3.18 Include depth
 

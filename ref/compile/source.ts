@@ -101,10 +101,20 @@ export function loadSource(
       if (!end || end.kind !== "newline") {
         fail("include-syntax", end ?? t, "include takes one file name");
       }
-      const text = new TextDecoder().decode(
+      let text = new TextDecoder().decode(
         (name as Token & { kind: "string" }).bytes,
       )
         .toUpperCase();
+      // The type is required (4.3.2). The reference toolchain maps every
+      // drive to its folders, so a drive letter is accepted and set aside.
+      text = text.replace(/^[A-P]:/, "");
+      if (!/^[^.:]{1,8}\.[^.:]{1,3}$/.test(text)) {
+        fail(
+          "include-syntax",
+          name,
+          `${text} is not a CP/M name with a type, as NAME.TYP`,
+        );
+      }
       const resolved = resolve(text, dirname(path));
       if (resolved === undefined) {
         fail("include-missing", name, `${text} not found`);

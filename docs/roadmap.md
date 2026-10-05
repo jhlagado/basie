@@ -61,7 +61,7 @@ there.
 | 20 | Spec | Errors and traps: the new traps, named failure constants | Chapters 14 and 15 (done) | Conformance programs |
 | 21 | Spec | The system boundary: services and the standard library | Chapter 16 (done) | Conformance programs |
 | 22 | Spec | Complete grammar, checked for single-pass parsing | Chapter 17 (done; `tools/grammar.ts` reads §17.2 and checks it against the §17.4 table, Chapter 3 and the lexer) | A grammar check like Nucleus's |
-| 23 | Spec | Adversarial review of the specification | Review report and fixes ([report](reviews/2026-10-05-spec-review.md): 97 findings; all 9 critical closed, majors and minors open) | Findings closed |
+| 23 | Spec | Adversarial review of the specification | Review report and fixes ([report](reviews/2026-10-05-spec-review.md): done; 85 findings, all closed) | Findings closed |
 
 Steps 12 to 23 can run alongside M3 once chapters 3 and 6 exist.
 

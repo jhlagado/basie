@@ -15,6 +15,13 @@
 Status of each finding is recorded where it is closed (the commit that
 fixes it names the finding, as B1, A3 and so on).
 
+**Outcome.** 85 findings: 9 critical, 32 major, 44 minor. All are closed.
+Where the compiler was wrong it was fixed, with a conformance program that
+fails without the fix. Where the text was wrong it was revised. The critical
+findings were the compiler's: five safety holes in the flow check and in
+access through identifiers, counted loops that trapped at the edge of their
+type, and typed constants computed in the wrong type.
+
 ## Group A: chapters 1 to 5
 
 | # | Severity | Finding | Right |
@@ -34,7 +41,7 @@ fixes it names the finding, as B1, A3 and so on).
 | A13 | minor (closed) | Stale cross-references to "Section 4.3" and "Chapter 1" diagnostic policy. | Fix |
 | A14 | minor (closed) | Code fences tagged `nucleus`; the README still says chapters describe Nucleus 0.1. | Fix |
 | A15 | minor (closed) | Reference diagnostics give a provisional part number for lexical errors in included parts. | Report the part's name |
-| A16 | minor | Part identity by drive and name, drives in includes, required types, several command-line parts, and `L=`'s meaning differ between chapter 4, the toolchain and the reference. | Align |
+| A16 | minor (closed) | Part identity by drive and name, drives in includes, required types, several command-line parts, and `L=`'s meaning differ between chapter 4, the toolchain and the reference. | Align |
 | A17 | minor (closed) | Chapter 1 says the corpus has no `activation-capacity` trap; one test expects it. Tests are ranked lowest in 1.3 but called normative in 21.1. | Fix |
 | A18 | minor (closed) | `private-is-part-local.bsi` has only one part. | Add a multipart test |
 | A19 | minor (closed) | Because `id` lexes as `NAME`, `primary` and `type-atom` have two more LL(1) conflicts than the 17.4 table shows; the grammar check treats `id` as its own terminal. | Add the rows; check `id` as `NAME` |
