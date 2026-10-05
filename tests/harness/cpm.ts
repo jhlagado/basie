@@ -54,9 +54,11 @@ export type CpmOptions = {
 
 const CALLS = new Set([0xcd, 0xc4, 0xcc, 0xd4, 0xdc, 0xe4, 0xec, 0xf4, 0xfc]);
 
-/** Assemble an ATOM source file and return its image. */
-export async function assembleFile(path: string) {
-  const root = dirname(path);
+/**
+ * Assemble an ATOM source file and return its image. Includes must stay
+ * within `root`, which defaults to the file's own directory.
+ */
+export async function assembleFile(path: string, root = dirname(path)) {
   const result = await assembleAtomProject({
     root,
     entry: relative(root, path),

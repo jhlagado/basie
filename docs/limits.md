@@ -106,6 +106,9 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | Source text, all parts together | resident, from `$5800` to 1K below the BDOS entry: about 33.75K on a 62K system | the streaming source adapter with a name heap |
 | Compiler stack | 1K below the BDOS entry | measured at step 68 |
 | Placed program image | 4K (the forked proof target), output discarded | blob output (65.4) |
+| One blob's bytes | 2,048 (`BL_CCAP`); a larger routine is refused | branch shrinking and unbuffered writing of large routines |
+| One blob's references | 512 bytes encoded (`BL_RCAP`), about 100 references | the 128-byte buffer spilling to `NAME.$RF` (toolchain §3.2) |
+| One blob's line entries | 512 bytes encoded (`BL_LCAP`), about 120 statements | spilling with the references |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)
 
