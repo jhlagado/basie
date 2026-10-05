@@ -75,16 +75,26 @@ EX_LIT:
     OR   A                         ; Clear carry for success.
     RET                            ; Return the known result.
 
-; Resolve a NAME primary, already consumed: a predefined service query or
-; error constant, a routine call, an aggregate object path, a scalar
-; constant (emitted as a literal) or a scalar variable (emitted as a load).
+; Resolve a NAME primary, already consumed: a predeclared constant (exact,
+; as the reference's are; console and printer are Files, no scalar values:
+; DG_CLASH) or a call to a service, a routine call, an aggregate object
+; path, a scalar constant (emitted as a literal) or a scalar variable
+; (emitted as a load).
 
 EX_NAME:
-    CALL RO_LIB                    ; A predefined service or error name?
+    CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ORDINARY              ; No: an ordinary name.
-    CP   RO_ERRS                   ; An error constant?
-    JP   NC,RO_CAUSE               ; Yes: parse it as a value.
-    JP   TR_OPER                   ; A service: refused for now (65.4 i).
+    JP   M,.PREDEF                 ; A constant: its value.
+    CALL RO_SVC                    ; A service: call it;
+    JP   RO_VALUE                  ; its result is the value.
+.PREDEF:                       ; A is SY_KNOWN and the constant's type.
+    LD   B,A                       ; Its metadata:
+    CP   SY_KNOWN+SY_EXACT         ; a File
+    JP   NZ,EX_ETYPE               ; is no scalar value (DG_CLASH).
+    INC  HL                        ; Its value,
+    LD   L,(HL)                    ; a byte,
+    LD   H,0                       ; widened.
+    JP   EX_LIT                    ; Return it.
 .ORDINARY:                     ; A routine or an ordinary symbol.
     CALL RO_FIND                   ; Is it a routine?
     JP   Z,RO_FUNC                 ; Yes: parse a call for its result.

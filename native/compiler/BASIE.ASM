@@ -20,8 +20,8 @@
 ;  The first three files define only equates: the memory map, then the
 ;  workspace layout and the constants every module shares. HEAD.ASM places
 ;  the first byte at $0100. The shell comes last, so its code and data end
-;  the image; KEYWORDS.ASM holds the compiler's immutable tables just
-;  before it.
+;  the image; KEYWORDS.ASM and PREDEF.ASM hold the compiler's immutable
+;  tables just before it.
 
 %INCLUDE "MEMORY.ASM"              ; Memory map: image, workspace, source.
 %INCLUDE "STATE.ASM"               ; Parser workspace and shared constants.
@@ -52,4 +52,5 @@
 %INCLUDE "GENAGGR.ASM"             ; Paths, aggregates and string literals.
 %INCLUDE "GENCALL.ASM"             ; Routines, declarations and limits.
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.
+%INCLUDE "PREDEF.ASM"              ; Predeclared constants and services.
 %INCLUDE "SHELL.ASM"               ; The CP/M shell, last in the image.

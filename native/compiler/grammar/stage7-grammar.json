@@ -25,6 +25,7 @@
     "local-list": "DiagnosticExpectedScalar",
     "local-declaration": "DiagnosticExpectedVar",
     "local-initializer-opt": "DiagnosticExpectedLine",
+    "local-shape": "DiagnosticExpectedType",
     "statement-sequence": "DiagnosticExpectedScalar",
     "statement": "DiagnosticExpectedScalar",
     "return-statement": "DiagnosticExpectedReturn",
@@ -111,6 +112,19 @@
       "TokenLeftParen",
       "TokenLeftBracket",
       "TokenStringLiteral",
+      "TokenU8",
+      "TokenU16",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "InferredInitializer": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
       "TokenU8",
       "TokenU16",
       "TokenPlus",
@@ -316,12 +330,21 @@
         "TokenVar",
         "TokenName",
         "a:RetainDeclarationName",
-        "TokenAs",
-        "type",
-        "a:SaveLocalType",
-        "local-initializer-opt",
+        "local-shape",
         "TokenNewline",
         "a:CommitLocal"
+      ]
+    },
+    {
+      "lhs": "local-shape",
+      "rhs": ["TokenAs", "type", "a:SaveLocalType", "local-initializer-opt"]
+    },
+    {
+      "lhs": "local-shape",
+      "rhs": [
+        "TokenEquals",
+        "x:InferredInitializer",
+        "a:FinishLocalInitializer"
       ]
     },
     {

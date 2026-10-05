@@ -42,9 +42,12 @@
 
 ;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE
 ; Address the four-byte descriptor of dynamic type ID A in HL. A returns the
-; table index (the ID less AG_FIRST).
+; table index (the ID less AG_FIRST). A File has no descriptor, no fields
+; and no elements: it raises DG_CLASH.
 
 AG_DESC:
+    CP   AG_FILE                   ; A File?
+    JP   Z,EX_ETYPE                ; Has neither fields nor elements: DG_CLASH.
     SUB  AG_FIRST                  ; Dynamic IDs begin at AG_FIRST.
     LD   L,A                       ; Widen the table index to a word.
     LD   H,0                       ; Clear the high byte.
@@ -69,9 +72,13 @@ AG_SIZEP:
 
 ;@ROUTINE IN A OUT HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,A,DE
 ; Return in HL the extent in bytes of type ID A, with carry clear: one for
-; u8 and Boolean, two for u16, the recorded extent for a dynamic type.
+; u8 and Boolean, two for u16, four for a File, the recorded extent for a
+; dynamic type.
 
 AG_SIZE:
+    LD   HL,4                      ; A File takes four bytes.
+    CP   AG_FILE                   ; Is it one?
+    RET  Z                         ; Carry is clear.
     CP   AG_FIRST                  ; Is this a table type?
     JR   NC,.DYNAMIC               ; Yes: read its recorded extent.
     LD   HL,1                      ; u8 and Boolean take one byte.

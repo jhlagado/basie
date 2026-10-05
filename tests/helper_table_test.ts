@@ -15,8 +15,10 @@ import {
   helperModule,
   helperTables,
   MODULE,
+  NAMES,
   NATIVE,
   nativeHelpers,
+  nativeNames,
   serviceNames,
   updateDoc,
 } from "../tools/helpertable.ts";
@@ -39,6 +41,11 @@ Deno.test("the compiler's helper table and the published one are current", async
   assertEquals(
     await Deno.readTextFile(NATIVE),
     nativeHelpers(built),
+    "run deno task helpers",
+  );
+  assertEquals(
+    await Deno.readTextFile(NAMES),
+    nativeNames(built),
     "run deno task helpers",
   );
   const doc = await Deno.readTextFile(DOC);

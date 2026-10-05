@@ -153,11 +153,7 @@ RO_FFAIL EQU  1                ; Routine flag: it can fail.
 RO_FMAIN EQU  2                ; Routine flag: it is main.
 RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body.
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
-
-
-; Predefined names in KW_NAMES order: six services, refused for now (65.4
-; i), then error constants.
-RO_ERRS EQU  6                 ; First error constant; constant n has value n-5.
+RO_FWIDE EQU  $10              ; Service flag: a u32 makes it one not yet called.
 
 DG_PROCS EQU  84               ; Diagnostic: more than RO_RCAP routines (AC_SIG).
 DG_PARAM EQU  85               ; Diagnostic: more than RO_PCAP parameters (RO_ENROL).

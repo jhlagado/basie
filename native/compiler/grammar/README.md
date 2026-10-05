@@ -11,7 +11,9 @@ then `GRAMMAR.ASM` is edited by hand, and this file is kept in step with each
 edit: at 65.4 (h) a local takes any type, its initializer is the
 `LocalInitializer` island, and an array type takes any number of dimensions,
 built from the innermost once the type is complete (`SaveArrayBound`,
-`MakeArrayTypes`).
+`MakeArrayTypes`); at 65.4 (i) a local without `as` takes its
+initializer's type (the row `local-shape` and the `InferredInitializer`
+island).
 
 Expressions, name-led statements, and type-directed aggregate initializers are
 deliberate external islands. They require precedence or symbol and type

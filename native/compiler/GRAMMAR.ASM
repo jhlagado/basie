@@ -45,10 +45,10 @@
 ;  routine derives from the ordinal: the token kind for exit and continue,
 ;  1 for to and 0 for until, the scalar type for u8, u16 and boolean.
 
-GR_ROW_N EQU  42                   ; Nonterminals, one row each.
-GR_ALT_N EQU  69                   ; Productions.
+GR_ROW_N EQU  43                   ; Nonterminals, one row each.
+GR_ALT_N EQU  71                   ; Productions.
 GR_SPLIT EQU  35                   ; First production in the high directory.
-GR_ACT_N EQU  76                   ; Actions in GR_ACTX.
+GR_ACT_N EQU  77                   ; Actions in GR_ACTX.
 GR_START EQU  $40                  ; Start symbol: compilation-unit, row 0.
 GR_STMT EQU  $40+25                ; The statement nonterminal, row 25.
 GR_LOCAL EQU  $40+22               ; The local-declaration nonterminal, row 22.
@@ -105,6 +105,7 @@ GR_ROWX:
     DB   200,DG_VALUE              ; GR_ROW39-GR_ROWS; string-capacity
     DB   214,DG_VALUE              ; GR_ROW40-GR_ROWS; type-array-opt
     DB   222,DG_TYPE               ; GR_ROW41-GR_ROWS; scalar-type
+    DB   228,DG_TYPE               ; GR_ROW42-GR_ROWS; local-shape
 GR_ROWXE:                          ; End of the row directory.
 
 ; Rows: alternatives of production byte and predicting token kinds.
@@ -380,6 +381,11 @@ GR_ROW41:                          ; scalar-type
     DB   TK_U16+$80
     DB   68+$80
     DB   TK_BOOL+$80
+GR_ROW42:                          ; local-shape
+    DB   69
+    DB   TK_AS+$80
+    DB   70+$80
+    DB   TK_EQ+$80
 GR_ROW_E:                          ; End of the rows.
 
 ; Production directories: body offsets, each list closed by an end entry.
@@ -416,11 +422,11 @@ GR_ALTX:
     DB   115                       ; GR_ALT28-GR_ALTS; routine-body
     DB   116                       ; GR_ALT29-GR_ALTS; local-list
     DB   118                       ; GR_ALT30-GR_ALTS; local-declaration
-    DB   127                       ; GR_ALT31-GR_ALTS; local-initializer-opt
-    DB   131                       ; GR_ALT32-GR_ALTS; local-initializer-opt
-    DB   132                       ; GR_ALT33-GR_ALTS; statement-sequence
-    DB   134                       ; GR_ALT34-GR_ALTS; statement
-    DB   136                       ; GR_ALTHI-GR_ALTS
+    DB   124                       ; GR_ALT31-GR_ALTS; local-initializer-opt
+    DB   128                       ; GR_ALT32-GR_ALTS; local-initializer-opt
+    DB   129                       ; GR_ALT33-GR_ALTS; statement-sequence
+    DB   131                       ; GR_ALT34-GR_ALTS; statement
+    DB   133                       ; GR_ALTHI-GR_ALTS
 GR_ALTXH:
     DB   0                         ; GR_ALT35-GR_ALTHI; statement
     DB   2                         ; GR_ALT36-GR_ALTHI; statement
@@ -456,7 +462,9 @@ GR_ALTXH:
     DB   106                       ; GR_ALT66-GR_ALTHI; scalar-type
     DB   108                       ; GR_ALT67-GR_ALTHI; scalar-type
     DB   110                       ; GR_ALT68-GR_ALTHI; scalar-type
-    DB   112                       ; GR_ALT_E-GR_ALTHI
+    DB   112                       ; GR_ALT69-GR_ALTHI; local-shape
+    DB   116                       ; GR_ALT70-GR_ALTHI; local-shape
+    DB   119                       ; GR_ALT_E-GR_ALTHI
 GR_ALTXE:                          ; End of the production directories.
 
 ; Production bodies, each right side stored right to left.
@@ -522,7 +530,7 @@ GR_ALT28:                          ; routine-body
 GR_ALT29:                          ; local-list
     DB   $55,$56
 GR_ALT30:                          ; local-declaration
-    DB   $a0,TK_EOL,$57,$9f,$65,TK_AS,$82,TK_NAME,TK_VAR
+    DB   $a0,TK_EOL,$6a,$82,TK_NAME,TK_VAR
 GR_ALT31:                          ; local-initializer-opt
     DB   $a3,$cb,$a1,TK_EQ
 GR_ALT32:                          ; local-initializer-opt
@@ -600,6 +608,10 @@ GR_ALT67:                          ; scalar-type
     DB   $c8,TK_U16
 GR_ALT68:                          ; scalar-type
     DB   $c9,TK_BOOL
+GR_ALT69:                          ; local-shape
+    DB   $57,$9f,$65,TK_AS
+GR_ALT70:                          ; local-shape
+    DB   $a3,$cc,TK_EQ
 GR_ALT_E:                          ; End of the production bodies.
 
 ; Action directory: the routine for each action ordinal.
@@ -681,6 +693,7 @@ GR_ACTX:
     DW   AC_TYPE                   ; a:TypeBoolean, parameter 3
     DW   AC_ARRAY                  ; a:MakeArrayTypes
     DW   AC_LINIT                  ; x:LocalInitializer
+    DW   AC_INFER                  ; x:InferredInitializer
 GR_ACTXE:                          ; End of the action directory.
 
 GR_TAB_E:                          ; End of the generated tables (marker).

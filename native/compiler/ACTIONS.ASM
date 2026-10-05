@@ -45,6 +45,7 @@
 AC_NONE EQU  $FF               ; EX_RMETA of a local without an initializer.
 AC_STAGE EQU  $FE              ; EX_RMETA of an aggregate local's static initializer.
 AC_LCOPY EQU  $FD              ; EX_RMETA of an aggregate local copied from a source.
+AC_LFILE EQU  $FC              ; EX_RMETA of a File local, its value in DEHL.
 AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode (CT_MINC...).
 AC_INDEX EQU  AC_MODE+1        ; Word: the counter's offset from IX.
 AC_BOUND EQU  AC_INDEX+2       ; Word: the bound's offset from IX.
@@ -97,10 +98,13 @@ AC_BY:
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL,IX,IY
 ; Island StaticInitializer: parse the initializer of the object being
 ; declared, whose type is in AC_DINFO, into the staging buffer (AG_PARSE).
-; AC_DINFO is preserved across the parse.
+; AC_DINFO is preserved across the parse. A File's initializer is not yet
+; compiled (DG_NYI).
 
 AC_IMAGE:
     LD   A,(AC_DINFO)              ; The object's type ID.
+    CP   AG_FILE                   ; A File's
+    JP   Z,TR_OPER                 ; is refused for now.
     LD   B,A                       ; Keep it across the parse.
     PUSH BC                        ; AG_PARSE may reuse AC_DINFO.
     CALL AG_PARSE                  ; Stage the initializer for type A.
@@ -136,11 +140,17 @@ AC_USE:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-; ResolveRecordType: the current NAME must be a record type, which becomes
-; the current type. Anything else raises DG_BOUND. AC_DINFO and AC_DVAL
-; receive the name's symbol information.
+; ResolveRecordType: the current NAME must be File (services 2), which is
+; no symbol, as the reference's parseType has it, or a record type, which
+; becomes the current type. Anything else raises DG_BOUND. AC_DINFO and
+; AC_DVAL receive a record type's symbol information.
 
 AC_NAMED:
+    LD   HL,KW_FILE                ; The spelling "File",
+    LD   B,4                       ; four bytes:
+    CALL TK_MATCH                  ; is the name the File type?
+    LD   A,AG_FILE                 ; Then File
+    JR   C,AC_USE                  ; is the current type.
     CALL SY_GET                    ; A is the name's class and type, BC its payload.
     LD   D,A                       ; Keep the class and type.
     LD   (AC_DINFO),A              ; Record them.
@@ -234,8 +244,9 @@ AC_DIM:
 ; MakeArrayTypes: once a type's dimensions are parsed, build its arrays
 ; from the innermost, the last bound kept, out (parseType): each an array
 ; of its bound's elements of the current type, interned and made current.
-; The element may not be a view (DG_BOUND); the extent must fit the 1 KiB
-; data image (DG_DATA). Nothing is done without dimensions.
+; The element may not be a view (DG_BOUND), nor here a File (DG_NYI); the
+; extent must fit the 1 KiB data image (DG_DATA). Nothing is done without
+; dimensions.
 
 AC_ARRAY:
     LD   HL,AG_DCNT                ; Any bounds
@@ -256,6 +267,8 @@ AC_ARRAY:
     LD   A,(AG_CTYPE)              ; The element type.
     CP   AG_VIEW                   ; An open string?
     JP   Z,AG_EFORM                ; Has no fixed size: raise DG_BOUND.
+    CP   AG_FILE                   ; A File
+    JP   Z,TR_OPER                 ; is never an element here (DG_NYI).
     LD   (AG_NAUX),A               ; The candidate's element type.
     CALL AG_SIZE                   ; HL is one element's extent.
     LD   D,H                       ; Keep it...
@@ -480,14 +493,16 @@ AC_FIELD:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; CommitRecordField: give the field its type (not a view, DG_BOUND) and
-; its offset, the record's size so far, then grow the record by the
-; field's extent within 1 KiB (DG_DATA).
+; CommitRecordField: give the field its type (not a view, DG_BOUND, nor
+; here a File, DG_NYI) and its offset, the record's size so far, then grow
+; the record by the field's extent within 1 KiB (DG_DATA).
 
 AC_PLACE:
     LD   A,(AG_CTYPE)              ; The field's type.
     CP   AG_VIEW                   ; An open string?
     JP   Z,AG_EFORM                ; Has no size: raise DG_BOUND.
+    CP   AG_FILE                   ; A File
+    JP   Z,TR_OPER                 ; is never a field here (DG_NYI).
     LD   A,(AG_FCNT)               ; The field's index...
     LD   B,A                       ; ...is the earlier fields...
     LD   A,(AG_CFCNT)              ; ...plus this record's...

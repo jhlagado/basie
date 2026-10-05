@@ -598,6 +598,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 | `ActivationCapacity` | 8 | §3.30: memory |
 | `SegmentCapacity` | 4 | *gone*: object-format blobs |
 | `ServiceInputCapacity` and similar | 4 | `F=n` file table, §3.16 |
+| Predefined names (`KW_NAMES`) | 6 services, 4 error constants | the reference's 58 predeclared names, generated from its helper table into `PREDEF.ASM` at 65.4 (i): no capacity of their own, the services' records being read in place |
 | `GeneratedRoDataCapacity` | 1K | *gone*: each constant is its own rodata blob |
 | `RuntimeProgramDataCapacity`, `RuntimeReadOnlyCapacity` | 2K, 4K | *gone*: the linker places everything |
 | Semantic transcript | 511 bytes, 255 operations, for the whole program | *gone*: code is generated as it is parsed, into a routine's blob ([native compiler](native-compiler.md) §2); the constructs not yet moved are refused (`DG_NYI`) |

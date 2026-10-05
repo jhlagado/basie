@@ -71,17 +71,20 @@ AC_INIT EQU  AC_TOVAR          ; BeginLocalInitializer: expect the local's type.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Island LocalInitializer: a scalar local's is a run-time expression
-; (AC_EXPR). An aggregate's is a static initializer when it begins with a
-; parenthesis, a bracket or a string literal, staged as a program
-; variable's is (AC_IMAGE), its bytes stored into the frame when the local
-; is committed, which AC_STAGE in EX_RMETA tells AC_BIND; otherwise a
-; path or call of the local's type (DG_CLASH), its address in HL, copied
-; into the frame when it is committed (AC_LCOPY).
+; (AC_EXPR), a File's a File value (AC_FILE). An aggregate's is a static
+; initializer when it begins with a parenthesis, a bracket or a string
+; literal, staged as a program variable's is (AC_IMAGE), its bytes stored
+; into the frame when the local is committed, which AC_STAGE in EX_RMETA
+; tells AC_BIND; otherwise a path or call of the local's type (DG_CLASH),
+; its address in HL, copied into the frame when it is committed
+; (AC_LCOPY).
 
 AC_LINIT:
     LD   A,(AG_CTYPE)              ; The local's type.
     CP   AG_FIRST                  ; A scalar?
     JP   C,AC_EXPR                 ; A run-time expression.
+    CP   AG_FILE                   ; A File?
+    JR   Z,AC_FILE                 ; Its value.
     CALL PR_PEEK                   ; How does it begin?
     CP   TK_LPAR                   ; A record's fields,
     JR   Z,.IMAGE                  ; or
@@ -109,6 +112,65 @@ AC_LINIT:
 .KIND:                         ; A says what the initializer was.
     LD   (EX_RMETA),A              ; AC_BIND reads it.
     RET                            ; Back to the engine.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; A File local's initializer: a File value in DEHL (RO_FVAL), stored when
+; the local is committed, which AC_LFILE in EX_RMETA tells AC_BIND.
+
+AC_FILE:
+    CALL RO_FVAL                   ; The value in DEHL.
+    LD   A,AC_LFILE                ; It is stored
+    LD   (EX_RMETA),A              ; when the local is committed.
+    RET                            ; Back to the engine.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Island InferredInitializer: a local declared without `as` (localVar)
+; takes its initializer's type. A File value (AC_SPOT) is generated
+; into DEHL; anything else is a run-time expression with no type
+; expected, which must have a type of its own: an exact value has none
+; (DG_CLASH; the reference gives a character literal u8, which the native
+; compiler cannot tell from a number). Then the local is declared as
+; SaveLocalType declares it, and it is committed as a typed local is.
+
+AC_INFER:
+    CALL PR_PEEK                   ; A name
+    CP   TK_NAME                   ; may begin
+    JR   NZ,.SCALAR                ; a File.
+    CALL AC_SPOT                   ; Does it?
+    JR   NC,.SCALAR                ; No: a scalar.
+    CALL AC_FILE                   ; Its value in DEHL.
+    LD   A,AG_FILE                 ; The local is a File.
+    JR   .DECLARE                  ; Declare it.
+.SCALAR:                       ; A run-time expression.
+    XOR  A                         ; Nothing is expected of it.
+    CALL EX_RUN                    ; A and HL describe it.
+    CALL AC_STASH                  ; Keep them for AC_ADOPT and AC_BIND.
+    AND  SY_TMASK                  ; Its type:
+    JP   Z,EX_ETYPE                ; an exact value has none (DG_CLASH).
+.DECLARE:                      ; A is the local's type.
+    LD   (AG_CTYPE),A              ; It is the declaration's.
+    JP   AC_LOCAL                  ; Declare the local; return.
+
+;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; Carry when the current NAME is a File: console or printer, a service
+; whose result is a File, or a File variable. A routine's result never is.
+; An undeclared name raises DG_UNDEF, as the expression parser would.
+
+AC_SPOT:
+    CALL RO_LIB                    ; A predeclared name?
+    JR   NC,.ROUTINE               ; No.
+    AND  $7F                       ; A constant's type or a service's result.
+    JR   .TEST                     ; Is it File?
+.ROUTINE:                      ; Not predeclared.
+    CALL RO_FIND                   ; A routine?
+    RET  Z                         ; Its result is not a File; carry is clear.
+    CALL RO_SYM                    ; A is a symbol's type, D its class.
+    BIT  7,D                       ; SY_AGGR: a scalar is no File,
+    RET  Z                         ; and carry is clear.
+.TEST:                         ; A is a type.
+    SUB  AG_FILE                   ; Zero for a File,
+    CP   1                         ; which alone sets carry.
+    RET                            ; Carry if a File.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; DefaultLocalInitializer: without an initializer a local is zeroed in
@@ -155,10 +217,11 @@ AC_FITTO:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitLocal: allocate the local in the frame (allocLocal), then store its
-; initial value there, a scalar brought into the registers at its type,
-; or zero it when it has no initializer (zeroFrame); an aggregate's
-; staged bytes are stored (storeBytesToFrame) or its source copied
-; (copyToFrame). Commit its symbol, an aggregate's with its type.
+; initial value there, a scalar brought into the registers at its type
+; and a File from DEHL (ixStoreDEHL), or zero it when it has no
+; initializer (zeroFrame); an aggregate's staged bytes are stored
+; (storeBytesToFrame) or its source copied (copyToFrame). Commit its
+; symbol, an aggregate's or a File's with its type.
 
 AC_BIND:
     LD   A,(AG_CTYPE)              ; The local's type
@@ -177,6 +240,8 @@ AC_BIND:
     JR   Z,.IMAGE                  ; Store them.
     CP   AC_LCOPY                  ; A source's address?
     JR   Z,.COPY                   ; Copy it.
+    CP   AC_LFILE                  ; A File in DEHL?
+    JR   Z,.FILE                   ; Store it.
     LD   D,A                       ; D is the value's metadata,
     CALL EX_DTYPE                  ; E the local's type,
     LD   E,A                       ; HL a known
@@ -195,6 +260,9 @@ AC_BIND:
     JR   .COMMIT                   ; Commit it.
 .COPY:                         ; BC is the local's size.
     CALL GA_COPY                   ; Copy the source into it.
+    JR   .COMMIT                   ; Commit it.
+.FILE:                         ; The local's place is set.
+    CALL GA_STF                    ; Store DEHL there.
 .COMMIT:                       ; The local holds its value.
     LD   A,(AG_CTYPE)              ; Its type:
     CP   AG_FIRST                  ; a scalar's symbol
@@ -204,22 +272,21 @@ AC_BIND:
 ; -------------------------------------------------------------- statements
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Island NameStatement: a statement that begins with a name. A routine is
-; called with its result discarded (a service is refused for now, 65.4 i);
-; an aggregate path is
-; assigned through RO_LET; otherwise the name is a scalar variable
+; Island NameStatement: a statement that begins with a name. A routine or
+; a service is called with its result discarded; an aggregate or File
+; path is assigned through RO_LET; otherwise the name is a scalar variable
 ; (DG_CLASH for a constant, DG_INUSE for an active counter) and `=`
 ; and an expression of its type follow; its value is stored, and then
 ; what follows the statement is checked for failure handling (AC_ROUTE).
 
 AC_STMT:
     CALL PR_TAKE                   ; Consume the name.
-    CALL RO_LIB                    ; A predefined name?
+    CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ORDINARY              ; No.
-    CP   RO_ERRS                   ; An error constant...
-    JP   NC,EX_ETYPE               ; ...is not a statement: raise DG_CLASH.
-    JP   TR_OPER                   ; A service: refused for now (65.4 i).
-.ORDINARY:                     ; Not predefined.
+    JP   M,EX_ETYPE                ; A constant is not a statement: DG_CLASH.
+    CALL RO_SVC                    ; A service: parse and generate the call.
+    JP   AC_ROUTE                  ; Attach its failure handling.
+.ORDINARY:                     ; Not predeclared.
     CALL RO_FIND                   ; A routine?
     JR   NZ,.ASSIGN                ; No: an assignment.
     CALL RO_CALL                   ; Parse and generate the call.

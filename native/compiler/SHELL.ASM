@@ -44,6 +44,10 @@
 ;  Registers: every BDOS call is taken to change every register, IX and IY
 ;  included. SH_CHAR saves AF, BC, DE and HL around its call.
 
+MM_IEND:                       ; End of compiler immutable data (marker).
+MM_REND:                       ; End of the compiler core (marker).
+SH_CBEG:                       ; Start of the CP/M shell's code (marker).
+
 SH_BDOS EQU  $0005             ; BDOS entry; the word at $0006 is the top of memory.
 SH_TAIL EQU  $0080             ; Command tail: a length byte, then the text.
 SH_COUT EQU  2                 ; BDOS console output: E is the character.

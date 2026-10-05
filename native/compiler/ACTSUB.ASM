@@ -214,12 +214,14 @@ AC_GIVES:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; SaveSubResult: the current type is the result type; not a view
-; (DG_BOUND).
+; (DG_BOUND), nor yet a File (DG_NYI).
 
 AC_GIVEN:
     LD   A,(AG_CTYPE)              ; The result type.
     CP   AG_VIEW                   ; An open string?
     JP   Z,AG_EFORM                ; Cannot be returned: raise DG_BOUND.
+    CP   AG_FILE                   ; A File
+    JP   Z,TR_OPER                 ; is refused for now.
     LD   (RO_CTYPE),A              ; The routine's result type.
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.

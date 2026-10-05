@@ -390,9 +390,16 @@ AG_FIRST EQU  4                ; First type ID of the type table.
 AG_KREC EQU  4                 ; Descriptor kind: record.
 AG_KSTR EQU  5                 ; Descriptor kind: bounded string.
 AG_KARR EQU  6                 ; Descriptor kind: array.
-; Parameter-only open bounded-string view. It is never interned in the
-; aggregate type table and therefore remains outside its compact ordinals.
+; Types outside the type table, so outside its compact ordinals. A File
+; is four bytes, held as a value as the reference's is: a program variable,
+; local or parameter, never a field or element. The views are parameter
+; types only, and the u8[] and var forms only the services': bit 0 is var,
+; and with it clear the ID is AG_VIEW for a string, AG_BUF for a u8 array.
+AG_FILE EQU  $79               ; Type ID of File.
+AG_BUF EQU  $7A                ; Type ID of a u8[] parameter (services).
+AG_VBUF EQU  $7B               ; Type ID of a var u8[] parameter (services).
 AG_VIEW EQU  $7C               ; Type ID of an open string parameter.
+AG_VVIEW EQU  $7D              ; Type ID of a var string[] parameter (services).
 
 ; Relation codes: EXPR.ASM keeps the pending comparison as one of them in
 ; EX_OPER, and the comparison templates (GENEXPR.ASM) select by it.

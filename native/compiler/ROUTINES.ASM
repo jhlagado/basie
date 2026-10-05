@@ -15,7 +15,7 @@
 ;    PR_BUILD  compile the source parts
 ;    PR_PARSE  clear the routine workspace and parse the whole program
 ;    RO_FIND   find the current name among the routines, or main
-;    RO_LIB    find the current name among the services and error constants
+;    RO_LIB    find the current name among the predeclared names
 ;    RO_FRESH  reject a routine name that is already in use
 ;    RO_VET    reject a parameter name that is already in use
 ;    RO_ENROL  append a parameter to the parameter table
@@ -99,13 +99,15 @@ RO_FIND:
     CP   A                         ; Set Z with carry clear.
     RET                            ; A identifies the routine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Find the current NAME in KW_NAMES. Carry returns its ordinal in A:
-; 0..5 a service, RO_ERRS..9 an error constant. Carry clear means neither.
+;@ROUTINE OUT A,HL,CARRY,SIGN CLOBBERS PARITY,HALFCARRY,ZERO,BC,DE
+; Find the current NAME among the predeclared names (HP_NAMES, PREDEF.ASM).
+; Carry returns HL addressing its payload and A the payload's first byte,
+; with the sign set for a constant (SY_KNOWN and its type) and clear for a
+; service (its result type). Carry clear means neither.
 
 RO_LIB:
-    LD   HL,KW_NAMES               ; Entries are a length byte and spelling.
-    LD   C,KW_NCNT                 ; C counts the entries left.
+    LD   HL,HP_NAMES               ; Entries: a length byte and spelling.
+    LD   C,HP_NCNT                 ; C counts the entries left.
 .LOOP:                         ; Compare one entry.
     LD   B,(HL)                    ; Read the entry's length.
     INC  HL                        ; HL addresses its spelling.
@@ -116,17 +118,26 @@ RO_LIB:
 .BYTELOOP:                     ; Compare one character.
     LD   A,(DE)                    ; Read the token's character.
     CP   (HL)                      ; Compare it with the entry's.
-    JR   NZ,.SKIP                  ; HL + B is still the entry's end.
+    JR   NZ,.SKIP                  ; HL + B is still the spelling's end.
     INC  DE                        ; Advance in the token.
     INC  HL                        ; Advance in the entry.
     DJNZ .BYTELOOP                 ; Compare every character.
-    LD   A,KW_NCNT                 ; The ordinal is the count of entries passed:
-    SUB  C                         ; KW_NCNT less the entries left.
+    LD   A,(HL)                    ; The payload's first byte,
+    OR   A                         ; negative for a constant.
     SCF                            ; Report a match.
-    RET                            ; A is the ordinal.
-.SKIP:                         ; Step over the rest of this entry.
-    LD   E,B                       ; The characters not yet passed.
-    LD   D,0                       ; As a word.
+    RET                            ; A and HL describe it.
+.SKIP:                         ; B characters remain at HL.
+    LD   E,B                       ; The characters not yet passed,
+    LD   D,0                       ; as a word,
+    ADD  HL,DE                     ; bring HL to the payload.
+    LD   E,2                       ; A constant's is two bytes:
+    BIT  7,(HL)                    ; is this one?
+    JR   NZ,.NEXT                  ; Then step over them.
+    LD   E,7                       ; A service's eighth byte
+    ADD  HL,DE                     ; is its parameters' count,
+    LD   E,(HL)                    ; their types
+    INC  HL                        ; following it.
+.NEXT:                         ; DE bytes remain in the entry.
     ADD  HL,DE                     ; HL addresses the next entry.
     DEC  C                         ; One entry fewer.
     JR   NZ,.LOOP                  ; Continue through the table.
@@ -227,16 +238,13 @@ RO_VET:
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Append the current NAME as a parameter of type A to the parameter table
 ; and the signature, and count its argument's bytes into RO_CARGS: a word,
-; or two for an open string's view (parameterWords). A full table, or
-; arguments beyond 255 bytes, raise DG_PARAM, which does not return.
+; or two for an open string's view or a File (parameterWords). A full
+; table, or arguments beyond 255 bytes, raise DG_PARAM, which does not
+; return.
 
 RO_ENROL:
     LD   (RO_OTYPE),A              ; Keep the type.
-    CP   AG_VIEW                   ; An open string?
-    LD   B,2                       ; One word,
-    JR   NZ,.WORDS                 ; or
-    LD   B,4                       ; two for a view.
-.WORDS:                        ; B is the argument's bytes.
+    CALL RO_WORDS                  ; B is the argument's bytes.
     LD   HL,RO_CARGS               ; The signature's argument bytes
     LD   A,(HL)                    ; grow
     ADD  A,B                       ; by them,
@@ -260,6 +268,19 @@ RO_ENROL:
 .FULL:                         ; No room for another parameter.
     CALL DG_RAISE                  ; Raise the diagnostic below.
     DB   DG_PARAM                  ; Too many parameters.
+
+;@ROUTINE IN A OUT B CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Return in B the bytes an argument of type A takes (parameterWords): four
+; for an open string's view or a File, two for anything else. A is kept.
+
+RO_WORDS:
+    LD   B,4                       ; Two words
+    CP   AG_VIEW                   ; for a view
+    RET  Z                         ; of a string,
+    CP   AG_FILE                   ; or a File;
+    RET  Z                         ; otherwise
+    LD   B,2                       ; one.
+    RET                            ; B is the bytes.
 
 ;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make parameter A, whose argument is at displacement C from IX, a symbol
@@ -294,8 +315,8 @@ RO_BIND:
 ;@ROUTINE IN B,D OUT A,C,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; Return in A and C the IX displacement of parameter D's argument, where B
 ; counts the parameters from D to the last. The last argument is at IX+4;
-; each later parameter adds a word, and an open string its capacity word
-; too. B, D and E are preserved.
+; each later parameter adds its argument's bytes (RO_WORDS). B, D and E
+; are preserved.
 
 RO_DISP:
     PUSH BC                        ; Keep the count.
@@ -314,11 +335,13 @@ RO_DISP:
     INC  HL                        ; Skip its high byte.
     INC  HL                        ; Skip the length to reach the type.
     LD   A,(HL)                    ; Read the type.
-    CP   AG_VIEW                   ; Is it an open string?
-    JR   NZ,.NEXT                  ; Other parameters are one word.
-    INC  C                         ; Its capacity word lies above this argument.
-    INC  C                         ; So add a second byte for the word.
-.NEXT:                         ; Move to the following parameter.
+    PUSH BC                        ; Keep the count.
+    CALL RO_WORDS                  ; B is its argument's bytes.
+    LD   A,B                       ; Less the word
+    SUB  2                         ; already counted,
+    POP  BC                        ; (the count again)
+    ADD  A,C                       ; the bytes above this argument
+    LD   C,A                       ; grow by the rest.
     INC  HL                        ; Step to the next four-byte entry.
     DJNZ .LOOP                     ; Look at every later parameter.
 .DONE:                         ; Return the displacement.

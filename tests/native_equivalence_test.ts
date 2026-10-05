@@ -12,6 +12,7 @@ import { buildBasie } from "../native/compiler/build.ts";
 import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
 import { messageFile } from "../ref/compile/messages.ts";
+import { parseExpectations } from "./conformance/expectations.ts";
 
 const { compile } = await import("../ref/compile/index.ts");
 const basie = (await buildBasie()).com;
@@ -25,6 +26,18 @@ const CONFORMANCE: Record<string, string> = {
   BOUNDS: "tests/conformance/basics/trap-bounds.bsi",
   INNERBND: "tests/conformance/types/inner-bound-traps.bsi",
   RECTRAP: "tests/conformance/scopes/recursion-traps.bsi",
+  HELLO: "tests/conformance/basics/hello.bsi",
+  CMDTAIL: "tests/conformance/services/command-tail.bsi",
+  READLINE: "tests/conformance/services/console-read-line.bsi",
+  APPEND: "tests/conformance/services/append-text.bsi",
+  RUNCLOSE: "tests/conformance/services/end-of-run-close.bsi",
+  RUNABORT: "tests/conformance/services/end-of-run-abort.bsi",
+  WBOUNDS: "tests/conformance/services/write-block-bounds.bsi",
+  NOJUMPS: "tests/conformance/expressions/discarded-arm-leaves-no-jumps.bsi",
+  NOLIT: "tests/conformance/expressions/discarded-arm-leaves-no-literal.bsi",
+  NESTED: "tests/conformance/types/arrays-of-arrays.bsi",
+  INTURN: "tests/conformance/types/computed-indexes-in-turn.bsi",
+  RECFWD: "tests/conformance/scopes/recursion-with-forward.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -67,6 +80,22 @@ const CLAIMED: Record<string, string[]> = {
     "INNERBND",
     "RECTRAP",
     "DISCARD",
+  ],
+  "i: services": [
+    "SERVICES",
+    "FILES",
+    "HELLO",
+    "CMDTAIL",
+    "READLINE",
+    "APPEND",
+    "RUNCLOSE",
+    "RUNABORT",
+    "WBOUNDS",
+    "NOJUMPS",
+    "NOLIT",
+    "NESTED",
+    "INTURN",
+    "RECFWD",
   ],
 };
 
@@ -136,17 +165,33 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
 // Random assignments over the stage (c) subset, to program variables,
 // (stage d) to locals and (stage e) to parameters, some (stage f) inside
 // an if or a while, (stage h) with fields, elements and characters as
-// operands and targets: each compiles to the reference's streams, or both
-// compilers refuse it. The generator is deterministic, so a failure names a
-// statement that can be rerun.
-Deno.test("c to h: random expressions compile as the reference compiles them", async () => {
+// operands and targets, (stage i) with predeclared constants as operands
+// and locals whose types are inferred, one from a service's result: each
+// compiles to the reference's streams, or both compilers refuse it. The
+// generator is deterministic, so a failure names a statement that can be
+// rerun.
+Deno.test("c to i: random expressions compile as the reference compiles them", async () => {
   let seed = 654;
   const rnd = (n: number) => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
     return seed % n;
   };
   const pick = <T>(a: T[]) => a[rnd(a.length)];
-  const nums = ["0", "1", "2", "7", "15", "200", "255", "256", "300", "65535"];
+  const nums = [
+    "0",
+    "1",
+    "2",
+    "7",
+    "15",
+    "200",
+    "255",
+    "256",
+    "300",
+    "65535",
+    "endOfInput",
+    "binaryMode",
+    "invalid",
+  ];
   const paths = [
     "r.m",
     "r.n",
@@ -199,7 +244,11 @@ Deno.test("c to h: random expressions compile as the reference compiles them", a
   const objects = "var r as rec\nvar arr as u8[4]\nvar wds as u16[3]\n" +
     'var s as string[5] = "abcd"\n';
   const aggregates = record + objects;
-  // (h) The fourth head makes the aggregates locals too.
+  // (h) The fourth head makes the aggregates locals too; (i) the fifth
+  // infers the locals' types from their initializers.
+  const inferred = "var a = u8(200)\nvar b = currentUser() + 9\n" +
+    "var x = u16(1000)\nvar y = u16(a) - 198\nvar f = a < 100\n" +
+    "var g = true\n";
   const heads = [
     [`${aggregates}${names}${consts}sub main()\n`, ""],
     [`${aggregates}${consts}sub main()\n${names}`, ""],
@@ -208,6 +257,7 @@ Deno.test("c to h: random expressions compile as the reference compiles them", a
       "sub main()\nrun(200, 9, 1000, 2, false, true)\nend\n",
     ],
     [`${record}${consts}sub main()\n${names}${objects}`, ""],
+    [`${aggregates}${consts}sub main()\n${inferred}`, ""],
   ];
   for (let i = 0; i < 300; i++) {
     const [head, tail] = heads[i % heads.length];
@@ -266,9 +316,11 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
   };
   // TRAP's arithmetic decides which of its two narrowings traps; RECURSE,
   // RUNFLOW and RUNPATHS reach their last statement's trap only when their
-  // results are right; LOOPTRAP traps leaving its counter's type, BOUNDS
-  // and INNERBND indexing past an array's end, RECTRAP recursing without
-  // end.
+  // results are right; LOOPTRAP traps leaving its counter's type, BOUNDS,
+  // INNERBND and WBOUNDS indexing past an array's end, RECTRAP recursing
+  // without end. Each runs with the console input, command tail and files
+  // its expectations give, and its output, return code and files must be
+  // the reference build's.
   const run = [
     "EMPTY",
     "TRAP",
@@ -288,6 +340,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     "GRID",
     "INNERBND",
     "RECTRAP",
+    ...CLAIMED["i: services"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -303,15 +356,31 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
       mainSource: Deno.readFileSync(path(name)),
     });
     if (!ref.ok) throw new Error(`${name}: the reference refuses it`);
-    const expected = runCom(ref.com, { maxSteps: 1_000_000 }).output;
-    assertEquals(runCom(com, { maxSteps: 1_000_000 }).output, expected, name);
+    const want = parseExpectations(Deno.readTextFileSync(path(name)));
+    const options = {
+      input: want.input,
+      tail: want.tail,
+      files: want.files,
+      maxSteps: 5_000_000,
+    };
+    const theirs = runCom(ref.com, options);
+    const ours = runCom(com, options);
+    const expected = theirs.output;
+    assertEquals(ours.output, expected, name);
+    assertEquals(ours.returnCode, theirs.returnCode, name);
+    for (const [file, data] of theirs.disk) {
+      if (!file.startsWith(`${name}.`)) {
+        assertEquals(ours.disk.get(file), data, `${name}: ${file}`);
+      }
+    }
+    if (want.output !== undefined) assertEquals(expected, want.output, name);
     if (name === "RECURSE" || name === "RUNFLOW") {
       assertEquals(/^TRAP narrowing/.test(expected), true);
     }
     if (name === "LOOPTRAP") {
       assertEquals(/^TRAP loop-range/.test(expected), true);
     }
-    if (["RUNPATHS", "BOUNDS", "INNERBND"].includes(name)) {
+    if (["RUNPATHS", "BOUNDS", "INNERBND", "WBOUNDS"].includes(name)) {
       assertEquals(/^TRAP bounds/.test(expected), true);
     }
     if (name === "RECTRAP") {
@@ -457,6 +526,50 @@ const REFUSED: Record<string, string> = {
     "var g as u8[2][3]\nsub main()\ng[1][3] = 1\nend\n",
   "a local record from a call that fails, unhandled":
     "record r\na as u8\nend\nvar v as r\nsub f() as r fails\nreturn v\nend\nsub main()\nvar x as r = f()\nend\n",
+  // i: services and the predeclared names.
+  "a routine named after a service": "sub size()\nend\nsub main()\nend\n",
+  "a variable named after a constant":
+    "var fileNotFound as u8\nsub main()\nend\n",
+  "a local named console": "sub main()\nvar console as u8\nend\n",
+  "a parameter named close": "sub f(close as u8)\nend\nsub main()\nend\n",
+  "a record named printer": "record printer\na as u8\nend\nsub main()\nend\n",
+  "a constant named textMode": "const textMode = 2\nsub main()\nend\n",
+  "a predeclared constant assigned": "sub main()\nendOfInput = 2\nend\n",
+  "a service named as a value": "var x as u8\nsub main()\nx = readKey\nend\n",
+  "a service's failure unconsumed":
+    "sub main() fails\nwriteByte(console, 1)\nend\n",
+  "else fail after a service that cannot fail":
+    "sub main() fails\nresetDisks() else fail\nend\n",
+  "a service given too few arguments":
+    "sub main() fails\nwriteText(console) else fail\nend\n",
+  "a number passed as a File":
+    "sub main() fails\nwriteByte(1, 2) else fail\nend\n",
+  "a File as an operand":
+    "var f as File\nvar x as u16\nsub main()\nx = f + 1\nend\n",
+  "a File where a number is wanted":
+    "var x as u8\nsub main()\nx = console\nend\n",
+  "a literal passed to a var string[]":
+    'sub main() fails\nreadLine(console, "abc") else fail\nend\n',
+  "a string[] parameter passed to a var string[]":
+    "sub f(s as string[]) fails\nreadLine(console, s) else fail\nend\nsub main()\nend\n",
+  "a constant passed to a var string[]":
+    'const k as string[4] = "ab"\nsub main() fails\nreadLine(console, k) else fail\nend\n',
+  "a u16 array passed as a u8[]":
+    "var w as u16[4]\nsub main() fails\nwriteBlock(console, w, 2) else fail\nend\n",
+  "a string passed as a u8[]":
+    "var s as string[4]\nsub main() fails\nwriteBlock(console, s, 2) else fail\nend\n",
+  "an array passed as a string[]":
+    "var c as u8[4]\nsub main() fails\nwriteText(console, c) else fail\nend\n",
+  "a File as a step":
+    "sub main()\nvar i as u8\nfor i = 1 to 3 step console\nend\nend\n",
+  "a zero step from a predeclared constant":
+    "sub main()\nvar i as u8\nfor i = 1 to 3 step textMode\nend\nend\n",
+  "an exact initializer without a type": "sub main()\nvar n = 5\nend\n",
+  "a literal initializer without a type": 'sub main()\nvar s = "ab"\nend\n',
+  "a local without a type or an initializer": "sub main()\nvar n\nend\n",
+  "a File local from a number": "sub main()\nvar f as File = 3\nend\n",
+  "a File assigned a Boolean": "var f as File\nsub main()\nf = true\nend\n",
+  "a field of a File": "var f as File\nvar x as u8\nsub main()\nx = f.a\nend\n",
 };
 
 for (const [what, text] of Object.entries(REFUSED)) {

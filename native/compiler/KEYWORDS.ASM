@@ -1,11 +1,12 @@
 ;==========================================================================
-;  Keyword, punctuation and predefined-name tables
+;  Keyword and punctuation tables
 ;==========================================================================
 ;
-;  The compiler's immutable data: the tables the tokenizer and the routine
-;  parser search by spelling. This file closes the compiler core, so it
-;  also carries the image markers that separate compiler code, immutable
-;  data and the CP/M shell that follows.
+;  The compiler's immutable data: the tables the tokenizer and the parsers
+;  search by spelling. This file opens the compiler's immutable data, so it
+;  carries the image markers that end the compiler code; the predeclared
+;  names (PREDEF.ASM) follow it, and the CP/M shell's first line ends the
+;  core.
 ;
 ;  Tables:
 ;    KW_TAB    reserved words, searched by TK_WORD
@@ -14,14 +15,14 @@
 ;    KW_LEN    the spelling `length`, compared by the field parser
 ;    KW_CAP    the spelling `capacity`, likewise
 ;    KW_ID     the spelling `id`, which no routine may take (AC_SIG)
-;    KW_NAMES  predefined services and error constants, searched by RO_LIB
+;    KW_FILE   the spelling `File`, the type of files (AC_NAMED)
 ;
-;  KW_TAB and KW_NAMES are length-prefixed spellings: a length byte, the
-;  bytes of the word and, in KW_TAB only, the token kind. Matching is exact
-;  and case-sensitive. A word that matches no KW_TAB entry is a NAME, so
-;  `main`, `length` and the predefined names reach the parser as NAME
-;  tokens and are recognised there. The counts (KW_CNT, KW_PCNT, KW_NCNT)
-;  must be kept equal to the number of entries by hand.
+;  KW_TAB holds length-prefixed spellings: a length byte, the bytes of the
+;  word and the token kind. Matching is exact and case-sensitive. A word
+;  that matches no KW_TAB entry is a NAME, so `main`, `length`, `File` and
+;  the predeclared names reach the parser as NAME tokens and are
+;  recognised there. The counts (KW_CNT, KW_PCNT) must be kept equal to the
+;  number of entries by hand.
 
 MM_CEND:                       ; End of compiler code (marker).
 MM_IBEG:                       ; Start of compiler immutable data (marker).
@@ -85,32 +86,10 @@ KW_PUNCT:
 KW_PCNT EQU  9                 ; Entries in KW_PUNCT.
 
 ; Spellings compared against the current NAME token by length-checked
-; matches, so neither needs a length byte.
+; matches, so none needs a length byte.
 
 KW_MAIN: DB   "main"           ; The program's entry routine, four bytes.
 KW_LEN: DB   "length"          ; The string length field, six bytes.
 KW_CAP: DB   "capacity"        ; An open string's capacity field, eight bytes.
 KW_ID: DB   "id"               ; The conversion no routine may be named.
-
-; Predefined services and error constants are ordinary NAME tokens to the
-; tokenizer. RO_LIB searches this table so the parser can dispatch them
-; without installing source-visible symbols. The ordinal of an entry is
-; its position: services 0..5, refused for now (65.4 i), then error
-; constants from RO_ERRS, whose values are 1..4 in table order.
-
-KW_NAMES:
-    DB   13,"readInputByte"        ; Service 0.
-    DB   15,"writeOutputByte"      ; Service 1.
-    DB   15,"readStorageByte"      ; Service 2.
-    DB   18,"rewindStorageInput"   ; Service 3.
-    DB   16,"writeStorageByte"     ; Service 4.
-    DB   17,"seekStorageOutput"    ; Service 5.
-    DB   10,"endOfInput"           ; Error constant 1.
-    DB   12,"inputFailure"         ; Error constant 2.
-    DB   13,"outputFailure"        ; Error constant 3.
-    DB   14,"storageFailure"       ; Error constant 4.
-KW_NCNT EQU  10                ; Entries in KW_NAMES.
-
-MM_IEND:                       ; End of compiler immutable data (marker).
-MM_REND:                       ; End of the compiler core (marker).
-SH_CBEG:                       ; Start of the CP/M shell's code (marker).
+KW_FILE: DB   "File"           ; The File type, four bytes.

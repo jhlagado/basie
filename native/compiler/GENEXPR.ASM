@@ -242,6 +242,12 @@ GX_DSTHL:                      ; ixStoreHL: (IX+offset) = HL.
     DB   2,$D5,$E5                 ; PUSH DE, PUSH HL;
     DB   6,$D1,$73,$23,$72,$EB,$D1 ; POP DE, LD (HL),E, INC HL, LD (HL),D, EX DE,HL, POP DE.
     DB   $75,$74,0                 ; LD (IX+d),L, LD (IX+d+1),H.
+GX_DSTQ:                       ; ixStoreDEHL: (IX+offset) = DEHL, HL low.
+    DB   3,10                      ; Four bytes; the far form pushes ten.
+    DB   4,$D5,$E5,$D5,$E5         ; PUSH DE, PUSH HL, PUSH DE, PUSH HL;
+    DB   11,$D1,$73,$23,$72,$23    ; POP DE, LD (HL),E, INC HL, LD (HL),D, INC HL,
+    DB   $D1,$73,$23,$72,$E1,$D1   ; POP DE, the high word likewise, POP HL, POP DE.
+    DB   $75,$74,$73,$72,0         ; LD (IX+d),L, H, E and D in turn.
 GX_DSTN:                       ; ixStoreImm: (IX+offset) = GX_IMMV.
     DB   0,6                       ; One byte; the far form pushes six.
     DB   2,$E5,$D5                 ; PUSH HL, PUSH DE;

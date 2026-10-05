@@ -275,7 +275,7 @@ CT_NOTE:
 
 ;@ROUTINE OUT A,B,DE,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,HL
 ; Parse a for loop's step: an optional sign, then a number, a constant or
-; an error constant, which must be nonzero. Return the magnitude in DE and
+; a predeclared constant, which must be nonzero. Return the magnitude in DE and
 ; in B the mode bit CT_MDOWN for a negative step. Anything else raises
 ; DG_STEP.
 
@@ -298,14 +298,15 @@ CT_STEP:
     JR   Z,.NUMBER                 ; Its value is in BC.
     CP   TK_NAME                   ; A name?
     JR   NZ,CT_ESTEP               ; Anything else is not a step.
-    CALL RO_LIB                    ; Is it a predefined name?
+    CALL RO_LIB                    ; Is it a predeclared name?
     JR   NC,.CONST                 ; No: it must be a declared constant.
-    CP   RO_ERRS                   ; A service is not a value.
-    JR   C,CT_ESTEP                ; Reject it.
-    SUB  RO_ERRS-1                 ; An error constant's value is 1..4.
-    LD   D,0                       ; Widen it
-    LD   E,A                       ; into DE.
-    JR   .NONZERO                  ; It is never zero; share the exit.
+    JP   P,CT_ESTEP                ; A service is not a value.
+    CP   SY_KNOWN+SY_EXACT         ; A File
+    JR   NZ,CT_ESTEP               ; is no step.
+    INC  HL                        ; Its value,
+    LD   E,(HL)                    ; a byte,
+    LD   D,0                       ; widened into DE,
+    JR   .NONZERO                  ; must not be zero.
 .CONST:                        ; The name must be a scalar constant.
     CALL SY_GET                    ; A is its class and type, BC its value.
     AND  SY_TYPE+SY_AGGR+SY_CMASK+SY_TMASK ; An exact constant has none of them.

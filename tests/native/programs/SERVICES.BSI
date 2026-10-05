@@ -1,0 +1,87 @@
+// Services through the helper table, run (65.4 i): every kind of argument
+// a service takes (a File, a string literal, a string, an open string
+// passed on, a var string[], a u8[] and its var form, u8, u16), results
+// of every type the native compiler takes (u8, u16, boolean, File) used as
+// values, kept in inferred locals and discarded, failure passed on and
+// handled, and the predeclared constants, exact as the reference's are.
+// input: Line\rxy
+// tail: SOME WORDS
+// file DATA.TXT: abc\r\n\x1a
+// expect output: [SOME WORDS]<Line>xy 5 1 T abc 301 3\r\n
+
+record entry
+    tag as u8
+    data as u8[4]
+    name as string[12]
+end
+
+var cells as u8[6]
+var total as u16
+
+sub put(s as string[]) fails
+    writeText(console, s) else fail
+end
+
+sub putNumber(n as u16) fails
+    var digits as string[6]
+    var k as u16 = 10000
+    var started as boolean = false
+    while k > 0
+        if n >= k or started or k = 1
+            started = true
+            writeByte(console, u8(n / k) + '0') else fail
+            n = n mod k
+        end
+        k = k / 10
+    end
+end
+
+sub drive() as u8
+    return currentDrive()
+end
+
+sub main() fails
+    var e as entry
+    var text as string[24]
+    var code as u8 = 0
+    var tiny as u8[binaryMode]
+    var i as u8
+    var got as u16
+    var free = freeMemory()
+    var user = currentUser()
+    var f = openRead("DATA.TXT", textMode) else fail
+    commandTail(text)
+    put("[") else fail
+    put(text) else fail
+    writeText(console, "]<") else fail
+    readLine(console, e.name) else fail
+    writeText(console, e.name) else fail
+    writeByte(console, '>') else fail
+    e.tag = readKey()
+    writeByte(console, e.tag) else fail
+    writeByte(console, readKey()) else fail
+    writeByte(console, ' ') else fail
+    openRead("NOPE.TXT", textMode) handle code
+    end
+    putNumber(code) else fail
+    writeByte(console, ' ') else fail
+    putNumber(drive() + user + binaryMode) else fail
+    if free > 1000 or keyReady()
+        writeText(console, " T ") else fail
+    end
+    readLine(f, text) else fail
+    close(f) else fail
+    put(text) else fail
+    total = endOfInput + 300
+    writeByte(console, ' ') else fail
+    putNumber(total) else fail
+    for i = 0 to 4 step binaryMode
+        cells[i] = i
+    end
+    e.data[2] = 3
+    got = readBlock(console, e.data, 2) handle code
+    end
+    writeByte(console, ' ') else fail
+    putNumber(e.data[2]) else fail
+    writeText(console, "\r\n") else fail
+end

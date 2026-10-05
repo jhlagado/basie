@@ -38,6 +38,8 @@
 ;    GA_MOVE   move the place on by a field's or element's offset
 ;    GA_LOAD   load the scalar at the place (loadDesignator)
 ;    GA_STORE  store the registers into the scalar at the place
+;    GA_LDF    load the File at the place into DEHL
+;    GA_STF    store DEHL into the File at the place
 ;    GA_ITEM   address an array element at a run-time index
 ;    GA_CHAR   address a string's character, checked against its length
 ;    GA_ZERO   zero a local (zeroFrame)
@@ -201,6 +203,63 @@ GA_ACC:                        ; B, C and DE are the three forms.
     CALL GX_ABSD                   ; Append them.
     OR   1                         ; NZ: written.
     RET                            ; Done.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the File at the place, static or in the frame (a File is never
+; reached through an address), into DEHL (loadRegisters, four bytes): LD
+; HL,(nn) and LD DE,(nn+2), or the frame's two words into HL and then DE,
+; each near or far (ixWord).
+
+GA_LDF:                        ; RO_PLACE is the place.
+    LD   BC,$2A5B                  ; LD HL,(nn), then LD DE,(nn+2).
+    LD   DE,GX_DLDHL               ; The low word into HL.
+    JR   GA_QUAD                   ; Load both words.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Store DEHL into the File at the place, static or in the frame
+; (storeRegisters, four bytes): LD (nn),HL and LD (nn+2),DE, or the
+; frame's four bytes in one access, near or far (ixStoreDEHL).
+
+GA_STF:                        ; RO_PLACE is the place.
+    LD   BC,$2253                  ; LD (nn),HL, then LD (nn+2),DE.
+    LD   DE,GX_DSTQ                ; DEHL into the frame.
+
+;@ROUTINE IN B,C,DE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append a four-byte access to the File at a static place, opcode B for
+; its low word and $ED and opcode C for its high word, or at a frame
+; place, frame access DE, then for a load ($5B) the high word into DE.
+
+GA_QUAD:                       ; B, C and DE are the forms.
+    LD   A,(RO_PKIND)              ; Is the place
+    OR   A                         ; static?
+    JR   Z,.STATIC                 ; Two absolute accesses.
+    PUSH BC                        ; Keep the opcodes.
+    LD   HL,(RO_PADD)              ; The offset from IX:
+    CALL GX_FACC                   ; the access DE there.
+    POP  BC                        ; A load
+    LD   A,C                       ; takes
+    CP   $5B                       ; a second word;
+    RET  NZ                        ; a store is written.
+    LD   HL,(RO_PADD)              ; The high word
+    INC  HL                        ; is two
+    INC  HL                        ; bytes on,
+    LD   DE,GX_DLDDE               ; into DE, HL kept,
+    JP   GX_FACC                   ; and return.
+.STATIC:                       ; Opcode B, then $ED and opcode C.
+    PUSH BC                        ; Keep the second opcode.
+    LD   A,B                       ; The first,
+    LD   DE,(RO_PADD)              ; with the bytes on as the addend
+    LD   BC,(RO_PBASE)             ; of a reference to the blob.
+    CALL GX_ABSD                   ; Append them.
+    CALL EM_OP                     ; The prefix
+    DB   $ED                       ; of the second.
+    POP  BC                        ; Its opcode,
+    LD   A,C                       ; with the addend
+    LD   DE,(RO_PADD)              ; two bytes
+    INC  DE                        ; further
+    INC  DE                        ; on,
+    LD   BC,(RO_PBASE)             ; to the blob.
+    JP   GX_ABSD                   ; Append it and return.
 
 ;@ROUTINE IN D,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Address an element of the array RO_OTYPE at a run-time index

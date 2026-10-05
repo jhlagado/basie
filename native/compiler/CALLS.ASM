@@ -2,27 +2,35 @@
 ;  Calls, services and aggregate paths
 ;==========================================================================
 ;
-;  Parse calls to source routines and generate their code (RO_CALL), and
-;  parse the paths into aggregates, as the reference compiler's designator
-;  does: a name or a call's aggregate result, then any fields, elements,
-;  characters, `length` and `capacity`. Each is checked against the
-;  routine and parameter tables (ROUTINES.ASM) and the aggregate types
-;  (AGGR.ASM). The path in hand is kept as a place (RO_PLACE, GENAGGR.ASM),
-;  and the code of each step is written as soon as it is parsed. The
-;  grammar actions call in for statements; the expression parser enters
-;  through RO_FUNC, RO_OBJ and RO_CAUSE when a name in an expression is a
-;  routine, an aggregate or an error constant. The predefined services are
-;  refused where they are named, until services are compiled (65.4 i).
+;  Parse calls to source routines (RO_CALL) and to the services (RO_SVC)
+;  and generate their code, and parse the paths into aggregates, as the
+;  reference compiler's designator does: a name or a call's aggregate
+;  result, then any fields, elements, characters, `length` and
+;  `capacity`. Each is checked against the routine and parameter tables
+;  (ROUTINES.ASM), the predeclared names (PREDEF.ASM) and the aggregate
+;  types (AGGR.ASM). The path in hand is kept as a place (RO_PLACE,
+;  GENAGGR.ASM), and the code of each step is written as soon as it is
+;  parsed. The grammar actions call in for statements; the expression
+;  parser enters through RO_FUNC, RO_VALUE and RO_OBJ when a name in an
+;  expression is a routine, a service or an aggregate.
+;
+;  Files. A File is a value of four bytes, in DEHL, as the reference's is
+;  (services 2). The native compiler takes one only where a File is
+;  expected (RO_FVAL): an argument, an assignment to a File variable, a
+;  File local's initializer; there it is console or printer, a service's
+;  result or a File variable, never an operand of an expression.
 ;
 ;  Principal entries:
 ;    RO_CALL   parse and generate a call to a source routine
+;    RO_SVC    parse and generate a call to a service
+;    RO_FVAL   parse a File value into DEHL
 ;    RO_ROOT   begin a path at an aggregate symbol
 ;    RO_PATH   parse a path's selections
 ;    RO_AGGR   parse a path or call whose value is an aggregate's address
 ;    RO_LET    parse an assignment to an aggregate path
 ;    RO_FUNC   expression hook: a routine call as a value
+;    RO_VALUE  a call's result as an expression's value
 ;    RO_OBJ    expression hook: a scalar selected from an aggregate
-;    RO_CAUSE  expression hook: an error constant's code
 ;    RO_KEEP   push the path's block; RO_BACK pops it back
 ;
 ;  Escapes. The reference refuses a result rooted in a local or parameter
@@ -89,9 +97,10 @@ RO_BACK:                       ; The block is RO_PWORD words.
 ; Begin a path at the current NAME, an aggregate symbol (DG_CLASH for any
 ; other), as the reference's designator does: a program variable or an
 ; aggregate constant is static, the constant read-only; a parameter is an
-; alias through its word in the frame, read-only (no parameter is var); a
-; local is in the frame. RO_ESC says whether the root is in the frame. A
-; returns the type, also in RO_OTYPE.
+; alias through its word in the frame, read-only (no parameter is var),
+; but a File parameter is its value in the frame, as a local is. RO_ESC
+; says whether the root is in the frame. A returns the type, also in
+; RO_OTYPE.
 
 RO_ROOT:
     CALL RO_SYM                    ; A is the type, D the class, BC the payload.
@@ -110,13 +119,16 @@ RO_ROOT:
     JR   Z,.STATIC                 ; It is static.
     LD   H,1                       ; In the frame: RO_ESC.
     CP   SY_PARAM                  ; A parameter?
-    LD   A,GA_FRAME                ; A local is in the frame
-    JR   NZ,.LOCAL                 ; at its offset.
-    INC  E                         ; A parameter is read-only,
-    INC  A                         ; an alias through its word.
+    JR   NZ,.LOCAL                 ; No: a local, in the frame.
+    LD   A,(RO_OTYPE)              ; A File parameter
+    CP   AG_FILE                   ; is a value
+    JR   Z,.LOCAL                  ; in the frame too.
+    INC  E                         ; Another is read-only,
+    LD   A,GA_ALIAS                ; an alias through its word.
     JR   .KIND                     ; Record it.
-.LOCAL:                        ; BC is the local's offset.
-    LD   (RO_PADD),BC              ; The place is IX plus it.
+.LOCAL:                        ; BC is the offset from IX.
+    LD   A,GA_FRAME                ; In the frame,
+    LD   (RO_PADD),BC              ; at IX plus it.
     JR   .KIND                     ; Record it.
 .STATIC:                       ; H is zero: not in the frame.
     XOR  A                         ; GA_BLOB.
@@ -385,17 +397,9 @@ RO_ARG:
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse a call to routine A, RO_FIND's index, whose name has been read, as
-; the reference's call does: each argument is evaluated, left to right,
-; and pushed, a scalar in the registers at its parameter's type (a u8 or
-; Boolean widened to a word), an aggregate as its address, and an open
-; string as its capacity word then its address (RO_VIEW); then CALL the
-; routine, whose exit removes the arguments (RETN), so the pushes are
-; counted out again. The callee's need joins the largest of this
-; routine's callees (noteCall); one whose body is not complete has need
-; zero in its record, and only a routine declared forward may call itself
-; (DG_UNMET otherwise). A failable callee's failure is consumed at once
-; (RO_FAILS). A call leaves no path's root behind (RO_ESC). A returns the
-; result type, zero for none. A call to main is refused for now (DG_NYI).
+; the reference's call does (RO_ARGS); only a routine declared forward may
+; call itself (DG_UNMET otherwise). A returns the result type, zero for
+; none. A call to main is refused for now (DG_NYI).
 
 RO_CALL:
     CP   RO_MAIN                   ; Is the callee main?
@@ -405,40 +409,83 @@ RO_CALL:
     CP   C                         ; Does it call itself?
     LD   A,C                       ; The callee again.
     CALL RO_SUBAT                  ; HL is its record; the flags survive.
-    JR   NZ,.DEPTH                 ; Another routine: any may be called.
+    JR   NZ,.OTHER                 ; Another routine: any may be called.
     PUSH HL                        ; Keep the record.
     LD   DE,RO_RFLAG               ; Its flags:
     ADD  HL,DE                     ; was it
     BIT  3,(HL)                    ; declared forward (RO_FFWD)?
     POP  HL                        ; The record again.
-    JP   Z,.NEEDFWD                ; No: it cannot call itself.
-.DEPTH:                        ; The call may be parsed.
+    JR   Z,.NEEDFWD                ; No: it cannot call itself.
+.OTHER:                        ; HL is the callee's record.
+    INC  HL                        ; Skip the name's
+    INC  HL                        ; address
+    INC  HL                        ; and length.
+    LD   A,(HL)                    ; A is the first parameter,
+    INC  HL                        ; B the number
+    LD   B,(HL)                    ; of them.
+    INC  HL                        ; The record from RO_RTYPE
+    PUSH HL                        ; is read when the call closes.
+    CALL RO_PARAM                  ; HL is the first parameter's record,
+    LD   DE,RO_PTYPE               ; and its type
+    ADD  HL,DE                     ; is at HL,
+    LD   E,B                       ; E of them,
+    LD   D,RO_PLEN                 ; a record apart.
+    JR   RO_ARGS                   ; Parse the arguments.
+.NEEDFWD:                      ; A routine calls itself without a forward.
+    CALL DG_RAISE                  ; Abandon the build.
+    DB   DG_UNMET                  ; Unmet forward declaration.
+
+;@ROUTINE IN HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Parse a call to the service whose payload in HP_NAMES is at HL, its name
+; read, as RO_CALL parses a call to a routine: the payload is laid out as
+; a routine record from RO_RTYPE, then the parameters' count and their
+; types, a byte apart. A service with a u32 parameter or result is refused
+; for now (DG_NYI). A returns the result type, zero for none.
+
+RO_SVC:
+    PUSH HL                        ; The record, read when the call closes.
+    INC  HL                        ; Its flags:
+    BIT  4,(HL)                    ; RO_FWIDE, a u32?
+    JP   NZ,TR_OPER                ; Refused for now.
+    LD   DE,RO_RARGS-RO_RFLAG+1    ; After the argument bytes
+    ADD  HL,DE                     ; is the count:
+    LD   E,(HL)                    ; E of them,
+    INC  HL                        ; the types after it,
+    LD   D,1                       ; a byte apart; fall into RO_ARGS.
+
+;@ROUTINE IN D,E,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; The arguments of a call and the call (the reference's call), the
+; callee's record from RO_RTYPE pushed beneath the return address: E
+; parameters whose types are at HL, D bytes apart. Each argument is
+; evaluated, left to right, and pushed: a scalar in the registers at its
+; parameter's type (a u8 or Boolean widened to a word), a File's four
+; bytes (RO_FVAL), an aggregate as its address, a view as its word then
+; its address (RO_VIEW). Then CALL the callee, whose exit removes the
+; arguments (RETN, or the service's own), so the pushes are counted out
+; again. The callee's need joins the largest of this routine's callees
+; (noteCall): a routine whose body is not complete has need zero in its
+; record, and a service's need is its stack figure. A failable callee's
+; failure is consumed at once (RO_FAILS). A call leaves no path's root
+; behind (RO_ESC). A returns the result type, zero for none.
+
+RO_ARGS:
     LD   A,(RO_DEPTH)              ; Calls already being parsed.
     CP   RO_NCAP                   ; Room for another?
     JP   NC,.DEEP                  ; No: raise DG_DEEP.
     INC  A                         ; One more
     LD   (RO_DEPTH),A              ; is being parsed.
-    INC  HL                        ; Skip the name's
-    INC  HL                        ; address
-    INC  HL                        ; and length.
-    LD   D,(HL)                    ; D is the first parameter,
-    INC  HL                        ; E the number
-    LD   E,(HL)                    ; of arguments.
-    PUSH BC                        ; Keep the callee for the end.
-    PUSH DE                        ; And the parameters.
+    PUSH HL                        ; Keep the types
+    PUSH DE                        ; and their spacing and count.
     CALL PR_LEFT                   ; Consume the opening parenthesis.
-    POP  DE                        ; D is the next parameter, E those left.
+    POP  DE                        ; E parameters are left,
+    POP  HL                        ; the next one's type at HL.
 .ARG:                          ; Parse the next argument, if any.
     LD   A,E                       ; Any left?
     OR   A                         ; Zero when every one is parsed.
     JR   Z,.CLOSE                  ; Then the call closes.
-    PUSH DE                        ; Keep the parameters across the argument.
-    LD   A,D                       ; The parameter's entry:
-    CALL RO_PARAM                  ; HL addresses it.
-    INC  HL                        ; Skip its name's
-    INC  HL                        ; address
-    INC  HL                        ; and length.
-    LD   A,(HL)                    ; Its type.
+    PUSH HL                        ; Keep the types
+    PUSH DE                        ; and the count across the argument.
+    LD   A,(HL)                    ; The parameter's type.
     CP   AG_FIRST                  ; An aggregate?
     JR   NC,.AGGR                  ; Its address is passed.
     CALL RO_ARG                    ; D, E and HL describe the argument.
@@ -450,10 +497,16 @@ RO_CALL:
     DB   3,$6F,$26,0               ; Append them.
     JR   .PUSH                     ; Push the word.
 .AGGR:                         ; A is the parameter's aggregate type.
-    CP   AG_VIEW                   ; An open string's view?
-    JR   NZ,.ADDRESS               ; Any other aggregate is its address.
-    CALL RO_VIEW                   ; The capacity word is pushed.
+    CP   AG_FILE                   ; A File?
+    JR   Z,.FILE                   ; Its value is passed.
+    JR   C,.ADDRESS                ; Below it, an aggregate's address.
+    CALL RO_VIEW                   ; A view: its word is pushed.
     JR   .PUSH                     ; Then the address.
+.FILE:                         ; A File argument.
+    CALL RO_FVAL                   ; Its value in DEHL.
+    LD   A,$D5                     ; PUSH DE, the high word,
+    CALL GX_PUSHA                  ; two bytes pushed.
+    JR   .PUSH                     ; Then the low word.
 .ADDRESS:                      ; An aggregate of type A.
     PUSH AF                        ; Keep the type.
     CALL RO_AGGR                   ; A is the argument's type, HL its address.
@@ -462,29 +515,30 @@ RO_CALL:
     JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
 .PUSH:                         ; The argument is in HL.
     CALL GX_PUSHW                  ; PUSH HL, pushed until the call returns.
-    POP  DE                        ; The parameters.
-    INC  D                         ; The next parameter.
+    POP  DE                        ; The spacing and count.
+    POP  HL                        ; The parameter's type:
+    LD   C,D                       ; the next
+    LD   B,0                       ; is D bytes
+    ADD  HL,BC                     ; on.
     DEC  E                         ; One fewer to parse.
     JR   Z,.CLOSE                  ; That was the last.
-    PUSH DE                        ; Keep the parameters.
+    PUSH HL                        ; Keep the types
+    PUSH DE                        ; and the count.
     LD   E,TK_COMMA                ; A comma separates arguments.
     CALL PR_NEED                   ; Consume it.
-    POP  DE                        ; The parameters again.
+    POP  DE                        ; The count
+    POP  HL                        ; and the types again.
     JR   .ARG                      ; Parse the next argument.
 .CLOSE:                        ; Every argument is pushed.
     CALL PR_RIGHT                  ; Consume the closing parenthesis.
     LD   HL,RO_DEPTH               ; This call
     DEC  (HL)                      ; is parsed.
-    POP  BC                        ; C is the callee.
-    LD   A,C                       ; Its record:
-    CALL RO_SUBAT                  ; HL addresses it.
-    LD   DE,RO_RTYPE               ; Its result type
-    ADD  HL,DE                     ; is returned,
-    LD   A,(HL)                    ; so keep it.
-    PUSH AF                        ; Then its flags,
-    INC  HL                        ; whether it can fail,
-    LD   A,(HL)                    ; are kept
-    PUSH AF                        ; too.
+    POP  HL                        ; The callee's record from RO_RTYPE.
+    LD   A,(HL)                    ; Its result type
+    PUSH AF                        ; is returned, so keep it.
+    INC  HL                        ; Then its flags,
+    LD   A,(HL)                    ; whether it can fail,
+    PUSH AF                        ; are kept too.
     INC  HL                        ; Its ordinal.
     LD   E,(HL)                    ; DE is
     INC  HL                        ; the ordinal,
@@ -492,7 +546,7 @@ RO_CALL:
     INC  HL                        ; Its need follows.
     PUSH HL                        ; Keep the place.
     CALL EM_OP                     ; CALL nn,
-    DB   $CD                       ; the routine.
+    DB   $CD                       ; the callee.
     EX   DE,HL                     ; HL is the ordinal;
     LD   DE,0                      ; with no addend,
     CALL EM_REF                    ; refer to it.
@@ -501,7 +555,7 @@ RO_CALL:
     INC  HL                        ; and
     LD   D,(HL)                    ; high byte.
     INC  HL                        ; Then the argument bytes,
-    LD   A,(HL)                    ; which RETN removed:
+    LD   A,(HL)                    ; which the exit removed:
     PUSH DE                        ; keeping the need,
     CALL EM_POP                    ; they are no longer pushed.
     POP  DE                        ; DE is the callee's need.
@@ -519,9 +573,6 @@ RO_CALL:
     POP  AF                        ; A is the result type.
     OR   A                         ; Carry clear.
     RET                            ; The result is in A or HL.
-.NEEDFWD:                      ; A routine calls itself without a forward.
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_UNMET                  ; Unmet forward declaration.
 .DEEP:                         ; Calls nest too deeply in arguments.
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_DEEP                   ; Nested too deeply.
@@ -560,18 +611,26 @@ RO_FAILS:
     RET                            ; The expression goes on.
 
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; An open-string argument (argument, a view): a string literal, LD DE,its
-; length, PUSH DE, LD HL,literal; or a path to a string, its address into
-; HL, then its capacity, LD DE,n for a declared string or the word of an
-; open string passed on, and PUSH DE. The address is pushed by the caller.
-; A literal holds at most 253 bytes (DG_LONG); a path must be rooted at a
-; variable or constant (not a call) and name a string (DG_CLASH).
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A view argument of type A (argument): AG_VIEW or AG_VVIEW for a string,
+; AG_BUF or AG_VBUF for an array of u8, the second of each var. A string
+; literal, for a string[] that is not var: LD DE,its length, PUSH DE, LD
+; HL,literal. Otherwise a path, rooted at a variable or constant (not a
+; call), and writable for a var view (DG_CONST): a string's, its address
+; into HL, then its capacity, LD DE,n for a declared string or the word of
+; an open string passed on, and PUSH DE; an array of u8's, its address
+; and LD DE,its length, PUSH DE. The address is pushed by the caller. A
+; literal holds at most 253 bytes (DG_LONG); a literal for any other view
+; is read-only (DG_CONST), and a path of another type raises DG_CLASH.
 
 RO_VIEW:
+    PUSH AF                        ; Keep the view's type.
     CALL PR_PEEK                   ; A literal?
     CP   TK_TEXT                   ; A string literal is one.
     JR   NZ,.PATH                  ; Otherwise a path.
+    POP  AF                        ; Only a string[]
+    CP   AG_VIEW                   ; that is not var
+    JP   NZ,RO_EREAD               ; takes one: raise DG_CONST.
     CALL PR_TAKE                   ; Consume it.
     LD   A,(TK_LEN)                ; Its length:
     CP   254                       ; at most 253 bytes,
@@ -585,11 +644,24 @@ RO_VIEW:
     CALL .PUSHDE                   ; pushed.
     POP  BC                        ; The literal's size.
     JP   GA_LIT                    ; LD HL,literal; return.
-.PATH:                         ; A path names the string.
+.PATH:                         ; A path names the object.
     CALL RO_NAME                   ; Its root's name.
     CALL RO_FIND                   ; A routine
     JP   Z,EX_ETYPE                ; is no variable: DG_CLASH.
     CALL RO_NAMED                  ; Parse the path; A is its type.
+    POP  BC                        ; B is the view's type.
+    LD   C,A                       ; C is the path's.
+    BIT  0,B                       ; A var view?
+    JR   Z,.READ                   ; No: any path will do.
+    LD   A,(RO_PRO)                ; A read-only path
+    OR   A                         ; cannot be
+    JP   NZ,RO_EREAD               ; passed: raise DG_CONST.
+.READ:                         ; B is the view, C the path's type.
+    RES  0,B                       ; The view without var:
+    LD   A,B                       ; a string's
+    CP   AG_VIEW                   ; or an array's?
+    LD   A,C                       ; The path's type.
+    JR   NZ,.BUFFER                ; An array of u8.
     CP   AG_VIEW                   ; An open string passed on?
     JR   Z,.PASS                   ; Its capacity word.
     CP   AG_FIRST                  ; A scalar
@@ -601,10 +673,30 @@ RO_VIEW:
     INC  HL                        ; Its capacity
     LD   L,(HL)                    ; is
     LD   H,0                       ; HL.
+    JR   .WORD                     ; Pass it.
+.BUFFER:                       ; A is the path's type.
+    CP   AG_FIRST                  ; A scalar,
+    JP   C,EX_ETYPE                ; a File
+    CP   AG_FILE                   ; or a view
+    JP   NC,EX_ETYPE               ; is no array: DG_CLASH.
+    CALL AG_DESC                   ; HL addresses the descriptor.
+    LD   A,(HL)                    ; Its kind
+    CP   AG_KARR                   ; must be an array
+    JP   NZ,EX_ETYPE               ; (DG_CLASH),
+    INC  HL                        ; and its element
+    LD   A,(HL)                    ; type
+    CP   SY_U8                     ; u8 (DG_CLASH).
+    JP   NZ,EX_ETYPE               ; Its length
+    INC  HL                        ; is
+    LD   E,(HL)                    ; the
+    INC  HL                        ; view's
+    LD   D,(HL)                    ; word,
+    EX   DE,HL                     ; HL.
+.WORD:                         ; HL is the view's word.
     PUSH HL                        ; Keep it.
     CALL GA_ADDR                   ; The address first.
-    POP  HL                        ; The capacity:
-    CALL GA_LDDE                   ; LD DE,capacity,
+    POP  HL                        ; The word:
+    CALL GA_LDDE                   ; LD DE,word,
     JR   .PUSHDE                   ; pushed; return.
 .PASS:                         ; The view's address word is at IX+RO_PBASE.
     LD   HL,(RO_PBASE)             ; Its capacity word
@@ -615,11 +707,51 @@ RO_VIEW:
     POP  HL                        ; The capacity word
     LD   DE,GX_DLDDE               ; into DE, HL kept (ixWord).
     CALL GX_FACC                   ; Append it.
-.PUSHDE:                       ; The capacity is in DE.
-    CALL EM_OP                     ; PUSH DE.
-    DB   $D5                       ; Append it.
-    LD   A,2                       ; Two bytes
-    JP   EM_PUSH                   ; are pushed; return.
+.PUSHDE:                       ; The view's word is in DE.
+    LD   A,$D5                     ; PUSH DE,
+    JP   GX_PUSHA                  ; two bytes pushed; return.
+
+;@ROUTINE NORETURN
+; Raise DG_CONST: a read-only object, or a literal, where a writable one
+; is required.
+
+RO_EREAD:
+    CALL DG_RAISE                  ; Raise the diagnostic below.
+    DB   DG_CONST                  ; It cannot be written.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Parse a File value and generate it into DEHL (the reference's expression
+; and toRegisters for a File): console or printer, LD HL,n and LD DE,0; a
+; call to a service whose result is a File; or a File variable, local or
+; parameter, loaded at its place (GA_LDF). Anything else raises DG_CLASH:
+; the native compiler takes a File only as a name or such a call.
+
+RO_FVAL:
+    CALL RO_NAME                   ; A name begins it.
+    CALL RO_LIB                    ; A predeclared name?
+    JR   NC,.VARIABLE              ; No: a variable.
+    JP   P,.SERVICE                ; Not a constant: a service.
+    CP   SY_KNOWN+AG_FILE          ; The constant must be a File,
+    JP   NZ,EX_ETYPE               ; else DG_CLASH.
+    INC  HL                        ; Its value,
+    LD   L,(HL)                    ; the runtime's
+    LD   H,0                       ; fixed File:
+    CALL EM_OP                     ; LD HL,n,
+    DB   $21                       ; the opcode,
+    CALL EM_WORD                   ; and n;
+    CALL EM_SEQ                    ; then LD DE,0,
+    DB   3,$11,0,0                 ; the high word.
+    RET                            ; DEHL is the File.
+.SERVICE:                      ; HL is the service's payload.
+    CALL RO_SVC                    ; A is its result type,
+.FILE:                         ; or the variable's.
+    CP   AG_FILE                   ; A File
+    RET  Z                         ; is in DEHL, or to be loaded.
+    JP   EX_ETYPE                  ; Anything else raises DG_CLASH.
+.VARIABLE:                     ; A variable, or nothing.
+    CALL RO_NAMED                  ; Parse it; A is its type.
+    CALL .FILE                     ; It must be a File,
+    JP   GA_LDF                    ; loaded at its place; return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse a path or a call whose value is an aggregate, and generate its
@@ -659,27 +791,18 @@ RO_LOAD:
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; The expression parser's hook for a routine name, read already: parse
 ; the call to routine A and make its result, or a scalar selected from an
-; aggregate result, the expression's value of type A.
+; aggregate result, the expression's value of type A. RO_VALUE does the
+; same for a call already parsed, its result type A: a service's.
 
 RO_FUNC:
     CALL RO_CALL                   ; A is the result type.
+RO_VALUE:                      ; A call's result type is A.
     OR   A                         ; A routine without a result has no value.
     JP   Z,EX_ETYPE                ; Raise DG_CLASH.
     CP   AG_FIRST                  ; Is the result an aggregate?
     RET  C                         ; No: A is the scalar result type.
     CALL RO_START                  ; Parse the selections.
     JR   RO_LOAD                   ; Load the scalar they select.
-
-;@ROUTINE IN A OUT A,B,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE,IX,IY
-; The expression parser's hook for an error constant, ordinal A from
-; RO_LIB: its value is the error code 1..4, written as a known u8 literal.
-
-RO_CAUSE:
-    SUB  RO_ERRS-1                 ; The first constant is code one.
-    LD   L,A                       ; Form the code as a word.
-    LD   H,0                       ; HL is the literal's value.
-    LD   B,SY_KNOWN+SY_U8          ; A known u8 constant.
-    JP   EX_LIT                    ; Write it and return its metadata.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; The expression parser's hook for an aggregate symbol, the current NAME:
@@ -698,7 +821,8 @@ RO_OBJ:
 ; string's bytes. A scalar's value is checked against its type and stored:
 ; through its address, computed first and pushed while the value is,
 ; then POP DE and LD (DE),A or EX DE,HL, LD (HL),E, INC HL, LD (HL),D; or
-; at a static or frame place directly. Then any failure handling.
+; at a static or frame place directly. A File is a value (RO_FVAL),
+; stored at its static or frame place. Then any failure handling.
 
 RO_LET:
     CALL RO_NAMED                  ; Parse the target; A is its type.
@@ -706,8 +830,10 @@ RO_LET:
     CALL PR_EQUAL                  ; Consume the equals sign.
     LD   A,(RO_PRO)                ; A read-only target
     OR   A                         ; cannot be
-    JR   NZ,.FIXED                 ; assigned.
+    JP   NZ,RO_EREAD               ; assigned: raise DG_CONST.
     POP  AF                        ; The target's type.
+    CP   AG_FILE                   ; A File?
+    JR   Z,.FILE                   ; Its value is stored.
     CP   AG_FIRST                  ; An aggregate?
     JR   NC,.COPY                  ; Copy it whole.
     LD   A,(RO_PKIND)              ; A computed place?
@@ -740,9 +866,12 @@ RO_LET:
 .STORE:                        ; A is the last byte.
     CALL EM_BYTE                   ; Append it.
     JP   AC_ROUTE                  ; Any failure handling; return.
-.FIXED:                        ; A read-only target.
-    CALL DG_RAISE                  ; Raise the diagnostic below.
-    DB   DG_CONST                  ; It cannot be assigned.
+.FILE:                         ; A File variable.
+    CALL RO_KEEP                   ; Keep its place across the value.
+    CALL RO_FVAL                   ; The value into DEHL.
+    CALL RO_BACK                   ; The place comes back.
+    CALL GA_STF                    ; Store the value there.
+    JP   AC_ROUTE                  ; Any failure handling; return.
 .COPY:                         ; Copy an aggregate of type A.
     PUSH AF                        ; Keep the type.
     CALL GA_ADDR                   ; The target's address,
