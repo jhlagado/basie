@@ -282,16 +282,20 @@ limit, 28.75K.
 
 | Region | Size |
 | --- | --- |
-| Core and linker code, with its file buffers | 12.0K (measured; estimated 8.2K) |
+| Core and linker code, with its file buffers | 10.6K (measured; estimated 8.2K) |
 | Stack margin | 0.75K |
-| **Fixed total** | **12.8K** |
+| **Fixed total** | **11.4K** |
 
-About 44.7K remains for the linker's tables on a 57K system ([linker](linker.md), Section 2; [limits](limits.md) §5.2).
+About 45.4K remains for the linker's tables on a 57K system ([linker](linker.md), Section 2; [limits](limits.md) §5.2).
 
 `BLINK.COM` is held to a **12K target and a 14K limit** by the same census and
 compression cycle as the compiler (D43): `deno task census
 native/linker/BLINK.ASM --target 12288 --budget 14336`. At step 63 it was
-12,262 bytes: 26 under the target.
+12,262 bytes: 26 under the target. Option R and .BIN and Intel HEX output took
+it to 12,566; the compression pass that followed (shared file routines, padded
+map labels, a row pointer for the pseudo-objects, `JR` where in range, and
+buffers that share memory between phases) brought it to 10,887 bytes: 1,401
+under the target.
 
 ### 7.3 Overlays and the message file
 

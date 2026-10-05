@@ -68,7 +68,7 @@ user meets them as a rule of the language.
 | --- | --- | --- |
 | Reference toolchain (TypeScript) | Object format, linker, publication, blob-library tool and lexer written; compiler not yet | `ref/`, `tools/` |
 | Native `BASIE.COM` | Not yet written. It will be forked from the Nucleus compiler (roadmap M7, step 64), so Nucleus's fixed tables are what it **inherits** unless each is replaced deliberately | `../nucleus/asm/vertical-slice/*.asmi` |
-| Native `BLINK.COM` | Not yet written; designed in [linker](linker.md) §2 | — |
+| Native `BLINK.COM` | Phases A to E written: .COM, .BIN and Intel HEX, options R, B, V, N, M and Y; ROM profiles refused | `native/linker/` |
 | `CPM22` runtime | Minimal library written | `runtime/cpm22/` |
 
 The Nucleus constants are recorded so that none of them crosses into Basie by
@@ -499,14 +499,27 @@ comes from its method.
 - **Ref:** JavaScript maps, bounded by host memory. No fixed maximum.
 - **Native minimums:** 2,000 program blobs at 8 bytes per ordinal; 9,000
   distinct references at 2 bytes each ([limits](limits.md) §5.2).
-- **Native maximum:** measured (roadmap step 63): about 44.7K of table space on
-  a 57K CP/M 2.2 system once `BLINK.COM` (12.0K) and a 768-byte stack margin
-  are taken; about 5,450 blobs with few references, after which
-  `L-CAP-TABLES`. With ordinary programs the image limit is reached first: a
-  54K program with 8 references per routine links.
+- **Native maximum:** measured (roadmap step 63) and rescaled: table space
+  runs from the end of `BLINK.COM`'s image to a 768-byte stack margin, so on a
+  57K CP/M 2.2 system it is 46,463 bytes (45.4K) with the image at 10,887
+  bytes. Step 63 measured about 5,450 blobs with few references at 12,262
+  bytes (45,088 bytes of tables); scaled by table space that is about 5,600,
+  after which `L-CAP-TABLES`. With ordinary programs the image limit is
+  reached first: a 54K program with 8 references per routine links.
+- **Trade-off:** the image shrank by 1,375 bytes in the compression pass after
+  option R, and table space grew by the same. About 1,270 bytes of that came
+  from buffers whose lives don't overlap sharing memory: the reports' FDs and
+  publication's backup FD reuse Phase D's, which are finished with by
+  publication, and the command tail and the map's name buffers live in Phase
+  D's FDs outside Phase D. The cost is that each shared buffer's lifetime must
+  stay disjoint; the comments at each `EQU` record what it relies on.
 - **Status:** confirmed as an implementation maximum, set by memory. The 7K
   code estimate in the toolchain was low; the map, the symbol file and
   publication account for most of the difference.
+- **ROM targets:** `BLINK.COM` refuses a profile of target class 3 or above
+  with `L-RESERVED`. Classified as an implementation limit: no Basie profile is
+  a ROM target yet, and porting the reference's ROM placement would cost code
+  for a case nothing builds.
 
 ### 3.29 Relocations in object files
 

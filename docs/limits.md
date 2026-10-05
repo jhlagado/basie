@@ -107,19 +107,35 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | Compiler stack | 1K below the BDOS entry | measured at step 68 |
 | Placed program image | 4K (the forked proof target), output discarded | blob output (65.4) |
 
-### 5.2 Linker (`BLINK.COM`, 12.0K, about 44.7K for tables)
+### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)
 
 Measured on a CP/M 2.2 system with BDOS at `$E406` (57K transient area),
-roadmap step 63:
+roadmap step 63, and rescaled for the current image:
 
 | Capacity | Guaranteed minimum | Measured | Notes |
 | --- | ---: | ---: | --- |
-| Program blobs | 2,000 | about 5,450 with few references | 8 bytes per ordinal, plus 4 per blob with references and 2 per distinct reference; `L-CAP-TABLES` beyond |
+| Program blobs | 2,000 | about 5,600 with few references (5,450 measured at 12,262 bytes) | 8 bytes per ordinal, plus 4 per blob with references and 2 per distinct reference; `L-CAP-TABLES` beyond |
 | Distinct references | 9,000 | shares the same space | 2 bytes each |
 | Program size | the CP/M image limit | the image limit, `$DC00` | A 54K program of 1,044 blobs and 8 references each links; code fills the image before references fill the tables |
 
+Table space is the memory from the end of BLINK's image (`FREEMEM`, which is
+`$0100` plus the image's length) to the stack margin, 768 bytes below the BDOS
+entry. It therefore grows by every byte the image loses. With the image at
+10,887 bytes, `FREEMEM` is `$2B87` and table space is `$E406` − `$0300` −
+`$2B87` = 46,463 bytes (45.4K). At step 63 the image was 12,262 bytes and the
+same method gives 45,088 bytes (44.0K; this section said 44.7K then). The blob
+count is the step-63 measurement scaled by the ratio of the two, 1.030,
+since tables of few references cost the same bytes per blob; it is an estimate
+until the capacity run is repeated.
+
 Link time at 4 MHz under the minimal harness, excluding disk time: 2.6 s for
-`hello` (910 bytes), 6.3 s for ADVENT (6.4K), 78 s for a 54K program.
+`hello` (910 bytes), 6.3 s for ADVENT (6.4K), 78 s for a 54K program. Option R
+adds the `DATA` and `COPY` write passes, one per alignment class of `data`
+blobs.
+
+`BLINK.COM` refuses a ROM profile (target class 3 and above) with
+`L-RESERVED`: the `CPM22` profile is class 1, and the reference linker's ROM
+placement (`DATA` and `BSS` in RAM, only `COPY` stored) is not ported.
 
 ### 5.3 Running programs
 

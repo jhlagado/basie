@@ -125,7 +125,7 @@ M5 starts alongside M4: each compiler step needs its helpers.
 | ---: | --- | --- | --- | --- |
 | 59 | Native | Skeleton `BLINK.COM`: command tail, file I/O, CRC, message output | `native/linker/` (done: 2.6K; checks the library header and, with V, its CRC; `tests/blink_test.ts`) | Runs under the harness |
 | 60 | Native | Phase A and B | `native/linker/PHASEA.ASM` (done; the tables match the reference linker's on the examples and corpus programs) | Same tables as the reference, dumped and compared |
-| 61 | Native | Phase C and D, the line table | `native/linker/PHASECD.ASM`, `LINES.ASM` (done for .COM images without option R: image and line table byte-identical to the reference on the examples and corpus programs) | Byte-identical images on the linker suite |
+| 61 | Native | Phase C and D, the line table | `native/linker/PHASECD.ASM`, `LINES.ASM` (done: image and line table byte-identical to the reference on the examples and corpus programs, with and without option R, as .COM, .BIN or Intel HEX; ROM profiles refused) | Byte-identical images on the linker suite |
 | 62 | Native | Phase E and publication | `native/linker/PUBLISH.ASM`, `PHASEE.ASM` (done: publication, map and symbol file byte-identical to the reference on the examples and corpus programs) | Byte-identical maps and files |
 | 63 | Native | Capacity measurement: the largest program it can link | Measured limits (done: about 5,450 blobs, or a full 54K image; [limits](limits.md) §5.2) | Published in the limits register |
 
