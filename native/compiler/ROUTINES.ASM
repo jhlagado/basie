@@ -1,1276 +1,496 @@
-; Predictive aggregate paths, bounded routine signatures, forwards, and the
-; predefined Stage 8 service surface. Runtime carriers are never entered in
-; the source symbol model as integers.
+;==========================================================================
+;  Routine names, signatures and the compile entry
+;==========================================================================
+;
+;  Keep the tables of routines and parameters that the grammar actions
+;  (ACTIONS.ASM) fill as they parse routine declarations: look names up,
+;  reject names already in use, enrol parameters and bind each one as a
+;  symbol of the routine's frame. CALLS.ASM parses the calls, services and
+;  aggregate paths that use these tables. Both write operations to the
+;  semantic transcript, which GENCALL.ASM replays into code once parsing
+;  is complete.
+;
+;  The module also holds the compile entry PR_BUILD, which runs the parse
+;  and emit phases, and the bank helpers (TG_) of the forked placed target.
+;  BASIE.COM's shell describes a single bank, so every bank check passes;
+;  the helpers go with placed output at 65.4.
+;
+;  Principal entries:
+;    PR_BUILD  compile the source parts for a target: parse, then emit
+;    PR_PARSE  clear the routine workspace and parse the whole program
+;    RO_FIND   find the current name among the routines, or main
+;    RO_LIB    find the current name among the services and error constants
+;    RO_FRESH  reject a routine name that is already in use
+;    RO_VET    reject a parameter name that is already in use
+;    RO_ENROL  append a parameter to the parameter table
+;    RO_DISP   give a parameter's argument displacement in the frame
+;    RO_BIND   make a parameter a symbol and write OP_BIND
+;
+;  The routine table (RO_RTAB) holds four routines of eight bytes:
+;
+;    +0  word  address of the name's spelling in the resident source
+;    +2  byte  length of the spelling
+;    +3  byte  index of the first parameter in RO_PTAB
+;    +4  byte  parameter count
+;    +5  byte  result type: zero, a scalar type or an aggregate type
+;    +6  byte  label ordinal, RO_LBASE + index (main's body is RO_MDEST)
+;    +7  byte  flags: RO_FFAIL, RO_FMAIN, RO_FOPEN (declared, body not
+;              yet seen), and the bank in bits 4..5
+;
+;  The parameter table (RO_PTAB) holds sixteen parameters of four bytes:
+;  the spelling's address and length, then the type, AG_VIEW for an open
+;  string. A routine's parameters are consecutive entries.
 
 ;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
+; Return in HL the address of routine-table entry A. A is preserved.
+
 RO_SUBAT:
-    LD   L,A
-    LD   H,0
-    ADD  HL,HL
-    ADD  HL,HL
-    ADD  HL,HL
-    LD   DE,RO_RTAB
-    ADD  HL,DE
-    OR   A
-    RET
+    LD   L,A                       ; Form the routine index as a word.
+    LD   H,0                       ; At most RO_RCAP entries.
+    ADD  HL,HL                     ; Times two.
+    ADD  HL,HL                     ; Times four.
+    ADD  HL,HL                     ; Times eight, the entry size.
+    LD   DE,RO_RTAB                ; The table's base.
+    ADD  HL,DE                     ; HL addresses the entry.
+    OR   A                         ; Return carry clear.
+    RET                            ; A still holds the index.
 
 ;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
+; Return in HL the address of parameter-table entry A. A is preserved.
+
 RO_PARAM:
-    LD   L,A
-    LD   H,0
-    ADD  HL,HL
-    ADD  HL,HL
-    LD   DE,RO_PTAB
-    ADD  HL,DE
-    OR   A
-    RET
+    LD   L,A                       ; Form the parameter index as a word.
+    LD   H,0                       ; At most RO_PCAP entries.
+    ADD  HL,HL                     ; Times two.
+    ADD  HL,HL                     ; Times four, the entry size.
+    LD   DE,RO_PTAB                ; The table's base.
+    ADD  HL,DE                     ; HL addresses the entry.
+    OR   A                         ; Return carry clear.
+    RET                            ; A still holds the index.
 
-; Z returns one exact routine match and A its table index. NZ means that the
-; current name is not a retained routine; it is not itself a diagnostic.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Find the current NAME among the routines. Z returns the table index in
+; A, or RO_MAIN once main has been declared and the name is main. NZ, with
+; A = $FF, means the name is not a routine; that is not itself an error.
+
 RO_FIND:
-    LD   A,(RO_RCNT)
-    OR   A
-    JR   Z,.MISSING
-    LD   C,A
-    LD   B,0
-.LOOP:
-    LD   A,B
-    CALL RO_SUBAT
-    CALL TK_SAME
-    JR   C,.FOUND
-    INC  B
-    DEC  C
-    JR   NZ,.LOOP
-.MISSING:
-    LD   A,(RO_MFLAG)
-    AND  RO_FMAIN
-    JR   Z,.ABSENT
-    CALL EX_MAIN
-    JR   NC,.ABSENT
-    LD   A,RO_MAIN
-    CP   A
-    RET
-.ABSENT:
-    LD   A,$FF
-    OR   A
-    RET
-.FOUND:
-    LD   A,B
-    CP   A
-    RET
+    LD   A,(RO_RCNT)               ; Count the routines in the table.
+    OR   A                         ; Is the table empty?
+    JR   Z,.MISSING                ; Then only main can match.
+    LD   C,A                       ; C counts the entries left.
+    LD   B,0                       ; B is the index being compared.
+.LOOP:                         ; Compare one routine's name.
+    LD   A,B                       ; Select entry B.
+    CALL RO_SUBAT                  ; HL addresses it; the name comes first.
+    CALL TK_SAME                   ; Does its spelling match the token?
+    JR   C,.FOUND                  ; Return its index.
+    INC  B                         ; Try the next entry.
+    DEC  C                         ; One entry fewer.
+    JR   NZ,.LOOP                  ; Continue through the table.
+.MISSING:                      ; The name is not in the table.
+    LD   A,(RO_MFLAG)              ; Has main been declared?
+    AND  RO_FMAIN                  ; Its flags carry RO_FMAIN once it has.
+    JR   Z,.ABSENT                 ; No main to call yet.
+    CALL EX_MAIN                   ; Is the name main?
+    JR   NC,.ABSENT                ; It is no routine at all.
+    LD   A,RO_MAIN                 ; Report the main routine.
+    CP   A                         ; Set Z with carry clear.
+    RET                            ; A identifies main.
+.ABSENT:                       ; Report that no routine matched.
+    LD   A,$FF                     ; No routine index.
+    OR   A                         ; NZ with carry clear.
+    RET                            ; The caller tries other kinds of name.
+.FOUND:                        ; Report the matching routine.
+    LD   A,B                       ; Its table index.
+    CP   A                         ; Set Z with carry clear.
+    RET                            ; A identifies the routine.
 
-RO_MATCH EQU  TK_SAME
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Find the current NAME in KW_NAMES. Carry returns its ordinal in A:
+; 0..5 a service, RO_ERRS..9 an error constant. Carry clear means neither.
 
-; Carry identifies a predefined service or error constant and A returns its
-; dense ordinal. No match returns carry clear.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL
 RO_LIB:
-    LD   HL,KW_NAMES
-    LD   C,KW_NCNT
-.LOOP:
-    LD   B,(HL)
-    INC  HL
-    LD   A,(TK_LEN)
-    CP   B
-    JR   NZ,.SKIP
-    LD   DE,(TK_PTR)
-.BYTELOOP:
-    LD   A,(DE)
-    CP   (HL)
-    JR   NZ,.SKIP
-    INC  DE
-    INC  HL
-    DJNZ .BYTELOOP
-    LD   A,KW_NCNT
-    SUB  C
-    SCF
-    RET
-.SKIP:
-    LD   E,B
-    LD   D,0
-    ADD  HL,DE
-    DEC  C
-    JR   NZ,.LOOP
-    OR   A
-    RET
+    LD   HL,KW_NAMES               ; Entries are a length byte and spelling.
+    LD   C,KW_NCNT                 ; C counts the entries left.
+.LOOP:                         ; Compare one entry.
+    LD   B,(HL)                    ; Read the entry's length.
+    INC  HL                        ; HL addresses its spelling.
+    LD   A,(TK_LEN)                ; The token's length.
+    CP   B                         ; Do the lengths agree?
+    JR   NZ,.SKIP                  ; A different length cannot match.
+    LD   DE,(TK_PTR)               ; DE walks the token's spelling.
+.BYTELOOP:                     ; Compare one character.
+    LD   A,(DE)                    ; Read the token's character.
+    CP   (HL)                      ; Compare it with the entry's.
+    JR   NZ,.SKIP                  ; HL + B is still the entry's end.
+    INC  DE                        ; Advance in the token.
+    INC  HL                        ; Advance in the entry.
+    DJNZ .BYTELOOP                 ; Compare every character.
+    LD   A,KW_NCNT                 ; The ordinal is the count of entries passed:
+    SUB  C                         ; KW_NCNT less the entries left.
+    SCF                            ; Report a match.
+    RET                            ; A is the ordinal.
+.SKIP:                         ; Step over the rest of this entry.
+    LD   E,B                       ; The characters not yet passed.
+    LD   D,0                       ; As a word.
+    ADD  HL,DE                     ; HL addresses the next entry.
+    DEC  C                         ; One entry fewer.
+    JR   NZ,.LOOP                  ; Continue through the table.
+    OR   A                         ; Report no match.
+    RET                            ; Carry is clear.
 
-; Compile one multipart source stream and publish one append-only object.
-; IX points at the stable compact target descriptor; A/HL retain the existing
-; bounded source-part descriptor ABI.
-;@ROUTINE IN A,HL,IX OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+;@ROUTINE IN A,HL,IX OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
+; Compile A source parts, described at HL, for the target described at IX:
+; parse, then emit. Carry clear reports success. A diagnostic in either
+; phase returns carry set, with DG_CODE, DG_PART and DG_POS describing it.
+
 PR_BUILD:
-    LD   (PR_SP),SP
-    LD   (TG_DESC),IX
-    PUSH AF
-    PUSH HL
-    CALL PR_RESET
-    POP  HL
-    POP  AF
-    PUSH AF
-    CALL SRC_OPEN
-    POP  BC
-    LD   A,B
+    LD   (PR_SP),SP                ; A diagnostic returns from here.
+    LD   (TG_DESC),IX              ; Keep the target descriptor.
+    PUSH AF                        ; Keep the part count.
+    PUSH HL                        ; Keep the part descriptors.
+    CALL PR_RESET                  ; Clear the parser's state.
+    POP  HL                        ; Recover the part descriptors.
+    POP  AF                        ; Recover the part count.
+    PUSH AF                        ; Keep the count across SRC_OPEN.
+    CALL SRC_OPEN                  ; Open the first part.
+    POP  BC                        ; B is the part count.
+    LD   A,B                       ; A is the part count.
 ; Validate every bank-bearing descriptor field before source
 ; semantics can retain a bank ordinal. A is the bounded part count.
-    LD   B,A
-    LD   IX,(TG_DESC)
-    LD   A,(IX+TG_DBCNT)
-    OR   A
-    JR   Z,.BADCFG
-    CP   TG_BCAP+1
-    JR   NC,.BADCFG
-    LD   (TG_BCNT),A
-    LD   C,A
-    LD   A,(IX+TG_DEB)
-    CP   C
-    JR   NC,.BADCFG
-    LD   (TG_EBANK),A
-    LD   L,(IX+TG_DPART)
-    LD   H,(IX+TG_DPART+1)
-.BANKLOOP:
-    LD   A,(HL)
-    CP   C
-    JR   NC,.BADCFG
-    INC  HL
-    DJNZ .BANKLOOP
-    LD   HL,TG_ROTAB
-    LD   B,TG_ROLIM-TG_ROTAB
-    XOR  A
-.WIPE:
-    LD   (HL),A
-    INC  HL
-    DJNZ .WIPE
-    CALL PR_PARSE
+    LD   B,A                       ; B is already the count of parts to check.
+    LD   IX,(TG_DESC)              ; Address the target descriptor.
+    LD   A,(IX+TG_DBCNT)           ; Read its bank count.
+    OR   A                         ; A target needs at least one bank.
+    JR   Z,.BADCFG                 ; Reject zero banks.
+    CP   TG_BCAP+1                 ; At most TG_BCAP banks are supported.
+    JR   NC,.BADCFG                ; Reject more.
+    LD   (TG_BCNT),A               ; Keep the bank count.
+    LD   C,A                       ; C bounds the bank ordinals.
+    LD   A,(IX+TG_DEB)             ; Read the entry bank.
+    CP   C                         ; Is it one of the banks?
+    JR   NC,.BADCFG                ; Reject an entry bank out of range.
+    LD   (TG_EBANK),A              ; Keep the entry bank.
+    LD   L,(IX+TG_DPART)           ; Address the parts' bank bytes, one per part.
+    LD   H,(IX+TG_DPART+1)         ; High byte of their address.
+.BANKLOOP:                     ; Check one part's bank.
+    LD   A,(HL)                    ; Read the part's bank.
+    CP   C                         ; Is it one of the banks?
+    JR   NC,.BADCFG                ; Reject a bank out of range.
+    INC  HL                        ; Next part.
+    DJNZ .BANKLOOP                 ; Check every part.
+    LD   HL,TG_ROTAB               ; Clear the per-bank constant lengths.
+    LD   B,TG_ROLIM-TG_ROTAB       ; The table's size in bytes.
+    XOR  A                         ; Zero each byte.
+.WIPE:                         ; Clear one byte.
+    LD   (HL),A                    ; Store zero.
+    INC  HL                        ; Next byte.
+    DJNZ .WIPE                     ; Clear the whole table.
+    CALL PR_PARSE                  ; Parse every part into the transcript.
 ; A diagnostic during generation restores this synthetic frame and
 ; returns directly through the one target-output abort path. A
 ; successful generation returns normally and discards the frame.
-    LD   HL,TG_ABORT
-    PUSH HL
-    LD   (PR_SP),SP
-    CALL GA_BUILD
-    POP  HL
-    RET
-.BADCFG:
-    JP   TG_DENY
+    LD   HL,TG_ABORT               ; From here a diagnostic returns to TG_ABORT.
+    PUSH HL                        ; TG_ABORT abandons the output, then returns.
+    LD   (PR_SP),SP                ; DG_ISSUE restores this stack.
+    CALL GA_BUILD                  ; Emit the program.
+    POP  HL                        ; Discard the abort continuation.
+    RET                            ; Return GA_BUILD's result.
+.BADCFG:                       ; The descriptor names an impossible bank.
+    JP   TG_DENY                   ; Raise DG_CFG.
 
-; Return the bank mapped to the current manifest source-part ordinal.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL,IX
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL,IX
+; Return in A the bank of the source part being parsed, from the
+; descriptor's part-bank array.
+
 TG_HOME:
-    LD   A,(SRC_LEFT)
-    AND  SRC_ORD
-    RRCA
-    RRCA
-    RRCA
-    LD   E,A
-    LD   D,0
-    LD   IX,(TG_DESC)
-    LD   L,(IX+TG_DPART)
-    LD   H,(IX+TG_DPART+1)
-    ADD  HL,DE
-    LD   A,(HL)
-    OR   A
-    RET
+    LD   A,(SRC_LEFT)              ; Bits 3..5 hold the part's ordinal.
+    AND  SRC_ORD                   ; Keep the ordinal.
+    RRCA                           ; Shift the ordinal down one bit.
+    RRCA                           ; And another.
+    RRCA                           ; Bits 0..2 now hold it.
+    LD   E,A                       ; Form it as a word.
+    LD   D,0                       ; At most SRC_CAP parts.
+    LD   IX,(TG_DESC)              ; Address the target descriptor.
+    LD   L,(IX+TG_DPART)           ; Address the parts' bank bytes.
+    LD   H,(IX+TG_DPART+1)         ; One byte per part.
+    ADD  HL,DE                     ; HL addresses this part's byte.
+    LD   A,(HL)                    ; Read its bank.
+    OR   A                         ; Return carry clear.
+    RET                            ; A is the bank.
 
-; Add the current source bank to flag byte A without disturbing low flags.
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,D,DE,HL,IX
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL,IX
+; Add the current part's bank, in bits 4..5, to flag byte A, whose low
+; flag bits are kept.
+
 TG_PACK:
-    LD   B,A
-    CALL TG_HOME
-    RLCA
-    RLCA
-    RLCA
-    RLCA
-    OR   B
-    RET
+    LD   B,A                       ; Keep the flags.
+    CALL TG_HOME                   ; A is the current bank.
+    RLCA                           ; Shift the bank up one bit.
+    RLCA                           ; And another.
+    RLCA                           ; And another.
+    RLCA                           ; Bits 4..5, TG_BMASK, now hold it.
+    OR   B                         ; Merge it with the flags.
+    RET                            ; A is the packed flag byte.
 
-; Extract the target bank stored in flag bits 4..5. The final rotate shifts a
-; known zero bit through carry, so success returns carry clear.
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; Extract the bank from bits 4..5 of flag byte A. Each rotate moves a zero
+; bit into carry, so the result has carry clear.
+
 TG_SPLIT:
-    AND  TG_BMASK
-    RRCA
-    RRCA
-    RRCA
-    RRCA
-    RET
+    AND  TG_BMASK                  ; Keep the bank bits.
+    RRCA                           ; Shift the bank down one bit.
+    RRCA                           ; And another.
+    RRCA                           ; And another.
+    RRCA                           ; Bits 0..1 hold it, and carry is clear.
+    RET                            ; A is the bank.
 
-;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE
+;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
+; Return in HL the address of bank A's aggregate-constant length word.
+
 TG_LENAT:
-    LD   L,A
-    LD   H,0
-    ADD  HL,HL
-    LD   DE,TG_ROTAB
-    ADD  HL,DE
-    OR   A
-    RET
+    LD   L,A                       ; Form the bank as a word.
+    LD   H,0                       ; At most TG_BCAP banks.
+    ADD  HL,HL                     ; One word per bank.
+    LD   DE,TG_ROTAB               ; The table's base.
+    ADD  HL,DE                     ; HL addresses the bank's word.
+    OR   A                         ; Return carry clear.
+    RET                            ; A still holds the bank.
 
-; Compare packed bank bits in D with the current source-part bank.
-;@ROUTINE IN D OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,D,DE,HL,IX
+;@ROUTINE IN D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,B,DE,HL,IX
+; Compare the bank in bits 4..5 of flag byte D with the current part's
+; bank: Z if they are the same.
+
 TG_SAME:
-    LD   B,D
-    CALL TG_HOME
-    RLCA
-    RLCA
-    RLCA
-    RLCA
-    XOR  B
-    AND  TG_BMASK
-    RET
-;@ROUTINE IN D OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
+    LD   B,D                       ; Keep the flags.
+    CALL TG_HOME                   ; A is the current bank.
+    RLCA                           ; Shift the bank up one bit.
+    RLCA                           ; And another.
+    RLCA                           ; And another.
+    RLCA                           ; Bits 4..5 now line up with D's.
+    XOR  B                         ; Differences show as set bits.
+    AND  TG_BMASK                  ; Compare only the bank bits.
+    RET                            ; Z if the banks agree.
+
+;@ROUTINE IN D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,B,DE,HL,IX
+; Require the bank in flag byte D to be the current part's; otherwise raise
+; DG_CFG, which does not return.
+
 TG_MUST:
-    CALL TG_SAME
-    RET  Z
-    JP   TG_DENY
+    CALL TG_SAME                   ; Are the banks the same?
+    RET  Z                         ; Then the reference is reachable.
+    JP   TG_DENY                   ; Raise DG_CFG.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
+;@ROUTINE OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,D,E,HL,IX
+; Require the current part to be in the entry bank, as main must be;
+; otherwise raise DG_CFG, which does not return.
+
 TG_ENTRY:
-    CALL TG_HOME
-    LD   D,A
-    LD   A,(TG_EBANK)
-    CP   D
-    RET  Z
-    JP   TG_DENY
+    CALL TG_HOME                   ; A is the current bank.
+    LD   D,A                       ; Keep it for the comparison.
+    LD   A,(TG_EBANK)              ; The bank the program starts in.
+    CP   D                         ; Is main's part there?
+    RET  Z                         ; Then main is reachable at startup.
+    JP   TG_DENY                   ; Raise DG_CFG.
 
-; The target entry initializes parts and calls the shared body.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Clear the routine workspace and the control labels, run the LL(1) parser
+; over every source part and close the transcript. PR_BUILD calls this with
+; A zero; AG_MODE, set to one here, is read nowhere.
+
 PR_PARSE:
-    INC  A
-    LD   (AG_MODE),A
-    LD   HL,RO_BASE
-    LD   B,RO_WEND-RO_BASE
-    XOR  A
-.WIPE:
-    LD   (HL),A
-    INC  HL
-    DJNZ .WIPE
-    LD   (CT_LABNO),A
-    CALL LL_PARSE
-    JP   TR_CLOSE
+    INC  A                         ; One.
+    LD   (AG_MODE),A               ; Nothing reads AG_MODE.
+    LD   HL,RO_BASE                ; Clear the routine workspace.
+    LD   B,RO_WEND-RO_BASE         ; Its tables, frames and fields are all bytes.
+    XOR  A                         ; Zero each byte.
+.WIPE:                         ; Clear one byte.
+    LD   (HL),A                    ; Store zero.
+    INC  HL                        ; Next byte.
+    DJNZ .WIPE                     ; Clear the whole workspace.
+    LD   (CT_LABNO),A              ; Number control labels from zero.
+    CALL LL_PARSE                  ; Parse the program.
+    JP   TR_CLOSE                  ; Publish the transcript and return.
 
-; Reject a routine name that collides with an ordinary name or an earlier
-; routine. The current token remains the name being checked.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Reject a routine name that is an ordinary symbol, an earlier routine,
+; main or a service or error constant: DG_DUP does not return. The current
+; token is the name.
+
 RO_FRESH:
-    CALL SY_FIND
-    JP   C,EX_EDUP
-    CALL RO_FIND
-    JP   Z,EX_EDUP
-    CALL RO_LIB
-    JP   C,EX_EDUP
-    OR   A
-    RET
+    CALL SY_FIND                   ; Is it an ordinary symbol?
+    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    CALL RO_FIND                   ; Is it a routine already?
+    JP   Z,EX_EDUP                 ; Raise DG_DUP.
+    CALL RO_LIB                    ; Is it a predefined name?
+    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    OR   A                         ; Report success with carry clear.
+    RET                            ; The name is free.
 
-; Check the current parameter name against the current signature prefix.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Reject the current name if it repeats a parameter already in the
+; signature being parsed (RO_CPCNT entries from RO_CPIDX).
+
 RO_NODUP:
-    LD   A,(RO_CPCNT)
-    OR   A
-    RET  Z
-    LD   C,A
-    LD   A,(RO_CPIDX)
-    LD   B,A
-.LOOP:
-    LD   A,B
-    CALL RO_PARAM
-    CALL TK_SAME
-    JP   C,EX_EDUP
-    INC  B
-    DEC  C
-    JR   NZ,.LOOP
-    OR   A
-    RET
+    LD   A,(RO_CPCNT)              ; Parameters so far in this signature.
+    OR   A                         ; Are there any?
+    RET  Z                         ; The first parameter repeats nothing.
+    LD   C,A                       ; C counts the entries left.
+    LD   A,(RO_CPIDX)              ; The signature's first parameter.
+    LD   B,A                       ; B is the index being compared.
+.LOOP:                         ; Compare one parameter's name.
+    LD   A,B                       ; Select entry B.
+    CALL RO_PARAM                  ; HL addresses it; the name comes first.
+    CALL TK_SAME                   ; Does its spelling match the token?
+    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    INC  B                         ; Next entry.
+    DEC  C                         ; One entry fewer.
+    JR   NZ,.LOOP                  ; Continue through the signature.
+    OR   A                         ; Report success with carry clear.
+    RET                            ; The name is new to the signature.
 
-; Reject a parameter name that collides with an ordinary declaration, an
-; earlier routine, the routine whose signature is being parsed, or an earlier
-; parameter in that signature.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Reject a parameter name that collides with an ordinary declaration, a
+; routine, main, a predefined name, the routine whose signature is being
+; parsed, or an earlier parameter of that signature.
+
 RO_VET:
-    CALL EX_FRESH
-    CALL RO_FRESH
-    LD   A,(RO_CUR)
-    CALL RO_SUBAT
-    LD   E,(HL)
-    INC  HL
-    LD   D,(HL)
-    INC  HL
-    LD   A,(HL)
-    LD   B,A
-    EX   DE,HL
-    CALL TK_MATCH
-    JP   C,EX_EDUP
-    JR   RO_NODUP
+    CALL EX_FRESH                  ; Not a symbol and not main.
+    CALL RO_FRESH                  ; Not a routine or a predefined name.
+    LD   A,(RO_CUR)                ; The routine being declared is not counted yet.
+    CALL RO_SUBAT                  ; So address its entry and compare it directly.
+    LD   E,(HL)                    ; Read the address of its spelling.
+    INC  HL                        ; High byte.
+    LD   D,(HL)                    ; DE addresses the spelling.
+    INC  HL                        ; Then its length.
+    LD   A,(HL)                    ; Read the length.
+    LD   B,A                       ; TK_MATCH takes it in B.
+    EX   DE,HL                     ; And the spelling in HL.
+    CALL TK_MATCH                  ; Is the parameter named as the routine?
+    JP   C,EX_EDUP                 ; Raise DG_DUP.
+    JR   RO_NODUP                  ; Check the earlier parameters.
 
-; Append the current parameter name and its parsed type A.
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Append the current NAME as a parameter of type A to the parameter table
+; and the signature. A full table raises DG_PARAM, which does not return.
+
 RO_ENROL:
-    LD   (RO_OTYPE),A
-    LD   A,(RO_PCNT)
-    CP   RO_PCAP
-    JR   NC,.FULL
-    CALL RO_PARAM
-    CALL TK_KEEP
-    INC  HL
-    LD   A,(RO_OTYPE)
-    LD   (HL),A
-    LD   HL,RO_PCNT
-    INC  (HL)
-    LD   HL,RO_CPCNT
-    INC  (HL)
-    LD   A,(RO_OTYPE)
-    OR   A
-    RET
-.FULL:
-    CALL DG_RAISE
-    DB   DG_PARAM
+    LD   (RO_OTYPE),A              ; Keep the type.
+    LD   A,(RO_PCNT)               ; Parameters in the whole table.
+    CP   RO_PCAP                   ; Is it full?
+    JR   NC,.FULL                  ; Raise DG_PARAM.
+    CALL RO_PARAM                  ; HL addresses the next free entry.
+    CALL TK_KEEP                   ; Store the name; HL is at its length.
+    INC  HL                        ; The type follows.
+    LD   A,(RO_OTYPE)              ; Recover the type.
+    LD   (HL),A                    ; Store it.
+    LD   HL,RO_PCNT                ; Count the entry in the whole table.
+    INC  (HL)                      ; One parameter more for all routines.
+    LD   HL,RO_CPCNT               ; And in the current signature.
+    INC  (HL)                      ; One parameter more.
+    LD   A,(RO_OTYPE)              ; Return the type.
+    OR   A                         ; With carry clear.
+    RET                            ; The parameter is enrolled.
+.FULL:                         ; No room for another parameter.
+    CALL DG_RAISE                  ; Raise the diagnostic below.
+    DB   DG_PARAM                  ; Too many parameters.
 
-; Parse the parameter list and optional result of the provisional routine.
+;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Make parameter A, whose argument is at displacement C, a symbol in the
+; next frame slot, write OP_BIND (type, slot, displacement) so that the
+; prologue copies the argument there, and advance SY_LSLOT past the slot.
+; The current token is replaced by the parameter's name.
 
-; Install one retained parameter as an activation symbol and emit the copy
-; from its caller-stack carrier into the routine's negative IX frame.
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
 RO_BIND:
-    LD   (RO_CPIDX),A
-    LD   A,C
-    LD   (RO_AIDX),A
-    LD   A,(RO_CPIDX)
-    CALL RO_PARAM
-    LD   E,(HL)
-    INC  HL
-    LD   D,(HL)
-    INC  HL
-    LD   B,(HL)
-    INC  HL
-    LD   A,(HL)
-    LD   (RO_OTYPE),A
-    LD   (TK_PTR),DE
-    LD   A,B
-    LD   (TK_LEN),A
-    LD   A,(SY_LSLOT)
-    LD   (RO_OPOS),A
-    LD   C,A
-    LD   B,0
-    LD   A,(RO_OTYPE)
-    CP   AG_FIRST
-    LD   D,SY_AGGR+SY_PARAM
-    JR   NC,.SYMBOL
-.SCALAR:
-    OR   SY_PARAM
-    LD   D,A
-.SYMBOL:
-    CALL SY_NEW
-    LD   A,(RO_OTYPE)
-    CALL SY_TAG
-    LD   A,(RO_OTYPE)
-    LD   C,A
-    LD   A,OP_BIND
-    CALL PR_EMITC
-    LD   A,(RO_OPOS)
-    CALL TR_PUT
-    LD   A,(RO_AIDX)
-    CALL TR_PUT
-    LD   A,(RO_OTYPE)
-    CP   AG_FIRST
-    JR   C,.SIZE
-    CP   AG_VIEW
-    LD   A,3
-    SBC  A,0
-    JR   .ADVANCE
-.SIZE:
-    CALL EX_WIDTH
-.ADVANCE:
-    LD   HL,SY_LSLOT
-    ADD  A,(HL)
-    LD   (HL),A
-    OR   A
-    RET
+    LD   (RO_CPIDX),A              ; Keep the parameter's index.
+    LD   A,C                       ; Keep the argument's displacement.
+    LD   (RO_AIDX),A               ; OP_BIND carries it.
+    LD   A,(RO_CPIDX)              ; Select the parameter's entry.
+    CALL RO_PARAM                  ; HL addresses it.
+    LD   E,(HL)                    ; Read the address of its spelling.
+    INC  HL                        ; High byte.
+    LD   D,(HL)                    ; DE addresses the spelling.
+    INC  HL                        ; Then its length.
+    LD   B,(HL)                    ; B is the length.
+    INC  HL                        ; Then its type.
+    LD   A,(HL)                    ; Read the type.
+    LD   (RO_OTYPE),A              ; Keep it.
+    LD   (TK_PTR),DE               ; SY_NEW names the symbol from the current token.
+    LD   A,B                       ; So make the parameter's spelling the token.
+    LD   (TK_LEN),A                ; And its length.
+    LD   A,(SY_LSLOT)              ; The next free frame slot.
+    LD   (RO_OPOS),A               ; OP_BIND carries it.
+    LD   C,A                       ; The symbol's payload is the slot.
+    LD   B,0                       ; As a word.
+    LD   A,(RO_OTYPE)              ; Classify the parameter.
+    CP   AG_FIRST                  ; Is it an aggregate?
+    LD   D,SY_AGGR+SY_PARAM        ; An aggregate parameter's class.
+    JR   NC,.SYMBOL                ; Use it.
+.SCALAR:                       ; A scalar parameter's class.
+    OR   SY_PARAM                  ; The type with the parameter class.
+    LD   D,A                       ; The symbol's class byte.
+.SYMBOL:                       ; Make the symbol.
+    CALL SY_NEW                    ; Write the record.
+    LD   A,(RO_OTYPE)              ; Record the symbol's aggregate type.
+    CALL SY_TAG                    ; SY_TAG also commits the symbol.
+    LD   A,(RO_OTYPE)              ; OP_BIND's first operand is the type.
+    LD   C,A                       ; PR_EMITC writes C after the operation.
+    LD   A,OP_BIND                 ; Copy an argument into the frame.
+    CALL PR_EMITC                  ; Write OP_BIND and the type.
+    LD   A,(RO_OPOS)               ; The slot.
+    CALL TR_PUT                    ; Write it.
+    LD   A,(RO_AIDX)               ; The argument's displacement.
+    CALL TR_PUT                    ; Write it.
+    LD   A,(RO_OTYPE)              ; How many slot bytes does it take?
+    CP   AG_FIRST                  ; Is it an aggregate?
+    JR   C,.SIZE                   ; A scalar takes its width.
+    CP   AG_VIEW                   ; An open string takes three bytes.
+    LD   A,3                       ; Its address and capacity: three.
+    SBC  A,0                       ; Other aggregates take two: carry gives 3 - 1.
+    JR   .ADVANCE                  ; Advance the slot.
+.SIZE:                         ; A scalar's width.
+    CALL EX_WIDTH                  ; One or two bytes.
+.ADVANCE:                      ; Move SY_LSLOT past the slot.
+    LD   HL,SY_LSLOT               ; The next free slot.
+    ADD  A,(HL)                    ; Add the parameter's size.
+    LD   (HL),A                    ; Store it.
+    OR   A                         ; Return carry clear.
+    RET                            ; The parameter is bound.
 
-; Current token is a non-main routine name.
+;@ROUTINE IN B,D OUT A,C,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; Return in A and C the IX displacement of parameter D's argument, where B
+; counts the parameters from D to the last. The last argument is at IX+4;
+; each later parameter adds a word, and an open string its capacity word
+; too. B, D and E are preserved.
 
-; Return the positive IX displacement of the current source argument. Every
-; later source parameter contributes one address/scalar word; each later open
-; string contributes its hidden capacity word as well.
-;@ROUTINE IN B,D OUT A,B,C,D,E,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 RO_DISP:
-    PUSH BC
-    PUSH DE
-    LD   A,B
-    ADD  A,A
-    ADD  A,2
-    LD   C,A
-    DEC  B
-    JR   Z,.DONE
-    LD   A,D
-    INC  A
-    CALL RO_PARAM
-.LOOP:
-    INC  HL
-    INC  HL
-    INC  HL
-    LD   A,(HL)
-    CP   AG_VIEW
-    JR   NZ,.NEXT
-    INC  C
-    INC  C
-.NEXT:
-    INC  HL                        ; next four-byte parameter entry
-    DJNZ .LOOP
-.DONE:
-    LD   A,C
-    POP  DE
-    POP  BC
-    LD   C,A
-    OR   A
-    RET
-
-; Return aggregate symbol info in D, byte payload in BC, and exact type ID in
-; A. The ordinary symbol-table address determines the parallel type entry.
-;@ROUTINE OUT A,BC,D,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,E,HL
-RO_SYM:
-    CALL SY_FIND
-    JP   NC,SY_UNDEF
-    PUSH HL
-    INC  HL
-    INC  HL
-    INC  HL
-    LD   D,(HL)
-    LD   A,D
-    LD   (RO_ACNT),A
-    INC  HL
-    LD   C,(HL)
-    INC  HL
-    LD   B,(HL)
-    POP  HL
-    LD   DE,SY_BASE
-    OR   A
-    SBC  HL,DE
-    LD   A,L
-    LD   E,0
-.IDXLOOP:
-    CP   SY_RECB
-    JR   C,.INDEXED
-    SUB  SY_RECB
-    INC  E
-    JR   .IDXLOOP
-.INDEXED:
-    LD   A,E
-    LD   E,A
-    LD   H,0
-    LD   L,E
-    LD   DE,AG_SYTAB
-    ADD  HL,DE
-    LD   A,(HL)
-    LD   E,A
-    LD   A,(RO_ACNT)
-    LD   D,A
-    LD   A,E
-    OR   A
-    RET
-
-; Stage 7 structural operands are emitted whenever their owning operation is
-; emitted. They are not expression values and therefore do not consult the
-; constant-folding emission flag used by EX_EMITW.
-;@ROUTINE IN HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-RO_EMITW:
-    LD   A,L
-    CALL TR_PUTHL
-    LD   A,H
-    JP   TR_PUT
-
-; D is the symbol class and BC its byte offset. Emit its opaque root carrier
-; and return the exact aggregate type in A.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
-RO_ROOT:
-    CALL RO_SYM
-    LD   (RO_OTYPE),A
-    CP   AG_VIEW
-    JR   NZ,.CLASS
-    LD   A,C
-    INC  A
-    INC  A
-    LD   (RO_VCAP),A
-.CLASS:
-    LD   A,D
-    AND  SY_CMASK
-    JR   Z,RO_FIXED
-    CP   SY_GLOB
-    JR   NZ,RO_BYREF
-    LD   A,OP_REFG
-RO_ALIAS:
-    PUSH BC
-    CALL TR_OPER
-    POP  HL
-    CALL RO_EMITW
-    JR   RO_TYPED
-RO_FIXED:
-    PUSH BC
-    CALL TG_MUST
-    POP  BC
-    LD   A,OP_REFRO
-    JR   RO_ALIAS
-RO_BYREF:
-    CP   SY_PARAM
-    JP   NZ,EX_ETYPE
-    LD   A,OP_REFP
-.EMIT:
-    CALL PR_EMITC
-RO_TYPED:
-    LD   A,(RO_OTYPE)
-    OR   A
-    RET
-
-; Emit one checked postfix chain. A is the current aggregate type and one
-; carrier is live on the generated evaluation stack. D returns zero for an
-; address path or one when `.length` has already produced a scalar value.
-;@ROUTINE IN A OUT A,D,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,E,HL,IX,IY
-RO_PATH:
-    LD   D,0
-RO_SEL:
-    PUSH AF
-    CALL PR_PEEK
-    CP   TK_DOT
-    JR   Z,.DOT
-    CP   TK_LBRAC
-    JP   Z,RO_INDEX
-    POP  AF
-    LD   D,0
-    OR   A
-    RET
-.DOT:
-    POP  AF
-    LD   (RO_OTYPE),A
-    CALL AC_SAFE
-    LD   A,(RO_OTYPE)
-    PUSH AF
-.FIELD:
-    CALL PR_TAKE
-    LD   E,TK_NAME
-    CALL PR_NEED
-    POP  AF
-    PUSH AF
-    CP   AG_FIRST
-    CP   AG_VIEW
-    JR   Z,.STRFIELD
-    CALL AG_DESC
-    LD   A,(HL)
-    CP   AG_KSTR
-    JR   NZ,RO_FIELD
-.STRFIELD:
-    LD   HL,KW_LEN
-    LD   B,6
-    CALL TK_MATCH
-    JP   NC,RO_EPATH
-    LD   A,(RO_OTYPE)
-    CP   AG_VIEW
-    JR   Z,.OPENSTR
-    CALL AG_DESC
-    INC  HL
-    LD   C,(HL)                    ; capacity for L <= N validation
-    LD   A,OP_LEN
-    JR   .LENGTH
-.OPENSTR:
-    LD   A,(RO_VCAP)
-    LD   C,A
-    LD   A,OP_VLEN
-.LENGTH:
-    CALL PR_EMITC
-    LD   HL,(TK_POS)
-    CALL RO_EMITW
-    POP  AF
-    LD   A,SY_U8
-    LD   D,1
-    OR   A
-    RET
-RO_ENAME:
-    CALL DG_RAISE
-    DB   DG_UNDEF
-RO_FIELD:
-    POP  AF
-    CALL AG_DESC
-    LD   A,(HL)
-    CP   AG_KREC
-    JP   NZ,EX_ETYPE
-    INC  HL
-    LD   A,(HL)
-    ADD  A,A
-    LD   E,A
-    LD   D,0
-    LD   HL,AG_RTAB
-    ADD  HL,DE
-    LD   B,(HL)
-    INC  HL
-    LD   D,(HL)
-.LOOP:
-    LD   A,D
-    OR   A
-    JR   Z,RO_ENAME
-    LD   A,B
-    CALL AG_FIELD
-    PUSH DE
-    CALL TK_SAME
-    POP  DE
-    JR   C,.FOUND
-    INC  B
-    DEC  D
-    JR   .LOOP
-.FOUND:
-    LD   A,B
-    CALL AG_FIELD
-    LD   DE,AG_FTYPE
-    ADD  HL,DE
-    LD   A,(HL)
-    INC  HL
-    LD   E,(HL)
-    INC  HL
-    LD   D,(HL)
-    OR   A
-    PUSH AF
-    LD   (RO_OPOS),DE
-    LD   A,OP_FIELD
-    CALL TR_OPER
-    LD   HL,(RO_OPOS)
-    CALL RO_EMITW
-    POP  AF
-    JP   RO_SEL
-RO_INDEX:
-    POP  AF
-    LD   (RO_OTYPE),A
-    CALL AC_SAFE
-    LD   A,(RO_VCAP)
-    PUSH AF
-    LD   A,(RO_OTYPE)
-    PUSH AF
-.OPERAND:
-    LD   HL,(TK_POS)
-    PUSH HL
-    CALL PR_TAKE
-    LD   A,(EX_WANT)
-    PUSH AF
-    LD   A,(EX_LIVE)
-    PUSH AF
-    LD   A,1
-    LD   (EX_LIVE),A
-    LD   A,SY_U16
-    LD   (EX_WANT),A
-    CALL EX_PARSE
-    CALL EX_PURE
-    LD   (EX_RMETA),A
-    LD   (EX_RVAL),HL
-    POP  AF
-    LD   (EX_LIVE),A
-    POP  AF
-    LD   (EX_WANT),A
-    LD   A,(EX_RMETA)
-    AND  SY_TMASK
-    CP   SY_BOOL
-    JP   Z,RO_EIDX
-    LD   E,TK_RBRAC
-    CALL PR_NEED
-    POP  HL
-    LD   (RO_DPOS),HL
-    POP  AF
-    LD   E,A
-    POP  BC
-    LD   A,B
-    LD   (RO_VCAP),A
-    LD   A,E
-    CP   AG_FIRST
-    JP   C,EX_ETYPE
-    PUSH AF
-    CP   AG_VIEW
-    JR   Z,RO_OSIDX
-    CALL AG_DESC
-    LD   A,(HL)
-    CP   AG_KSTR
-    JR   Z,RO_CHAR
-    CP   AG_KARR
-    JP   NZ,RO_EPATH
-    INC  HL
-    LD   A,(HL)                    ; element type
-    LD   (RO_OTYPE),A
-    INC  HL
-    LD   C,(HL)                    ; fixed length
-    INC  HL
-    LD   B,(HL)
-    LD   A,(EX_RMETA)
-    AND  SY_KNOWN
-    JR   Z,RO_ITEM
-    LD   HL,(EX_RVAL)
-    OR   A
-    SBC  HL,BC
-    JR   NC,RO_ERNG
-RO_ITEM:
-    LD   (RO_OPOS),BC
-    LD   A,(RO_OTYPE)
-    CALL AG_SIZE
-    LD   (RO_OSIZE),HL
-    LD   A,OP_INDEX
-    CALL TR_OPER
-    LD   HL,(RO_OPOS)
-    CALL RO_EMITW
-    LD   HL,(RO_OSIZE)
-    CALL RO_EMITW
-    LD   HL,(RO_DPOS)
-    CALL RO_EMITW
-    POP  AF
-    CALL AG_DESC
-    INC  HL
-    LD   A,(HL)
-    JP   RO_SEL
-RO_CHAR:
-    INC  HL
-    LD   C,(HL)                    ; capacity
-    LD   A,OP_CHAR
-    JR   RO_IDXOP
-RO_OSIDX:
-    LD   A,(RO_VCAP)
-    LD   C,A
-    LD   A,OP_VCHAR
-RO_IDXOP:
-    CALL PR_EMITC
-    LD   HL,(RO_DPOS)
-    CALL RO_EMITW
-    POP  AF
-    LD   A,SY_U8
-    JP   RO_SEL
-RO_EIDX:
-    POP  HL
-    POP  AF
-    POP  BC
-    JP   EX_ETYPE
-RO_ERNG:
-    LD   A,(EX_QUIET)
-    OR   A
-    JR   NZ,RO_ITEM
-    LD   HL,(RO_DPOS)
-    LD   (TK_POS),HL
-    POP  AF
-    JP   EX_EBIG
-RO_EPATH:
-    POP  AF
-    JP   EX_ETYPE
-
-; Address one bounded nested-call frame. Eight bytes retain the source-call
-; metadata that nested argument calls may overwrite. The scalar parser keeps
-; only its balanced expression context, a source frame keeps its result flag,
-; and a service keeps only its source offset temporarily on the compiler
-; hardware stack.
-;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE
-RO_FRAME:
-    LD   L,A
-    LD   H,0
-    ADD  HL,HL
-    ADD  HL,HL
-    ADD  HL,HL
-    LD   DE,RO_NTAB
-    ADD  HL,DE
-    OR   A
-    RET
-
-;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE
-RO_TOP:
-    LD   A,(RO_DEPTH)
-    DEC  A
-    JR   RO_FRAME
-
-; Parse and validate one scalar argument against the expected type in A while
-; preserving the enclosing expression context across nested calls.
-;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,IX,IY
-RO_ARG:
-    LD   D,A
-    LD   A,(EX_WANT)
-    LD   B,A
-    LD   A,(EX_LIVE)
-    LD   C,A
-    PUSH BC
-    PUSH DE
-    LD   A,D
-    LD   (EX_WANT),A
-    LD   A,1
-    LD   (EX_LIVE),A
-    CALL EX_PARSE
-    LD   (RO_OTYPE),A
-    LD   (EX_RVAL),HL
-    POP  DE
-    POP  BC
-    LD   A,C
-    LD   (EX_LIVE),A
-    LD   A,B
-    LD   (EX_WANT),A
-    LD   E,D
-    LD   A,(RO_OTYPE)
-    LD   HL,(EX_RVAL)
-    CALL EX_FITS
-    JP   AC_SAFE
-
-; Parse one call to a retained routine. A is the routine-table index and C is
-; zero when the result is discarded or one when its carrier remains live.
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
-RO_CALL:
-    LD   B,A
-    LD   A,(RO_DEPTH)
-    CP   RO_NCAP
-    JR   C,.ROOM
-    CALL DG_RAISE
-    DB   DG_DEEP
-.ROOM:
-    CALL RO_FRAME
-    LD   A,C
-    PUSH AF
-    PUSH HL
-    LD   A,B
-    CP   RO_MAIN
-    JR   Z,.MAIN
-    CALL RO_SUBAT
-    INC  HL
-    INC  HL
-    INC  HL
-    LD   D,(HL)                    ; parameter start
-    INC  HL
-    LD   E,(HL)                    ; parameter count
-    INC  HL
-    LD   B,(HL)                    ; result
-    INC  HL
-    LD   A,(HL)                    ; label
-    INC  HL
-    LD   C,(HL)                    ; failure flags
-    JR   .FILL
-.MAIN:
-    LD   D,0                       ; parameter start
-    LD   E,0                       ; parameter count
-    LD   B,0                       ; result-free
-    LD   A,(RO_MFLAG)
-    LD   C,A
-    LD   A,RO_MDEST
-.FILL:
-    POP  HL
-    LD   (HL),A
-    POP  AF
-    OR   A
-    JR   Z,.LABEL
-    SET  6,(HL)
-.LABEL:
-    INC  HL
-    LD   (HL),B
-    INC  HL
-    LD   (HL),D
-    INC  HL
-    LD   (HL),E
-    INC  HL
-    LD   (HL),E                    ; original argument count
-    INC  HL
-    LD   DE,(TK_POS)
-    LD   (HL),E
-    INC  HL
-    LD   (HL),D
-    INC  HL
-    LD   (HL),C
-    LD   HL,RO_DEPTH
-    INC  (HL)
-    CALL PR_LEFT
-.ARGLOOP:
-    CALL RO_TOP
-    INC  HL
-    INC  HL
-    INC  HL
-    LD   A,(HL)
-    OR   A
-    JP   Z,.ARGSDONE
-    DEC  HL
-    LD   A,(HL)                    ; current parameter table index
-    CALL RO_PARAM
-    INC  HL
-    INC  HL
-    INC  HL
-    LD   A,(HL)
-    LD   D,A
-    XOR  A
-    LD   (RO_PEND),A
-    LD   A,D
-    CP   AG_FIRST
-    JR   NC,.AGGRARG
-    CALL RO_ARG
-    JR   .ARGOK
-.AGGRARG:
-    CALL RO_AGGR
-    PUSH AF
-    CALL RO_TOP
-    INC  HL
-    INC  HL
-    LD   A,(HL)
-    CALL RO_PARAM
-    INC  HL
-    INC  HL
-    INC  HL
-    LD   D,(HL)
-    POP  AF
-    LD   (RO_OTYPE),A
-    LD   A,D
-    LD   (RO_DTYPE),A
-    CP   AG_VIEW
-    JR   Z,.OPENSTR
-    LD   A,(RO_OTYPE)
-    CP   D
-    JP   NZ,RO_EARG
-    JR   .TYPEOK
-.OPENSTR:
-    LD   A,(RO_OTYPE)
-    CP   AG_VIEW
-    JR   Z,.TYPEOK
-    CALL RO_CAP
-.TYPEOK:
-; A cross-bank aggregate parameter must originate at a direct
-; program root. Diagnose through the ordinary call-frame unwind.
-    CALL RO_TOP
-    LD   DE,RO_NFLAG
-    ADD  HL,DE
-    LD   D,(HL)
-    CALL TG_SAME
-    JR   Z,.BANKOK
-    LD   A,C
-    OR   A
-    JR   NZ,.BANKOK
-    LD   A,DG_CFG
-    CALL DG_ISSUE
-.BANKOK:
-    CALL AC_SAFE
-    LD   A,(RO_DTYPE)
-    CP   AG_VIEW
-    JR   NZ,.ARGOK
-    CALL .OPENARG
-.ARGOK:
-    CALL RO_TOP
-    INC  HL
-    INC  HL
-    INC  (HL)
-    INC  HL
-    DEC  (HL)
-    JR   Z,.ARGSDONE
-    LD   E,TK_COMMA
-    CALL PR_NEED
-    JP   .ARGLOOP
-
-; Convert one concrete or already-open bounded-string carrier into the two-word
-; internal call form: actual capacity below the ordinary address carrier.
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
-.OPENARG:
-    LD   A,(RO_OTYPE)
-    CP   AG_VIEW
-    JR   Z,.FORWARD
-    CALL RO_CAP
-    LD   (RO_ACNT),A
-    XOR  A
-    JR   .OPENOK
-.FORWARD:
-    LD   A,(RO_VCAP)
-    LD   (RO_ACNT),A
-    LD   A,1
-.OPENOK:
-    LD   C,A
-    LD   A,OP_VIEW
-    CALL PR_EMITC
-    LD   A,(RO_ACNT)
-    CALL TR_PUT
-    CALL RO_TOP
-    LD   DE,RO_NACNT
-    ADD  HL,DE
-    INC  (HL)
-    OR   A
-    RET
-.ARGSDONE:
-    CALL PR_RIGHT
-    CALL RO_TOP
-    LD   A,(HL)
-    LD   (RO_DEST),A
-    INC  HL
-    LD   A,(HL)
-    LD   (RO_DTYPE),A
-    INC  HL
-    INC  HL
-    INC  HL
-    LD   A,(HL)
-    LD   (RO_ACNT),A
-    INC  HL
-    LD   E,(HL)
-    INC  HL
-    LD   D,(HL)
-    LD   (RO_DPOS),DE
-    INC  HL
-    LD   A,(HL)
-    LD   (RO_DFLAG),A
-    LD   HL,RO_DEPTH
-    DEC  (HL)
-    LD   A,(RO_DTYPE)
-    CP   AG_FIRST
-    JR   C,.RESULTOK
-    LD   A,(RO_DFLAG)
-    LD   D,A
-    CALL TG_MUST
-.RESULTOK:
-    LD   A,(RO_DFLAG)
-    AND  RO_FFAIL
-    JR   Z,.FAILOK
-    LD   A,(RO_DEPTH)
-    OR   A
-    JP   NZ,AC_ELEAK
-.FAILOK:
-; Publish one completed call description. RO_DEST contains the packed
-; target, kind, and keep-result choice. Target-specific signature fields are
-; present only for source routines.
-RO_PUB:
-    LD   A,OP_CALL
-    CALL TR_OPER
-    LD   A,(RO_DEST)
-    CALL TR_PUT
-    AND  RO_FIO
-    JR   NZ,.COMMON
-    LD   A,(RO_ACNT)
-    CALL TR_PUT
-    LD   A,(RO_DTYPE)
-    CALL TR_PUT
-    LD   A,(RO_DFLAG)
-    CALL TR_PUT
-.COMMON:
-    LD   HL,(RO_DPOS)
-    CALL RO_EMITW
-    CALL RO_PAD
-    LD   A,(RO_DFLAG)
-    AND  RO_FFAIL
-    LD   (RO_PEND),A
-    LD   A,(RO_DTYPE)
-    OR   A
-    RET
-RO_EARG:
-    LD   HL,RO_DEPTH
-    DEC  (HL)
-    JP   EX_ETYPE
-
-; Parse a name-rooted aggregate path or aggregate-returning call. The result
-; must still be an address path; scalar selection is rejected by this entry.
-;@ROUTINE OUT A,C,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,D,DE,HL,IX,IY
-RO_AGGR:
-    LD   E,TK_NAME
-    CALL PR_NEED
-    CALL RO_FIND
-    JR   NZ,.SYMBOL
-    LD   C,1
-    CALL RO_CALL
-    CP   AG_FIRST
-    JP   C,EX_ETYPE
-    LD   C,0
-    JR   .SUFFIX
-.SYMBOL:
-    CALL RO_SYM
-    LD   A,D
-    AND  SY_AGGR
-    JP   Z,EX_ETYPE
-    LD   A,D
-    AND  SY_CMASK
-    LD   C,0
-    CP   SY_GLOB
-    JR   NZ,.ROOTED
-    INC  C
-.ROOTED:
-    PUSH BC
-    CALL RO_ROOT
-    POP  BC
-    LD   A,(RO_OTYPE)
-    JR   .SUFFIX
-.SUFFIX:
-    PUSH BC
-    CALL RO_PATH
-    POP  BC
-    LD   E,A
-    LD   A,D
-    OR   A
-    JP   NZ,EX_ETYPE
-    LD   A,E
-    CP   AG_FIRST
-    JP   C,EX_ETYPE
-    OR   A
-    RET
-
-; Convert a scalar address path to an ordinary typed expression carrier.
-;@ROUTINE IN A,D OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL
-RO_LOAD:
-    CP   AG_FIRST
-    JP   NC,EX_ETYPE
-    LD   (RO_OTYPE),A
-    LD   A,D
-    LD   (RO_ACNT),A
-    OR   A
-    JR   NZ,.READY
-    LD   A,(RO_OTYPE)
-    CP   SY_U16
-    LD   A,OP_LDX8
-    JR   NZ,.EMIT
-    LD   A,OP_LDX16
-.EMIT:
-    CALL TR_OPER
-.READY:
-    LD   A,(RO_OTYPE)
-    OR   A
-    RET
-
-; Hooks entered by the scalar primary parser after it has consumed the NAME.
-RO_FUNC:
-    LD   C,1
-    CALL RO_CALL
-    OR   A
-    JP   Z,EX_ETYPE
-    CP   AG_FIRST
-    JR   NC,RO_WALK
-    OR   A
-    RET
-RO_WALK:
-    CALL RO_PATH
-    JR   RO_LOAD
-
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
-RO_QUERY:
-    LD   HL,(TK_POS)
-    LD   (RO_DPOS),HL
-    LD   C,1
-    JR   RO_SERVE
-
-;@ROUTINE IN A OUT A,B,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,D,DE,IX,IY
-RO_CAUSE:
-    SUB  RO_ERRS-1
-    LD   L,A
-    LD   H,0
-    LD   B,SY_KNOWN+SY_U8
-    JP   EX_LIT
-
-; A is the dense service ID and C says whether a successful u8 result is kept.
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
-RO_SERVE:
-    LD   E,A
-    LD   D,0
-    LD   HL,KW_SIGS
-    ADD  HL,DE
-    LD   A,(HL)
-    DEC  C
-    JR   NZ,.DESC
-    OR   RO_FKEEP
-.DESC:
-    LD   (RO_IO),A
-    CALL PR_LEFT
-    LD   A,(RO_IO)
-    RRCA
-    RRCA
-    RRCA
-    AND  $03
-    JR   Z,.CLOSE
-    LD   D,A
-.ARG:
-    LD   HL,(RO_DPOS)
-    PUSH HL
-    LD   A,D
-    CALL RO_ARG
-    POP  HL
-    LD   (RO_DPOS),HL
-.CLOSE:
-    CALL PR_RIGHT
-    LD   A,(RO_IO)
-    LD   (RO_DEST),A
-    AND  RO_RES8
-    RLCA
-    RLCA
-    RLCA
-.RESULT:
-    LD   (RO_DTYPE),A
-    LD   A,RO_FFAIL
-    LD   (RO_DFLAG),A
-    JP   RO_PUB
-
-; Return the declared byte capacity of a bounded-string type ordinal.
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-RO_CAP:
-    CALL AG_DESC
-    LD   A,(HL)
-    CP   AG_KSTR
-    JP   NZ,EX_ETYPE
-    INC  HL
-    LD   A,(HL)
-    OR   A
-    RET
-
-;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-RO_PAD:
-    LD   HL,(TR_PTR)
-    LD   (RO_MODEP),HL
-    LD   C,3
-    XOR  A
-.LOOP:
-    CALL TR_PUT
-    DEC  C
-    JR   NZ,.LOOP
-    RET
-
-RO_OBJ:
-    CALL RO_ROOT
-    JP   RO_WALK
-
-; Current routine name has already been consumed as a complete statement.
-
-; D contains the aggregate symbol info and AC_DVAL its root offset.
-RO_LET:
-    LD   A,D
-    AND  SY_CMASK
-    JR   NZ,.WRITABLE
-    CALL DG_RAISE
-    DB   DG_CONST
-.WRITABLE:
-    CALL RO_ROOT
-    CALL RO_PATH
-    LD   E,A
-    LD   A,D
-    OR   A
-    JP   NZ,EX_ETYPE
-    LD   A,E
-    LD   (RO_OTYPE),A
-    CALL PR_EQUAL
-    LD   HL,(TK_POS)
-    LD   (RO_DPOS),HL
-    LD   A,(RO_OTYPE)
-    CP   AG_FIRST
-    JR   NC,.COPY
-    LD   E,A
-    CALL EX_RUN
-    LD   D,A
-    LD   A,(RO_OTYPE)
-    LD   E,A
-    LD   A,D
-    CALL EX_FITS
-    LD   A,1
-    LD   (RO_KEPT),A
-    CALL AC_ROUTE
-    LD   A,(RO_OTYPE)
-    CP   SY_U16
-    LD   A,OP_STX8
-    JR   NZ,.EMIT
-    LD   A,OP_STX16
-.EMIT:
-    CALL TR_OPER
-    RET
-.COPY:
-    PUSH AF
-    CALL RO_AGGR
-    LD   D,A
-    POP  AF
-    CP   AG_VIEW
-    JP   Z,EX_ETYPE
-    CP   D
-    JP   NZ,EX_ETYPE
-    CALL AG_SIZE
-    LD   (RO_OSIZE),HL
-    LD   A,1
-    LD   (RO_KEPT),A
-    CALL AC_ROUTE
-    LD   A,OP_COPY
-    CALL TR_OPER
-    LD   HL,(RO_OSIZE)
-    CALL RO_EMITW
-    LD   HL,(RO_DPOS)
-    CALL RO_EMITW
-    RET
+    PUSH BC                        ; Keep the count.
+    PUSH DE                        ; Keep the parameter index.
+    LD   A,B                       ; Parameters from this one to the last.
+    ADD  A,A                       ; One argument word per remaining parameter.
+    ADD  A,2                       ; Plus two words of saved IX and return address.
+    LD   C,A                       ; C is the displacement so far.
+    DEC  B                         ; Count the later parameters.
+    JR   Z,.DONE                   ; The last parameter has none.
+    LD   A,D                       ; Start at the next parameter.
+    INC  A                         ; Its index.
+    CALL RO_PARAM                  ; HL addresses its entry.
+.LOOP:                         ; Look at one later parameter.
+    INC  HL                        ; Skip the spelling's address.
+    INC  HL                        ; Skip its high byte.
+    INC  HL                        ; Skip the length to reach the type.
+    LD   A,(HL)                    ; Read the type.
+    CP   AG_VIEW                   ; Is it an open string?
+    JR   NZ,.NEXT                  ; Other parameters are one word.
+    INC  C                         ; Its capacity word lies above this argument.
+    INC  C                         ; So add a second byte for the word.
+.NEXT:                         ; Move to the following parameter.
+    INC  HL                        ; Step to the next four-byte entry.
+    DJNZ .LOOP                     ; Look at every later parameter.
+.DONE:                         ; Return the displacement.
+    LD   A,C                       ; Keep it across the restores.
+    POP  DE                        ; Restore the parameter index.
+    POP  BC                        ; Restore the count.
+    LD   C,A                       ; Return it in C as well.
+    OR   A                         ; With carry clear.
+    RET                            ; A and C are the displacement.

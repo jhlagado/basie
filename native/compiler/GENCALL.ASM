@@ -726,8 +726,8 @@ RG_STROP:
     LD   (RO_ACNT),A               ; RG_CHECK loads it into C.
     LD   L,A                       ; Form the capacity as a word.
     LD   H,0                       ; It is at most 255.
-    INC  HL                        ; Add the string's two
-    INC  HL                        ; representation bytes.
+    INC  HL                        ; Add the string's first representation byte.
+    INC  HL                        ; And its second.
     LD   (RO_OSIZE),HL             ; The region RG_FIT checks.
     JP   RG_NOTE                   ; Read the offset and return.
 

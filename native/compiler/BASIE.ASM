@@ -41,7 +41,8 @@
 %INCLUDE "EXOPER.ASM"              ; Expressions: binary operators and entries.
 %INCLUDE "CONTROL.ASM"             ; The structured control parser.
 %INCLUDE "AGGR.ASM"                ; Records, arrays, strings and constants.
-%INCLUDE "ROUTINES.ASM"            ; Routines, parameters, calls, services.
+%INCLUDE "ROUTINES.ASM"            ; Routine names, parameters, compile entry.
+%INCLUDE "CALLS.ASM"               ; Calls, services and aggregate paths.
 %INCLUDE "LL1.ASM"                 ; The LL(1) engine.
 %INCLUDE "GRAMMAR.ASM"             ; The generated grammar tables.
 %INCLUDE "ACTIONS.ASM"             ; The grammar's semantic actions.
