@@ -254,7 +254,8 @@ PE_RUN:                        ; Called after publication.
     CALL REP_HEX                   ; in hex,
     CALL REP_LIT                   ; then
     DB   ", margin ",0             ; the margin:
-    LD   HL,(PF_TOP)               ; Nominal top - required, 24-bit.
+    LD   HL,(PF_TOP)               ; Nominal top - required, 24-bit:
+    XOR  A                         ; the top is 0:HL.
     CALL .MINUSREQ                 ; A:HL.
     CALL REP_SIGN                  ; In decimal.
     CALL REP_LINE                  ; The label follows.
@@ -263,25 +264,28 @@ PE_RUN:                        ; Called after publication.
     DB   "margin ",0               ; Only the margin.
     LD   HL,(PF_TOP)               ; The nominal top
     LD   DE,(PF_BLOCK+18)          ; less the debugger margin,
-    OR   A                         ; 16 bits, which a top below the
-    SBC  HL,DE                     ; margin would wrap;
+    XOR  A                         ; as a 24-bit
+    SBC  HL,DE                     ; value: A is $FF
+    SBC  A,A                       ; if it is negative;
     CALL .MINUSREQ                 ; less required, 24-bit.
     CALL REP_SIGN                  ; In decimal.
     CALL REP_CRLF                  ; End the line,
     JP   REP_CRLF                  ; and leave an empty one; return.
 
-;@ROUTINE IN HL OUT A,HL CLOBBERS C,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Return A:HL = HL - REQUIRED, as a 24-bit signed value.
+;@ROUTINE IN A,HL OUT A,HL CLOBBERS BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Return A:HL = A:HL - REQUIRED, as a 24-bit signed value.
 
-.MINUSREQ:                     ; HL is a top of memory.
-    PUSH HL                        ; Keep it.
+.MINUSREQ:                     ; A:HL is a top of memory.
+    LD   B,A                       ; Keep its high byte,
+    PUSH HL                        ; and its low word.
     CALL .REQUIRED                 ; A:HL is REQUIRED.
     LD   C,A                       ; C:DE = required:
     EX   DE,HL                     ; its low word in DE.
-    POP  HL                        ; HL is the top.
-    XOR  A                         ; A:HL = 0:HL
-    SBC  HL,DE                     ; less C:DE,
-    SBC  A,C                       ; 24 bits.
+    POP  HL                        ; B:HL is the top.
+    LD   A,B                       ; A:HL is the top,
+    OR   A                         ; less C:DE,
+    SBC  HL,DE                     ; 24
+    SBC  A,C                       ; bits.
     RET                            ; A:HL is the margin.
 
 ;@ROUTINE OUT A,HL CLOBBERS DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -475,41 +479,54 @@ MAP_DEAD:                      ; The map is open.
     CALL REP_LIT                   ; The heading follows.
     DB   13,10,"REMOVED BLOBS",13,10 ; An empty line, the section's title,
     DB   "Ordinal  Size  Kind     Name",13,10,0 ; and the columns.
-    LD   HL,0                      ; The totals
-    LD   (LIB_KEPT),HL             ; start
-    LD   (LIB_GONE),HL             ; at
-    LD   (PRG_KEPT),HL             ; zero.
-    LD   (PRG_GONE),HL             ; All four.
+    LD   HL,LIB_KEPT               ; The four totals
+    LD   B,12                      ; start at zero,
+.ZERO:                         ; HL walks their twelve bytes.
+    LD   (HL),0                    ; Clear one.
+    INC  HL                        ; The next.
+    DJNZ .ZERO                     ; Until all are clear.
     LD   HL,MAP_ADD                ; Each blob,
     LD   (WK_EACH),HL              ; live or not,
     CALL WK_BOTH                   ; in directory order.
     CALL REP_LIT                   ; The totals follow.
     DB   13,10,"TOTALS",13,10      ; An empty line, the title,
     DB   "Program   kept ",0       ; and the program's.
-    LD   HL,(PRG_KEPT)             ; Kept bytes,
-    CALL REP_NUM                   ; in decimal.
+    LD   HL,PRG_KEPT               ; Kept bytes,
+    CALL .TOTAL                    ; in decimal.
     CALL REP_LIT                   ; Then
     DB   ", removed ",0            ; removed
-    LD   HL,(PRG_GONE)             ; bytes,
-    CALL REP_NUM                   ; in decimal.
+    LD   HL,PRG_GONE               ; bytes,
+    CALL .TOTAL                    ; in decimal.
     CALL REP_LIT                   ; The library's line.
     DB   13,10,"Library   kept ",0 ; Its kept bytes,
-    LD   HL,(LIB_KEPT)             ; the total,
-    CALL REP_NUM                   ; in decimal.
+    LD   HL,LIB_KEPT               ; the total,
+    CALL .TOTAL                    ; in decimal.
     CALL REP_LIT                   ; Then
     DB   ", removed ",0            ; removed
-    LD   HL,(LIB_GONE)             ; bytes,
-    CALL REP_NUM                   ; in decimal.
+    LD   HL,LIB_GONE               ; bytes,
+    CALL .TOTAL                    ; in decimal.
     JP   REP_CRLF                  ; End the line; return.
 
+;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the 24-bit total at HL in decimal.
+
+.TOTAL:                        ; HL is LIB_KEPT, LIB_GONE, PRG_KEPT or PRG_GONE.
+    LD   E,(HL)                    ; Its low byte,
+    INC  HL                        ; then
+    LD   D,(HL)                    ; its middle byte,
+    INC  HL                        ; then
+    LD   A,(HL)                    ; its high byte, in A.
+    EX   DE,HL                     ; A:HL is the total,
+    JP   REP_SIGN                  ; written; return.
+
 LIB_KEPT:                      ; The library's live bytes.
-    DW   0                         ; 16 bits, unchecked.
+    DS   3                         ; 24 bits.
 LIB_GONE:                      ; The library's removed bytes.
-    DW   0                         ; 16 bits, unchecked.
-PRG_KEPT:                      ; The program's live bytes; four bytes on.
-    DW   0                         ; 16 bits, unchecked.
+    DS   3                         ; 24 bits.
+PRG_KEPT:                      ; The program's live bytes; six bytes on.
+    DS   3                         ; 24 bits.
 PRG_GONE:                      ; The program's removed bytes.
-    DW   0                         ; 16 bits, unchecked.
+    DS   3                         ; 24 bits.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A blob of the removed pass: add its size to its owner's kept or removed
@@ -526,22 +543,21 @@ MAP_ADD:                       ; A walk's callback.
     LD   A,(WK_OWN)                ; The program's?
     OR   A                         ; Owner 1.
     JR   Z,.ADD                    ; The library's.
-    INC  HL                        ; PRG_KEPT and PRG_GONE follow
-    INC  HL                        ; LIB_KEPT and LIB_GONE
-    INC  HL                        ; by four
-    INC  HL                        ; bytes.
-.ADD:                          ; HL is the total.
-    LD   E,(HL)                    ; Its low byte,
+    LD   DE,6                      ; PRG_KEPT and PRG_GONE follow LIB_KEPT
+    ADD  HL,DE                     ; and LIB_GONE by six bytes.
+.ADD:                          ; HL is the total, 24 bits.
+    LD   DE,(RD_SIZE)              ; The blob's size,
+    LD   A,(HL)                    ; added
+    ADD  A,E                       ; to the low byte,
+    LD   (HL),A                    ; kept;
     INC  HL                        ; then
-    LD   D,(HL)                    ; its high byte.
-    PUSH HL                        ; Keep the place.
-    LD   HL,(RD_SIZE)              ; The blob's size,
-    ADD  HL,DE                     ; added.
-    EX   DE,HL                     ; DE is the new total.
-    POP  HL                        ; HL is the high byte's place.
-    LD   (HL),D                    ; Store the high byte,
-    DEC  HL                        ; then
-    LD   (HL),E                    ; the low byte.
+    LD   A,(HL)                    ; to the middle byte,
+    ADC  A,D                       ; with the carry,
+    LD   (HL),A                    ; kept;
+    INC  HL                        ; and the carry
+    LD   A,(HL)                    ; into
+    ADC  A,0                       ; the high byte,
+    LD   (HL),A                    ; kept.
     LD   HL,(WK_ENTRY)             ; Live?
     BIT  5,(HL)                    ; EF_LIVE.
     JP   NZ,REF_SKIP               ; A live blob isn't listed here.

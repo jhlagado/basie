@@ -117,14 +117,28 @@ entries' old ones (`NM_SLOT`).
 
 ## Findings of the commentary pass
 
-The D44 pass read every line and changed no code. It found these faults, to
-be fixed with tests against the reference linker:
+The D44 pass read every line and changed no code. The faults it found are
+fixed, each with a test against the reference linker in `tests/blink_test.ts`,
+except these, which the CP/M harness cannot provoke, having no full disk and
+no failing rename:
 
-1. Several diagnostics name the wrong file (`OUT_TEXT` never set, `RD_NAME`
-   left on `NAME.$LT`, `.LIBKEY`, `DG_DISK`, `REP_FAIL`).
-2. Smaller: `REP_DEC` above 999,999, the debugger margin and the map totals in
-   16 bits, an unchecked backup rename and an unchecked open of the library's
-   name section.
+1. `DG_DISK` names `RD_NAME`, the file last read, when the table dump or a
+   rename of publication fails; `REP_FAIL` names the report created last,
+   which is not always the one that failed, and leaves the other unclosed.
+2. The backup rename in `PUB_RUN` and the second open of the library for its
+   name section in `PE_RUN` are not checked. On CP/M neither fails unless the
+   disk is changed during the run.
+
+Where BLINK still differs from the reference, by design or by size:
+
+- Two live aliases at one address are listed in the symbol file in ordinal
+  order; the reference lists them in the order its table first met them.
+- The map's totals are 24-bit and printed as signed, so up to 8,388,607.
+- `BSS` ending exactly at `$10000` with a stack reserve of 0 is
+  `L-FIT-MEMORY`; the reference accepts it. The compiler's reserve is never 0.
+- A name of 0 or more than 31 bytes is `L-FORMAT`, as the object format
+  says, and `NAME.$NM` from another compilation is `L-STAMP`, as for the
+  other program streams; the reference's reader accepts both.
 
 Dead bytes for the next compression pass: `.HASPREV`, `.BASE`, `EDGE_TOP`, a
 never-taken test in `.ONCE`, two spare jumps and a redundant `PUSH BC`/`POP

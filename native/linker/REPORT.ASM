@@ -56,8 +56,8 @@ NM_ORD:                        ; Per owner: the pending record's ordinal.
     DS   4                         ; Library, then program.
 NM_PEND EQU  OUT_FD            ; Per owner: its name, zero-terminated (2 x 32).
 NM_BUF EQU  OUT_FD+64          ; The current blob's name, or empty (33).
-REP_BUF EQU  OUT_FD+97         ; A number's digits (10); all three in Phase D's
-                               ; output FD, free after publication.
+REP_BUF EQU  OUT_FD+97         ; A number's sign and digits (10); all three
+                               ; in Phase D's output FD, free after publication.
 KIND_TAB:                      ; The kinds' names, seven characters each.
     DB   "code   rodata data   bss    startup" ; Kinds 0 to 4, space-padded.
 
@@ -203,8 +203,7 @@ REP_DEC:                       ; A:HL is the value, B the width.
 
 ;@ROUTINE IN A,B,HL CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; REP_DEC without keeping IX: build the digits in REP_BUF, then write them
-; after any padding. Magnitudes of a million or more, which no report
-; prints, would give a first digit past '9'.
+; after any padding.
 
 .DIGITS:                       ; A:HL is the value, B the width.
     PUSH BC                        ; Keep the width.
@@ -306,6 +305,8 @@ REP_DEC:                       ; A:HL is the value, B the width.
     POP  HL                        ; HL is the text.
     JP   REP_STR                   ; Write it; return.
 .POWERS:                       ; Three-byte powers of ten, low byte first.
+    DB   $80,$96,$98               ; 10000000.
+    DB   $40,$42,$0F               ; 1000000.
     DB   $A0,$86,$01               ; 100000.
     DB   $10,$27,$00               ; 10000.
     DB   $E8,$03,$00               ; 1000.

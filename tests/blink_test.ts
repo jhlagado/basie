@@ -36,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 11_073);
+  assertEquals(blink.length, 11_138);
 });
 
 const BLINK_DIGEST =
-  "bcc670df1c39dd88747f1b48e3b23085805d9118e4767996383b386079ef7114";
+  "3676130a25bb42b2fbbd0060c63953ac9bbb906d4ac3aaf58590af3fe7c2af39";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
@@ -913,4 +913,34 @@ Deno.test("BLINK takes part records in any order before the entries naming them"
     assertEquals(readLineStream(lines).parts, [part, "B:OTHER.BSI"]);
     compareLink(extendHello([], [], [], lines), "PROG [M,Y]", false);
   }
+});
+
+Deno.test("BLINK names the file that is short or damaged", () => {
+  // A byte stream cut short: Phase D meets its end.
+  const objects = extendHello(
+    [blobRecord(Kind.rodata, 0x401, 300, [], true)],
+    new Uint8Array(300),
+  );
+  const cut = { ...objects, bytes: objects.bytes.subarray(0, 128) };
+  assertEquals(referenceError(cut), 214);
+  assertEquals(runObjects(cut, "PROG"), error(214, ["PROG.$BY"]));
+  // A library whose key table lies beyond its end.
+  const lib = library.slice();
+  lib[34] = 1;
+  assertThrows(() => readLibrary(lib), ObjectError, "L-TRUNCATED");
+  assertEquals(runObjects(objects, "PROG", lib), error(214, ["CPM22.BRL"]));
+});
+
+Deno.test("BLINK's map totals and margins don't wrap at 16 bits", () => {
+  // Twenty dead bss blobs of 60,000 bytes: 1,200,000 removed.
+  const dead = Array.from(
+    { length: 20 },
+    (_, i) => blobRecord(Kind.bss, 0x401 + i, 60_000),
+  );
+  compareLink(extendHello(dead), "PROG [M,Y]", false);
+  // A debugger margin above the nominal top.
+  const lib = library.slice();
+  lib[42 + 18] = 0;
+  lib[42 + 19] = 0xff;
+  compareLink(extendHello([]), "PROG [M,Y]", false, lib);
 });

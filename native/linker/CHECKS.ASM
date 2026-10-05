@@ -163,10 +163,12 @@ DIR_OPEN:                      ; Called once the library's directory is read.
 ; Return in HL the library's key for the program's helper-table version.
 ; The key table is a count, then a key per version. The library's
 ; directory has been read, so LIB_FD itself is moved to the table; IX is
-; kept for the program's directory. A truncated table is reported against
-; RD_NAME, which by now names NAME.$DR, not the library.
+; kept for the program's directory. A truncated table is L-TRUNCATED for
+; the library; RD_NAME names NAME.$DR again afterwards.
 
 .LIBKEY:                       ; DIR_HEAD+10 is the program's version.
+    LD   HL,LIB_TEXT               ; The file being read,
+    LD   (RD_NAME),HL              ; for diagnostics.
     PUSH IX                        ; Keep the program directory's FD.
     LD   IX,LIB_FD                 ; Read the library.
     LD   A,(LIB_HEAD+34)           ; The key table's offset,
@@ -199,7 +201,9 @@ DIR_OPEN:                      ; Called once the library's directory is read.
     LD   L,A                       ; into L,
     CALL RD_RAW                    ; and its high byte,
     LD   H,A                       ; into H.
-    POP  IX                        ; IX is the program's directory again.
+    POP  IX                        ; IX is the program's directory again,
+    LD   DE,DIR_TEXT               ; as the file
+    LD   (RD_NAME),DE              ; being read.
     RET                            ; HL is the key.
 .NONE:                         ; The library has no key for the version.
     POP  IX                        ; Recover IX.

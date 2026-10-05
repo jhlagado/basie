@@ -30,8 +30,8 @@ OUT_FD:                        ; The FD that writes NAME.$$$.
 TB_FD EQU  OUT_FD              ; Option W's dump, made before Phase D.
 OUT_TEMP:                      ; The image's type until publication.
     DB   "$$$"                     ; Three characters.
-OUT_TEXT:                      ; The image's name as text: never filled in.
-    DS   13                        ; So a failure to make it names no file.
+OUT_TEXT:                      ; The image's name as text, NAME.$$$,
+    DS   13                        ; for diagnostics.
 SRC_LIB:                       ; The library again, for its byte section.
     DS   FD_SIZE                   ; LIB_FD stays on the directory for the walks.
 SRC_PROG:                      ; The program's byte stream, NAME.$BY.
@@ -53,11 +53,13 @@ PD_RUN:                        ; Phase C has placed everything.
     CALL OUT_PICK                  ; HL = name, A = drive,
     LD   DE,OUT_TEMP               ; under the type $$$.
     CALL FIL_INIT                  ; Set up the FCB.
-    LD   HL,OUT_TEXT               ; The file being written, for diagnostics,
-    LD   (RD_NAME),HL              ; though OUT_TEXT is empty.
+    CALL OUT_PICK                  ; Its name as text,
+    LD   DE,OUT_TEXT               ; into OUT_TEXT,
+    LD   BC,OUT_TEMP               ; with its type.
+    CALL FIL_TEXT                  ; NAME.$$$.
     XOR  A                         ; .COM: the last record padded with zeros.
     CALL FIL_MAKE                  ; Create it; carry if the directory is full.
-    JP   C,DG_DISK                 ; L-IO.
+    JP   C,OUT_FAIL                ; L-IO.
     LD   A,1                       ; NAME.$$$ exists now,
     LD   (OUT_MADE),A              ; so a failure deletes it.
     LD   IX,SRC_LIB                ; The library's byte section, through a second FD:
@@ -69,8 +71,11 @@ PD_RUN:                        ; Phase C has placed everything.
     LD   HL,LIB_FILE               ; Its name,
     LD   DE,LIB_TYPE               ; type BRL.
     CALL FIL_INIT                  ; Set up the FCB.
+    LD   HL,LIB_TEXT               ; The file being read,
+    LD   (RD_NAME),HL              ; for diagnostics.
     CALL FIL_OPEN                  ; Open it again.
-    JP   C,DG_SHORT                ; Gone since Phase A: named by RD_NAME, empty.
+    LD   HL,225                    ; L-MISSING: gone since Phase A.
+    JP   C,DG_FILE                 ; Report it with the name.
     LD   IX,SRC_PROG               ; The program's byte stream, NAME.$BY,
     LD   A,(DIR_FD+FD_FCB)         ; on the directory's drive.
     LD   HL,CMD_NAME               ; NAME,
@@ -128,7 +133,7 @@ PD_RUN:                        ; Phase C has placed everything.
 .PADDED:                       ; The image is complete.
     LD   IX,OUT_FD                 ; Close NAME.$$$;
     CALL FIL_SHUT                  ; nothing is left to pad.
-    JP   C,DG_DISK                 ; L-IO.
+    JP   C,OUT_FAIL                ; L-IO.
     JP   LN_CLOSE                  ; Finish the line table, and return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -253,14 +258,17 @@ PD_BLOB:                       ; A walk's callback.
     LD   HL,SRC_LIB                ; The library's byte section,
     LD   (SRC_FD),HL               ; read through SRC_LIB,
     LD   HL,(LIB_HEAD+16)          ; at the offset
-    LD   A,(LIB_HEAD+18)           ; its header gives.
+    LD   A,(LIB_HEAD+18)           ; its header gives,
+    LD   DE,LIB_TEXT               ; named as the library.
     JR   .SEEK                     ; Plus the blob's offset.
 .PROGRAM:                      ; NAME.$BY.
     LD   HL,SRC_PROG               ; The program's stream,
     LD   (SRC_FD),HL               ; read through SRC_PROG,
     LD   HL,8                      ; past the stream's header.
     XOR  A                         ; A small offset.
+    LD   DE,SRC_TEXT               ; Its name.
 .SEEK:                         ; A:HL is the stream's start in its file.
+    LD   (RD_NAME),DE              ; The source names a short stream.
     LD   DE,(WK_POS)               ; The blob's offset in the stream,
     ADD  HL,DE                     ; added,
     ADC  A,0                       ; with the carry into the high byte.
@@ -469,8 +477,7 @@ PD_BLOB:                       ; A walk's callback.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read the next byte of the byte stream being copied into A, keeping BC, DE
-; and HL. L-TRUNCATED at its end, named by RD_NAME, which by now is the line
-; table's or NAME.$BY's name, not always the source's.
+; and HL. L-TRUNCATED at its end, named by RD_NAME, the source's name.
 
 .SRCBYTE:                      ; SRC_FD is the source.
     PUSH IX                        ; Keep the directory's FD.
@@ -504,8 +511,15 @@ OUT_RAW:                       ; A is a byte of the output file.
     LD   IX,OUT_FD                 ; NAME.$$$.
     CALL FIL_PUTB                  ; Write A; carry if the disk is full.
     POP  IX                        ; Recover IX.
-    RET  NC                        ; Written.
-    JP   DG_DISK                   ; L-IO, named by RD_NAME.
+    RET  NC                        ; Written; fall into OUT_FAIL.
+
+;@ROUTINE NORETURN
+; The output could not be made, written or closed: L-IO for NAME.$$$.
+
+OUT_FAIL:                      ; A write, make or close of OUT_FD failed.
+    LD   HL,OUT_TEXT               ; Name the output
+    LD   (RD_NAME),HL              ; in the diagnostic.
+    JP   DG_DISK                   ; L-IO.
 
 ; ---- Intel HEX (linker §7.6) -------------------------------------------------
 
