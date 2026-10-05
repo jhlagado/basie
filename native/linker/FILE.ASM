@@ -17,7 +17,7 @@
 ;    FIL_PUTB  write a byte
 ;    FIL_SHUT  close a file, padding a written file's last record
 ;    FIL_DEL   delete a file; FIL_REN rename one to another FD's name
-;    FIL_TEXT  (PHASEA.ASM) a file's name as text, for diagnostics
+;    FIL_TEXT  (CHECKS.ASM) a file's name as text, for diagnostics
 ;
 ;  An FD is FD_SIZE bytes, laid out by the FD_ offsets below. FD_POS is the
 ;  next byte of the buffer, 0 to 127; 128 means the buffer is used up, and

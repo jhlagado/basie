@@ -14,7 +14,7 @@
 ;
 ;  The tail is copied, upper-cased and zero-terminated, to CMD_BUF and
 ;  parsed there. CMD_BUF and CMD_BAD, the text of a bad word for its
-;  diagnostic, lie in two of Phase D's FDs (PHASECD.ASM), which are unused
+;  diagnostic, lie in two of Phase D's FDs (PHASED.ASM), which are unused
 ;  until long after parsing. Each option may be given once: OP_SEEN keeps a
 ;  bit for each option with a value, OP_FLAGS and OP_EXTRA one for each flag.
 ;
