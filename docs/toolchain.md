@@ -245,11 +245,13 @@ be removed with `ERA MAIN.$*`. (`ERA *.$*` on drive `A:` would also delete
 ### 7.1 `BASIE.COM`
 
 ```text
-$0100  core: startup, BDOS and file I/O, record buffers, CRC, console,
-       command-line parsing, the chain loader
-       compiler code
-       overlay area (Section 7.3)
-       --- end of BASIE.COM, below the CCP ---
+$0100  compiler code; the shell: startup, BDOS and file I/O, CRC, console,
+       the overlay loader
+       --- end of BASIE.COM ---
+       overlay area (Section 7.3): the command line, the start of a build
+       (the library check, the parts, the stamp, the streams), the
+       predeclared names, the chain loader or the diagnostics
+       --- below the CCP ---
        compiler workspace: symbol tables, scopes, routine buffer,
        literal buffer, references, spool buffers
        ...
@@ -310,12 +312,35 @@ where it had looked on `L`'s drive alone, took it to 10,876 bytes.
   a number or a type. `BLINK` uses the same file and format for its own
   diagnostics. If `BASIE.MSG` can't be found, the programs print the message
   number and its arguments, so a diagnostic is never lost.
-- **Rarely used compiler parts,** starting with the conversion of decimal
-  literals to `f32`, are kept in `BASIE.OVL` and loaded into the overlay area
-  when first needed. A program that uses no `f32` literal never loads it.
+- **Rarely used compiler parts** are kept in `BASIE.OVL` and loaded into the
+  overlay area, which follows `BASIE.COM`'s image, when first needed. At step
+  66 they are: the command line (`COMMAND`); the start of a build, the library
+  check, the parts' loading, the stamp and the streams (`START`); the
+  predeclared names (`NAMES`), loaded before the compilation and kept for
+  all of it, so that name lookups are as fast as before; the chain to
+  `BLINK` (`CHAIN`); and the diagnostics, which read `BASIE.MSG` (`DIAG`).
+  The area is as large as the largest overlay, in whole records. The
+  conversion of decimal literals to `f32` is to be one more, loaded above
+  the predeclared names, which stay, when the first `f32` literal needs it:
+  a program that uses none never loads it.
+- `BASIE.OVL` is the magic `BSIO`, a version (1.0), the 16-bit sum of
+  `BASIE.COM`'s bytes, which ties the file to its `BASIE.COM`, a count, and
+  for each overlay its load address, its first record and its records;
+  then the overlays, each from a record boundary. It is opened once and
+  read with random reads. A missing or mismatched file is reported, since
+  the text of `BASIE.MSG` needs an overlay, as `Error 225: Message 225:
+  BASIE.OVL`.
+- A compiler diagnostic is printed as the reference toolchain prints one,
+  `MAIN.BSI 12:5: 27: count is not declared`: the part, the line and
+  column, the message number and the text with its arguments; a
+  diagnostic that names no part, and the toolchain's own, as `BLINK`
+  prints its own, `Error 225: CPM22.BRL not found`.
 
-`BASIE.COM`, `BASIE.MSG`, `BASIE.OVL`, `BLINK.COM` and the blob libraries are
-looked for on the drive given by option `L`, then on drive `A:`.
+`BASIE.MSG`, `BLINK.COM` and the blob libraries are looked for on the drive
+given by option `L`, then on drive `A:`. `BASIE.OVL` holds the command line's
+parser, option `L` included, so it is looked for before the command line is
+read: on the current drive, then on `A:`, the drives from which the CCP loads
+`BASIE.COM`.
 
 ## 8. Trap lookup
 

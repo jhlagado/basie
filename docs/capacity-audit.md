@@ -176,6 +176,14 @@ on the command line, resident source text (about 33.75K on a 62K system) and
 a 1K stack. They are listed in [limits](limits.md) §5.1 under "The native
 compiler today", each with the step that removes it.
 
+**At step 66** the one-shot code and the predeclared names leave the
+resident image for `BASIE.OVL`. Two limits come with it, both Reject class:
+`BASIE.OVL` describes at most 8 overlays (`OV_DCAP`, its directory kept in
+the shell's workspace), and the overlay area, as large as the largest
+overlay, must end with the image below the compiler's workspace, which
+`native/compiler/build.ts` checks. A diagnostic names at most a name's first
+32 characters (`DG_ALEN`). All three are in [limits](limits.md) §5.1.
+
 ### 2.4 Workspace budget for `BASIE.COM` (Implementation)
 
 The minimums in [limits](limits.md) §5.1 are not backed by a model showing

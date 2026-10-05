@@ -23,7 +23,7 @@
 ;  from 1 to 65535, T a hexadecimal number of one to four digits; T may be
 ;  combined only with L. W is BLINK's alone.
 ;
-;  Failure. A malformed part list prints the usage line (SH_USAGE). An
+;  Failure. A malformed part list prints the usage line (CL_USAGE). An
 ;  unknown, repeated or malformed option is reported as BLINK reports it,
 ;  L-COMMAND with the option as its argument, from its first character to
 ;  the next comma, bracket or the end: `Error 224: S=Q: a bad or repeated
@@ -84,20 +84,20 @@ CL_READ:                       ; The tail is at SH_TAIL.
     JR   NZ,.NOCOMMA               ; No: only the end or the options may follow.
     CALL CL_SKIP                   ; A is the first character after the comma.
     OR   A                         ; A comma must be followed by a part,
-    JP   Z,SH_USAGE                ; not by the end of the tail
+    JP   Z,CL_USAGE                ; not by the end of the tail
     CP   '['                       ; or by the options.
     JR   NZ,.PART                  ; Parse the next part.
-    JP   SH_USAGE                  ; A trailing comma is a malformed command line.
+    JP   CL_USAGE                  ; A trailing comma is a malformed command line.
 .NOCOMMA:                      ; A is the byte after the part and any spaces.
     OR   A                         ; Is this the end of the tail?
     JR   Z,.TAILDONE               ; Then the parts are complete.
     CP   '['                       ; Otherwise only the options may follow.
-    JP   NZ,SH_USAGE               ; Anything else is a malformed command line.
+    JP   NZ,CL_USAGE               ; Anything else is a malformed command line.
 .TAILDONE:                     ; A is '[' with HL after it, or the end.
     LD   C,A                       ; Keep it.
     LD   A,(SH_PCNT)               ; Was any part named?
     OR   A                         ; A command line needs at least one,
-    JP   Z,SH_USAGE                ; before any options.
+    JP   Z,CL_USAGE                ; before any options.
     LD   A,C                       ; Are there options?
     OR   A                         ; '[' if so, zero if not:
     CALL NZ,CL_OPTS                ; read them.
@@ -107,23 +107,47 @@ CL_READ:                       ; The tail is at SH_TAIL.
     LDIR                           ; on its drive
     LD   A,(CL_SEEN+CL_IS)         ; unless option S
     OR   A                         ; gives
-    RET  Z                         ; the spool drive.
-    LD   (SH_SNAME),A              ; Then they go there.
-    RET                            ; The command line is read.
+    JR   Z,.SPOOL                  ; the spool drive:
+    LD   (SH_SNAME),A              ; then they go there.
+.SPOOL:                        ; The streams are named.
+    LD   A,(CL_SEEN+CL_IT)         ; Option T, trap lookup,
+    OR   A                         ; is not yet
+    RET  Z                         ; available.
+
+;@ROUTINE NORETURN
+; Report option T, trap lookup (toolchain §8), as not yet available.
+
+CL_TRAP:                       ; CL_READ accepted it.
+    LD   HL,CL_TMSG                ; Not yet available.
+    JP   SH_FAIL                   ; Print it and fail.
+
+;@ROUTINE NORETURN
+; Report a malformed command line with the usage line.
+
+CL_USAGE:                      ; Reached from the parse of the tail.
+    LD   HL,CL_UMSG                ; The usage message,
+    JP   SH_FAIL                   ; printed by SH_FAIL.
+
+;@ROUTINE NORETURN
+; Report a part beyond the SRC_CAP the descriptor table holds.
+
+CL_MANY:                       ; CL_PART found the table full.
+    LD   A,DG_PARTS                ; The part table's capacity.
+    JP   SH_OVER                   ; Report it and fail.
 
 ;@ROUTINE IN HL OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse a part's name, [d:]name[.type], at HL, of type BSI when it names
 ; none, and keep it as the next part's (SH_PNAME); HL is left after it.
 ; More than SRC_CAP parts (SH_MANY), and a malformed name or one followed
-; by anything but a space, a comma, a bracket or the end (SH_USAGE), do
+; by anything but a space, a comma, a bracket or the end (CL_USAGE), do
 ; not return.
 
 CL_PART:                       ; HL is at the part's first character.
     LD   A,(SH_PCNT)               ; The parts named so far.
     CP   SRC_CAP                   ; Is the descriptor table already full?
-    JP   NC,SH_MANY                ; Then this part is one too many.
+    JP   NC,CL_MANY                ; Then this part is one too many.
     CALL CL_NAME                   ; Parse the name into the FCB.
-    JP   C,SH_USAGE                ; A malformed name.
+    JP   C,CL_USAGE                ; A malformed name.
     LD   A,(SH_FCB+9)              ; Was a type given?
     CP   ' '                       ; Blank if not.
     JR   NZ,.TYPED                 ; It was.
@@ -142,7 +166,7 @@ CL_PART:                       ; HL is at the part's first character.
     CP   ','                       ; A comma comes before another part.
     JR   Z,.SAVE                   ; The caller steps over it.
     CP   '['                       ; A bracket opens the options.
-    JP   NZ,SH_USAGE               ; Any other byte, such as ';', cannot end a name.
+    JP   NZ,CL_USAGE               ; Any other byte, such as ';', cannot end a name.
 .SAVE:                         ; The FCB names the part.
     PUSH HL                        ; Keep the tail position.
     LD   HL,SH_PCNT                ; The part's index
@@ -617,3 +641,7 @@ CL_TBSI:                       ; The type of a part that names none.
     DB   "BSI"                     ; Copied into the FCB's type field.
 CL_MARKS:                      ; The marks a CP/M name may contain (services §4.1).
     DB   "!#$%&'()-@^_`{}~"        ; Sixteen, the count .CHAR's CPIR searches.
+CL_UMSG:                       ; Any malformed command line.
+    DB   "Usage: BASIE PART[,PART...] [OPTIONS]",0 ; The command's grammar.
+CL_TMSG:                       ; Option T.
+    DB   "Trap lookup is not yet available",0 ; Toolchain §8, still to come.

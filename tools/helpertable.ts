@@ -270,10 +270,14 @@ export function nativeNames(built: BuiltLibrary): string {
     ";  and RO_FWIDE for one with a u32 the compiler does not yet call), its",
     ";  ordinal, its stack figure (the bytes a returning call uses) and its",
     ";  argument bytes; then the count and the type IDs of its parameters.",
+    ";  A zero length byte ends the table.",
+    ";",
+    ";  The table is the NAMES overlay of BASIE.OVL (OVERLAY.ASM), at the",
+    ";  overlay area's start, where it stays for the whole compilation.",
     "",
     "HP_NAMES:",
     ...lines,
-    `HP_NCNT EQU  ${count}`.padEnd(31) + "; Entries in HP_NAMES.",
+    `${`    DB   0`.padEnd(35)}; The end of the table: ${count} names.`,
     "",
   ].join("\n");
 }

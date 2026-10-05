@@ -6,14 +6,16 @@
 ;
 ;    $0100  MM_BEG    JP SH_START (HEAD.ASM)
 ;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
+;           OV_AREA   the overlay area, from MM_END, as large as the largest
+;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
 ;    $4800  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
-;    $5700  SH_WBEG   the shell's workspace, SH_WEND
+;    $5640  SH_WBEG   the shell's workspace, SH_WEND
 ;    $5800  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
 ;    $6800  MM_SRC    resident source parts, loaded upward by the shell
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
-;  Nothing in the workspace is initialised by the image, so the image only
-;  has to end below MM_WBASE. build.ts checks the four boundaries: MM_END
+;  Nothing in the workspace is initialised by the image, so the image and
+;  the overlay area only have to end below MM_WBASE. build.ts checks the four boundaries: MM_END
 ;  against MM_WBASE, LL_WEND against SH_WBEG, SH_WEND against MM_BLOB and
 ;  BL_WEND against MM_SRC. Every MM_ name is an extent marker that host
 ;  tools may read.
@@ -22,7 +24,7 @@ MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
 MM_RLIM EQU  $4800             ; Exclusive end of room for the image.
 MM_WBASE EQU  $4800            ; Compiler workspace: the image ends below.
 MM_WLIM EQU  $5800             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $5700             ; The shell's workspace, above the compiler's.
+SH_WBEG EQU  $5640             ; The shell's workspace, above the compiler's.
 MM_BLOB EQU  $5800             ; The blob writer's workspace, BL_FLAGS on.
 MM_SRC EQU  $6800              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

@@ -17,6 +17,10 @@
 ;  and RO_FWIDE for one with a u32 the compiler does not yet call), its
 ;  ordinal, its stack figure (the bytes a returning call uses) and its
 ;  argument bytes; then the count and the type IDs of its parameters.
+;  A zero length byte ends the table.
+;
+;  The table is the NAMES overlay of BASIE.OVL (OVERLAY.ASM), at the
+;  overlay area's start, where it stays for the whole compilation.
 
 HP_NAMES:
     DB   10,"endOfInput"           ; endOfInput: a constant,
@@ -203,4 +207,4 @@ HP_NAMES:
     DB   SY_U16,0                  ; Result u16.
     DW   $08C,2                    ; Ordinal $08C, 2 bytes of stack.
     DB   0,0                       ; 0 argument bytes; no parameters.
-HP_NCNT EQU  58                ; Entries in HP_NAMES.
+    DB   0                         ; The end of the table: 58 names.

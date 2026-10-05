@@ -4,21 +4,21 @@
 ;
 ;  BASIE.COM's diagnostics by number, with their text read from BASIE.MSG
 ;  (design decision D39; toolchain §7.3; docs/diagnostics.md), printed as
-;  the reference toolchain prints them. A compiler diagnostic is printed
-;  as `NAME.BSI LINE:COLUMN: N: text`, as tools/basie.ts prints the
-;  reference compiler's (SH_DIAG prints the part and position); one that
-;  names no part, and the toolchain's own (the command line, the library,
-;  BLINK.COM), as `Error N: text`, as BLINK prints its diagnostics. The
-;  text may hold ^1 and ^2, replaced by the arguments at DG_ARG1 and
-;  DG_ARG2, each a zero-terminated string or zero; a missing one prints
-;  as "?". Without the file, or without the message, the text is
-;  "Message N" and the arguments, as BLINK prints it, so no diagnostic is
-;  lost.
+;  the reference toolchain prints them: the DIAG overlay of BASIE.OVL
+;  (OVERLAY.ASM), with PARTNAME.ASM. A compiler diagnostic is printed as
+;  `NAME.BSI LINE:COLUMN: N: text`, as tools/basie.ts prints the reference
+;  compiler's; one that names no part, and the toolchain's own (the command
+;  line, the library, BLINK.COM), as `Error N: text`, as BLINK prints its
+;  diagnostics. The text may hold ^1 and ^2, replaced by the arguments at
+;  DG_ARG1 and DG_ARG2, each a zero-terminated string or zero, outside the
+;  overlay area; a missing one prints as "?". Without the file, or without
+;  the message, the text is "Message N" and the arguments, as BLINK prints
+;  it, so no diagnostic is lost. The line is left for the shell to end.
 ;
 ;  Principal entries:
-;    MS_DIAG   print the compiler's diagnostic DG_CODE: "N: text"
-;    MS_ERROR  print "Error N: text" for diagnostic HL
-;    MS_FAIL   MS_ERROR, then fail (SH_QUIT)
+;    MS_SHOWE  at OV_AREA: "Error N: text" for diagnostic HL (MS_FAIL's)
+;    MS_SHOWD  at OV_AREA+3: the compiler's diagnostic, DG_CODE in DG_PART
+;              at DG_POS (SH_DIAG's and SH_OVER's)
 ;
 ;  The compiler's codes (DG_ in STATE.ASM) are the reference's numbers,
 ;  below DG_TOKEN and from 190 to 199, and two families MS_DIAG maps:
@@ -39,6 +39,86 @@ MS_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 MS_NONE EQU  $FF               ; MS_REC when no record is held.
 MS_NSYN EQU  20                ; The reference's syntax.
 MS_NCAP EQU  190               ; The reference's capacity.
+
+;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The overlay's entries: OV_AREA, MS_SHOWE, prints "Error N: text" for
+; diagnostic HL, as BLINK prints its own; OV_AREA+3, MS_SHOWD, the
+; compiler's diagnostic. Neither ends the line.
+
+MS_ENTRY:                      ; At OV_AREA: HL is the number.
+    JP   MS_SHOWE                  ; MS_SHOWD follows at +3.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Print the compiler's diagnostic, DG_CODE in DG_PART at DG_POS, as the
+; reference toolchain prints one, NAME.TYP LINE:COLUMN: N: text, the line
+; and column counted from the offset in the resident source, or as
+; Error N: text when it names no part. The line is not ended.
+
+MS_SHOWD:                      ; At OV_AREA+3.
+    LD   A,(DG_PART)               ; A is the failing part's 1-based id.
+    OR   A                         ; Zero means that no part was current:
+    LD   HL,MS_ERR                 ; then "Error ",
+    JR   Z,.NUMBER                 ; as BLINK prints a diagnostic.
+    DEC  A                         ; The id less one is the index of its saved name.
+    PUSH AF                        ; Keep it for the position.
+    LD   DE,SH_TEXT                ; Spell it as D:NAME.TYP
+    CALL SH_SPELL                  ; there,
+    CALL SH_PRINT                  ; and print it.
+    LD   A,' '                     ; A space separates the name from the position.
+    CALL SH_CHAR                   ; Print it.
+    POP  AF                        ; The part's index:
+    LD   L,A                       ; its descriptor
+    LD   H,0                       ; is
+    LD   D,H                       ; five
+    LD   E,L                       ; times
+    ADD  HL,HL                     ; the
+    ADD  HL,HL                     ; index
+    ADD  HL,DE                     ; on from SH_PARTS,
+    LD   DE,SH_PARTS+1             ; and its start
+    ADD  HL,DE                     ; follows the id:
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; where the part
+    LD   D,(HL)                    ; begins.
+    LD   HL,(DG_POS)               ; The fault's offset in it
+    ADD  HL,DE                     ; gives its address.
+    EX   DE,HL                     ; HL walks the part, DE is the fault.
+    LD   BC,1                      ; BC counts lines from 1;
+    PUSH HL                        ; the line begins
+    POP  IX                        ; at the part's start.
+.SCAN:                         ; HL is at or below DE.
+    LD   A,L                       ; Has the walk
+    CP   E                         ; reached
+    JR   NZ,.BYTE                  ; the fault?
+    LD   A,H                       ; Compare
+    CP   D                         ; the high bytes.
+    JR   Z,.FOUND                  ; It has.
+.BYTE:                         ; HL is a byte before the fault.
+    LD   A,(HL)                    ; The byte,
+    INC  HL                        ; passed.
+    CP   10                        ; A line feed
+    JR   NZ,.SCAN                  ; ends a line:
+    INC  BC                        ; one more,
+    PUSH HL                        ; beginning
+    POP  IX                        ; after it.
+    JR   .SCAN                     ; Go on.
+.FOUND:                        ; BC is the line, IX its start.
+    PUSH IX                        ; The column is the fault
+    POP  HL                        ; less the line's start,
+    EX   DE,HL                     ; counted
+    OR   A                         ; from
+    SBC  HL,DE                     ; one,
+    INC  HL                        ; HL.
+    PUSH HL                        ; Keep it.
+    LD   L,C                       ; The line,
+    LD   H,B                       ; HL,
+    CALL SH_NUM                    ; is printed,
+    LD   A,':'                     ; a colon separating it
+    CALL SH_CHAR                   ; from the column.
+    POP  HL                        ; The column
+    CALL SH_NUM                    ; is printed.
+    LD   HL,MS_SEP                 ; ": " separates the position from the number.
+.NUMBER:                       ; HL is the text before the number.
+    CALL SH_PRINT                  ; Print it; fall into MS_DIAG.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Print the compiler's diagnostic DG_CODE as its message number, ": " and
@@ -84,17 +164,10 @@ MS_SAY:                        ; HL is the number.
     POP  HL                        ; The number again.
     JR   MS_TEXT                   ; Print its text, and return.
 
-;@ROUTINE IN HL NORETURN
-; Print "Error N: text" for diagnostic HL, and fail.
-
-MS_FAIL:                       ; HL is the number, DG_ARG1 and DG_ARG2 its arguments.
-    CALL MS_ERROR                  ; Print it.
-    JP   SH_QUIT                   ; End the line and fail.
-
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Print "Error N: text" for diagnostic HL, as BLINK prints its own.
 
-MS_ERROR:                      ; HL is the number.
+MS_SHOWE:                      ; HL is the number.
     PUSH HL                        ; Keep it while the word prints.
     LD   HL,MS_ERR                 ; "Error "
     CALL SH_PRINT                  ; before the number.

@@ -13,7 +13,8 @@
 ;  compiler takes them from its library. Then, before the streams are
 ;  made, the compilation stamp is chosen (object format §4.1).
 ;
-;  Principal entries:
+;  Principal entries, in the START overlay, which SH_BEGIN (PARTS.ASM)
+;  enters:
 ;    LB_CHECK  find, read and check the library
 ;    LB_STAMP  choose the compilation stamp
 ;

@@ -100,16 +100,19 @@ RO_FIND:
     RET                            ; A identifies the routine.
 
 ;@ROUTINE OUT A,HL,CARRY,SIGN CLOBBERS PARITY,HALFCARRY,ZERO,BC,DE
-; Find the current NAME among the predeclared names (HP_NAMES, PREDEF.ASM).
+; Find the current NAME among the predeclared names (HP_NAMES, PREDEF.ASM),
+; which the NAMES overlay holds at OV_AREA for the whole compilation.
 ; Carry returns HL addressing its payload and A the payload's first byte,
 ; with the sign set for a constant (SY_KNOWN and its type) and clear for a
 ; service (its result type). Carry clear means neither.
 
 RO_LIB:
-    LD   HL,HP_NAMES               ; Entries: a length byte and spelling.
-    LD   C,HP_NCNT                 ; C counts the entries left.
+    LD   HL,OV_AREA                ; HP_NAMES: a length byte and spelling each.
 .LOOP:                         ; Compare one entry.
-    LD   B,(HL)                    ; Read the entry's length.
+    LD   A,(HL)                    ; Read the entry's length;
+    OR   A                         ; zero ends the table,
+    RET  Z                         ; with carry clear.
+    LD   B,A                       ; B is the length.
     INC  HL                        ; HL addresses its spelling.
     LD   A,(TK_LEN)                ; The token's length.
     CP   B                         ; Do the lengths agree?
@@ -139,10 +142,7 @@ RO_LIB:
     INC  HL                        ; following it.
 .NEXT:                         ; DE bytes remain in the entry.
     ADD  HL,DE                     ; HL addresses the next entry.
-    DEC  C                         ; One entry fewer.
-    JR   NZ,.LOOP                  ; Continue through the table.
-    OR   A                         ; Report no match.
-    RET                            ; Carry is clear.
+    JR   .LOOP                     ; Continue through the table.
 
 ;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
 ; Compile A source parts, described at HL, into the blob writer's streams,

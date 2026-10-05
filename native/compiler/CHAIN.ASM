@@ -11,8 +11,8 @@
 ;  a record at a time, sets the DMA address back to $0080, as the CCP
 ;  leaves it, and starts BLINK, which takes its stack from $0006.
 ;
-;  Principal entry:
-;    CH_RUN    run BLINK.COM with the build's tail
+;  Principal entry, the CHAIN overlay's (OVERLAY.ASM):
+;    CH_RUN    run BLINK.COM with the build's tail, at OV_AREA
 ;
 ;  The tail: the first part's name as the command line gave it, drive and
 ;  type included, then the options as given, less X, which BLINK does not
@@ -28,7 +28,13 @@
 ;  error warm boots: BLINK is not whole.
 
 CH_RLINK EQU  $12              ; Return code's low byte: a link error, $FF12.
-CH_TAIL EQU  LB_BUF            ; The new tail is built here before it moves.
+CH_TAIL EQU  BL_CODE           ; The new tail is built here before it moves.
+
+;@ROUTINE NORETURN
+; The overlay's entry, at OV_AREA: run BLINK.COM (CH_RUN).
+
+CH_ENTRY:                      ; At OV_AREA.
+    JP   CH_RUN                    ; Run BLINK.
 
 ;@ROUTINE IN DE,HL NORETURN
 ; The loader: read the file whose open FCB is DE to HL, $0100, and start
@@ -73,8 +79,11 @@ CH_RUN:                        ; The streams are closed, or X was given.
     JR   NC,.FOUND                 ; Found.
     LD   A,CH_RLINK                ; A link
     LD   (SH_RLOW),A               ; error's code,
-    LD   HL,CH_NAME                ; and BLINK.COM
-    LD   (DG_ARG1),HL              ; not found
+    LD   HL,CH_NAME                ; and BLINK.COM,
+    LD   DE,DG_ABUF                ; copied out of the overlay area,
+    LD   (DG_ARG1),DE              ; which the diagnostics' overlay takes,
+    LD   BC,10                     ; with its terminator,
+    LDIR                           ; not found
     LD   HL,SH_NMISS               ; (L-MISSING).
     JP   MS_FAIL                   ; Fail.
 .FOUND:                        ; SH_FCB holds BLINK.COM, open.
@@ -83,7 +92,7 @@ CH_RUN:                        ; The streams are closed, or X was given.
     LD   A,' '                     ; with the space
     LD   (DE),A                    ; the CCP puts first,
     INC  DE                        ; then the first part,
-    CALL CL_SKIP                   ; after the spaces before it.
+    CALL .SKIP                     ; after the spaces before it.
 .PART:                         ; HL walks it, DE the new tail.
     LD   A,(HL)                    ; Its characters
     OR   A                         ; up to the end,
@@ -107,7 +116,7 @@ CH_RUN:                        ; The streams are closed, or X was given.
     JR   NZ,.OPTS                  ; Look on.
     LD   C,'['                     ; The first option copied follows a bracket.
 .OPTION:                       ; HL is after '[' or a comma.
-    CALL CL_SKIP                   ; A is the option's first character.
+    CALL .SKIP                     ; A is the option's first character.
     SUB  'X'                       ; X is left out:
     LD   B,A                       ; B is zero for it.
     JR   Z,.CHAR                   ; Pass over it.
@@ -167,6 +176,17 @@ CH_RUN:                        ; The streams are closed, or X was given.
     POP  DE                        ; DE is the FCB's copy,
     LD   HL,$0100                  ; HL where BLINK loads;
     RET                            ; the loader runs.
+
+;@ROUTINE IN HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Skip spaces in the tail at HL: A is the first other character, at HL.
+; (COMMAND.ASM's CL_SKIP, which this overlay does not hold.)
+
+.SKIP:                         ; HL is in the zero-terminated tail.
+    LD   A,(HL)                    ; The next character.
+    CP   ' '                       ; A space?
+    RET  NZ                        ; No: it is at HL.
+    INC  HL                        ; Pass it.
+    JR   .SKIP                     ; The terminator ends the scan.
 
 ;@ROUTINE IN A OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open BLINK.COM on drive A (0 the current one) in SH_FCB. Carry if it

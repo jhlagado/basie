@@ -23,7 +23,9 @@ import {
 import { parseExpectations } from "./conformance/expectations.ts";
 
 const { compile } = await import("../ref/compile/index.ts");
-const basie = (await buildBasie()).com;
+const built = await buildBasie();
+const basie = built.com;
+const OVL = built.ovl;
 const DIR = "tests/native/programs";
 
 /** Programs of the conformance suite inside the subset, by their 8.3 names. */
@@ -118,7 +120,7 @@ function native(name: string, options = "") {
   const source = Deno.readFileSync(path(name));
   const run = runCom(basie, {
     tail: `${name} [C${options}]`,
-    files: { [`${name}.BSI`]: source, "CPM22.BRL": LIBRARY },
+    files: { [`${name}.BSI`]: source, "CPM22.BRL": LIBRARY, "BASIE.OVL": OVL },
     maxSteps: 50_000_000,
   });
   assertEquals(run.output, "", `${name}${options}`);
@@ -315,7 +317,7 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     );
     const run = runCom(basie, {
       tail: "RANDOM [C]",
-      files: { "RANDOM.BSI": source, "CPM22.BRL": LIBRARY },
+      files: { "RANDOM.BSI": source, "CPM22.BRL": LIBRARY, "BASIE.OVL": OVL },
       maxSteps: 50_000_000,
     });
     const ref = await compile("RANDOM.BSI", {
@@ -626,6 +628,7 @@ for (const [what, text] of Object.entries(REFUSED)) {
       files: {
         "REFUSED.BSI": source,
         "CPM22.BRL": LIBRARY,
+        "BASIE.OVL": OVL,
         "BASIE.MSG": messageFile(),
       },
       maxSteps: 50_000_000,

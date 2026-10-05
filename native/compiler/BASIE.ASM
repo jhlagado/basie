@@ -20,10 +20,14 @@
 ;  The first three files define only equates: the memory map, then the
 ;  workspace layout and the constants every module shares. HEAD.ASM places
 ;  the first byte at $0100. The shell comes last, so its code and data end
-;  the image; KEYWORDS.ASM and PREDEF.ASM hold the compiler's immutable
-;  tables just before it. COMMAND.ASM, LIBRARY.ASM and CHAIN.ASM are the
-;  shell's one-shot code, which step 66 moves to an overlay. The two markers below
-;  the includes end the image: ATOM assembles this file's own lines last.
+;  the image; KEYWORDS.ASM holds the compiler's immutable tables just
+;  before it. The shell's one-shot code (COMMAND.ASM, LIBRARY.ASM,
+;  CHAIN.ASM), the diagnostics (MESSAGE.ASM) and the predeclared names
+;  (PREDEF.ASM) are not included: they are overlays in BASIE.OVL, which
+;  native/compiler/build.ts assembles against this image's symbols and
+;  OVERLAY.ASM loads into the overlay area after the image. The markers
+;  below the includes end the image: ATOM assembles this file's own lines
+;  last.
 
 %INCLUDE "MEMORY.ASM"              ; Memory map: image, workspace, source.
 %INCLUDE "STATE.ASM"               ; Parser workspace and shared constants.
@@ -54,12 +58,9 @@
 %INCLUDE "GENAGGR.ASM"             ; Paths, aggregates and string literals.
 %INCLUDE "GENCALL.ASM"             ; Routines, declarations and limits.
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.
-%INCLUDE "PREDEF.ASM"              ; Predeclared constants and services.
 %INCLUDE "SHELL.ASM"               ; The CP/M shell.
-%INCLUDE "MESSAGE.ASM"             ; Diagnostics from BASIE.MSG.
-%INCLUDE "COMMAND.ASM"             ; The shell's command line.
-%INCLUDE "LIBRARY.ASM"             ; The library check and the stamp.
-%INCLUDE "CHAIN.ASM"               ; The chain to BLINK.
+%INCLUDE "OVERLAY.ASM"             ; The overlay loader.
 
 SH_CEND:                       ; End of the shell, which the build measures from SH_CBEG.
-MM_END:                        ; End of BASIE.COM; the build checks it does not pass MM_WBASE.
+MM_END:                        ; End of BASIE.COM's file; the overlay area follows.
+OV_AREA:                       ; The overlay area: build.ts checks it ends below MM_WBASE.

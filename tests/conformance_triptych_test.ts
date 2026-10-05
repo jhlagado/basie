@@ -115,6 +115,7 @@ Deno.test({
     const cpm = await boot(
       await systemDisk({
         "BASIE.COM": (await buildBasie()).com,
+        "BASIE.OVL": (await buildBasie()).ovl,
         "BLINK.COM": comBytes(await assembleFile("native/linker/BLINK.ASM")),
         "CPM22.BRL": (await buildRuntime()).file,
         "BASIE.MSG": messageFile(),

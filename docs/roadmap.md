@@ -137,7 +137,7 @@ Each stage keeps a working compiler, and the census runs on every commit.
 | ---: | --- | --- | --- | --- |
 | 64 | Native | Fork the Nucleus compiler into `native/compiler/`; build and run its existing proofs | Baseline (done: byte-identical image, proof passes; core 15,286 bytes, 11,338 to the 26K target) | Nucleus proofs pass |
 | 65 | Native | Replace placed output with blob output; chain to `BLINK` | Increments 65.0 to 65.5 of the [native compiler](native-compiler.md) plan (done: ATOM source, D44; the CP/M shell; the blob writer; blob output equal to the reference compiler's streams, services and Files included; the options, the library check and the stamp; the chain to `BLINK`, so that `BASIE HELLO` builds `HELLO.COM`, under the harness and on real CP/M 2.2; `BASIE.COM` 16,171 bytes, 10,453 to the 26K target) | Nucleus examples link and run (the claimed programs of `tests/native_equivalence_test.ts`, linked by `BLINK` and run) |
-| 66 | Native | Message file and overlay mechanism | `BASIE.MSG`, `BASIE.OVL` | Diagnostics match the reference |
+| 66 | Native | Message file and overlay mechanism | `BASIE.MSG`, `BASIE.OVL` (done: diagnostics by the reference's numbers, positions and arguments, printed from `BASIE.MSG`; five overlays in `BASIE.OVL`; `BASIE.COM` 13,895 bytes and a 1,024-byte overlay area, 11,705 to the 26K target) | Diagnostics match the reference |
 | 67 | Native | Steps 38 to 48 in order, each as a native stage | | Corpus behaviour identical to the reference after each stage; census within budget |
 | 68 | Native | Capacity measurement: largest compilable program, symbol counts, build times | Measured limits | Published |
 

@@ -4,23 +4,24 @@
 ;
 ;  The CP/M shell of BASIE.COM (toolchain §2, §4, §5). The CCP loads the
 ;  image at $0100, whose first instruction jumps to SH_START. The shell
-;  reads the command line (COMMAND.ASM), checks the blob library and
-;  chooses the compilation stamp (LIBRARY.ASM), loads each source part
-;  into memory above the compiler's workspace, opens the intermediate
-;  streams NAME.$DR, $BY, $LN and $NM on the spool drive and with the first
-;  part's name (toolchain §3.2), names each part in the line stream, and
-;  hands the parts to PR_BUILD, which compiles them into blobs; it then
-;  closes the streams and runs BLINK.COM to link them (CHAIN.ASM), unless
-;  option C compiles only; option X runs BLINK at once. A diagnostic is
-;  printed as NAME.BSI LINE:COLUMN Error N, with the forked compiler's
-;  number, until the message file replaces it (step 66). The stack and the
-;  source occupy the CCP's memory, so every exit is a warm boot through
-;  $0000 or the chain to BLINK.
+;  runs the build through its overlays (OVERLAY.ASM): COMMAND reads the
+;  command line; START checks the blob library, loads each source part
+;  into memory above the compiler's workspace, chooses the compilation
+;  stamp, opens the intermediate streams NAME.$DR, $BY, $LN and $NM on the
+;  spool drive and with the first part's name (toolchain §3.2) and names
+;  each part in the line stream; NAMES holds the predeclared names while
+;  PR_BUILD compiles the parts into blobs; then the shell closes the
+;  streams and CHAIN runs BLINK.COM to link them, unless option C compiles
+;  only; option X runs BLINK at once. A diagnostic is printed by the DIAG
+;  overlay, by the reference's number with its text from BASIE.MSG. The
+;  stack and the source occupy the CCP's memory, so every exit is a warm
+;  boot through $0000 or the chain to BLINK.
 ;
 ;  Principal entries:
 ;    SH_START  the program entry, reached from the jump at $0100
-;    SH_USAGE  report a malformed command line and fail
 ;    SH_FAIL   print a message and fail
+;    SH_OVER   report one of this compiler's capacities and fail
+;    MS_FAIL   report diagnostic HL through the DIAG overlay and fail
 ;    OUT_FAIL  the output streams' failure: a full disk or directory
 ;
 ;  Failure: a malformed command line, an unusable library, a missing part,
@@ -103,7 +104,11 @@ CL_SEEN EQU  CL_LIB+8          ; CL_NOPT bytes: each option given, or zero.
 DG_ARG1 EQU  CL_SEEN+CL_NOPT   ; Word: a diagnostic's argument 1, or 0 (MESSAGE.ASM).
 DG_ARG2 EQU  DG_ARG1+2         ; Word: its argument 2, or 0.
 MS_REC EQU  DG_ARG2+2          ; Byte: the record of BASIE.MSG in MS_BUF.
-SH_WEND EQU  MS_REC+1          ; The build checks this is at or below MM_BLOB.
+OV_CUR EQU  MS_REC+1           ; Byte: the overlay loaded last, $FF for none (OVERLAY.ASM).
+OV_FCB EQU  OV_CUR+1           ; SH_FLEN bytes: BASIE.OVL's FCB, open once loaded.
+OV_DIR EQU  OV_FCB+SH_FLEN     ; OV_DCAP entries of four: each overlay's address, records.
+OV_DCAP EQU  8                 ; Overlays BASIE.OVL may describe.
+SH_WEND EQU  OV_DIR+4*OV_DCAP  ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN
 ; Read the command line, check the library, load the parts it names,
@@ -122,57 +127,22 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   HL,0                      ; Zero:
     LD   (DG_ARG1),HL              ; no diagnostic has
     LD   (DG_ARG2),HL              ; an argument yet.
-    CALL CL_READ                   ; The parts and options; errors do not return.
-    LD   A,(CL_SEEN+CL_IT)         ; Option T, trap lookup,
-    OR   A                         ; is not yet
-    JP   NZ,SH_TRAP                ; available.
+    XOR  A                         ; No overlay is loaded,
+    LD   (OV_FCB+1),A              ; nor BASIE.OVL opened,
+    DEC  A                         ; until
+    LD   (OV_CUR),A                ; the first is needed.
+    INC  A                         ; The command line's: OV_CMD, zero.
+    CALL OV_LOAD                   ; Load it,
+    CALL OV_AREA                   ; and read the parts and options (CL_READ).
     LD   A,(CL_SEEN+CL_IC)         ; Option X
     CP   'X'                       ; links only:
-    JP   Z,CH_RUN                  ; run BLINK, compiling nothing.
-    CALL LB_CHECK                  ; The library must suit the compiler.
-    XOR  A                         ; Load the parts in order,
-.LOADS:                        ; A is the next one's index.
-    LD   (SH_PIDX),A               ; It is being loaded.
-    CALL SH_LOAD                   ; Load it and add its descriptor.
-    LD   A,(SH_PIDX)               ; The next part.
-    INC  A                         ; Its index.
-    LD   HL,SH_PCNT                ; Is there one?
-    CP   (HL)                      ; The count ends them.
-    JR   C,.LOADS                  ; Load it.
-    CALL LB_STAMP                  ; Choose the compilation stamp.
-    LD   C,BL_LNOUT                ; By default a line stream and no names.
-    LD   A,(CL_SEEN+CL_IN)         ; Option N:
-    OR   A                         ; no line stream.
-    JR   Z,.LINES                  ; Not given.
-    LD   C,0                       ; None.
-.LINES:                        ; C holds the line stream's flag.
-    LD   HL,CL_SEEN+CL_IM          ; Option M
-    LD   A,(CL_SEEN+CL_IY)         ; or Y
-    OR   (HL)                      ; wants
-    JR   Z,.NAMES                  ; the name stream.
-    SET  1,C                       ; Set BL_NMOUT.
-.NAMES:                        ; C holds the stream flags.
-    LD   A,(CL_SEEN+CL_IK)         ; Option K:
-    OR   A                         ; keep the streams
-    JR   Z,.KEPT                   ; after a failure.
-    SET  6,C                       ; Set SH_KEEP.
-.KEPT:                         ; C is complete.
-    LD   A,C                       ; The streams the options want.
-    LD   HL,SH_HEAD                ; The directory's header,
-    LD   DE,SH_SNAME               ; and the streams' drive and name.
-    CALL BL_OPEN                   ; Open the streams.
-    XOR  A                         ; Name each part in the line stream,
-.PARTS:                        ; A is the next part's index.
-    PUSH AF                        ; Keep it.
-    CALL SH_TYPED                  ; HL is its name as NAME.TYP, B the length.
-    POP  AF                        ; A is the index.
-    PUSH AF                        ; Keep it.
-    CALL BL_PART                   ; Write its part record.
-    POP  AF                        ; The index again.
-    INC  A                         ; The next part.
-    LD   HL,SH_PCNT                ; Is there one?
-    CP   (HL)                      ; The count ends them.
-    JR   C,.PARTS                  ; Name it.
+    JP   Z,SH_CHAIN                ; run BLINK, compiling nothing.
+    LD   A,OV_START                ; The start of a build:
+    CALL OV_LOAD                   ; check the library, load the parts, choose the
+    CALL OV_AREA                   ; stamp and open the streams (SH_BEGIN).
+    LD   A,OV_NAMES                ; The predeclared names
+    CALL OV_LOAD                   ; are in the overlay area for the compilation.
+    LD   A,(SH_PCNT)               ; The parts' count
     LD   HL,SH_PARTS               ; PR_BUILD takes the count in A, descriptors at HL.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
     JP   C,SH_DIAG                 ; Print it and fail.
@@ -180,105 +150,15 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   A,(CL_SEEN+CL_IC)         ; Option C
     CP   'C'                       ; compiles only: success,
     JP   Z,0                       ; a warm boot, and a SUBMIT job runs on.
-    JP   CH_RUN                    ; Otherwise BLINK links the streams.
+                                   ; Otherwise BLINK links the streams.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load part SH_PIDX, whose name CL_READ saved, after the parts already
-; loaded: end it at its first $1A and append its descriptor. Errors leave
-; by SH_MISS, SH_RERR and SH_LARGE.
+;@ROUTINE NORETURN
+; Run BLINK.COM with the build's tail (the CHAIN overlay's CH_RUN).
 
-SH_LOAD:                       ; SH_PIDX is the part's index.
-    CALL SH_BLANK                  ; A clear FCB.
-    LD   A,(SH_PIDX)               ; The part's saved name:
-    CALL SH_PNAME                  ; HL is its drive, name and type.
-    LD   DE,SH_FCB                 ; The FCB takes them.
-    LD   BC,SH_SLOT                ; Twelve bytes.
-    LDIR                           ; The FCB names the part.
-    LD   DE,SH_FCB                 ; DE is the FCB for BDOS.
-    LD   C,SH_OPEN                 ; Open the part for reading.
-    CALL SH_BDOS                   ; A is $FF if the file is not on the disk.
-    INC  A                         ; $FF becomes zero.
-    JP   Z,SH_MISS                 ; Report the missing part by name.
-    LD   HL,(SH_LOADP)             ; The part starts at the load point.
-    LD   (SH_PBEG),HL              ; Keep its start for the trim and the descriptor.
-.RECORD:                       ; SH_LOADP is where the next record goes.
-    LD   HL,(SH_LOADP)             ; The load point may be up to one record past the
-    LD   DE,-128                   ; limit before the read that finds the end of the
-    ADD  HL,DE                     ; file, which writes nothing; HL is it less 128.
-    EX   DE,HL                     ; DE is the load point less one record.
-    CALL .ROOM                     ; Carry if even that is past the limit.
-    JP   C,SH_LARGE                ; Records land at most 256 bytes past the limit, in
-                                   ; the stack's reserve; .FOUND checks the true end.
-    LD   DE,(SH_LOADP)             ; DE is the load point.
-    LD   C,SH_DMA                  ; The record is read straight to it.
-    CALL SH_BDOS                   ; Set the DMA address to DE.
-    LD   DE,SH_FCB                 ; DE is the open part's FCB.
-    LD   C,SH_READ                 ; Read its next record.
-    CALL SH_BDOS                   ; A is zero if a record was read.
-    OR   A                         ; Was one read?
-    JR   Z,.ADVANCE                ; Yes: move past it.
-    DEC  A                         ; Status 1 is the end of the file.
-    JR   Z,.LOADED                 ; The part is complete.
-    JP   SH_RERR                   ; Any other status is a read error (toolchain §6.2).
-.ADVANCE:                      ; A record was read at SH_LOADP.
-    LD   HL,(SH_LOADP)             ; Advance the load point past the record.
-    LD   DE,128                    ; A record is 128 bytes.
-    ADD  HL,DE                     ; HL is the next load point.
-    LD   (SH_LOADP),HL             ; The next record goes there.
-    JR   .RECORD                   ; Read until the end of the file.
-.LOADED:                       ; The file is in memory from SH_PBEG to SH_LOADP.
-    LD   HL,(SH_PBEG)              ; Scan from the part's start for its first $1A.
-    LD   DE,(SH_LOADP)             ; DE is the end of the last record.
-.TRIM:                         ; HL is the next byte to test, below or at DE.
-    LD   A,L                       ; Has the scan reached DE?
-    CP   E                         ; Compare the low bytes.
-    JR   NZ,.BYTE                  ; They differ: test the byte at HL.
-    LD   A,H                       ; Compare the high bytes.
-    CP   D                         ; Equal means the end of the records.
-    JR   Z,.FOUND                  ; A part without $1A ends there.
-.BYTE:                         ; HL is inside the loaded records.
-    LD   A,(HL)                    ; Read the next source byte.
-    CP   $1A                       ; CP/M ends a text file with $1A in its last record.
-    JR   Z,.FOUND                  ; The part ends at the first one.
-    INC  HL                        ; Not yet: test the next byte.
-    JR   .TRIM                     ; Continue the scan.
-.FOUND:                        ; HL is the part's exclusive end.
-    EX   DE,HL                     ; DE is the end.
-    CALL .ROOM                     ; Carry if the part ends past the limit.
-    JP   C,SH_LARGE                ; The part does not fit below the stack's reserve.
-    LD   (SH_LOADP),DE             ; The next part loads here, over the $1A and padding.
-    LD   A,(SH_PIDX)               ; Build the descriptor: id, start, end.
-    LD   L,A                       ; L keeps this part's index.
-    INC  A                         ; A is its 1-based id, which DG_PART reports.
-    LD   H,0                       ; HL is the index.
-    LD   B,H                       ; B is zero, the index's high byte.
-    LD   C,L                       ; BC is the index, added back below.
-    ADD  HL,HL                     ; HL = 2 * index.
-    ADD  HL,HL                     ; HL = 4 * index.
-    ADD  HL,BC                     ; HL = 5 * index, the descriptor's offset.
-    LD   BC,SH_PARTS               ; BC is the table's base.
-    ADD  HL,BC                     ; HL is this part's descriptor.
-    LD   (HL),A                    ; Byte 0 is the id, which becomes SRC_ID.
-    INC  HL                        ; Bytes 1 and 2 hold the start.
-    LD   BC,(SH_PBEG)              ; BC is where the part began.
-    LD   (HL),C                    ; Store the start's low byte.
-    INC  HL                        ; Move to its high byte.
-    LD   (HL),B                    ; Store the start's high byte.
-    INC  HL                        ; Bytes 3 and 4 hold the exclusive end.
-    LD   (HL),E                    ; Store the end's low byte.
-    INC  HL                        ; Move to its high byte.
-    LD   (HL),D                    ; Store the end's high byte.
-    RET                            ; The part is loaded and described.
-
-;@ROUTINE IN DE OUT CARRY CLOBBERS HL,ZERO,SIGN,PARITY,HALFCARRY
-; Carry if the address DE is past SH_LIMIT, the first byte the source may
-; not use.
-
-.ROOM:                         ; DE is an address in the source area.
-    LD   HL,(SH_LIMIT)             ; HL is the limit.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; Carry if DE is above it.
-    RET                            ; The caller tests carry.
+SH_CHAIN:                      ; The streams are closed, or X was given.
+    LD   A,OV_CHAIN                ; The chain's overlay,
+    CALL OV_LOAD                   ; loaded,
+    JP   OV_AREA                   ; runs BLINK (CH_RUN).
 
 ;@ROUTINE CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Set the FCB to the current drive, a blank name and type, and zeros in the
@@ -303,237 +183,49 @@ SH_BLANK:                      ; Called for each part and for A:$$$.SUB.
     DJNZ .RESTLOOP                 ; Through the random record number.
     RET                            ; The FCB is ready to be named.
 
-;@ROUTINE IN A OUT HL CLOBBERS DE,CARRY,HALFCARRY
-; HL = the saved drive and name of the part whose index is A (0-based),
-; at SH_NAMES + SH_SLOT * A.
-
-SH_PNAME:                      ; A is a part index below SRC_CAP.
-    LD   L,A                       ; L is the index.
-    LD   H,0                       ; Zero-extend it into HL.
-    ADD  HL,HL                     ; HL = 2 * index.
-    ADD  HL,HL                     ; HL = 4 * index.
-    LD   D,H                       ; DE = 4 * index, added back below.
-    LD   E,L                       ; Its low byte.
-    ADD  HL,HL                     ; HL = 8 * index.
-    ADD  HL,DE                     ; HL = 12 * index, the slot's offset.
-    LD   DE,SH_NAMES               ; DE is the base of the saved names.
-    ADD  HL,DE                     ; HL is the name slot.
-    RET                            ; Return the slot in HL.
-
-;@ROUTINE IN A OUT B,HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Spell the name of part A (0-based) as the reference compiler names a part
-; in the line stream, NAME.TYP without padding or drive, at SH_TEXT: HL
-; addresses it and B is its length.
-
-SH_TYPED:                      ; A is a part index.
-    CALL SH_PNAME                  ; HL is its saved drive, name and type.
-    INC  HL                        ; Skip the drive.
-    LD   DE,SH_TEXT                ; The spelling is built here.
-    CALL SH_NTYPE                  ; NAME.TYP.
-    EX   DE,HL                     ; HL is the spelling's end.
-    LD   DE,SH_TEXT                ; Its start.
-    OR   A                         ; Clear carry.
-    SBC  HL,DE                     ; HL is its length,
-    LD   B,L                       ; at most twelve.
-    EX   DE,HL                     ; HL is the spelling.
-    RET                            ; B is its length.
-
-;@ROUTINE IN A,DE OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Spell the name of part A (0-based) at DE as D:NAME.TYP, zero-terminated,
-; without padding, and without the drive when the part was on the current
-; drive. HL addresses the spelling.
-
-SH_SPELL:                      ; A is a part index, DE the place for its name.
-    PUSH DE                        ; The spelling's start, returned in HL,
-    PUSH DE                        ; and the place, kept across SH_PNAME.
-    CALL SH_PNAME                  ; HL is its saved drive, name and type.
-    POP  DE                        ; The place.
-    LD   A,(HL)                    ; A is the drive: 0 current, 1 for A:.
-    INC  HL                        ; HL is the name.
-    OR   A                         ; Was a drive named?
-    JR   Z,.NAME                   ; No: the name alone.
-    ADD  A,'A'-1                   ; Make the drive a letter,
-    LD   (DE),A                    ; spelled
-    INC  DE                        ; first,
-    LD   A,':'                     ; then the colon.
-    LD   (DE),A                    ; Store it.
-    INC  DE                        ; The name follows.
-.NAME:                         ; HL is the saved name.
-    CALL SH_NTYPE                  ; NAME.TYP.
-    XOR  A                         ; Terminate
-    LD   (DE),A                    ; the spelling.
-    POP  HL                        ; HL is its start.
-    RET                            ; Spelled.
-
-;@ROUTINE IN DE,HL OUT DE,HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Copy the saved name and type at HL to DE as NAME.TYP, leaving out the
-; spaces that pad them. DE and HL are left after them.
-
-SH_NTYPE:                      ; HL is a saved name, DE the place for it.
-    LD   B,8                       ; The name's eight characters,
-    CALL .FIELD                    ; less their padding.
-    LD   A,'.'                     ; A dot
-    LD   (DE),A                    ; separates it
-    INC  DE                        ; from the type.
-    LD   B,3                       ; The type's three characters,
-                                   ; less their padding, fall into .FIELD.
-
-;@ROUTINE IN B,DE,HL OUT DE,HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Copy the B characters at HL to DE, leaving out the spaces that pad them.
-
-.FIELD:                        ; B characters remain at HL.
-    LD   A,(HL)                    ; The next one.
-    INC  HL                        ; HL moves on whether or not it is kept.
-    CP   ' '                       ; Spaces are padding.
-    JR   Z,.PAD                    ; Leave it out.
-    LD   (DE),A                    ; Keep anything else.
-    INC  DE                        ; Move on.
-.PAD:                          ; The character is done.
-    DJNZ .FIELD                    ; Until the field is copied.
-    RET                            ; DE is after the copy.
-
 ; ---- diagnostics and failure ------------------------------------------------
 
 ;@ROUTINE NORETURN
-; Print the diagnostic PR_BUILD left in DG_PART, DG_POS and DG_CODE as the
-; reference toolchain prints a compiler's, NAME.TYP LINE:COLUMN: N: text,
-; or as Error N: text when it names no part; delete the streams and fail.
+; Print the diagnostic PR_BUILD left in DG_PART, DG_POS and DG_CODE (the
+; DIAG overlay's MS_SHOWD), delete the streams and fail.
 
 SH_DIAG:                       ; Reached on carry from PR_BUILD.
-    LD   A,(DG_PART)               ; A is the failing part's 1-based id.
-    OR   A                         ; Zero means that no part was current.
-    JR   Z,.ERROR                  ; Then print it as the toolchain's own.
-    DEC  A                         ; The id less one is the index of its saved name.
-    PUSH AF                        ; Keep it for the position.
-    CALL SH_SHOW                   ; Print it as D:NAME.TYP.
-    LD   A,' '                     ; A space separates the name from the position.
-    CALL SH_CHAR                   ; Print it.
-    POP  AF                        ; The part's index:
-    LD   L,A                       ; its descriptor
-    LD   H,0                       ; is
-    LD   D,H                       ; five
-    LD   E,L                       ; times
-    ADD  HL,HL                     ; the
-    ADD  HL,HL                     ; index
-    ADD  HL,DE                     ; on from SH_PARTS,
-    LD   DE,SH_PARTS+1             ; and its start
-    ADD  HL,DE                     ; follows the id:
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; where the part
-    LD   D,(HL)                    ; begins.
-    LD   HL,(DG_POS)               ; The fault's offset in it
-    ADD  HL,DE                     ; gives its address.
-    EX   DE,HL                     ; HL walks the part, DE is the fault.
-    LD   BC,1                      ; BC counts lines from 1;
-    PUSH HL                        ; the line begins
-    POP  IX                        ; at the part's start.
-.SCAN:                         ; HL is at or below DE.
-    LD   A,L                       ; Has the walk
-    CP   E                         ; reached
-    JR   NZ,.BYTE                  ; the fault?
-    LD   A,H                       ; Compare
-    CP   D                         ; the high bytes.
-    JR   Z,.FOUND                  ; It has.
-.BYTE:                         ; HL is a byte before the fault.
-    LD   A,(HL)                    ; The byte,
-    INC  HL                        ; passed.
-    CP   10                        ; A line feed
-    JR   NZ,.SCAN                  ; ends a line:
-    INC  BC                        ; one more,
-    PUSH HL                        ; beginning
-    POP  IX                        ; after it.
-    JR   .SCAN                     ; Go on.
-.FOUND:                        ; BC is the line, IX its start.
-    PUSH IX                        ; The column is the fault
-    POP  HL                        ; less the line's start,
-    EX   DE,HL                     ; counted
-    OR   A                         ; from
-    SBC  HL,DE                     ; one,
-    INC  HL                        ; HL.
-    PUSH HL                        ; Keep it.
-    LD   L,C                       ; The line,
-    LD   H,B                       ; HL,
-    CALL SH_NUM                    ; is printed,
-    LD   A,':'                     ; a colon separating it
-    CALL SH_CHAR                   ; from the column.
-    POP  HL                        ; The column
-    CALL SH_NUM                    ; is printed.
-    LD   HL,MS_SEP                 ; ": " separates the position from the number.
-.NUMBER:                       ; HL is the text before the number.
-    CALL SH_PRINT                  ; Print it.
-    CALL MS_DIAG                   ; The number and the text.
+    CALL SH_TELL                   ; Print the diagnostic.
     CALL SH_SCRUB                  ; Delete the streams.
     JR   SH_QUIT                   ; End the line and fail.
-.ERROR:                        ; No part: as BLINK prints a diagnostic.
-    LD   HL,MS_ERR                 ; "Error "
-    JR   .NUMBER                   ; before the number.
-
-;@ROUTINE NORETURN
-; Report that the part SH_LOAD failed to open is not on the disk: L-MISSING,
-; its argument the part's name.
-
-SH_MISS:                       ; SH_PIDX is the part.
-    LD   HL,SH_NMISS               ; L-MISSING.
-    JR   SH_NAMED                  ; Name the part in it.
-
-;@ROUTINE NORETURN
-; Report a part that CP/M could not read: L-IO, its argument the part's
-; name, and a disk error's return code.
-
-SH_RERR:                       ; SH_LOAD had a read status other than 0 or 1.
-    LD   A,SH_RDISK                ; A disk error's
-    LD   (SH_RLOW),A               ; return code.
-    LD   HL,SH_NIO                 ; L-IO.
-
-;@ROUTINE IN HL NORETURN
-; Report diagnostic HL with the name of the part being loaded as its
-; argument, and fail.
-
-SH_NAMED:                      ; HL is the message number.
-    PUSH HL                        ; Keep it across the spelling.
-    LD   A,(SH_PIDX)               ; The part being loaded.
-    LD   DE,DG_ABUF                ; Its name, D:NAME.TYP,
-    CALL SH_SPELL                  ; spelled there,
-    LD   (DG_ARG1),HL              ; is argument 1.
-    POP  HL                        ; The number.
-    JP   MS_FAIL                   ; Print it and fail.
-
-;@ROUTINE NORETURN
-; Report a part beyond the SRC_CAP the descriptor table holds.
-
-SH_MANY:                       ; CL_PART found the table full.
-    LD   A,DG_PARTS                ; The part table's capacity.
-    JR   SH_OVER                   ; Report it and fail.
-
-;@ROUTINE NORETURN
-; Report a part whose next record would cross SH_LIMIT.
-
-SH_LARGE:                      ; SH_LOAD found no room for a record.
-    LD   A,DG_ROOM                 ; The source's capacity.
 
 ;@ROUTINE IN A NORETURN
 ; Report the capacity A (DG_CAP's family) as Error 190 with its name, and
 ; fail. The streams are not yet open.
 
 SH_OVER:                       ; A is the limit's code.
-    LD   (DG_CODE),A               ; MS_DIAG maps it.
-    LD   HL,MS_ERR                 ; "Error "
-    CALL SH_PRINT                  ; before the number.
-    CALL MS_DIAG                   ; The number, the text and the limit.
+    LD   (DG_CODE),A               ; MS_SHOWD maps it.
+    XOR  A                         ; It names
+    LD   (DG_PART),A               ; no part.
+    CALL SH_TELL                   ; Print it.
     JR   SH_QUIT                   ; End the line and fail.
 
-;@ROUTINE NORETURN
-; Report option T, trap lookup (toolchain §8), as not yet available.
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Print the compiler's diagnostic DG_CODE, in DG_PART at DG_POS, through
+; the DIAG overlay (MS_SHOWD), its line not yet ended.
 
-SH_TRAP:                       ; CL_READ accepted it.
-    LD   HL,SH_TMSG                ; Not yet available.
-    JR   SH_FAIL                   ; Print it and fail.
+SH_TELL:                       ; DG_CODE, DG_PART and DG_POS are set.
+    LD   A,OV_DIAG                 ; The diagnostics' overlay,
+    CALL OV_LOAD                   ; loaded,
+    JP   OV_AREA+3                 ; prints it (MS_SHOWD); return.
 
-;@ROUTINE NORETURN
-; Report a malformed command line with the usage line.
+;@ROUTINE IN HL NORETURN
+; Print "Error N: text" for diagnostic HL, its arguments at DG_ARG1 and
+; DG_ARG2, through the DIAG overlay (MS_SHOWE), and fail. The arguments
+; must lie outside the overlay area, which the DIAG overlay replaces.
 
-SH_USAGE:                      ; Reached from the parse of the tail.
-    LD   HL,SH_UMSG                ; The usage message, printed by SH_FAIL.
+MS_FAIL:                       ; HL is the number.
+    PUSH HL                        ; Keep it.
+    LD   A,OV_DIAG                 ; The diagnostics' overlay,
+    CALL OV_LOAD                   ; loaded,
+    POP  HL                        ; with the number,
+    CALL OV_AREA                   ; prints it (MS_SHOWE).
+    JR   SH_QUIT                   ; End the line and fail.
 
 ;@ROUTINE NORETURN
 ; Print the message at HL, then fail as SH_QUIT does.
@@ -568,15 +260,6 @@ SH_QUIT:                       ; Every failure ends here, its message printed.
     JP   0                         ; Warm boot: the CCP is reloaded over the source.
 
 ; ---- console ----------------------------------------------------------------
-
-;@ROUTINE IN A CLOBBERS A,B,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Print the saved name of part A (0-based) as D:NAME.TYP, without padding,
-; and without the drive when the part was on the current drive.
-
-SH_SHOW:                       ; A is a part's index.
-    LD   DE,SH_TEXT                ; Spell it here,
-    CALL SH_SPELL                  ; HL addressing it,
-                                   ; and fall into SH_PRINT to print it.
 
 ;@ROUTINE IN HL CLOBBERS A,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Print the zero-terminated text at HL.
@@ -704,7 +387,3 @@ SH_JOB:                        ; The SUBMIT job file a failed build deletes.
     DB   1,"$$$     SUB"           ; Drive A:, then name and type as an FCB holds them.
 SH_DMSG:                       ; A stream could not be written.
     DB   "Disk full",0             ; Or the directory: either ends the build.
-SH_UMSG:                       ; Any malformed command line.
-    DB   "Usage: BASIE PART[,PART...] [OPTIONS]",0 ; The command's grammar.
-SH_TMSG:                       ; Option T.
-    DB   "Trap lookup is not yet available",0 ; Toolchain §8, still to come.

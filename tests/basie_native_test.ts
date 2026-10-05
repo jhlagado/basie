@@ -8,7 +8,8 @@
  * checked against the reference compiler's by
  * tests/native_equivalence_test.ts; constructs not yet generated are
  * refused with Error 191 (65.4). Diagnostics are printed by the
- * reference's numbers, with their text from BASIE.MSG (step 66).
+ * reference's numbers, with their text from BASIE.MSG; the one-shot code
+ * is in BASIE.OVL, beside BASIE.COM (step 66).
  */
 import { assertEquals, assertNotEquals } from "@std/assert";
 import { buildBasie } from "../native/compiler/build.ts";
@@ -17,7 +18,10 @@ import { messageFile } from "../ref/compile/messages.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
 import { HELPER_KEY, HELPER_VERSION } from "../ref/compile/helpers.ts";
 
-const basie = (await buildBasie()).com;
+const built = await buildBasie();
+const basie = built.com;
+/** BASIE.OVL, which goes wherever BASIE.COM does (toolchain §7.3). */
+const OVL = built.ovl;
 const LIBRARY = (await buildRuntime()).file;
 
 type Files = Record<string, string | Uint8Array>;
@@ -30,7 +34,7 @@ const MSG = messageFile();
  * library there too unless `library` is false.
  */
 function build(tail: string, files: Files = {}, library = true) {
-  const tools: Files = { "BASIE.MSG": MSG };
+  const tools: Files = { "BASIE.MSG": MSG, "BASIE.OVL": OVL };
   if (library) tools["CPM22.BRL"] = LIBRARY;
   return runCom(basie, {
     tail,
@@ -146,7 +150,7 @@ Deno.test("without BASIE.MSG a diagnostic is its number and arguments", () => {
   const bare = (tail: string, files: Files) =>
     runCom(basie, {
       tail,
-      files: { "CPM22.BRL": LIBRARY, ...files },
+      files: { "CPM22.BRL": LIBRARY, "BASIE.OVL": OVL, ...files },
       maxSteps: 50_000_000,
     }).output;
   const files = { "MAIN.BSI": "sub main()\n    value = 1\nend\n" };
@@ -416,6 +420,7 @@ function chain(tail: string, files: Files = {}, tools = true) {
         "CPM22.BRL": LIBRARY,
         "BLINK.COM": BLINK,
         "BASIE.MSG": MSG,
+        "BASIE.OVL": OVL,
         ...files,
       }
       : files,
@@ -510,6 +515,7 @@ Deno.test("BASIE looks for BLINK.COM on L's drive or the current one, then A:", 
     "HELLO.BSI": HELLO,
     "CPM22.BRL": LIBRARY,
     "BASIE.MSG": MSG,
+    "BASIE.OVL": OVL,
   };
   let result = chain("HELLO [L=B]", { ...files, "B:BLINK.COM": BLINK }, false);
   assertEquals(result.output, "");
@@ -523,4 +529,50 @@ Deno.test("BASIE looks for BLINK.COM on L's drive or the current one, then A:", 
   for (const t of ["$DR", "$BY", "$LN"]) {
     assertEquals(result.disk.has(`HELLO.${t}`), true);
   }
+});
+
+// ---- 66: the overlays ------------------------------------------------------
+
+Deno.test("BASIE loads its overlays from BASIE.OVL on the current drive, then A:", () => {
+  const plain = (files: Files) =>
+    runCom(basie, {
+      tail: "MAIN [C]",
+      files: { "CPM22.BRL": LIBRARY, "BASIE.MSG": MSG, ...MAIN, ...files },
+      maxSteps: 50_000_000,
+    });
+  assertEquals(plain({ "BASIE.OVL": OVL }).output, "");
+  // The command line, option L included, is an overlay: BASIE.OVL is
+  // looked for before it is read, on the current drive and then A:.
+  const missing = "Error 225: Message 225: BASIE.OVL\r\n";
+  const result = plain({});
+  assertEquals(result.output, missing);
+  assertEquals(result.returnCode, 0xff11);
+  assertEquals(plain({ "B:BASIE.OVL": OVL }).output, missing);
+  // An overlay file that belongs to another BASIE.COM is not used: its sum
+  // of the resident image differs.
+  const other = OVL.slice();
+  other[6] ^= 1;
+  assertEquals(plain({ "BASIE.OVL": other }).output, missing);
+  const truncated = OVL.slice(0, 256);
+  assertEquals(plain({ "BASIE.OVL": truncated }).output, missing);
+});
+
+Deno.test("BASIE.OVL describes every overlay, each loaded when first needed", () => {
+  assertEquals([...OVL.subarray(0, 6)], [0x42, 0x53, 0x49, 0x4f, 1, 0]);
+  const sum = basie.reduce((s, b) => (s + b) & 0xffff, 0);
+  assertEquals(OVL[6] | (OVL[7] << 8), sum);
+  assertEquals(OVL[8], built.overlays.length);
+  for (const [i, o] of built.overlays.entries()) {
+    const e = 9 + 4 * i;
+    assertEquals(OVL[e] | (OVL[e + 1] << 8), built.area, o.name);
+    const first = OVL[e + 2], records = OVL[e + 3];
+    assertEquals(records, Math.ceil(o.bytes.length / 128), o.name);
+    assertEquals(
+      OVL.subarray(first * 128, first * 128 + o.bytes.length),
+      o.bytes,
+    );
+  }
+  // The area is as large as the largest overlay, in whole records.
+  const largest = Math.max(...built.overlays.map((o) => o.records * 128));
+  assertEquals(built.areaSize, largest);
 });

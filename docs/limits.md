@@ -109,22 +109,27 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | One blob's references | 512 bytes encoded (`BL_RCAP`), about 100 references | the 128-byte buffer spilling to `NAME.$RF` (toolchain §3.2) |
 | One blob's line entries | 512 bytes encoded (`BL_LCAP`), about 120 statements | spilling with the references |
 | Labels in use at once in one routine | 32 (`EM_LCAP`), two of them the exit and the need word; an `if`, `while`, `for` or handler frees its labels when it ends, and `and` and `or` theirs when they join, so the count is bounded by nesting (about 3 per level); `DG_LABEL` beyond | — |
-| Open `if`, `while`, `for` and `handle` statements | 8 nested (`CT_FCAP`); `DG_NEST` (Error 68) beyond | 32 (§5.1) with the scoped symbol table (step 67) |
-| Routines | 32 besides main (`RO_RCAP`); `DG_PROCS` (Error 84) beyond | the hashed, scoped symbol table (step 67) |
-| Parameters | 64 in the whole program (`RO_PCAP`), and 255 bytes of arguments to one routine; `DG_PARAM` (Error 85) beyond | the symbol table (step 67) |
-| Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 65) beyond | measured against the stack at step 68 |
-| Names visible at once | 96 (`SY_CAP`): the program's constants, variables and record types with the current routine's parameters and locals; `DG_SYMS` (Error 56) beyond | the hashed, scoped symbol table (step 67) |
-| One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` beyond | writing initializers to the blob as they are parsed |
-| Aggregate types | 24 distinct string and array types and records (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all records together (`AG_FCAP`); `DG_META` (Error 76) beyond | the scoped symbol table and type descriptors (step 67) |
-| String literals in one routine | 16 (`RO_LCAP`), each placed after the routine's need word; `DG_LITS` (Error 86) beyond | measured at step 68 |
-| Dimensions of one array type | 8 (`AG_DCAP`); `DG_BOUND` (Error 83) beyond | the type descriptors of step 67 |
+| Open `if`, `while`, `for` and `handle` statements | 8 nested (`CT_FCAP`); `DG_NEST` (Error 190, `nesting`) beyond | 32 (§5.1) with the scoped symbol table (step 67) |
+| Routines | 32 besides main (`RO_RCAP`); `DG_PROCS` (Error 190, `routines`) beyond | the hashed, scoped symbol table (step 67) |
+| Parameters | 64 in the whole program (`RO_PCAP`), and 255 bytes of arguments to one routine; `DG_PARAM` (Error 190, `parameters`) beyond | the symbol table (step 67) |
+| Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 190, `expression depth`) beyond | measured against the stack at step 68 |
+| Names visible at once | 96 (`SY_CAP`): the program's constants, variables and record types with the current routine's parameters and locals; `DG_SYMS` (Error 190, `symbols`) beyond | the hashed, scoped symbol table (step 67) |
+| One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` (Error 190, `object size`) beyond | writing initializers to the blob as they are parsed |
+| Aggregate types | 24 distinct string and array types and records (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all records together (`AG_FCAP`); `DG_META` (Error 190, `types`) beyond | the scoped symbol table and type descriptors (step 67) |
+| String literals in one routine | 16 (`RO_LCAP`), each placed after the routine's need word; `DG_LITS` (Error 190, `literals`) beyond | measured at step 68 |
+| Dimensions of one array type | 8 (`AG_DCAP`); `DG_META` (Error 190, `types`) beyond | the type descriptors of step 67 |
 | One array type or object | 1,024 bytes (`AG_ICAP`), the initializer staging, even without an initializer; `DG_DATA` beyond | writing initializers to the blob as they are parsed |
-| Constructs compiled | those of the claimed programs of 65.4 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 95), among them the services with a `u32` parameter or result (`seek`, `position`, `size`) and `File` fields, elements, results and program-variable initializers | step 67 |
-| `File` values | `console`, `printer`, a service's result or a File variable, and only where a File is expected (an argument, an assignment, a File local's initializer); a File as an operand, as in `f = console`, is refused (`DG_CLASH`, Error 60) | step 67 |
+| Constructs compiled | those of the claimed programs of 65.4 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 191, `native-unsupported`), among them the services with a `u32` parameter or result (`seek`, `position`, `size`) and `File` fields, elements, results and program-variable initializers | step 67 |
+| `File` values | `console`, `printer`, a service's result or a File variable, and only where a File is expected (an argument, an assignment, a File local's initializer); a File as an operand, as in `x = f + 1`, is refused (`type-mismatch`, Error 41, as the reference refuses it) | step 67 |
 | `BLINK.COM` when `BASIE` chains to it | must end below the loader `BASIE` leaves under the BDOS entry, 77 bytes with its FCB; `BLINK` is 10.6K | — |
 | Option `T`, trap lookup (toolchain §8) | read and checked, then refused as not yet available | a later step |
-| Local declarations | before a routine body's first statement, not inside its blocks (the forked grammar's `local-list`); a later one is refused (`DG_VALUE`, Error 58) | the scoped symbol table (step 67) |
-| Exact constant values | 0 to 65,535 while folding; a value outside it, a negative one included, is refused (`DG_RANGE`, Error 61) where the spec allows −2^31 to 2^32 − 1 | 32-bit folding with the 32-bit types (step 67) |
+| Declarations after `main` | refused (`DG_NYI`, Error 191): the forked grammar ends the program with `main` | step 67 |
+| Floating-point literals | refused (`DG_NYI`, Error 191) | the decimal-to-`f32` overlay (toolchain §7.3) |
+| Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; five today: `COMMAND` 986 bytes, `START` 727, `NAMES` 947, `CHAIN` 285 and `DIAG` 969, each loaded into the overlay area when first needed | — |
+| Overlay area | 1,024 bytes after the 13,895-byte resident image, the largest overlay in whole records; the image and the area together must end below the compiler's workspace at `$4800` (`MM_WBASE`) | — |
+| A name in a diagnostic | its first 32 characters (`DG_ALEN`) | — |
+| Local declarations | before a routine body's first statement, not inside its blocks (the forked grammar's `local-list`); a later one is refused (`DG_NYI`, Error 191) | the scoped symbol table (step 67) |
+| Exact constant values | 0 to 65,535 while folding; a value outside it, a negative one included, is refused (`DG_EXACT`, Error 192, `native-exact`) where the spec allows −2^31 to 2^32 − 1 | 32-bit folding with the 32-bit types (step 67) |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)
 
