@@ -1,0 +1,10 @@
+// A loop whose bound lies beyond its counter's type traps when the counter
+// would have to leave the type (12.5, 15.2).
+// spec: 12.5, 15.2
+// expect trap: loop-range at 8
+
+sub main() fails
+    var c as u8
+    for c = 250 to 300
+    end
+end

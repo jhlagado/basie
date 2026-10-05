@@ -2559,18 +2559,22 @@ export class Compiler {
     if (this.acceptKeyword("to")) inclusive = true;
     else if (this.acceptKeyword("until")) inclusive = false;
     else fail("syntax", this.token, "expected to or until");
-    // The bound is evaluated once, into a hidden local of the counter's type
-    // widened with the bound's.
+    // The bound is evaluated once, into a hidden local holding it in the
+    // comparison type: the wider of the counter's and the bound's (12.4).
     const boundAt = this.token;
     const bound = this.expression(ctype);
+    const exact = bound.kind === "const" && !bound.type;
     let boundType: ScalarName = ctype.name;
-    if (bound.kind === "const" && !bound.type) {
-      // An exact bound: keep it mathematical; a value beyond the counter's
-      // type means the loop can run to the type's end or not at all.
-      if (!fits(bound.value as number, ctype.name)) {
-        boundType = ctype.name; // handled by the comparison in the wider sense below
+    if (exact) {
+      // An exact bound stays mathematical and need not fit the counter.
+      const v = bound.value as number;
+      if (!fits(v, ctype.name) && SCALARS[ctype.name].size === 1) {
+        if (fits(v, SCALARS[ctype.name].signed ? "i16" : "u16")) {
+          boundType = SCALARS[ctype.name].signed ? "i16" : "u16";
+        } else if (fits(v, "i16")) boundType = "i16";
+        else if (fits(v, "u16")) boundType = "u16";
       }
-    } else if (bound.kind === "reg" || (bound.kind === "const" && bound.type)) {
+    } else if (bound.kind === "reg" || bound.kind === "const") {
       const bt = (bound as { type: Type }).type;
       if (bt.kind !== "scalar") {
         fail("type-mismatch", boundAt, "an integer bound is required");
@@ -2588,13 +2592,15 @@ export class Compiler {
     if (SCALARS[boundType].size > 2) {
       throw new NotImplemented("32-bit loop bounds");
     }
-    const bt = scalar(boundType);
-    this.toRegisters(bound, bt, boundAt);
     const boundOffset = this.allocLocal(2);
-    if (SCALARS[boundType].size === 1) {
-      this.widen(boundType, SCALARS[boundType].signed ? "i16" : "u16");
-    }
-    this.storeRegisters(U16, { kind: "frame", offset: boundOffset });
+    const storeBound = (value: Value) => {
+      this.toRegisters(value, scalar(boundType), boundAt);
+      if (SCALARS[boundType].size === 1) {
+        this.widen(boundType, SCALARS[boundType].signed ? "i16" : "u16");
+      }
+      this.storeRegisters(U16, { kind: "frame", offset: boundOffset });
+    };
+    if (!exact) storeBound(bound);
     let step = 1;
     if (this.acceptKeyword("step")) {
       let negative = false;
@@ -2607,47 +2613,57 @@ export class Compiler {
         mag = st.value;
       } else if (st.kind === "name") {
         const c = this.scopes.lookup(st.text);
-        if (c?.kind !== "const" || typeof c.value !== "number") {
-          fail("loop-step", st, "the step must be a constant");
+        if (
+          c?.kind !== "const" || typeof c.value !== "number" ||
+          !Number.isInteger(c.value) ||
+          (c.type !== undefined && !isInteger(c.type))
+        ) {
+          fail("loop-step", st, "the step must be an integer constant");
         }
         this.advance();
         mag = (c as Symbol & { kind: "const" }).value as number;
+        if (mag < 0) {
+          fail("loop-step", st, "a named step is a non-negative magnitude");
+        }
       } else fail("loop-step", st, "the step must be a constant");
       if (mag! === 0 || mag! > SCALARS[ctype.name].max) {
         fail("loop-step", st, "the step must be nonzero and fit the counter");
       }
       step = negative ? -mag! : mag!;
     }
+    // An exact bound beyond even the comparison type: the loop either never
+    // starts or runs until the counter would leave its type (loop-range).
+    let mode: "word" | "always" | "never" = "word";
+    if (exact) {
+      const v = bound.value as number;
+      if (fits(v, boundType)) storeBound(bound);
+      else {
+        const above = v > SCALARS[boundType].max;
+        mode = (step > 0) === above ? "always" : "never";
+      }
+    }
     this.expectNewline();
     const signed = SCALARS[ctype.name].signed;
-    const test = r.blob.newLabel();
-    const next = r.blob.newLabel();
+    const cmpSigned = SCALARS[boundType].signed;
+    const mag = Math.abs(step);
     const exit = r.blob.newLabel();
+    const next = r.blob.newLabel();
     const body = r.blob.newLabel();
-    // Test: counter <= bound (or <, >=, >) in 16-bit, counter widened.
-    r.blob.defineLabel(test);
-    this.loadCounterWide(counter, signed);
-    this.ixWord(boundOffset, "DE");
-    // continue while: step>0: inclusive ? HL<=DE : HL<DE; step<0: inclusive ? HL>=DE : HL>DE
-    this.compare16ToFlags(signed);
-    // after compare16ToFlags: carry set iff HL < DE; zero set iff equal (for unsigned);
-    // for signed, we arrange the same meaning in the carry and zero flags.
-    const less = JP_C, notLess = JP_NC;
-    if (step > 0) {
-      if (inclusive) {
-        // continue if HL <= DE: i.e. not (DE < HL). We tested HL<DE: continue if carry or zero.
-        r.blob.jpIf(less, body);
-        r.blob.jpIf(JP_Z, body);
-        r.blob.jp(exit);
+    // The first test (12.5): counter against the bound.
+    if (mode === "never") r.blob.jp(exit);
+    else if (mode === "word") {
+      this.loadCounterWide(counter, signed);
+      this.ixWord(boundOffset, "DE");
+      this.compare16ToFlags(cmpSigned); // carry: counter < bound; zero: equal
+      if (step > 0) {
+        if (inclusive) {
+          r.blob.jpIf(JP_C, body);
+          r.blob.jpIf(JP_Z, body);
+          r.blob.jp(exit);
+        } else r.blob.jpIf(JP_NC, exit);
       } else {
-        r.blob.jpIf(notLess, exit);
-      }
-    } else {
-      if (inclusive) {
-        r.blob.jpIf(less, exit); // continue if HL >= DE
-      } else {
-        r.blob.jpIf(less, exit);
-        r.blob.jpIf(JP_Z, exit);
+        r.blob.jpIf(JP_C, exit);
+        if (!inclusive) r.blob.jpIf(JP_Z, exit);
       }
     }
     r.blob.defineLabel(body);
@@ -2661,16 +2677,44 @@ export class Compiler {
     this.checkBackEdge(entryFlow, endAt);
     this.meetFlow([entryFlow, this.snapshotFlow()]);
     this.expectNewline();
-    // Next: counter + step, checked against the type before storing (loop-range).
+    // The next value (12.5): the current counter passed the test, so the
+    // distance to the bound in the loop's direction is never negative. The
+    // loop goes on only if a step fits in that distance, and only then is
+    // the new value computed and stored, so nothing wraps at the bound.
     r.blob.defineLabel(next);
     this.loadCounterWide(counter, signed);
-    const stepField = step < 0 ? (step + 0x10000) & 0xffff : step;
-    r.blob.u8(0x11); // LD DE,step
-    r.blob.u16(stepField);
-    r.blob.u8(0x19); // ADD HL,DE
-    this.checkFitsCounter(ctype.name, signed);
+    if (mode === "word") {
+      r.blob.u8(0xe5); // PUSH HL: the counter
+      this.push(2);
+      this.ixWord(boundOffset, "DE");
+      if (step > 0) r.blob.u8(0xeb); // EX DE,HL: bound - counter
+      r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE: the distance
+      r.blob.u8(0x11); // LD DE,step magnitude
+      r.blob.u16(mag);
+      r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE: carry if it doesn't fit
+      r.blob.u8(0xe1); // POP HL: the counter
+      this.pop(2);
+      r.blob.jpIf(JP_C, exit);
+      if (!inclusive) r.blob.jpIf(JP_Z, exit);
+    }
+    r.blob.u8(0x11); // LD DE,step magnitude
+    r.blob.u16(mag);
+    const wide = SCALARS[ctype.name].size === 1;
+    if (step > 0) {
+      if (wide || mode === "word") r.blob.u8(0x19); // ADD HL,DE
+      else if (signed) r.blob.u8(0xb7, 0xed, 0x5a); // OR A; ADC HL,DE
+      else r.blob.u8(0x19); // ADD HL,DE
+    } else r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE
+    if (wide) {
+      // An 8-bit counter compared against a wider bound may still step out
+      // of its own type.
+      this.checkFitsCounter(ctype.name, signed);
+    } else if (mode === "always") {
+      // A 16-bit counter with no bound in reach: trap when it leaves its type.
+      r.blob.callBlobIf(signed ? 0xea : JP_C, Helper.TRAP_LOOP_RANGE); // CALL PE / CALL C
+    }
     this.storeCounterFromWide(counter);
-    r.blob.jp(test);
+    r.blob.jp(body);
     r.blob.defineLabel(exit);
     r.fallsThrough = true;
     void forAt;
