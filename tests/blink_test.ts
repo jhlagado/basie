@@ -16,6 +16,7 @@ const hello = await compile("tests/conformance/basics/hello.bsi");
 if (!hello.ok) throw new Error("hello didn't compile");
 const HELLO_DR = hello.objects.directory;
 const HELLO_BY = hello.objects.bytes;
+const HELLO_LN = hello.objects.lines;
 
 function run(tail: string, files: Record<string, Uint8Array> = {}) {
   return runCom(blink, { tail, files, maxSteps: 200_000_000 }).output;
@@ -39,6 +40,7 @@ Deno.test("BLINK finds and checks the library, and its CRC with V", () => {
     "CPM22.BRL": library,
     "HELLO.$DR": HELLO_DR,
     "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
   };
   assertEquals(run("HELLO", files), "");
   assertEquals(run("HELLO [V]", files), "");
@@ -76,6 +78,7 @@ Deno.test("BLINK looks for the library named by P=", () => {
       "OTHER.BRL": library,
       "HELLO.$DR": HELLO_DR,
       "HELLO.$BY": HELLO_BY,
+      "HELLO.$LN": HELLO_LN,
     }),
     "",
   );
@@ -87,6 +90,7 @@ Deno.test("BLINK refuses bad and repeated options", () => {
     "CPM22.BRL": library,
     "HELLO.$DR": HELLO_DR,
     "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
   };
   assertEquals(run("HELLO [Q]", files), error(224, ["Q"]));
   assertEquals(run("HELLO [M,M]", files), error(224, ["M"]));
@@ -134,6 +138,7 @@ for (const path of PROGRAMS) {
         "CPM22.BRL": library,
         "PROG.$DR": result.objects.directory,
         "PROG.$BY": result.objects.bytes,
+        "PROG.$LN": result.objects.lines,
       },
       maxSteps: 100_000_000,
     });
@@ -155,6 +160,7 @@ Deno.test("BLINK checks the program against the library", () => {
     "BASIE.MSG": MSG,
     "CPM22.BRL": library,
     "HELLO.$BY": HELLO_BY,
+    "HELLO.$LN": HELLO_LN,
   };
   const otherKey = HELLO_DR.slice();
   otherKey[12] ^= 1; // the helper-table key
@@ -182,6 +188,7 @@ for (const path of PROGRAMS) {
         "CPM22.BRL": library,
         "PROG.$DR": result.objects.directory,
         "PROG.$BY": result.objects.bytes,
+        "PROG.$LN": result.objects.lines,
       },
       maxSteps: 100_000_000,
     });
@@ -189,5 +196,24 @@ for (const path of PROGRAMS) {
     const image = run.disk.get("PROG.$$$")!;
     assertEquals(image.length, result.com.length);
     assertEquals(image, result.com);
+    // The line table, padded to whole records on the disk.
+    const table = run.disk.get("PROG.$LT")!;
+    assertEquals(table.subarray(0, result.lineTable!.length), result.lineTable);
   });
 }
+
+Deno.test("with option N BLINK needs no line stream and writes no line table", () => {
+  const run = runCom(blink, {
+    tail: "HELLO [N]",
+    files: {
+      "BASIE.MSG": MSG,
+      "CPM22.BRL": library,
+      "HELLO.$DR": HELLO_DR,
+      "HELLO.$BY": HELLO_BY,
+    },
+    maxSteps: 100_000_000,
+  });
+  assertEquals(run.output, "");
+  assertEquals(run.disk.has("HELLO.$LT"), false);
+  assertEquals(run.disk.has("HELLO.$$$"), true);
+});

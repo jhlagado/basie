@@ -549,6 +549,9 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         LD      HL,225          ; L-MISSING
         JP      C,ERRFILE
         CALL    BYHEAD
+        LD      HL,$FFFF
+        LD      (IMG_CRC),HL
+        CALL    LN_OPEN
         LD      HL,(PR_BASE)
         LD      (OUTPOS),HL
         LD      A,S_START
@@ -559,10 +562,21 @@ PHASED: ; NAME.$$$ on the output drive, under the output name
         LD      (SEL_SEC),A
         LD      HL,EMIT
         CALL    PASSES
+        ; .COM: zeros to the end of the last record, in the image's CRC
+.PAD:   LD      HL,(OUTPOS)
+        LD      A,L
+        AND     $7F
+        JR      Z,.PADDED
+        XOR     A
+        CALL    OUTB
+        INC     HL
+        LD      (OUTPOS),HL
+        JR      .PAD
+.PADDED:
         LD      IX,OUT_FD
         CALL    F_CLOSE
         JP      C,DISKERR
-        RET
+        JP      LN_CLOSE
 
 ; HL = the output's 8-character name and A its drive: option O's, else the
 ; first part's.
@@ -612,14 +626,35 @@ BYHEAD: LD      HL,.MAGIC
 ; Copy the blob just read to the output, if it is in the pass, patching its
 ; references; otherwise skip its references.
 EMIT:   CALL    SELECT
+        JR      Z,.SEL
+        ; not in the pass; but a program code blob's line record is still
+        ; read in the code pass, to keep the line stream in step
+        LD      A,(SEL_SEC)
+        CP      S_TEXT
         JP      NZ,REFSKIP
-        ; padding up to the blob's address
+        LD      A,(SEL_CLS)
+        OR      A
+        JP      NZ,REFSKIP
+        LD      A,(WK_OWN)
+        OR      A
+        JP      Z,REFSKIP
+        LD      A,(WK_KIND)
+        CP      K_CODE
+        JP      NZ,REFSKIP
+        XOR     A
+        CALL    LN_BLOB
+        JP      REFSKIP
+.SEL:   ; padding up to the blob's address
         LD      HL,(WK_ENT)
         LD      DE,E_ADDR
         ADD     HL,DE
         LD      E,(HL)
         INC     HL
         LD      D,(HL)          ; DE = the address
+        PUSH    DE
+        LD      A,1
+        CALL    LN_BLOB         ; its line-table entries
+        POP     DE
         LD      HL,(OUTPOS)
 .PAD:   LD      A,L
         CP      E
@@ -845,8 +880,13 @@ SRCB:   PUSH    IX
         JP      C,R_SHORT
         RET
 
-; Write A to the output. Preserves BC, DE, HL, IX.
-OUTB:   PUSH    IX
+; Write A to the output, adding it to the image's CRC. Preserves BC, DE,
+; HL, IX.
+OUTB:   PUSH    HL
+        LD      HL,IMG_CRC
+        CALL    CRC_UPD
+        POP     HL
+        PUSH    IX
         PUSH    BC
         PUSH    DE
         PUSH    HL

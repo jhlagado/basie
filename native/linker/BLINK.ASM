@@ -6,6 +6,7 @@
 %INCLUDE "TAIL.ASM"
 %INCLUDE "PHASEA.ASM"
 %INCLUDE "PHASECD.ASM"
+%INCLUDE "LINES.ASM"
 
 ; BLINK: link a compiled Basie program (docs/linker.md; toolchain §5).
 ;
