@@ -175,6 +175,8 @@ are what it found, to be dealt with by the step named.
 | `CALLS.ASM`, `RO_ERNG` | A constant index's range error sets only the offset, so it is reported at the closing bracket's line and column | step 67 |
 | `GENCTRL.ASM`, `GC_PEND` | The label range check `AND $1F` / `CP 32` cannot fail; labels stay below 32 today | 65.4, when labels become per routine |
 | `LL1.ASM`, `CALLWORK.ASM` | `DG_LLCAP` and `DG_LEAK` share the number 87 | step 66, with the message file |
+| `ACTSTMT.ASM`, `AC_GOTO` | `exit` and `continue` do not clear `CT_FALLS`, so an `if` whose arms all end in `exit` inside a routine with a result may be refused with `DG_FLOW` | step 67 |
+| `ACTIONS.ASM`, `AC_BOUND` | Has no effect: `AC_FOLD`, which always follows, overwrites `EX_WANT`; the bound is checked later by `AC_COUNT` | first compression pass |
 | `SHELL.ASM` | The room check refuses a part ending within 128 bytes of the limit; a read error ends a part silently; a trailing comma and a blank type are accepted; a part's drive is not printed in diagnostics | next shell increment |
 
 **Dead code and data** (bytes for the compression passes): the forward-signature
@@ -186,6 +188,12 @@ parser path writes, among them `RG_FATAL`; the banked paths that survive in
 that only hosts two target tables; and a score of redundant instructions
 (`LD B,A` after `LD A,B`, `CALL` then `RET`, jumps to the next line). Most go
 with the placed output at 65.4; the rest are the first compression pass.
+
+**Contracts.** The commentary agents checked every `;@ROUTINE` line against the
+code by hand, and the actions' agent with a register-effect analyser that walks
+each path through `PUSH`/`POP` and its callees' contracts. Making that analyser
+a tool, run by the tests over every module, is planned with the first
+compression pass, so that contracts stay true as code changes.
 
 **Names to revisit,** each a byte-identical rename: tails of routines that are
 global only because their code spans several labels (`TK_TRAIL`, `RO_SEL`,
