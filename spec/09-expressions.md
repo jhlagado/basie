@@ -128,7 +128,7 @@ Unary `-` changes the sign; `-0.0` is a value, equal to `0.0` in every compariso
 
 ## 9.10 Shifts
 
-`a shl n` and `a shr n` shift an integer `a` by `n` bit positions. The result has `a`'s type; if `a` is exact, it takes its type from the context as in Section 9.7. The count `n` must have an unsigned integer type or be an exact non-negative integer; a signed count must be converted explicitly.
+`a shl n` and `a shr n` shift an integer `a` by `n` bit positions. The result has `a`'s type. When `a` and `n` are both exact, the shift is folded exactly like any exact expression (Section 9.7): `a shl n` is `a` times 2 to the power `n`, and `a shr n` is `a` divided by it, rounded down; so `1 shl 3` is 8 and `(1 shl 20) + 3` must fit wherever it is used. When `a` is exact and `n` is not, `a` takes the context's expected integer type, and without one the shift is invalid. The count `n` must have an unsigned integer type or be an exact non-negative integer; a signed count must be converted explicitly.
 
 - `shl` shifts left, filling with zeros; bits shifted out are lost, and for a signed type the result wraps in two's complement.
 - `shr` shifts right. For an unsigned type it fills with zeros. For a signed type it copies the sign bit, so `-8 shr 1` is `-4`.
@@ -151,7 +151,8 @@ The six comparison operators produce `boolean`.
 
 These operators work logically on `boolean` operands and bit by bit on integer operands, as in Pascal (design decision D31). Mixing a `boolean` and an integer operand is invalid. Integer operands follow Section 9.7 and the result has their common type; `f32` operands are invalid.
 
-- `not` on a `boolean` exchanges `true` and `false`; on an integer it complements every bit of the operand's type.
+- `not` on a `boolean` exchanges `true` and `false`; on an integer it complements every bit of the operand's type. An exact operand takes the context's expected integer type, so `var b as u8 = not 0` gives 255; without one, `not` of an exact integer is invalid.
+- `and`, `or` and `xor` on two exact integers are folded exactly; both must be non-negative, since an exact value has no width to complement.
 - `and` and `or` on integers combine corresponding bits and evaluate both operands.
 - `xor` combines by exclusive OR, on integers bit by bit and on `boolean` values logically. It always evaluates both operands.
 

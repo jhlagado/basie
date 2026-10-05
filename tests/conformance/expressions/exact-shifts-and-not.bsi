@@ -1,0 +1,31 @@
+// Exact operands of shl, shr and not: an all-exact shift is folded exactly;
+// an exact value shifted by a typed count, or under not, takes its
+// context's type (9.7, 9.10, 9.12; review finding B8).
+// spec: 9.7, 9.10, 9.12
+// expect output: 8 255 8 15 8 65534\r\n
+
+include "FORMAT.BSI"
+
+sub main() fails
+    var line as string[40]
+    var x as u8 = 3
+    var a as u8 = 1 shl 3
+    var b as u8 = not 0
+    var c as u8 = 1 shl x
+    var d as u8 = 255 shr 4
+    var e as u8 = 12 and 10
+    var f as u16 = not 1
+    appendU16(line, a) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, b) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, c) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, d) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, e) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, f) else fail
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end

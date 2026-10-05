@@ -4234,7 +4234,14 @@ export class Compiler {
   private notExpression(expected: Type | undefined, constant: boolean): Value {
     if (this.isKeyword("not")) {
       const at = this.advance();
-      const v = this.notExpression(expected, constant);
+      let v = this.notExpression(expected, constant);
+      if (
+        v.kind === "const" && !v.type && typeof v.value === "number" &&
+        expected && isInteger(expected)
+      ) {
+        // An exact operand of not takes the context's type (9.12).
+        v = this.coerceConst(v, expected, at);
+      }
       return this.unaryNot(v, at);
     }
     return this.comparison(expected, constant);
@@ -4301,6 +4308,7 @@ export class Compiler {
         leftAt,
         () => this.unary(expected, constant),
         constant,
+        expected,
       );
     }
     return left;
@@ -4776,6 +4784,7 @@ export class Compiler {
     leftAt: Token,
     right: () => Value,
     constant: boolean,
+    expected?: Type,
   ): Value {
     const r = this.routine!;
     const isComparison = ["=", "<>", "<", "<=", ">", ">="].includes(op);
@@ -4846,6 +4855,22 @@ export class Compiler {
       if (op === "<>") r.blob.u8(0xee, 0x01); // XOR 1
       return { kind: "reg", type: BOOLEAN };
     }
+    // An exact value shifted by a typed count takes the context's type (9.10);
+    // shifted by an exact count, it is folded exactly like any exact
+    // expression (9.7).
+    if (
+      left.kind === "const" && !left.type && isShift &&
+      !this.peekExactOperand()
+    ) {
+      if (!expected || !isInteger(expected)) {
+        fail(
+          "no-definite-type",
+          leftAt,
+          "a shifted exact value needs a type from its context",
+        );
+      }
+      left = this.coerceConst(left, expected!, leftAt);
+    }
     // Numeric operands.
     const leftType = this.numericType(left, leftAt);
     if (left.kind === "const" && !left.type) {
@@ -4882,6 +4907,15 @@ export class Compiler {
       }
       // Emit: right is in registers; left is a constant: materialize as DE/E.
       return this.emitBinaryConstLeft(op, left.value as number, type!, leftAt);
+    }
+    // A typed constant shifted by a count in registers: load it, so it takes
+    // the register path, which pushes the left before the count.
+    if (left.kind === "const" && isShift && !this.peekConstOperand()) {
+      if (constant) {
+        fail("not-constant", leftAt, "a constant expression is required");
+      }
+      this.toRegisters(left, leftType, leftAt);
+      left = { kind: "reg", type: leftType };
     }
     // Typed left.
     if (left.kind === "const") {
@@ -5020,6 +5054,22 @@ export class Compiler {
     return scalar(c!);
   }
 
+  /** Whether the next operand is certainly exact: a number or untyped constant. */
+  private peekExactOperand(): boolean {
+    const t = this.token;
+    if (t.kind === "number") return true;
+    if (t.kind !== "name") return false;
+    const sym = this.scopes.lookup(t.text);
+    return sym?.kind === "const" && !sym.type && typeof sym.value === "number";
+  }
+
+  /** Whether the next operand is certainly a constant: a number or constant name. */
+  private peekConstOperand(): boolean {
+    const t = this.token;
+    if (t.kind === "number") return true;
+    return t.kind === "name" && this.scopes.lookup(t.text)?.kind === "const";
+  }
+
   private foldExact(op: string, a: number, b: number, at: Token): Value {
     switch (op) {
       case "+":
@@ -5034,6 +5084,14 @@ export class Compiler {
       case "mod":
         if (b === 0) fail("division-by-zero", at, "division by zero");
         return { kind: "const", value: a % b };
+      case "shl":
+      case "shr":
+        // Exact shifts are multiplication and floor division by 2 ** b.
+        if (b < 0) fail("out-of-range", at, "a shift count is non-negative");
+        return {
+          kind: "const",
+          value: op === "shl" ? a * 2 ** b : Math.floor(a / 2 ** b),
+        };
       case "=":
         return { kind: "const", type: BOOLEAN, value: a === b };
       case "<>":

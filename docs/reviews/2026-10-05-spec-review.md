@@ -52,7 +52,7 @@ fixes it names the finding, as B1, A3 and so on).
 | B5 | major (closed) | "A routine whose result is an owning type" is called fresh, and owning aggregates may be copied "unless fresh". Aggregate results are aliases, so no aggregate is ever fresh. | Say "owning handle type" |
 | B6 | major (closed) | 6.5 keeps Nucleus statements: scalars only `u8`, `u16`, `boolean`; no local aggregates; results alias program storage. | Rewrite 6.5 to D8, D20 |
 | B7 | major (closed) | Identifier comparison (`=`, `<>`, with `none`) is specified but not implemented. | Implement; state `id P` widens to `id P?` |
-| B8 | major | Exact operands of `not`, `shl`, `shr` and bitwise operators: 9.7 and 9.10 conflict; the compiler rejects `var x as u8 = 1 shl 3`. | Define them from the context type |
+| B8 | major (closed) | Exact operands of `not`, `shl`, `shr` and bitwise operators: 9.7 and 9.10 conflict; the compiler rejects `var x as u8 = 1 shl 3`. | Define them from the context type |
 | B9 | major (closed) | 8.10 says literals have no definite type, but 9.7 types `true`, characters, floats and comparisons, and the compiler accepts `var f = true`. | Restrict 8.10 to exact integers |
 | B10 | major | Character literals are exact in one place and `u8` in another; substituting a constant for its literal changes validity. | One rule, stated once |
 | B11 | major | `var f as f32 = 16777217` is accepted and rounds silently, though an exact integer adopts `f32` only when representable. | Reject; define `f32(...)` on exact operands |
