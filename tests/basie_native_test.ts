@@ -40,6 +40,33 @@ Deno.test("a failed build deletes A:$$$.SUB; a good one leaves it", () => {
   assertEquals(result.disk.has("$$$.SUB"), false);
 });
 
+Deno.test("a failed compilation deletes its streams unless K keeps them", () => {
+  const streams = ["$DR", "$BY", "$LN", "$NM"].map((t) => `MAIN.${t}`);
+  const bad = { "MAIN.BSI": "sub main()\nvalue = 1\nend\n" };
+  // A stale stream from an earlier build goes too.
+  const stale = { ...bad, "MAIN.$NM": "old" };
+  let result = runCom(basie, {
+    tail: "MAIN [M]",
+    files: stale,
+    maxSteps: 50_000_000,
+  });
+  assertEquals(result.output, "MAIN.BSI 2:1 Error 57\r\n");
+  for (const name of streams) assertEquals(result.disk.has(name), false, name);
+  result = runCom(basie, {
+    tail: "MAIN [M,K]",
+    files: bad,
+    maxSteps: 50_000_000,
+  });
+  for (const name of streams) assertEquals(result.disk.has(name), true, name);
+  // A good build keeps its streams.
+  result = runCom(basie, {
+    tail: "MAIN [M]",
+    files: { "MAIN.BSI": PROGRAM },
+    maxSteps: 50_000_000,
+  });
+  for (const name of streams) assertEquals(result.disk.has(name), true, name);
+});
+
 Deno.test("BASIE reports a part it can't find", () => {
   assertEquals(run("MAIN"), "MAIN.BSI not found\r\n");
   assertEquals(run("B:MAIN"), "B:MAIN.BSI not found\r\n");

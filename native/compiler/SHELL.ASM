@@ -16,9 +16,10 @@
 ;
 ;  Command line: PART[,PART...] [OPTIONS]. A part is [d:]name[.type], of
 ;  type BSI when it names none, and spaces may surround the commas. Of the
-;  options in brackets only the flags N (no line stream) and M and Y (a
-;  name stream) are read yet; the rest are accepted and ignored until the
-;  command line is read in full (native compiler plan 65.2b).
+;  options in brackets only the flags N (no line stream), M and Y (a name
+;  stream) and K (keep the intermediate files after a failure) are read
+;  yet; the rest are accepted and ignored until the command line is read
+;  in full (native compiler plan 65.2b).
 ;
 ;  Principal entries:
 ;    SH_START  the program entry, reached from the jump at $0100
@@ -27,9 +28,10 @@
 ;  Failure: a malformed command line, a missing part, more than SRC_CAP
 ;  parts, source too large for memory, a full disk or a compiler
 ;  diagnostic prints one line and then deletes A:$$$.SUB, which stops a
-;  running SUBMIT job under CP/M 2.2 (toolchain §5.4). The streams of a
-;  failed compilation are left as they were written. The CP/M 3 return
-;  code is not yet set.
+;  running SUBMIT job under CP/M 2.2 (toolchain §5.4). A compiler
+;  diagnostic or a full disk, which come once the streams are open, also
+;  deletes the four streams, unless option K keeps them (toolchain §6.2).
+;  The CP/M 3 return code is not yet set.
 ;
 ;  Memory: SP starts at the BDOS entry. The parts are packed upward from
 ;  MM_SRC, each ending at its first $1A, and must stay MM_STACK bytes below
@@ -52,6 +54,7 @@ SH_DMA EQU  26                 ; BDOS set DMA address: DE receives the next reco
 SH_FLEN EQU  36                ; FCB bytes, through the random record number.
 SH_NLEN EQU  11                ; FCB name and type bytes, padded with spaces.
 SH_SLOT EQU  12                ; A saved part name: the FCB's drive, name and type.
+SH_KEEP EQU  $40               ; BL_FLAGS bit: option K, keep the streams on failure.
 
 ; The shell's workspace, after the compiler's and below the source.
 SH_LIMIT EQU  SH_WBEG          ; Word: the source must end at or below here.
@@ -141,7 +144,7 @@ SH_START:                      ; Entered from the jump at $0100.
 ;@ROUTINE IN C,HL OUT C CLOBBERS A,B,E,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read the options from HL, just after '[', to the ']' or the end of the
 ; tail. An option of one letter is a flag: N clears BL_LNOUT in C, M and Y
-; set BL_NMOUT. Every other option is not yet read.
+; set BL_NMOUT, K sets SH_KEEP. Every other option is not yet read.
 
 .OPTIONS:                      ; HL is after '[' or a comma.
     CALL .SPACES                   ; A is the option's first character.
@@ -167,6 +170,10 @@ SH_START:                      ; Entered from the jump at $0100.
     JR   NZ,.NAMED                 ; No: perhaps a name stream.
     RES  0,C                       ; Clear BL_LNOUT.
 .NAMED:                        ; A is the flag.
+    CP   'K'                       ; Keep the streams on failure?
+    JR   NZ,.MAPPED                ; No.
+    SET  6,C                       ; Set SH_KEEP.
+.MAPPED:                       ; A is the flag.
     CP   'M'                       ; The map
     JR   Z,.TABLES                 ; and
     CP   'Y'                       ; the symbol file
@@ -501,6 +508,7 @@ SH_DIAG:                       ; Reached on carry from PR_BUILD.
     LD   L,A                       ; L is the number.
     LD   H,0                       ; Zero-extend it into HL for SH_NUM.
     CALL SH_NUM                    ; Print it.
+    CALL SH_SCRUB                  ; Delete the streams.
     JR   SH_QUIT                   ; End the line and fail.
 
 ;@ROUTINE NORETURN
@@ -671,8 +679,43 @@ SH_CHAR:                       ; A is the character.
 ; Report it and fail.
 
 OUT_FAIL:                      ; A stream could not be written or made.
+    CALL SH_SCRUB                  ; Delete the streams.
     LD   HL,SH_DMSG                ; The disk-full message.
     JP   SH_FAIL                   ; Print it and fail.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Delete the four streams, NAME.$DR, $BY, $LN and $NM on the first part's
+; drive, after a failure, unless option K keeps them (toolchain §6.2). A
+; stream never made is only a status from BDOS.
+
+SH_SCRUB:                      ; The streams were opened by BL_OPEN.
+    LD   A,(BL_FLAGS)              ; Did option K
+    AND  SH_KEEP                   ; ask to keep them?
+    RET  NZ                        ; Then they stay.
+    LD   HL,SH_STYPE               ; The streams' types, two letters each.
+    LD   B,4                       ; Four streams.
+.LOOP:                         ; HL is the next type.
+    PUSH BC                        ; Keep the count.
+    CALL SH_BLANK                  ; A clear FCB; HL is kept.
+    PUSH HL                        ; Keep the type.
+    LD   HL,SH_NAMES               ; The first part's drive and name,
+    LD   DE,SH_FCB                 ; into the FCB:
+    LD   BC,9                      ; nine bytes.
+    LDIR                           ; DE is the FCB's type.
+    LD   A,'$'                     ; Each type begins with a dollar,
+    LD   (DE),A                    ; then
+    INC  DE                        ; its
+    POP  HL                        ; two
+    LDI                            ; letters.
+    LDI                            ; HL is the next type.
+    PUSH HL                        ; Keep it.
+    LD   DE,SH_FCB                 ; DE is the FCB for BDOS.
+    LD   C,SH_ERASE                ; Delete the stream;
+    CALL SH_BDOS                   ; an absent one is only a status.
+    POP  HL                        ; The next type.
+    POP  BC                        ; The count.
+    DJNZ .LOOP                     ; Until all four are deleted.
+    RET                            ; The streams are gone.
 
 ; ---- data -------------------------------------------------------------------
 
@@ -683,6 +726,8 @@ SH_HEAD:                       ; The program directory's header (object format �
     DB   0,0                       ; No flags; padding.
 SH_VALID:                      ; The marks a CP/M name may contain (services §4.1).
     DB   "!#$%&'()-@^_`{}~"        ; Sixteen, the count .CHAR's CPIR searches.
+SH_STYPE:                      ; The streams' types after their dollar.
+    DB   "DRBYLNNM"                ; $DR, $BY, $LN and $NM.
 SH_TYPE:                       ; The type of a part that names none.
     DB   "BSI"                     ; Copied into the FCB's type field.
 SH_JOB:                        ; The SUBMIT job file a failed build deletes.

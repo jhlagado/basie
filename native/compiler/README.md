@@ -44,7 +44,7 @@ byte for byte. A construct not yet generated this way is refused with Error
 | `GENEXPR.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening, the operators, comparisons, short circuits and conversions |
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, prologues (checked for a forward routine) and exits (through `RETN` when there are arguments), the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
-| `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams, diagnostics |
+| `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams (deleted after a failure unless option `K`), diagnostics |
 
 `GRAMMAR.ASM` was generated from Nucleus's grammar (`grammar/stage7-grammar.json`).
 The generator, which wrote AZM, was retired with the conversion. Step 67 brings
@@ -58,12 +58,12 @@ a generator for Basie's grammar that writes ATOM under the `GR_` scheme
 | Compiler code | 11,076 |
 | Immutable data | 389 |
 | **Compiler core** | **11,465** |
-| CP/M shell | 984 |
-| **`BASIE.COM`** | **12,452** |
+| CP/M shell | 1,054 |
+| **`BASIE.COM`** | **12,522** |
 | Compiler workspace (not in the image) | 3,097 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 14,172 bytes to the 26K target and 16,220 to the 28K limit (D43).
+That leaves 14,102 bytes to the 26K target and 16,150 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change
