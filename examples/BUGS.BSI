@@ -1,0 +1,268 @@
+// BUGS: hold the cave against the bugs.
+//
+// You are the @ in a small cave; bugs (B) crawl in from the edges and close
+// in. Each turn, move with N, S, E or W, or zap the nearest bug in a line
+// with ZAP and a direction. Zap 8 bugs to win; if one reaches you, you lose.
+//
+// The bugs live in a pool of 6 slots, chained in a list that owns them. A
+// zapped bug is freed and its slot used again; when every slot is taken,
+// no more bugs appear until one is zapped.
+
+include "FORMAT.BSI"
+include "TEXTIO.BSI"
+include "RANDOM.BSI"
+
+const width = 11
+const height = 7
+const goal = 8
+
+forward pool bugs
+
+record Bug
+    x as u8
+    y as u8
+    next as bugs?
+end
+
+pool bugs as Bug[6]
+
+var swarm as bugs?
+var playerX as u8 = 5
+var playerY as u8 = 3
+var zapped as u8 = 0
+
+sub bugAt(x as u8, y as u8) as boolean
+    var p = id(swarm)
+    while true
+        select p
+        case some(b)
+            if b.x = x and b.y = y
+                return true
+            end
+            p = id(b.next)
+        case none
+            return false
+        end
+    end
+    return false
+end
+
+// A new bug at a random place on the edge, unless the pool is full or the
+// place is taken.
+sub spawn()
+    var x as u8 = u8(randomBelow(width))
+    var y as u8 = 0
+    if randomBelow(2) = 1
+        y = height - 1
+    end
+    if bugAt(x, y) or (x = playerX and y = playerY)
+        return
+    end
+    var b = new? bugs(x, y, none)
+    select move b
+    case some(n)
+        n.next = move swarm
+        swarm = move n
+    case none
+    end
+end
+
+sub draw() fails
+    var line as string[20]
+    var y as u8 = 0
+    while y < height
+        clear(line)
+        var x as u8 = 0
+        while x < width
+            if x = playerX and y = playerY and bugAt(x, y)
+                appendByte(line, '*') else fail
+            elseif x = playerX and y = playerY
+                appendByte(line, '@') else fail
+            elseif bugAt(x, y)
+                appendByte(line, 'B') else fail
+            else
+                appendByte(line, '.') else fail
+            end
+            x = x + 1
+        end
+        writeLine(console, line) else fail
+        y = y + 1
+    end
+end
+
+// One step toward a, from v.
+sub toward(v as u8, a as u8) as u8
+    if v < a
+        return v + 1
+    elseif v > a
+        return v - 1
+    end
+    return v
+end
+
+// Every bug steps toward the player, along x or y at random. True when one
+// reaches the player.
+sub crawl() as boolean
+    var p = id(swarm)
+    while true
+        select p
+        case some(b)
+            var x = b.x
+            var y = b.y
+            if randomBelow(2) = 0 and x <> playerX
+                x = toward(x, playerX)
+            else
+                y = toward(y, playerY)
+            end
+            if not bugAt(x, y)
+                b.x = x
+                b.y = y
+            end
+            if b.x = playerX and b.y = playerY
+                return true
+            end
+            p = id(b.next)
+        case none
+            return false
+        end
+    end
+    return false
+end
+
+// Free the bug at x, y.
+sub squash(x as u8, y as u8)
+    select swarm
+    case some(f)
+        if f.x = x and f.y = y
+            swarm = move f.next
+            return
+        end
+    case none
+        return
+    end
+    var p = id(swarm)
+    while true
+        select p
+        case some(i)
+            select i.next
+            case some(q)
+                if q.x = x and q.y = y
+                    i.next = move q.next
+                    return
+                end
+                p = q
+            case none
+                return
+            end
+        case none
+            return
+        end
+    end
+end
+
+// Zap along a direction from the player: the first bug in line is freed.
+sub zap(dx as i8, dy as i8) as boolean
+    var x = i16(playerX)
+    var y = i16(playerY)
+    while true
+        x = x + i16(dx)
+        y = y + i16(dy)
+        if x < 0 or y < 0 or x >= width or y >= height
+            return false
+        end
+        if bugAt(u8(x), u8(y))
+            squash(u8(x), u8(y))
+            return true
+        end
+    end
+    return false
+end
+
+// The direction a word names: 1 north, 2 south, 3 east, 4 west, 0 none.
+sub direction(w as string[]) as u8
+    if equal(w, "n")
+        return 1
+    elseif equal(w, "s")
+        return 2
+    elseif equal(w, "e")
+        return 3
+    elseif equal(w, "w")
+        return 4
+    end
+    return 0
+end
+
+sub walk(d as u8)
+    var x = playerX
+    var y = playerY
+    if d = 1 and y > 0
+        y = y - 1
+    elseif d = 2 and y < height - 1
+        y = y + 1
+    elseif d = 3 and x < width - 1
+        x = x + 1
+    elseif d = 4 and x > 0
+        x = x - 1
+    end
+    if not bugAt(x, y)
+        playerX = x
+        playerY = y
+    end
+end
+
+sub main() fails
+    var line as string[40]
+    var verb as string[8]
+    var noun as string[8]
+    var code as u8 = 0
+    var turn as u16 = 0
+    writeLine(console, "BUGS: zap 8 bugs before one reaches you.") else fail
+    while true
+        if turn mod 2 = 0
+            spawn()
+        end
+        draw() else fail
+        prompt("> ", line) handle code
+            if code = endOfInput
+                return
+            end
+            fail code
+        end
+        toLower(line)
+        var hasVerb = word(line, 0, verb) else fail
+        var hasNoun = word(line, 1, noun) else fail
+        if equal(verb, "zap") or equal(verb, "z")
+            var d = direction(noun)
+            var hit = false
+            if d = 1
+                hit = zap(0, -1)
+            elseif d = 2
+                hit = zap(0, 1)
+            elseif d = 3
+                hit = zap(1, 0)
+            elseif d = 4
+                hit = zap(-1, 0)
+            end
+            if hit
+                zapped = zapped + 1
+                writeLine(console, "Zap!") else fail
+            else
+                writeLine(console, "Missed.") else fail
+            end
+        elseif equal(verb, "quit") or equal(verb, "q")
+            return
+        else
+            walk(direction(verb))
+        end
+        if zapped = goal
+            writeLine(console, "The cave is safe. You win!") else fail
+            return
+        end
+        if crawl()
+            draw() else fail
+            writeLine(console, "A bug got you!") else fail
+            return
+        end
+        turn = turn + 1
+    end
+end

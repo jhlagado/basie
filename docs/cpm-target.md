@@ -221,6 +221,15 @@ installs nothing at `$0038`.
 
 ## 9. Other CP/M environments
 
+Every runtime call to CP/M goes through one routine that saves `IX` and `IY`
+around `CALL 5`, and the BIOS console call saves them too. CP/M 2.2 doesn't
+promise to preserve those registers, and a BIOS written in Z80 code may use
+them. Compiled code keeps its frame pointer in `IX` and the runtime passes
+`RETN`'s count in `IY`, so a clobbered register would be fatal. The minimal
+test harness preserves every register, so this rule is checked by running
+the example programs under real CP/M 2.2 on the Triptych machine, where the
+BIOS does use them.
+
 - **CP/M 3 (banked).** The transient program area can reach about 60K, the CCP
   is not resident while a program runs, and the top of memory is the resident
   BDOS or lowest system extension. The `CPM3` profile applies.

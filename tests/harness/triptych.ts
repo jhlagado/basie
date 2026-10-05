@@ -63,6 +63,18 @@ export type Session = {
   transcript: string;
   /** Type a command and return everything printed up to the next prompt. */
   command(text: string, maxSlices?: number): string;
+  /**
+   * Run a program interactively: type the command, then type each answer
+   * only once the program has printed `ask` again, as a person would. Returns
+   * everything printed up to the next CCP prompt. (Type-ahead queued before
+   * the program starts loses characters on this machine's CP/M.)
+   */
+  converse(
+    command: string,
+    ask: string,
+    answers: string[],
+    maxSlices?: number,
+  ): string;
   /** The current disk image. */
   disk(): Uint8Array;
   close(): void;
@@ -89,6 +101,25 @@ export async function boot(disk: Uint8Array): Promise<Session> {
       const end = output.lastIndexOf("\r\nA>");
       return output.slice(begin + 2, end >= 0 ? end : output.length);
     },
+    converse(command, ask, answers, maxSlices = 40_000) {
+      const start = session.transcript.length;
+      const type = (text: string) => {
+        if (!machine.enqueue_serial_input(encoder.encode(`${text}\r`))) {
+          throw new Error("Console input queue is full");
+        }
+      };
+      type(command);
+      let seen = start + command.length;
+      for (const answer of answers) {
+        seen = waitFor(ask, seen, maxSlices, command) + ask.length;
+        type(answer);
+      }
+      waitForPrompt(seen, maxSlices, command);
+      const output = session.transcript.slice(start);
+      const begin = output.indexOf("\r\n");
+      const end = output.lastIndexOf("\r\nA>");
+      return output.slice(begin + 2, end >= 0 ? end : output.length);
+    },
     disk: () => machine.export_drive(0),
     close: () => machine.free(),
   };
@@ -103,6 +134,26 @@ export async function boot(disk: Uint8Array): Promise<Session> {
     }
     throw new Error(
       `Timed out during ${what}: ${
+        JSON.stringify(session.transcript.slice(-300))
+      }`,
+    );
+  }
+  /** Run until `text` appears at or after `from`; returns where. */
+  function waitFor(
+    text: string,
+    from: number,
+    maxSlices: number,
+    what: string,
+  ) {
+    for (let i = 0; i < maxSlices; i += 1) {
+      const at = session.transcript.indexOf(text, from);
+      if (at >= 0) return at;
+      const status = machine.run_slice(50_000, 500_000);
+      session.transcript += decoder.decode(machine.take_serial_output());
+      if (status === 0) throw new Error(`CP/M halted during ${what}`);
+    }
+    throw new Error(
+      `Timed out waiting for ${JSON.stringify(text)} during ${what}: ${
         JSON.stringify(session.transcript.slice(-300))
       }`,
     );

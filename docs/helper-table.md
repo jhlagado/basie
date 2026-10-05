@@ -39,35 +39,35 @@ Helper-table version 1; interface keys v1 $5524.
 
 | Ordinal | Blob | Called as | Since | Bytes | Stack | Ending stack |
 | ---: | --- | --- | ---: | ---: | ---: | ---: |
-| $007 | `CON_OUT` | register helper | 1 | 29 | 6 | 6 |
-| $008 | `TRAP_BND` | register helper | 1 | 13 | 2 | 20 |
+| $007 | `CON_OUT` | register helper | 1 | 37 | 12 | 12 |
+| $008 | `TRAP_BND` | register helper | 1 | 13 | 2 | 26 |
 | $009 | `RETN` | register helper | 1 | 20 | 2 | 2 |
-| $00A | `STK_CHK` | register helper | 1 | 26 | 2 | 20 |
-| $00B | `TRAP_NAR` | register helper | 1 | 16 | 2 | 20 |
-| $00C | `TRAP_DIV` | register helper | 1 | 23 | 2 | 20 |
-| $00D | `TRAP_FOV` | register helper | 1 | 21 | 2 | 20 |
-| $00E | `TRAP_FIN` | register helper | 1 | 20 | 2 | 20 |
-| $00F | `TRAP_LOO` | register helper | 1 | 17 | 2 | 20 |
-| $010 | `TRAP_ACT` | register helper | 1 | 26 | 2 | 20 |
-| $011 | `TRAP_STA` | register helper | 1 | 19 | 2 | 20 |
-| $012 | `TRAP_CYC` | register helper | 1 | 22 | 2 | 20 |
-| $013 | `TRAP_POO` | register helper | 1 | 16 | 2 | 20 |
-| $014 | `TRAP_AST` | register helper | 1 | 16 | 2 | 20 |
-| $015 | `PUT_DEC` | register helper | 1 | 42 | 10 | 10 |
+| $00A | `STK_CHK` | register helper | 1 | 26 | 2 | 26 |
+| $00B | `TRAP_NAR` | register helper | 1 | 16 | 2 | 26 |
+| $00C | `TRAP_DIV` | register helper | 1 | 23 | 2 | 26 |
+| $00D | `TRAP_FOV` | register helper | 1 | 21 | 2 | 26 |
+| $00E | `TRAP_FIN` | register helper | 1 | 20 | 2 | 26 |
+| $00F | `TRAP_LOO` | register helper | 1 | 17 | 2 | 26 |
+| $010 | `TRAP_ACT` | register helper | 1 | 26 | 2 | 26 |
+| $011 | `TRAP_STA` | register helper | 1 | 19 | 2 | 26 |
+| $012 | `TRAP_CYC` | register helper | 1 | 22 | 2 | 26 |
+| $013 | `TRAP_POO` | register helper | 1 | 16 | 2 | 26 |
+| $014 | `TRAP_AST` | register helper | 1 | 16 | 2 | 26 |
+| $015 | `PUT_DEC` | register helper | 1 | 42 | 16 | 16 |
 | $016 | `MUL16` | register helper | 1 | 18 | 2 | 2 |
-| $017 | `DIV16` | register helper | 1 | 36 | 2 | 20 |
-| $018 | `DIV16S` | register helper | 1 | 53 | 8 | 26 |
-| $019 | `STR_SETL` | register helper | 1 | 32 | 4 | 20 |
+| $017 | `DIV16` | register helper | 1 | 36 | 2 | 26 |
+| $018 | `DIV16S` | register helper | 1 | 53 | 8 | 32 |
+| $019 | `STR_SETL` | register helper | 1 | 32 | 4 | 26 |
 | $01B | `POOL_TRY` | register helper | 1 | 147 | 8 | 8 |
-| $01C | `POOL_DEL` | register helper | 1 | 258 | 14 | 14 |
+| $01C | `POOL_DEL` | register helper | 1 | 257 | 14 | 14 |
 | $01D | `OBJ_FREE` | register helper | 1 | 109 | 24 | 24 |
-| $01E | `ID_CHK` | register helper | 1 | 27 | 4 | 20 |
+| $01E | `ID_CHK` | register helper | 1 | 27 | 4 | 26 |
 | $01F | `ID_TEST` | register helper | 1 | 26 | 4 | 4 |
-| $020 | `WR_TEXT` | `writeText` | 1 | 61 | 24 | 24 |
-| $021 | `WR_BYTE` | `writeByte` | 1 | 41 | 20 | 20 |
-| $022 | `WR_OUT` | `writeOutputByte` | 1 | 22 | 10 | 10 |
+| $020 | `WR_TEXT` | `writeText` | 1 | 61 | 30 | 30 |
+| $021 | `WR_BYTE` | `writeByte` | 1 | 41 | 26 | 26 |
+| $022 | `WR_OUT` | `writeOutputByte` | 1 | 22 | 16 | 16 |
 | $023 | `OWN_SET` | register helper | 1 | 33 | 22 | 22 |
-| $024 | `OWN_SETC` | register helper | 1 | 43 | 22 | 22 |
+| $024 | `OWN_SETC` | register helper | 1 | 43 | 22 | 26 |
 | $025 | `LINK0` | register helper | 1 | 15 | 4 | 4 |
 | $026 | `ID_MAKE` | register helper | 1 | 18 | 4 | 4 |
 | $028 | `ADD32` | register helper | 1 | 12 | 6 | 6 |
@@ -76,8 +76,8 @@ Helper-table version 1; interface keys v1 $5524.
 | $02B | `CMP32S` | register helper | 1 | 13 | 6 | 6 |
 | $02C | `NEG32` | register helper | 1 | 16 | 2 | 2 |
 | $02D | `MUL32` | register helper | 1 | 94 | 4 | 4 |
-| $02E | `DIV32U` | register helper | 1 | 139 | 6 | 20 |
-| $02F | `DIV32S` | register helper | 1 | 46 | 12 | 26 |
+| $02E | `DIV32U` | register helper | 1 | 139 | 6 | 26 |
+| $02F | `DIV32S` | register helper | 1 | 46 | 12 | 32 |
 | $030 | `AND32` | register helper | 1 | 19 | 6 | 6 |
 | $031 | `OR32` | register helper | 1 | 19 | 6 | 6 |
 | $032 | `XOR32` | register helper | 1 | 19 | 6 | 6 |
@@ -87,49 +87,49 @@ Helper-table version 1; interface keys v1 $5524.
 | $037 | `FP_UNPK` | register helper | 1 | 93 | 12 | 12 |
 | $038 | `FP_SHR` | register helper | 1 | 66 | 2 | 2 |
 | $039 | `FP_PACK` | register helper | 1 | 236 | 2 | 2 |
-| $03A | `FADD` | register helper | 1 | 274 | 14 | 20 |
-| $03B | `FSUB` | register helper | 1 | 9 | 14 | 20 |
-| $03C | `FMUL` | register helper | 1 | 279 | 14 | 20 |
-| $03D | `FDIV` | register helper | 1 | 285 | 14 | 20 |
+| $03A | `FADD` | register helper | 1 | 274 | 14 | 26 |
+| $03B | `FSUB` | register helper | 1 | 9 | 14 | 26 |
+| $03C | `FMUL` | register helper | 1 | 279 | 14 | 26 |
+| $03D | `FDIV` | register helper | 1 | 285 | 14 | 26 |
 | $03E | `FCMP` | register helper | 1 | 49 | 8 | 8 |
 | $03F | `I2F` | register helper | 1 | 19 | 4 | 4 |
 | $040 | `U2F` | register helper | 1 | 11 | 2 | 2 |
-| $041 | `F2I` | register helper | 1 | 38 | 6 | 20 |
-| $042 | `F2U` | register helper | 1 | 21 | 4 | 20 |
+| $041 | `F2I` | register helper | 1 | 38 | 6 | 26 |
+| $042 | `F2U` | register helper | 1 | 21 | 4 | 26 |
 | $043 | `FP_INT` | register helper | 1 | 23 | 2 | 2 |
 | $044 | `FP_MAG` | register helper | 1 | 59 | 2 | 2 |
-| $06D | `RD_BYTE` | `readByte` | 1 | 51 | 16 | 16 |
-| $06E | `RD_IN` | `readInputByte` | 1 | 3 | 10 | 10 |
-| $06F | `RD_KEY` | `readKey` | 1 | 3 | 4 | 4 |
-| $070 | `KEY_RDY` | `keyReady` | 1 | 27 | 4 | 4 |
-| $071 | `RD_LINE` | `readLine` | 1 | 243 | 16 | 16 |
-| $072 | `OP_READ` | `openRead` | 1 | 61 | 14 | 14 |
-| $073 | `OP_WRITE` | `openWrite` | 1 | 96 | 14 | 14 |
-| $074 | `OP_APPND` | `openAppend` | 1 | 178 | 14 | 14 |
-| $075 | `OP_UPDT` | `openUpdate` | 1 | 63 | 14 | 14 |
-| $076 | `FS_CLOSE` | `close` | 1 | 42 | 18 | 18 |
-| $077 | `FS_ABORT` | `abort` | 1 | 37 | 14 | 14 |
-| $078 | `FS_FLUSH` | `flush` | 1 | 54 | 12 | 12 |
-| $079 | `RD_BLOCK` | `readBlock` | 1 | 109 | 18 | 18 |
-| $07A | `WR_BLOCK` | `writeBlock` | 1 | 106 | 22 | 22 |
-| $07B | `FS_SEEK` | `seek` | 1 | 177 | 12 | 12 |
+| $06D | `RD_BYTE` | `readByte` | 1 | 51 | 22 | 22 |
+| $06E | `RD_IN` | `readInputByte` | 1 | 3 | 16 | 16 |
+| $06F | `RD_KEY` | `readKey` | 1 | 3 | 10 | 10 |
+| $070 | `KEY_RDY` | `keyReady` | 1 | 27 | 10 | 10 |
+| $071 | `RD_LINE` | `readLine` | 1 | 243 | 22 | 22 |
+| $072 | `OP_READ` | `openRead` | 1 | 61 | 18 | 18 |
+| $073 | `OP_WRITE` | `openWrite` | 1 | 96 | 20 | 20 |
+| $074 | `OP_APPND` | `openAppend` | 1 | 178 | 20 | 20 |
+| $075 | `OP_UPDT` | `openUpdate` | 1 | 63 | 20 | 20 |
+| $076 | `FS_CLOSE` | `close` | 1 | 42 | 24 | 24 |
+| $077 | `FS_ABORT` | `abort` | 1 | 37 | 20 | 20 |
+| $078 | `FS_FLUSH` | `flush` | 1 | 54 | 18 | 18 |
+| $079 | `RD_BLOCK` | `readBlock` | 1 | 109 | 24 | 24 |
+| $07A | `WR_BLOCK` | `writeBlock` | 1 | 106 | 28 | 28 |
+| $07B | `FS_SEEK` | `seek` | 1 | 177 | 18 | 18 |
 | $07C | `FS_POS` | `position` | 1 | 69 | 8 | 8 |
-| $07D | `FS_SIZE` | `size` | 1 | 71 | 12 | 12 |
-| $07E | `FS_EXIST` | `exists` | 1 | 47 | 14 | 14 |
-| $07F | `FS_DEL` | `delete` | 1 | 65 | 14 | 14 |
-| $080 | `FS_REN` | `rename` | 1 | 119 | 14 | 14 |
-| $081 | `FS_FIND1` | `findFirst` | 1 | 54 | 14 | 14 |
+| $07D | `FS_SIZE` | `size` | 1 | 71 | 18 | 18 |
+| $07E | `FS_EXIST` | `exists` | 1 | 47 | 18 | 18 |
+| $07F | `FS_DEL` | `delete` | 1 | 65 | 20 | 20 |
+| $080 | `FS_REN` | `rename` | 1 | 119 | 20 | 20 |
+| $081 | `FS_FIND1` | `findFirst` | 1 | 54 | 18 | 18 |
 | $082 | `FS_FINDN` | `findNext` | 1 | 44 | 12 | 12 |
 | $084 | `CMD_TAIL` | `commandTail` | 1 | 69 | 6 | 6 |
-| $085 | `M_RESET` | `resetDisks` | 1 | 13 | 6 | 6 |
-| $086 | `M_RESETD` | `resetDrive` | 1 | 33 | 8 | 8 |
-| $087 | `M_DRIVE` | `currentDrive` | 1 | 5 | 2 | 2 |
-| $088 | `M_SELECT` | `selectDrive` | 1 | 34 | 8 | 8 |
-| $089 | `M_USER` | `currentUser` | 1 | 7 | 2 | 2 |
-| $08A | `M_SETU` | `setUser` | 1 | 34 | 6 | 6 |
-| $08B | `M_RODRV` | `driveReadOnly` | 1 | 35 | 6 | 6 |
+| $085 | `M_RESET` | `resetDisks` | 1 | 13 | 10 | 10 |
+| $086 | `M_RESETD` | `resetDrive` | 1 | 33 | 12 | 12 |
+| $087 | `M_DRIVE` | `currentDrive` | 1 | 5 | 8 | 8 |
+| $088 | `M_SELECT` | `selectDrive` | 1 | 34 | 12 | 12 |
+| $089 | `M_USER` | `currentUser` | 1 | 7 | 8 | 8 |
+| $08A | `M_SETU` | `setUser` | 1 | 34 | 12 | 12 |
+| $08B | `M_RODRV` | `driveReadOnly` | 1 | 35 | 12 | 12 |
 | $08C | `M_FREE` | `freeMemory` | 1 | 11 | 2 | 2 |
 
-90 helpers, 5174 bytes; the largest ending stack is 26 bytes.
+90 helpers, 5181 bytes; the largest ending stack is 32 bytes.
 
 <!-- generated by tools/helpertable.ts: end -->

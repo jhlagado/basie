@@ -1,0 +1,51 @@
+ADVENT: bring the gold back to the cellar.
+Cellar
+A damp cellar. Stone steps lead up to the north.
+> 
+Cellar
+A damp cellar. Stone steps lead up to the north.
+> 
+Try LOOK, N, S, E, W, TAKE, DROP, I and QUIT.
+> 
+I don't understand that.
+> 
+You can't go that way.
+> 
+Hall
+A dusty hall. Doors open east and west; the cellar is south.
+There is a lamp here.
+> 
+Taken.
+> 
+Library
+Shelves of rotting books. The only way out is east.
+There is a key here.
+> 
+Taken.
+> 
+  lamp
+  key
+> 
+Hall
+A dusty hall. Doors open east and west; the cellar is south.
+> 
+Passage
+A narrow passage. An iron door stands to the east.
+> 
+Vault
+A small vault, empty but for what you see.
+There is a gold here.
+> 
+Taken.
+> 
+Passage
+A narrow passage. An iron door stands to the east.
+> 
+Hall
+A dusty hall. Doors open east and west; the cellar is south.
+> 
+Cellar
+A damp cellar. Stone steps lead up to the north.
+> 
+Dropped.
+The gold is safe in the cellar. You win!

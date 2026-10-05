@@ -1,0 +1,87 @@
+// Freeing several slots before any is reused: the free list keeps them all,
+// each is reused once, the pool is full again after three, and identifiers
+// from before the frees select none. (The first free into an empty free list
+// once wrote its tail a byte high, corrupting memory on the next free.)
+// spec: 7.10, 7.12
+// expect output: 3 2 1 | none none none | 6 5 4 | full\r\n
+
+include "FORMAT.BSI"
+
+forward pool nodes
+
+record Node
+    key as u8
+    next as nodes?
+end
+
+pool nodes as Node[3]
+var head as nodes?
+
+sub push(k as u8)
+    var n = new nodes(k, none)
+    n.next = move head
+    head = move n
+end
+
+sub show(var line as string[]) fails
+    var p = id(head)
+    while true
+        select p
+        case some(i)
+            appendU16(line, i.key) else fail
+            appendByte(line, ' ') else fail
+            p = id(i.next)
+        case none
+            return
+        end
+    end
+end
+
+sub stale(var line as string[], i as id nodes?) fails
+    select i
+    case some(n)
+        append(line, "live ") else fail
+    case none
+        append(line, "none ") else fail
+    end
+end
+
+sub main() fails
+    var line as string[60]
+    push(1)
+    push(2)
+    push(3)
+    show(line) else fail
+    append(line, "| ") else fail
+    var a = id(head)
+    var b as id nodes? = none
+    var c as id nodes? = none
+    select head
+    case some(h)
+        b = id(h.next)
+        select h.next
+        case some(m)
+            c = id(m.next)
+        case none
+        end
+    case none
+    end
+    head = none
+    stale(line, a) else fail
+    stale(line, b) else fail
+    stale(line, c) else fail
+    append(line, "| ") else fail
+    push(4)
+    push(5)
+    push(6)
+    show(line) else fail
+    var extra = new? nodes(7, none)
+    select extra
+    case some(n)
+        append(line, "| room") else fail
+    case none
+        append(line, "| full") else fail
+    end
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end

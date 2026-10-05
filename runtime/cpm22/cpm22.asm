@@ -16,7 +16,7 @@
 ; @profile class=1 kinds=7 base=$0100 limit=$DC00 top=$E406 ccp=$0800
 ; @profile guard=64 options=3 rst=0 debugger=8192 file=184
 
-BDOS    EQU     $0005
+BDOSV   EQU     $0005           ; CP/M's entry; call it through BDOS
 CCPSIZE EQU     $0800
 GUARD   EQU     64              ; the profile's guard band
 CONSOLE EQU     1               ; the fixed File values
@@ -121,6 +121,17 @@ EXIT:   PUSH    DE
 EXIT_HK:
         DS      2
 
+; @blob $08E code BDOS
+; Call CP/M's BDOS with C and DE, keeping IX and IY. CP/M 2.2 doesn't promise
+; to preserve them, and some BIOSes use them, so every runtime BDOS call
+; comes through here. Returns what BDOS returns, flags included.
+BDOS:   PUSH    IX
+        PUSH    IY
+        CALL    BDOSV
+        POP     IY
+        POP     IX
+        RET
+
 ; @blob $003 bss ENTRY_SP
 ENTRY_SP:
         DS      2
@@ -190,7 +201,9 @@ CON_OUT: CP      $FF
         CALL    BDOS
         POP     HL
         RET
-.BIOS:  PUSH    HL
+.BIOS:  PUSH    HL              ; the BIOS may use IX and IY too
+        PUSH    IX
+        PUSH    IY
         LD      C,A
         LD      HL,(1)
         LD      DE,9
@@ -198,7 +211,9 @@ CON_OUT: CP      $FF
         LD      DE,.BACK
         PUSH    DE
         JP      (HL)
-.BACK:  POP     HL
+.BACK:  POP     IY
+        POP     IX
+        POP     HL
         RET
 
 ; @blob $008 code TRAP_BND helper=2
@@ -724,8 +739,7 @@ POOL_DEL:
         POP     DE
         LD      (HL),D
         DEC     HL
-        LD      (HL),E          ; head = R
-        INC     HL
+        LD      (HL),E          ; head = R; HL = &head
         INC     HL
         INC     HL              ; &tail
         LD      (HL),E

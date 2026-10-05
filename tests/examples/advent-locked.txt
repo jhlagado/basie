@@ -1,0 +1,15 @@
+ADVENT: bring the gold back to the cellar.
+Cellar
+A damp cellar. Stone steps lead up to the north.
+> 
+Hall
+A dusty hall. Doors open east and west; the cellar is south.
+There is a lamp here.
+> 
+It is too dark to see.
+> 
+The iron door is locked.
+> 
+You aren't carrying that.
+> 
+Goodbye.

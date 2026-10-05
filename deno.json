@@ -1,6 +1,7 @@
 {
   "tasks": {
     "check": "deno fmt --check tests tools ref && deno lint tests tools ref",
+    "basie": "deno run --config deno.runtime.json --allow-read --allow-write --allow-env tools/basie.ts",
     "brl": "deno run --config deno.runtime.json --allow-read=.,../atom,../z80-tool-services --allow-write=build --allow-env tools/brl.ts runtime/cpm22/cpm22.asm build/CPM22.BRL",
     "helpers": "deno run --config deno.runtime.json --allow-read=.,../atom,../z80-tool-services --allow-write=build,ref/compile/helper-table.ts,docs/helper-table.md --allow-env tools/helpertable.ts",
     "msg": "deno run --allow-read=. --allow-write=build,docs tools/msgfile.ts build/BASIE.MSG",

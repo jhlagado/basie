@@ -1,0 +1,74 @@
+// DUMP: show a file in hexadecimal and ASCII, 16 bytes to a line.
+//
+//     A>DUMP NAME.EXT
+//
+// Each line gives the offset, the bytes in hex, and the bytes again as
+// characters, with a dot for anything that doesn't print. CP/M keeps files
+// in 128-byte records, so a dump ends at a record boundary, padding included.
+
+include "FORMAT.BSI"
+include "TEXTIO.BSI"
+
+const usage = 48
+
+sub dumpLine(offset as u16, bytes as u8[], count as u16) fails
+    var line as string[80]
+    appendHex16(line, offset) else fail
+    append(line, ": ") else fail
+    var i as u16 = 0
+    while i < 16
+        if i < count
+            appendHex8(line, bytes[i]) else fail
+        else
+            append(line, "  ") else fail
+        end
+        appendByte(line, ' ') else fail
+        if i = 7
+            appendByte(line, ' ') else fail
+        end
+        i = i + 1
+    end
+    appendByte(line, ' ') else fail
+    i = 0
+    while i < count
+        var b = bytes[i]
+        if b >= 32 and b < 127
+            appendByte(line, b) else fail
+        else
+            appendByte(line, '.') else fail
+        end
+        i = i + 1
+    end
+    writeLine(console, line) else fail
+end
+
+sub main() fails
+    var tail as string[80]
+    var name as string[20]
+    commandTail(tail)
+    var named = word(tail, 0, name) else fail
+    if not named
+        writeLine(console, "Usage: DUMP NAME.EXT") else fail
+        fail usage
+    end
+    var there = exists(name) else fail
+    if not there
+        var line as string[40]
+        append(line, "No file ") else fail
+        append(line, name) else fail
+        writeLine(console, line) else fail
+        fail fileNotFound
+    end
+    var f = openRead(name, binaryMode) else fail
+    var bytes as u8[16]
+    var offset as u16 = 0
+    while true
+        var got = readBlock(f, bytes, 16) else fail
+        if got = 0
+            exit
+        end
+        dumpLine(offset, bytes, got) else fail
+        offset = offset + got
+    end
+    close(f) else fail
+end

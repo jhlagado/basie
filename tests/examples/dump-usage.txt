@@ -1,0 +1,2 @@
+Usage: DUMP NAME.EXT
+FAIL 48

@@ -117,7 +117,7 @@ M5 starts alongside M4: each compiler step needs its helpers.
 | 55 | RT | Services: console and printer, then files, then the command line and machine | `runtime/cpm22/services.asm` (done; 16 conformance programs in `services/`) | z80-services conformance vectors; CP/M harness tests |
 | 56 | RT | Publish every helper's size and stack figure in the helper table, with interface keys | [Helper table](helper-table.md), `tools/stack.ts`, `tools/helpertable.ts` (done; figures computed and checked by measurement) | Linker compatibility tests |
 | 57 | RT | Standard library in Basie: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/`, [standard library](standard-library.md) (done; 8 conformance programs in `library/`) | Library tests |
-| 58 | RT | Example programs: a text adventure, a file utility, a game with a pool | `examples/` | Run under the full harness |
+| 58 | RT | Example programs: a text adventure, a file utility, a game with a pool | `examples/` (done: ADVENT, DUMP, BUGS, played by script under both harnesses; they found the free-list and IX/IY faults) | Run under the full harness |
 
 ## M6. The native linker
 
