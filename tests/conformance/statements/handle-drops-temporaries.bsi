@@ -1,0 +1,33 @@
+// A failure handled inside an expression drops the temporaries pushed
+// beneath the failing call before the handler runs, so a loop that fails
+// on every pass keeps its stack.
+// spec: 14.6
+// expect output: 7 50000 0\r\n
+
+include "FORMAT.BSI"
+
+var base as u16 = 1
+
+sub probe() as u16 fails
+    fail 7
+end
+
+sub main() fails
+    var line as string[20]
+    var code as u8 = 0
+    var total as u16 = 0
+    var passes as u16 = 0
+    var i as u16
+    for i = 1 to 50000
+        total = base + probe() handle code
+            passes = passes + 1
+        end
+    end
+    appendU16(line, code) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, passes) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, total) else fail
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end

@@ -1521,6 +1521,9 @@ export class Compiler {
       const skip = r.blob.newLabel();
       r.blob.jp(skip);
       r.blob.defineLabel(pending.failLabel);
+      // The failure left the temporaries of the expression around the call
+      // (its pending left operands) on the stack; drop them, keeping A.
+      for (let i = 0; i < pending.pushed; i += 2) r.blob.u8(0xd1); // POP DE
       this.storeRegisters(U8, (sym as Symbol & { kind: "var" }).storage);
       this.block(["end"]);
       this.expectKeyword("end");
@@ -1543,6 +1546,8 @@ export class Compiler {
   private pendingFailure?: { kind: "fail" } | {
     kind: "handle";
     failLabel: number;
+    /** Temporaries pushed beneath the call, which a failure leaves behind. */
+    pushed: number;
   };
 
   private returnStatement(): void {
@@ -4103,7 +4108,7 @@ export class Compiler {
       } else if (this.isKeyword("handle")) {
         const failLabel = r.blob.newLabel();
         r.blob.jpIf(JP_C, failLabel);
-        this.pendingFailure = { kind: "handle", failLabel };
+        this.pendingFailure = { kind: "handle", failLabel, pushed: r.pushed };
       } else {
         fail(
           "failure-unconsumed",
