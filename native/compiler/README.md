@@ -30,7 +30,7 @@ file before its includer, so the list is the layout.
 | `TRANSCR.ASM` | `TR_` | Semantic transcript |
 | `SYMBOLS.ASM` | `SY_` | Symbol table |
 | `PARSER.ASM` | `PR_` | Parser driver |
-| `EXPR.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression, control, aggregate and routine parsing |
+| `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file), control, aggregate and routine parsing |
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions |
 | `EMIT.ASM` | `EM_` | Emitter primitives |
 | `TARGET.ASM` | `TG_` | Placed output, deleted at 65.4 |

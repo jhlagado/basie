@@ -36,7 +36,9 @@
 %INCLUDE "TRANSCR.ASM"             ; The semantic transcript.
 %INCLUDE "SYMBOLS.ASM"             ; The symbol table.
 %INCLUDE "PARSER.ASM"              ; The compile entry and parse driver.
-%INCLUDE "EXPR.ASM"                ; The expression parser.
+%INCLUDE "EXPR.ASM"                ; Expressions: names, operand stack, reduction.
+%INCLUDE "EXTERM.ASM"              ; Expressions: primaries and unary operators.
+%INCLUDE "EXOPER.ASM"              ; Expressions: binary operators and entries.
 %INCLUDE "CONTROL.ASM"             ; The structured control parser.
 %INCLUDE "AGGR.ASM"                ; Records, arrays, strings and constants.
 %INCLUDE "ROUTINES.ASM"            ; Routines, parameters, calls, services.
