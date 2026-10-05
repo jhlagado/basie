@@ -42,49 +42,24 @@
 ;  A path pushes an address and refines it with OP_FIELD, OP_INDEX or a
 ;  character operation; RO_LOAD turns a scalar path into a value.
 
-;@ROUTINE OUT A,BC,D,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,E,HL
+;@ROUTINE OUT A,BC,D,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; Look up the current NAME as a symbol: D returns its class, BC its payload
-; and A its type from AG_SYTAB, indexed by the record's position. An
-; undefined name raises DG_UNDEF, which does not return.
+; and A its aggregate type, the record's last byte. An undefined name raises
+; DG_UNDEF, which does not return. E is kept.
 
 RO_SYM:
     CALL SY_FIND                   ; HL addresses the record.
     JP   NC,SY_UNDEF               ; Raise DG_UNDEF.
-    PUSH HL                        ; Keep the record's address.
     INC  HL                        ; Skip the spelling's address.
     INC  HL                        ; Skip its high byte.
     INC  HL                        ; Skip the length to reach the class.
     LD   D,(HL)                    ; Read the class.
-    LD   A,D                       ; Keep the class in RO_ACNT.
-    LD   (RO_ACNT),A               ; D is reused for the type-table index.
     INC  HL                        ; The payload follows.
     LD   C,(HL)                    ; Low byte.
     INC  HL                        ; High byte.
     LD   B,(HL)                    ; BC is the payload.
-    POP  HL                        ; Recover the record's address.
-    LD   DE,SY_BASE                ; Find its offset in the table.
-    OR   A                         ; Clear carry for the subtraction.
-    SBC  HL,DE                     ; The table is under 256 bytes.
-    LD   A,L                       ; A is the offset.
-    LD   E,0                       ; E counts whole records.
-.IDXLOOP:                      ; Divide the offset by SY_RECB.
-    CP   SY_RECB                   ; Is a whole record left?
-    JR   C,.INDEXED                ; No: E is the index.
-    SUB  SY_RECB                   ; Take one record away.
-    INC  E                         ; Count it.
-    JR   .IDXLOOP                  ; Continue.
-.INDEXED:                      ; E is the symbol's index.
-    LD   A,E                       ; Move the index through A.
-    LD   E,A                       ; E still holds it.
-    LD   H,0                       ; Form the index as a word.
-    LD   L,E                       ; One type byte per symbol.
-    LD   DE,AG_SYTAB               ; Index the parallel type table.
-    ADD  HL,DE                     ; HL addresses the symbol's type.
-    LD   A,(HL)                    ; Read the type.
-    LD   E,A                       ; Keep it while D is restored.
-    LD   A,(RO_ACNT)               ; Recover the class.
-    LD   D,A                       ; Return it in D.
-    LD   A,E                       ; Return the type in A.
+    INC  HL                        ; The aggregate type follows.
+    LD   A,(HL)                    ; Read it.
     OR   A                         ; With carry clear.
     RET                            ; D, BC and A describe the symbol.
 
@@ -302,18 +277,12 @@ RO_INDEX:
     CALL PR_TAKE                   ; Consume the bracket.
     LD   A,(EX_WANT)               ; Keep the enclosing expression's wanted type.
     PUSH AF                        ; Push it.
-    LD   A,(EX_LIVE)               ; Keep its emission state.
-    PUSH AF                        ; Push that too.
-    LD   A,1                       ; The index is evaluated at run time.
-    LD   (EX_LIVE),A               ; Emit its code.
     LD   A,SY_U16                  ; An index is a u16.
     LD   (EX_WANT),A               ; Ask for one.
     CALL EX_PARSE                  ; A and HL describe the index.
     CALL EX_PURE                   ; A failable call cannot be an index.
     LD   (EX_RMETA),A              ; Keep the index's metadata.
     LD   (EX_RVAL),HL              ; Keep its constant value.
-    POP  AF                        ; Recover the enclosing emission state.
-    LD   (EX_LIVE),A               ; Restore it.
     POP  AF                        ; Recover the enclosing wanted type.
     LD   (EX_WANT),A               ; Restore it.
     LD   A,(EX_RMETA)              ; The index's metadata.
@@ -455,29 +424,23 @@ RO_TOP:
 
 ;@ROUTINE IN A OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
 ; Parse one scalar argument of expected type A and check that it fits,
-; keeping the enclosing expression's wanted type and emission state. A
-; failable call cannot be an argument.
+; keeping the enclosing expression's wanted type. A failable call cannot be
+; an argument.
 
 RO_ARG:
     LD   D,A                       ; Keep the expected type.
-    LD   A,(EX_WANT)               ; Keep the enclosing expression's wanted type.
-    LD   B,A                       ; Hold it in B.
-    LD   A,(EX_LIVE)               ; Keep its emission state.
-    LD   C,A                       ; Hold it in C.
-    PUSH BC                        ; Across the nested parse.
-    PUSH DE                        ; With the expected type.
+    LD   A,(EX_WANT)               ; Keep the enclosing expression's wanted type
+    LD   B,A                       ; in B,
+    PUSH BC                        ; across the nested parse,
+    PUSH DE                        ; with the expected type.
     LD   A,D                       ; Ask for the expected type.
     LD   (EX_WANT),A               ; The argument's wanted type.
-    LD   A,1                       ; The argument is evaluated at run time.
-    LD   (EX_LIVE),A               ; Emit its code.
     CALL EX_PARSE                  ; A and HL describe the argument.
     LD   (RO_OTYPE),A              ; Keep the argument's metadata.
     LD   (EX_RVAL),HL              ; Keep its constant value.
     POP  DE                        ; Recover the expected type.
-    POP  BC                        ; Recover the enclosing state.
-    LD   A,C                       ; Recover the enclosing emission state.
-    LD   (EX_LIVE),A               ; Restore it.
-    LD   A,B                       ; Recover the enclosing wanted type.
+    POP  BC                        ; Recover the enclosing wanted type
+    LD   A,B                       ; and restore it.
     LD   (EX_WANT),A               ; Restore it.
     LD   E,D                       ; EX_FITS takes the destination in E.
     LD   A,(RO_OTYPE)              ; The argument's metadata.

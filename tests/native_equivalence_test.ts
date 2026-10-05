@@ -30,6 +30,7 @@ const CLAIMED: Record<string, string[]> = {
     "FOLD",
     "TRAP",
   ],
+  "d: locals and frames": ["LOCALS", "FARFRAME"],
 };
 
 /** Compile NAME with BASIE.COM and the options; return the disk. */
@@ -92,10 +93,11 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
   }
 }
 
-// Random assignments over the stage (c) subset: each compiles to the
-// reference's streams, or both compilers refuse it. The generator is
-// deterministic, so a failure names a statement that can be rerun.
-Deno.test("c: random expressions compile as the reference compiles them", async () => {
+// Random assignments over the stage (c) subset, to program variables and
+// (stage d) to locals: each compiles to the reference's streams, or both
+// compilers refuse it. The generator is deterministic, so a failure names a
+// statement that can be rerun.
+Deno.test("c, d: random expressions compile as the reference compiles them", async () => {
   let seed = 654;
   const rnd = (n: number) => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
@@ -132,11 +134,16 @@ Deno.test("c: random expressions compile as the reference compiles them", async 
     }
     return `${boolean(d - 1)} ${pick(["and", "or"])} ${boolean(d - 1)}`;
   };
-  const head = "var a as u8 = 200\nvar b as u8 = 9\nvar x as u16 = 1000\n" +
-    "var y as u16 = 2\nvar f as boolean\nvar g as boolean = true\n" +
-    "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n" +
-    "sub main()\n";
+  const names = "var a as u8 = 200\nvar b as u8 = 9\nvar x as u16 = 1000\n" +
+    "var y as u16 = 2\nvar f as boolean\nvar g as boolean = true\n";
+  const consts =
+    "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n";
+  const heads = [
+    `${names}${consts}sub main()\n`,
+    `${consts}sub main()\n${names}`,
+  ];
   for (let i = 0; i < 300; i++) {
+    const head = heads[i % heads.length];
     const kind = rnd(3);
     const statement = kind === 0
       ? `${pick(["a", "b"])} = ${integer(4)}`

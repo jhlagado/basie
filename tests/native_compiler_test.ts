@@ -19,8 +19,8 @@ Deno.test("BASIE.COM is the recorded image and within budget", async () => {
   // A change to the compiler updates this digest and the sizes below in the
   // same commit, with the census figure in its message (D43).
   assertEquals(hex, DIGEST);
-  assertEquals(image.core, 11_660);
-  assertEquals(image.com.length, 12_647);
+  assertEquals(image.core, 11_737);
+  assertEquals(image.com.length, 12_724);
   assertEquals(image.com.length <= LIMIT, true, `over the ${LIMIT}-byte limit`);
   console.log(
     `  BASIE.COM ${image.com.length} bytes: ${
@@ -30,4 +30,4 @@ Deno.test("BASIE.COM is the recorded image and within budget", async () => {
 });
 
 const DIGEST =
-  "480ee16f1129f1c20f84d2e9d7980e67c40c07ab3e8ead3c4e2e9c209ca01404";
+  "0e1bb67de71bdea815296a009a54d7595c2948df67a03e7254d20469d18d1dfd";

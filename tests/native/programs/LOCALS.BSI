@@ -1,0 +1,28 @@
+// Locals of each scalar type, with and without initializers, read and
+// written beside program variables (65.4 d).
+var g as u16 = 500
+var h as u8
+
+sub fill()
+    var a as u8
+    var b as u16 = 1000
+    var c as boolean = true
+    var d as u8 = 'A'
+    var e as u16 = d
+    var f as boolean
+    a = d + 1
+    b = b + a * 2
+    f = c and b > g
+    h = a xor d
+    g = b - e
+    e = 0
+end
+
+sub main()
+    var count as u16 = g / 3
+    var last as u8 = h
+    var seen as boolean = count > 100 or last = 0
+    count = count + last
+    seen = not seen
+    g = count
+end

@@ -501,9 +501,6 @@ EX_RUN:
     XOR  A                         ; Form zero.
     LD   (RO_PEND),A               ; No failable call is pending yet.
     LD   (RO_KEPT),A               ; No carriers are kept beneath one.
-    LD   A,1                       ; Turn emission on.
-    LD   (EX_LIVE),A               ; What is not yet compiled is refused.
-    XOR  A                         ; Form zero.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
     JP   EX_PARSE                  ; Parse the expression.
@@ -516,7 +513,6 @@ EX_RUN:
 EX_CONST:
     LD   (EX_WANT),A               ; Record the expected type.
     XOR  A                         ; Form zero.
-    LD   (EX_LIVE),A               ; Turn emission off.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
     JP   EX_PARSE                  ; Parse the expression.
@@ -534,17 +530,21 @@ EX_WIDTH:
 
 ;@ROUTINE IN D,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the value in the registers into the variable with symbol info D: a
-; program variable at blob BC (GX_STORE). A local or parameter, at frame
-; offset C, is refused until frames are compiled (65.4 d).
+; program variable at blob BC (GX_STORE), or a local or parameter at offset
+; BC from IX (GX_FPUT).
 
 EX_STORE:
     LD   A,D                       ; Fetch the symbol info.
+    AND  SY_TMASK                  ; Keep the type.
+    LD   E,A                       ; E is the type.
+    LD   A,D                       ; The symbol info again.
     AND  SY_CMASK                  ; Keep the storage class.
     CP   SY_GLOB                   ; A program variable?
-    JP   NZ,TR_OPER                ; No: refuse it for now.
-    LD   A,D                       ; Its type
-    AND  SY_TMASK                  ; alone.
-    JP   GX_STORE                  ; Store A or HL there and return.
+    LD   A,E                       ; A is the type.
+    JP   Z,GX_STORE                ; Store A or HL at blob BC and return.
+    LD   H,B                       ; HL is the offset
+    LD   L,C                       ; from IX.
+    JP   GX_FPUT                   ; Store A or HL in the frame and return.
 
 EX_EFLOW:                      ; A result or exit the routine does not allow.
     CALL DG_RAISE                  ; Report it; no return.

@@ -21,7 +21,6 @@
 ;    EX_PREP   restore a retained name and write its provisional symbol
 ;    EX_FRESH  check a routine-local name against symbols and `main`
 ;    EX_MAIN   test whether the current name is `main`
-;    EX_EMIT   hand a construct not yet compiled to the transcript (refused)
 ;    EX_SAVE   push a result as a pending left operand
 ;    EX_POP    pop the left operand beneath a right one
 ;    EX_UNIFY  resolve the width of a binary integer operation
@@ -153,21 +152,6 @@ EX_PREP:
     POP  DE                        ; Restore the class/type in D.
     POP  BC                        ; Restore the payload.
     JP   SY_NEW                    ; Write the provisional symbol.
-
-; The transcript entry of the expression parser, which refuses what is not
-; yet compiled. With EX_LIVE clear the same parser evaluates constant
-; declarations and static initializers, where nothing is refused here.
-
-;@ROUTINE IN A OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,B,DE,HL
-; Append operation A, refused (TR_OPER), unless emission is off.
-
-EX_EMIT:
-    LD   D,A                       ; Keep the operation code.
-    LD   A,(EX_LIVE)               ; Is emission on?
-    OR   A                         ; Test it; this clears carry.
-    LD   A,D                       ; Recover the operation code.
-    RET  Z                         ; Off: emit nothing.
-    JP   TR_OPER                   ; Append it as a new operation.
 
 ;@ROUTINE IN A OUT HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,CARRY,A,DE
 ; Address operand-stack entry A in HL: EX_STACK plus thirteen times A.

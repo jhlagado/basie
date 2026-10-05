@@ -16,22 +16,23 @@
 ;    SY_CMT    commit the provisional symbol
 ;    SY_GET    return the current NAME's class/type and payload, or fail
 ;
-;  A record is six bytes (SY_RECB), and the table holds sixteen (SY_CAP):
+;  A record is seven bytes (SY_RECB), and the table holds SY_CAP (96):
 ;
 ;    +0  word  address of the name's spelling in the resident source
 ;    +2  byte  length of the spelling
 ;    +3  byte  class and type: SY_TMASK type, SY_CMASK storage class,
 ;              SY_TYPE for a type name, SY_AGGR for an aggregate
 ;    +4  word  payload: a constant's value, the blob ordinal of a program
-;              variable or aggregate constant, a local's frame slot
+;              variable or aggregate constant, a local's or parameter's
+;              offset from IX (negative for a local)
+;    +6  byte  an aggregate's type ordinal (SY_TAG)
 ;
 ;  The source stays resident through compilation, so a record points at the
 ;  spelling instead of copying it. A declaration is written in two steps:
 ;  SY_NEW fills the record at index SY_CNT, which SY_FIND does not see, and
 ;  SY_CMT (or SY_TAG) makes it visible only once the declaration's
 ;  initializer has been accepted. A failed declaration therefore never
-;  leaves a half-made symbol behind. AG_SYTAB, parallel to the table, holds
-;  each symbol's aggregate type ordinal.
+;  leaves a half-made symbol behind.
 
 ;@ROUTINE OUT CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,C,DE
 ; Compare the current NAME token with each committed record. Carry returns
@@ -54,6 +55,25 @@ SY_FIND:
     OR   A                         ; Report no match with carry clear.
     RET                            ; Return to the declaration or lookup.
 
+;@ROUTINE IN A OUT HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Address record A in HL: SY_BASE plus seven times A. A, BC and DE are
+; kept.
+
+SY_AT:
+    PUSH DE                        ; Keep the caller's DE.
+    LD   L,A                       ; HL is the index
+    LD   H,0                       ; as a word,
+    LD   D,H                       ; and so
+    LD   E,L                       ; is DE.
+    ADD  HL,HL                     ; Times two,
+    ADD  HL,HL                     ; four,
+    ADD  HL,HL                     ; eight; carry is clear.
+    SBC  HL,DE                     ; Less one: times seven, the record size.
+    LD   DE,SY_BASE                ; The table's base
+    ADD  HL,DE                     ; plus the offset.
+    POP  DE                        ; Restore DE.
+    RET                            ; HL is the record.
+
 ;@ROUTINE IN D,BC OUT A,CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Write a provisional record for the current NAME token with class/type D
 ; and payload word BC. A duplicate name raises DG_DUP and a full table
@@ -69,22 +89,13 @@ SY_NEW:
     LD   A,(SY_CNT)                ; The provisional slot follows the committed.
     CP   SY_CAP                    ; Is there a free slot for it?
     JR   NC,.FULL                  ; No: the table is full.
-    PUSH BC                        ; Keep the payload; BC serves the index.
-    LD   C,A                       ; Index the provisional slot.
-    LD   B,0                       ; Widen the index to a word.
-    LD   H,0                       ; Begin the offset from the index too.
-    LD   L,C                       ; HL = index.
-    ADD  HL,HL                     ; HL = index times two.
-    ADD  HL,HL                     ; HL = index times four.
-    ADD  HL,BC                     ; HL = index times five.
-    ADD  HL,BC                     ; HL = index times six, the record offset.
-    LD   BC,SY_BASE                ; Fetch the table base.
-    ADD  HL,BC                     ; Address the provisional record.
+    CALL SY_AT                     ; HL addresses the provisional record.
+    PUSH BC                        ; TK_KEEP takes BC for the spelling.
     CALL TK_KEEP                   ; Record the spelling; HL at the length.
+    POP  BC                        ; Restore the payload.
     INC  HL                        ; Step to the class/type byte.
     LD   (HL),D                    ; Record the class and type.
     INC  HL                        ; Step to the payload word.
-    POP  BC                        ; Restore the payload.
     LD   (HL),C                    ; Record its low byte.
     INC  HL                        ; Step to the high byte.
     LD   (HL),B                    ; Record its high byte.
@@ -100,13 +111,12 @@ SY_NEW:
 ; preserved.
 
 SY_TAG:
-    PUSH AF                        ; Keep the type ordinal while indexing.
+    LD   E,A                       ; Keep the type ordinal.
     LD   A,(SY_CNT)                ; The provisional symbol's index.
-    LD   E,A                       ; Widen it to a word in DE.
-    LD   D,0                       ; Clear the high byte.
-    LD   HL,AG_SYTAB               ; The table parallel to the symbols.
-    ADD  HL,DE                     ; Address this symbol's type entry.
-    POP  AF                        ; Restore the type ordinal.
+    CALL SY_AT                     ; HL addresses its record.
+    LD   A,E                       ; The type ordinal
+    LD   DE,SY_AGT                 ; goes in the record's last byte.
+    ADD  HL,DE                     ; HL addresses it.
     LD   (HL),A                    ; Record it, then commit below.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
@@ -121,7 +131,7 @@ SY_CMT:
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO,HL CLOBBERS SIGN,PARITY,HALFCARRY,DE
 ; Return the current NAME's class/type in A and payload word in BC, with
-; carry clear; HL is left at the record's last byte. An unknown name raises
+; carry clear; HL is left at the payload's high byte. An unknown name raises
 ; DG_UNDEF and does not return.
 
 SY_GET:

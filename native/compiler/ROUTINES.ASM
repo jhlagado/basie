@@ -21,7 +21,7 @@
 ;    RO_VET    reject a parameter name that is already in use
 ;    RO_ENROL  append a parameter to the parameter table
 ;    RO_DISP   give a parameter's argument displacement in the frame
-;    RO_BIND   make a parameter a symbol and write OP_BIND
+;    RO_BIND   make a parameter a symbol at its argument's offset
 ;
 ;  The routine table (RO_RTAB) holds four routines of eight bytes:
 ;
@@ -253,18 +253,14 @@ RO_ENROL:
     CALL DG_RAISE                  ; Raise the diagnostic below.
     DB   DG_PARAM                  ; Too many parameters.
 
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Make parameter A, whose argument is at displacement C, a symbol in the
-; next frame slot, write OP_BIND (type, slot, displacement) so that the
-; prologue copies the argument there, and advance SY_LSLOT past the slot.
-; The current token is replaced by the parameter's name.
+;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Make parameter A, whose argument is at displacement C from IX, a symbol
+; whose payload is that offset: the argument is used in place (design
+; decision D41). The current token is replaced by the parameter's name.
 
 RO_BIND:
-    LD   (RO_CPIDX),A              ; Keep the parameter's index.
-    LD   A,C                       ; Keep the argument's displacement.
-    LD   (RO_AIDX),A               ; OP_BIND carries it.
-    LD   A,(RO_CPIDX)              ; Select the parameter's entry.
-    CALL RO_PARAM                  ; HL addresses it.
+    CALL TR_OPER                   ; Refused until calls are compiled (65.4 e).
+    CALL RO_PARAM                  ; HL addresses the parameter's entry.
     LD   E,(HL)                    ; Read the address of its spelling.
     INC  HL                        ; High byte.
     LD   D,(HL)                    ; DE addresses the spelling.
@@ -272,48 +268,21 @@ RO_BIND:
     LD   B,(HL)                    ; B is the length.
     INC  HL                        ; Then its type.
     LD   A,(HL)                    ; Read the type.
-    LD   (RO_OTYPE),A              ; Keep it.
-    LD   (TK_PTR),DE               ; SY_NEW names the symbol from the current token.
-    LD   A,B                       ; So make the parameter's spelling the token.
-    LD   (TK_LEN),A                ; And its length.
-    LD   A,(SY_LSLOT)              ; The next free frame slot.
-    LD   (RO_OPOS),A               ; OP_BIND carries it.
-    LD   C,A                       ; The symbol's payload is the slot.
-    LD   B,0                       ; As a word.
-    LD   A,(RO_OTYPE)              ; Classify the parameter.
+    LD   (TK_PTR),DE               ; SY_NEW names the symbol from the token,
+    LD   E,A                       ; so, keeping the type,
+    LD   A,B                       ; the parameter's spelling
+    LD   (TK_LEN),A                ; becomes the token.
+    LD   B,0                       ; BC is the displacement, the payload.
+    LD   A,E                       ; Classify the parameter.
     CP   AG_FIRST                  ; Is it an aggregate?
     LD   D,SY_AGGR+SY_PARAM        ; An aggregate parameter's class.
     JR   NC,.SYMBOL                ; Use it.
-.SCALAR:                       ; A scalar parameter's class.
-    OR   SY_PARAM                  ; The type with the parameter class.
+    OR   SY_PARAM                  ; A scalar's: its type, class parameter.
     LD   D,A                       ; The symbol's class byte.
-.SYMBOL:                       ; Make the symbol.
-    CALL SY_NEW                    ; Write the record.
-    LD   A,(RO_OTYPE)              ; Record the symbol's aggregate type.
-    CALL SY_TAG                    ; SY_TAG also commits the symbol.
-    LD   A,(RO_OTYPE)              ; OP_BIND's first operand is the type.
-    LD   C,A                       ; PR_EMITC writes C after the operation.
-    LD   A,OP_BIND                 ; Copy an argument into the frame.
-    CALL PR_EMITC                  ; Write OP_BIND and the type.
-    LD   A,(RO_OPOS)               ; The slot.
-    CALL TR_PUT                    ; Write it.
-    LD   A,(RO_AIDX)               ; The argument's displacement.
-    CALL TR_PUT                    ; Write it.
-    LD   A,(RO_OTYPE)              ; How many slot bytes does it take?
-    CP   AG_FIRST                  ; Is it an aggregate?
-    JR   C,.SIZE                   ; A scalar takes its width.
-    CP   AG_VIEW                   ; An open string takes three bytes.
-    LD   A,3                       ; Its address and capacity: three.
-    SBC  A,0                       ; Other aggregates take two: carry gives 3 - 1.
-    JR   .ADVANCE                  ; Advance the slot.
-.SIZE:                         ; A scalar's width.
-    CALL EX_WIDTH                  ; One or two bytes.
-.ADVANCE:                      ; Move SY_LSLOT past the slot.
-    LD   HL,SY_LSLOT               ; The next free slot.
-    ADD  A,(HL)                    ; Add the parameter's size.
-    LD   (HL),A                    ; Store it.
-    OR   A                         ; Return carry clear.
-    RET                            ; The parameter is bound.
+.SYMBOL:                       ; D is the class, E the type.
+    CALL SY_NEW                    ; Write the record; DE is kept.
+    LD   A,E                       ; Record the symbol's aggregate type;
+    JP   SY_TAG                    ; SY_TAG also commits the symbol.
 
 ;@ROUTINE IN B,D OUT A,C,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; Return in A and C the IX displacement of parameter D's argument, where B

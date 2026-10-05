@@ -226,7 +226,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.2 Local names
 
 - **Minimum:** 128 visible in one routine ([limits](limits.md) §5.1).
-- **Maximum:** ref: memory. Native: TBD. Nucleus: locals share
+- **Maximum:** ref: memory. Native: TBD; at 65.4 (d) locals share the 96
+  records of `SY_CAP` with the program's names. Nucleus: locals share
   `SymbolCapacity` (16), and are scalar only.
 - **Check:** 128 must remain a minimum, not a table size. Nucleus's
   scalar-only-local rule is gone from the language (D8); the fork must not
@@ -545,7 +546,7 @@ comes from its method.
 | Item | Value | Status |
 | --- | --- | --- |
 | Activation size, local aggregates, parameter area | memory; summed into `need(R)` | no fixed limit by design |
-| Frame slot reach | any 16-bit offset: slots within IX−128..IX+127 use `(IX+d)`, slots beyond it a computed address | confirmed; a 200-byte local array once wrapped `(IX+d)` and corrupted the frame |
+| Frame slot reach | any 16-bit offset: slots within IX−128..IX+127 use `(IX+d)`, slots beyond it a computed address | confirmed; a 200-byte local array once wrapped `(IX+d)` and corrupted the frame. The native compiler has both forms from 65.4 (d) (`GX_FACC`; `FARFRAME` in its equivalence test) |
 | Recursion depth | memory; each cycle passes a checked forward-declared routine | confirmed |
 | Stack reserve | `need(main)` + guard band, raised by `STACK=` | confirmed |
 | Guard band | profile value, 64 bytes in `CPM22` | confirmed |
@@ -563,7 +564,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 
 | Nucleus constant | Value | Basie replacement |
 | --- | ---: | --- |
-| `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals |
+| `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals. At 65.4 (d), 96 records (`SY_CAP`, seven bytes each) shared by the program's names and the current routine's parameters and locals, the aggregate type held in the record; a hashed, scoped table replaces it at step 67 |
 | `Stage7RoutineCapacity` | 4 | §3.25 |
 | `Stage7ParameterCapacity` | 16 (program-wide) | §3.3: at least 32 per routine |
 | `Stage7CallFrameCapacity` | 4 | §3.21: call nesting |

@@ -172,8 +172,6 @@ PR_RESET:
     LD   (DG_CODE),A               ; No diagnostic yet.
     LD   (DG_PART),A               ; And no failing part.
     LD   (SY_CNT),A                ; No symbols.
-    LD   (SY_LSLOT),A              ; No local frame bytes allocated.
-    LD   (SY_GSLOT),A              ; No global slots allocated.
     LD   HL,AG_MODE                ; The aggregate counters, AG_MODE..AG_GIVEN.
     LD   B,AG_GIVEN-AG_MODE+1      ; Their byte count.
 .LOOP:                         ; Clear one aggregate counter.

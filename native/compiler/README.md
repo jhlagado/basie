@@ -35,13 +35,13 @@ byte for byte. A construct not yet generated this way is refused with Error
 | `SOURCE.ASM` | `SRC_` | Source parts |
 | `TOKEN.ASM` | `TK_` | Tokenizer |
 | `TRANSCR.ASM` | `TR_` | The refusal (`DG_NYI`) of constructs whose code generation has not yet moved to blob output |
-| `SYMBOLS.ASM` | `SY_` | Symbol table |
+| `SYMBOLS.ASM` | `SY_` | Symbol table: 96 records of seven bytes |
 | `PARSER.ASM` | `PR_` | Parser driver |
 | `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file), control, aggregate and routine parsing (routine names and signatures, then calls and aggregate paths) |
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
 | `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
 | `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels, frame accounting |
-| `GENEXPR.ASM` | `GX_` | Expression templates: loads, stores, constants, widening, the operators, comparisons, short circuits and conversions |
+| `GENEXPR.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening, the operators, comparisons, short circuits and conversions |
 | `GENCALL.ASM` | `RG_` | Routine and declaration blobs, ordinals, the entry and limits records |
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
 | `SHELL.ASM` | `SH_` | The CP/M shell: command line, source parts, streams, diagnostics |
@@ -55,15 +55,15 @@ a generator for Basie's grammar that writes ATOM under the `GR_` scheme
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 11,267 |
+| Compiler code | 11,344 |
 | Immutable data | 393 |
-| **Compiler core** | **11,660** |
+| **Compiler core** | **11,737** |
 | CP/M shell | 984 |
-| **`BASIE.COM`** | **12,647** |
-| Compiler workspace (not in the image) | 2,033 |
+| **`BASIE.COM`** | **12,724** |
+| Compiler workspace (not in the image) | 2,588 |
 | Blob writer's workspace (not in the image) | 3,787 |
 
-That leaves 13,977 bytes to the 26K target and 16,025 to the 28K limit (D43).
+That leaves 13,900 bytes to the 26K target and 15,948 to the 28K limit (D43).
 Every increment follows D43's cycle: the increment, a correctness review, a
 compression pass, a further review when needed, and the census figure in the
 commit. `tests/native_compiler_test.ts` pins the image's digest, so a change

@@ -28,25 +28,32 @@
 ; ------------------------------------------------------------------ locals
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; SaveLocalType: declare a scalar local of the current type at the next
-; frame slot, provisionally so that its initializer cannot use it, and
-; expect an initializer of its type. Locals are refused (DG_NYI) until
-; frames are compiled.
+; SaveLocalType: declare a scalar local of the current type, provisionally
+; so that its initializer cannot use it, and expect an initializer of its
+; type. Its offset from IX is the frame's size once it is allocated,
+; negated (allocLocal); the frame grows only when the local is committed
+; (AC_BIND), after its initializer, as the reference's does.
 
 AC_LOCAL:
-    LD   A,(AG_CTYPE)              ; The local's scalar type...
-    OR   SY_LOCAL                  ; ...with class local...
-    LD   (AC_DINFO),A              ; ...is its information byte.
-    LD   A,(SY_LSLOT)              ; The next free frame slot...
-    LD   C,A                       ; ...widened...
-    LD   B,0                       ; ...to BC...
-    LD   (AC_DVAL),BC              ; ...is its payload.
-    PUSH BC                        ; Keep it.
-    LD   A,(AC_DINFO)              ; The information byte.
-    LD   D,A                       ; For EX_PREP.
+    LD   A,(AG_CTYPE)              ; The local's scalar type,
+    LD   E,A                       ; kept,
+    OR   SY_LOCAL                  ; with class local,
+    LD   (AC_DINFO),A              ; is its information byte,
+    LD   D,A                       ; for EX_PREP.
+    LD   A,E                       ; Its type
+    CALL EX_WIDTH                  ; is one or two bytes wide.
+    LD   C,A                       ; BC is
+    LD   B,0                       ; its size.
+    LD   HL,(EM_FRAME)             ; The frame's size
+    ADD  HL,BC                     ; with the local in it,
+    XOR  A                         ; negated:
+    SUB  L                         ; the low byte,
+    LD   C,A                       ; then
+    SBC  A,A                       ; the high byte
+    SUB  H                         ; with the borrow.
+    LD   B,A                       ; BC is the local's offset,
+    LD   (AC_DVAL),BC              ; its payload.
     CALL EX_PREP                   ; Write the provisional symbol.
-    POP  BC                        ; Recover the payload.
-    CALL TR_OPER                   ; Refused until frames are compiled (65.4 d).
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Expect an expression of the declaration's type (AC_DINFO).
@@ -55,24 +62,15 @@ AC_TOVAR:
     CALL EX_DTYPE                  ; The declaration's type.
     JP   AC_WANT                   ; Expect it.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; BeginLocalInitializer: expect the local's type. Same code as AC_TOVAR.
+AC_INIT EQU  AC_TOVAR          ; BeginLocalInitializer: expect the local's type.
 
-AC_INIT:
-    CALL EX_DTYPE                  ; The local's type.
-    JP   AC_WANT                   ; Expect it.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; DefaultLocalInitializer: without an initializer a local starts at zero,
-; a known value of the local's type.
+;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; DefaultLocalInitializer: without an initializer a local is zeroed in
+; the frame (zeroFrame), which AC_NONE in EX_RMETA tells AC_BIND.
 
 AC_ZERO:
-    CALL EX_DTYPE                  ; The local's type...
-    OR   SY_KNOWN                  ; ...known at compile time...
-    LD   (EX_RMETA),A              ; ...is the result's metadata.
-    LD   HL,0                      ; Its value...
-    LD   (EX_RVAL),HL              ; ...is zero.
-    OR   A                         ; Clear carry.
+    LD   A,AC_NONE                 ; No value was parsed:
+    LD   (EX_RMETA),A              ; the local starts at zero.
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
@@ -108,23 +106,39 @@ AC_FITTO:
     JP   EX_FITS                   ; Check it and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; CommitLocal: emit the store of the initial value, commit the local's
-; symbol and advance the frame slot past it.
+; CommitLocal: allocate the local in the frame (allocLocal), then store its
+; initial value there, brought into the registers at its type, or zero it
+; when it has no initializer; commit its symbol.
 
 AC_BIND:
-    LD   A,(AC_DINFO)              ; The local's information byte.
-    LD   D,A                       ; For EX_STORE.
-    LD   A,(AC_DVAL)               ; Its frame offset.
-    LD   C,A                       ; For EX_STORE.
-    CALL EX_STORE                  ; Emit the store of the initializer.
-    CALL SY_CMT                    ; The local is now in scope.
-    CALL EX_DTYPE                  ; Its type...
-    CALL EX_WIDTH                  ; ...is one or two bytes wide.
-    LD   HL,SY_LSLOT               ; Advance...
-    ADD  A,(HL)                    ; ...the next free slot...
-    LD   (HL),A                    ; ...past it.
-    OR   A                         ; Clear carry.
-    RET                            ; Back to the engine.
+    CALL EX_DTYPE                  ; The local's type
+    CALL EX_WIDTH                  ; is A bytes wide.
+    PUSH AF                        ; Keep the size.
+    LD   E,A                       ; DE is
+    LD   D,0                       ; the size.
+    LD   HL,(EM_FRAME)             ; The locals' bytes
+    ADD  HL,DE                     ; grow by it.
+    LD   (EM_FRAME),HL             ; The frame holds the local.
+    XOR  A                         ; Nothing is pushed, but the frame
+    CALL EM_PUSH                   ; may now be the deepest yet.
+    POP  BC                        ; B is the size.
+    LD   A,(EX_RMETA)              ; Was there an initializer?
+    CP   AC_NONE                   ; Not when the default was taken.
+    JR   Z,.ZERO                   ; Zero the local.
+    LD   D,A                       ; D is the value's metadata,
+    CALL EX_DTYPE                  ; E the local's type,
+    LD   E,A                       ; HL a known
+    LD   HL,(EX_RVAL)              ; value.
+    CALL GX_TOREG                  ; The value in A or HL at that type.
+    LD   A,(AC_DINFO)              ; The local's class and type
+    LD   D,A                       ; for EX_STORE,
+    LD   BC,(AC_DVAL)              ; and its offset.
+    CALL EX_STORE                  ; Store the value.
+    JP   SY_CMT                    ; The local is now in scope.
+.ZERO:                         ; B is the local's size.
+    LD   HL,(AC_DVAL)              ; Its offset.
+    CALL GX_FZERO                  ; Zero its bytes.
+    JP   SY_CMT                    ; The local is now in scope.
 
 ; -------------------------------------------------------------- statements
 
@@ -138,9 +152,8 @@ AC_BIND:
 
 AC_STMT:
     CALL PR_TAKE                   ; Consume the name.
-    LD   HL,(TK_POS)               ; Its source offset...
-    LD   (EX_CPOS),HL              ; ...into EX_CPOS, which nothing reads,...
-    LD   (RO_DPOS),HL              ; ...and into RO_DPOS for a call.
+    LD   HL,(TK_POS)               ; Its source offset
+    LD   (RO_DPOS),HL              ; is a call's.
     CALL RO_LIB                    ; A predefined name?
     JR   NC,.ORDINARY              ; No.
     CP   RO_ERRS                   ; An error constant...
@@ -545,10 +558,6 @@ AC_FOR:
     JP   Z,CT_EVAR                 ; Cannot count: raise DG_COUNT.
     CALL CT_GUARD                  ; Reject an active counter (C, its offset).
     JP   AC_TOVAR                  ; Expect the counter's type.
-
-.INITIAL:                      ; Unreferenced: these bytes are dead.
-    CALL AC_FIT                    ; Check against the declaration's type.
-    JP   AC_SAFE                   ; Reject a pending failure.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; ForTo, ForUntil: one routine for two contiguous actions. Bit 0 of the

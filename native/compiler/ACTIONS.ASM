@@ -39,6 +39,7 @@
 ;  first thirteen bytes of AG_IBUF, the initializer staging buffer, which
 ;  is used only by top-level declarations and is dead inside a routine.
 
+AC_NONE EQU  $FF               ; EX_RMETA of a local without an initializer.
 AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode bits.
 AC_DELTA EQU  AC_MODE+1        ; Word: the for loop's step magnitude.
 AC_WHERE EQU  AC_DELTA+2       ; Word: the for statement's source offset.

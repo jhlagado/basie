@@ -109,6 +109,7 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | One blob's references | 512 bytes encoded (`BL_RCAP`), about 100 references | the 128-byte buffer spilling to `NAME.$RF` (toolchain §3.2) |
 | One blob's line entries | 512 bytes encoded (`BL_LCAP`), about 120 statements | spilling with the references |
 | Labels in one routine | 32 (`EM_LCAP`), two of them the exit and the need word; `DG_LABEL` beyond | a label table released by nesting (step 67) |
+| Names visible at once | 96 (`SY_CAP`): the program's constants, variables and record types with the current routine's parameters and locals; `DG_SYMS` (Error 56) beyond | the hashed, scoped symbol table (step 67) |
 | One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` beyond | writing initializers to the blob as they are parsed |
 | Constructs compiled | those of the claimed programs of 65.4 (tests/native_equivalence_test.ts); every other construct is refused with `DG_NYI` (Error 95) | the later stages of 65.4 |
 | Exact constant values | 0 to 65,535 while folding; a value outside it, a negative one included, is refused (`DG_RANGE`, Error 61) where the spec allows −2^31 to 2^32 − 1 | 32-bit folding with the 32-bit types (step 67) |

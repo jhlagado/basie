@@ -108,17 +108,17 @@ EX_NAME:
     LD   A,D                       ; Recover the symbol info.
     AND  SY_CMASK                  ; Keep the storage class.
     CP   SY_GLOB                   ; A program variable?
-    JR   Z,.GLOBAL                 ; Load it by address.
-    PUSH DE                        ; A local or parameter: keep the type.
-    CALL EX_EMIT                   ; Refused until frames are compiled.
-    POP  DE                        ; The type, in a constant parse.
-    JR   .TYPED                    ; A run-time result of that type.
-.GLOBAL:                       ; A program variable, blob BC.
     LD   A,E                       ; Its type.
     PUSH DE                        ; Keep it.
+    JR   Z,.GLOBAL                 ; A program variable loads by address.
+    LD   H,B                       ; A local or parameter:
+    LD   L,C                       ; HL is its offset from IX.
+    CALL GX_FLOAD                  ; Load it into A or HL.
+    JR   .LOADED                   ; Return its type.
+.GLOBAL:                       ; A program variable, blob BC.
     CALL GX_LOAD                   ; Load it into A or HL.
+.LOADED:                       ; The value is in the registers.
     POP  DE                        ; Recover the type.
-.TYPED:                        ; E is the value's type.
     LD   A,E                       ; A run-time result of that type.
     OR   A                         ; Clear carry for success.
     RET                            ; Return it.

@@ -89,6 +89,8 @@ LL_PARSE:
 .NONTERM:                      ; A is $40 plus the row number.
     CP   GR_STMT                   ; A statement begins at the lookahead:
     CALL Z,EM_LINE                 ; its code starts on the lookahead's line.
+    CP   GR_LOCAL                  ; So does a local declaration,
+    CALL Z,EM_LINE                 ; which the reference counts a statement.
     SUB  $40                       ; A is the row number.
     LD   L,A                       ; Index the row directory...
     LD   H,0                       ; ...as a word offset.

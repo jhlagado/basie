@@ -9,9 +9,26 @@
 ;  it is a u16; a constant is not loaded until something needs it in the
 ;  registers, and then at the type that needs it.
 ;
+;  Frames. A local or parameter is addressed from IX, the frame pointer: a
+;  local at a negative offset, a parameter at a positive one (design
+;  decision D41). The reference's ixByte, ixWord, ixStoreA, ixStoreHL and
+;  ixStoreImm reach a slot within IX-128..IX+127 as (IX+d); a slot beyond
+;  that, in a frame larger than 128 bytes, through its computed address,
+;  with the registers the access must keep pushed around it and counted
+;  into the frame (GX_FACC). Each access is described by a table entry:
+;
+;    +0  byte  its size less one
+;    +1  byte  the bytes the far form pushes
+;    +2  count and bytes: the far form's code before the address
+;    then count and bytes: its code after the address, HL = IX+offset
+;    then the near form's operations on (IX+d), (IX+d+1), ended by zero
+;
 ;  Principal entries:
 ;    GX_LOAD   load a program variable of type A from blob BC
 ;    GX_STORE  store the registers into a program variable of type A
+;    GX_FLOAD  load the local or parameter of type A at IX+HL
+;    GX_FPUT   store the registers into the one of type A at IX+HL
+;    GX_FZERO  zero B bytes of the frame from IX+HL
 ;    GX_TOREG  bring a result into the registers at a destination's type
 ;    GX_WIDEN  widen a u8 in A to a u16 in HL
 
@@ -45,6 +62,167 @@ GX_STORE:                      ; A is the type, BC the variable's ordinal.
     JR   NZ,GX_ABS                 ; A byte it is.
     LD   A,$22                     ; LD (nn),HL for a word.
     JR   GX_ABS                    ; Append it and return.
+
+;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the local or parameter of scalar type A at IX+HL: A for a u8 or
+; Boolean (ixByte), HL for a u16 (ixWord).
+
+GX_FLOAD:                      ; A is the type, HL the offset.
+    LD   DE,GX_DLDA                ; A byte into A.
+    CP   SY_U16                    ; A word?
+    JR   NZ,GX_FACC                ; No: load the byte.
+    LD   DE,GX_DLDHL               ; A word into HL.
+    JR   GX_FACC                   ; Load it and return.
+
+;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Store the registers into the local or parameter of scalar type A at
+; IX+HL: A for a u8 or Boolean (ixStoreA), HL for a u16 (ixStoreHL).
+
+GX_FPUT:                       ; A is the type, HL the offset.
+    LD   DE,GX_DSTA                ; A byte from A.
+    CP   SY_U16                    ; A word?
+    JR   NZ,GX_FACC                ; No: store the byte.
+    LD   DE,GX_DSTHL               ; A word from HL.
+    JR   GX_FACC                   ; Store it and return.
+
+;@ROUTINE IN B,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Zero the B bytes of the frame from IX+HL, one at a time (zeroFrame, for
+; a local without an initializer, through ixStoreImm).
+
+GX_FZERO:                      ; B bytes remain from offset HL.
+    PUSH BC                        ; Keep the count
+    PUSH HL                        ; and the offset.
+    LD   DE,GX_DZERO               ; LD (IX+d),0.
+    CALL GX_FACC                   ; Zero this byte.
+    POP  HL                        ; The offset
+    INC  HL                        ; of the next byte.
+    POP  BC                        ; The count.
+    DJNZ GX_FZERO                  ; Until every byte is zero.
+    RET                            ; The local is clear.
+
+;@ROUTINE IN DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the frame access that entry DE describes (the module header) for
+; the slot at IX+HL: its near form when every byte of the slot is within
+; reach of (IX+d), its far form otherwise.
+
+GX_FACC:                       ; DE is the entry, HL the offset.
+    LD   A,(DE)                    ; C is the slot's size less one.
+    LD   C,A                       ; Keep it for the test.
+    INC  DE                        ; DE is the far form's push count.
+    CALL .FAR                      ; Is any byte out of reach?
+    JR   C,.FARFORM                ; Then compute the address.
+    INC  DE                        ; Skip the push count,
+    CALL .SKIP                     ; the code before the address
+    CALL .SKIP                     ; and the code after it.
+.NEAR:                         ; DE is the next operation, L its d.
+    LD   A,(DE)                    ; The operation on (IX+d),
+    OR   A                         ; zero after the last.
+    RET  Z                         ; The access is written.
+    CALL EM_OP                     ; Its IX prefix.
+    DB   $DD                       ; Append it.
+    LD   A,(DE)                    ; The operation.
+    CALL EM_BYTE                   ; Append it.
+    LD   A,L                       ; The displacement
+    CALL EM_BYTE                   ; follows it.
+    LD   A,(DE)                    ; Was it LD (IX+d),n?
+    CP   $36                       ; Its immediate is the zero
+    LD   A,0                       ; of zeroFrame.
+    CALL Z,EM_BYTE                 ; Append it.
+    INC  L                         ; The next byte of the slot.
+    INC  DE                        ; The next operation.
+    JR   .NEAR                     ; Append it.
+.FARFORM:                      ; DE is the push count.
+    LD   A,(DE)                    ; The bytes pushed around the address.
+    INC  DE                        ; DE is the code before it.
+    PUSH AF                        ; Keep the count.
+    CALL .COPY                     ; Append the pushes.
+    POP  AF                        ; The count,
+    PUSH AF                        ; kept for the pop.
+    PUSH DE                        ; Keep the code after the address
+    PUSH HL                        ; and the offset.
+    CALL EM_PUSH                   ; Count the pushes into the frame.
+    POP  HL                        ; HL is the offset.
+    CALL EM_SEQ                    ; HL = IX+offset (ixAddress):
+    DB   4,$DD,$E5,$E1,$11         ; PUSH IX, POP HL, LD DE,offset,
+    CALL EM_WORD                   ; the offset,
+    CALL EM_OP                     ; then
+    DB   $19                       ; ADD HL,DE.
+    POP  DE                        ; DE is the code after the address.
+    CALL .COPY                     ; Append it.
+    POP  AF                        ; The pushes
+    JP   EM_POP                    ; are popped again; return.
+
+;@ROUTINE IN C,HL OUT CARRY CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY
+; Carry unless the slot of C+1 bytes at IX+HL lies within IX-128..IX+127
+; (the reference's ixNear): HL must be a sign-extended byte, and the slot's
+; last byte no further than +127.
+
+.FAR:                          ; HL is the offset, C the size less one.
+    LD   A,L                       ; The low byte's sign
+    RLA                            ; into carry,
+    SBC  A,A                       ; then $00 or $FF:
+    CP   H                         ; the high byte of a byte offset.
+    SCF                            ; Out of reach
+    RET  NZ                        ; when it is not one.
+    LD   A,L                       ; The offset plus 128,
+    XOR  $80                       ; from 0 for -128,
+    ADD  A,C                       ; to the last byte: carry past +127.
+    RET                            ; Carry if out of reach.
+
+;@ROUTINE IN DE OUT DE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Step DE over a count byte and that many bytes.
+
+.SKIP:                         ; DE is the count.
+    LD   A,(DE)                    ; The count,
+    INC  DE                        ; then the bytes:
+    ADD  A,E                       ; DE plus the count
+    LD   E,A                       ; is past them,
+    ADC  A,D                       ; with the carry
+    SUB  E                         ; into the
+    LD   D,A                       ; high byte.
+    RET                            ; DE is after them.
+
+;@ROUTINE IN DE OUT DE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the count byte's bytes at DE, at least one; DE is left after them.
+
+.COPY:                         ; DE is the count.
+    LD   A,(DE)                    ; B is
+    LD   B,A                       ; the count.
+.BYTE:                         ; B bytes remain.
+    INC  DE                        ; The next
+    LD   A,(DE)                    ; byte.
+    CALL EM_BYTE                   ; Append it.
+    DJNZ .BYTE                     ; Until the count is done.
+    INC  DE                        ; DE is after them.
+    RET                            ; The code is appended.
+
+; The frame accesses, in GX_FACC's form (the module header).
+
+GX_DLDA:                       ; ixByte: A = (IX+offset).
+    DB   0,6                       ; One byte; the far form pushes six.
+    DB   2,$E5,$D5                 ; PUSH HL, PUSH DE;
+    DB   3,$7E,$D1,$E1             ; LD A,(HL), POP DE, POP HL.
+    DB   $7E,0                     ; LD A,(IX+d).
+GX_DLDHL:                      ; ixWord: HL = (IX+offset).
+    DB   1,4                       ; Two bytes; the far form pushes four.
+    DB   1,$D5                     ; PUSH DE;
+    DB   5,$5E,$23,$56,$EB,$D1     ; LD E,(HL), INC HL, LD D,(HL), EX DE,HL, POP DE.
+    DB   $6E,$66,0                 ; LD L,(IX+d), LD H,(IX+d+1).
+GX_DSTA:                       ; ixStoreA: (IX+offset) = A.
+    DB   0,6                       ; One byte; the far form pushes six.
+    DB   2,$E5,$D5                 ; PUSH HL, PUSH DE;
+    DB   3,$77,$D1,$E1             ; LD (HL),A, POP DE, POP HL.
+    DB   $77,0                     ; LD (IX+d),A.
+GX_DSTHL:                      ; ixStoreHL: (IX+offset) = HL.
+    DB   1,6                       ; Two bytes; the far form pushes six.
+    DB   2,$D5,$E5                 ; PUSH DE, PUSH HL;
+    DB   6,$D1,$73,$23,$72,$EB,$D1 ; POP DE, LD (HL),E, INC HL, LD (HL),D, EX DE,HL, POP DE.
+    DB   $75,$74,0                 ; LD (IX+d),L, LD (IX+d+1),H.
+GX_DZERO:                      ; ixStoreImm: (IX+offset) = 0.
+    DB   0,6                       ; One byte; the far form pushes six.
+    DB   2,$E5,$D5                 ; PUSH HL, PUSH DE;
+    DB   4,$36,0,$D1,$E1           ; LD (HL),0, POP DE, POP HL.
+    DB   $36,0                     ; LD (IX+d),0.
 
 ;@ROUTINE IN D,E,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Bring the result with metadata D and value HL into the registers as type

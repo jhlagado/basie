@@ -20,11 +20,11 @@
 ;    +$01B    152  emitter and routine generation: frame accounting, the
 ;                  routine's labels, ordinals and the program's limits
 ;    +$0B3      3  parser lookahead
-;    +$0B6     99  symbol table: count, slot cursors, sixteen records
-;    +$119    243  expression state and the operand stack
-;    +$20C     88  control frames
-;    +$264   1193  aggregate types, records, fields, the initializer staging
-;    +$70D         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$0B6    673  symbol table: count, 96 records of seven bytes
+;    +$357    240  expression state and the operand stack
+;    +$447     88  control frames
+;    +$49F   1177  aggregate types, records, fields, the initializer staging
+;    +$938         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -102,13 +102,13 @@ PR_LVAL EQU  EM_WEND+$01       ; Word: the buffered token's payload.
 ; the exact spelling as a pointer and length instead of copying name bytes.
 ; The entry at SY_CNT is provisional until the declaration initializer
 ; succeeds; lookup sees only the committed prefix. Records are laid out in
-; SYMBOLS.ASM.
+; SYMBOLS.ASM. Globals, and the parameters and locals of the routine being
+; compiled, share the table.
 SY_CNT EQU  EM_WEND+$03        ; Byte: committed symbols.
-SY_LSLOT EQU  EM_WEND+$04      ; Byte: next free byte of the routine frame.
-SY_GSLOT EQU  EM_WEND+$05      ; Byte: cleared by PR_RESET, never read.
-SY_BASE EQU  EM_WEND+$06       ; First symbol record.
-SY_RECB EQU  6                 ; Bytes in one symbol record.
-SY_CAP EQU  16                 ; Symbol records in the table.
+SY_BASE EQU  EM_WEND+$04       ; First symbol record.
+SY_RECB EQU  7                 ; Bytes in one symbol record.
+SY_AGT EQU  6                  ; Record offset of an aggregate's type ordinal.
+SY_CAP EQU  96                 ; Symbol records in the table; DG_SYMS beyond.
 SY_LIM EQU  SY_BASE+SY_RECB*SY_CAP ; Exclusive end of the symbol table.
 
 ; Expression state (EXPR.ASM). An expression returns metadata in A (type
@@ -117,27 +117,25 @@ SY_LIM EQU  SY_BASE+SY_RECB*SY_CAP ; Exclusive end of the symbol table.
 ; An entry is thirteen bytes: metadata, value word, EX_QUIET, operator,
 ; operator offset word and the six-byte position of the left value.
 EX_WANT EQU  SY_LIM+$00        ; Byte: type the context expects.
-EX_LIVE EQU  SY_LIM+$01        ; Byte: nonzero to append operations.
-EX_QUIET EQU  SY_LIM+$02       ; Byte: nonzero while faults fold to values.
-EX_DEPTH EQU  SY_LIM+$03       ; Byte: entries on the operand stack.
-EX_RMETA EQU  SY_LIM+$04       ; Byte: right operand's metadata.
-EX_RVAL EQU  SY_LIM+$05        ; Word: right operand's exact value.
-EX_LMETA EQU  SY_LIM+$07       ; Byte: left operand's metadata.
-EX_LVAL EQU  SY_LIM+$08        ; Word: left operand's exact value.
-EX_OPER EQU  SY_LIM+$0A        ; Byte: pending relation code or operator.
-EX_OPPOS EQU  SY_LIM+$0B       ; Word: source offset for its trap.
+EX_QUIET EQU  SY_LIM+$01       ; Byte: nonzero while faults fold to values.
+EX_DEPTH EQU  SY_LIM+$02       ; Byte: entries on the operand stack.
+EX_RMETA EQU  SY_LIM+$03       ; Byte: right operand's metadata.
+EX_RVAL EQU  SY_LIM+$04        ; Word: right operand's exact value.
+EX_LMETA EQU  SY_LIM+$06       ; Byte: left operand's metadata.
+EX_LVAL EQU  SY_LIM+$07        ; Word: left operand's exact value.
+EX_OPER EQU  SY_LIM+$09        ; Byte: pending relation code or operator.
+EX_OPPOS EQU  SY_LIM+$0A       ; Word: source offset for its trap.
 
 ; The declaration being parsed (ACTIONS.ASM), restored as the current name
 ; when its symbol is finally written.
-AC_DINFO EQU  SY_LIM+$0D       ; Byte: class and type of the new symbol.
-AC_DVAL EQU  SY_LIM+$0E        ; Word: its payload, value or offset.
-AC_DNAME EQU  SY_LIM+$10       ; Word: spelling, kept by TK_KEEP.
-AC_DLEN EQU  SY_LIM+$12        ; Byte: length of the spelling.
-EX_CPOS EQU  SY_LIM+$13        ; Word: statement offset; written, not read.
-AC_DPOS EQU  SY_LIM+$15        ; Six bytes: the declared name's position.
-EX_VPOS EQU  SY_LIM+$1B        ; Six bytes: the latest value's position.
-EX_LPOSP EQU  SY_LIM+$21       ; Word: popped left value's position record.
-EX_STACK EQU  SY_LIM+$23       ; First operand-stack entry.
+AC_DINFO EQU  SY_LIM+$0C       ; Byte: class and type of the new symbol.
+AC_DVAL EQU  SY_LIM+$0D        ; Word: its payload, value or offset.
+AC_DNAME EQU  SY_LIM+$0F       ; Word: spelling, kept by TK_KEEP.
+AC_DLEN EQU  SY_LIM+$11        ; Byte: length of the spelling.
+AC_DPOS EQU  SY_LIM+$12        ; Six bytes: the declared name's position.
+EX_VPOS EQU  SY_LIM+$18        ; Six bytes: the latest value's position.
+EX_LPOSP EQU  SY_LIM+$1E       ; Word: popped left value's position record.
+EX_STACK EQU  SY_LIM+$20       ; First operand-stack entry.
 EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
 EX_STLEN EQU  13               ; Bytes in one entry.
 EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
@@ -228,13 +226,8 @@ AG_FNLEN EQU  2                ; Field entry: spelling length.
 AG_FTYPE EQU  3                ; Field entry: type ID.
 AG_FPOS EQU  4                 ; Field entry: byte offset, a word.
 
-; One type ID per ordinary symbol is enough because the ordinary symbol table
-; owns name identity and the payload word owns the program-data offset.
-AG_SYTAB EQU  AG_FLIM          ; Bytes: type ID of each symbol, by index.
-AG_SYLIM EQU  AG_SYTAB+SY_CAP  ; Exclusive end of the symbol types.
-
 ; One object's initializer is staged here, then written as its blob.
-AG_IBUF EQU  AG_SYLIM          ; One object's initializer, built here.
+AG_IBUF EQU  AG_FLIM           ; One object's initializer, built here.
 AG_ICAP EQU  1024              ; Bytes of initializer staging; DG_DATA beyond.
 AG_WEND EQU  AG_IBUF+AG_ICAP   ; End of the aggregate block.
 PR_WEND EQU  AG_WEND           ; End of this file's workspace.

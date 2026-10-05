@@ -347,15 +347,14 @@ AC_PUB:
     RET                            ; The routine is published.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Enter a body's scope: remember how many symbols are global, start the
-; frame at slot zero and close every control frame. Returns A zero.
+; Enter a body's scope: remember how many symbols are global and close
+; every control frame. Returns A zero.
 
 AC_SCOPE:
     LD   A,(SY_CNT)                ; Symbols so far are all global.
     LD   (RO_GLOBS),A              ; AC_END discards the rest.
-    XOR  A                         ; Zero...
-    LD   (SY_LSLOT),A              ; ...frame bytes allocated...
-    LD   (CT_DEPTH),A              ; ...and no control frames.
+    XOR  A                         ; No control
+    LD   (CT_DEPTH),A              ; frames are open.
     RET                            ; A is zero.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
@@ -447,8 +446,6 @@ AC_END:
 .SCOPE:                        ; Leave the routine's scope.
     LD   A,(RO_GLOBS)              ; Keep only the global symbols.
     LD   (SY_CNT),A                ; Parameters and locals go out of scope.
-    XOR  A                         ; The next body's frame...
-    LD   (SY_LSLOT),A              ; ...starts empty.
     RET                            ; Back to the engine.
 
 ; ----------------------------------------------------------------- failure
