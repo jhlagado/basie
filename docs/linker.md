@@ -1,4 +1,4 @@
-# Baton linker 1.0
+# Basiq linker 1.0
 
 - Status: draft specification, revision 4
 - Date: 2026-10-03
@@ -9,7 +9,7 @@
 
 ## 1. Scope and purpose
 
-The Baton linker combines one program object with one blob library and writes
+The Basiq linker combines one program object with one blob library and writes
 one program image. Its purpose is **tree shaking**: the image contains exactly
 the blobs reachable from the roots, and nothing else.
 
@@ -26,7 +26,7 @@ It is a relocating linker with deliberate limits:
   from its start; Section 10 counts them.
 - **Output in address order.** It writes each output file once, sequentially.
 
-The linker is a separate program, `BLINK.COM`, which `BATON` runs automatically
+The linker is a separate program, `BLINK.COM`, which `BASIQ` runs automatically
 after a successful compilation, or which can be run directly; see the
 [toolchain](toolchain.md).
 

@@ -2,7 +2,7 @@
 // spec: 3.5
 // expect output: 7\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 record Part
     id as u16

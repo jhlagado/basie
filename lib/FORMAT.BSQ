@@ -1,5 +1,5 @@
-// Baton standard library: numbers to text (D36).
-include "STRINGS.BTN"
+// Basiq standard library: numbers to text (D36).
+include "STRINGS.BSQ"
 
 sub appendU16(var s as string[], v as u16) fails
     var digits as u8[5]

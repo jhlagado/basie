@@ -1,4 +1,4 @@
-# Baton capacity audit
+# Basiq capacity audit
 
 - Status: **standing practice**, begun 2026-10-04; revised with every limit introduced
 - Related: [limits register](limits.md), [build pipeline](build-pipeline.md),
@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-This audit lists every bounded resource found so far in the Baton
+This audit lists every bounded resource found so far in the Basiq
 specification and implementation, and records for each:
 
 | Field | Meaning |
@@ -26,7 +26,7 @@ A test sets a minimum, and must not quietly set the maximum as well.
 
 ### 1.0 Why this is permanent
 
-Baton inherits Nucleus, which carried many unexamined assumptions, and its
+Basiq inherits Nucleus, which carried many unexamined assumptions, and its
 development is driven largely by an LLM, which tends to choose the value that
 satisfies an acceptance test rather than the best trade-off across the whole
 machine. Every limit is therefore a **trade-off to be argued**, not a number to
@@ -39,7 +39,7 @@ mistake that would cripple a real program.
 Rules of the practice:
 
 1. Every commit that introduces or changes a table size, field width, buffer,
-   or threshold, anywhere in Baton, updates this audit and the
+   or threshold, anywhere in Basiq, updates this audit and the
    [limits register](limits.md) in the same commit.
 2. Each entry is **classified** (Section 1.3) and says whether its figure is a
    minimum or a maximum.
@@ -53,8 +53,8 @@ Rules of the practice:
 
 | Class | Meaning | Who is bound |
 | --- | --- | --- |
-| **Language** | Part of Baton's definition; changing it changes programs' meaning or validity on every implementation | everyone |
-| **Representation** | Set by a format or data layout Baton defines (object format, string header, slot header); changing it is a format revision | every implementation of that format |
+| **Language** | Part of Basiq's definition; changing it changes programs' meaning or validity on every implementation | everyone |
+| **Representation** | Set by a format or data layout Basiq defines (object format, string header, slot header); changing it is a format revision | every implementation of that format |
 | **Machine** | Set by the 64K address space or by CP/M itself | everyone on this target |
 | **Implementation** | Set by one implementation's tables or budget; another implementation may differ | that implementation only |
 
@@ -67,11 +67,11 @@ user meets them as a rule of the language.
 | Implementation | State | Where |
 | --- | --- | --- |
 | Reference toolchain (TypeScript) | Object format, linker, publication, blob-library tool and lexer written; compiler not yet | `ref/`, `tools/` |
-| Native `BATON.COM` | Not yet written. It will be forked from the Nucleus compiler (roadmap M7, step 64), so Nucleus's fixed tables are what it **inherits** unless each is replaced deliberately | `../nucleus/asm/vertical-slice/*.asmi` |
+| Native `BASIQ.COM` | Not yet written. It will be forked from the Nucleus compiler (roadmap M7, step 64), so Nucleus's fixed tables are what it **inherits** unless each is replaced deliberately | `../nucleus/asm/vertical-slice/*.asmi` |
 | Native `BLINK.COM` | Not yet written; designed in [linker](linker.md) §2 | — |
 | `CPM22` runtime | Minimal library written | `runtime/cpm22/` |
 
-The Nucleus constants are recorded so that none of them crosses into Baton by
+The Nucleus constants are recorded so that none of them crosses into Basiq by
 accident. [Limits](limits.md) §6 already lists the main ones. This audit adds
 their source constant names.
 
@@ -167,10 +167,10 @@ representation (one byte or two) is to be chosen then, not inherited.
 
 Every Nucleus table in Section 4 is a defect if it survives the fork
 unchanged. **Working position:** at roadmap step 64 the fork is audited
-table by table against Section 4 before any Baton feature is added, and each
+table by table against Section 4 before any Basiq feature is added, and each
 table gets a named constant, a budget and an overflow class.
 
-### 2.4 Workspace budget for `BATON.COM` (Implementation)
+### 2.4 Workspace budget for `BASIQ.COM` (Implementation)
 
 The minimums in [limits](limits.md) §5.1 are not backed by a model showing
 they fit together in 32K. **Working position:** build a paper model from
@@ -267,7 +267,7 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 ### 3.6 Compiler workspace budget
 
-- **Budget:** 32K workspace for `BATON.COM` (D9).
+- **Budget:** 32K workspace for `BASIQ.COM` (D9).
 - **Model:** **missing.** A peak-live model is needed covering: global and
   local symbols, scopes and flow states, type descriptors, constants, routine
   signatures, forward signatures, deferred references, routine buffer, literal
@@ -303,7 +303,7 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 - **Minimum:** TBD. **Maximum:** TBD.
 - **Note:** Nucleus keeps names in the source ("source-backed"), which costs no
-  name pool but needs the source in memory or re-readable. Baton reads source
+  name pool but needs the source in memory or re-readable. Basiq reads source
   from disk in 128-byte records, so the native compiler must copy names. The
   byte budget for them is part of §3.6.
 - **Status:** TBD.
@@ -515,7 +515,7 @@ computed exactly from frames and helper figures.
 From `../nucleus/asm/vertical-slice/*.asmi`. Each is a defect if it survives
 the fork unchanged.
 
-| Nucleus constant | Value | Baton replacement |
+| Nucleus constant | Value | Basiq replacement |
 | --- | ---: | --- |
 | `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals |
 | `Stage7RoutineCapacity` | 4 | §3.25 |

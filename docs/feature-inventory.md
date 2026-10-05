@@ -1,4 +1,4 @@
-# Baton feature inventory
+# Basiq feature inventory
 
 - Status: version 1 list frozen (roadmap step 5); costs updated as measured
 - Date: 2026-10-04
@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-This document lists every feature of Baton, what each costs, and which version
+This document lists every feature of Basiq, what each costs, and which version
 it belongs to. It is the ledger the compiler budget is kept against.
 
 All sizes are **estimates** until measured. They are anchored to one measured
@@ -16,7 +16,7 @@ figure: the Nucleus compiler core, covering the Nucleus 0.1 language, is about
 
 Two kinds of cost matter:
 
-- **Compiler cost** is paid by every user, in the size of `BATON.COM`, and comes
+- **Compiler cost** is paid by every user, in the size of `BASIQ.COM`, and comes
   out of the compiler's own working space, which limits how large a program it
   can compile.
 - **Runtime cost** is paid only by programs that use the feature, because the
@@ -24,7 +24,7 @@ Two kinds of cost matter:
 
 ## 2. The budget
 
-`BATON.COM` is at most **24K**, including its tables, leaving at least **32K**
+`BASIQ.COM` is at most **24K**, including its tables, leaving at least **32K**
 of working space (D9). The linker is a separate program, `BLINK.COM`, so its
 code doesn't count against this.
 
@@ -33,10 +33,10 @@ The compiler is kept within budget by:
 1. building on the 12K Nucleus compiler rewrite;
 2. generating 32-bit and `f32` operations as calls to runtime helpers, so the
    compiler only checks types and selects helpers;
-3. keeping diagnostic text in `BATON.MSG`, read only when needed;
+3. keeping diagnostic text in `BASIQ.MSG`, read only when needed;
 4. keeping rarely used parts, starting with decimal-to-`f32` literal
-   conversion, in `BATON.OVL`;
-5. writing strings, formatting and other library facilities in Baton source;
+   conversion, in `BASIQ.OVL`;
+5. writing strings, formatting and other library facilities in Basiq source;
    and
 6. deferring features to version 2 when they don't fit.
 
@@ -64,7 +64,7 @@ The compiler is kept within budget by:
 | Branch shrinking | 0.3K | — | build pipeline §6.3 |
 | **Total** | **about 21.5–23.5K** | | within 24K, with little room to spare |
 
-The standard library, written in Baton and tree-shaken, provides string
+The standard library, written in Basiq and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text
 (including `f32`), and the console and file conveniences built on the services.
 
@@ -122,7 +122,7 @@ replaces long `elseif` chains, which are larger and slower.
 ## 6. Enumerations and variants, in version 2
 
 Rust's `match` is powerful because of variants whose cases carry data,
-destructuring, and exhaustiveness. Baton's version 2 takes the first and third
+destructuring, and exhaustiveness. Basiq's version 2 takes the first and third
 with one level of destructuring, leaving out nested patterns and guards:
 
 ```nucleus

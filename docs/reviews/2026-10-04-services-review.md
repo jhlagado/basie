@@ -46,26 +46,26 @@ future z80-services file profile will almost certainly be shaped like it.
 
 ### 1.2 Mapping
 
-| Baton service | Contract and operation | Alignment |
+| Basiq service | Contract and operation | Alignment |
 | --- | --- | --- |
-| `readByte(console)`, `readInputByte` | byteGateway `readInputByte` (0) | Aligned, with Baton policy on top (echo, Control-Z). **A1**: the policy's EOF code must be 1, not 4 |
+| `readByte(console)`, `readInputByte` | byteGateway `readInputByte` (0) | Aligned, with Basiq policy on top (echo, Control-Z). **A1**: the policy's EOF code must be 1, not 4 |
 | `writeByte(console)`, `writeOutputByte`, `writeText(console)` | byteGateway `writeOutputByte` (1) | Aligned. The BDOS 2 / 6 choice is adapter policy (E1) |
-| `readLine(console)` | none; policy above the gateway (console-and-storage §Console bytes) | Baton-owned, as Skate's `read-line` is |
+| `readLine(console)` | none; policy above the gateway (console-and-storage §Console bytes) | Basiq-owned, as Skate's `read-line` is |
 | `readKey`, `keyReady` | none; "input events" is a deferred profile | **Gap G1** |
 | `printer` | none; the gateway has no list-device role | **Gap G2** |
 | `openRead` | tool-services `openRead` | Aligned (handle at offset 0, `notFound`) |
 | `openWrite` + `close` | tool-services `beginWrite` + `commit` | Aligned in intent; **A2** on failure rules |
-| `openUpdate` | none: every tool-services write is tentative | **Gap G3**; Baton's in-place update is a CP/M provider feature the shared profile has not taken a position on |
-| `close` on a write file that fails | tool-services `abort` | **A2**: Baton has no `abort`, and does not say whether a failed `close` has aborted |
+| `openUpdate` | none: every tool-services write is tentative | **Gap G3**; Basiq's in-place update is a CP/M provider feature the shared profile has not taken a position on |
+| `close` on a write file that fails | tool-services `abort` | **A2**: Basiq has no `abort`, and does not say whether a failed `close` has aborted |
 | `readByte(f)`, `readBlock` | tool-services `read` (`result=0` is EOF, never a status) | Aligned for `readBlock`; `readByte` reports `endOfFile` as a status, which the gateway also does (1) |
-| `writeByte(f)`, `writeBlock`, `writeText` | tool-services `write` (all-or-nothing) | **A3**: Baton does not say what a partial `writeBlock` leaves behind |
-| `seek`, `position` | tool-services `seek` (u32, provider may permit beyond-end with zero fill); byteGateway `seekStorageOutput` (0..length inclusive) | **A4**: Baton rejects beyond-end; both contracts admit exactly-at-end; byteGateway requires it |
+| `writeByte(f)`, `writeBlock`, `writeText` | tool-services `write` (all-or-nothing) | **A3**: Basiq does not say what a partial `writeBlock` leaves behind |
+| `seek`, `position` | tool-services `seek` (u32, provider may permit beyond-end with zero fill); byteGateway `seekStorageOutput` (0..length inclusive) | **A4**: Basiq rejects beyond-end; both contracts admit exactly-at-end; byteGateway requires it |
 | `size` | none | Gap, minor (tool-services has no size; a future profile should) |
 | `exists`, `delete`, `rename`, `findFirst`, `findNext` | none | **Gap G4**: directory operations |
-| `argumentCount`, `argument`, `commandTail` | none; target-profile v0 leaves the command line to the target | Baton-owned; M9 says two of these are library |
+| `argumentCount`, `argument`, `commandTail` | none; target-profile v0 leaves the command line to the target | Basiq-owned; M9 says two of these are library |
 | `freeMemory` | none; runtime-owned | Fine |
 | `clock` | none; "clocks follow after the base profile" (architecture §Profiles) | **Gap G5** |
-| (none) | byteGateway `readStorageByte`, `rewindStorageInput`, `writeStorageByte`, `seekStorageOutput` (2–5) | **A5**: Baton surfaces none of the storage roles, yet implementation-plan §6 says the z80-services vectors will test Baton's providers |
+| (none) | byteGateway `readStorageByte`, `rewindStorageInput`, `writeStorageByte`, `seekStorageOutput` (2–5) | **A5**: Basiq surfaces none of the storage roles, yet implementation-plan §6 says the z80-services vectors will test Basiq's providers |
 
 ### 1.3 Findings
 
@@ -75,24 +75,24 @@ future z80-services file profile will almost certainly be shaped like it.
 (4), while §7 code 1 `endOfInput` is "standard input has ended". A program
 `handle`-ing both codes for one loop over "any file" needs two cases, and a
 CP/M provider that passes the z80-services vectors returns 4 for a storage
-fault, which a Baton handler would read as end of file.
+fault, which a Basiq handler would read as end of file.
 *Fix:* keep 1–4 and 254 with their z80-services meanings. Use **one** code,
 1, for end of input on every file number, named `endOfInput` with
 `endOfFile` as an alias of the same value if the file-flavoured name is wanted.
 Map a CP/M storage fault to 4 and drop `ioFailure` (17), or make `ioFailure`
-an alias of 4. Start Baton's own codes at 5. Reserve 254 and 255; §7's "32
+an alias of 4. Start Basiq's own codes at 5. Reserve 254 and 255; §7's "32
 upwards" for programs should be "32 to 253".
 
 **A2 (major). No abort, and the state after a failed `close` is unstated.**
 tool-services: a failed write poisons the update and only `abort` is then
-valid; a failed commit leaves the old generation current. Baton's `close`
+valid; a failed commit leaves the old generation current. Basiq's `close`
 "fails", but §3.5 does not say whether the file number is released, whether
 the temporary is deleted, or whether the program may retry.
 *Fix:* state that `close` always releases the number, success or failure,
 and that a failed `close` of an `openWrite` file has deleted the temporary and
 left the old file intact. Add `abort(f)` (one BDOS 19 and a slot release,
 about 20 bytes) so a program that discovers an error half-way can discard
-its output deliberately rather than by trapping. Record both as the Baton
+its output deliberately rather than by trapping. Record both as the Basiq
 projection of `commit` and `abort`.
 
 **A3 (major). Atomicity of `writeBlock`, `readBlock` and `seek` failures is unstated.**
@@ -113,36 +113,36 @@ state that failure leaves the position unchanged.
 `position = length`; byteGateway requires it; it is how a program appends.
 *Fix:* admit `position <= size`; see E12 for extending update files.
 
-**A5 (minor). The gateway's storage roles have no Baton surface.**
+**A5 (minor). The gateway's storage roles have no Basiq surface.**
 Nucleus's `readStorageByte`, `rewindStorageInput`, `writeStorageByte` and
 `seekStorageOutput` are dropped silently (§2 says only the two console
 routines "remain"). The plan's intention to run the z80-services vectors
-through Baton's providers needs those roles to exist somewhere.
+through Basiq's providers needs those roles to exist somewhere.
 *Fix:* either say that the CP/M provider's storage roles are two named files
-chosen by the harness and are not reachable from Baton source, so the vectors
+chosen by the harness and are not reachable from Basiq source, so the vectors
 test the provider but not the services; or expose them as two predeclared file
 numbers. The first is cheaper and honest.
 
 **A6 (minor). Status names should carry the contract's spelling.**
 When the file profile arrives it will use the tool-services vocabulary
-(`notFound`, `capacity`, `access`, `conflict`). Baton's `fileNotFound`,
+(`notFound`, `capacity`, `access`, `conflict`). Basiq's `fileNotFound`,
 `diskFull`/`directoryFull`, `readOnly`, `fileExists` are finer, which is
 fine, but the mapping should be written down now so the runtime's error
 table is built once.
 
 ### 1.4 Gaps to raise in z80-services
 
-| Gap | What Baton needs | Should Baton wait? |
+| Gap | What Basiq needs | Should Basiq wait? |
 | --- | --- | --- |
-| G1 raw key and key-ready | an input-events or "console status" operation | No. Both are two BDOS calls; define them as Baton policy and offer the shape upstream |
-| G2 printer | a second output role, or a general "named stream" | No. Baton's `printer` file number is a sensible shape to propose |
-| G3 named files | the whole named-file profile: handles, open and close, read and write, seek, publication, directory listing | No. Baton should adopt tool-services v1's handle, read, write, seek, commit and abort **semantics** now (they are settled and tested) and treat the eventual z80-services profile as a renaming |
-| G4 directory operations | exists, delete, rename, enumerate | No; propose Baton's set, with the one-search rule stated as a provider limit |
+| G1 raw key and key-ready | an input-events or "console status" operation | No. Both are two BDOS calls; define them as Basiq policy and offer the shape upstream |
+| G2 printer | a second output role, or a general "named stream" | No. Basiq's `printer` file number is a sensible shape to propose |
+| G3 named files | the whole named-file profile: handles, open and close, read and write, seek, publication, directory listing | No. Basiq should adopt tool-services v1's handle, read, write, seek, commit and abort **semantics** now (they are settled and tested) and treat the eventual z80-services profile as a renaming |
+| G4 directory operations | exists, delete, rename, enumerate | No; propose Basiq's set, with the one-search rule stated as a provider limit |
 | G5 clock | a date-time operation | No |
 
-Where Baton should change to match the contracts: A1 (codes), A2 (abort and
+Where Basiq should change to match the contracts: A1 (codes), A2 (abort and
 failed close), A3 (atomicity), A4 (seek to end). Where the contract has a gap
-Baton should not wait for: everything in §1.4.
+Basiq should not wait for: everything in §1.4.
 
 ---
 
@@ -210,7 +210,7 @@ line when the service returns [verify in the harness]: the library's prompt
 routine must write LF (or CR LF) itself. BDOS 10 also handles Control-H,
 Control-X, Control-U, Control-R, Control-E and Control-P, which the draft
 should list as the editing the user gets. Control-Z is an ordinary character
-to BDOS 10, so `readLine(console)` has no end-of-input unless Baton defines
+to BDOS 10, so `readLine(console)` has no end-of-input unless Basiq defines
 one (Skate's `read-line` treats a line beginning with Control-Z as EOF).
 *Fix:* document all of the above; define "a line whose first byte is
 Control-Z is `endOfInput`" if console scripts under redirection (CP/M 3,
@@ -241,7 +241,7 @@ BDOS 22 creates a second directory entry if the name exists; BDOS 23 renames
 without checking the target. Three concrete failures:
 
 1. Two `openWrite` calls whose names share a base, `MAIN.COM` and `MAIN.LIN`,
-   both write `MAIN.$$$`. Baton's own toolchain avoids this with `.$$$` and
+   both write `MAIN.$$$`. Basiq's own toolchain avoids this with `.$$$` and
    `.$LT` (toolchain §3.2). A program copying a file set hits it at once.
 2. A stale `NAME.$$$` from an interrupted run (E3) plus a new `make` gives two
    entries with the same name; the subsequent `rename` renames both.
@@ -373,7 +373,7 @@ With `GO` re-entry (cpm-target §7) the tail is whatever the shell set.
 **E18 (minor). A changed floppy makes the drive read-only.**
 The BDOS detects a swapped disk by directory checksum and marks the drive
 R/O; the next write is fatal (E5). Any program that says "insert the next
-disk" must call BDOS 37 (reset drive, present in 2.2) or 13 first. Baton has
+disk" must call BDOS 37 (reset drive, present in 2.2) or 13 first. Basiq has
 no way to do so. See M3.
 
 **E19 (minor). `clock` on CP/M 3.**
@@ -412,7 +412,7 @@ D4 and D31 list the numeric conversions; `File` is in none of them, and
 services.md says only "not do arithmetic on". Say explicitly: there is no
 conversion between `File` and any integer, `File` is not an index, and
 `File` values arise only from `openRead`, `openWrite`, `openUpdate`,
-`console` and `printer`. Baton has no reinterpretation of bytes as records,
+`console` and `printer`. Basiq has no reinterpretation of bytes as records,
 so a `File` cannot be read from a file either. With that sentence the
 forging question is closed; without it a reviewer of the specification will
 reopen it.
@@ -667,7 +667,7 @@ generation 2, dirty 1: 174. Round to 176.
    `openWrite` and flush `openUpdate` on failure or trap; report before
    cleanup; list the exits that skip it.
 5. **Fix the codes** (A1, L7): end of input is 1 everywhere, 4 stays
-   `storageFailure`, Baton's codes start at 5, 254 and 255 reserved, add
+   `storageFailure`, Basiq's codes start at 5, 254 and 255 reserved, add
    `fileBusy` and `noSearch`.
 6. **Specify `File`** (S1, S2, S3): 5-bit slot and 11-bit saturating generation
    (or 4 bytes), no conversions, generation 0 never issued, reserved slots for

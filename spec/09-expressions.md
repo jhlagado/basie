@@ -5,7 +5,7 @@
 
 This chapter defines expression syntax, precedence, associativity, operand and result types, the numeric rules (design decision D31), conversions, designators, handle expressions, and evaluation order. Chapter 6 defines the types and the implicit widenings. Chapter 7 defines storage, aliases, pools and handles. Chapter 10 defines assignment and the statement contexts that contain expressions. Chapter 13 defines calls.
 
-Baton uses one predictive expression grammar for every context: initializers, arguments, indexes, conditions, `select` subjects and returns. A context may restrict the result or supply an expected type, but it never selects another precedence ladder. The grammar needs no backtracking and no retained syntax tree.
+Basiq uses one predictive expression grammar for every context: initializers, arguments, indexes, conditions, `select` subjects and returns. A context may restrict the result or supply an expected type, but it never selects another precedence ladder. The grammar needs no backtracking and no retained syntax tree.
 
 ## 9.2 Expression grammar
 
@@ -36,7 +36,7 @@ postfix-suffix      ::= argument-list | "[" expression "]" | "." NAME
 argument-list       ::= "(" [ expression { "," expression } ] ")"
 ```
 
-`id` is the contextual word of Chapter 3: it begins the `id(...)` form only when the next token is `(` and no local, parameter or other visible binding named `id` exists at that point; otherwise it is an ordinary `NAME`. Chapter 17 incorporates this fragment into the complete grammar. The semantic rules below reject suffix combinations that the compact syntax admits but Baton does not.
+`id` is the contextual word of Chapter 3: it begins the `id(...)` form only when the next token is `(` and no local, parameter or other visible binding named `id` exists at that point; otherwise it is an ordinary `NAME`. Chapter 17 incorporates this fragment into the complete grammar. The semantic rules below reject suffix combinations that the compact syntax admits but Basiq does not.
 
 A string literal is not a general expression primary. It is admitted as a static initializer (Chapter 8), as an argument for a read-only `string[]` parameter (Chapter 13), and in the other positions that a later chapter names explicitly.
 
@@ -61,7 +61,7 @@ From highest to lowest:
 
 The compiler resolves each `NAME` before interpreting its suffixes. A constant, variable, parameter or local supplies its type. A routine name must be followed immediately by an argument list; routines are not values. A pool name is not an expression; it appears only after `new`.
 
-**Calls.** An argument-list suffix invokes the routine named by the primary. Baton has no routine values, indirect calls, overloading or invocation of a parenthesized expression, and a second argument list is invalid. A call to a failing routine is admitted only in the positions Chapter 14 gives it. Chapter 13 defines argument passing and results.
+**Calls.** An argument-list suffix invokes the routine named by the primary. Basiq has no routine values, indirect calls, overloading or invocation of a parenthesized expression, and a second argument list is invalid. A call to a failing routine is admitted only in the positions Chapter 14 gives it. Chapter 13 defines argument passing and results.
 
 **Indexing.** An index suffix applies to a fixed array, an open array parameter or a bounded string. The index must have type `u8` or `u16`, or be an exact integer that fits `u16`; a signed or 32-bit index must be converted explicitly, and the checked conversion traps if the value is negative or too large, so a negative index never wraps into a valid one. For an array, each index is checked against its own dimension's bound (design decision D32) and the result has the element type. For a bounded string, the result is a `u8` byte, checked against the current length. A failed check traps with `bounds` before any element is read or written. An index the compiler can prove out of range is diagnosed. An array of arrays is indexed one dimension at a time: `screen[r][c]`.
 
@@ -82,7 +82,7 @@ Expression checking records a type and one of these categories:
 | Aggregate result | An alias returned by a call, consumed within the statement (Chapter 7) |
 | Fresh owning value | The result of `new`, `new?`, a `move`, or a call returning an owning type; may be stored in an owning location |
 
-A **designator** begins with a variable, constant, parameter or local, and continues through field and index suffixes, and through field selections on non-optional handles. A bare aggregate designator is valid only where aggregate storage, an alias or an assignment operand is required. Baton has no aggregate comparison and no automatic copy of an aggregate argument or result.
+A **designator** begins with a variable, constant, parameter or local, and continues through field and index suffixes, and through field selections on non-optional handles. A bare aggregate designator is valid only where aggregate storage, an alias or an assignment operand is required. Basiq has no aggregate comparison and no automatic copy of an aggregate argument or result.
 
 ## 9.6 Conversions
 
@@ -168,7 +168,7 @@ These operators work logically on `boolean` operands and bit by bit on integer o
 
 ## 9.14 Evaluation order
 
-Baton fixes evaluation order:
+Basiq fixes evaluation order:
 
 - a unary operand is evaluated before its operator;
 - binary operands are evaluated left to right, subject to short-circuiting;

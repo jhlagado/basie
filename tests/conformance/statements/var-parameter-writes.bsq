@@ -2,7 +2,7 @@
 // spec: 13.4
 // expect output: 6\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 record Point
     x as i16

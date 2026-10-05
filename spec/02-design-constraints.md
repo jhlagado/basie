@@ -3,15 +3,15 @@
 
 ## 2.1 Scope
 
-This chapter records the constraints that shaped Baton 1.0: properties the language design preserves, the target, and the budget of the native toolchain. Later chapters define the language. The [implementation plan](../docs/implementation-plan.md), the [design decisions](../docs/design-decisions.md) and the [limits register](../docs/limits.md) carry the detail.
+This chapter records the constraints that shaped Basiq 1.0: properties the language design preserves, the target, and the budget of the native toolchain. Later chapters define the language. The [implementation plan](../docs/implementation-plan.md), the [design decisions](../docs/design-decisions.md) and the [limits register](../docs/limits.md) carry the detail.
 
-The toolchain budget in Section 2.4 applies to the native toolchain, `BATON.COM` and `BLINK.COM`. It is not a requirement on every Baton compiler: a compiler may conform on another host, with any internal architecture. Baton 1.0 is one language; there are no language levels, profiles or dialects.
+The toolchain budget in Section 2.4 applies to the native toolchain, `BASIQ.COM` and `BLINK.COM`. It is not a requirement on every Basiq compiler: a compiler may conform on another host, with any internal architecture. Basiq 1.0 is one language; there are no language levels, profiles or dialects.
 
 ## 2.2 Language-shaping constraints
 
 **One source pass** (design decision D1). The language is designed so that a compiler can read its source once, declaring every name before use, with a forward declaration as the one exception for routines and pools. Every fact the compiler needs at a use, including a routine's result lifetime (`from`), its parameter kinds and its `fails` effect, is in the signature before the use. Fixups fill in code addresses, never missing semantic information. Parsing is deterministic with one token of lookahead and no backtracking.
 
-**Memory safety without a garbage collector.** Baton makes the guarantee of Chapter 7, Section 7.2: no out-of-bounds access, no use after free, no double free, no uninitialized read, no type confusion, no unchecked stack overflow and no pool leak. Every rule needed for it is checkable in one pass; what cannot be checked at compile time is checked at run time and traps (Chapter 15).
+**Memory safety without a garbage collector.** Basiq makes the guarantee of Chapter 7, Section 7.2: no out-of-bounds access, no use after free, no double free, no uninitialized read, no type confusion, no unchecked stack overflow and no pool leak. Every rule needed for it is checkable in one pass; what cannot be checked at compile time is checked at run time and traps (Chapter 15).
 
 **Defined behaviour.** Every source operation has a defined result or a defined trap. Integer arithmetic wraps (design decision D5); conversions that can lose a value are explicit and checked (D4); there is no undefined or implementation-defined arithmetic. Source code has no addresses, pointer arithmetic or unchecked reinterpretation.
 
@@ -19,23 +19,23 @@ The toolchain budget in Section 2.4 applies to the native toolchain, `BATON.COM`
 
 ## 2.3 Target
 
-Baton programs and the native toolchain target a Z80 with 64K of RAM running **CP/M 2.2**; CP/M 3 is supported where it costs nothing extra (design decision D10). Disks are assumed to be of high capacity, and a single drive is enough to build any program. Memory, not disk, is the scarce resource. Programs are linked as `.COM` files, and the runtime library is a blob library that the linker tree-shakes, so a program carries only the runtime it uses.
+Basiq programs and the native toolchain target a Z80 with 64K of RAM running **CP/M 2.2**; CP/M 3 is supported where it costs nothing extra (design decision D10). Disks are assumed to be of high capacity, and a single drive is enough to build any program. Memory, not disk, is the scarce resource. Programs are linked as `.COM` files, and the runtime library is a blob library that the linker tree-shakes, so a program carries only the runtime it uses.
 
 ## 2.4 Native toolchain budget
 
 The native toolchain is two programs (design decision D9):
 
-- **`BATON.COM`**, the compiler, at most **24K** including its tables, which leaves at least 32K of workspace on a CP/M 2.2 system with 56K free; diagnostic texts are in a message file, `BATON.MSG`, and rarely used parts are in overlays; and
-- **`BLINK.COM`**, the linker, which `BATON` chains to automatically when compilation succeeds, so the linker has nearly the whole program area for its tables.
+- **`BASIQ.COM`**, the compiler, at most **24K** including its tables, which leaves at least 32K of workspace on a CP/M 2.2 system with 56K free; diagnostic texts are in a message file, `BASIQ.MSG`, and rarely used parts are in overlays; and
+- **`BLINK.COM`**, the linker, which `BASIQ` chains to automatically when compilation succeeds, so the linker has nearly the whole program area for its tables.
 
-The two communicate through spool files on disk ([build pipeline](../docs/build-pipeline.md)). 32-bit and `f32` operations are compiled as calls to runtime helpers, never inline, and strings, formatting and similar facilities are a standard library written in Baton (Chapter 16), so they cost the compiler nothing.
+The two communicate through spool files on disk ([build pipeline](../docs/build-pipeline.md)). 32-bit and `f32` operations are compiled as calls to runtime helpers, never inline, and strings, formatting and similar facilities are a standard library written in Basiq (Chapter 16), so they cost the compiler nothing.
 
 Every feature is costed in compiler bytes and in generated bytes before it is adopted, and the costs are published. A feature that does not fit is deferred to version 2 (design decision D24) rather than admitted in a reduced form.
 
 ## 2.5 Two implementations
 
-Baton is implemented twice (design decision D35): a **reference toolchain** in TypeScript, written in the same single-pass style, which implements each feature first and serves as the test oracle; and the **native toolchain** on the target. The native linker must produce byte-identical output to the reference linker, and the native compiler must produce programs that behave identically on the whole conformance suite (Chapter 21).
+Basiq is implemented twice (design decision D35): a **reference toolchain** in TypeScript, written in the same single-pass style, which implements each feature first and serves as the test oracle; and the **native toolchain** on the target. The native linker must produce byte-identical output to the reference linker, and the native compiler must produce programs that behave identically on the whole conformance suite (Chapter 21).
 
 ## 2.6 Excluded
 
-Baton 1.0 has no interrupt routines or vectors, no concurrency, no inline machine code, no garbage collector, no general heap, no exceptions or unwinding, and no generics. Arenas, enumerations and variants, expression blocks, routine values and default parameters are planned for version 2 (design decision D24).
+Basiq 1.0 has no interrupt routines or vectors, no concurrency, no inline machine code, no garbage collector, no general heap, no exceptions or unwinding, and no generics. Arenas, enumerations and variants, expression blocks, routine values and default parameters are planned for version 2 (design decision D24).

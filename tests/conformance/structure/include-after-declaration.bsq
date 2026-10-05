@@ -3,7 +3,7 @@
 // expect error: include-position at 6:1
 
 const limit = 4
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 sub main()
 end

@@ -5,11 +5,11 @@
 
 This chapter defines the source presented in one compilation, how source parts name the parts they depend on with `include`, the order of top-level declarations, the placement of executable statements, the completion of forward routine declarations, and the structural checks performed at end of input. Chapter 3 defines the byte and token streams. Chapters 5, 8, and 13 define scopes, declarations, and routines in detail.
 
-Baton compilation is declaration ordered and streaming. The rules in this chapter require neither backtracking nor a retained whole-program syntax tree.
+Basiq compilation is declaration ordered and streaming. The rules in this chapter require neither backtracking nor a retained whole-program syntax tree.
 
 ## 4.2 Compilation unit
 
-A **compilation unit** is one logical Baton token stream formed from one or more ordered source parts and ending in one `EOF` token. The compiler processes that stream from beginning to end as a single ordered unit. A compilation unit supplies one outer declaration sequence; a source-part boundary does not begin a scope, clear declarations, or change declaration order. Chapter 5 defines the resulting scopes.
+A **compilation unit** is one logical Basiq token stream formed from one or more ordered source parts and ending in one `EOF` token. The compiler processes that stream from beginning to end as a single ordered unit. A compilation unit supplies one outer declaration sequence; a source-part boundary does not begin a scope, clear declarations, or change declaration order. Chapter 5 defines the resulting scopes.
 
 The structural skeleton is:
 
@@ -23,7 +23,7 @@ Blank and comment-only physical lines contribute no top-level item. If the final
 
 ## 4.3 Source parts
 
-A compilation consists of one or more **source parts**, each a file of Baton source. The parts come from two places:
+A compilation consists of one or more **source parts**, each a file of Basiq source. The parts come from two places:
 
 - the **command line**, which names one or more parts in order ([toolchain](../docs/toolchain.md), Section 5); and
 - **`include` lines** at the start of a part, which name the parts it depends on (Section 4.3.2).
@@ -34,7 +34,7 @@ The compiler forms one ordered logical token stream from the parts, as described
 
 Each source part is tokenized separately under Chapter 3, starting at byte offset zero, line one and column one. Each part must end at delimiter depth zero. When a part's final bytes do not include LF or CRLF, the compiler supplies one zero-width line-ending event at its end; it supplies none when the part already ends with a physical line ending. Chapter 3 applies its ordinary comment, blank-line and `NEWLINE` rules to that event, so a part cannot continue a name, number, literal, comment or delimited expression into the next. Only the end of the last part produces `EOF`.
 
-Each part has a **stable source identity**: its drive and file name in upper case, as `B:STRINGS.BTN`. Two parts with the same identity are the same part. Every diagnostic from a part carries its identity and the Chapter 3 position within it. The source parts of one compilation are numbered from 0 in stream order, and the line stream records each part's identity under its number ([object format](../docs/object-format.md), Section 8).
+Each part has a **stable source identity**: its drive and file name in upper case, as `B:STRINGS.BSQ`. Two parts with the same identity are the same part. Every diagnostic from a part carries its identity and the Chapter 3 position within it. The source parts of one compilation are numbered from 0 in stream order, and the line stream records each part's identity under its number ([object format](../docs/object-format.md), Section 8).
 
 Program scope, declaration order, forward completion and every other source rule continue across part boundaries exactly as within one part. Declaration before use therefore determines legal part order. The compiler does not infer signatures, construct a dependency graph or reorder declarations.
 
@@ -49,8 +49,8 @@ include-line ::= "include" string-literal NEWLINE
 ```
 
 ```nucleus
-include "STRINGS.BTN"
-include "FORMAT.BTN"
+include "STRINGS.BSQ"
+include "FORMAT.BSQ"
 
 sub main() fails
     ...
@@ -71,11 +71,11 @@ The compiler itself opens included files; there is no separate manifest or packa
 
 ### 4.3.3 Capacity
 
-An implementation may bound the number of parts, the depth of open includes and the length of a part. `BATON.COM` publishes its limits in the [limits register](../docs/limits.md). Exceeding one is a capacity diagnostic.
+An implementation may bound the number of parts, the depth of open includes and the length of a part. `BASIQ.COM` publishes its limits in the [limits register](../docs/limits.md). Exceeding one is a capacity diagnostic.
 
 ## 4.4 Top-level declarations
 
-Apart from `include` lines at the start of a part (Section 4.3.2), only top-level declarations may appear at top level. The Baton 1.0 declaration families are:
+Apart from `include` lines at the start of a part (Section 4.3.2), only top-level declarations may appear at top level. The Basiq 1.0 declaration families are:
 
 - named constants (Chapter 8);
 - record type declarations (Chapter 6);
@@ -88,7 +88,7 @@ Any top-level declaration may be marked `private` (Chapter 5).
 
 Inside a routine body, constants and variables may also be declared at any statement position, with block scope (Chapter 5, design decision D28). Record types, pools and routines are declared only at top level.
 
-Executable statements must appear inside a routine body. A call, assignment, conditional, loop, or `return` at top level is invalid. Baton has no implicit mainline block formed from loose statements.
+Executable statements must appear inside a routine body. A call, assignment, conditional, loop, or `return` at top level is invalid. Basiq has no implicit mainline block formed from loose statements.
 
 ## 4.5 Declaration order
 
@@ -145,11 +145,11 @@ Forward declarations apply only to source routines. They do not provide a genera
 
 ## 4.7 Program entry
 
-Every Baton 1.0 compilation unit defines exactly one routine named `main`. Its data signature is fixed: it has no parameters and no result. It may include the `fails` effect declared by Chapter 14. The definition must have a body by `EOF`; a forward declaration alone cannot satisfy the entry rule.
+Every Basiq 1.0 compilation unit defines exactly one routine named `main`. Its data signature is fixed: it has no parameters and no result. It may include the `fails` effect declared by Chapter 14. The definition must have a body by `EOF`; a forward declaration alone cannot satisfy the entry rule.
 
-Execution enters an implicit implementation startup path, which establishes every program-lifetime initial value before calling `main`. Normal completion of `main` terminates successfully. A failure returned from `main` performs the unhandled-error trap in Chapter 15. The build does not select another entry name, and Baton 1.0 defines no library-only compilation unit without `main`.
+Execution enters an implicit implementation startup path, which establishes every program-lifetime initial value before calling `main`. Normal completion of `main` terminates successfully. A failure returned from `main` performs the unhandled-error trap in Chapter 15. The build does not select another entry name, and Basiq 1.0 defines no library-only compilation unit without `main`.
 
-The startup entry is not a source declaration and cannot be called by source. Baton defines no source-visible reset, vector, interrupt, or alternate entry declaration.
+The startup entry is not a source declaration and cannot be called by source. Basiq defines no source-visible reset, vector, interrupt, or alternate entry declaration.
 
 Program startup, initialization, termination, and system services are specified in Chapters 16 and 19.
 

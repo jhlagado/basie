@@ -2,7 +2,7 @@
 // spec: 7.18
 // expect output: 500\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 forward sub count(n as u16) as u16
 

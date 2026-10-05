@@ -1,20 +1,21 @@
-# Baton
+# Basiq
 
 A statically typed systems language for Z80 machines, compiled to native code
 in a single pass, with memory whose lifetime the compiler can see.
 
-Baton is the successor to [Nucleus](../nucleus). It is at the design stage, and
-the name is a working title.
+Basiq is the successor to [Nucleus](../nucleus).
 
 ## The name
 
-A relay baton is held by one runner at a time. It is passed on, never copied,
-and the race depends on every hand-off being clean. Baton applies that idea to
-storage: every object has one holder, access to it is handed to a routine for
-the length of a call and then handed back, and no reference can outlive the
+Basiq is a BASIC with a twist. It reads like the structured BASICs and Pascals
+of the CP/M era: keyword-led statements, `if`/`elseif`/`end`, counted `for`
+loops, `select` with `case`, and no punctuation soup. The twist is underneath: static
+types, a single-pass compiler that writes Z80 machine code itself, and memory
+safety without a garbage collector, where every object has one owner, access is
+lent to a routine for the length of a call, and no reference can outlive the
 storage it points into.
 
-## What Baton is
+## What Basiq is
 
 Nucleus showed that a small, strictly specified language can be compiled to
 native Z80 code by a compiler that itself runs on the Z80, in one streaming
@@ -22,7 +23,7 @@ pass. It also showed where it was too narrow for general use: no signed
 integers, nothing wider than 16 bits, no floating point, no storage shorter-lived
 than the whole program, and no way to drop unused code from the output.
 
-Baton keeps Nucleus's foundations and widens the language:
+Basiq keeps Nucleus's foundations and widens the language:
 
 - **Single-pass compilation.** The compiler reads its source once.
   Declarations come before use, and a forward declaration is a routine's
@@ -44,7 +45,7 @@ Baton keeps Nucleus's foundations and widens the language:
 > What can be known before the program runs should be decided before it runs.
 > The machine should pay at run time only for what can't be known any earlier.
 
-This is why Baton compiles instead of interpreting, uses static types instead
+This is why Basiq compiles instead of interpreting, uses static types instead
 of runtime tags, checks storage lifetimes at compile time instead of collecting
 garbage, and chooses addresses only once it knows which code is live.
 
@@ -68,7 +69,7 @@ These terms are provisional, but the documents use them consistently.
 ## Documents
 
 - [Philosophy](docs/philosophy.md): the motivation, the principle and what
-  Baton learned from Nucleus.
+  Basiq learned from Nucleus.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
 - [Feature inventory](docs/feature-inventory.md): every feature, its cost
@@ -77,20 +78,20 @@ These terms are provisional, but the documents use them consistently.
   external-effects channel instead of operating-system or port primitives.
 - [Services](docs/services.md): the version 1 console, file, command-line and
   machine services, and their failure codes.
-- [Memory safety](docs/memory-safety.md): how Baton is memory safe without a
+- [Memory safety](docs/memory-safety.md): how Basiq is memory safe without a
   garbage collector: storage classes, aliases, pools and handles, `move`, and
   stack bounds.
 - [Roadmap](docs/roadmap.md): the implementation broken into numbered steps
   and milestones.
-- [Limits register](docs/limits.md): every limit in Baton, its reason, and the
+- [Limits register](docs/limits.md): every limit in Basiq, its reason, and the
   minimum capacities the toolchain guarantees.
-- [Implementation plan](docs/implementation-plan.md): how Baton will be built:
+- [Implementation plan](docs/implementation-plan.md): how Basiq will be built:
   a reference toolchain in TypeScript on Deno, then the native Z80 toolchain.
-- [Build pipeline](docs/build-pipeline.md): why Baton compiles to machine-code
+- [Build pipeline](docs/build-pipeline.md): why Basiq compiles to machine-code
   blobs and links them, and how the pieces fit.
 - [Object format](docs/object-format.md): the files passed from the compiler to
   the linker, byte for byte.
 - [Linker](docs/linker.md): marking, placement, output and diagnostics.
-- [Toolchain](docs/toolchain.md): the `BATON` executable, its command line,
+- [Toolchain](docs/toolchain.md): the `BASIQ` executable, its command line,
   files and memory plan.
 - [CP/M target](docs/cpm-target.md): profiles, memory map, startup and exit.

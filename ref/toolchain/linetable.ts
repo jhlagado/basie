@@ -14,7 +14,7 @@ export type LineTable = {
 
 export function readLineTable(bytes: Uint8Array): LineTable {
   const r = new ByteReader(bytes, "line table");
-  if (r.ascii(4) !== "BTLT") throw new ObjectError("L-FORMAT", "bad magic");
+  if (r.ascii(4) !== "BQLT") throw new ObjectError("L-FORMAT", "bad magic");
   if (r.u8() !== 1 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
   const partCount = r.u8();
   const outputName = r.ascii(r.u8());

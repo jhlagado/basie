@@ -1,4 +1,4 @@
-# Baton toolchain 1.0
+# Basiq toolchain 1.0
 
 - Status: draft specification, revision 4
 - Date: 2026-10-03
@@ -9,7 +9,7 @@
 
 ## 1. Scope
 
-This document defines the Baton executable: what it reads and writes, in what
+This document defines the Basiq executable: what it reads and writes, in what
 order, how it uses memory, and how it is invoked. It is the user's view of a
 build. The object format and linker documents define the files and the linking
 algorithm.
@@ -19,17 +19,17 @@ algorithm.
 Building a program is one command:
 
 ```text
-A>BATON MAIN
+A>BASIQ MAIN
 ```
 
 The toolchain is two programs (design decision D9):
 
-- **`BATON.COM`** compiles the source and writes the intermediate files. Its
+- **`BASIQ.COM`** compiles the source and writes the intermediate files. Its
   budget is at most 24K, including tables, leaving at least 32K of working
   space on a CP/M 2.2 system with 56K free.
 - **`BLINK.COM`** links them and writes the program. When compilation succeeds,
-  `BATON` runs it automatically: CP/M 2.2 has no call to run another program, so
-  `BATON` copies a small loader to the top of memory, which reads `BLINK.COM` to
+  `BASIQ` runs it automatically: CP/M 2.2 has no call to run another program, so
+  `BASIQ` copies a small loader to the top of memory, which reads `BLINK.COM` to
   `$0100` and starts it with a command tail describing the build, as Turbo
   Pascal's `Execute` did.
 
@@ -37,17 +37,17 @@ The toolchain is two programs (design decision D9):
 kept by an earlier compile.
 
 **Why two programs.** The compiler's size limits its own working space, and so
-the size of program it can compile. Keeping the linker out of `BATON.COM` saves
+the size of program it can compile. Keeping the linker out of `BASIQ.COM` saves
 its 5K there, and gives the linker nearly the whole program area for its tables.
 The cost is one extra program load per build.
 
 **Rejected alternatives.**
 
-- **The linker as a phase of `BATON.COM`,** as ATOM and Skate append their
+- **The linker as a phase of `BASIQ.COM`,** as ATOM and Skate append their
   materializers. It shares code but carries the linker's 5K through every
   compilation.
-- **An assembler as the second stage.** Baton generates machine code itself.
-  No assembler takes part in building a Baton program.
+- **An assembler as the second stage.** Basiq generates machine code itself.
+  No assembler takes part in building a Basiq program.
 
 ## 3. Files
 
@@ -55,7 +55,7 @@ The cost is one extra program load per build.
 
 | File | Example | Meaning |
 | --- | --- | --- |
-| Source parts | `MAIN.BTN`, `UTIL.BTN` | Baton source, in the order given on the command line |
+| Source parts | `MAIN.BSQ`, `UTIL.BSQ` | Basiq source, in the order given on the command line |
 | Blob library | `CPM22.BRL` | The prebuilt runtime and target profile, chosen by option `P` |
 
 The compiler has the runtime's helper table compiled into it (object format,
@@ -86,7 +86,7 @@ On the output drive:
 The image and line table are written on the output drive because CP/M renames
 only within a drive.
 
-Before creating any file, `BATON` deletes any existing file of the same name.
+Before creating any file, `BASIQ` deletes any existing file of the same name.
 CP/M's make-file function does not check for an existing name, and a crashed
 build could otherwise leave two directory entries with one name.
 
@@ -114,7 +114,7 @@ whatever `O` says, so a later link-only run finds them.
 | --- | --- | --- |
 | 1. Check | library header, profile block, key table | — |
 | 2. Compile | source parts | `MAIN.$DR`, `MAIN.$BY`, `MAIN.$LN`, `MAIN.$NM` |
-| 3. Chain | `BLINK.COM` | — (`BATON` loads and starts `BLINK`) |
+| 3. Chain | `BLINK.COM` | — (`BASIQ` loads and starts `BLINK`) |
 | 4. Link A–C | library directory, program directory and stream headers | — |
 | 5. Link D | library, `MAIN.$DR`, `MAIN.$BY`, `MAIN.$LN` | `MAIN.$$$`, `MAIN.$LT` |
 | 6. Publish | — | renames (Section 6) |
@@ -127,7 +127,7 @@ Each phase starts only if the previous one succeeded.
 
 ### 5.1 Reading the command line
 
-`BATON` parses the raw command tail at `$0080` itself and ignores the default
+`BASIQ` parses the raw command tail at `$0080` itself and ignores the default
 FCBs, which the CCP fills by its own rules. The CP/M 2.2 CCP converts the tail
 to upper case; option names are case-insensitive under CP/M 3 too.
 
@@ -150,7 +150,7 @@ hex       = 1 to 4 hexadecimal digits
 ws        = a space
 ```
 
-- A part without a type means `.BTN`. In `O=`, a missing type means `.COM`, and
+- A part without a type means `.BSQ`. In `O=`, a missing type means `.COM`, and
   a missing drive means the first part's drive. User numbers are not supported.
 - Each option may appear once; a repeated or unknown option is an error, as is
   a malformed value.
@@ -185,7 +185,7 @@ A link-only run refuses intermediate files whose compilation stamps disagree
 
 ### 5.4 Return codes
 
-Under CP/M 3, `BATON` sets the program return code with BDOS function 108:
+Under CP/M 3, `BASIQ` sets the program return code with BDOS function 108:
 
 | Code | Meaning |
 | --- | --- |
@@ -194,7 +194,7 @@ Under CP/M 3, `BATON` sets the program return code with BDOS function 108:
 | `$FF12` | Link error |
 | `$FF13` | Disk error |
 
-These differ from the codes a Baton program returns (`$FF01` to `$FF03`;
+These differ from the codes a Basiq program returns (`$FF01` to `$FF03`;
 [CP/M target](cpm-target.md), Section 5), so a `SUBMIT` log shows which program
 failed.
 
@@ -208,7 +208,7 @@ codes, a failed build deletes `A:$$$.SUB` if it exists, which stops a running
 ### 6.1 Publishing
 
 CP/M cannot rename one file over another, and CP/M 2.2's rename function is
-believed not to check whether the new name exists. `BATON` publishes in this
+believed not to check whether the new name exists. `BASIQ` publishes in this
 order:
 
 1. Close `MAIN.$$$` and `MAIN.$LT`.
@@ -226,7 +226,7 @@ stale; its image CRC lets trap lookup detect this (Section 8).
 
 ### 6.2 Failures
 
-| Failure | What `BATON` does |
+| Failure | What `BASIQ` does |
 | --- | --- |
 | Source error | Reports it with file, line and column; deletes the intermediate files unless `K`; leaves the outputs untouched |
 | Link error | Reports the linker diagnostic; deletes the intermediate files unless `K`, and deletes `MAIN.$$$` and `MAIN.$LT`; leaves the outputs untouched |
@@ -241,21 +241,21 @@ be removed with `ERA MAIN.$*`. (`ERA *.$*` on drive `A:` would also delete
 
 ## 7. Memory
 
-### 7.1 `BATON.COM`
+### 7.1 `BASIQ.COM`
 
 ```text
 $0100  core: startup, BDOS and file I/O, record buffers, CRC, console,
        command-line parsing, the chain loader
        compiler code
        overlay area (Section 7.3)
-       --- end of BATON.COM, below the CCP ---
+       --- end of BASIQ.COM, below the CCP ---
        compiler workspace: symbol tables, scopes, routine buffer,
        literal buffer, references, spool buffers
        ...
 top    stack, below the word at $0006
 ```
 
-`BATON.COM` must load below the CCP, so its file is at most the CCP base minus
+`BASIQ.COM` must load below the CCP, so its file is at most the CCP base minus
 `$0100`. Its workspace may extend over the CCP's memory, up to the address in
 `$0006`, so it never returns to the CCP: it chains to `BLINK` or exits with a
 warm boot.
@@ -271,7 +271,7 @@ warm boot.
 | Branch records, line entries and labels for one routine | about 1K, bounded by the routine buffer |
 | File buffers: a source part, the four streams, and the library during the check | about 1K |
 
-With a 24K `BATON.COM` and about 56.75K from `$0100` to the BDOS entry on a
+With a 24K `BASIQ.COM` and about 56.75K from `$0100` to the BDOS entry on a
 62K system, about 32K remains for the workspace.
 
 ### 7.2 `BLINK.COM`
@@ -289,39 +289,39 @@ About 48K remains for the linker's tables ([linker](linker.md), Section 2).
 
 ### 7.3 Overlays and the message file
 
-- **Diagnostic text** is kept in `BATON.MSG`, read only when a diagnostic is
-  reported. `BATON` holds only message numbers. The file is a header (magic
-  `BTMS`, version, message count), a table of 16-bit offsets, one per message
+- **Diagnostic text** is kept in `BASIQ.MSG`, read only when a diagnostic is
+  reported. `BASIQ` holds only message numbers. The file is a header (magic
+  `BQMS`, version, message count), a table of 16-bit offsets, one per message
   number, and the messages, each a length byte and text. A message may contain
   `^1` and `^2`, replaced by up to two arguments the compiler supplies: a name,
   a number or a type. `BLINK` uses the same file and format for its own
-  diagnostics. If `BATON.MSG` can't be found, the programs print the message
+  diagnostics. If `BASIQ.MSG` can't be found, the programs print the message
   number and its arguments, so a diagnostic is never lost.
 - **Rarely used compiler parts,** starting with the conversion of decimal
-  literals to `f32`, are kept in `BATON.OVL` and loaded into the overlay area
+  literals to `f32`, are kept in `BASIQ.OVL` and loaded into the overlay area
   when first needed. A program that uses no `f32` literal never loads it.
 
-`BATON.COM`, `BATON.MSG`, `BATON.OVL`, `BLINK.COM` and the blob libraries are
+`BASIQ.COM`, `BASIQ.MSG`, `BASIQ.OVL`, `BLINK.COM` and the blob libraries are
 looked for on the drive given by option `L`, then on drive `A:`.
 
 ## 8. Trap lookup
 
 ```text
-A>BATON MAIN [T=1A3F]
+A>BASIQ MAIN [T=1A3F]
 ```
 
-With option `T`, `BATON` neither compiles nor links. It reads `MAIN.LIN`, checks
+With option `T`, `BASIQ` neither compiles nor links. It reads `MAIN.LIN`, checks
 its image CRC against the output file named in its header, finds the entry with
 the greatest address not above the given one, opens that source part, and
 prints the part, line and column and the source line:
 
 ```text
-MAIN.BTN 57:9  total = items[index]
+MAIN.BSQ 57:9  total = items[index]
 ```
 
 An address in a blob without source is reported with the blob's ordinal, and
 its name from the library's name section when there is one. If `MAIN.LIN` is
-missing, or the output file no longer matches its image CRC, `BATON` says so
+missing, or the output file no longer matches its image CRC, `BASIQ` says so
 rather than report a wrong line.
 
 The address a trap prints is that of a call instruction inside the statement
@@ -332,5 +332,5 @@ statement.
 
 1. **Source parts named in source.** Resolved by design decision D33: a part
    names the parts it depends on with `include` (spec Section 4.3.2).
-3. **Library search under CP/M 3,** which records the drive `BATON.COM` was
+3. **Library search under CP/M 3,** which records the drive `BASIQ.COM` was
    loaded from at `$0050`.

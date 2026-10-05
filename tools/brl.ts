@@ -21,7 +21,7 @@ import {
 /**
  * ATOM's default arenas suit small programs; a whole runtime has hundreds of
  * labels and forward references across blobs, so the pending arena is
- * enlarged (capacity audit: a tool limit, not a Baton one).
+ * enlarged (capacity audit: a tool limit, not a Basiq one).
  */
 const ATOM_LAYOUT = {
   symbolStart: 0x4100,

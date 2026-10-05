@@ -3,9 +3,9 @@
 
 ## 8.1 Scope
 
-This chapter defines the Baton 1.0 declaration families, their source forms, constant expressions, initializers, type inference for variables, and declaration-time binding. Chapter 4 defines the source parts and top-level placement. Chapter 5 defines declaration points, scopes, `private`, name identity and collisions. Chapter 6 defines types, and Chapter 7 storage, ownership and lifetime. Chapter 13 defines routines and calls, and Chapter 14 failure codes.
+This chapter defines the Basiq 1.0 declaration families, their source forms, constant expressions, initializers, type inference for variables, and declaration-time binding. Chapter 4 defines the source parts and top-level placement. Chapter 5 defines declaration points, scopes, `private`, name identity and collisions. Chapter 6 defines types, and Chapter 7 storage, ownership and lifetime. Chapter 13 defines routines and calls, and Chapter 14 failure codes.
 
-Baton uses explicit declarations. Every declaration introduces exactly one name, except a routine header, which also introduces its parameters. A variable's type is written, or inferred from an initializer that has a definite type (Section 8.10). Baton has no implicit variables, grouped declarations, destructuring declarations, or general type-alias declaration.
+Basiq uses explicit declarations. Every declaration introduces exactly one name, except a routine header, which also introduces its parameters. A variable's type is written, or inferred from an initializer that has a definite type (Section 8.10). Basiq has no implicit variables, grouped declarations, destructuring declarations, or general type-alias declaration.
 
 ## 8.2 Declaration families and placement
 
@@ -268,7 +268,7 @@ A routine header declares a routine name, an ordered list of zero or more parame
 
 A forward routine declaration contains the complete signature and no body. The later definition has the abbreviated header `sub NAME`, and the forward's parameter names become the body's parameter bindings (Chapter 4, Section 4.6). A routine whose body is not yet complete can be called only through a forward declaration, which includes a routine calling itself (Chapter 5, Section 5.9).
 
-Routines are declared only at top level; Baton has no nested routines.
+Routines are declared only at top level; Basiq has no nested routines.
 
 ## 8.13 Initialization order
 
@@ -316,7 +316,7 @@ const defaultCell as Cell = (0, false)
 const bitMasks as u8[4] = [1, 2, 4, 8]
 var cells as Cell[cellCount]
 var templates as Cell[2] = [(1, true), (-2, false)]
-var title as string[12] = "BATON"
+var title as string[12] = "BASIQ"
 
 forward pool nodes
 record Node

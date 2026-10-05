@@ -1,6 +1,6 @@
 # Changes from Nucleus 0.1
 
-The Baton 1.0 specification was forked from the Nucleus 0.1 specification
+The Basiq 1.0 specification was forked from the Nucleus 0.1 specification
 (Nucleus commit `89f51a6`, 2026-08-15), with the language renamed throughout.
 This log records, chapter by chapter, which design decisions each chapter must
 absorb and whether it has.
@@ -9,7 +9,7 @@ Status: **pending** (still Nucleus text), **in progress**, or **applied**.
 
 | Chapter | Decisions to apply | Status |
 | --- | --- | --- |
-| 1. Status and conformance | Baton's status; one language, version 1 scope (D24) | applied |
+| 1. Status and conformance | Basiq's status; one language, version 1 scope (D24) | applied |
 | 2. Design constraints | Single pass (D1), budget and two programs (D9), CP/M 2.2 target (D10), memory-safety claim | applied |
 | 3. Source text and lexical rules | `f32` literals and 32-bit literals (D31); keywords `select`, `case`, `move`, `pool`, `new`, `shl`, `shr`, `private`, `include`, `assert`, `some`, `none`; contextual `id` (D29); case sensitivity kept (D34) | applied |
 | 4. Program and file structure | `include` and `private` (D33); declarations anywhere (D28) | applied |

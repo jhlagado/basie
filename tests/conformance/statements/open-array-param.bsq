@@ -2,7 +2,7 @@
 // spec: 6.2, 13.4
 // expect output: 3 60\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 sub total(items as u16[]) as u16
     var sum as u16 = 0

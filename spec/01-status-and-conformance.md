@@ -3,29 +3,29 @@
 
 ## 1.1 Status
 
-This specification is a working draft. Baton 1.0 has not been frozen or released as a standard, and later revisions may change rules recorded here. This revision defines the complete proposed Baton 1.0 source language and supports conformance review, but the project may still correct it before the freeze.
+This specification is a working draft. Basiq 1.0 has not been frozen or released as a standard, and later revisions may change rules recorded here. This revision defines the complete proposed Basiq 1.0 source language and supports conformance review, but the project may still correct it before the freeze.
 
-The language under design is named **Baton 1.0**. It has one source language: no language levels, selectable language profiles, or compiler-selected subsets of standard syntax exist.
+The language under design is named **Basiq 1.0**. It has one source language: no language levels, selectable language profiles, or compiler-selected subsets of standard syntax exist.
 
 ## 1.2 Scope
 
-This specification defines the source-language syntax, static semantics, runtime semantics, required diagnostics, specified safety failures, and abstract compilation-input contract of Baton 1.0. It defines the conditions for a source program or compiler to claim Baton 1.0 conformance.
+This specification defines the source-language syntax, static semantics, runtime semantics, required diagnostics, specified safety failures, and abstract compilation-input contract of Basiq 1.0. It defines the conditions for a source program or compiler to claim Basiq 1.0 conformance.
 
-The separate Baton runtime documents ([CP/M target](../docs/cpm-target.md), [object format](../docs/object-format.md)) defines the packed data representation, direct-code integrity rules, runtime boundary, and target execution obligations. Non-normative implementation plans and design papers record compiler strategies and project constraints; they do not add source-language semantics.
+The separate Basiq runtime documents ([CP/M target](../docs/cpm-target.md), [object format](../docs/object-format.md)) defines the packed data representation, direct-code integrity rules, runtime boundary, and target execution obligations. Non-normative implementation plans and design papers record compiler strategies and project constraints; they do not add source-language semantics.
 
-Baton is implemented twice: a reference toolchain in TypeScript, and a native compiler and linker, `BATON.COM` and `BLINK.COM`, that run on CP/M 2.2 and emit Z80 machine code directly. The native compiler has a budget of 24K (Chapter 2). That budget does not create a smaller Baton dialect or alter the meaning of a conforming program.
+Basiq is implemented twice: a reference toolchain in TypeScript, and a native compiler and linker, `BASIQ.COM` and `BLINK.COM`, that run on CP/M 2.2 and emit Z80 machine code directly. The native compiler has a budget of 24K (Chapter 2). That budget does not create a smaller Basiq dialect or alter the meaning of a conforming program.
 
 ## 1.3 Authority
 
 When repository materials disagree, apply this order:
 
-1. This specification governs Baton 1.0 source syntax and semantics.
-2. The Baton Z80 Runtime and Backend Contract governs packed representation, generated-code integrity, runtime services, and direct Z80 execution. It cannot change the meaning required by this specification.
+1. This specification governs Basiq 1.0 source syntax and semantics.
+2. The Basiq Z80 Runtime and Backend Contract governs packed representation, generated-code integrity, runtime services, and direct Z80 execution. It cannot change the meaning required by this specification.
 3. The implementation plan is non-normative. It records construction order, budgets, measurements, and implementation choices.
 4. Architecture and design-rationale papers explain decisions but do not override either authority.
 5. Conformance tests provide evidence that an implementation follows the specifications. A conflicting test is a test defect, not a language amendment.
 
-An unwritten rule cannot be supplied by a lower-ranked document. Until this specification states the rule, the point remains unresolved for Baton 1.0 conformance.
+An unwritten rule cannot be supplied by a lower-ranked document. Until this specification states the rule, the point remains unresolved for Basiq 1.0 conformance.
 
 ## 1.4 Normative words
 
@@ -42,7 +42,7 @@ Declarative syntax and semantic rules are normative even when they contain none 
 
 ## 1.5 Conforming source programs
 
-A conforming Baton 1.0 source program:
+A conforming Basiq 1.0 source program:
 
 - uses only syntax and features admitted by this specification;
 - satisfies the complete grammar and all applicable static-semantic rules;
@@ -57,7 +57,7 @@ A program can use this complete working revision to establish conformance. Such 
 
 ## 1.6 Conforming compilers
 
-A compiler claiming Baton 1.0 conformance must:
+A compiler claiming Basiq 1.0 conformance must:
 
 - compile every complete accepted program in Chapter 21 without a capacity diagnostic;
 - accept and translate every conforming source program within its documented capacity limits;
@@ -67,7 +67,7 @@ A compiler claiming Baton 1.0 conformance must:
 - issue a diagnostic when a documented capacity limit prevents translation;
 - identify each source diagnostic by stable source-part identity and position within that part;
 - identify and document every implementation-defined choice it makes;
-- keep extensions separate from standard Baton mode.
+- keep extensions separate from standard Basiq mode.
 
 A compiler must not report successful translation and then emit code with semantics that differ from this specification. Diagnostic wording and presentation are implementation-defined unless a later chapter requires a particular machine-readable result.
 
@@ -75,15 +75,15 @@ The native compiler passes an additional project acceptance gate only if it fits
 
 ## 1.7 Extensions
 
-An implementation may provide extensions only through an explicit selection, such as a distinct mode or option. Standard mode must diagnose source that requires an extension. An extension must not change the syntax, validity, or meaning of a conforming Baton 1.0 program.
+An implementation may provide extensions only through an explicit selection, such as a distinct mode or option. Standard mode must diagnose source that requires an extension. An extension must not change the syntax, validity, or meaning of a conforming Basiq 1.0 program.
 
-Source that requires an extension is not a conforming Baton 1.0 program unless a later specification revision admits that feature into the language.
+Source that requires an extension is not a conforming Basiq 1.0 program unless a later specification revision admits that feature into the language.
 
 ## 1.8 Implementation-defined choices
 
 An implementation-defined choice is permitted only where this specification uses that term. The implementation must identify the choice, document the selected behaviour, and apply it consistently for the documented configuration.
 
-Baton does not use undefined behaviour as an escape hatch for source-language errors. If this working draft omits a necessary rule, the omission is a specification gap; it does not permit arbitrary compiler or runtime behaviour.
+Basiq does not use undefined behaviour as an escape hatch for source-language errors. If this working draft omits a necessary rule, the omission is a specification gap; it does not permit arbitrary compiler or runtime behaviour.
 
 ## 1.9 Invalid source, capacity failures, and runtime traps
 
@@ -100,16 +100,16 @@ A runtime trap is specified behaviour, not undefined behaviour and not evidence 
 
 ## 1.10 Provisional features
 
-Design candidates may be prototyped and measured while Baton 1.0 remains a working draft. Before 1.0 is frozen, the project either admits each candidate to the single normative language or omits it. Baton does not expose candidates as language levels or standard profiles.
+Design candidates may be prototyped and measured while Basiq 1.0 remains a working draft. Before 1.0 is frozen, the project either admits each candidate to the single normative language or omits it. Basiq does not expose candidates as language levels or standard profiles.
 
-A program that depends on an unadmitted candidate is not yet a conforming Baton 1.0 program. Prototype support for that candidate follows the extension rules in Section 1.7.
+A program that depends on an unadmitted candidate is not yet a conforming Basiq 1.0 program. Prototype support for that candidate follows the extension rules in Section 1.7.
 
 ## 1.11 Direct Z80 implementation
 
 The first compiler emits Z80 machine code directly and satisfies the separate Z80 runtime and backend contract. It may retain a checked semantic-operation transcript as private compiler workspace, but it does not serialize or execute that transcript as a public bytecode format.
 
-Another compiler may use a different internal organization or target only when it preserves the same source semantics, diagnostics, and specified traps. An implementation choice does not create another Baton language profile.
+Another compiler may use a different internal organization or target only when it preserves the same source semantics, diagnostics, and specified traps. An implementation choice does not create another Basiq language profile.
 
 ## 1.12 Non-requirements
 
-This working draft makes no claim that Baton 1.0 is frozen or implementation-validated. It does not require the first compiler to be written in Baton or compile its own source. It also does not require another conforming compiler to copy the first compiler's internal organization.
+This working draft makes no claim that Basiq 1.0 is frozen or implementation-validated. It does not require the first compiler to be written in Basiq or compile its own source. It also does not require another conforming compiler to copy the first compiler's internal organization.

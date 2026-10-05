@@ -8,14 +8,14 @@
 - Replaces: the final-address model of the Nucleus Object Stream Format 0.1
   (`../../nucleus/docs/nucleus-object-format.md`)
 
-This document explains why Baton builds programs the way it does and how the
+This document explains why Basiq builds programs the way it does and how the
 pieces fit together. The four specifications above define the details; where
 this overview and a specification disagree, the specification governs.
 
 ## 1. Summary
 
-Building a Baton program is one command, `BATON MAIN`, which runs two programs
-in turn: the compiler, `BATON.COM`, and the linker, `BLINK.COM`, which `BATON`
+Building a Basiq program is one command, `BASIQ MAIN`, which runs two programs
+in turn: the compiler, `BASIQ.COM`, and the linker, `BLINK.COM`, which `BASIQ`
 starts automatically:
 
 1. **Compile.** The compiler reads the source once and generates Z80 machine
@@ -51,9 +51,9 @@ Any design that removes unused code must therefore:
 2. place code, then move it, which needs a record of every address; or
 3. read the source twice.
 
-Reading the source twice breaks Baton's single-pass rule. Options 1 and 2 both
+Reading the source twice breaks Basiq's single-pass rule. Options 1 and 2 both
 need a record of every address in the code, which is what a relocating linker
-works from. Baton takes option 1 and builds a small linker designed for the
+works from. Basiq takes option 1 and builds a small linker designed for the
 purpose, rather than pretending not to need one.
 
 ## 3. Design rules
@@ -80,7 +80,7 @@ purpose, rather than pretending not to need one.
 ## 4. How the pieces fit
 
 ```text
- MAIN.BTN  UTIL.BTN                     CPM22.BRL
+ MAIN.BSQ  UTIL.BSQ                     CPM22.BRL
      │         │                     (runtime + profile)
      └────┬────┘                         │      │
           ▼                              │      │
@@ -108,23 +108,23 @@ purpose, rather than pretending not to need one.
 ## 5. Prior art
 
 The [prior-art survey](research/linker-prior-art.md) examined period CP/M
-linkers and modern ones. What Baton borrows, and what it avoids:
+linkers and modern ones. What Basiq borrows, and what it avoids:
 
-| Prior art | What it did | What Baton takes or avoids |
+| Prior art | What it did | What Basiq takes or avoids |
 | --- | --- | --- |
-| Microsoft REL and `L80`; Digital Research `LINK-80` | Linked whole **modules**; relocatable words said only "relative to the code segment"; names of 6 or 7 characters; a bit-stream encoding | Avoided. Module granularity is why no CP/M linker shook below the module. Baton's unit is the blob, and every reference names its target. Byte-aligned records replace the bit stream so dead blobs can be skipped without decoding. |
-| REL chained externals; Oberon fixup chains | Threaded unresolved references through the placeholder bytes | Avoided. Chains can't hold an addend or a byte operand, need random access to the image, and corrupt silently when broken. Baton keeps explicit reference records. |
+| Microsoft REL and `L80`; Digital Research `LINK-80` | Linked whole **modules**; relocatable words said only "relative to the code segment"; names of 6 or 7 characters; a bit-stream encoding | Avoided. Module granularity is why no CP/M linker shook below the module. Basiq's unit is the blob, and every reference names its target. Byte-aligned records replace the bit stream so dead blobs can be skipped without decoding. |
+| REL chained externals; Oberon fixup chains | Threaded unresolved references through the placeholder bytes | Avoided. Chains can't hold an addend or a byte operand, need random access to the image, and corrupt silently when broken. Basiq keeps explicit reference records. |
 | M80's late `LOW`/`HIGH` items | Byte references to externals added as an afterthought | Taken from the start: `LO8`, `HI8` and an addend on every form. |
 | `LINK-80` IRL index; `LIBR` and `__.SYMDEF` directories | A directory separate from the code, so the linker could find what it needed | Taken: the directory stream and the blob library's directory section hold the graph, so marking never reads code bytes. |
-| `L80`'s whole image in RAM; `LINK-80`'s spill files | Memory limits shaped the linker | Avoided: Baton's linker holds per-ordinal tables only and streams bytes from disk to output, with a stated capacity error. |
-| Turbo Pascal 4 smart linking | Removed unused routines because each routine was its own block with its own fixups | Taken: the closest precedent for Baton's design, on the same class of machine. Its weak point, `.OBJ` files and method tables that kept everything alive, is a warning for Baton's runtime and any future dispatch tables. |
+| `L80`'s whole image in RAM; `LINK-80`'s spill files | Memory limits shaped the linker | Avoided: Basiq's linker holds per-ordinal tables only and streams bytes from disk to output, with a stated capacity error. |
+| Turbo Pascal 4 smart linking | Removed unused routines because each routine was its own block with its own fixups | Taken: the closest precedent for Basiq's design, on the same class of machine. Its weak point, `.OBJ` files and method tables that kept everything alive, is a warning for Basiq's runtime and any future dispatch tables. |
 | ELF `--gc-sections`, `wasm-ld`, Go | Mark from roots over a reference graph; `KEEP` for things reached by convention; reports of what was removed | Taken: marking from roots, an explicit root flag instead of a convention, and a removal report in the map. |
 | Plan 9 `8l` | Chose instruction encodings and shortened branches at link time, holding the whole program in memory | Avoided: branch shrinking stays in the compiler, inside one routine, where the bytes are still in memory. |
 | Windows import ordinals; Oberon module keys | Numbered references, which drift when the defining side changes | Taken with the guard: runtime ordinals are append-only, and the linker checks runtime identity and helper-table version before linking. |
 | Digital Research PRL, SPR and RSX | Page relocation by bitmap, for whole images | Not needed for 1.0. A page-relocatable output is a possible later output kind, since the linker knows every `HI8` and `ABS16` site. |
 
 The survey found no period CP/M linker that removed code below the module
-level. Baton's design differs from them mainly in its unit of linking: the
+level. Basiq's design differs from them mainly in its unit of linking: the
 format makes every routine its own blob, and every address use a named
 reference.
 
@@ -261,7 +261,7 @@ advisory.
 
 ## 7. Comparison with Nucleus
 
-| | Nucleus NOBJ 0.1 | Baton |
+| | Nucleus NOBJ 0.1 | Basiq |
 | --- | --- | --- |
 | Addresses chosen by | compiler, at emission | linker, after liveness is known |
 | Unused code removed | no | yes: routines, data, constants, runtime helpers |
@@ -270,7 +270,7 @@ advisory.
 | Forward branches | always `JP` | `JR` where it fits, for buffered routines |
 | Runtime | linked whole for the target | blob library; unused helpers removed |
 | Output | image and patch spools, merged by a materializer | written in address order by the linker |
-| Executables | compiler, plus a materializer | compiler `BATON.COM` (24K budget), then linker `BLINK.COM`, chained automatically |
+| Executables | compiler, plus a materializer | compiler `BASIQ.COM` (24K budget), then linker `BLINK.COM`, chained automatically |
 
 What carries over from Nucleus: append-only output files, a CRC that makes
 partial output unusable, a publication sequence that never destroys the
@@ -281,10 +281,10 @@ target it runs on.
 
 - **More disk traffic per build.** The directory stream may be as large as the
   program itself, and the linker reads it at least three times. On the 720K-and-larger
-  disks Baton assumes, space is not a concern, but transfer time is. The
+  disks Basiq assumes, space is not a concern, but transfer time is. The
   reference density of real compiled code must be measured to size this.
 - **Placeholders hide addresses from the compiler.** It cannot fold or compare
-  addresses. Baton source cannot observe addresses, so no feature is lost, but
+  addresses. Basiq source cannot observe addresses, so no feature is lost, but
   the backend cannot exploit a particular placement.
 - **Granularity is the blob.** Code inside a live routine that is never executed
   is not removed; that is the compiler's job, through constant folding.
@@ -299,7 +299,7 @@ target it runs on.
 
 TEC-1 ROM and banked targets are no longer design considerations (design
 decision D10). The format keeps its reserved target classes, `BANK` record and
-`BANK8` form so that they could be added later, but nothing in Baton 1.0 is
+`BANK8` form so that they could be added later, but nothing in Basiq 1.0 is
 shaped for them.
 
 ### 9.3 Precompiled libraries
@@ -342,7 +342,7 @@ These are collected from the specifications:
   reference encoding with no spare bits, linker-assigned banks, underestimated
   file sizes and the claim of atomic output replacement.
 - **Revision 3** split the design into this overview and four specifications,
-  named the layout tool the linker, made it a phase of the single `BATON`
+  named the layout tool the linker, made it a phase of the single `BASIQ`
   executable, and added aliases, pseudo-objects as regions, the blob library
   file with its profile block, the line table and the trap lookup mode.
 - **Revision 4** incorporated an adversarial review of the four
@@ -369,5 +369,5 @@ These are collected from the specifications:
   `JP` for long inline literals; the stack reserve as a lower bound guarded by
   an activation-capacity check; and a per-routine reference capacity.
 - **Revision 5 addendum (2026-10-04):** the linker became a separate program,
-  `BLINK.COM`, chained from `BATON.COM`, to keep the compiler within its 24K
+  `BLINK.COM`, chained from `BASIQ.COM`, to keep the compiler within its 24K
   budget (design decision D9).

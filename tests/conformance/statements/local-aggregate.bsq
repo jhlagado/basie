@@ -2,7 +2,7 @@
 // spec: 7.6
 // expect output: 09\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 sub main() fails
     var line as string[20]

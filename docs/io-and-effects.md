@@ -9,7 +9,7 @@
 
 ## 1. The question
 
-How does a Baton program talk to the world: the console, files, the command
+How does a Basiq program talk to the world: the console, files, the command
 line, the screen and sound? There are two broad approaches:
 
 1. **Direct:** the language can call the operating system (BDOS functions) or
@@ -20,7 +20,7 @@ line, the screen and sound? There are two broad approaches:
    a **provider** interprets.
 
 Nucleus and Skate both took the indirect approach. This document proposes that
-Baton does too, and says exactly where the boundary lies.
+Basiq does too, and says exactly where the boundary lies.
 
 ## 2. What Nucleus and Skate do
 
@@ -42,14 +42,14 @@ language.
 
 ### 3.1 No operating-system or port primitives in the language
 
-Baton source has no way to call a BDOS function, execute `IN` or `OUT`, or name
+Basiq source has no way to call a BDOS function, execute `IN` or `OUT`, or name
 a memory address. This withdraws the port built-ins listed in an earlier draft of the
 [feature inventory](feature-inventory.md).
 
 ### 3.2 Services
 
 The runtime library for each profile provides **services**: predeclared routines
-with Baton signatures, failable where the operation can fail, as in Nucleus.
+with Basiq signatures, failable where the operation can fail, as in Nucleus.
 
 | Group | Examples | Profiles |
 | --- | --- | --- |
@@ -70,10 +70,10 @@ error.
 
 ### 3.3 Devices through the command channel
 
-Video, sound and rich terminal control are reached as in Skate: a Baton library
+Video, sound and rich terminal control are reached as in Skate: a Basiq library
 encodes commands into the external-effects frame format and sends them through a
 service; the provider on the other end interprets them. The language knows only
-bytes. This lets the same Baton program drive a Triptych terminal, a host
+bytes. This lets the same Basiq program drive a Triptych terminal, a host
 emulator or a test harness without change.
 
 ## 4. Why indirect

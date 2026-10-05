@@ -32,7 +32,7 @@ export function writeMap(result: LinkResult, inputs: MapInputs): string {
   const bss = p.get(Pseudo.BSS)!;
   const required = p.get(Pseudo.REQUIRED)!.address;
   const lines: string[] = [];
-  lines.push(`BATON LINK MAP: ${inputs.programName}`);
+  lines.push(`BASIQ LINK MAP: ${inputs.programName}`);
   lines.push("");
   lines.push(`Library            ${inputs.libraryName}`);
   lines.push(

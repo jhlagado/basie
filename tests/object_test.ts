@@ -208,9 +208,9 @@ Deno.test("line and name streams round-trip", () => {
     ],
   }];
   const lines = readLineStream(
-    writeLineStream(9, ["A:MAIN.BTN", "A:UTIL.BTN"], blobs),
+    writeLineStream(9, ["A:MAIN.BSQ", "A:UTIL.BSQ"], blobs),
   );
-  assertEquals(lines.parts, ["A:MAIN.BTN", "A:UTIL.BTN"]);
+  assertEquals(lines.parts, ["A:MAIN.BSQ", "A:UTIL.BSQ"]);
   assertEquals(lines.blobs, blobs);
   const names = readNameStream(writeNameStream(9, [
     { ordinal: 0x400, name: "count" },

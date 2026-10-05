@@ -1,4 +1,4 @@
-; Baton runtime for CP/M 2.2: the minimal library (roadmap step 31).
+; Basiq runtime for CP/M 2.2: the minimal library (roadmap step 31).
 ;
 ; Built into CPM22.BRL by tools/brl.ts. Each blob starts at a "; @blob" line:
 ;

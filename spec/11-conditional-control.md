@@ -3,9 +3,9 @@
 
 ## 11.1 Scope
 
-This chapter defines the Baton `if` statement, with its `elseif` and `else` clauses, and the `select` statement (design decision D15), which chooses among integer constants, ranges, and the states of an optional handle. It also defines how the flow states of owning locals meet at the end of each. Chapter 9 defines Boolean expressions. Chapter 10 defines statement sequences. Chapter 17 supplies the complete grammar.
+This chapter defines the Basiq `if` statement, with its `elseif` and `else` clauses, and the `select` statement (design decision D15), which chooses among integer constants, ranges, and the states of an optional handle. It also defines how the flow states of owning locals meet at the end of each. Chapter 9 defines Boolean expressions. Chapter 10 defines statement sequences. Chapter 17 supplies the complete grammar.
 
-Both statements are multiline. Baton has no conditional expression and no general pattern matching.
+Both statements are multiline. Basiq has no conditional expression and no general pattern matching.
 
 ## 11.2 Syntax
 
@@ -24,7 +24,7 @@ A logical `NEWLINE` terminates each condition header. Physical line endings insi
 
 ## 11.3 Conditions
 
-Every `if` and `elseif` condition must have type `boolean`. Baton does not treat zero, a nonzero integer, an aggregate, an alias carrier, or a routine name as a condition. A call used in a condition must return `boolean`.
+Every `if` and `elseif` condition must have type `boolean`. Basiq does not treat zero, a nonzero integer, an aggregate, an alias carrier, or a routine name as a condition. A call used in a condition must return `boolean`.
 
 The compiler evaluates a condition only when control reaches its clause. It evaluates that expression once, with the order, short-circuiting, checks, and traps defined by Chapter 9. A trap in a condition prevents selection of any clause body.
 
@@ -66,13 +66,13 @@ else
 end
 ```
 
-An `if` that is the sole statement of an `else` body can express the same simple truth conditions as a flat `elseif` chain. Baton retains `elseif` because the token marks the clause directly, one `end` closes the chain, and the parser can process repeated clauses with one iterative path. The two spellings do not create different Boolean semantics.
+An `if` that is the sole statement of an `else` body can express the same simple truth conditions as a flat `elseif` chain. Basiq retains `elseif` because the token marks the clause directly, one `end` closes the chain, and the parser can process repeated clauses with one iterative path. The two spellings do not create different Boolean semantics.
 
 `else if` is not an alternative spelling for `elseif`. It produces two tokens. After `else`, this grammar requires `NEWLINE`; a nested `if` begins as a statement on a following logical line and has its own `end`.
 
 ## 11.6 Conditional header termination
 
-Baton conditional headers do not use `then`. The logical newline already separates the condition from its body, and Chapter 9 has no conditional expression whose tokens could extend across that boundary. A `then` keyword would add a reserved word and grammar token without resolving a parsing choice.
+Basiq conditional headers do not use `then`. The logical newline already separates the condition from its body, and Chapter 9 has no conditional expression whose tokens could extend across that boundary. A `then` keyword would add a reserved word and grammar token without resolving a parsing choice.
 
 Consequently, `then` remains an identifier under Chapter 3. A Boolean variable named `then` may appear as the complete condition in `if then`; the following logical newline terminates that header.
 
@@ -163,7 +163,7 @@ Branch fixups and active clause state are implementation details. They must pres
 
 ## 11.9 Excluded conditional mechanisms
 
-Baton 1.0 has no:
+Basiq 1.0 has no:
 
 - one-line `if` form;
 - postfix or statement-modifier condition;

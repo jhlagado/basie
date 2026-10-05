@@ -1,4 +1,4 @@
-# Baton runtime libraries
+# Basiq runtime libraries
 
 Each runtime is ATOM assembly source split into blobs, built into a blob
 library (`.BRL`, [object format](../docs/object-format.md) §7) by

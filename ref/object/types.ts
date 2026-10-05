@@ -1,4 +1,4 @@
-/** In-memory forms of the Baton object format (docs/object-format.md). */
+/** In-memory forms of the Basiq object format (docs/object-format.md). */
 
 export const Kind = {
   code: 0,

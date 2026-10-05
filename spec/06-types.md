@@ -3,13 +3,13 @@
 
 ## 6.1 Scope
 
-This chapter defines the Baton 1.0 type set, type identity, compatibility, scalar conversions, aggregate categories, and the static type carried by aggregate aliases. Chapter 7 defines storage duration and lifetime. Chapter 8 defines declarations and initialization. Chapter 9 defines expression syntax and operator typing, and Chapter 13 defines routine syntax and parameter passing.
+This chapter defines the Basiq 1.0 type set, type identity, compatibility, scalar conversions, aggregate categories, and the static type carried by aggregate aliases. Chapter 7 defines storage duration and lifetime. Chapter 8 defines declarations and initialization. Chapter 9 defines expression syntax and operator typing, and Chapter 13 defines routine syntax and parameter passing.
 
 The type system supports local checking during one streaming source pass. A compiler can determine the type of a name, field, array element, literal in context, or routine result from declarations already processed. It requires neither whole-program inference nor runtime type tags.
 
 ## 6.2 Type set
 
-Baton 1.0 has eight scalar types, four handle forms, three owned aggregate
+Basiq 1.0 has eight scalar types, four handle forms, three owned aggregate
 forms, and two parameter-only aggregate views:
 
 | Category        | Types or forms                                         |
@@ -65,7 +65,7 @@ Signed types use two's complement. Their widths and ranges do not vary by target
 
 `f32` holds IEEE 754 single-precision values in the IEEE storage layout, restricted to finite values: there is no infinity and no NaN, and denormal values are flushed to zero (design decision D7). An operation whose result would be infinite or invalid traps (Chapter 15). `f32` is a numeric type but not an integer type: it can't index an array, count a loop or take part in a shift or bitwise operation.
 
-`boolean` has exactly the values `false` and `true`. It is distinct from both integer types. An integer is not a condition, a Boolean value is not an integer, and Baton 1.0 provides no Boolean-to-integer or integer-to-Boolean conversion.
+`boolean` has exactly the values `false` and `true`. It is distinct from both integer types. An integer is not a condition, a Boolean value is not an integer, and Basiq 1.0 provides no Boolean-to-integer or integer-to-Boolean conversion.
 
 A scalar variable, parameter, field, array element, or routine result holds a scalar value. Scalar assignment and scalar argument passing copy the value. A compiler may use any private register or memory representation that preserves the type and value; that representation does not alter source compatibility.
 
@@ -75,7 +75,7 @@ An integer literal is exact and has no fixed integer type until an expected inte
 
 Chapter 9 defines the treatment of an integer literal with no expected type and the result types of operators. This chapter does not assign an expression-wide default type.
 
-A character literal has type `u8` and its value is the decoded byte from Chapter 3. Baton has no separate character type. The ordinary `u8`-to-`u16` widening rule permits a character literal where a `u16` value is expected.
+A character literal has type `u8` and its value is the decoded byte from Chapter 3. Basiq has no separate character type. The ordinary `u8`-to-`u16` widening rule permits a character literal where a `u16` value is expected.
 
 **Implicit widening** is admitted only where every source value is preserved (design decisions D4 and D31):
 
@@ -90,7 +90,7 @@ Unsigned values are zero-extended and signed values sign-extended. The same wide
 
 **Every other conversion between numeric types is explicit and checked.** Chapter 9 defines the spelling, which uses the target type's name as a conversion, such as `u8(x)`, `i16(y)` or `f32(n)`. When the source value is known at compile time and does not fit, the compiler issues a diagnostic. Otherwise the generated program traps with `narrowing` before producing a result that does not fit. A negative value never converts to an unsigned type, and an unsigned value above a signed type's range never converts to it. Conversion from `f32` to an integer type truncates toward zero and traps if the result does not fit. Conversion from `u32` or `i32` to `f32` rounds to nearest, ties to even. Checked conversion never means low-byte extraction, modulo reduction, or reinterpretation.
 
-No implicit or explicit scalar conversion changes `boolean` into an integer or an integer into `boolean`. Baton 1.0 also has no arbitrary cast or same-width reinterpretation operation.
+No implicit or explicit scalar conversion changes `boolean` into an integer or an integer into `boolean`. Basiq 1.0 also has no arbitrary cast or same-width reinterpretation operation.
 
 ## 6.5 Values, aggregate storage, and aliases
 
@@ -110,7 +110,7 @@ An aggregate parameter is a fixed typed alias to caller-provided storage. Its bi
 
 Assignment between aggregate designators of the exact same concrete type copies the complete value into the destination. This includes two bounded strings with the same capacity. Assignment changes the destination object's contents and never rebinds an alias. Routine arguments and aggregate results transfer aliases rather than copying automatically. Concrete aggregate parameters and all aggregate results require exact type identity; `string[]` parameters use the specific compatibility rule in Section 6.10.
 
-An aggregate routine result is a transient typed alias to existing program-lifetime storage. Chapter 7 defines its permitted consumption, and Chapter 13 defines result syntax. Baton has no aggregate storage whose lifetime ends with a call, so aggregate results require no separate escape analysis.
+An aggregate routine result is a transient typed alias to existing program-lifetime storage. Chapter 7 defines its permitted consumption, and Chapter 13 defines result syntax. Basiq has no aggregate storage whose lifetime ends with a call, so aggregate results require no separate escape analysis.
 
 ## 6.6 Record types
 
@@ -128,7 +128,7 @@ Chapter 8 defines record declaration and field syntax. Runtime byte offsets and 
 
 `T[N]` is a one-dimensional fixed array with element type `T` and length `N`. `N` must be a positive compile-time integer from 1 through 65,535. A compiler may publish a smaller capacity for a particular storage region or implementation, but exceeding that capacity is a capacity failure rather than another array type.
 
-The index domain is always zero through `N - 1`. Baton has no arbitrary lower bound, subrange index, enumeration index, or range type. The length and element type are part of the array type.
+The index domain is always zero through `N - 1`. Basiq has no arbitrary lower bound, subrange index, enumeration index, or range type. The length and element type are part of the array type.
 
 Two fixed-array types are identical when their element types are identical and their lengths are equal. Thus `u8[16]` and `u8[16]` are the same type, while `u8[16]`, `u8[32]`, and `u16[16]` are three different types.
 
@@ -144,7 +144,7 @@ A string literal is a contextual bounded-string initializer. It is compatible wi
 
 Two concrete bounded-string types are identical only when their capacities are equal. An alias to `string[16]` cannot bind to a `string[32]` parameter or result, even when the current contents would fit both. Concrete aggregate aliases and results therefore retain an exact extent.
 
-A bounded string is an aggregate, not a `u8` array. It has no source-level header field, payload field, or terminator field. Baton 1.0 provides two intrinsic postfix operations without exposing that representation:
+A bounded string is an aggregate, not a `u8` array. It has no source-level header field, payload field, or terminator field. Basiq 1.0 provides two intrinsic postfix operations without exposing that representation:
 
 - `text.length` is a read-only `u8` value equal to the current logical byte length.
 - `text[index]` selects one existing byte as a `u8` storage path. The index must have type `u8` or `u16` and must be less than the current length. A failed check performs the `bounds` trap before a read or write.
@@ -208,7 +208,7 @@ Compatibility is checked at the source operation. The backend does not infer com
 
 ## 6.11 Excluded type mechanisms
 
-Baton 1.0 has none of the following:
+Basiq 1.0 has none of the following:
 
 - raw pointer or address types visible to source;
 - pointer or address arithmetic;
@@ -230,7 +230,7 @@ An implementation must diagnose a source form that requires one of these mechani
 
 Exact type identity is checked from retained metadata without reconstructing source text. Record declarations require nominal IDs. Predefined scalars, fixed arrays, and bounded strings have compact, bounded structural descriptions: kind, element type when applicable, and length or capacity. A compiler may store those descriptions directly in symbols and signatures or intern them behind compact ordinals. Measurements of compiler-core bytes, immutable data, writable workspace, and comparison code determine the representation used by the first implementation.
 
-Nucleus could fit every type in four bytes because its arrays could not contain arrays. Baton's arrays can nest and its handles name pools, so a type description may need a chain of element descriptions. A compiler may intern descriptions behind ordinals or store short descriptions inline; either way the chosen representation must describe nested arrays to any depth the source uses, within a published capacity.
+Nucleus could fit every type in four bytes because its arrays could not contain arrays. Basiq's arrays can nest and its handles name pools, so a type description may need a chain of element descriptions. A compiler may intern descriptions behind ordinals or store short descriptions inline; either way the chosen representation must describe nested arrays to any depth the source uses, within a published capacity.
 
 Four inline bytes are not automatically cheaper than one ordinal per symbol. With mostly distinct types, direct descriptors avoid an interning table; with many repeated types, ordinals reduce writable symbol storage. The measurement package reports both retained-data totals for representative symbol populations. The first compiler also counts the code and scratch state for descriptor construction, interning, exhaustion checks, and equality before selecting either form.
 

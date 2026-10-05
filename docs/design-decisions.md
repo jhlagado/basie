@@ -1,10 +1,10 @@
-# Baton design decisions
+# Basiq design decisions
 
 - Status: working record
 - Date: 2026-10-04
 
 This document records the language decisions made so far, with the reasons for
-each, and the questions still open. Where Baton keeps a Nucleus rule unchanged,
+each, and the questions still open. Where Basiq keeps a Nucleus rule unchanged,
 the entry says so and points at the Nucleus specification
 (`../../nucleus/docs/specification.md`). Examples use Nucleus 0.1 syntax unless
 they show a new feature.
@@ -38,7 +38,7 @@ lifetime (D8), must be in the signature before the call.
 
 ### D2. Statement syntax
 
-Baton keeps Nucleus's lexical rules (§3.4):
+Basiq keeps Nucleus's lexical rules (§3.4):
 
 - a logical newline is the only statement terminator;
 - a line ending inside `(` or `[` is whitespace, which is how an expression
@@ -145,7 +145,7 @@ exponent and a 23-bit fraction. Arithmetic is simplified for an 8-bit machine:
   exception flags.
 - **Flush to zero.** IEEE's denormal numbers fill the gap between the smallest
   normal value (about 1.2 × 10⁻³⁸) and zero. Supporting them adds code to every
-  operation. Baton treats denormal inputs as zero and returns zero for results
+  operation. Basiq treats denormal inputs as zero and returns zero for results
   that would be denormal. The only visible effect is on values below
   10⁻³⁸, where two different numbers can subtract to zero.
 - **No infinity or NaN.** Division by zero traps with `division-by-zero`, a
@@ -160,7 +160,7 @@ float library while affecting almost no real program on this class of machine.
 
 ### D8. Local aggregates and the `from` clause
 
-Baton allows records, arrays and bounded strings as routine locals, living for
+Basiq allows records, arrays and bounded strings as routine locals, living for
 the length of the call. Nucleus had only program-lifetime aggregates (§7.9),
 which forced every temporary buffer into a global.
 
@@ -211,11 +211,11 @@ accounted.
 
 The toolchain is two programs:
 
-- **`BATON.COM`**, the compiler, at most **24K** including its tables, which
+- **`BASIQ.COM`**, the compiler, at most **24K** including its tables, which
   leaves at least **32K** of working space on a CP/M 2.2 system with 56K free;
   and
-- **`BLINK.COM`**, the linker, which `BATON` runs automatically when compilation
-  succeeds. CP/M 2.2 has no call to run another program, so `BATON` copies a
+- **`BLINK.COM`**, the linker, which `BASIQ` runs automatically when compilation
+  succeeds. CP/M 2.2 has no call to run another program, so `BASIQ` copies a
   small loader to the top of memory, which reads `BLINK.COM` into place and
   starts it, as Turbo Pascal's `Execute` did. The user still types one command,
   and the linker gets nearly the whole program area for its tables.
@@ -225,11 +225,11 @@ Ways the compiler is kept within budget:
 1. It is built on the 12K Nucleus compiler rewrite.
 2. 32-bit and `f32` operations are generated as calls to runtime helpers, never
    inline, so the compiler only checks types and selects helpers.
-3. Diagnostic message text lives in a message file, `BATON.MSG`, read only when
+3. Diagnostic message text lives in a message file, `BASIQ.MSG`, read only when
    a diagnostic is reported.
 4. Rarely used parts, starting with decimal-to-`f32` literal conversion, are
    overlays loaded only when needed.
-5. Strings, formatting and other library facilities are Baton source libraries,
+5. Strings, formatting and other library facilities are Basiq source libraries,
    compiled with the program and tree-shaken, not compiler features.
 6. Features are deferred to version 2 when they don't fit (D24).
 
@@ -238,7 +238,7 @@ is adopted, and the measurements are published, as Nucleus did.
 
 ### D10. Target machine
 
-Baton programs and the Baton toolchain target a Z80 with 64K of RAM running
+Basiq programs and the Basiq toolchain target a Z80 with 64K of RAM running
 **CP/M 2.2**, which is the primary target; CP/M 3 is supported where it costs
 nothing extra. TEC-1 ROM and other bare-machine targets are **not** design
 considerations: features, formats and services are not shaped for them. Storage
@@ -249,7 +249,7 @@ formats, such as 90K to 250K floppies, are not supported for large builds.
 
 **Why.** It removes disk space as a design constraint on the build pipeline,
 which writes temporary spools comparable in size to the program. Memory, not
-disk, is the scarce resource Baton is designed around.
+disk, is the scarce resource Basiq is designed around.
 
 ### D11. Trap reports identify the site by address
 
@@ -310,7 +310,7 @@ room for inference (`var count = 0`). Nearly every language designed since about
 2005 puts the name first.
 
 **Why `as` rather than `:`.** The colon would save about three characters per
-declaration and is familiar from TypeScript, Pascal, Go and Rust. But Baton
+declaration and is familiar from TypeScript, Pascal, Go and Rust. But Basiq
 already has enough punctuation that a bare colon doesn't say what it does,
 while `as` reads as a phrase, especially where modifiers stack up
 (`var list as nodes?`), and keeps the BASIC character. The compiler cost
@@ -319,7 +319,7 @@ is the same either way.
 
 ### D15. One `select` statement
 
-Baton version 1 has one selection statement, `select`, in the spirit of BASIC's
+Basiq version 1 has one selection statement, `select`, in the spirit of BASIC's
 `SELECT CASE`:
 
 - integer and character constants, lists of them, and ranges (`'0' to '9'`),
@@ -409,7 +409,7 @@ owning handle type such as `nodes`.
 and it matches the `var` that declares variables, so it adds no reserved word.
 `inout` suggested a round trip of ownership that doesn't happen. `byref` and
 `ref` describe how data is passed rather than what the routine may do, and
-Baton passes every aggregate by reference anyway.
+Basiq passes every aggregate by reference anyway.
 
 There is no `const` in the same position: read-only is already the default, and
 a second spelling for it would add a keyword without adding meaning.
@@ -541,7 +541,7 @@ name could not express a result or an element type.
 
 A pool is storage, not a container: any number of lists, trees or graphs can
 share one pool. Programs normally declare one pool per record type, so code
-written for that pool's handles serves every structure in it. Baton 1.0 has no
+written for that pool's handles serves every structure in it. Basiq 1.0 has no
 generics; Pascal never had them either.
 
 ### D24. Version 1 scope
@@ -559,13 +559,13 @@ values (O6), generics (D23) and `repeat`.
 **Why.** The deferred features are the largest compiler costs that ordinary
 programs can do without, and the version 1 set fits the 24K budget (D9).
 
-### D25. Strings: bounded strings and a Baton library
+### D25. Strings: bounded strings and a Basiq library
 
-Baton keeps Nucleus's strings: `string[N]` with a fixed capacity of at most 253
+Basiq keeps Nucleus's strings: `string[N]` with a fixed capacity of at most 253
 and a current length; string literals as constants and as direct arguments; and
 open `string[]` parameters, which accept any capacity and can read `.capacity`
 and set `.length`. String building, comparison, searching and conversion between
-numbers and text, including `f32`, are a **standard library written in Baton**,
+numbers and text, including `f32`, are a **standard library written in Basiq**,
 compiled with the program and tree-shaken, not compiler features.
 
 Raising a string's length makes the bytes it exposes zero, so a local string can
@@ -673,11 +673,11 @@ internal type encoding, which assumed arrays never nest.
 
 - A top-level declaration marked `private` is visible only within its own source
   file.
-- A source file may begin with `include "STRINGS.BTN"` lines naming the files it
+- A source file may begin with `include "STRINGS.BSQ"` lines naming the files it
   depends on. Each file is compiled once, before the files that include it, as
   in ATOM and Skate. The command line then names only the main file.
 
-**Why.** The standard library is written in Baton, so its internal routines need
+**Why.** The standard library is written in Basiq, so its internal routines need
 to be hidden from programs, and programs need a way to pull in the library parts
 they use. Together they cost about 0.5K. Full modules with qualified names are
 not planned.
@@ -695,12 +695,12 @@ whose errors stop the program with a located report.
 
 ### D35. Two implementation tracks
 
-Baton is built in two tracks ([implementation plan](implementation-plan.md)):
+Basiq is built in two tracks ([implementation plan](implementation-plan.md)):
 
 - a **reference toolchain** in TypeScript on Deno, written in the same
   single-pass style as the native compiler, which implements each feature first
   and serves as the test oracle; and
-- the **native toolchain**, `BATON.COM` and `BLINK.COM` in Z80 assembly,
+- the **native toolchain**, `BASIQ.COM` and `BLINK.COM` in Z80 assembly,
   assembled with ATOM as development tooling. The compiler is forked from the
   Nucleus 12K rewrite and evolved in stages; the linker is new.
 
@@ -708,35 +708,35 @@ The native linker must produce byte-identical output to the reference linker; th
 native compiler must produce programs that behave identically on the whole
 conformance suite.
 
-**Why.** Baton's language is several times larger than Nucleus's, and design
+**Why.** Basiq's language is several times larger than Nucleus's, and design
 questions are far cheaper to settle in TypeScript than in Z80. A second
 implementation catches errors a single one can't.
 
 
 ### D36. The version 1 standard library
 
-The standard library is Baton source, compiled with the program through
+The standard library is Basiq source, compiled with the program through
 `include` and tree-shaken. Version 1 provides:
 
-- **Strings** (`STRINGS.BTN`): `append(var s, t)`, `appendByte(var s, b)`,
+- **Strings** (`STRINGS.BSQ`): `append(var s, t)`, `appendByte(var s, b)`,
   `copyFrom(var dest, src, start, count)`, `equal(a, b)`, `compare(a, b)`
   returning `i8`, `find(s, t)` returning the position or `$FFFF`, `toUpper`,
   `toLower`, `trim`. Each fails with `lineTooLong` rather than exceed the
   destination's capacity.
-- **Numbers to text** (`FORMAT.BTN`): `appendU16`, `appendI16`, `appendU32`,
+- **Numbers to text** (`FORMAT.BSQ`): `appendU16`, `appendI16`, `appendU32`,
   `appendI32` in decimal; `appendHex8` and `appendHex16`; `appendF32(var s, x,
   places)` with a chosen number of decimal places.
-- **Text to numbers** (`PARSE.BTN`): `parseU16`, `parseI16`, `parseU32`,
+- **Text to numbers** (`PARSE.BSQ`): `parseU16`, `parseI16`, `parseU32`,
   `parseI32`, `parseF32`, each failing with `badNumber` (a library failure
   code, 32) on malformed or out-of-range text.
-- **Console and files** (`TEXTIO.BTN`): `writeLine(f, s)` with CR LF,
+- **Console and files** (`TEXTIO.BSQ`): `writeLine(f, s)` with CR LF,
   `prompt(text, var answer)`, `readSecret(var answer)` without echo,
   `word(text, n, var out)` for command-line words, `readAll(f, var buf)` and a
   copying `truncate`.
-- **Pseudo-random numbers** (`RANDOM.BTN`): a 16-bit generator with a seed.
+- **Pseudo-random numbers** (`RANDOM.BSQ`): a 16-bit generator with a seed.
 
 **Why.** These are what a first program needs and what D25 left to the library;
-written in Baton, they cost compiler bytes nothing and programs only what they
+written in Basiq, they cost compiler bytes nothing and programs only what they
 call.
 
 ### D37. `assert`
@@ -761,8 +761,8 @@ real programs.
 
 ### D39. Diagnostics come from a message file
 
-`BATON` and `BLINK` hold diagnostics as numbers and read their text from
-`BATON.MSG`, with up to two substituted arguments
+`BASIQ` and `BLINK` hold diagnostics as numbers and read their text from
+`BASIQ.MSG`, with up to two substituted arguments
 ([toolchain](toolchain.md), Section 7.3). Without the file, the number and
 arguments are printed instead.
 
@@ -810,15 +810,29 @@ the helper table follow it, and its calling-convention codes feed the helper
 table's interface key.
 
 **Why.** Nucleus left the convention private to its implementation and chose
-a bounded activation arena with a depth of 8. Baton's stack bound (memory
+a bounded activation arena with a depth of 8. Basiq's stack bound (memory
 safety §7) assumes ordinary stack frames, and two implementations plus a
 runtime library can only agree if the convention is written down.
+
+### D42. The language is named Basiq
+
+The working title Baton is replaced by **Basiq**: a BASIC with a twist. The
+rename covers everything at once: the language, the specification, the
+toolchain (`BASIQ.COM`, `BASIQ.MSG`, `BASIQ.OVL`), the source extension
+(`.bsq`, and `.BSQ` on CP/M), and the 4-byte magics of the binary formats:
+`BSQP` program directory, `BSQB` byte stream, `BSQR` blob library, `BSQM` name
+stream, `BQLS` line stream, `BQLT` line table and `BQMS` message file. No file
+in the old formats exists outside this repository's tests, so the magics were
+changed without a compatibility path.
+
+**Why.** The user wants the name to lean into what the language is: BASIC-like
+syntax over a statically typed, memory-safe, natively compiled core.
 
 ## Open
 
 ### O1. Exclusivity (resolved)
 
-Resolved by D16 and D17: Baton has no exclusivity rule. Overlapping aliases to
+Resolved by D16 and D17: Basiq has no exclusivity rule. Overlapping aliases to
 program storage remain allowed, as in Nucleus; they are visible through mutation
 but never a lifetime hazard, because program storage is never freed. Pool
 storage is never aliased, so freeing can't reach an alias.

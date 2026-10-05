@@ -49,7 +49,7 @@ export async function runTest(path: string, source: string): Promise<Outcome> {
     }
     if (
       first?.code === "include-missing" && !want &&
-      /\b(STRINGS|FORMAT|PARSE|TEXTIO|RANDOM)\.BTN/.test(first.message)
+      /\b(STRINGS|FORMAT|PARSE|TEXTIO|RANDOM)\.BSQ/.test(first.message)
     ) {
       return {
         status: "pending",
@@ -146,7 +146,7 @@ function compare(
 if (import.meta.main) {
   const root = new URL("./", import.meta.url).pathname;
   const counts = { pass: 0, pending: 0, fail: 0 };
-  for await (const entry of walk(root, { exts: [".btn"] })) {
+  for await (const entry of walk(root, { exts: [".bsq"] })) {
     const source = await Deno.readTextFile(entry.path);
     const outcome = await runTest(entry.path, source);
     counts[outcome.status] += 1;

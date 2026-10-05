@@ -2,7 +2,7 @@
 // spec: 8.4
 // expect output: 70000 200\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 const big as u32 = 70000
 const small = 200

@@ -1,4 +1,4 @@
-# Baton memory safety
+# Basiq memory safety
 
 - Status: **frozen**, revision 6 (2026-10-04)
 - Date: 2026-10-04
@@ -13,7 +13,7 @@
 
 ## 1. In plain terms
 
-Baton is **memory safe without a garbage collector**. A program can't read or
+Basiq is **memory safe without a garbage collector**. A program can't read or
 write memory it shouldn't, can't use storage after it has been freed, and can't
 leak dynamic storage. Most mistakes are compile-time errors; the rest stop the
 program with a report naming the source line.
@@ -59,7 +59,7 @@ what keeps the design simple.
 
 ## 2. The claim
 
-A Baton program compiled from source cannot:
+A Basiq program compiled from source cannot:
 
 1. read or write outside the bounds of an object;
 2. read or write storage after its lifetime has ended, whatever occupies it
@@ -80,7 +80,7 @@ cycle checks and stack checks.
   must respect the extent and mode of every alias it is given, must keep no
   address after it returns, and must restore the DMA address to its own buffer
   before returning.
-- **Interrupts and concurrency:** Baton 1.0 has neither in source.
+- **Interrupts and concurrency:** Basiq 1.0 has neither in source.
 - **Hardware protection:** none on CP/M; code and constants are protected only by
   the language's rules.
 
@@ -633,7 +633,7 @@ edge to it stale, and a sweep drops them with `select`, which never traps.
 **A Nucleus-style free list** over a program array with integer links still
 compiles and is memory safe by bounds checking, but detects no stale index.
 
-## 9. What Baton gives up
+## 9. What Basiq gives up
 
 - **A general heap.** All dynamic storage is in declared pools.
 - **Shared ownership.** One owner per slot; sharing is by identifier.

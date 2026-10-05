@@ -9,7 +9,7 @@ The rules are deterministic and require no backtracking. Rules stated for source
 
 ## 3.2 Source bytes
 
-A Baton source part is a sequence of bytes in an ASCII-compatible encoding. The accepted source-byte repertoire is:
+A Basiq source part is a sequence of bytes in an ASCII-compatible encoding. The accepted source-byte repertoire is:
 
 | Bytes        | Use              |
 | ------------ | ---------------- |
@@ -41,9 +41,9 @@ When CRLF produces `NEWLINE`, its two bytes occupy one token span, advance the b
 
 ASCII space and horizontal tab are the only horizontal whitespace. They separate tokens where separation is needed and are otherwise ignored. Indentation has no syntactic meaning. Whitespace never joins adjacent names, numbers, or literals into one token.
 
-`//` begins the one ordinary comment form. It is recognized outside character and string literals and consumes bytes up to, but not including, the next physical line ending or EOF. The comment produces no token. A line comment at EOF is complete; it does not require a closing marker. Baton 1.0 has no block, nested, or documentation comments.
+`//` begins the one ordinary comment form. It is recognized outside character and string literals and consumes bytes up to, but not including, the next physical line ending or EOF. The comment produces no token. A line comment at EOF is complete; it does not require a closing marker. Basiq 1.0 has no block, nested, or documentation comments.
 
-A logical newline is the only statement terminator. Baton has no semicolon terminator and no second interchangeable terminator.
+A logical newline is the only statement terminator. Basiq has no semicolon terminator and no second interchangeable terminator.
 
 Delimiter state tracks open parentheses and square brackets. A physical line ending produces `NEWLINE` only when no delimiter is open. Inside either delimiter, a physical line ending is whitespace and produces no token. Parentheses and brackets inside a comment or literal do not affect this state. The first compiler represents it with a bounded stack; another compiler may use a different representation.
 
@@ -77,7 +77,7 @@ An identifier begins with an ASCII letter. Each following byte is an ASCII lette
 identifier ::= ascii-letter (ascii-letter | decimal-digit | "_")*
 ```
 
-Leading underscores are not identifiers. Baton does not assign implementation names through a source spelling convention; compiler-generated names remain outside the source namespace.
+Leading underscores are not identifiers. Basiq does not assign implementation names through a source spelling convention; compiler-generated names remain outside the source namespace.
 
 Identifiers are case-sensitive and preserve their source spelling. `Player`, `player`, and `PLAYER` are three distinct identifiers. No locale participates in comparison.
 
@@ -85,7 +85,7 @@ The complete preserved spelling is an identifier's identity. An implementation m
 
 After scanning the longest identifier, the tokenizer compares its exact spelling with a fixed reserved-word table. A reserved word is recognized only in the canonical lowercase spelling listed below. A longer name is never split at a keyword boundary: `elseifReady` is one `NAME`, not `elseif` followed by `NAME`.
 
-The Baton 1.0 reserved words are:
+The Basiq 1.0 reserved words are:
 
 ```text
 and      as       assert   boolean  case     const    continue
@@ -106,11 +106,11 @@ record may have a field named `id`.
 
 Chapter 14 defines the recoverable-error forms that use `fail`, `fails`, and `handle`. `on` and `error` are ordinary identifiers.
 
-Baton uses name-led routine invocation and has no `call` keyword. `call` remains an identifier.
+Basiq uses name-led routine invocation and has no `call` keyword. `call` remains an identifier.
 
 ## 3.6 Numeric literals
 
-Baton admits unsigned decimal, hexadecimal, and binary integer literals, and
+Basiq admits unsigned decimal, hexadecimal, and binary integer literals, and
 decimal floating-point literals:
 
 ```text
@@ -165,7 +165,7 @@ A character literal must decode to exactly one byte. `''` and `'ab'` are errors.
 
 The token records decoded bytes. Later chapters determine which character or bounded-string contexts accept those bytes. The tokenizer does not infer a string capacity or type from a literal.
 
-Baton 1.0 has no interpolated, raw, or multiline literal family. It has no Unicode escape or encoding conversion. Adjacent string literals remain separate tokens; the tokenizer does not concatenate them.
+Basiq 1.0 has no interpolated, raw, or multiline literal family. It has no Unicode escape or encoding conversion. Adjacent string literals remain separate tokens; the tokenizer does not concatenate them.
 
 An implementation may impose a maximum decoded literal length. It must publish the limit and diagnose an excess before discarding, wrapping, or truncating any byte.
 
@@ -191,7 +191,7 @@ Chapter 9 defines which expression operators are admitted, their operand types, 
 
 At each punctuation start, the tokenizer uses deterministic longest match. It recognizes `//` before `/`, and `<>`, `<=`, and `>=` before their one-character prefixes. No other two-character punctuation token is formed. `!=` and `==` are not comparison spellings.
 
-Braces, colon, semicolon, hash, at sign, and backtick have no token in this draft. A source byte that begins no name, number, literal, comment, whitespace, line ending, or listed punctuation token is a lexical error. Baton 1.0 has no lexical preprocessor directive or macro form.
+Braces, colon, semicolon, hash, at sign, and backtick have no token in this draft. A source byte that begins no name, number, literal, comment, whitespace, line ending, or listed punctuation token is a lexical error. Basiq 1.0 has no lexical preprocessor directive or macro form.
 
 ## 3.9 Token contract
 
@@ -307,4 +307,4 @@ The two physical line endings inside delimiters do not appear in the token seque
 
 ## 3.12 Reserved-word and literal decisions
 
-Chapter 10 admits `assert` (D37). Chapter 9 admits `mod`, `not`, `and`, `or`, `xor`, `shl` and `shr`, and `move`. Chapter 11 admits `select`, `case`, `some` and `none`. Chapter 4 admits `include` and Chapter 5 `private` (D33). Chapter 7 admits `pool` and `new`. Chapter 6 admits the type names `i8`, `i16`, `u32`, `i32` and `f32`. Chapter 14 admits `fail`, `fails`, and `handle`. `id` is contextual (D29). Chapter 11 omits a conditional header marker, so `then` remains an identifier. Baton integer literals use decimal digits, `$` hexadecimal, or `%` binary, and floating-point literals use decimal digits with a decimal point or an exponent (D31). A later revision that needs another token requires an amendment here and cost accounting for the added scanner, table, test, and diagnostic work.
+Chapter 10 admits `assert` (D37). Chapter 9 admits `mod`, `not`, `and`, `or`, `xor`, `shl` and `shr`, and `move`. Chapter 11 admits `select`, `case`, `some` and `none`. Chapter 4 admits `include` and Chapter 5 `private` (D33). Chapter 7 admits `pool` and `new`. Chapter 6 admits the type names `i8`, `i16`, `u32`, `i32` and `f32`. Chapter 14 admits `fail`, `fails`, and `handle`. `id` is contextual (D29). Chapter 11 omits a conditional header marker, so `then` remains an identifier. Basiq integer literals use decimal digits, `$` hexadecimal, or `%` binary, and floating-point literals use decimal digits with a decimal point or an exponent (D31). A later revision that needs another token requires an amendment here and cost accounting for the added scanner, table, test, and diagnostic work.

@@ -2,7 +2,7 @@
 // spec: 14.6
 // expect output: 48 7\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 const notReady = 48
 

@@ -44,7 +44,7 @@ Chapters 11 through 14 define the referenced productions and semantic restrictio
 
 A simple statement consumes one logical `NEWLINE`. An immediate handler consumes the newline after its call site and the newline after its closing `end`. Other compound statements consume the `NEWLINE` after their own closing `end`. Blank and comment-only physical lines produce no token under Chapter 3 and therefore do not create empty statements. A statement sequence may contain no statements; this permits an empty conditional clause, `select` arm, loop body, or handler body without a placeholder operation.
 
-Baton has no semicolon, colon separator, multiple statements on one logical line, one-line compound statement, or empty-statement token.
+Basiq has no semicolon, colon separator, multiple statements on one logical line, one-line compound statement, or empty-statement token.
 
 ## 10.3 Name-led dispatch
 
@@ -60,7 +60,7 @@ When a statement begins with `NAME`, the compiler resolves that name before sele
 
 This dispatch uses the declaration class already established by Chapters 5 and 8. It requires no token backtracking. A routine name followed by `=` is invalid, and a variable followed by an argument list is invalid; the compiler does not reinterpret either name as another declaration class.
 
-Baton has no `call` keyword. An already declared routine name followed by its parenthesized argument list is the canonical invocation statement.
+Basiq has no `call` keyword. An already declared routine name followed by its parenthesized argument list is the canonical invocation statement.
 
 ## 10.4 Assignment
 

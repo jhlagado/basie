@@ -37,7 +37,7 @@ Deno.test("the conformance corpus has no failures", async () => {
   const root = new URL("./conformance/", import.meta.url).pathname;
   const failures: string[] = [];
   let passed = 0;
-  for await (const entry of walk(root, { exts: [".btn"] })) {
+  for await (const entry of walk(root, { exts: [".bsq"] })) {
     const outcome = await runTest(
       entry.path,
       await Deno.readTextFile(entry.path),

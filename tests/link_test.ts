@@ -292,7 +292,7 @@ Deno.test("a line table is written in address order", () => {
   const result = link(library(), p.dir, p.bytes, {
     lines: {
       stamp: 1,
-      parts: ["A:MAIN.BTN"],
+      parts: ["A:MAIN.BSQ"],
       blobs: [{
         ordinal: 0x400,
         entries: [{ offset: 0, part: 0, source: 10 }, {
@@ -304,7 +304,7 @@ Deno.test("a line table is written in address order", () => {
     },
   });
   const t = result.lineTable!;
-  assertEquals(new TextDecoder().decode(t.subarray(0, 4)), "BTLT");
+  assertEquals(new TextDecoder().decode(t.subarray(0, 4)), "BQLT");
 });
 
 Deno.test("the map lists live and removed blobs with totals", async () => {

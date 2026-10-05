@@ -26,7 +26,7 @@ can read are the pseudo-objects, and none carries options. Re-runnable is
 detectable (`DATACOPY` size ≠ 0) but keep-CCP is not. The linker has no way
 to tell startup which exit to use.
 
-**Scenario.** `BATON MAIN [B]`. The linker sets nothing the startup can read.
+**Scenario.** `BASIQ MAIN [B]`. The linker sets nothing the startup can read.
 Startup either always warm-boots (option ignored) or always keeps the CCP
 (the program's stack goes below `$DC00` on every build and the top 2K is lost
 to everyone).
@@ -206,7 +206,7 @@ Deduplication across routines (open question 4) is then a non-goal; say so.
 
 **Defect.** BDOS function 22 (Make) does not check for an existing name; the
 CP/M 2.2 manual says the caller must delete first or duplicates occur. The
-spec never says BATON erases `MAIN.$DR`, `$BY`, `$LN`, `$NM`, `$$$` before
+spec never says BASIQ erases `MAIN.$DR`, `$BY`, `$LN`, `$NM`, `$$$` before
 creating them. After a crash (or a `K` build) the next build creates second
 directory entries with the same names; open returns whichever entry comes
 first, so the linker may read the *old* spool.
@@ -413,9 +413,9 @@ published.
 - Mark stack (2 bytes × blobs, 1.6K–6K) is missing from the capacity table.
 - Toolchain §7.2 rows sum to 8.5K–10.5K, text says 9K–11K.
 - "58K TPA" is `$0100`–`$E400` (58,112 bytes, 56.75 KiB) on the 62K system,
-  which includes the CCP. `BATON.COM` can only be *loaded* below `$DC00`
+  which includes the CCP. `BASIQ.COM` can only be *loaded* below `$DC00`
   (cpm-target §4: 56,064 bytes) and may use the CCP's 2K only as workspace,
-  which obliges BATON to exit by warm boot. Say so in toolchain §7.
+  which obliges BASIQ to exit by warm boot. Say so in toolchain §7.
 - Object table from `$0000`: entries `$0000`–`$011F` (288 × 8 = 2,304 bytes)
   are almost all empty. Index library ordinals from 0 and program ordinals
   from `$0120 − 0x100` (store the base per owner) to recover 2K, or accept
@@ -425,7 +425,7 @@ published.
 
 **Where:** object-format §3.2.
 
-Baton's runtime has `u32`/`i32` (mul, div, mod, shifts, compares, conversions),
+Basiq's runtime has `u32`/`i32` (mul, div, mod, shifts, compares, conversions),
 `f32` (add, sub, mul, div, sqrt, compares, four conversions, rounding),
 strings, aggregates, CP/M services, ~8 trap reporters plus aliases. 120–200
 ordinals is plausible; 255 is reachable within two runtime versions and the
@@ -448,7 +448,7 @@ matters). And M2 for helpers.
 
 **Where:** toolchain §5.1–§5.3.
 
-Unstated: that BATON parses the raw tail at `$0080` and ignores the default
+Unstated: that BASIQ parses the raw tail at `$0080` and ignores the default
 FCBs (the CCP's FCB parse treats `,` and `[` unpredictably and only yields
 two names); whether `[` `]` are required; separators (`,` only? spaces?);
 drive letters in `O=`; user numbers; repeated options; unknown options;
@@ -462,7 +462,7 @@ open failure, or a search order?). Write a grammar.
 table"), §10; toolchain §4 ("reads the library's header and profile block ...
 use the profile's values").
 
-Say: the helper table is a generated source include compiled into BATON,
+Say: the helper table is a generated source include compiled into BASIQ,
 keyed by runtime identity; the compiler's header value "helper-table version
 needed" is that table's version (conservative but constant, which resolves
 half of B6); the compiler uses from the profile only the free-restart-vector

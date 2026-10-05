@@ -1,4 +1,4 @@
-# Baton services, version 1
+# Basiq services, version 1
 
 - Status: draft, revision 2 (after review)
 - Date: 2026-10-04
@@ -12,11 +12,11 @@
 ## 1. What a service is
 
 A **service** is a predeclared routine provided by the runtime library of the
-target profile. It is how a Baton program reaches the console, files, the
+target profile. It is how a Basiq program reaches the console, files, the
 command line and the machine. The language itself has no operating-system
 calls, port instructions or addresses ([I/O and effects](io-and-effects.md)).
 
-- **Signatures** are ordinary Baton signatures, compiled into the compiler from
+- **Signatures** are ordinary Basiq signatures, compiled into the compiler from
   the runtime's helper table, so services are called like any routine, and a
   call to a service the profile lacks is a compile-time error.
 - **Failure** uses Nucleus's mechanism: a service that can fail is marked
@@ -31,7 +31,7 @@ calls, port instructions or addresses ([I/O and effects](io-and-effects.md)).
   transfer.
 - **Library above services.** Formatting, parsing, string building, splitting
   the command line into words, pseudo-random numbers and the external-effects
-  frame encoding are Baton library routines (D36, Section 8).
+  frame encoding are Basiq library routines (D36, Section 8).
 
 The target is CP/M 2.2 (D10). Where CP/M 3 offers more, the service says so;
 everything works on 2.2.
@@ -321,7 +321,7 @@ deep failure; the code is visible as a return code only on CP/M 3.
 
 ## 8. Library routines over the services
 
-Written in Baton (D36): number formatting and parsing, string building, `word`
+Written in Basiq (D36): number formatting and parsing, string building, `word`
 for command-line words, `prompt`, a line read without echo (over `readKey`),
 `readAll(f, var buf)` to read a whole file, a `truncate` that copies a file's
 prefix (CP/M 2.2 has no truncation), pseudo-random numbers, and the
@@ -361,25 +361,25 @@ also Nucleus's. Every service shares one code space:
 
 ## 10. Alignment with the shared contracts
 
-Baton's services are its language adapter over the shared contracts, as Skate's
+Basiq's services are its language adapter over the shared contracts, as Skate's
 ports and Nucleus's procedures are.
 
-| Baton | Contract | Notes |
+| Basiq | Contract | Notes |
 | --- | --- | --- |
-| `readByte(console)`, `writeByte(console)` | `byteGateway/0` input and output roles | Echo, Control-Z and raw bytes are Baton policy, as the contract intends |
-| `readLine(console)` | — | Baton policy above the gateway |
-| `openRead`, `openWrite` + `close`, `abort`, `read`, `write`, `seek` | z80-tool-services ABI v1 `openRead`, `beginWrite` + `commit`, `abort`, `read`, `write`, `seek` | Baton adopts their semantics now: a failed open allocates nothing, a failed write leaves the position unchanged and poisons an update, `close` always releases, seeking to the end is allowed |
-| Failure codes 5–18 | tool-services `notFound` (5), `capacity` (8, 10, 11), `access` (12), `conflict` (6, 16), `invalid` (7, 18) | Baton's codes are finer; the mapping is fixed here so the runtime's table is built once |
+| `readByte(console)`, `writeByte(console)` | `byteGateway/0` input and output roles | Echo, Control-Z and raw bytes are Basiq policy, as the contract intends |
+| `readLine(console)` | — | Basiq policy above the gateway |
+| `openRead`, `openWrite` + `close`, `abort`, `read`, `write`, `seek` | z80-tool-services ABI v1 `openRead`, `beginWrite` + `commit`, `abort`, `read`, `write`, `seek` | Basiq adopts their semantics now: a failed open allocates nothing, a failed write leaves the position unchanged and poisons an update, `close` always releases, seeking to the end is allowed |
+| Failure codes 5–18 | tool-services `notFound` (5), `capacity` (8, 10, 11), `access` (12), `conflict` (6, 16), `invalid` (7, 18) | Basiq's codes are finer; the mapping is fixed here so the runtime's table is built once |
 
 **Gaps in the shared contracts.** These are recorded here to be proposed to
-z80-services, and Baton doesn't wait for them: raw keys and key status, the
+z80-services, and Basiq doesn't wait for them: raw keys and key status, the
 printer, a named-file profile with update and append, directory operations, and
 a clock.
 
 **The gateway's storage roles.** The CP/M provider implements `byteGateway/0`'s
 storage roles over two files chosen by the test harness, so that the
 z80-services conformance vectors test the provider. They are not reachable from
-Baton source.
+Basiq source.
 
 ## 11. Cost
 

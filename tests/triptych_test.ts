@@ -20,7 +20,7 @@ Deno.test({
     });
     const cpm = await boot(disk);
     try {
-      assertEquals(cpm.command("HELLO"), "HELLO FROM BATON\r\n");
+      assertEquals(cpm.command("HELLO"), "HELLO FROM BASIQ\r\n");
       cpm.command("COPYFILE IN.TXT OUT.TXT");
       const copied = readFile(cpm.disk(), "OUT.TXT");
       assertEquals(

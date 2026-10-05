@@ -2,7 +2,7 @@
 // spec: 7
 // expect output: 1 3 5 7\r\n1 5 7\r\n
 
-include "FORMAT.BTN"
+include "FORMAT.BSQ"
 
 forward pool nodes
 

@@ -5,7 +5,7 @@
 
 A **recoverable error** is an expected unsuccessful result that source code may propagate or handle. A **trap** is a non-recoverable safety failure defined by Chapter 15. Error handling does not intercept, convert, or resume after a trap.
 
-Baton represents a recoverable error with a `u8` code carried beside a routine's ordinary success result. The code has no separate error-set type. Programs give codes names with constants (design decision D26). The code space is shared by every routine and divided as follows ([services](../docs/services.md), Section 9):
+Basiq represents a recoverable error with a `u8` code carried beside a routine's ordinary success result. The code has no separate error-set type. Programs give codes names with constants (design decision D26). The code space is shared by every routine and divided as follows ([services](../docs/services.md), Section 9):
 
 | Codes | Use |
 | --- | --- |
@@ -63,7 +63,7 @@ end
 
 ## 14.4 Required consumption
 
-Every call of a failable routine must consume failure at that call site. Baton provides exactly two forms:
+Every call of a failable routine must consume failure at that call site. Basiq provides exactly two forms:
 
 1. `else fail` propagates the code from the current failable routine.
 2. Immediate `handle NAME ... end` handles the code locally.
@@ -93,7 +93,7 @@ sub loadByte() as u8 fails
 end
 ```
 
-Propagation is explicit at every intermediate call. Baton has no implicit propagation, error-set inclusion, code remapping, handler stack, or unwinding.
+Propagation is explicit at every intermediate call. Basiq has no implicit propagation, error-set inclusion, code remapping, handler stack, or unwinding.
 
 ## 14.6 Local handling
 
@@ -141,7 +141,7 @@ The fixed `main` routine may declare `fails`. A failure returned from `main` has
 
 The source semantics require a success/failure discriminant and a `u8` code for each failable result. The Z80 runtime and backend contract defines their required target behavior while leaving the carrier choice private. Carry plus a byte register is one possible calling convention, not source semantics.
 
-Failure propagation is an ordinary conditional return. Local handling is an ordinary conditional branch. Baton has no exception object, stack walk, cleanup action, hidden handler registration, or resumable failure state. The all-caller-save-compatible call semantics in Chapter 13 apply to both outcomes.
+Failure propagation is an ordinary conditional return. Local handling is an ordinary conditional branch. Basiq has no exception object, stack walk, cleanup action, hidden handler registration, or resumable failure state. The all-caller-save-compatible call semantics in Chapter 13 apply to both outcomes.
 
 ## 14.9 Invalid forms and capacities
 
