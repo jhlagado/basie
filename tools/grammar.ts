@@ -98,13 +98,19 @@ export function parseGrammar(text: string): Grammar {
 /** A plain BNF form: synthetic rules stand for groups, options, repeats. */
 type Bnf = Map<string, string[][]>; // symbols: terminals are quoted
 
-function toBnf(g: Grammar): { bnf: Bnf; owner: Map<string, string> } {
+function toBnf(
+  g: Grammar,
+  contextual: Set<string>,
+): { bnf: Bnf; owner: Map<string, string> } {
   const bnf: Bnf = new Map();
   const owner = new Map<string, string>(); // synthetic rule -> named rule
   let n = 0;
   const lower = (rule: string, items: Item[]): string[] =>
     items.map((it) => {
-      if (it.kind === "t") return `"${it.text}"`;
+      // A contextual word is a NAME to the lexer (Chapter 3).
+      if (it.kind === "t") {
+        return contextual.has(it.text) ? '"NAME"' : `"${it.text}"`;
+      }
       if (it.kind === "n") return it.name;
       const name = `${rule}#${++n}`;
       owner.set(name, rule);
@@ -133,8 +139,12 @@ export type Report = {
   terminals: Set<string>;
 };
 
-export function checkGrammar(g: Grammar, start: string): Report {
-  const { bnf, owner } = toBnf(g);
+export function checkGrammar(
+  g: Grammar,
+  start: string,
+  contextual: string[] = [],
+): Report {
+  const { bnf, owner } = toBnf(g, new Set(contextual));
   const used = new Set<string>();
   for (const alts of bnf.values()) {
     for (const a of alts) for (const s of a) if (!isTerminal(s)) used.add(s);
@@ -271,12 +281,17 @@ export function checkGrammar(g: Grammar, start: string): Report {
       conflicts.add(`${owner.get(r)}: ${[...clash].sort().join(" ")}`);
     }
   }
+  // The grammar's own words, contextual ones included.
   const terminals = new Set<string>();
-  for (const alts of bnf.values()) {
+  const collect = (alts: Item[][]) => {
     for (const a of alts) {
-      for (const s of a) if (isTerminal(s)) terminals.add(s.slice(1, -1));
+      for (const it of a) {
+        if (it.kind === "t") terminals.add(it.text);
+        else if (it.kind !== "n") collect(it.alts);
+      }
     }
-  }
+  };
+  for (const alts of g.values()) collect(alts);
   return {
     undefined: undefinedNames,
     unreachable,

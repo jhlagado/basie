@@ -241,6 +241,8 @@ Read as plain LL(1), the grammar has the conflicts below and no others. Each is 
 | `local-initializer` | `(` | The same predicate. |
 | `case-selector` | `none` | `case none` is always the handle arm. An integer label can't be `none`, so nothing is lost. |
 | `select-statement` | `move` | `select move` is always the moving form (Section 11.7.3). The form `select (move x)` is not needed: a moved value has no storage to select. |
+| `primary` | `NAME` | `isContextualId`: `id` lexes as a `NAME`; followed by `(` it begins `id(...)`, and otherwise it is an ordinary name. |
+| `type-atom` | `NAME` | `isContextualId`: in a type, `id` followed by a pool name begins an identifier type; any other `NAME` is a type name. |
 | `primary` | `.` `[` | After `move NAME`, every following `.` and `[` extends the moved path. A moved handle can't be indexed or selected through, so no other reading is valid. |
 
-A mechanical check of this grammar for left recursion, unreachable or unproductive nonterminals and conflicts not in this table is part of the conformance tooling (`tools/grammar.ts`, run by `tests/grammar_test.ts`). It reads the grammar from Section 17.2 and the table above, and also checks that the grammar's keywords and punctuation are those of Chapter 3 and of the reference lexer. It checks the grammar's shape, not the static rules collected in Chapter 18.
+A mechanical check of this grammar for left recursion, unreachable or unproductive nonterminals and conflicts not in this table is part of the conformance tooling (`tools/grammar.ts`, run by `tests/grammar_test.ts`). It reads the grammar from Section 17.2 and the table above, treating the contextual words of Chapter 3 as `NAME` as the lexer does, and also checks that the grammar's keywords and punctuation are those of Chapter 3 and of the reference lexer. It checks the grammar's shape, not the static rules collected in Chapter 18.

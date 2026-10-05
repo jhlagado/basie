@@ -12,7 +12,11 @@ const chapter17 = await Deno.readTextFile("spec/17-complete-grammar.md");
 const chapter3 = await Deno.readTextFile(
   "spec/03-source-text-and-lexical-rules.md",
 );
-const report = checkGrammar(await grammarFromSpec(), "compilation");
+const report = checkGrammar(
+  await grammarFromSpec(),
+  "compilation",
+  chapter3Words(chapter3).contextual,
+);
 
 Deno.test("the grammar is complete, reachable, productive and not left-recursive", () => {
   assertEquals(report.undefined, []);
