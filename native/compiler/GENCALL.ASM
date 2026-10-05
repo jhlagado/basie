@@ -443,7 +443,7 @@ RG_JOIN:
 
 RG_ONERR:
     LD   A,(RG_MODE)               ; Read the call's handling mode.
-    OR   A                         ; RO_MSAFE: no handling was attached.
+    OR   A                         ; Mode zero: no handling was attached.
     JP   Z,GX_BADOP                ; The parser forbids that.
     CP   RO_MTRAP                  ; Is there a handler?
     JR   Z,RG_THROW                ; Jump to it.

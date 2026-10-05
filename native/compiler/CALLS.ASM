@@ -924,7 +924,7 @@ RO_PAD:
     LD   HL,(TR_PTR)               ; The handling bytes start here.
     LD   (RO_MODEP),HL             ; The actions patch them through this.
     LD   C,3                       ; Three bytes.
-    XOR  A                         ; RO_MSAFE until the statement says more.
+    XOR  A                         ; Mode zero (no handling) until the statement says more.
 .LOOP:                         ; Write one byte.
     CALL TR_PUT                    ; Write zero; A is kept.
     DEC  C                         ; One fewer.

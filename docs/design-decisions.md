@@ -948,6 +948,8 @@ The sources follow the conventions of ATOM's and Skate's own sources:
   principal entries and its data layout. Each routine has a contract line
   (`;@ROUTINE IN … OUT … CLOBBERS …`) and a sentence on what it does. Every
   instruction carries a line comment that says why, not what.
+- **Files** stay under 64K of source, ATOM's limit for one file; a module that
+  outgrows it is split at routine boundaries into consecutive files.
 - **File names** are 8.3 and upper case, so that the native toolchain could in
   principle be assembled on CP/M by ATOM itself. This is a goal, not yet a
   gate: it matters once ATOM's CP/M transient can hold a source tree this size.

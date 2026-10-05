@@ -160,3 +160,38 @@ That exceeds the 26K target, so these levers are planned from the start:
 
 The census figure is recorded in every commit that touches the compiler. A
 commit that crosses the 28K limit is not made: compression comes first (D43).
+
+## 5. Findings from the commentary pass
+
+The commentary pass of step 65.0 read every line. It changed no code. These
+are what it found, to be dealt with by the step named.
+
+**Suspected faults, inherited from Nucleus's shipping configuration:**
+
+| Where | Fault | When |
+| --- | --- | --- |
+| `EXOPER.ASM`, `EX_ORS` | `xor` keeps its left operand with `EX_SAVE`, not `EX_HOLD`, so a pending failable call is not checked: `f() xor g()`, with only `f` failable, loses `f`'s failure | step 67, with a conformance program |
+| `CALLS.ASM`, `RO_SEL` | A `CP AG_FIRST` has no branch after it (Nucleus's type-error jump sat in a conditional this configuration removes), so `r.a.x` with `r.a` a `u8` looks up a field in a non-record type | step 67 |
+| `CALLS.ASM`, `RO_ERNG` | A constant index's range error sets only the offset, so it is reported at the closing bracket's line and column | step 67 |
+| `GENCTRL.ASM`, `GC_PEND` | The label range check `AND $1F` / `CP 32` cannot fail; labels stay below 32 today | 65.4, when labels become per routine |
+| `LL1.ASM`, `CALLWORK.ASM` | `DG_LLCAP` and `DG_LEAK` share the number 87 | step 66, with the message file |
+| `SHELL.ASM` | The room check refuses a part ending within 128 bytes of the limit; a read error ends a part silently; a trailing comma and a blank type are accepted; a part's drive is not printed in diagnostics | next shell increment |
+
+**Dead code and data** (bytes for the compression passes): the forward-signature
+test (`PR_FORD` is only cleared, so `EX_ISFWD` never matches); unreachable
+labels in `EXTERM.ASM` and `EXOPER.ASM`; handlers for transcript operations no
+parser path writes, among them `RG_FATAL`; the banked paths that survive in
+`GENAGGR.ASM` and `GENCALL.ASM`; fields written and never read (`EX_CPOS`,
+`CT_RKIND`, `CT_RTYPE`, `AG_MODE`, `SY_GSLOT`); a 34-byte block of `STATE.ASM`
+that only hosts two target tables; and a score of redundant instructions
+(`LD B,A` after `LD A,B`, `CALL` then `RET`, jumps to the next line). Most go
+with the placed output at 65.4; the rest are the first compression pass.
+
+**Names to revisit,** each a byte-identical rename: tails of routines that are
+global only because their code spans several labels (`TK_TRAIL`, `RO_SEL`,
+`RG_FORK` and others), which become private when their routines are made one
+scope; names in the wrong area (`EM_LDDE` in `GENCTRL.ASM`, `EX_EFLOW` used by
+the actions, `TG_` routines in `ROUTINES.ASM`); vague or figurative words
+(`EX_PEAK`, `EX_PURE`, `EX_MUTE`, `AG_FITRW`); look-alike pairs (`AC_LIVE` and
+`AC_LIVEN`, `GC_TEST` and `GX_TEST`); and fields reused for several meanings
+(`RO_ACNT`, `RO_DEST`).
