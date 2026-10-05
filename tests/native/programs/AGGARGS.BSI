@@ -1,0 +1,38 @@
+// Aggregate parameters by reference: an array, a string and a record are
+// passed as addresses, from program variables, a constant, a parameter
+// passed on and a call's result; aggregate results are returned from
+// program storage (65.4 e).
+record pair
+    a as u8
+    b as u16
+end
+
+var cells as u8[4]
+var name as string[8] = "basie"
+var where as pair
+const table as u8[4] = [1, 2, 3, 4]
+var count as u16
+
+sub use(x as u8[4], s as string[8], p as pair) as u16
+    count = count + 1
+    return count
+end
+
+sub cellsOf() as u8[4]
+    return cells
+end
+
+sub tableOf() as u8[4]
+    return table
+end
+
+sub again(x as u8[4]) as u8[4]
+    count = use(x, name, where)
+    return cellsOf()
+end
+
+sub main()
+    var n as u16 = use(cells, name, where)
+    n = use(table, name, where) + use(again(tableOf()), name, where)
+    count = use(cellsOf(), name, where)
+end

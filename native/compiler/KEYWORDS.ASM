@@ -12,8 +12,8 @@
 ;    KW_PUNCT  single-character punctuators, searched by TK_NEXT
 ;    KW_MAIN   the spelling `main`, compared by EX_MAIN
 ;    KW_LEN    the spelling `length`, compared by the field parser
+;    KW_ID     the spelling `id`, which no routine may take (AC_SIG)
 ;    KW_NAMES  predefined services and error constants, searched by RO_LIB
-;    KW_SIGS   the service signatures, indexed by RO_SERVE
 ;
 ;  KW_TAB and KW_NAMES are length-prefixed spellings: a length byte, the
 ;  bytes of the word and, in KW_TAB only, the token kind. Matching is exact
@@ -88,38 +88,26 @@ KW_PCNT EQU  9                 ; Entries in KW_PUNCT.
 
 KW_MAIN: DB   "main"           ; The program's entry routine, four bytes.
 KW_LEN: DB   "length"          ; The string length field, six bytes.
+KW_ID: DB   "id"               ; The conversion no routine may be named.
 
 ; Predefined services and error constants are ordinary NAME tokens to the
 ; tokenizer. RO_LIB searches this table so the parser can dispatch them
 ; without installing source-visible symbols. The ordinal of an entry is
-; its position: services 0..5 in RO_READ..RO_SEEK order, which also
-; indexes KW_SIGS, then error constants from RO_ERRS, whose values are
-; 1..4 in table order.
+; its position: services 0..5, refused for now (65.4 i), then error
+; constants from RO_ERRS, whose values are 1..4 in table order.
 
 KW_NAMES:
-    DB   13,"readInputByte"        ; Service 0, RO_READ.
-    DB   15,"writeOutputByte"      ; Service 1, RO_WRITE.
-    DB   15,"readStorageByte"      ; Service 2, RO_FETCH.
-    DB   18,"rewindStorageInput"   ; Service 3, RO_RESET.
-    DB   16,"writeStorageByte"     ; Service 4, RO_STORE.
-    DB   17,"seekStorageOutput"    ; Service 5, RO_SEEK.
+    DB   13,"readInputByte"        ; Service 0.
+    DB   15,"writeOutputByte"      ; Service 1.
+    DB   15,"readStorageByte"      ; Service 2.
+    DB   18,"rewindStorageInput"   ; Service 3.
+    DB   16,"writeStorageByte"     ; Service 4.
+    DB   17,"seekStorageOutput"    ; Service 5.
     DB   10,"endOfInput"           ; Error constant 1.
     DB   12,"inputFailure"         ; Error constant 2.
     DB   13,"outputFailure"        ; Error constant 3.
     DB   14,"storageFailure"       ; Error constant 4.
 KW_NCNT EQU  10                ; Entries in KW_NAMES.
-
-; Service selectors, one per service in KW_NAMES order: the service ID in
-; bits 0..2, the argument type in bits 3..4 (zero for none), a successful
-; u8 result in bit 5 and the file-I/O service kind in bit 7.
-
-KW_SIGS:
-    DB   RO_FIO+RO_RES8+RO_READ    ; readInputByte() returns u8.
-    DB   RO_FIO+(SY_U8*8)+RO_WRITE ; writeOutputByte(u8).
-    DB   RO_FIO+RO_RES8+RO_FETCH   ; readStorageByte() returns u8.
-    DB   RO_FIO+RO_RESET           ; rewindStorageInput().
-    DB   RO_FIO+(SY_U8*8)+RO_STORE ; writeStorageByte(u8).
-    DB   RO_FIO+(SY_U16*8)+RO_SEEK ; seekStorageOutput(u16).
 
 MM_IEND:                       ; End of compiler immutable data (marker).
 MM_REND:                       ; End of the compiler core (marker).

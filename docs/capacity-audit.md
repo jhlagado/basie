@@ -238,8 +238,11 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 - **Minimum:** 32 parameters per routine and 32 arguments per call
   ([limits](limits.md) §5.1).
-- **Maximum:** ref: memory. Native: TBD. Nucleus: `Stage7ParameterCapacity` =
-  16 (a program-wide parameter table), `Stage7CallFrameCapacity` = 4.
+- **Maximum:** ref: memory. Native: TBD; at 65.4 (e) 64 parameters in the
+  whole program (`RO_PCAP`) with at most 255 bytes of arguments per routine,
+  and calls nested eight deep in arguments. Nucleus:
+  `Stage7ParameterCapacity` = 16 (a program-wide parameter table),
+  `Stage7CallFrameCapacity` = 4.
 - **Also bounded:** per-parameter metadata (`var`, owning, lease and owner-word
   flags, `from` membership) and result metadata. Encoding widths are TBD.
 - **ABI:** the calling convention is not yet fixed (roadmap steps 37 and 56), so any
@@ -472,7 +475,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.25 Routines
 
 - **Compiler:** part of the 1,000 top-level names. Nucleus:
-  `Stage7RoutineCapacity` = 4.
+  `Stage7RoutineCapacity` = 4; native at 65.4 (e), 32 routines besides
+  main (`RO_RCAP`).
 - **Format:** program ordinals, 64,480 (§3.27).
 - **Linker:** 2,000 program blobs minimum ([limits](limits.md) §5.2).
 - **Status:** compiler maximum TBD.
@@ -565,9 +569,9 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 | Nucleus constant | Value | Basie replacement |
 | --- | ---: | --- |
 | `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals. At 65.4 (d), 96 records (`SY_CAP`, seven bytes each) shared by the program's names and the current routine's parameters and locals, the aggregate type held in the record; a hashed, scoped table replaces it at step 67 |
-| `Stage7RoutineCapacity` | 4 | §3.25 |
-| `Stage7ParameterCapacity` | 16 (program-wide) | §3.3: at least 32 per routine |
-| `Stage7CallFrameCapacity` | 4 | §3.21: call nesting |
+| `Stage7RoutineCapacity` | 4 | §3.25. At 65.4 (e), 32 records of twelve bytes (`RO_RCAP`) holding each routine's ordinal, need and argument bytes |
+| `Stage7ParameterCapacity` | 16 (program-wide) | §3.3: at least 32 per routine. At 65.4 (e), 64 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine |
+| `Stage7CallFrameCapacity` | 4 | §3.21: call nesting. At 65.4 (e) a call being parsed keeps its state on the machine stack; calls nest eight deep in arguments (`RO_NCAP`) |
 | `AggregateRecordCapacity` | 5 | §3.7, §3.26 |
 | `AggregateFieldCapacity` | 12 (in total) | §3.12: at least 64 per record |
 | `AggregateTypeCapacity` | 8 | §3.7 |

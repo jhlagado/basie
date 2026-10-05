@@ -37,6 +37,7 @@
 ;    EM_SEQ    append the inline counted byte sequence after the CALL
 ;    EM_REF    append an ABS16 reference to blob HL with addend DE
 ;    EM_HELP   append CALL helper, the inline ordinal and stack figure
+;    EM_JPH    append JP helper likewise
 ;    EM_PUSH   count A bytes pushed; EM_POP counts them popped (EM_POP2: two)
 ;    EM_LNEW   allocate a label
 ;    EM_LREF   append the operand naming a label
@@ -126,12 +127,22 @@ EM_REF:                        ; HL is the target, DE the addend.
     JP   BL_REF                    ; Append it and return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append JP helper, as EM_HELP appends its CALL: the routine exit through
+; RETN.
+
+EM_JPH:                        ; The ordinal and figure follow the CALL.
+    LD   C,$C3                     ; JP nn.
+    JR   EM_HCALL                  ; As a CALL is appended.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append CALL helper, where the CALL is followed by two inline bytes: the
 ; helper's ordinal (below $100) and its stack figure, the bytes a returning
 ; call uses (helper table). The figure raises EM_STACK, as the reference's
 ; callHelper does, even in discarded code.
 
 EM_HELP:                       ; The ordinal and figure follow the CALL.
+    LD   C,$CD                     ; CALL nn.
+EM_HCALL:                      ; C is the opcode.
     POP  HL                        ; HL addresses them.
     LD   E,(HL)                    ; E is the ordinal.
     INC  HL                        ; Then
@@ -143,8 +154,8 @@ EM_HELP:                       ; The ordinal and figure follow the CALL.
     JR   C,.SMALLER                ; No: keep the old one.
     LD   (HL),A                    ; Yes: it is the largest.
 .SMALLER:                      ; EM_STACK is up to date.
-    CALL EM_OP                     ; CALL nn.
-    DB   $CD                       ; Append the opcode.
+    LD   A,C                       ; The opcode,
+    CALL EM_BYTE                   ; appended.
     LD   L,E                       ; HL is the helper's ordinal
     LD   H,0                       ; as a word.
     LD   D,H                       ; With no addend:

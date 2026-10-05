@@ -17,6 +17,15 @@ const { compile } = await import("../ref/compile/index.ts");
 const basie = (await buildBasie()).com;
 const DIR = "tests/native/programs";
 
+/** Programs of the conformance suite inside the subset, by their 8.3 names. */
+const CONFORMANCE: Record<string, string> = {
+  NARROW: "tests/conformance/types/narrowing-traps.bsi",
+  DIVZERO: "tests/conformance/expressions/division-by-zero-traps.bsi",
+};
+
+/** The source file of a claimed program. */
+const path = (name: string) => CONFORMANCE[name] ?? `${DIR}/${name}.BSI`;
+
 /** The claimed programs, by stage of 65.4. */
 const CLAIMED: Record<string, string[]> = {
   "a: empty routines": ["EMPTY", "FAILS", "SUBS"],
@@ -31,11 +40,20 @@ const CLAIMED: Record<string, string[]> = {
     "TRAP",
   ],
   "d: locals and frames": ["LOCALS", "FARFRAME"],
+  "e: calls, parameters and results": [
+    "CALLS",
+    "FORWARD",
+    "AGGARGS",
+    "WIDE",
+    "RECURSE",
+    "NARROW",
+    "DIVZERO",
+  ],
 };
 
 /** Compile NAME with BASIE.COM and the options; return the disk. */
 function native(name: string, options = "") {
-  const source = Deno.readFileSync(`${DIR}/${name}.BSI`);
+  const source = Deno.readFileSync(path(name));
   const run = runCom(basie, {
     tail: `${name}${options}`,
     files: { [`${name}.BSI`]: source },
@@ -47,7 +65,10 @@ function native(name: string, options = "") {
 
 /** The reference's four streams for NAME, compiled with shrinking off. */
 async function reference(name: string) {
-  const result = await compile(`${DIR}/${name}.BSI`, { shrink: false });
+  const result = await compile(`${name}.BSI`, {
+    shrink: false,
+    mainSource: Deno.readFileSync(path(name)),
+  });
   if (!result.ok) {
     throw new Error(
       `${name}: the reference refuses it: ${JSON.stringify(result)}`,
@@ -93,11 +114,11 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
   }
 }
 
-// Random assignments over the stage (c) subset, to program variables and
-// (stage d) to locals: each compiles to the reference's streams, or both
+// Random assignments over the stage (c) subset, to program variables,
+// (stage d) to locals and (stage e) to parameters: each compiles to the reference's streams, or both
 // compilers refuse it. The generator is deterministic, so a failure names a
 // statement that can be rerun.
-Deno.test("c, d: random expressions compile as the reference compiles them", async () => {
+Deno.test("c, d, e: random expressions compile as the reference compiles them", async () => {
   let seed = 654;
   const rnd = (n: number) => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
@@ -138,19 +159,27 @@ Deno.test("c, d: random expressions compile as the reference compiles them", asy
     "var y as u16 = 2\nvar f as boolean\nvar g as boolean = true\n";
   const consts =
     "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n";
+  const params = "a as u8, b as u8, x as u16, y as u16, f as boolean, " +
+    "g as boolean";
   const heads = [
-    `${names}${consts}sub main()\n`,
-    `${consts}sub main()\n${names}`,
+    [`${names}${consts}sub main()\n`, ""],
+    [`${consts}sub main()\n${names}`, ""],
+    [
+      `${consts}sub run(${params})\n`,
+      "sub main()\nrun(200, 9, 1000, 2, false, true)\nend\n",
+    ],
   ];
   for (let i = 0; i < 300; i++) {
-    const head = heads[i % heads.length];
+    const [head, tail] = heads[i % heads.length];
     const kind = rnd(3);
     const statement = kind === 0
       ? `${pick(["a", "b"])} = ${integer(4)}`
       : kind === 1
       ? `${pick(["x", "y"])} = ${integer(4)}`
       : `${pick(["f", "g"])} = ${boolean(4)}`;
-    const source = new TextEncoder().encode(`${head}${statement}\nend\n`);
+    const source = new TextEncoder().encode(
+      `${head}${statement}\nend\n${tail}`,
+    );
     const ref = await compile("RANDOM.BSI", {
       shrink: false,
       mainSource: source,
@@ -184,8 +213,10 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     "BASIE.MSG": messageFile(),
     "CPM22.BRL": (await buildRuntime()).file,
   };
-  // TRAP's arithmetic decides which of its two narrowings traps.
-  for (const name of ["EMPTY", "TRAP"]) {
+  // TRAP's arithmetic decides which of its two narrowings traps; RECURSE
+  // reaches its last statement's trap only when its results are right.
+  const run = ["EMPTY", "TRAP", "CALLS", "FORWARD", "RECURSE", "DIVZERO"];
+  for (const name of run) {
     const disk = native(name);
     const files = { ...library };
     for (const t of ["$DR", "$BY", "$LN"]) {
@@ -194,9 +225,55 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     const linked = runCom(blink, { tail: name, files, maxSteps: 100_000_000 });
     assertEquals(linked.output, "", name);
     const com = linked.disk.get(`${name}.COM`)!;
-    const ref = await compile(`${DIR}/${name}.BSI`, { shrink: false });
+    const ref = await compile(`${name}.BSI`, {
+      shrink: false,
+      mainSource: Deno.readFileSync(path(name)),
+    });
     if (!ref.ok) throw new Error(`${name}: the reference refuses it`);
     const expected = runCom(ref.com, { maxSteps: 1_000_000 }).output;
     assertEquals(runCom(com, { maxSteps: 1_000_000 }).output, expected, name);
+    if (name === "RECURSE") {
+      assertEquals(/^TRAP narrowing/.test(expected), true);
+    }
   }
 });
+
+// Programs both compilers refuse: the native compiler may refuse more than
+// the reference, never less.
+const REFUSED: Record<string, string> = {
+  "a routine calls itself without a forward":
+    "sub f(n as u8)\nf(n)\nend\nsub main()\nend\n",
+  "a routine without a result used as a value":
+    "var x as u8\nsub f()\nend\nsub main()\nx = f()\nend\n",
+  "a parameter's storage returned":
+    "sub f(p as u8[2]) as u8[2]\nreturn p\nend\nsub main()\nend\n",
+  "too few arguments": "sub f(a as u8, b as u8)\nend\nsub main()\nf(1)\nend\n",
+  "too many arguments": "sub f(a as u8)\nend\nsub main()\nf(1, 2)\nend\n",
+  "an argument of the wrong type":
+    "sub f(a as u8)\nend\nsub main()\nf(true)\nend\n",
+  "an aggregate argument of the wrong type":
+    "var s as u8[3]\nsub f(a as u8[2])\nend\nsub main()\nf(s)\nend\n",
+  "a forward never completed": "forward sub f()\nsub main()\nend\n",
+  "a routine named id": Deno.readTextFileSync(
+    "tests/conformance/scopes/no-routine-named-id.bsi",
+  ),
+  "a forward completed twice":
+    "forward sub f()\nsub f\nend\nsub f\nend\nsub main()\nend\n",
+};
+
+for (const [what, text] of Object.entries(REFUSED)) {
+  Deno.test(`both compilers refuse ${what}`, async () => {
+    const source = new TextEncoder().encode(text);
+    const ref = await compile("REFUSED.BSI", {
+      shrink: false,
+      mainSource: source,
+    });
+    assertEquals(ref.ok, false, "the reference accepts it");
+    const run = runCom(basie, {
+      tail: "REFUSED",
+      files: { "REFUSED.BSI": source },
+      maxSteps: 50_000_000,
+    });
+    assertEquals(/ Error \d+\r\n$/.test(run.output), true, run.output);
+  });
+}

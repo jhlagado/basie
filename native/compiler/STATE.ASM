@@ -17,14 +17,14 @@
 ;
 ;    Offset  Size  Block
 ;    +$000     27  source cursor, current token, diagnostic (PR_BASE)
-;    +$01B    152  emitter and routine generation: frame accounting, the
+;    +$01B    153  emitter and routine generation: frame accounting, the
 ;                  routine's labels, ordinals and the program's limits
-;    +$0B3      3  parser lookahead
-;    +$0B6    673  symbol table: count, 96 records of seven bytes
-;    +$357    240  expression state and the operand stack
-;    +$447     88  control frames
-;    +$49F   1177  aggregate types, records, fields, the initializer staging
-;    +$938         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$0B4      3  parser lookahead
+;    +$0B7    673  symbol table: count, 96 records of seven bytes
+;    +$358    240  expression state and the operand stack
+;    +$448     88  control frames
+;    +$4A0   1177  aggregate types, records, fields, the initializer staging
+;    +$939         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -91,7 +91,8 @@ RG_LARGE EQU  RG_NEED+2        ; Word: the largest frame of any routine.
 RG_PATCH EQU  RG_LARGE+2       ; Word: the offset of the prologue's frame operand.
 RG_NAME EQU  RG_PATCH+2        ; Word: the routine's name, for the name stream.
 RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
-EM_WEND EQU  RG_NLEN+1         ; End of the emitter's state.
+RG_FWD EQU  RG_NLEN+1          ; Byte: nonzero once a routine is declared forward.
+EM_WEND EQU  RG_FWD+1          ; End of the emitter's state.
 
 ; The predictive expression path keeps one token of lookahead. $FF denotes an
 ; empty lookahead cell; token ordinals occupy the low half of the byte range.
@@ -449,7 +450,6 @@ OP_FUNC EQU  74                ; GX_ENTER: begin the value routine; unused.
 OP_LDP8 EQU  75                ; GX_LDX8: push a u8 parameter.
 OP_LDP16 EQU  76               ; GX_LDX16: push a u16 parameter.
 OP_FCALL EQU  77               ; GX_CALL: call the value routine; unused.
-OP_RET EQU  78                 ; GX_RET: return a scalar.
 OP_STP8 EQU  79                ; GX_STX8: pop into a u8 parameter.
 OP_STP16 EQU  80               ; GX_STX16: pop into a u16 parameter.
 OP_ENDFN EQU  81               ; GX_CLOSE: end the value routine; unused.

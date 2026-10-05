@@ -16,19 +16,22 @@
 ;  A routine's blob is its prologue, its body, the success return when its
 ;  end is reachable, the exit sequence, then the frame and need words:
 ;
+;    LD HL,(pair) / CALL STK_CHK         a forward routine checks the stack
 ;    PUSH IX / LD IX,0 / ADD IX,SP      the frame pointer
 ;    LD HL,-frame / ADD HL,SP / LD SP,HL  the frame, patched at the end
 ;    ...                                 the body
 ;    OR A / JP exit                      falling off the end: success
 ;  exit:
-;    LD SP,IX / POP IX / RET             no arguments to remove
+;    LD SP,IX / POP IX / RET             no arguments to remove, or
+;    LD IY,n / JP RETN                   RETN removes n bytes of them
 ;    DW frame                            the deepest frame and pushes
 ;  pair:
 ;    DW need                             frame + 4 + helpers + callees
 ;
 ;  Labels 0 and 1 of every routine are its exit and its pair (RG_EXIT,
-;  RG_PAIR). A routine with parameters, a forward routine's checked
-;  prologue and RETN are refused with DG_NYI until calls are compiled.
+;  RG_PAIR). A routine declared forward may be reached by recursion, so it
+;  checks its need against the stack before it builds its frame, as the
+;  reference's compileBody does for a routine completing a forward.
 ;
 ;  Principal entries:
 ;    RG_ADD    take the next ordinal
@@ -55,16 +58,17 @@ RG_ADD:                        ; A blob is about to begin.
     LD   (RG_ORD),DE               ; Keep that.
     RET                            ; HL is this blob's ordinal.
 
-;@ROUTINE IN B,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Begin the blob of the routine whose name is the B characters at HL: take
-; its ordinal, mark its line (the line of its name, AC_DPOS), allocate its
-; exit and pair labels and write its prologue. Code may then be written.
+;@ROUTINE IN B,DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Begin the blob of the routine whose name is the B characters at HL and
+; whose ordinal is DE: mark its line (the line of its name, AC_DPOS),
+; allocate its exit and pair labels and write its prologue, checked when
+; the routine was declared forward (RO_CFLAG). Code may then be written.
 
-RG_OPEN:                       ; HL is the name, B its length.
+RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     LD   (RG_NAME),HL              ; Keep the name for the name stream.
     LD   A,B                       ; And its length.
     LD   (RG_NLEN),A               ; Keep it.
-    CALL RG_ADD                    ; HL is the routine's ordinal.
+    EX   DE,HL                     ; HL is the routine's ordinal.
     XOR  A                         ; Kind code, no root flag, no alignment.
     CALL BL_BEGIN                  ; Start the blob.
     CALL EM_OPEN                   ; No frame, temporaries or labels yet.
@@ -74,6 +78,16 @@ RG_OPEN:                       ; HL is the name, B its length.
     CALL BL_LINE                   ; The blob starts on it.
     CALL EM_LNEW                   ; Label 0, RG_EXIT.
     CALL EM_LNEW                   ; Label 1, RG_PAIR.
+    LD   A,(RO_CFLAG)              ; Was the routine declared forward?
+    AND  RO_FFWD                   ; Then recursion may reach it:
+    JR   Z,.FRAME                  ; check its need against the stack.
+    CALL EM_OP                     ; LD HL,(need):
+    DB   $2A                       ; the opcode,
+    LD   A,RG_PAIR                 ; and the need word's address,
+    CALL EM_LREF                   ; through the pair label.
+    CALL EM_HELP                   ; CALL STK_CHK,
+    DB   $0A,2                     ; ordinal $0A, two bytes of stack.
+.FRAME:                        ; The frame is built.
     CALL EM_SEQ                    ; The frame pointer, then LD HL,nn:
     DB   9,$DD,$E5,$DD,$21,0,0,$DD,$39,$21 ; PUSH IX, LD IX,0, ADD IX,SP.
     LD   HL,(BL_LEN)               ; The operand is the frame, negated,
@@ -107,8 +121,21 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     CALL NZ,RG_RET                 ; Falling off the end is success.
     LD   A,RG_EXIT                 ; The exit sequence starts here.
     CALL EM_LDEF                   ; Every return jumps to it.
+    LD   A,(RO_CARGS)              ; Has the routine arguments to remove?
+    OR   A                         ; Zero if it has none.
+    JR   NZ,.RETN                  ; Then RETN removes them.
     CALL EM_SEQ                    ; With no arguments to remove:
     DB   5,$DD,$F9,$DD,$E1,$C9     ; LD SP,IX, POP IX, RET.
+    JR   .EXITED                   ; The exit is written.
+.RETN:                         ; A is the arguments' bytes.
+    LD   L,A                       ; HL is the bytes
+    LD   H,0                       ; as a word.
+    CALL EM_SEQ                    ; LD IY,n:
+    DB   2,$FD,$21                 ; the opcode,
+    CALL EM_WORD                   ; and the bytes as its operand.
+    CALL EM_JPH                    ; JP RETN, which removes them,
+    DB   $09,2                     ; ordinal $09, two bytes of stack.
+.EXITED:                       ; The frame and need words follow.
     LD   HL,(EM_DEEP)              ; The frame: the deepest point reached.
     LD   DE,(RG_LARGE)             ; Is it the largest of any routine?
     OR   A                         ; Clear carry.
@@ -202,7 +229,8 @@ RG_NAMED:                      ; The ordinal is on top of the stack.
 
 ;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the entry record, at main, and the limits record: the stack reserve
-; main's need plus the guard band, the largest frame, and no flags.
+; main's need plus the guard band, the largest frame, and the flag that
+; says some routine was declared forward.
 
 RG_END:                        ; The whole program is written.
     LD   HL,(RG_MAIN)              ; The program starts at main.
@@ -211,7 +239,11 @@ RG_END:                        ; The whole program is written.
     LD   DE,RG_GUARD               ; and the guard band
     ADD  HL,DE                     ; are the stack reserve.
     LD   DE,(RG_LARGE)             ; The largest frame.
-    XOR  A                         ; No flags: no forward routines.
+    LD   A,(RG_FWD)                ; Flag 1 when a routine is forward
+    OR   A                         ; (the limits record's recursion flag):
+    JR   Z,.FLAGS                  ; zero when none is,
+    LD   A,1                       ; else one.
+.FLAGS:                        ; A is the flags.
     JP   BL_LIMIT                  ; Record them and return.
 
 ;@ROUTINE NORETURN

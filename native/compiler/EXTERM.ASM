@@ -87,11 +87,7 @@ EX_NAME:
     JR   NC,.ORDINARY              ; No: an ordinary name.
     CP   RO_ERRS                   ; An error constant?
     JP   NC,RO_CAUSE               ; Yes: parse it as a value.
-    LD   B,A                       ; Keep the service ordinal.
-    AND  $FD                       ; readInputByte/readStorageByte map to zero.
-    JP   NZ,EX_ETYPE               ; Other services return no value.
-    LD   A,B                       ; Recover the ordinal.
-    JP   RO_QUERY                  ; Parse the value-returning service call.
+    JP   TR_OPER                   ; A service: refused for now (65.4 i).
 .ORDINARY:                     ; A routine or an ordinary symbol.
     CALL RO_FIND                   ; Is it a routine?
     JP   Z,RO_FUNC                 ; Yes: parse a call for its result.

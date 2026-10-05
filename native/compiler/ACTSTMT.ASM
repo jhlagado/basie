@@ -143,8 +143,9 @@ AC_BIND:
 ; -------------------------------------------------------------- statements
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Island NameStatement: a statement that begins with a name. A service
-; or routine is called with its result discarded; an aggregate path is
+; Island NameStatement: a statement that begins with a name. A routine is
+; called with its result discarded (a service is refused for now, 65.4 i);
+; an aggregate path is
 ; assigned through RO_LET; otherwise the name is a scalar variable
 ; (DG_CLASH for a constant, DG_INUSE for an active counter) and `=`
 ; and an expression of its type follow; its value is stored, and then
@@ -152,20 +153,15 @@ AC_BIND:
 
 AC_STMT:
     CALL PR_TAKE                   ; Consume the name.
-    LD   HL,(TK_POS)               ; Its source offset
-    LD   (RO_DPOS),HL              ; is a call's.
     CALL RO_LIB                    ; A predefined name?
     JR   NC,.ORDINARY              ; No.
     CP   RO_ERRS                   ; An error constant...
     JP   NC,EX_ETYPE               ; ...is not a statement: raise DG_CLASH.
-    LD   C,0                       ; Discard the service's result.
-    CALL RO_SERVE                  ; Parse the call.
-    JP   AC_ROUTE                  ; Attach its failure handling.
+    JP   TR_OPER                   ; A service: refused for now (65.4 i).
 .ORDINARY:                     ; Not predefined.
     CALL RO_FIND                   ; A routine?
     JR   NZ,.ASSIGN                ; No: an assignment.
-    LD   C,0                       ; Discard the routine's result.
-    CALL RO_CALL                   ; Parse the call.
+    CALL RO_CALL                   ; Parse and generate the call.
     JP   AC_ROUTE                  ; Attach its failure handling.
 .ASSIGN:                       ; The name is a variable.
     CALL AC_FIND                   ; A is its class and type, BC its payload.
@@ -210,7 +206,8 @@ AC_RET:
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Island ReturnValue: a routine without a result may not return a value
 ; (DG_FLOW). Parse a scalar expression, or an aggregate path or call whose
-; type goes to RO_OTYPE.
+; address is generated into HL, its type going to RO_OTYPE and whether it
+; is rooted at a parameter to RO_ACNT.
 
 AC_YIELD:
     LD   A,(RO_CTYPE)              ; The routine's result type.
@@ -222,14 +219,18 @@ AC_YIELD:
     JP   AC_STASH                  ; Keep it for AC_RETOP.
 .AGGR:                         ; The result is an aggregate.
     CALL RO_AGGR                   ; Parse its path; A is its type.
-    LD   (RO_OTYPE),A              ; Keep it for AC_RETOP.
-    OR   A                         ; Clear carry.
+    LD   (RO_OTYPE),A              ; Keep it for AC_RETOP,
+    LD   A,C                       ; with whether a parameter
+    LD   (RO_ACNT),A               ; roots it.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; CommitReturn: check the value against the result type (DG_CLASH) with no
-; failure pending, emit OP_RET or OP_RETA (OP_RETF or OP_RETAF in a
-; failable routine) and mark what follows unreachable.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; CommitReturn (emitReturn): check the value against the result type
+; (DG_CLASH) with no failure pending and bring a scalar into A or HL at
+; that type; an aggregate's address is in HL already, and may not be
+; rooted at a parameter, whose storage would escape (DG_CLASH; the
+; reference's alias-escapes, there being no `from` here). Then the success
+; return (RG_RET), and what follows is unreachable.
 
 AC_RETOP:
     LD   A,(RO_CTYPE)              ; The routine's result type.
@@ -239,27 +240,19 @@ AC_RETOP:
     JR   NC,.AGGR                  ; Check its type.
     LD   E,A                       ; The scalar result type.
     CALL AC_VALOK                  ; Check the value, with nothing pending.
-    LD   A,(RO_CFLAG)              ; The routine's flags.
-    AND  RO_FFAIL                  ; Failable?
-    LD   A,OP_RET                  ; Assume not.
-    JR   Z,.SCALAR                 ; It is not.
-    LD   A,OP_RETF                 ; It is: the failable form.
-.SCALAR:                       ; A is the return operation.
-    CALL TR_OPER                   ; Append it.
-    JR   AC_RETOK                  ; Nothing follows the return.
+    CALL GX_TOREG                  ; The value in A or HL at that type.
+    JR   .RETURN                   ; Return it.
 .AGGR:                         ; A is the aggregate result type.
     LD   D,A                       ; Keep it.
     LD   A,(RO_OTYPE)              ; The value's type...
     CP   D                         ; ...must be the same type.
     JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
+    LD   A,(RO_ACNT)               ; Is it rooted at a parameter?
+    OR   A                         ; Its storage is the caller's:
+    JP   NZ,EX_ETYPE               ; raise DG_CLASH.
     CALL AC_SAFE                   ; No failure may be pending.
-    LD   A,(RO_CFLAG)              ; The routine's flags.
-    AND  RO_FFAIL                  ; Failable?
-    LD   A,OP_RETA                 ; Assume not.
-    JR   Z,.AGGROP                 ; It is not.
-    LD   A,OP_RETAF                ; It is.
-.AGGROP:                       ; A is the return operation.
-    CALL TR_OPER                   ; Append it; fall into AC_RETOK.
+.RETURN:                       ; The result is in the registers.
+    CALL RG_RET                    ; OR A if it can fail, then JP exit.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; A return was emitted: what follows is unreachable.

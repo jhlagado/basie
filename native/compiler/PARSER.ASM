@@ -164,14 +164,16 @@ PR_ETERM:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,HL
 ; Clear the state one compilation accumulates: the diagnostic, the
-; lookahead, the symbol table, the aggregate counters, the next ordinal
-; (the program's base, $0400) and the largest frame. Returns A zero.
+; lookahead, the symbol table, the forward flag, the aggregate counters,
+; the next ordinal (the program's base, $0400) and the largest frame.
+; Returns A zero.
 
 PR_RESET:
     XOR  A                         ; Zero for every cleared field.
     LD   (DG_CODE),A               ; No diagnostic yet.
     LD   (DG_PART),A               ; And no failing part.
     LD   (SY_CNT),A                ; No symbols.
+    LD   (RG_FWD),A                ; No forward routines.
     LD   HL,AG_MODE                ; The aggregate counters, AG_MODE..AG_GIVEN.
     LD   B,AG_GIVEN-AG_MODE+1      ; Their byte count.
 .LOOP:                         ; Clear one aggregate counter.

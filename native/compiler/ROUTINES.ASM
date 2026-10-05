@@ -23,33 +23,31 @@
 ;    RO_DISP   give a parameter's argument displacement in the frame
 ;    RO_BIND   make a parameter a symbol at its argument's offset
 ;
-;  The routine table (RO_RTAB) holds four routines of eight bytes:
+;  The routine table (RO_RTAB) holds 32 routines of twelve bytes, laid out
+;  in CALLWORK.ASM: the name, the parameters, the result type, the flags
+;  (RO_FFAIL, RO_FOPEN while a forward awaits its body, RO_FFWD for one
+;  declared forward), the blob's ordinal, the need once the body is
+;  complete and the bytes of the arguments.
 ;
-;    +0  word  address of the name's spelling in the resident source
-;    +2  byte  length of the spelling
-;    +3  byte  index of the first parameter in RO_PTAB
-;    +4  byte  parameter count
-;    +5  byte  result type: zero, a scalar type or an aggregate type
-;    +6  byte  label ordinal, RO_LBASE + index (main's body is RO_MDEST)
-;    +7  byte  flags: RO_FFAIL, RO_FMAIN, RO_FOPEN (declared, body not
-;              yet seen)
-;
-;  The parameter table (RO_PTAB) holds sixteen parameters of four bytes:
-;  the spelling's address and length, then the type, AG_VIEW for an open
+;  The parameter table (RO_PTAB) holds 64 parameters of four bytes: the
+;  spelling's address and length, then the type, AG_VIEW for an open
 ;  string. A routine's parameters are consecutive entries.
 
-;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
-; Return in HL the address of routine-table entry A. A is preserved.
+;@ROUTINE IN A OUT HL CLOBBERS CARRY,HALFCARRY,DE
+; Return in HL the address of routine-table entry A, RO_RTAB plus twelve
+; times A. A, BC and the zero flag are preserved.
 
 RO_SUBAT:
     LD   L,A                       ; Form the routine index as a word.
     LD   H,0                       ; At most RO_RCAP entries.
     ADD  HL,HL                     ; Times two.
-    ADD  HL,HL                     ; Times four.
-    ADD  HL,HL                     ; Times eight, the entry size.
+    LD   D,H                       ; Keep
+    LD   E,L                       ; twice the index.
+    ADD  HL,HL                     ; Times four,
+    ADD  HL,DE                     ; six,
+    ADD  HL,HL                     ; twelve, the entry size.
     LD   DE,RO_RTAB                ; The table's base.
     ADD  HL,DE                     ; HL addresses the entry.
-    OR   A                         ; Return carry clear.
     RET                            ; A still holds the index.
 
 ;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
@@ -156,12 +154,12 @@ PR_BUILD:
     RET                            ; The caller closes the streams.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Clear the routine workspace and the control labels and run the LL(1)
-; parser over every source part.
+; Clear the routine state and the control labels and run the LL(1) parser
+; over every source part. The tables are written before they are read.
 
 PR_PARSE:
-    LD   HL,RO_BASE                ; Clear the routine workspace.
-    LD   B,RO_WEND-RO_BASE         ; Its tables, frames and fields are all bytes.
+    LD   HL,RO_BASE                ; Clear the routine state:
+    LD   B,RO_STEND-RO_BASE        ; its counts and fields.
     XOR  A                         ; Zero each byte.
 .WIPE:                         ; Clear one byte.
     LD   (HL),A                    ; Store zero.
@@ -230,10 +228,22 @@ RO_VET:
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Append the current NAME as a parameter of type A to the parameter table
-; and the signature. A full table raises DG_PARAM, which does not return.
+; and the signature, and count its argument's bytes into RO_CARGS: a word,
+; or two for an open string's view (parameterWords). A full table, or
+; arguments beyond 255 bytes, raise DG_PARAM, which does not return.
 
 RO_ENROL:
     LD   (RO_OTYPE),A              ; Keep the type.
+    CP   AG_VIEW                   ; An open string?
+    LD   B,2                       ; One word,
+    JR   NZ,.WORDS                 ; or
+    LD   B,4                       ; two for a view.
+.WORDS:                        ; B is the argument's bytes.
+    LD   HL,RO_CARGS               ; The signature's argument bytes
+    LD   A,(HL)                    ; grow
+    ADD  A,B                       ; by them,
+    JR   C,.FULL                   ; within the byte LD IY,n is given;
+    LD   (HL),A                    ; keep them.
     LD   A,(RO_PCNT)               ; Parameters in the whole table.
     CP   RO_PCAP                   ; Is it full?
     JR   NC,.FULL                  ; Raise DG_PARAM.
@@ -259,7 +269,6 @@ RO_ENROL:
 ; decision D41). The current token is replaced by the parameter's name.
 
 RO_BIND:
-    CALL TR_OPER                   ; Refused until calls are compiled (65.4 e).
     CALL RO_PARAM                  ; HL addresses the parameter's entry.
     LD   E,(HL)                    ; Read the address of its spelling.
     INC  HL                        ; High byte.

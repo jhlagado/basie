@@ -2,45 +2,30 @@
 ;  Calls, services and aggregate paths
 ;==========================================================================
 ;
-;  Parse calls to source routines and to the predefined services, and the
-;  access paths into aggregates: record fields, array elements, string
-;  length and characters, and assignment to a path. Each is checked
+;  Parse calls to source routines and generate their code (RO_CALL), and
+;  parse the access paths into aggregates: record fields, array elements,
+;  string length and characters, and assignment to a path. Each is checked
 ;  against the routine and parameter tables (ROUTINES.ASM) and the
-;  aggregate types (AGGR.ASM), then written to the semantic transcript for
-;  GENCALL.ASM. The grammar actions call in for statements; the expression
-;  parser enters through RO_FUNC, RO_OBJ, RO_QUERY and RO_CAUSE when a name
-;  in an expression is a routine, an aggregate, a service or an error
-;  constant.
+;  aggregate types (AGGR.ASM). A path's root generates its address
+;  (RO_ROOT); the selections after it still reach the transcript and are
+;  refused (TRANSCR.ASM, 65.4 h). The grammar actions call in for
+;  statements; the expression parser enters through RO_FUNC, RO_OBJ and
+;  RO_CAUSE when a name in an expression is a routine, an aggregate or an
+;  error constant. The predefined services are refused where they are
+;  named, until services are compiled (65.4 i).
 ;
 ;  Principal entries:
-;    RO_CALL   parse a call to a source routine and write OP_CALL
-;    RO_SERVE  parse a call to a service and write OP_CALL
+;    RO_CALL   parse and generate a call to a source routine
 ;    RO_AGGR   parse a path or call whose value is an aggregate
 ;    RO_LET    parse an assignment to an aggregate path
 ;    RO_FUNC   expression hook: a routine call as a value
 ;    RO_OBJ    expression hook: a scalar selected from an aggregate
-;    RO_QUERY  expression hook: a service's u8 result
 ;    RO_CAUSE  expression hook: an error constant's code
 ;    RO_EMITW  write an operand word of a structural operation
 ;
-;  A call being parsed has a frame in RO_NTAB, four deep, because an
-;  argument may itself be a call:
-;
-;    +0  byte  call selector: the label, plus RO_FKEEP if the result is kept
-;    +1  byte  result type
-;    +2  byte  index of the next parameter to match
-;    +3  byte  arguments still to parse
-;    +4  byte  carriers to drop after the call (an open string is two)
-;    +5  word  source offset of the call
-;    +7  byte  the callee's flags
-;
-;  A call selector (RO_DEST) has RO_FIO clear for a source routine, with
-;  the label in its low six bits. For a service RO_FIO is set, with the
-;  service in bits 0..2, its argument type in bits 3..4 and RO_RES8 for a
-;  u8 result (KW_SIGS). Every OP_CALL ends with three handling bytes
-;  (RO_PAD) that the statement's `else fail` or handler fills in later.
-;  A path pushes an address and refines it with OP_FIELD, OP_INDEX or a
-;  character operation; RO_LOAD turns a scalar path into a value.
+;  A path generates its root's address into HL and refines it with
+;  OP_FIELD, OP_INDEX or a character operation; RO_LOAD turns a scalar path
+;  into a value.
 
 ;@ROUTINE OUT A,BC,D,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; Look up the current NAME as a symbol: D returns its class, BC its payload
@@ -74,56 +59,35 @@ RO_EMITW:
     LD   A,H                       ; Then the high byte.
     JP   TR_PUT                    ; Write it and return.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Write the operation that pushes the current NAME's address, the root of
-; an aggregate path: OP_REFRO for a constant, OP_REFG for a program
-; variable, OP_REFP for a parameter. A returns the exact aggregate type,
-; also kept in RO_OTYPE; an open string's capacity slot goes to RO_VCAP.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Generate the address of the current NAME, the root of an aggregate path,
+; into HL, as the reference's emitAddress does: LD HL,nn referring to the
+; blob of a program variable or an aggregate constant, or the address
+; word of a parameter, which holds its argument's address (an alias). A
+; returns the exact aggregate type, also kept in RO_OTYPE; an open
+; string's capacity slot goes to RO_VCAP. A local is never an aggregate.
 
 RO_ROOT:
     CALL RO_SYM                    ; A is the type, D the class, BC the payload.
     LD   (RO_OTYPE),A              ; Keep the type for the return.
     CP   AG_VIEW                   ; Is it an open-string parameter?
     JR   NZ,.CLASS                 ; Other types have their capacity declared.
-    LD   A,C                       ; The parameter's slot.
-    INC  A                         ; The capacity byte follows the address word.
-    INC  A                         ; Slot + 2 is the capacity's slot.
+    LD   A,C                       ; The parameter's offset.
+    ADD  A,2                       ; The capacity word lies above the address.
     LD   (RO_VCAP),A               ; OP_VLEN, OP_VCHAR and OP_VIEW carry it.
 .CLASS:                        ; Choose the root by storage class.
     LD   A,D                       ; The class byte.
     AND  SY_CMASK                  ; Keep the storage class.
-    JR   Z,RO_FIXED                ; SY_CONST: an aggregate constant.
-    CP   SY_GLOB                   ; A program variable?
-    JR   NZ,RO_BYREF               ; Otherwise it must be a parameter.
-    LD   A,OP_REFG                 ; Push a program variable's address.
-
-;@ROUTINE IN A,BC OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Write operation A with offset word BC, then return the type in RO_OTYPE.
-
-RO_ALIAS:
-    PUSH BC                        ; Keep the offset.
-    CALL TR_OPER                   ; Write the operation.
-    POP  HL                        ; The offset is the operand.
-    CALL RO_EMITW                  ; Write it.
+    CP   SY_PARAM                  ; A parameter?
+    JR   Z,.PARAM                  ; Its frame word is the address.
+    LD   A,$21                     ; LD HL,nn: the blob's address.
+    CALL GX_ABS                    ; Refer to blob BC.
     JR   RO_TYPED                  ; Return the type.
-
-;@ROUTINE IN BC,D OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
-; Root a path at an aggregate constant.
-
-RO_FIXED:
-    LD   A,OP_REFRO                ; Push a constant's address.
-    JR   RO_ALIAS                  ; Write it with the offset.
-
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; Root a path at a parameter (class A): OP_REFP with slot C. A local is
-; never an aggregate, so any other class raises DG_CLASH.
-
-RO_BYREF:
-    CP   SY_PARAM                  ; Is it a parameter?
-    JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
-    LD   A,OP_REFP                 ; Push the parameter's address word.
-.EMIT:                         ; Write it with the slot.
-    CALL PR_EMITC                  ; Write OP_REFP and slot C.
+.PARAM:                        ; BC is the parameter's offset.
+    LD   H,B                       ; HL is
+    LD   L,C                       ; the offset.
+    LD   A,SY_U16                  ; The address is a word:
+    CALL GX_FLOAD                  ; LD L,(IX+d), LD H,(IX+d+1).
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the path's type from RO_OTYPE, with carry clear.
@@ -399,33 +363,11 @@ RO_EPATH:
     POP  AF                        ; Discard the type.
     JP   EX_ETYPE                  ; Raise DG_CLASH.
 
-;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
-; Return in HL the address of call frame A in RO_NTAB. A frame keeps a
-; call's description while its arguments, which may be calls, are parsed.
-
-RO_FRAME:
-    LD   L,A                       ; Form the depth as a word.
-    LD   H,0                       ; At most RO_NCAP frames.
-    ADD  HL,HL                     ; Times two.
-    ADD  HL,HL                     ; Times four.
-    ADD  HL,HL                     ; Times eight, the frame size.
-    LD   DE,RO_NTAB                ; The frames' base.
-    ADD  HL,DE                     ; HL addresses the frame.
-    OR   A                         ; Carry clear.
-    RET                            ; A still holds the depth.
-
-;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
-; Return in HL the frame of the innermost call being parsed.
-
-RO_TOP:
-    LD   A,(RO_DEPTH)              ; Calls being parsed.
-    DEC  A                         ; The innermost is one below.
-    JR   RO_FRAME                  ; Address it.
-
-;@ROUTINE IN A OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
+;@ROUTINE IN A OUT D,E,HL CLOBBERS A,BC,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse one scalar argument of expected type A and check that it fits,
 ; keeping the enclosing expression's wanted type. A failable call cannot be
-; an argument.
+; an argument. D returns its metadata, E the type and HL a known value, as
+; GX_TOREG takes them.
 
 RO_ARG:
     LD   D,A                       ; Keep the expected type.
@@ -436,265 +378,168 @@ RO_ARG:
     LD   A,D                       ; Ask for the expected type.
     LD   (EX_WANT),A               ; The argument's wanted type.
     CALL EX_PARSE                  ; A and HL describe the argument.
-    LD   (RO_OTYPE),A              ; Keep the argument's metadata.
-    LD   (EX_RVAL),HL              ; Keep its constant value.
     POP  DE                        ; Recover the expected type.
     POP  BC                        ; Recover the enclosing wanted type
+    LD   C,A                       ; (the argument's metadata to C)
     LD   A,B                       ; and restore it.
-    LD   (EX_WANT),A               ; Restore it.
-    LD   E,D                       ; EX_FITS takes the destination in E.
-    LD   A,(RO_OTYPE)              ; The argument's metadata.
-    LD   HL,(EX_RVAL)              ; Its constant value.
+    LD   (EX_WANT),A               ; The enclosing expression resumes.
+    LD   E,D                       ; EX_FITS takes the destination in E,
+    LD   A,C                       ; the metadata in A.
     CALL EX_FITS                   ; Check it against the parameter's type.
     JP   AC_SAFE                   ; Reject a pending failure and return.
 
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Parse a call to routine A, or main if A is RO_MAIN, whose name has been
-; read; C is one if its result is kept, zero if discarded. Match each
-; argument to its parameter, write OP_CALL and return the result type in A.
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Parse a call to routine A, RO_FIND's index, whose name has been read, as
+; the reference's call does: each argument is evaluated, left to right,
+; and pushed, a scalar in the registers at its parameter's type (a u8 or
+; Boolean widened to a word) and an aggregate as its address; then CALL
+; the routine, whose exit removes the arguments (RETN), so the pushes are
+; counted out again. The callee's need joins the largest of this
+; routine's callees (noteCall); one whose body is not complete has need
+; zero in its record, and only a routine declared forward may call itself
+; (DG_UNMET otherwise). A returns the result type, zero for none. A call
+; to main or to a failable routine is refused until failure is compiled
+; (DG_NYI, 65.4 g), as is an open-string argument (65.4 h).
 
 RO_CALL:
-    LD   B,A                       ; Keep the routine index.
-    LD   A,(RO_DEPTH)              ; Calls already being parsed.
-    CP   RO_NCAP                   ; Is there a free frame?
-    JR   C,.ROOM                   ; Use it.
-    CALL DG_RAISE                  ; Raise the diagnostic below.
-    DB   DG_DEEP                   ; Calls nested too deeply.
-.ROOM:                         ; Fill the next frame.
-    CALL RO_FRAME                  ; HL addresses frame A, the depth.
-    LD   A,C                       ; Move the keep flag into A.
-    PUSH AF                        ; Keep it for the selector.
-    PUSH HL                        ; Keep the frame's address.
-    LD   A,B                       ; The routine index.
     CP   RO_MAIN                   ; Is the callee main?
-    JR   Z,.MAIN                   ; Main has no table entry.
-    CALL RO_SUBAT                  ; HL addresses the routine's entry.
-    INC  HL                        ; Skip the spelling's address.
-    INC  HL                        ; Skip its high byte.
-    INC  HL                        ; Skip the length to reach the signature.
-    LD   D,(HL)                    ; D is the first parameter's index.
-    INC  HL                        ; Next field.
-    LD   E,(HL)                    ; E is the parameter count.
-    INC  HL                        ; Next field.
-    LD   B,(HL)                    ; B is the result type.
-    INC  HL                        ; Next field.
-    LD   A,(HL)                    ; A is the label ordinal.
-    INC  HL                        ; Next field.
-    LD   C,(HL)                    ; C is the callee's flags.
-    JR   .FILL                     ; Fill the frame.
-.MAIN:                         ; Main's signature is fixed.
-    LD   D,0                       ; Main has no parameters to match.
-    LD   E,0                       ; And takes no arguments.
-    LD   B,0                       ; Main has no result.
-    LD   A,(RO_MFLAG)              ; Main's flags.
-    LD   C,A                       ; As the callee flags.
-    LD   A,RO_MDEST                ; Main's body label.
-.FILL:                         ; Write the frame.
-    POP  HL                        ; Recover the frame's address.
-    LD   (HL),A                    ; The selector starts as the label.
-    POP  AF                        ; Is the result kept?
-    OR   A                         ; Test the keep flag.
-    JR   Z,.LABEL                  ; A discarded result keeps bit 6 clear.
-    SET  6,(HL)                    ; RO_FKEEP.
-.LABEL:                        ; Fill the remaining fields.
-    INC  HL                        ; Field +1.
-    LD   (HL),B                    ; The result type.
-    INC  HL                        ; Field +2.
-    LD   (HL),D                    ; The next parameter to match.
-    INC  HL                        ; Field +3.
-    LD   (HL),E                    ; The arguments left to parse.
-    INC  HL                        ; Field +4.
-    LD   (HL),E                    ; The carriers to drop: one per argument at first.
-    INC  HL                        ; Field +5.
-    LD   DE,(TK_POS)               ; The offset of the routine's name.
-    LD   (HL),E                    ; Store the offset's low byte.
-    INC  HL                        ; Advance to its high byte.
-    LD   (HL),D                    ; Store the high byte.
-    INC  HL                        ; Field +7.
-    LD   (HL),C                    ; The callee's flags.
-    LD   HL,RO_DEPTH               ; The frame is now in use.
-    INC  (HL)                      ; One call deeper.
+    JP   Z,TR_OPER                 ; Refused for now.
+    LD   C,A                       ; C is the callee.
+    LD   A,(RO_CUR)                ; The routine being compiled.
+    CP   C                         ; Does it call itself?
+    LD   A,C                       ; The callee again.
+    CALL RO_SUBAT                  ; HL is its record; the flags survive.
+    JR   NZ,.DEPTH                 ; Another routine: any may be called.
+    PUSH HL                        ; Keep the record.
+    LD   DE,RO_RFLAG               ; Its flags:
+    ADD  HL,DE                     ; was it
+    BIT  3,(HL)                    ; declared forward (RO_FFWD)?
+    POP  HL                        ; The record again.
+    JP   Z,.NEEDFWD                ; No: it cannot call itself.
+.DEPTH:                        ; The call may be parsed.
+    LD   A,(RO_DEPTH)              ; Calls already being parsed.
+    CP   RO_NCAP                   ; Room for another?
+    JP   NC,.DEEP                  ; No: raise DG_DEEP.
+    INC  A                         ; One more
+    LD   (RO_DEPTH),A              ; is being parsed.
+    INC  HL                        ; Skip the name's
+    INC  HL                        ; address
+    INC  HL                        ; and length.
+    LD   D,(HL)                    ; D is the first parameter,
+    INC  HL                        ; E the number
+    LD   E,(HL)                    ; of arguments.
+    PUSH BC                        ; Keep the callee for the end.
+    PUSH DE                        ; And the parameters.
     CALL PR_LEFT                   ; Consume the opening parenthesis.
-.ARGLOOP:                      ; Parse one argument.
-    CALL RO_TOP                    ; HL addresses this call's frame.
-    INC  HL                        ; Skip the selector.
-    INC  HL                        ; Skip the result type.
-    INC  HL                        ; HL addresses the arguments left.
-    LD   A,(HL)                    ; Read the count.
-    OR   A                         ; Are any left?
-    JP   Z,.ARGSDONE               ; Close the call.
-    DEC  HL                        ; Back to the next parameter's index.
-    LD   A,(HL)                    ; Read the next parameter's index.
-    CALL RO_PARAM                  ; HL addresses the parameter.
-    INC  HL                        ; Skip the spelling's address.
-    INC  HL                        ; Skip its high byte.
-    INC  HL                        ; Skip the length to reach the type.
-    LD   A,(HL)                    ; Read the parameter's type.
-    LD   D,A                       ; Keep it.
-    XOR  A                         ; No failure is pending yet.
-    LD   (RO_PEND),A               ; Clear RO_PEND before the argument.
-    LD   A,D                       ; The parameter's type.
-    CP   AG_FIRST                  ; Is it an aggregate?
-    JR   NC,.AGGRARG               ; Parse an aggregate path.
-    CALL RO_ARG                    ; Parse a scalar of that type.
-    JR   .ARGOK                    ; Move to the next argument.
-.AGGRARG:                      ; Parse an aggregate argument.
-    CALL RO_AGGR                   ; A is its type, C one for a global root.
-    PUSH AF                        ; Keep the argument's type.
-    CALL RO_TOP                    ; Nested calls may have used frames: find ours.
-    INC  HL                        ; Skip the selector.
-    INC  HL                        ; Skip the result type to the next parameter.
-    LD   A,(HL)                    ; The parameter's index.
-    CALL RO_PARAM                  ; HL addresses the parameter.
-    INC  HL                        ; Skip the spelling's address.
-    INC  HL                        ; Skip its high byte.
-    INC  HL                        ; Skip the length to reach the type.
-    LD   D,(HL)                    ; D is the parameter's type.
-    POP  AF                        ; Recover the argument's type.
-    LD   (RO_OTYPE),A              ; Keep it.
-    LD   A,D                       ; Keep the parameter's type.
-    LD   (RO_DTYPE),A              ; .OPENARG reads it from RO_DTYPE.
-    CP   AG_VIEW                   ; Is the parameter an open string?
-    JR   Z,.OPENSTR                ; Any string fits it.
-    LD   A,(RO_OTYPE)              ; The argument's type.
-    CP   D                         ; It must equal the parameter's type.
-    JP   NZ,RO_EARG                ; Raise DG_CLASH.
-    JR   .TYPEOK                   ; The argument fits.
-.OPENSTR:                      ; Check an argument for an open string.
-    LD   A,(RO_OTYPE)              ; The argument's type.
-    CP   AG_VIEW                   ; An open string passes its own view on.
-    JR   Z,.TYPEOK                 ; It fits.
-    CALL RO_CAP                    ; Raise DG_CLASH unless it is a string.
-.TYPEOK:                       ; The argument is acceptable.
-    CALL AC_SAFE                   ; A failable call cannot be an argument.
-    LD   A,(RO_DTYPE)              ; The parameter's type.
-    CP   AG_VIEW                   ; Is it an open string?
-    JR   NZ,.ARGOK                 ; Other arguments are one address.
-    CALL .OPENARG                  ; Add the capacity word.
-.ARGOK:                        ; Move to the next parameter.
-    CALL RO_TOP                    ; HL addresses this call's frame.
-    INC  HL                        ; Skip the selector.
-    INC  HL                        ; Skip the result type.
-    INC  (HL)                      ; Advance to the next parameter.
-    INC  HL                        ; Address the arguments left.
-    DEC  (HL)                      ; One fewer to parse.
-    JR   Z,.ARGSDONE               ; That was the last.
+    POP  DE                        ; D is the next parameter, E those left.
+.ARG:                          ; Parse the next argument, if any.
+    LD   A,E                       ; Any left?
+    OR   A                         ; Zero when every one is parsed.
+    JR   Z,.CLOSE                  ; Then the call closes.
+    PUSH DE                        ; Keep the parameters across the argument.
+    LD   A,D                       ; The parameter's entry:
+    CALL RO_PARAM                  ; HL addresses it.
+    INC  HL                        ; Skip its name's
+    INC  HL                        ; address
+    INC  HL                        ; and length.
+    LD   A,(HL)                    ; Its type.
+    CP   AG_FIRST                  ; An aggregate?
+    JR   NC,.AGGR                  ; Its address is passed.
+    CALL RO_ARG                    ; D, E and HL describe the argument.
+    CALL GX_TOREG                  ; The value in A or HL at the type E.
+    LD   A,E                       ; A word
+    CP   SY_U16                    ; is pushed as it is;
+    JR   Z,.PUSH                   ; a byte widens first:
+    CALL EM_SEQ                    ; LD L,A, LD H,0.
+    DB   3,$6F,$26,0               ; Append them.
+    JR   .PUSH                     ; Push the word.
+.AGGR:                         ; A is the parameter's aggregate type.
+    CP   AG_VIEW                   ; An open string's view
+    JP   Z,TR_OPER                 ; is refused for now (65.4 h).
+    PUSH AF                        ; Keep the type.
+    CALL RO_AGGR                   ; A is the argument's type, HL its address.
+    POP  BC                        ; B is the parameter's.
+    CP   B                         ; The types must be the same.
+    JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
+.PUSH:                         ; The argument is in HL.
+    CALL EM_OP                     ; PUSH HL.
+    DB   $E5                       ; Append it.
+    LD   A,2                       ; Two bytes are pushed
+    CALL EM_PUSH                   ; until the call returns.
+    POP  DE                        ; The parameters.
+    INC  D                         ; The next parameter.
+    DEC  E                         ; One fewer to parse.
+    JR   Z,.CLOSE                  ; That was the last.
+    PUSH DE                        ; Keep the parameters.
     LD   E,TK_COMMA                ; A comma separates arguments.
     CALL PR_NEED                   ; Consume it.
-    JP   .ARGLOOP                  ; Parse the next argument.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Write OP_VIEW, turning the string argument just parsed into an open-string
-; argument with its capacity beneath it: a declared capacity (mode zero) or
-; the capacity slot of an open-string parameter passed on (mode one).
-
-.OPENARG:
-    LD   A,(RO_OTYPE)              ; The argument's type.
-    CP   AG_VIEW                   ; Is it an open string itself?
-    JR   Z,.FORWARD                ; Pass its capacity on.
-    CALL RO_CAP                    ; A is the declared capacity.
-    LD   (RO_ACNT),A               ; OP_VIEW's value.
-    XOR  A                         ; Mode zero: a constant capacity.
-    JR   .OPENOK                   ; Write it.
-.FORWARD:                      ; Pass an open string's capacity on.
-    LD   A,(RO_VCAP)               ; The slot of its capacity byte.
-    LD   (RO_ACNT),A               ; OP_VIEW's value.
-    LD   A,1                       ; Mode one: copy it from the frame.
-.OPENOK:                       ; Write OP_VIEW.
-    LD   C,A                       ; The mode follows the operation.
-    LD   A,OP_VIEW                 ; Form an open-string argument.
-    CALL PR_EMITC                  ; Write the operation and the mode.
-    LD   A,(RO_ACNT)               ; The capacity or its slot.
-    CALL TR_PUT                    ; Write it.
-    CALL RO_TOP                    ; HL addresses this call's frame.
-    LD   DE,RO_NACNT               ; Address the carriers to drop.
-    ADD  HL,DE                     ; HL addresses the count.
-    INC  (HL)                      ; The capacity word is one carrier more.
-    OR   A                         ; Carry clear.
-    RET                            ; The argument is complete.
-.ARGSDONE:                     ; Close the call and publish it.
+    POP  DE                        ; The parameters again.
+    JR   .ARG                      ; Parse the next argument.
+.CLOSE:                        ; Every argument is pushed.
     CALL PR_RIGHT                  ; Consume the closing parenthesis.
-    CALL RO_TOP                    ; HL addresses this call's frame.
-    LD   A,(HL)                    ; +0: the selector.
-    LD   (RO_DEST),A               ; RO_PUB writes it.
-    INC  HL                        ; Field +1.
-    LD   A,(HL)                    ; Read the result type.
-    LD   (RO_DTYPE),A              ; RO_PUB writes and returns it.
-    INC  HL                        ; Skip the next parameter's index.
-    INC  HL                        ; Skip the arguments left.
-    INC  HL                        ; Field +4.
-    LD   A,(HL)                    ; Read the carriers to drop.
-    LD   (RO_ACNT),A               ; RO_PUB writes it.
-    INC  HL                        ; Field +5.
-    LD   E,(HL)                    ; Read the call's offset, low byte.
-    INC  HL                        ; Then its high byte.
-    LD   D,(HL)                    ; DE is the offset.
-    LD   (RO_DPOS),DE              ; RO_PUB writes it.
-    INC  HL                        ; Field +7.
-    LD   A,(HL)                    ; Read the callee's flags.
-    LD   (RO_DFLAG),A              ; RO_PUB writes them.
-    LD   HL,RO_DEPTH               ; Release the frame.
-    DEC  (HL)                      ; One call shallower.
-    LD   A,(RO_DFLAG)              ; Can the callee fail?
-    AND  RO_FFAIL                  ; Test its failable flag.
-    JR   Z,.FAILOK                 ; A call that cannot fail goes anywhere.
-    LD   A,(RO_DEPTH)              ; Is this call an argument of another?
-    OR   A                         ; Test the depth.
-    JP   NZ,AC_ELEAK               ; Raise DG_LEAK: its failure is unhandled.
-.FAILOK:                       ; Publish the call.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
-; Write OP_CALL from RO_DEST, RO_ACNT, RO_DTYPE, RO_DFLAG and RO_DPOS,
-; reserve its handling bytes, set RO_PEND if it can fail and return the
-; result type in A.
-
-RO_PUB:
-    LD   A,OP_CALL                 ; Call a routine or service.
-    CALL TR_OPER                   ; Write the operation.
-    LD   A,(RO_DEST)               ; The selector.
-    CALL TR_PUT                    ; Write it.
-    AND  RO_FIO                    ; Is the callee a service?
-    JR   NZ,.COMMON                ; Its selector holds its signature.
-    LD   A,(RO_ACNT)               ; The carriers to drop.
-    CALL TR_PUT                    ; Write them.
-    LD   A,(RO_DTYPE)              ; The result type.
-    CALL TR_PUT                    ; Write it.
-    LD   A,(RO_DFLAG)              ; The callee's flags.
-    CALL TR_PUT                    ; Write them.
-.COMMON:                       ; Write the operands every call has.
-    LD   HL,(RO_DPOS)              ; The call's offset.
-    CALL RO_EMITW                  ; Write it.
-    CALL RO_PAD                    ; Reserve the handling bytes.
-    LD   A,(RO_DFLAG)              ; Can the callee fail?
-    AND  RO_FFAIL                  ; Keep the failable flag.
-    LD   (RO_PEND),A               ; The statement must handle a pending failure.
-    LD   A,(RO_DTYPE)              ; Return the result type.
+    LD   HL,RO_DEPTH               ; This call
+    DEC  (HL)                      ; is parsed.
+    POP  BC                        ; C is the callee.
+    LD   A,C                       ; Its record:
+    CALL RO_SUBAT                  ; HL addresses it.
+    LD   DE,RO_RTYPE               ; Its result type
+    ADD  HL,DE                     ; is returned,
+    LD   A,(HL)                    ; so keep it.
+    PUSH AF                        ; Then its flags:
+    INC  HL                        ; can it fail?
+    BIT  0,(HL)                    ; RO_FFAIL.
+    JP   NZ,TR_OPER                ; Refused until failure is compiled (65.4 g).
+    INC  HL                        ; Its ordinal.
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; the ordinal,
+    LD   D,(HL)                    ; the call's target.
+    INC  HL                        ; Its need follows.
+    PUSH HL                        ; Keep the place.
+    CALL EM_OP                     ; CALL nn,
+    DB   $CD                       ; the routine.
+    EX   DE,HL                     ; HL is the ordinal;
+    LD   DE,0                      ; with no addend,
+    CALL EM_REF                    ; refer to it.
+    POP  HL                        ; The need,
+    LD   E,(HL)                    ; low byte
+    INC  HL                        ; and
+    LD   D,(HL)                    ; high byte.
+    INC  HL                        ; Then the argument bytes,
+    LD   A,(HL)                    ; which RETN removed:
+    PUSH DE                        ; keeping the need,
+    CALL EM_POP                    ; they are no longer pushed.
+    POP  DE                        ; DE is the callee's need.
+    LD   HL,(EM_NEED)              ; The largest callee's need so far.
+    OR   A                         ; Clear carry.
+    SBC  HL,DE                     ; Carry if this one is larger.
+    JR   NC,.SMALLER               ; Keep the larger one.
+    LD   (EM_NEED),DE              ; It is the largest.
+.SMALLER:                      ; The need is accounted.
+    POP  AF                        ; A is the result type.
     OR   A                         ; Carry clear.
-    RET                            ; A is the result type.
+    RET                            ; The result is in A or HL.
+.NEEDFWD:                      ; A routine calls itself without a forward.
+    CALL DG_RAISE                  ; Abandon the build.
+    DB   DG_UNMET                  ; Unmet forward declaration.
+.DEEP:                         ; Calls nest too deeply in arguments.
+    CALL DG_RAISE                  ; Abandon the build.
+    DB   DG_DEEP                   ; Nested too deeply.
 
-; Raise DG_CLASH for an aggregate argument of the wrong type, releasing
-; the call's frame.
-
-RO_EARG:
-    LD   HL,RO_DEPTH               ; Release the frame.
-    DEC  (HL)                      ; One call shallower.
-    JP   EX_ETYPE                  ; Raise DG_CLASH.
-
-;@ROUTINE OUT A,C,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL,IX,IY
-; Parse a name-rooted aggregate path or a call returning an aggregate. The
-; result must be an aggregate address: A returns its type, and C is one if
-; the path is rooted at a program variable, zero otherwise.
+;@ROUTINE OUT A,C,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,IX,IY
+; Parse a name-rooted aggregate path or a call returning an aggregate, its
+; address generated into HL. The result must be an aggregate address: A
+; returns its type, and C is nonzero if the path is rooted at a parameter,
+; whose storage is the caller's (alias rules, spec 7.7).
 
 RO_AGGR:
     LD   E,TK_NAME                 ; A path starts with a name.
     CALL PR_NEED                   ; Consume it.
     CALL RO_FIND                   ; Is it a routine?
     JR   NZ,.SYMBOL                ; Otherwise it is a symbol.
-    LD   C,1                       ; The call's result is kept.
-    CALL RO_CALL                   ; A is the result type.
+    CALL RO_CALL                   ; A is the result type, HL the address.
     CP   AG_FIRST                  ; It must be an aggregate.
     JP   C,EX_ETYPE                ; Raise DG_CLASH.
-    LD   C,0                       ; A call result is no program variable.
+    LD   C,0                       ; A call's result is not a parameter's.
     JR   .SUFFIX                   ; Parse the rest of the path.
 .SYMBOL:                       ; Root the path at a symbol.
     CALL RO_SYM                    ; D is the symbol's class.
@@ -703,10 +548,10 @@ RO_AGGR:
     JP   Z,EX_ETYPE                ; Raise DG_CLASH.
     LD   A,D                       ; The class byte.
     AND  SY_CMASK                  ; Keep the storage class.
-    LD   C,0                       ; Assume no program-variable root.
-    CP   SY_GLOB                   ; Is it a program variable?
-    JR   NZ,.ROOTED                ; No.
-    INC  C                         ; Yes: C is one.
+    XOR  SY_PARAM                  ; Zero for a parameter,
+    SUB  1                         ; then carry only for it:
+    SBC  A,A                       ; C is nonzero for a parameter.
+    LD   C,A                       ; Keep it.
 .ROOTED:                       ; Write the root.
     PUSH BC                        ; Keep the root flag.
     CALL RO_ROOT                   ; Write the address of the symbol.
@@ -725,7 +570,7 @@ RO_AGGR:
     CP   AG_FIRST                  ; It must be an aggregate.
     JP   C,EX_ETYPE                ; Raise DG_CLASH.
     OR   A                         ; Carry clear.
-    RET                            ; A is the type, C the root flag.
+    RET                            ; A is the type, C the parameter flag.
 
 ;@ROUTINE IN A,D OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
 ; Make the scalar path of type A an ordinary expression value. D is zero
@@ -758,7 +603,6 @@ RO_LOAD:
 ; scalar selected from it, the expression's value of type A.
 
 RO_FUNC:
-    LD   C,1                       ; The result is kept.
     CALL RO_CALL                   ; A is the result type.
     OR   A                         ; A routine without a result has no value.
     JP   Z,EX_ETYPE                ; Raise DG_CLASH.
@@ -774,16 +618,6 @@ RO_WALK:
     CALL RO_PATH                   ; A is the final type, D its form.
     JR   RO_LOAD                   ; Make it a value.
 
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; The expression parser's hook for a service with a result (read input or
-; storage), A: call it at the current offset, keeping its u8 result.
-
-RO_QUERY:
-    LD   HL,(TK_POS)               ; The service name's offset.
-    LD   (RO_DPOS),HL              ; The call carries it.
-    LD   C,1                       ; The result is kept.
-    JR   RO_SERVE                  ; Parse the call.
-
 ;@ROUTINE IN A OUT A,B,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE,IX,IY
 ; The expression parser's hook for an error constant, ordinal A from
 ; RO_LIB: its value is the error code 1..4, written as a known u8 literal.
@@ -794,73 +628,6 @@ RO_CAUSE:
     LD   H,0                       ; HL is the literal's value.
     LD   B,SY_KNOWN+SY_U8          ; A known u8 constant.
     JP   EX_LIT                    ; Write it and return its metadata.
-
-;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Parse a call to service A, whose name has been read; C is one if its
-; result is kept. Parse its one optional scalar argument, write OP_CALL
-; and return the result type in A. Every service can fail.
-
-RO_SERVE:
-    LD   E,A                       ; Form the service as a word.
-    LD   D,0                       ; One selector byte per service.
-    LD   HL,KW_SIGS                ; Index the selector table.
-    ADD  HL,DE                     ; HL addresses its selector.
-    LD   A,(HL)                    ; Read it.
-    DEC  C                         ; Is the result kept?
-    JR   NZ,.DESC                  ; No.
-    OR   RO_FKEEP                  ; Yes: mark the selector.
-.DESC:                         ; Keep the selector.
-    LD   (RO_IO),A                 ; An argument's call may change RO_DEST.
-    CALL PR_LEFT                   ; Consume the opening parenthesis.
-    LD   A,(RO_IO)                 ; The selector.
-    RRCA                           ; Shift the argument type down one bit.
-    RRCA                           ; And another.
-    RRCA                           ; And another, from bits 3..4.
-    AND  $03                       ; Keep it.
-    JR   Z,.CLOSE                  ; No argument.
-    LD   D,A                       ; Keep the argument's type.
-.ARG:                          ; Parse the argument.
-    LD   HL,(RO_DPOS)              ; A nested call changes RO_DPOS.
-    PUSH HL                        ; So keep this call's offset.
-    LD   A,D                       ; The expected type.
-    CALL RO_ARG                    ; Parse and check the argument.
-    POP  HL                        ; Recover the offset.
-    LD   (RO_DPOS),HL              ; Restore it.
-.CLOSE:                        ; Close the call and publish it.
-    CALL PR_RIGHT                  ; Consume the closing parenthesis.
-    LD   A,(RO_IO)                 ; The selector.
-    LD   (RO_DEST),A               ; RO_PUB writes it.
-    AND  RO_RES8                   ; Keep the u8-result bit, bit 5.
-    RLCA                           ; Rotate it toward bit 0.
-    RLCA                           ; Bit 7 now.
-    RLCA                           ; Bit 0: SY_U8 or zero.
-.RESULT:                       ; Describe the result and failure.
-    LD   (RO_DTYPE),A              ; RO_PUB writes and returns it.
-    LD   A,RO_FFAIL                ; Every service can fail.
-    LD   (RO_DFLAG),A              ; RO_PUB marks the failure pending.
-    JP   RO_PUB                    ; Write OP_CALL and return.
-
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-; Return the declared capacity of bounded-string type A. Any other type
-; raises DG_CLASH, which does not return.
-
-RO_CAP:
-    CALL AG_DESC                   ; HL addresses the type's descriptor.
-    LD   A,(HL)                    ; Read its kind.
-    CP   AG_KSTR                   ; Is it a bounded string?
-    JP   NZ,EX_ETYPE               ; Raise DG_CLASH.
-    INC  HL                        ; The capacity follows the kind.
-    LD   A,(HL)                    ; Read it.
-    OR   A                         ; Carry clear.
-    RET                            ; A is the capacity.
-
-;@ROUTINE NORETURN
-; Write a call's three handling bytes, which the statement's `else fail` or
-; handler would set: the mode, the handler's label and the carriers kept
-; beneath the call. Calls are refused until they are compiled (DG_NYI).
-
-RO_PAD:
-    JP   TR_PUT                    ; Refuse the call.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; The expression parser's hook for an aggregate symbol, the current NAME:
