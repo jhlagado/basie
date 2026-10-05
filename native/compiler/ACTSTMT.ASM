@@ -139,8 +139,8 @@ AC_BIND:
 ; or routine is called with its result discarded; an aggregate path is
 ; assigned through RO_LET; otherwise the name is a scalar variable
 ; (DG_CLASH for a constant, DG_INUSE for an active counter) and `=`
-; and an expression of its type follow. Handling of a pending failure is
-; attached (AC_ROUTE) before the store is emitted.
+; and an expression of its type follow; its value is stored, and then
+; what follows the statement is checked for failure handling (AC_ROUTE).
 
 AC_STMT:
     CALL PR_TAKE                   ; Consume the name.
@@ -181,11 +181,12 @@ AC_STMT:
     LD   E,A                       ; ...is the destination.
     LD   A,D                       ; The metadata, with HL the value.
     CALL EX_FITS                   ; Check the value against the variable.
-    CALL AC_ROUTE                  ; Attach any failure handling.
-    LD   BC,(AC_DVAL)              ; The variable's address or offset.
+    CALL GX_TOREG                  ; Bring it into A or HL at that type.
+    LD   BC,(AC_DVAL)              ; The variable's ordinal or offset.
     LD   A,(AC_DINFO)              ; Its class and type.
     LD   D,A                       ; For EX_STORE.
-    JP   EX_STORE                  ; Emit the store and return.
+    CALL EX_STORE                  ; Store it.
+    JP   AC_ROUTE                  ; Attach any failure handling and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; BeginReturnValue: for a scalar result, expect its type. An aggregate

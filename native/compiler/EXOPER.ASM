@@ -19,7 +19,7 @@
 ;    EX_CONST  parse an expression without emitting, for constants
 ;    EX_WIDTH  return a scalar type's storage width
 ;    EX_LOCAL  emit the declaration of a scalar local
-;    EX_STORE  emit the store of a result into a variable
+;    EX_STORE  store a result into a variable
 
 ; Integer *, / and mod bind tighter than + and -, which bind tighter than
 ; comparisons. B is the minimum precedence: 0 comparison, 1 additive, 2
@@ -583,46 +583,19 @@ EX_LOCAL:
     LD   A,(SY_LSLOT)              ; Its operand is the frame slot.
     JP   TR_PUT                    ; Append it and return.
 
-;@ROUTINE IN D,BC OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,B,DE,HL
-; Emit the store of the expression just parsed into the variable with
-; symbol info D: a program variable at address BC, or a parameter or local
-; at frame offset C. A constant raises DG_CLASH. Always emitted.
+;@ROUTINE IN D,BC CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Store the value in the registers into the variable with symbol info D: a
+; program variable at blob BC (GX_STORE). A local or parameter, at frame
+; offset C, is refused until frames are compiled (65.4 d).
 
 EX_STORE:
     LD   A,D                       ; Fetch the symbol info.
     AND  SY_CMASK                  ; Keep the storage class.
     CP   SY_GLOB                   ; A program variable?
-    JR   Z,.GLOBAL                 ; Store it by address.
-    CP   SY_LOCAL                  ; A local?
-    JR   Z,.LOCAL                  ; Store it in the frame.
-    CP   SY_PARAM                  ; A parameter?
-    JP   NZ,EX_ETYPE               ; No: a constant cannot be assigned.
-    LD   A,D                       ; A parameter: is it a word?
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_U16                    ; Compare with u16.
-    LD   A,OP_STP8                 ; Assume a byte parameter.
-    JR   NZ,.EMIT                  ; u8 and Boolean store a byte.
-    LD   A,OP_STP16                ; A u16 parameter stores a word.
-    JR   .EMIT                     ; Emit it with the frame offset.
-.LOCAL:                        ; A local at frame offset C.
-    LD   A,D                       ; Is it a word?
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_U16                    ; Compare with u16.
-    LD   A,OP_STL8                 ; Assume a byte local.
-    JR   NZ,.EMIT                  ; u8 and Boolean store a byte.
-    LD   A,OP_STL16                ; A u16 local stores a word.
-    JR   .EMIT                     ; Emit it with the frame offset.
-.GLOBAL:                       ; A program variable at address BC.
-    LD   A,D                       ; Is it a word?
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_U16                    ; Compare with u16.
-    LD   A,OP_STG8                 ; Assume a byte variable.
-    JR   NZ,.GLOBEMIT              ; u8 and Boolean store a byte.
-    LD   A,OP_STG16                ; A u16 variable stores a word.
-.GLOBEMIT:                     ; Emit a global store.
-    JP   EX_OPW                    ; Emit it with the address in BC.
-.EMIT:                         ; Emit a frame store.
-    JP   PR_EMITC                  ; Emit it with the offset in C.
+    JP   NZ,TR_OPER                ; No: refuse it for now.
+    LD   A,D                       ; Its type
+    AND  SY_TMASK                  ; alone.
+    JP   GX_STORE                  ; Store A or HL there and return.
 
 EX_EFLOW:                      ; A result or exit the routine does not allow.
     CALL DG_RAISE                  ; Report it; no return.

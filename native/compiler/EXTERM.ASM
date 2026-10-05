@@ -10,7 +10,7 @@
 ;
 ;  Principal entries:
 ;    EX_TERM   parse one primary
-;    EX_LIT    emit a literal and return it as a known result
+;    EX_LIT    return a literal as a known result
 ;    EX_PURE   reject a pending failable call inside a larger expression
 ;    EX_HOLD   check a left operand and push it
 ;    EX_JOIN   check a right operand and pop the left beneath it
@@ -55,37 +55,27 @@ EX_TERM:
     LD   H,B                       ; Return it in HL.
     LD   L,C                       ; Complete HL.
     LD   B,SY_KNOWN+SY_EXACT       ; A known value of no type yet.
-    JR   EX_LIT                    ; Emit it.
+    JR   EX_LIT                    ; Return it.
 .CHAR:                         ; C is the character code.
-    LD   H,0                       ; A byte value.
-    LD   L,C                       ; Complete HL.
-    JR   .BYTE                     ; A known u8.
+    LD   H,0                       ; A byte value,
+    LD   L,C                       ; exact like a number (spec 9.7).
+    LD   B,SY_KNOWN+SY_EXACT       ; A known value of no type yet.
+    JR   EX_LIT                    ; Return it.
 .TRUE:                         ; `true` is one.
     LD   HL,1                      ; Form one.
     JR   .BOOL                     ; A known Boolean.
 .FALSE:                        ; `false` is zero.
     LD   HL,0                      ; Form zero.
 .BOOL:                         ; HL is a Boolean value.
-    LD   B,SY_KNOWN+SY_BOOL        ; A known Boolean.
-    JR   EX_LIT                    ; Emit it.
-.BYTE:                         ; HL is a byte value.
-    LD   B,SY_KNOWN+SY_U8          ; A known u8; emit it below.
+    LD   B,SY_KNOWN+SY_BOOL        ; A known Boolean; fall into EX_LIT.
 
-;@ROUTINE IN B,HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,DE
-; Emit literal HL as OP_LIT16 and return it as the result with metadata B.
-; BC is preserved.
+;@ROUTINE IN B,HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
+; Return the known value HL with metadata B. A constant generates no code
+; until something needs it in the registers (GX_TOREG and the operator
+; templates), as in the reference compiler. BC and DE are preserved.
 
 EX_LIT:
-    PUSH BC                        ; Keep the metadata.
-    PUSH HL                        ; Keep the value.
-    LD   A,OP_LIT16                ; Every literal is a 16-bit carrier.
-    CALL EX_EMIT                   ; Emit the operation.
-    POP  HL                        ; Recover the value.
-    PUSH HL                        ; Keep it across the operand.
-    CALL EX_EMITW                  ; Emit the value as its operand.
-    POP  HL                        ; Return the value in HL.
-    POP  BC                        ; Recover the metadata.
-    LD   A,B                       ; Return it in A.
+    LD   A,B                       ; The metadata.
     OR   A                         ; Clear carry for success.
     RET                            ; Return the known result.
 
@@ -134,15 +124,10 @@ EX_NAME:
     JR   NZ,.LOAD                  ; u8 and Boolean load a byte.
     LD   A,OP_LDL16                ; A u16 local loads a word.
     JR   .LOAD                     ; Emit it with the frame offset.
-.GLOBAL:                       ; A program variable at address BC.
-    LD   A,E                       ; Is it a word?
-    CP   SY_U16                    ; Compare with u16.
-    LD   A,OP_LDG8                 ; Assume a byte variable.
-    JR   NZ,.GLOBEMIT              ; u8 and Boolean load a byte.
-    LD   A,OP_LDG16                ; A u16 variable loads a word.
-.GLOBEMIT:                     ; Emit a global load.
-    PUSH DE                        ; Keep the type.
-    CALL EX_OPW                    ; Emit the load with the address in BC.
+.GLOBAL:                       ; A program variable, blob BC.
+    LD   A,E                       ; Its type.
+    PUSH DE                        ; Keep it.
+    CALL GX_LOAD                   ; Load it into A or HL.
     POP  DE                        ; Recover the type.
     LD   A,E                       ; A run-time result of that type.
     OR   A                         ; Clear carry for success.
@@ -171,7 +156,7 @@ EX_NAME:
     LD   L,C                       ; Complete HL.
     LD   B,D                       ; Its type is the constant's...
     SET  7,B                       ; ...and it is known (SY_KNOWN).
-    JP   EX_LIT                    ; Emit it as a literal.
+    JP   EX_LIT                    ; Return it.
 
 ;@ROUTINE IN A,HL OUT A,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,CARRY,C
 ; A failable call is consumable only while it is the complete, untouched

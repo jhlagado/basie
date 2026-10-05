@@ -1,0 +1,19 @@
+// Assignments of constants and program variables (65.4 b).
+var a as u8 = 7
+var b as u16 = 300
+var f as boolean
+var c as u8
+const k = 5
+const t = true
+
+sub main()
+    c = 3
+    b = 40000
+    b = a
+    f = t
+    c = k
+    b = 'A'
+    a = c
+    f = false
+    b = b
+end

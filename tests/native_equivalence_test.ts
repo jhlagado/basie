@@ -20,6 +20,7 @@ const DIR = "tests/native/programs";
 /** The claimed programs, by stage of 65.4. */
 const CLAIMED: Record<string, string[]> = {
   "a: empty routines": ["EMPTY", "FAILS", "SUBS"],
+  "b: declarations and references": ["DECLS", "REFS"],
 };
 
 /** Compile NAME with BASIE.COM and the options; return the disk. */

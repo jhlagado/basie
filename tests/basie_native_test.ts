@@ -17,7 +17,7 @@ function run(tail: string, files: Record<string, string | Uint8Array> = {}) {
 
 const USAGE = "Usage: BASIE PART[,PART...] [OPTIONS]\r\n";
 
-// Statements come with stages (b) and (c) of 65.4.
+// Operators come with stage (c) of 65.4.
 const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\nend\n";
 
 Deno.test("BASIE with no part prints its usage", () => {
@@ -62,8 +62,7 @@ Deno.test("BASIE compiles a program of several parts", () => {
     "DATA.BSI": "var result as u8\n",
     "MAIN.BSI": "sub main()\nresult = 12\nend\n",
   };
-  // Assignment comes with stage (b) of 65.4.
-  assertEquals(run("DATA, MAIN", files), "MAIN.BSI 2:10 Error 95\r\n");
+  assertEquals(run("DATA, MAIN", files), "");
   assertEquals(run("MAIN,DATA", files), "MAIN.BSI 2:1 Error 57\r\n");
   const later = { ...files, "MAIN.BSI": "sub main()\nresult = missing\nend\n" };
   assertEquals(run("DATA,MAIN", later), "MAIN.BSI 2:10 Error 57\r\n");
