@@ -507,7 +507,7 @@ comes from its method.
   distinct references at 2 bytes each ([limits](limits.md) §5.2).
 - **Native maximum:** measured (roadmap step 63) and rescaled: table space
   runs from the end of `BLINK.COM`'s image to a 768-byte stack margin, so on a
-  57K CP/M 2.2 system it is 46,463 bytes (45.4K) with the image at 10,887
+  57K CP/M 2.2 system it is 46,462 bytes (45.4K) with the image at 10,888
   bytes. Step 63 measured about 5,450 blobs with few references at 12,262
   bytes (45,088 bytes of tables); scaled by table space that is about 5,600,
   after which `L-CAP-TABLES`. With ordinary programs the image limit is

@@ -294,8 +294,9 @@ native/linker/BLINK.ASM --target 12288 --budget 14336`. At step 63 it was
 12,262 bytes: 26 under the target. Option R and .BIN and Intel HEX output took
 it to 12,566; the compression pass that followed (shared file routines, padded
 map labels, a row pointer for the pseudo-objects, `JR` where in range, and
-buffers that share memory between phases) brought it to 10,887 bytes: 1,401
-under the target.
+buffers that share memory between phases) brought it to 10,887 bytes. The
+fixes from the commentary pass's review, with their own compression pass,
+left it at 10,888 bytes: 1,400 under the target.
 
 ### 7.3 Overlays and the message file
 
