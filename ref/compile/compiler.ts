@@ -430,6 +430,20 @@ export class Compiler {
   // ---- top-level declarations (chapter 8) ----------------------------------------
 
   private topLevel(): void {
+    const start = this.token;
+    this.topLevelDeclaration();
+    // A part ends at top level: no declaration runs on into the next (4.3.1).
+    const last = this.tokens[this.pos - 1];
+    if (last.part !== start.part) {
+      fail(
+        "syntax",
+        last,
+        "a declaration must end in the source part where it begins",
+      );
+    }
+  }
+
+  private topLevelDeclaration(): void {
     const isPrivate = this.acceptKeyword("private");
     const t = this.token;
     if (this.isKeyword("const")) this.constDeclaration(isPrivate);

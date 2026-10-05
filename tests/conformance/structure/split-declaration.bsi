@@ -1,0 +1,10 @@
+// A source part must end at top level: a routine begun in SPLIT.BSI can't
+// be finished here (4.3.1; review finding A4).
+// spec: 4.3.1
+// expect error: syntax at 7:4
+
+include "SPLIT.BSI"
+end
+
+sub main()
+end

@@ -1,0 +1,2 @@
+// A part that ends inside a routine, for split-declaration.bsi.
+sub helper()

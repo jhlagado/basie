@@ -22,7 +22,7 @@ fixes it names the finding, as B1, A3 and so on).
 | A1 | major (closed) | Chapters 3 and 5 say `id(...)` is always the conversion; 17.3 makes it the conversion only when no binding named `id` is visible, and the compiler follows 17.3, so one public `id` disables `id(...)` everywhere after it. | `id (` is always the conversion; no routine may be named `id` |
 | A2 | major | Chapters 4 and 5 say forward declarations are routines only, though D40, 8.11, chapter 17 and the corpus have forward pools; their completion checks are missing. | Routines and pools |
 | A3 | major | Whether a body repeats `private` is unclear; the compiler requires the completion's visibility to match the forward. | State the matching rule |
-| A4 | major | Nothing stops a declaration starting in one part and ending in another; the compiler accepts it, and a split body sees the other part's private names. | Each part ends at top level; diagnose |
+| A4 | major (closed) | Nothing stops a declaration starting in one part and ending in another; the compiler accepts it, and a split body sees the other part's private names. | Each part ends at top level; diagnose |
 | A5 | major | The object format puts all part records first, but parts are discovered as includes are read. | Emit a part record when its number is fixed |
 | A6 | major | "No other declaration may use the identity `main`" conflicts with fields and earlier locals named `main`, which the compiler accepts. | Program and part scope only |
 | A7 | minor | Compile-time `assert` is missing from the top-level families, and can't be `private`. | Add, with the exception |
