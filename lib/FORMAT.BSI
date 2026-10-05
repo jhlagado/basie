@@ -1,4 +1,4 @@
-// Basie standard library: numbers to text (D36).
+// Basie standard library: numbers to text (D36; standard library section 3).
 include "STRINGS.BSI"
 
 sub appendU16(var s as string[], v as u16) fails
@@ -81,4 +81,23 @@ sub appendF32(var s as string[], x as f32, places as u8) fails
             div = div / 10
         end
     end
+end
+
+private sub hexDigit(v as u8) as u8
+    if v < 10
+        return v + '0'
+    end
+    return v - 10 + 'A'
+end
+
+// Two upper-case hexadecimal digits.
+sub appendHex8(var s as string[], v as u8) fails
+    appendByte(s, hexDigit(v shr 4)) else fail
+    appendByte(s, hexDigit(v and 15)) else fail
+end
+
+// Four upper-case hexadecimal digits.
+sub appendHex16(var s as string[], v as u16) fails
+    appendHex8(s, u8(v shr 8)) else fail
+    appendHex8(s, u8(v and 255)) else fail
 end

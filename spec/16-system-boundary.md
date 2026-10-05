@@ -31,7 +31,7 @@ Nucleus's `readInputByte()` and `writeOutputByte(b)` remain as shorthands for `r
 
 ## 16.4 The standard library
 
-Formatting and parsing numbers, building and comparing strings, splitting the command line into words and similar routines form a **standard library written in Basie** (design decision D36), supplied as source parts such as `STRINGS.BSI` and `FORMAT.BSI` and brought in with `include` (Chapter 4). They are ordinary Basie routines with no special status; their internal routines are `private`. They use failure codes 32 to 47.
+Formatting and parsing numbers, building and comparing strings, splitting the command line into words and similar routines form a **standard library written in Basie** (design decision D36), supplied as source parts such as `STRINGS.BSI` and `FORMAT.BSI` and brought in with `include` (Chapter 4). They are ordinary Basie routines with no special status; their internal routines are `private`. They use failure codes 32 to 47. The [standard library](../docs/standard-library.md) document lists every routine and its contract.
 
 ## 16.5 Program startup and termination
 

@@ -718,11 +718,11 @@ implementation catches errors a single one can't.
 The standard library is Basie source, compiled with the program through
 `include` and tree-shaken. Version 1 provides:
 
-- **Strings** (`STRINGS.BSI`): `append(var s, t)`, `appendByte(var s, b)`,
-  `copyFrom(var dest, src, start, count)`, `equal(a, b)`, `compare(a, b)`
-  returning `i8`, `find(s, t)` returning the position or `$FFFF`, `toUpper`,
-  `toLower`, `trim`. Each fails with `lineTooLong` rather than exceed the
-  destination's capacity.
+- **Strings** (`STRINGS.BSI`): `clear(var s)`, `append(var s, t)`,
+  `appendByte(var s, b)`, `copyFrom(var dest, src, start, count)`,
+  `equal(a, b)`, `compare(a, b)` returning `i8`, `find(s, t)` returning the
+  position or `$FFFF`, `toUpper`, `toLower`, `trim`. Each fails with
+  `lineTooLong` rather than exceed the destination's capacity.
 - **Numbers to text** (`FORMAT.BSI`): `appendU16`, `appendI16`, `appendU32`,
   `appendI32` in decimal; `appendHex8` and `appendHex16`; `appendF32(var s, x,
   places)` with a chosen number of decimal places.
@@ -732,8 +732,11 @@ The standard library is Basie source, compiled with the program through
 - **Console and files** (`TEXTIO.BSI`): `writeLine(f, s)` with CR LF,
   `prompt(text, var answer)`, `readSecret(var answer)` without echo,
   `word(text, n, var out)` for command-line words, `readAll(f, var buf)` and a
-  copying `truncate`.
+  copying `truncate(name, newSize, mode)`.
 - **Pseudo-random numbers** (`RANDOM.BSI`): a 16-bit generator with a seed.
+
+The [standard library](standard-library.md) document gives each routine's
+exact contract.
 
 **Why.** These are what a first program needs and what D25 left to the library;
 written in Basie, they cost compiler bytes nothing and programs only what they

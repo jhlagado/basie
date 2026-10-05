@@ -158,7 +158,7 @@ one routine", bounded by nesting.
   model, and the one worth thinking about for the long term; it changes the
   type system (what `string[]` parameters are) and the standard library.
 
-**Working position.** Live with 253 for version 1: the specification and the
+**Settled for version 1** (step 57, on this working position). Live with 253 for version 1: the specification and the
 library are written to it, and a program that needs more has `u8[]`. Record the
 vector model as the version 2 question, with the explicit note that the length
 representation (one byte or two) is to be chosen then, not inherited.
@@ -319,8 +319,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   ceiling ([spec](../spec/08-constants-and-declarations.md) §8.6).
 - **Also bounded:** console line input is 253 because of this, though BDOS 10
   allows 255.
-- **Status:** **needs a decision** (Section 2, item 2): compact strings, or a
-  16-bit length and capacity.
+- **Status:** settled at 253 for version 1 (Section 2.2); the representation
+  is to be chosen afresh for version 2.
 
 ### 3.11 Arrays
 

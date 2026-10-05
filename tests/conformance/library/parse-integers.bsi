@@ -1,0 +1,87 @@
+// PARSE.BSI: integers, with blanks, signs, $hex and the limits of each type.
+// spec: 16.4; standard library 4
+// expect output: 0 65535 B B 4660 B 12 B \r\n
+// expect output: -32768 32767 B B 5 -7 B \r\n
+// expect output: 4294967295 B -2147483648 2147483647 B 32 B \r\n
+
+include "FORMAT.BSI"
+include "PARSE.BSI"
+
+sub u16Case(var line as string[], text as string[]) fails
+    var code as u8 = 0
+    var v as u16 = 0
+    v = parseU16(text) handle code
+        append(line, "B ") else fail
+        return
+    end
+    appendU16(line, v) else fail
+    appendByte(line, ' ') else fail
+end
+
+sub i16Case(var line as string[], text as string[]) fails
+    var code as u8 = 0
+    var v as i16 = 0
+    v = parseI16(text) handle code
+        append(line, "B ") else fail
+        return
+    end
+    appendI16(line, v) else fail
+    appendByte(line, ' ') else fail
+end
+
+sub u32Case(var line as string[], text as string[]) fails
+    var code as u8 = 0
+    var v as u32 = 0
+    v = parseU32(text) handle code
+        append(line, "B ") else fail
+        return
+    end
+    appendU32(line, v) else fail
+    appendByte(line, ' ') else fail
+end
+
+sub i32Case(var line as string[], text as string[]) fails
+    var code as u8 = 0
+    var v as i32 = 0
+    v = parseI32(text) handle code
+        append(line, "B ") else fail
+        return
+    end
+    appendI32(line, v) else fail
+    appendByte(line, ' ') else fail
+end
+
+sub finish(var line as string[]) fails
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+    clear(line)
+end
+
+sub main() fails
+    var line as string[100]
+    u16Case(line, "0") else fail
+    u16Case(line, "65535") else fail
+    u16Case(line, "65536") else fail
+    u16Case(line, "") else fail
+    u16Case(line, "$1234") else fail
+    u16Case(line, "$") else fail
+    u16Case(line, " \t12  ") else fail
+    u16Case(line, "1 2") else fail
+    finish(line) else fail
+    i16Case(line, "-32768") else fail
+    i16Case(line, "32767") else fail
+    i16Case(line, "32768") else fail
+    i16Case(line, "-32769") else fail
+    i16Case(line, "+5") else fail
+    i16Case(line, " -7 ") else fail
+    i16Case(line, "$10") else fail
+    finish(line) else fail
+    u32Case(line, "4294967295") else fail
+    u32Case(line, "4294967296") else fail
+    i32Case(line, "-2147483648") else fail
+    i32Case(line, "2147483647") else fail
+    i32Case(line, "2147483648") else fail
+    i32Case(line, "32") else fail
+    i32Case(line, "-") else fail
+    finish(line) else fail
+end

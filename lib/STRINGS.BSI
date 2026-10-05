@@ -1,9 +1,15 @@
-// Basie standard library: strings (D25, D36). Each routine fails with
-// lineTooLong rather than exceed the destination's capacity.
+// Basie standard library: strings (D25, D36; standard library section 2).
+// Each routine that writes a string fails with lineTooLong rather than
+// exceed the destination's capacity.
+
+// Make s the empty string.
+sub clear(var s as string[])
+    s.length = 0
+end
 
 sub appendByte(var s as string[], b as u8) fails
     var at as u8 = s.length
-    if u16(at) = s.capacity
+    if at = s.capacity
         fail lineTooLong
     end
     s.length = at + 1
@@ -15,6 +21,19 @@ sub append(var s as string[], t as string[]) fails
     while i < t.length
         appendByte(s, t[i]) else fail
         i = i + 1
+    end
+end
+
+// dest becomes count bytes of src from position start, or fewer where src
+// ends first; a start at or beyond src's end gives the empty string.
+sub copyFrom(var dest as string[], src as string[], start as u8, count as u8) fails
+    dest.length = 0
+    var i as u8 = start
+    var left as u8 = count
+    while left > 0 and i < src.length
+        appendByte(dest, src[i]) else fail
+        i = i + 1
+        left = left - 1
     end
 end
 
@@ -30,4 +49,87 @@ sub equal(a as string[], b as string[]) as boolean
         i = i + 1
     end
     return true
+end
+
+// -1, 0 or 1 as a sorts before, with or after b, byte by byte; a string
+// sorts before any longer string it begins.
+sub compare(a as string[], b as string[]) as i8
+    var i as u8 = 0
+    while i < a.length and i < b.length
+        if a[i] < b[i]
+            return -1
+        elseif a[i] > b[i]
+            return 1
+        end
+        i = i + 1
+    end
+    if a.length < b.length
+        return -1
+    elseif a.length > b.length
+        return 1
+    end
+    return 0
+end
+
+// The position of the first t within s, or $FFFF; an empty t is found at 0.
+sub find(s as string[], t as string[]) as u16
+    if t.length > s.length
+        return $FFFF
+    end
+    var last as u16 = u16(s.length - t.length)
+    var at as u16 = 0
+    while at <= last
+        var j as u8 = 0
+        while j < t.length and s[at + u16(j)] = t[j]
+            j = j + 1
+        end
+        if j = t.length
+            return at
+        end
+        at = at + 1
+    end
+    return $FFFF
+end
+
+sub toUpper(var s as string[])
+    var i as u8 = 0
+    while i < s.length
+        if s[i] >= 'a' and s[i] <= 'z'
+            s[i] = s[i] - 32
+        end
+        i = i + 1
+    end
+end
+
+sub toLower(var s as string[])
+    var i as u8 = 0
+    while i < s.length
+        if s[i] >= 'A' and s[i] <= 'Z'
+            s[i] = s[i] + 32
+        end
+        i = i + 1
+    end
+end
+
+private sub blank(b as u8) as boolean
+    return b = ' ' or b = 9
+end
+
+// Remove leading and trailing spaces and tabs.
+sub trim(var s as string[])
+    var last as u8 = s.length
+    while last > 0 and blank(s[last - 1])
+        last = last - 1
+    end
+    var first as u8 = 0
+    while first < last and blank(s[first])
+        first = first + 1
+    end
+    var i as u8 = 0
+    while first < last
+        s[i] = s[first]
+        i = i + 1
+        first = first + 1
+    end
+    s.length = i
 end

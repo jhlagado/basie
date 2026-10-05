@@ -1,0 +1,164 @@
+// Basie standard library: console and file conveniences (D36; standard
+// library section 5).
+include "STRINGS.BSI"
+
+private sub blank(b as u8) as boolean
+    return b = ' ' or b = 9
+end
+
+// s followed by CR LF.
+sub writeLine(f as File, s as string[]) fails
+    writeText(f, s) else fail
+    writeText(f, "\r\n") else fail
+end
+
+// Write text to the console and read one edited line into answer.
+sub prompt(text as string[], var answer as string[]) fails
+    writeText(console, text) else fail
+    readLine(console, answer) else fail
+    // BDOS 10 echoes the return key as CR alone.
+    writeByte(console, 10) else fail
+end
+
+// Read a line from the keyboard without echo, for a password. Backspace and
+// delete remove the last character; return ends the line; Control-Z at the
+// start is endOfInput.
+sub readSecret(var answer as string[]) fails
+    clear(answer)
+    while true
+        var k = readKey()
+        if k = 13 or k = 10
+            exit
+        elseif k = 26
+            if answer.length = 0
+                fail endOfInput
+            end
+            exit
+        elseif k = 8 or k = 127
+            if answer.length > 0
+                answer.length = answer.length - 1
+            end
+        elseif k >= 32
+            appendByte(answer, k) else fail
+        end
+    end
+    writeText(console, "\r\n") else fail
+end
+
+// Word n of text (0 for the first), words being separated by spaces and
+// tabs. False, with out empty, when text has fewer words.
+sub word(text as string[], n as u8, var out as string[]) as boolean fails
+    clear(out)
+    var i as u8 = 0
+    var count as u8 = 0
+    while true
+        while i < text.length and blank(text[i])
+            i = i + 1
+        end
+        if i = text.length
+            exit
+        end
+        if count = n
+            while i < text.length and not blank(text[i])
+                appendByte(out, text[i]) else fail
+                i = i + 1
+            end
+            return true
+        end
+        while i < text.length and not blank(text[i])
+            i = i + 1
+        end
+        count = count + 1
+    end
+    return false
+end
+
+// Read f to its end into buf, returning the bytes read. Reading stops early
+// when buf is full; the count then equals buf.length.
+sub readAll(f as File, var buf as u8[]) as u16 fails
+    var count as u16 = 0
+    var code as u8 = 0
+    var b as u8 = 0
+    while count < buf.length
+        b = readByte(f) handle code
+            if code = endOfFile
+                exit
+            end
+            fail code
+        end
+        buf[count] = b
+        count = count + 1
+    end
+    return count
+end
+
+// Cut the file to its first newSize bytes, or leave it whole if it is shorter.
+// In textMode the bytes are counted as text mode reads them (a line end is
+// one byte) and the copy is a text file again; in binaryMode they are raw
+// and the last record is padded with zeros. CP/M 2.2 can't truncate, so this
+// copies the prefix to NAME.~ and replaces the file with it. It fails with
+// fileExists, touching nothing, if NAME.~ already exists. (File types
+// beginning with $ belong to the runtime.)
+sub truncate(name as string[], newSize as u32, mode as u8) fails
+    var temp as string[16]
+    var i as u8 = 0
+    while i < name.length and name[i] <> '.'
+        appendByte(temp, name[i]) else fail
+        i = i + 1
+    end
+    append(temp, ".~") else fail
+    var there = exists(temp) else fail
+    if there
+        fail fileExists
+    end
+    var code as u8 = 0
+    var source = openRead(name, mode) else fail
+    var target = openWrite(temp, mode) else fail
+    var left as u32 = newSize
+    if mode = binaryMode
+        var block as u8[128]
+        while left > 0
+            var want as u16 = 128
+            if left < 128
+                want = u16(left)
+            end
+            var got as u16 = 0
+            got = readBlock(source, block, want) handle code
+                abort(source)
+                abort(target)
+                fail code
+            end
+            if got = 0
+                exit
+            end
+            writeBlock(target, block, got) handle code
+                abort(source)
+                abort(target)
+                fail code
+            end
+            left = left - u32(got)
+        end
+    else
+        var b as u8 = 0
+        while left > 0
+            b = readByte(source) handle code
+                if code = endOfFile
+                    exit
+                end
+                abort(source)
+                abort(target)
+                fail code
+            end
+            writeByte(target, b) handle code
+                abort(source)
+                abort(target)
+                fail code
+            end
+            left = left - 1
+        end
+    end
+    close(source) else fail
+    close(target) else fail
+    delete(name) else fail
+    rename(temp, name) else fail
+end

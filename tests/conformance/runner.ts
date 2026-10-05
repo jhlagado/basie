@@ -50,26 +50,6 @@ export async function runTest(
     }
     const first = result.diagnostics[0];
     const want = expected.error;
-    const futureLibrary =
-      /\b(appendU32|appendI32|appendF32|appendHex8|appendHex16|parse[A-Z]\w*|writeLine|prompt|readSecret|word|readAll)\b/;
-    if (
-      first?.code === "undeclared-name" && !want &&
-      futureLibrary.test(first.message)
-    ) {
-      return {
-        status: "pending",
-        reason: "a standard-library routine is not written yet",
-      };
-    }
-    if (
-      first?.code === "include-missing" && !want &&
-      /\b(STRINGS|FORMAT|PARSE|TEXTIO|RANDOM)\.BSI/.test(first.message)
-    ) {
-      return {
-        status: "pending",
-        reason: "the standard library is not written yet",
-      };
-    }
     if (
       want && first && first.code === want.code && first.line === want.line &&
       first.column === want.column

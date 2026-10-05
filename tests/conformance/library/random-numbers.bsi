@@ -1,0 +1,31 @@
+// RANDOM.BSI: the xorshift sequence from the default seed and a chosen one,
+// and randomBelow; the values were computed on the host.
+// spec: 16.4; standard library 6
+// expect output: 54031 61861 5940 | 33153 24609 59801 | 3104451345 0\r\n
+
+include "FORMAT.BSI"
+include "RANDOM.BSI"
+
+sub main() fails
+    var line as string[60]
+    var i as u8 = 0
+    for i = 1 to 3
+        appendU16(line, random()) else fail
+        appendByte(line, ' ') else fail
+    end
+    append(line, "|") else fail
+    seedRandom(1)
+    for i = 1 to 3
+        appendByte(line, ' ') else fail
+        appendU16(line, random()) else fail
+    end
+    append(line, " | ") else fail
+    seedRandom(42)
+    for i = 1 to 10
+        appendU16(line, randomBelow(6)) else fail
+    end
+    appendByte(line, ' ') else fail
+    appendU16(line, randomBelow(0)) else fail
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end

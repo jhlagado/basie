@@ -101,7 +101,7 @@ Each step adds conformance programs and runs them end to end.
 | 46 | Ref | The stack bound, prologue figures, activation checks | (done) | Recursion and deep-call tests |
 | 47 | Ref | Branch shrinking and the literal buffer | `ref/compile/emit.ts` (done; measured 1.2% smaller images) | Size tests |
 | 48 | Ref | Diagnostics by message number, matching the planned message file | `ref/compile/messages.ts`, `tools/msgfile.ts`, `BASIE.MSG` (done) | Diagnostic tests |
-| 49 | Ref | The whole conformance corpus | (done for the current corpus: 105 programs; grows with each later step) | Corpus passes |
+| 49 | Ref | The whole conformance corpus | (done for the current corpus: 113 programs; grows with each later step) | Corpus passes |
 
 ## M5. Runtime and standard library
 
@@ -116,7 +116,7 @@ M5 starts alongside M4: each compiler step needs its helpers.
 | 54 | RT | Stack checks, trap reporters, startup and exit, the `OPTIONS` word | | Startup tests under both harnesses |
 | 55 | RT | Services: console and printer, then files, then the command line and machine | `runtime/cpm22/services.asm` (done; 16 conformance programs in `services/`) | z80-services conformance vectors; CP/M harness tests |
 | 56 | RT | Publish every helper's size and stack figure in the helper table, with interface keys | [Helper table](helper-table.md), `tools/stack.ts`, `tools/helpertable.ts` (done; figures computed and checked by measurement) | Linker compatibility tests |
-| 57 | RT | Standard library in Basie: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/` | Library tests |
+| 57 | RT | Standard library in Basie: strings, number formatting and parsing, `f32` formatting, console and file conveniences | `lib/`, [standard library](standard-library.md) (done; 8 conformance programs in `library/`) | Library tests |
 | 58 | RT | Example programs: a text adventure, a file utility, a game with a pool | `examples/` | Run under the full harness |
 
 ## M6. The native linker

@@ -146,18 +146,20 @@ Two concrete bounded-string types are identical only when their capacities are e
 
 A bounded string is an aggregate, not a `u8` array. It has no source-level header field, payload field, or terminator field. Basie 1.0 provides two intrinsic postfix operations without exposing that representation:
 
-- `text.length` is a read-only `u8` value equal to the current logical byte length.
+- `text.length` is a `u8` value equal to the current logical byte length. It is read-only, except through a `var string[]` parameter (below).
 - `text[index]` selects one existing byte as a `u8` storage path. The index must have type `u8` or `u16` and must be less than the current length. A failed check performs the `bounds` trap before a read or write.
 
-A bounded string's length is established by static initialization or copied as part of exact-type aggregate assignment. A byte assignment replaces exactly one existing byte and does not change the string's length or capacity. These operations provide no append, insertion, resize, truncation, slice, or splice. Source code cannot build counted text by filling bytes and then changing the length. Embedded zero bytes are ordinary content.
+A bounded string's length is established by static initialization, copied as part of exact-type aggregate assignment, or assigned through a `var string[]` parameter (design decision D25). A byte assignment replaces exactly one existing byte and does not change the string's length or capacity. Embedded zero bytes are ordinary content.
+
+Through a `var string[]` parameter, `.length` is a writable `u8` path. Assigning it a value above the view's capacity performs the `bounds` trap. Raising the length makes every newly exposed byte zero, so no earlier contents reappear; lowering it truncates. This is the one way to change a string's length in place, and the standard library builds append, copy and trim on it (Chapter 16, Section 16.4).
 
 Bounded strings have no comparison operators. A library routine can compare two `string[]` parameters by checking their lengths and indexed bytes.
 
 The `.length` intrinsic applies only when the postfix base has bounded-string type. On a record base, `.length` remains ordinary lookup in that record's field scope. Any other field suffix on a bounded string is invalid.
 
-`string[]` is a parameter-only, capacity-polymorphic view. A call may bind it to a concrete `string[N]` storage path or transient alias, for any admitted `N`, or forward another `string[]` parameter. The view retains the actual capacity for `.length` and checked indexing. It does not own storage and is invalid as a variable, constant, record field, array element, local, or routine result. Whole-object assignment and comparison through an open view are invalid.
+`string[]` is a parameter-only, capacity-polymorphic view. A call may bind it to a concrete `string[N]` storage path or transient alias, for any admitted `N`, or forward another `string[]` parameter. The view retains the actual capacity for `.length` and checked indexing, and gives it as `.capacity`, a read-only `u8`. It does not own storage and is invalid as a variable, constant, record field, array element, local, or routine result. Whole-object assignment and comparison through an open view are invalid.
 
-A string literal remains a contextual static initializer, not a general aggregate expression or argument. Passing literal text therefore requires a named concrete bounded-string object in this version. `string[]` is not a slice: it always views one complete bounded-string object, has no offset or independently chosen length, and cannot be rebound.
+A string literal remains a contextual static initializer, not a general aggregate expression. As an argument it may bind only a read-only `string[]` parameter, where the compiler supplies it as a constant (Chapter 13, Section 13.4); a `var` parameter needs a named writable object. `string[]` is not a slice: it always views one complete bounded-string object, has no offset or independently chosen length, and cannot be rebound.
 
 This chapter fixes the semantic domain and capacity, not the stored layout. Chapter 7 defines storage identity and lifetime, Chapter 8 defines declaration initialization, and the Z80 runtime and backend contract defines the physical representation and byte encoding. That representation preserves embedded zero bytes, logical lengths through 253, and alias-visible byte mutation.
 
@@ -195,7 +197,7 @@ The compiler applies these compatibility rules:
 | Boolean condition or destination                       | `boolean` only.                                                                                                 |
 | Record field selection                                 | The field's declared type.                                                                                      |
 | Fixed-array index                                      | `u8` or `u16` index, never signed (D31); result has the exact element type.                                    |
-| Bounded-string `.length`                               | Read-only `u8` value equal to the current logical length.                                                       |
+| Bounded-string `.length`                               | `u8` value equal to the current logical length; writable only through a `var string[]` parameter.               |
 | Bounded-string index                                   | `u8` or `u16` index below the current length; result is a writable `u8` path.                                   |
 | Concrete aggregate parameter                           | Exact referent-type identity.                                                                                   |
 | `string[]` parameter                                   | Any concrete bounded-string storage path or transient alias, or another `string[]`; retain the actual capacity. |

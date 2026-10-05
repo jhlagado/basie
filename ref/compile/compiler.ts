@@ -2968,7 +2968,9 @@ export class Compiler {
             continue;
           }
           if (field.text === "capacity" && d.type.kind === "openString") {
-            d = this.openViewWord(d);
+            // The view's capacity word: its low byte, since a capacity is at
+            // most 253 (spec 9.2).
+            d = { ...this.openViewWord(d), type: U8 };
             continue;
           }
           fail("no-such-field", field, `strings have no field ${field.text}`);

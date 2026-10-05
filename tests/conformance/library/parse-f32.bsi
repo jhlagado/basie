@@ -1,0 +1,53 @@
+// PARSE.BSI: parseF32, exact for short numbers; zero below f32's range,
+// badNumber above it and on malformed text.
+// spec: 16.4; standard library 4
+// expect output: TTTTTTTTT 0 BBBBBB\r\n
+
+include "STRINGS.BSI"
+include "PARSE.BSI"
+
+sub same(var line as string[], text as string[], want as f32) fails
+    var v = parseF32(text) else fail
+    if v = want
+        appendByte(line, 'T') else fail
+    else
+        appendByte(line, 'F') else fail
+    end
+end
+
+sub bad(var line as string[], text as string[]) fails
+    var code as u8 = 0
+    var v as f32 = 0.0
+    v = parseF32(text) handle code
+        if code = badNumber
+            appendByte(line, 'B') else fail
+        end
+        return
+    end
+    appendByte(line, '?') else fail
+end
+
+sub main() fails
+    var line as string[40]
+    same(line, "1.5", 1.5) else fail
+    same(line, "-0.25", -0.25) else fail
+    same(line, ".5", 0.5) else fail
+    same(line, "3.", 3.0) else fail
+    same(line, " 2.5e+1 ", 25.0) else fail
+    same(line, "0.1", 0.1) else fail
+    same(line, "3.14159", 3.14159) else fail
+    same(line, "1234.5678", 1234.5678) else fail
+    same(line, "123456789012", 123456789012.0) else fail
+    var tiny = parseF32("1e-50") else fail
+    if tiny = 0.0
+        append(line, " 0 ") else fail
+    end
+    bad(line, "1e39") else fail
+    bad(line, "abc") else fail
+    bad(line, "1e") else fail
+    bad(line, "1.2.3") else fail
+    bad(line, "-") else fail
+    bad(line, ".") else fail
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end

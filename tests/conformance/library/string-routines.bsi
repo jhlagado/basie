@@ -1,0 +1,61 @@
+// STRINGS.BSI: clear, copyFrom, compare, find, case, trim and the capacity rule.
+// spec: 16.4; standard library 2
+// expect output: lo W|-1 0 1 -1 1|4 0 65535 65535|HELLO, hello,|[a b]|[]|F14\r\n
+
+include "FORMAT.BSI"
+
+sub sign(var line as string[], v as i8, last as boolean) fails
+    appendI16(line, i16(v)) else fail
+    if not last
+        appendByte(line, ' ') else fail
+    end
+end
+
+sub main() fails
+    var line as string[80]
+    var part as string[8]
+    copyFrom(part, "Hello World", 3, 4) else fail
+    append(line, part) else fail
+    append(line, "|") else fail
+    sign(line, compare("abc", "abd"), false) else fail
+    sign(line, compare("abc", "abc"), false) else fail
+    sign(line, compare("b", "abc"), false) else fail
+    sign(line, compare("ab", "abc"), false) else fail
+    sign(line, compare("abc", "ab"), true) else fail
+    append(line, "|") else fail
+    appendU16(line, find("Hello World", "o W")) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, find("abc", "")) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, find("abc", "abcd")) else fail
+    appendByte(line, ' ') else fail
+    appendU16(line, find("abcabd", "abe")) else fail
+    append(line, "|") else fail
+    var word as string[10]
+    append(word, "HeLLo,") else fail
+    toUpper(word)
+    append(line, word) else fail
+    appendByte(line, ' ') else fail
+    toLower(word)
+    append(line, word) else fail
+    append(line, "|[") else fail
+    var padded as string[10]
+    append(padded, " \ta b \t") else fail
+    trim(padded)
+    append(line, padded) else fail
+    append(line, "]|[") else fail
+    clear(padded)
+    append(padded, "   ") else fail
+    trim(padded)
+    append(line, padded) else fail
+    append(line, "]|") else fail
+    var small as string[3]
+    copyFrom(small, "abcdef", 0, 2) else fail
+    var code as u8 = 0
+    copyFrom(small, "abcdef", 1, 5) handle code
+        appendByte(line, 'F') else fail
+        appendU16(line, u16(code)) else fail
+    end
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

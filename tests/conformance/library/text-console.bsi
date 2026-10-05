@@ -1,0 +1,51 @@
+// TEXTIO.BSI on the console: prompt, readSecret with backspace, words of a
+// command line, and writeLine.
+// spec: 16.4; standard library 5
+// input: Ann\rpa\x08ss\r
+// tail:   copy  A.TXT\tB.TXT
+// expect output: Name? \n\r\n[Ann] [pss] 3 [COPY|A.TXT|B.TXT] F\r\n
+
+include "TEXTIO.BSI"
+
+sub main() fails
+    var name as string[20]
+    var secret as string[20]
+    prompt("Name? ", name) else fail
+    readSecret(secret) else fail
+    var line as string[60]
+    append(line, "[") else fail
+    append(line, name) else fail
+    append(line, "] [") else fail
+    append(line, secret) else fail
+    append(line, "] ") else fail
+    var tail as string[60]
+    commandTail(tail)
+    var w as string[20]
+    var n as u8 = 0
+    var more = word(tail, 0, w) else fail
+    while more
+        n = n + 1
+        more = word(tail, n, w) else fail
+    end
+    appendByte(line, '0' + n) else fail
+    append(line, " [") else fail
+    var i as u8 = 0
+    while i < n
+        if i > 0
+            appendByte(line, '|') else fail
+        end
+        var got = word(tail, i, w) else fail
+        append(line, w) else fail
+        i = i + 1
+    end
+    append(line, "] ") else fail
+    var small as string[2]
+    var code as u8 = 0
+    var found as boolean = false
+    found = word(tail, 1, small) handle code
+        if code = lineTooLong
+            appendByte(line, 'F') else fail
+        end
+    end
+    writeLine(console, line) else fail
+end
