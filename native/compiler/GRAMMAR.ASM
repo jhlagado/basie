@@ -1,16 +1,64 @@
-; Generated from stage7-grammar.json.
-GR_ROW_N EQU  42
-GR_ALT_N EQU  69
-GR_SPLIT EQU  35
-GR_ACT_N EQU  74
-GR_START EQU  $40
-GR_EXIT EQU  46
-GR_CONT EQU  47
-GR_TO EQU  61
-GR_UNTIL EQU  62
-GR_U8 EQU  71
-GR_U16 EQU  72
-GR_BOOL EQU  73
+;==========================================================================
+;  Grammar tables
+;==========================================================================
+;
+;  The LL(1) tables that LL1.ASM interprets. This file was generated from
+;  Nucleus's grammar (grammar/stage7-grammar.json) by a generator that wrote
+;  AZM; the conversion to ATOM translated it, and the generator was retired.
+;  Step 67 brings a generator for Basie's grammar that writes this layout
+;  under the same names. Until then the file is edited only by hand, and
+;  every offset and count below must be kept consistent with the data.
+;
+;  Grammar symbols are bytes: $00..$3F a token kind, $40..$7F nonterminal
+;  (row) n-$40, $80..$FE action n-$80 (LL1.ASM).
+;
+;  GR_ROWX   two bytes per nonterminal: the offset of its row from GR_ROWS,
+;            then the diagnostic raised when no production of the row is
+;            predicted by the next token.
+;  GR_ROWS   the rows. A row is a list of alternatives: a production byte,
+;            then the token kinds that predict it. Bit 7 marks the last
+;            token of each alternative and, on the production byte, the
+;            row's last alternative.
+;  GR_ALTX   one byte per production below GR_SPLIT: the offset of its body
+;            from GR_ALTS, then one entry more that ends the last body. The
+;            length of a body is the next entry minus its own.
+;  GR_ALTXH  the same for productions GR_SPLIT and up, renumbered from zero,
+;            with bodies from GR_ALTHI. Splitting the bodies in two keeps
+;            every offset within a byte.
+;  GR_ALTS   production bodies, each stored right to left so that the engine
+;            pushes it in one copy and its leftmost symbol ends on top.
+;  GR_ACTX   one word per action: the routine LL1.ASM calls, with the
+;            action ordinal in A.
+;
+;  Names. GR_ROWn is row n (nonterminal $40+n) and GR_ALTn production n.
+;  An X suffix names a directory (GR_ROWX, GR_ALTX, GR_ALTXH, GR_ACTX), an S
+;  the base its offsets count from (GR_ROWS, GR_ALTS; GR_ALTHI for the high
+;  half), _N a count, and _E or XE an end. The directories hold numbers, not
+;  label differences, because ATOM takes a forward reference only as one
+;  symbol with a small addend; each entry's comment gives the difference it
+;  stands for and the nonterminal. The row and body labels are kept for
+;  those comments and for listings; nothing references them.
+;
+;  Comments on GR_ACTX name the grammar's action: a: is a semantic action,
+;  x: an island where a hand-written parser (expressions, initializers,
+;  steps, name statements) takes over. A parameter is the value the shared
+;  routine derives from the ordinal: the token kind for exit and continue,
+;  1 for to and 0 for until, the scalar type for u8, u16 and boolean.
+
+GR_ROW_N EQU  42                   ; Nonterminals, one row each.
+GR_ALT_N EQU  69                   ; Productions.
+GR_SPLIT EQU  35                   ; First production in the high directory.
+GR_ACT_N EQU  74                   ; Actions in GR_ACTX.
+GR_START EQU  $40                  ; Start symbol: compilation-unit, row 0.
+GR_EXIT EQU  46                    ; Action ordinal of EmitExit (AC_GOTO).
+GR_CONT EQU  47                    ; Action ordinal of EmitContinue (AC_GOTO).
+GR_TO EQU  61                      ; Action ordinal of ForTo (AC_FORTO).
+GR_UNTIL EQU  62                   ; Action ordinal of ForUntil (AC_FORTO).
+GR_U8 EQU  71                      ; Action ordinal of TypeU8 (AC_TYPE).
+GR_U16 EQU  72                     ; Action ordinal of TypeU16 (AC_TYPE).
+GR_BOOL EQU  73                    ; Action ordinal of TypeBoolean (AC_TYPE).
+
+; Row directory: offset from GR_ROWS, diagnostic when nothing is predicted.
 
 GR_ROWX:
     DB   0,DG_TOP                  ; GR_ROW0-GR_ROWS; compilation-unit
@@ -55,8 +103,11 @@ GR_ROWX:
     DB   200,DG_VALUE              ; GR_ROW39-GR_ROWS; string-capacity
     DB   214,DG_VALUE              ; GR_ROW40-GR_ROWS; type-array-opt
     DB   222,DG_TYPE               ; GR_ROW41-GR_ROWS; scalar-type
-GR_ROWXE:
-GR_ROWS:
+GR_ROWXE:                          ; End of the row directory.
+
+; Rows: alternatives of production byte and predicting token kinds.
+
+GR_ROWS:                           ; Base of the row offsets.
 GR_ROW0:                           ; compilation-unit
     DB   0+$80
     DB   TK_ASSRT
@@ -327,7 +378,9 @@ GR_ROW41:                          ; scalar-type
     DB   TK_U16+$80
     DB   68+$80
     DB   TK_BOOL+$80
-GR_ROW_E:
+GR_ROW_E:                          ; End of the rows.
+
+; Production directories: body offsets, each list closed by an end entry.
 
 GR_ALTX:
     DB   0                         ; GR_ALT0-GR_ALTS; compilation-unit
@@ -402,8 +455,11 @@ GR_ALTXH:
     DB   106                       ; GR_ALT67-GR_ALTHI; scalar-type
     DB   108                       ; GR_ALT68-GR_ALTHI; scalar-type
     DB   110                       ; GR_ALT_E-GR_ALTHI
-GR_ALTXE:
-GR_ALTS:
+GR_ALTXE:                          ; End of the production directories.
+
+; Production bodies, each right side stored right to left.
+
+GR_ALTS:                           ; Base of the low productions' offsets.
 GR_ALT0:                           ; compilation-unit
     DB   TK_EOF,$80,$41
 GR_ALT1:                           ; top-level-list
@@ -473,7 +529,7 @@ GR_ALT33:                          ; statement-sequence
     DB   $58,$59
 GR_ALT34:                          ; statement
     DB   $5d,$a5
-GR_ALTHI:
+GR_ALTHI:                          ; Base of the high productions' offsets.
 GR_ALT35:                          ; statement
     DB   TK_EOL,$5a
 GR_ALT36:                          ; statement
@@ -542,7 +598,9 @@ GR_ALT67:                          ; scalar-type
     DB   $c8,TK_U16
 GR_ALT68:                          ; scalar-type
     DB   $c9,TK_BOOL
-GR_ALT_E:
+GR_ALT_E:                          ; End of the production bodies.
+
+; Action directory: the routine for each action ordinal.
 
 GR_ACTX:
     DW   AC_MAIN                   ; a:RequireMain
@@ -619,8 +677,8 @@ GR_ACTX:
     DW   AC_TYPE                   ; a:TypeU8, parameter 1
     DW   AC_TYPE                   ; a:TypeU16, parameter 2
     DW   AC_TYPE                   ; a:TypeBoolean, parameter 3
-GR_ACTXE:
+GR_ACTXE:                          ; End of the action directory.
 
-GR_TAB_E:
+GR_TAB_E:                          ; End of the generated tables (marker).
 
-GR_END:
+GR_END:                            ; End of the grammar tables (marker).
