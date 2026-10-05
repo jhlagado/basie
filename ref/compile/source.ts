@@ -60,12 +60,31 @@ export function loadSource(
     const part: Part = { number: -1, name: basename(path).toUpperCase(), path };
     loaded.set(path, part);
     open.add(path);
+    const provisional = parts.length;
+    try {
+      loadPart(part, path, bytes, provisional);
+    } catch (e) {
+      // Errors before the part's number is fixed carry its name (1.6, 3.3).
+      if (
+        e instanceof CompileError && e.partName === undefined &&
+        e.position.part === provisional && part.number < 0
+      ) e.partName = part.name;
+      throw e;
+    }
+  };
+
+  const loadPart = (
+    part: Part,
+    path: string,
+    bytes: Uint8Array,
+    provisional: number,
+  ): void => {
     let partTokens: Token[];
     try {
-      partTokens = tokenize(bytes, parts.length, false);
+      partTokens = tokenize(bytes, provisional, false);
     } catch (e) {
       if (e instanceof LexError) {
-        throw new CompileError(e.code, e.position, e.message);
+        throw new CompileError(e.code, e.position, e.text);
       }
       throw e;
     }

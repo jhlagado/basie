@@ -2,6 +2,9 @@
 import type { Position } from "./lexer.ts";
 
 export class CompileError extends Error {
+  /** The part's name, when the error comes before its number is fixed. */
+  partName?: string;
+
   constructor(
     public readonly code: string,
     public readonly position: Position,

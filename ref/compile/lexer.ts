@@ -102,9 +102,9 @@ export class LexError extends Error {
   constructor(
     public readonly code: string,
     public readonly position: Position,
-    message: string,
+    public readonly text: string,
   ) {
-    super(`${code} at ${position.line}:${position.column}: ${message}`);
+    super(`${code} at ${position.line}:${position.column}: ${text}`);
   }
 }
 

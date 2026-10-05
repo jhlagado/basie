@@ -129,7 +129,8 @@ export async function compile(
           number: messageNumber(e.code) ?? 0,
           line: e.position.line,
           column: e.position.column,
-          part: partNames[e.position.part] ?? `part ${e.position.part}`,
+          part: e.partName ?? partNames[e.position.part] ??
+            `part ${e.position.part}`,
           message: e.message,
         }],
       };
