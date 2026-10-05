@@ -12,7 +12,10 @@ for (const entry of ENTRIES) {
     const r = await assembleFile(join(root, entry));
     const com = comBytes(r);
     const hash = createHash("sha256").update(com).digest("hex");
-    const symbols = r.symbols.map(([n, v]) => [n.toUpperCase(), v]);
+    const symbols = r.symbols.map(([n, v]: readonly [string, number]) => [
+      n.toUpperCase(),
+      v,
+    ]);
     out[entry] = { length: com.length, hash, symbols };
     console.error(entry, com.length, hash, symbols.length);
   } catch (e) {

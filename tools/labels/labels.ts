@@ -1,5 +1,5 @@
-// Label analysis for Skate's ATOM sources.
-// Usage: deno run -A labels.ts <repo> <command>
+// Label analysis for BLINK's ATOM sources, adapted from Skate's.
+// Usage: deno run -A tools/labels/labels.ts <repo>
 import { dirname, join, relative } from "node:path";
 
 // Yield every file under dir whose extension is listed.
@@ -143,10 +143,9 @@ export async function scan(root: string, entry: string) {
 }
 
 if (import.meta.main) {
-  const [root, cmd] = Deno.args;
-  if (cmd === "files") {
-    for (
-      const e of ["src/runtime/image.asm", "src/compiler/scope/compiler.asm"]
-    ) console.log(e, (await includeOrder(root, e)).length);
+  // Print the include order, which is the image order.
+  const [root] = Deno.args;
+  for (const f of await includeOrder(root, "native/linker/BLINK.ASM")) {
+    console.log(f);
   }
 }

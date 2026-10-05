@@ -22,15 +22,28 @@ assembles each included file before its includer, so the list is the layout.
 | `CRC.ASM` | `CRC_` | CRC-16/CCITT-FALSE |
 | `MSG.ASM` | `DG_`, `MSG_` | Diagnostics, with their text from `BASIE.MSG` |
 | `TAIL.ASM` | `CMD_`, `OP_`, `OF_`, `OX_`, `FN_` | The command tail and its options |
-| `PHASEA.ASM` | `RD_`, `DG_`, `TAB_`, `EDGE_`, `PA_`, `DIR_`, `PB_`, `TB_` | Reading a directory, the tables, Phases A and B, the table dump |
-| `PHASECD.ASM` | `WK_`, `REF_`, `PC_`, `PD_`, `SRC_`, `OUT_`, `HEX_` | Walking the directories, Phases C and D, Intel HEX |
+| `PHASEA.ASM` | `RD_`, `DG_`, `TAB_`, `EDGE_`, `PA_` | Reading a directory, the tables, Phase A's records and trailers |
+| `CHECKS.ASM` | `DIR_`, `PA_`, `TAB_`, `EDGE_` | The program directory's header, the profile, Phase A's closing checks |
+| `PHASEB.ASM` | `PB_`, `TB_`, `DG_` | Phase B, marking; option W's table dump |
+| `PHASEC.ASM` | `WK_`, `REF_`, `PC_`, `PF_`, `PS_` | Walking the directories pass by pass, Phase C |
+| `PHASED.ASM` | `PD_`, `SRC_`, `OUT_`, `HEX_` | Phase D, writing the image, and Intel HEX |
 | `LINES.ASM` | `LN_`, `LT_` | The line stream and the line table |
 | `PUBLISH.ASM` | `PUB_` | Publication and clean-up |
-| `PHASEE.ASM` | `PE_`, `REP_`, `NM_`, `MAP_`, `SY_` | Phase E: the map and the symbol file |
+| `REPORT.ASM` | `REP_`, `NM_` | Phase E's workspace, report text and the name readers |
+| `PHASEE.ASM` | `PE_`, `MAP_`, `SY_` | Phase E: the map and the symbol file |
 | `BLINK.ASM` | `LK_`, `LIB_` | The driver and the library's header |
 
 ATOM refuses a source file over 64K, so a module that its commentary pushes
-past that is split at routine boundaries into consecutive files.
+past that is split at routine boundaries into consecutive files: Phase A's
+module became `PHASEA.ASM`, `CHECKS.ASM` and `PHASEB.ASM`, `PHASECD.ASM`
+became `PHASEC.ASM` and `PHASED.ASM`, and Phase E's became `REPORT.ASM` and
+`PHASEE.ASM`.
+
+Each module opens with a banner giving its purpose, principal entries and data
+layout. Each routine, private ones included, has a `;@ROUTINE IN … OUT …
+CLOBBERS …` contract and a sentence on what it does, and every label,
+instruction and data line carries a comment: at column 32 for labels and
+`EQU`s, at column 36 for instructions and data.
 
 ## Names
 
@@ -43,7 +56,9 @@ mark. `FREEMEM`, the end of the image where the tables begin, is such a marker.
 
 Besides the approved short forms of that guide, the linker uses FD (file
 descriptor), CRC, DIR (directory), LIB (library), PRG (program), SEC (section),
-HEX (Intel HEX) and BSS, which are the specification's own terms.
+HEX (Intel HEX) and BSS, which are the specification's own terms, and CTRL
+(control record), XFER (transfer), REN and DEL (CP/M's rename and delete),
+GETB, PUTB and GETW (get or put a byte or word).
 
 | Prefix | Area |
 | --- | --- |
@@ -80,7 +95,9 @@ A workspace variable takes the prefix of the area that writes it.
 ## Renaming
 
 `tools/labels/` holds the tools of Skate's rename, pointed at `BLINK.ASM`, and
-`tools/labels/maps/blink.json` records what each earlier name became:
+`tools/labels/maps/blink.json` records what each earlier name became, the
+privates included (October 2026; the files were split after it, so its
+private renames are keyed by the names of that time):
 
 ```text
 deno run --config deno.runtime.json -A tools/labels/fingerprint.ts $PWD > build/baseline.json
@@ -94,4 +111,6 @@ deno run --config deno.runtime.json -A tools/labels/verify.ts $PWD build/baselin
 own it; `demote.ts` counts the globals that could still be private; `apply.ts`
 rewrites the sources and the files a map lists under `others`, refusing a name
 defined twice in one scope; `verify.ts` must print `VERIFIED`. Give a new map
-its own file in a fresh directory, since `apply.ts` applies every map it finds.
+its own file in a fresh directory, since `apply.ts` applies every map it finds,
+and `blink.json` must not be applied again: some of its new names are other
+entries' old ones (`NM_SLOT`).
