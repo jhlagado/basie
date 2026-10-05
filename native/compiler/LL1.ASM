@@ -86,10 +86,8 @@ LL_PARSE:
 ; production byte, the last alternative of the row.
 
 .NONTERM:                      ; A is $40 plus the row number.
-    CP   GR_STMT                   ; A statement begins at the lookahead:
-    CALL Z,EM_LINE                 ; its code starts on the lookahead's line.
-    CP   GR_LOCAL                  ; So does a local declaration,
-    CALL Z,EM_LINE                 ; which the reference counts a statement.
+    CP   GR_STMT                   ; A statement, a local's declaration
+    CALL Z,EM_LINE                 ; included, starts on the lookahead's line.
     SUB  $40                       ; A is the row number.
     LD   L,A                       ; Index the row directory...
     LD   H,0                       ; ...as a word offset.
@@ -125,10 +123,10 @@ LL_PARSE:
 .NOMATCH:                      ; No production fits the lookahead.
     POP  AF                        ; A is the row's diagnostic.
     CP   DG_STMT                   ; Where a statement is due,
-    JR   NZ,.REPORT                ; a local declared
+    JR   NZ,.REPORT                ; an assert
     LD   B,A                       ; (keeping it)
     LD   A,C                       ; is
-    CP   TK_VAR                    ; one the reference takes
+    CP   TK_ASSRT                  ; one the reference takes
     LD   A,B                       ; but this compiler
     JP   Z,TR_OPER                 ; does not yet (DG_NYI).
 .REPORT:                       ; A is the diagnostic.

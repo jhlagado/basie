@@ -48,12 +48,16 @@ const CONFORMANCE: Record<string, string> = {
   NESTED: "tests/conformance/types/arrays-of-arrays.bsi",
   INTURN: "tests/conformance/types/computed-indexes-in-turn.bsi",
   RECFWD: "tests/conformance/scopes/recursion-with-forward.bsi",
+  DECLANY: "tests/conformance/declarations/declare-anywhere.bsi",
+  LOCALCON: "tests/conformance/declarations/local-constant.bsi",
+  SIBLING: "tests/conformance/scopes/sibling-blocks-reuse.bsi",
+  KEYS: "tests/conformance/services/keys.bsi",
 };
 
 /** The source file of a claimed program. */
 const path = (name: string) => CONFORMANCE[name] ?? `${DIR}/${name}.BSI`;
 
-/** The claimed programs, by stage of 65.4. */
+/** The claimed programs, by stage of 65.4 and of step 67. */
 const CLAIMED: Record<string, string[]> = {
   "a: empty routines": ["EMPTY", "FAILS", "SUBS"],
   "b: declarations and references": ["DECLS", "REFS"],
@@ -106,6 +110,16 @@ const CLAIMED: Record<string, string[]> = {
     "NESTED",
     "INTURN",
     "RECFWD",
+  ],
+  "67a: declarations anywhere, block scope, typed and local constants": [
+    "SCOPES",
+    "CONSTS",
+    "INFER",
+    "LATER",
+    "DECLANY",
+    "LOCALCON",
+    "SIBLING",
+    "KEYS",
   ],
 };
 
@@ -200,10 +214,11 @@ for (const [stage, names] of Object.entries(CLAIMED)) {
 // (stage d) to locals and (stage e) to parameters, some (stage f) inside
 // an if or a while, (stage h) with fields, elements and characters as
 // operands and targets, (stage i) with predeclared constants as operands
-// and locals whose types are inferred, one from a service's result: each
-// compiles to the reference's streams, or both compilers refuse it. The
-// generator is deterministic, so a failure names a statement that can be
-// rerun.
+// and locals whose types are inferred, one from a service's result, and
+// (67a) with locals declared after a statement and inside the if or the
+// while, typed constants as operands: each compiles to the reference's
+// streams, or both compilers refuse it. The generator is deterministic,
+// so a failure names a statement that can be rerun.
 Deno.test("c to i: random expressions compile as the reference compiles them", async () => {
   let seed = 654;
   const rnd = (n: number) => {
@@ -240,7 +255,7 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     if (d <= 0 || rnd(3) === 0) {
       const leaf = rnd(10);
       return leaf < 4
-        ? pick([...nums, "k", "big", "'A'"])
+        ? pick([...nums, "k", "big", "'A'", "tk", "tw"])
         : leaf < 8
         ? pick(["a", "b", "x", "y"])
         : pick(paths);
@@ -271,7 +286,8 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
   const names = "var a as u8 = 200\nvar b as u8 = 9\nvar x as u16 = 1000\n" +
     "var y as u16 = 2\nvar f as boolean\nvar g as boolean = true\n";
   const consts =
-    "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n";
+    "const k = 12\nconst big = 60000\nconst yes = true\nconst no = false\n" +
+    "const tk as u8 = 99\nconst tw as u16 = 4000\n";
   const params = "a as u8, b as u8, x as u16, y as u16, f as boolean, " +
     "g as boolean";
   const record = "record rec\nm as u8\nn as u16\ng as boolean\nend\n";
@@ -292,6 +308,10 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     ],
     [`${record}${consts}sub main()\n${names}${objects}`, ""],
     [`${aggregates}${consts}sub main()\n${inferred}`, ""],
+    [
+      `${record}${consts}sub main()\nvar z as u8 = 1\nz = z + 1\n${names}${objects}`,
+      "",
+    ],
   ];
   for (let i = 0; i < 300; i++) {
     const [head, tail] = heads[i % heads.length];
@@ -307,11 +327,15 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
       : `${pick(["arr[1]", "wds[y and 1]"])} = ${integer(3)}`;
     // (f) Every fifth statement sits in an if or a while with a random
     // condition.
+    // (67a) A local declared in the block comes and goes with it.
+    const local = rnd(2) === 0 ? "" : `var t${i} as u16 = ${integer(2)}\n`;
     const body = i % 5 !== 4
       ? statement
       : rnd(2) === 0
-      ? `if ${boolean(2)}\n${statement}\nelseif ${boolean(1)}\nelse\nend`
-      : `while ${boolean(2)}\n${statement}\nend`;
+      ? `if ${boolean(2)}\n${local}${statement}\nelseif ${
+        boolean(1)
+      }\n${local}else\n${local}end`
+      : `while ${boolean(2)}\n${local}${statement}\nend`;
     const source = new TextEncoder().encode(
       `${head}${body}\nend\n${tail}`,
     );
@@ -376,6 +400,9 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     "INNERBND",
     "RECTRAP",
     ...CLAIMED["i: services"],
+    ...CLAIMED[
+      "67a: declarations anywhere, block scope, typed and local constants"
+    ],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -607,6 +634,48 @@ const REFUSED: Record<string, string> = {
   "a File local from a number": "sub main()\nvar f as File = 3\nend\n",
   "a File assigned a Boolean": "var f as File\nsub main()\nf = true\nend\n",
   "a field of a File": "var f as File\nvar x as u8\nsub main()\nx = f.a\nend\n",
+  // 67a: declarations anywhere, block scope, typed and local constants.
+  "a local used after its block": Deno.readTextFileSync(
+    "tests/conformance/scopes/block-scope-ends.bsi",
+  ),
+  "a local hiding an enclosing block's": Deno.readTextFileSync(
+    "tests/conformance/scopes/no-shadowing.bsi",
+  ),
+  "a local hiding a parameter":
+    "sub f(n as u8)\nif n > 1\nvar n as u8\nend\nend\nsub main()\nend\n",
+  "a local hiding a program variable":
+    "var g as u8\nsub main()\ng = 1\nvar g as u8\nend\n",
+  "a local declared twice in one block":
+    "sub main()\nif true\nvar a as u8\nvar a as u16\nend\nend\n",
+  "a local constant hiding a routine":
+    "sub f()\nend\nsub main()\nconst f = 1\nend\n",
+  "a local constant declared twice":
+    "sub main()\nconst k = 1\nwhile true\nconst j = 2\nconst j = 3\nend\nend\n",
+  "a local hiding a later block's counter":
+    "sub main()\nvar i as u8\nfor i = 1 to 2\nvar i as u16\nend\nend\n",
+  "a counter declared inside its loop":
+    "sub main()\nfor i = 1 to 2\nvar i as u8\nend\nend\n",
+  "a typed constant out of range": Deno.readTextFileSync(
+    "tests/conformance/declarations/typed-constant-range.bsi",
+  ),
+  "a local typed constant out of range":
+    "sub main()\nconst k as u8 = 256\nend\n",
+  "an untyped constant of a u16 value": "const k = u16(5)\nsub main()\nend\n",
+  "a typed constant of the wrong type":
+    "const k as u8 = true\nsub main()\nend\n",
+  "a typed constant assigned": "const k as u8 = 1\nsub main()\nk = 2\nend\n",
+  "a typed Boolean constant as a step":
+    "const b as boolean = true\nsub main()\nvar i as u8\nfor i = 1 to 3 step b\nend\nend\n",
+  "a character expression inferred": "sub main()\nvar c = 'A' + 1\nend\n",
+  "an untyped constant inferred": "const k = 'A'\nsub main()\nvar c = k\nend\n",
+  "an open string inferred":
+    "sub f(s as string[])\nvar t = s\nend\nsub main()\nend\n",
+  "main declared twice": "sub main()\nend\nsub main()\nend\n",
+  "main completed as a forward": "sub main()\nend\nsub main\nend\n",
+  "a forward declared again in full":
+    "forward sub f()\nsub f()\nend\nsub main()\nend\n",
+  "a completed forward declared again":
+    "forward sub f()\nsub f\nend\nsub f()\nend\nsub main()\nend\n",
 };
 
 /** The code of a message number, from the message table. */

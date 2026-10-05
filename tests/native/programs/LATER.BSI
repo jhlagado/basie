@@ -1,0 +1,21 @@
+// Declarations after main (step 67): routines, variables, constants and
+// a forward's completion may follow it, in the reference's order.
+forward sub later(n as u8) as u8
+forward sub helper() as u8
+var before as u8 = 1
+
+sub main()
+    before = later(before) + helper()
+end
+
+const extra = 9
+var past as u8
+
+sub later
+    past = n
+    return n + extra
+end
+
+sub helper
+    return extra + past
+end

@@ -125,12 +125,17 @@ AC_FILE:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Island InferredInitializer: a local declared without `as` (localVar)
-; takes its initializer's type. A File value (AC_SPOT) is generated
-; into DEHL; anything else is a run-time expression with no type
-; expected, which must have a type of its own: an exact value has none
-; (DG_CLASH; the reference gives a character literal u8, which the native
-; compiler cannot tell from a number). Then the local is declared as
-; SaveLocalType declares it, and it is committed as a typed local is.
+; takes its initializer's type (D21). A name may root one (AC_ROOT): a
+; File value is generated into DEHL; a path or call that roots an
+; aggregate is parsed first, and an aggregate's address goes into HL,
+; copied when the local is committed (AC_LCOPY), but an open string
+; cannot be a local (DG_CLASH), while a scalar it selects is loaded and
+; becomes the first primary (EX_PRIME) of the expression that follows.
+; Anything else is a run-time expression with no type expected, which
+; must have a type of its own: an exact value has none (no-definite-type),
+; unless it is one character literal alone, which is a u8 (EX_CHR). Then
+; the local is declared as SaveLocalType declares it, and it is committed
+; as a typed local is.
 
 AC_INFER:
     CALL PR_PEEK                   ; A string literal
@@ -138,45 +143,90 @@ AC_INFER:
     LD   A,DG_INFER                ; no-definite-type,
     JP   Z,DG_ISSUE                ; at it.
     CALL PR_PEEK                   ; A name
-    CP   TK_NAME                   ; may begin
-    JR   NZ,.SCALAR                ; a File.
-    CALL AC_SPOT                   ; Does it?
-    JR   NC,.SCALAR                ; No: a scalar.
-    CALL AC_FILE                   ; Its value in DEHL.
-    LD   A,AG_FILE                 ; The local is a File.
+    CP   TK_NAME                   ; may root
+    JR   NZ,.SCALAR                ; a File or a path.
+    CALL AC_ROOT                   ; A is the type it roots:
+    CP   AG_FILE                   ; a File,
+    JR   Z,.FILE                   ; whose value is taken,
+    CP   AG_FIRST                  ; or an aggregate, whose path is
+    JR   C,.SCALAR                 ; parsed; anything else is a scalar.
+    XOR  A                         ; Nothing is expected,
+    CALL EX_INIT                   ; as of an expression.
+    LD   HL,TK_POS                 ; The name is the first
+    LD   DE,EX_VPOS                ; primary's position.
+    CALL PR_COPY                   ; Copy the six bytes.
+    CALL RO_PART                   ; Parse the path; A is its type.
+    CP   AG_FIRST                  ; An aggregate?
+    JR   C,.SELECT                 ; No: a scalar it selects.
+    CP   AG_VIEW                   ; An open string
+    JP   Z,EX_EFIT                 ; is no local's type (DG_CLASH).
+    PUSH AF                        ; Keep the type.
+    CALL GA_ADDR                   ; Its address into HL,
+    LD   A,AC_LCOPY                ; copied into the local
+    JR   .COPIED                   ; when it is committed.
+.FILE:                         ; A File value.
+    CALL RO_FVAL                   ; It is generated into DEHL,
+    LD   A,AG_FILE                 ; the local a File,
+    PUSH AF                        ; (kept)
+    LD   A,AC_LFILE                ; stored when it is committed.
+.COPIED:                       ; A tells AC_BIND; the type is kept.
+    LD   (EX_RMETA),A              ; AC_BIND reads it.
+    POP  AF                        ; The local's type.
     JR   .DECLARE                  ; Declare it.
+.SELECT:                       ; A is a scalar's type.
+    CALL RO_LOAD                   ; Load it.
+    LD   (EX_PRIME),A              ; It is the first primary
+    LD   A,2                       ; (no lone character)
+    LD   (EX_CHR),A                ; of the expression
+    LD   HL,(EX_START)             ; that begins
+    CALL EX_PFROM                  ; at the path.
+    JR   .TYPED                    ; A and HL describe it.
 .SCALAR:                       ; A run-time expression.
     XOR  A                         ; Nothing is expected of it.
     CALL EX_RUN                    ; A and HL describe it.
+.TYPED:                        ; A and HL describe the initializer.
     CALL AC_STASH                  ; Keep them for AC_ADOPT and AC_BIND.
     AND  SY_TMASK                  ; Its type:
-    JR   NZ,.DECLARE               ; an exact value has none:
+    JR   NZ,.DECLARE               ; an exact value has none,
+    LD   A,(EX_CHR)                ; unless it is
+    DEC  A                         ; a character literal alone,
+    LD   A,SY_U8                   ; which is a u8;
+    JR   Z,.DECLARE                ; otherwise
     LD   A,DG_INFER                ; no-definite-type,
     JP   EX_EVAL                   ; at it.
 .DECLARE:                      ; A is the local's type.
     LD   (AG_CTYPE),A              ; It is the declaration's.
     JP   AC_LOCAL                  ; Declare the local; return.
 
-;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
-; Carry when the current NAME is a File: console or printer, a service
-; whose result is a File, or a File variable. A routine's result never is.
-; An undeclared name raises DG_UNDEF, as the expression parser would.
+;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The type the current NAME roots, for an inferred local: a predeclared
+; constant's (a File for console and printer), a service's result's, a
+; routine's result's, an aggregate symbol's; zero for main or a scalar
+; symbol. An undeclared name raises DG_UNDEF, as the expression parser
+; would.
 
-AC_SPOT:
+AC_ROOT:
     CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ROUTINE               ; No.
     AND  $7F                       ; A constant's type or a service's result.
-    JR   .TEST                     ; Is it File?
+    RET                            ; A is it.
 .ROUTINE:                      ; Not predeclared.
     CALL RO_FIND                   ; A routine?
-    RET  Z                         ; Its result is not a File; carry is clear.
-    CALL RO_SYM                    ; A is a symbol's type, D its class.
-    BIT  7,D                       ; SY_AGGR: a scalar is no File,
-    RET  Z                         ; and carry is clear.
-.TEST:                         ; A is a type.
-    SUB  AG_FILE                   ; Zero for a File,
-    CP   1                         ; which alone sets carry.
-    RET                            ; Carry if a File.
+    JR   NZ,.SYMBOL                ; No: a symbol.
+    CP   RO_MAIN                   ; Main has
+    JR   Z,.NONE                   ; no result.
+    CALL RO_SUBAT                  ; Its record:
+    LD   DE,RO_RTYPE               ; its result
+    ADD  HL,DE                     ; type
+    LD   A,(HL)                    ; is A.
+    RET                            ; A is the type.
+.SYMBOL:                       ; A symbol.
+    CALL RO_SYM                    ; A is its aggregate type, D its class.
+    BIT  7,D                       ; SY_AGGR: an aggregate
+    RET  NZ                        ; roots its type;
+.NONE:                         ; a scalar
+    XOR  A                         ; roots nothing.
+    RET                            ; A is zero.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; DefaultLocalInitializer: without an initializer a local is zeroed in
@@ -598,12 +648,14 @@ AC_LEAVE:
 ; ---------------------------------------------------------- counted loop
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; BeginFor, with the counter as the current NAME: it must be a
-; non-Boolean local (DG_COUNT) not already counting an open loop
-; (DG_INUSE). Keep its offset and width for the loop, and expect the
+; BeginFor, with the counter as the current NAME: it must be a declared,
+; non-Boolean local (loop-counter) not already counting an open loop
+; (not-writable). Keep its offset and width for the loop, and expect the
 ; initial value at its type.
 
 AC_FOR:
+    CALL SY_FIND                   ; An undeclared counter
+    JP   NC,CT_EVAR                ; is no local: loop-counter.
     CALL AC_FIND                   ; D is its class and type, BC its offset.
     AND  SY_CMASK                  ; Its class.
     CP   SY_LOCAL                  ; A local?
@@ -632,13 +684,16 @@ AC_CTYPE:
     RET                            ; A is the type.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; ForTo, ForUntil: one routine for two contiguous actions. Bit 0 of the
-; ordinal is 1 for to (CT_MINC) and 0 for until. Check the initial value
+; ForTo, ForUntil: one routine for two actions, A being GR_TO or
+; GR_UNTIL; to adds CT_MINC to the mode. Check the initial value
 ; against the counter (with no failure pending) and store it there, then
 ; expect the bound at the counter's type.
 
 AC_FORTO:
-    AND  CT_MINC                   ; GR_TO is odd, GR_UNTIL even.
+    SUB  GR_TO                     ; Zero for to,
+    SUB  1                         ; which alone borrows:
+    SBC  A,A                       ; $FF for to, zero for until,
+    AND  CT_MINC                   ; CT_MINC for to.
     LD   HL,AC_MODE                ; Add the bit
     OR   (HL)                      ; to the mode.
     LD   (HL),A                    ; Keep it.

@@ -305,9 +305,11 @@ AC_IDLE:                       ; BeginTypeBound: AC_FOLD sets its own type.
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D
-; FinishConstantExpression: the constant's value must be known (DG_CLASH
-; otherwise). A Boolean stays Boolean; any number becomes an exact,
-; untyped constant. The type goes to AC_DINFO, the value to AC_DVAL.
+; FinishConstantExpression: the constant's value must be known
+; (not-constant otherwise). A Boolean stays Boolean; an exact value or a
+; u8 becomes an exact, untyped constant, and a u16 needs the constant
+; typed (constant-needs-type), as the reference's constDeclaration has
+; it. The type goes to AC_DINFO, the value to AC_DVAL.
 
 AC_VALUE:
     LD   HL,(EX_RVAL)              ; The value (reloaded below).
@@ -317,11 +319,14 @@ AC_VALUE:
     LD   A,DG_KNOWN                ; No: not-constant,
     JP   Z,EX_EVAL                 ; at the value.
     LD   A,D                       ; Recover the metadata.
-    AND  SY_TMASK                  ; Its type.
-    CP   SY_BOOL                   ; Boolean?
-    LD   A,SY_EXACT                ; A number is declared exact.
-    JR   NZ,.TYPEOK                ; Keep that for a number.
-    LD   A,SY_BOOL                 ; A Boolean keeps its type.
+    AND  SY_TMASK                  ; Its type:
+    CP   SY_U16                    ; a u16
+    LD   A,DG_UNTYP                ; needs the constant typed,
+    JP   Z,EX_EVAL                 ; at the value.
+    LD   A,D                       ; The type again:
+    AND  SY_U16                    ; of 0, 1 and 3 only the Boolean
+    JR   Z,.TYPEOK                 ; keeps a bit; a number is exact,
+    INC  A                         ; and a Boolean SY_BOOL.
 .TYPEOK:                       ; A is the constant's type.
     LD   (AC_DINFO),A              ; Class constant (zero) with that type.
     LD   HL,(EX_RVAL)              ; The value.
@@ -330,7 +335,8 @@ AC_VALUE:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,D,HL
-; CommitConstant: declare the scalar constant.
+; CommitConstant: declare the scalar constant, at top level or in a block,
+; of type AC_DINFO, exact or typed, and value AC_DVAL.
 
 AC_CONST:
     LD   A,(AC_DINFO)              ; Its type.
@@ -341,10 +347,23 @@ AC_CONST:
     JP   SY_CMT                    ; Commit it and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; CommitAggregateConstant: write the staged object as a rodata blob and
-; declare the constant, whose payload is the blob's ordinal.
+; CommitAggregateConstant: a typed scalar constant (D20) is declared with
+; its type and the value staged, a u16's two bytes or a byte's one. An
+; aggregate's staged object is written as a rodata blob and the constant
+; declared, its payload the blob's ordinal.
 
 AC_ROCMT:
+    LD   A,(AG_CTYPE)              ; The constant's type,
+    CP   AG_FIRST                  ; a scalar
+    JR   NC,.BLOB                  ; or an aggregate.
+    LD   HL,(AG_IBUF)              ; The staged value:
+    CP   SY_U16                    ; a word's two bytes,
+    JR   Z,.WORD                   ; or
+    LD   H,0                       ; a byte's one.
+.WORD:                         ; HL is the value; AC_DINFO the type.
+    LD   (AC_DVAL),HL              ; It is the constant's.
+    JR   AC_CONST                  ; Declare it.
+.BLOB:                         ; An aggregate constant.
     LD   A,BL_KRO                  ; Read-only data.
     CALL RG_DATA                   ; Write it; BC is its ordinal.
     LD   D,SY_AGGR+SY_CONST        ; An aggregate constant.
@@ -402,13 +421,18 @@ AC_OBJ:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; SaveAggregateConstantType: begin an aggregate constant. A typed scalar
-; constant is not yet compiled (DG_NYI).
+; SaveAggregateConstantType: begin a typed constant: its value is staged
+; as an object's initializer is. An aggregate constant in a routine's
+; body is not yet compiled (DG_NYI): its rodata blob would begin inside
+; the routine's.
 
 AC_ROOBJ:
-    LD   A,(AG_CTYPE)              ; The declared type.
-    CP   AG_FIRST                  ; A scalar?
-    JP   C,TR_OPER                 ; Refused for now.
+    LD   A,(RO_BODY)               ; Inside a body,
+    OR   A                         ; is it
+    LD   A,(AG_CTYPE)              ; of an aggregate
+    JR   Z,AC_OBJ                  ; type?
+    CP   AG_FIRST                  ; Then it is
+    JP   NC,TR_OPER                ; refused for now.
     JR   AC_OBJ                    ; Begin the object.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL

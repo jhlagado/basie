@@ -119,9 +119,9 @@ EX_RENEW:
 ;@ROUTINE IN D,BC OUT A,CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Write the provisional symbol for the retained declaration name, with
 ; class/type D and payload BC. The name is checked against routines and
-; services (RO_FRESH: a duplicate, or hidden by a local) and symbols
-; (SY_NEW), with its declaration position as the diagnostic's. BC and DE
-; are preserved.
+; services (RO_FRESH: a duplicate at top level, hidden by a local or local
+; constant in a body) and symbols (SY_NEW), with its declaration position
+; as the diagnostic's. BC and DE are preserved.
 
 EX_PREP:
     CALL EX_RENEW                  ; Make the declared name current again.
@@ -130,14 +130,11 @@ EX_PREP:
     LD   HL,AC_DPOS                ; A collision is reported where the...
     LD   DE,TK_POS                 ; ...name was declared.
     CALL PR_COPY                   ; Copy the six-byte position.
-    POP  DE                        ; The class/type in D:
-    PUSH DE                        ; a local
-    LD   A,D                       ; would hide
-    AND  SY_CMASK                  ; a routine's or a service's
-    CP   SY_LOCAL                  ; name;
-    LD   A,DG_HIDE                 ; another
-    JR   NC,.CHECK                 ; declaration
-    LD   A,DG_DUP                  ; would repeat it.
+    LD   A,(RO_BODY)               ; In a body
+    OR   A                         ; a declaration
+    LD   A,DG_HIDE                 ; would hide
+    JR   NZ,.CHECK                 ; a routine's or a service's name;
+    LD   A,DG_DUP                  ; at top level it would repeat it.
 .CHECK:                        ; A is the diagnostic.
     CALL RO_FRESH                  ; Raise it for a routine or a service.
     POP  DE                        ; Restore the class/type in D.

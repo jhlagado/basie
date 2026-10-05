@@ -824,9 +824,23 @@ RO_FVAL:
 ; address into HL. A returns its type.
 
 RO_AGGR:
+    CALL RO_PART                   ; Parse it; A is its type.
+    CP   AG_FIRST                  ; It must be an aggregate:
+    JP   C,EX_EFIT                 ; `.length` and elements are not.
+    CALL GA_ADDR                   ; Its address into HL.
+    LD   A,(RO_OTYPE)              ; A is its type.
+    OR   A                         ; Carry clear.
+    RET                            ; The address is in HL.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Parse a path rooted at the next NAME, a symbol, or at a call's
+; aggregate result, which must be one (DG_CLASH), leaving its place in
+; RO_PLACE and its first token's offset in EX_START. A returns its type.
+
+RO_PART:
     CALL RO_NAME                   ; A path starts with a name.
     CALL RO_FIND                   ; Is it a routine?
-    JR   NZ,.SYMBOL                ; Otherwise it is a symbol.
+    JP   NZ,RO_NAMED               ; Otherwise a symbol roots it; return.
     LD   HL,(TK_POS)               ; The call's offset,
     PUSH HL                        ; kept across it.
     CALL RO_CALL                   ; A is the result type, HL the address.
@@ -835,16 +849,7 @@ RO_AGGR:
     CALL RO_START                  ; Parse the rest of the path.
     POP  HL                        ; The call's offset
     LD   (EX_START),HL             ; is the value's.
-    JR   .ADDRESS                  ; Generate its address.
-.SYMBOL:                       ; Root the path at a symbol.
-    CALL RO_NAMED                  ; Parse the path.
-.ADDRESS:                      ; A is the path's type.
-    CP   AG_FIRST                  ; It must be an aggregate:
-    JP   C,EX_EFIT                 ; `.length` and elements are not.
-    CALL GA_ADDR                   ; Its address into HL.
-    LD   A,(RO_OTYPE)              ; A is its type.
-    OR   A                         ; Carry clear.
-    RET                            ; The address is in HL.
+    RET                            ; A is the type.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the scalar path of type A an expression value (loadDesignator); an

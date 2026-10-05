@@ -20,11 +20,11 @@
 ;                  routine's labels, ordinals and the program's limits
 ;    +$0B5      3  parser lookahead
 ;    +$0B8    673  symbol table: count, 96 records of seven bytes
-;    +$359    240  expression state and the operand stack
-;    +$449    130  control: depth, fallthrough, eight frames of sixteen bytes
-;    +$4CB   1527  aggregate types, records, fields, array bounds, the
+;    +$359    248  expression state and the operand stack
+;    +$451    130  control: depth, fallthrough, eight frames of sixteen bytes
+;    +$4D3   1527  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$AC2         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$ACA         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -144,7 +144,9 @@ EX_LPOSP EQU  SY_LIM+$1E       ; Word: popped left value's position record.
 EX_START EQU  SY_LIM+$20       ; Word: the offset of the last expression's first token.
 TK_ENDP EQU  SY_LIM+$22        ; Word: the offset of the last `end` (TOKEN.ASM).
 AC_SPOS EQU  SY_LIM+$24        ; Word: the offset of the name statement's first token.
-EX_STACK EQU  SY_LIM+$26       ; First operand-stack entry.
+EX_CHR EQU  SY_LIM+$26         ; Byte: 1 while the only primary is a character literal.
+EX_PRIME EQU  SY_LIM+$27       ; Byte: a first primary's type, parsed already, or zero.
+EX_STACK EQU  SY_LIM+$28       ; First operand-stack entry.
 EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
 EX_STLEN EQU  13               ; Bytes in one entry.
 EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
@@ -173,6 +175,7 @@ CT_FMODE EQU  7                ; Frame field: if flags, for mode, kept bytes.
 CT_FVAR EQU  8                 ; Frame field: the counter's offset (word).
 CT_FBND EQU  10                ; Frame field: the bound's offset (word).
 CT_FSTEP EQU  12               ; Frame field: the step's magnitude (word).
+CT_FSYMS EQU  14               ; Frame field: SY_CNT as it opened, its blocks' first symbol.
 CT_MINC EQU  1                 ; For mode: to, the bound is inclusive.
 CT_MDOWN EQU  2                ; For mode: the step is negative.
 CT_MWORD EQU  4                ; For mode: the counter is a u16.
@@ -338,6 +341,7 @@ DG_UNMET EQU  33               ; forward-incomplete.
 DG_CONV EQU  40                ; conversion-required.
 DG_CLASH EQU  41               ; type-mismatch.
 DG_RANGE EQU  42               ; out-of-range: a value or bound outside its type.
+DG_UNTYP EQU  43               ; constant-needs-type: an untyped constant's value.
 DG_INFER EQU  44               ; no-definite-type: an initializer to infer from.
 DG_FALSE EQU  45               ; assertion-false.
 DG_EMPTY EQU  48               ; empty-record.

@@ -6,8 +6,13 @@
 ;  and parameters, scalar and aggregate. Routine names live in the routine
 ;  table (ROUTINES.ASM) and record fields in the aggregate field table
 ;  (AGGR.ASM); declarations check all three for collisions. The table is a
-;  bounded array searched linearly by exact spelling, with no hashing and
-;  no scopes, and it lives for the whole compilation.
+;  bounded array searched linearly by exact spelling, with no hashing, and
+;  it lives for the whole compilation. Scopes are its prefixes: a routine's
+;  parameters and locals follow the program's names, each block's follow
+;  its enclosing block's, and a block's end cuts the table back to where
+;  it began (CT_BLOCK, AC_END). No name may hide a visible one (spec 5.6),
+;  so a lookup needs no scope order: the one visible symbol of a name is
+;  the one found.
 ;
 ;  Principal entries:
 ;    SY_FIND   find the current NAME token among the committed symbols
@@ -76,11 +81,10 @@ SY_AT:
 
 ;@ROUTINE IN D,BC OUT A,CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Write a provisional record for the current NAME token with class/type D
-; and payload word BC. A name already a symbol raises DG_DUP, or DG_HIDE
-; when a local or parameter would hide a symbol of another class (the
-; reference's scopes: a local hides a parameter or a program-wide name),
-; and a full table raises DG_SYMS; none returns. The record stays
-; invisible until SY_CMT.
+; and payload word BC. A name already a symbol raises DG_DUP when that
+; symbol is in the current block (SY_HERE), or DG_HIDE when the new one
+; would hide it, and a full table raises DG_SYMS; none returns. The
+; record stays invisible until SY_CMT.
 
 SY_NEW:
     PUSH BC                        ; Keep the payload across the lookup.
@@ -108,22 +112,40 @@ SY_NEW:
     LD   A,DG_SYMS                 ; Diagnostic: too many symbols.
     JR   DG_ISSUE                  ; Report it; no return.
 .TAKEN:                        ; HL is the symbol of that name.
-    INC  HL                        ; Its class
-    INC  HL                        ; and type
-    INC  HL                        ; follow the name.
-    LD   A,(HL)                    ; Of the same class
-    XOR  D                         ; as the new one,
-    AND  SY_CMASK                  ; it is
-    LD   A,DG_DUP                  ; a duplicate;
-    JR   Z,.NAMED                  ; so is any
-    LD   A,D                       ; program-wide
-    AND  SY_CMASK                  ; name's,
-    CP   SY_LOCAL                  ; but a local's or parameter's
-    LD   A,DG_HIDE                 ; would hide
-    JR   NC,.NAMED                 ; another's,
-    LD   A,DG_DUP                  ; a duplicate otherwise.
+    CALL SY_HERE                   ; Is it in the current block?
+    LD   A,DG_DUP                  ; Then the new one repeats it;
+    JR   C,.NAMED                  ; otherwise it
+    LD   A,DG_HIDE                 ; would hide it.
 .NAMED:                        ; A is the diagnostic.
     JR   DG_NAMED                  ; Name it; no return.
+
+;@ROUTINE IN HL OUT CARRY CLOBBERS A,B,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; Carry if the symbol record HL is in the current block: at top level the
+; program's names are one block (the reference's program and part scopes),
+; in a body the block of the innermost control frame (CT_FSYMS) or else
+; the body's own (RO_BODY). A parameter is in neither of a body's blocks.
+
+SY_HERE:                       ; HL is a record found.
+    LD   A,(RO_BODY)               ; The body's first symbol plus one,
+    SUB  1                         ; or zero outside a body, which
+    RET  C                         ; borrows: every name is the block's.
+    PUSH HL                        ; Keep the record.
+    LD   B,A                       ; The body's first symbol, unless
+    LD   A,(CT_DEPTH)              ; a control frame
+    OR   A                         ; is open,
+    LD   A,B                       ; whose block's
+    JR   Z,.BASE                   ; first symbol
+    LD   B,CT_FSYMS                ; it
+    CALL CT_FIELD                  ; kept
+    LD   A,(HL)                    ; then.
+.BASE:                         ; A is the block's first symbol.
+    CALL SY_AT                     ; HL is its record.
+    EX   DE,HL                     ; DE is,
+    POP  HL                        ; HL the record found.
+    OR   A                         ; Clear carry.
+    SBC  HL,DE                     ; No borrow if it is the block's:
+    CCF                            ; carry then.
+    RET                            ; Carry if in the block.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Record A as the aggregate type ordinal of the provisional symbol, then

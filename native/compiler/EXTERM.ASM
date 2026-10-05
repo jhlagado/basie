@@ -19,9 +19,17 @@
 ; Parse one primary: a number, character, `true` or `false`, a name, a
 ; parenthesized expression or a u8(...) or u16(...) conversion. Its
 ; position becomes EX_VPOS, the position a range diagnostic blames. Any
-; other token raises DG_VALUE.
+; other token raises DG_VALUE. A primary parsed already (EX_PRIME, a
+; computed scalar of that type) is returned instead, once. EX_CHR records
+; whether the primaries so far are one character literal (1), which an
+; inferred local takes as a u8, as the reference's char flag does.
 
 EX_TERM:
+    LD   HL,EX_PRIME               ; A primary parsed already
+    LD   A,(HL)                    ; is the first operand,
+    LD   (HL),0                    ; once:
+    OR   A                         ; its type, computed,
+    RET  NZ                        ; with carry clear.
     CALL PR_TAKE                   ; Consume the token; BC is its value.
     PUSH AF                        ; Keep its kind.
     PUSH BC                        ; Keep its value.
@@ -30,6 +38,17 @@ EX_TERM:
     CALL PR_COPY                   ; Copy the six bytes.
     POP  BC                        ; Restore the value.
     POP  AF                        ; Restore the kind.
+    LD   E,A                       ; Keep it.
+    CP   TK_LPAR                   ; A parenthesis is no primary
+    JR   Z,.KIND                   ; of its own.
+    LD   HL,EX_CHR                 ; Is this the first primary
+    SUB  TK_CHAR                   ; and a character?
+    OR   (HL)                      ; Zero only then:
+    LD   (HL),2                    ; otherwise more than one, or not one;
+    JR   NZ,.KIND                  ; a lone character
+    DEC  (HL)                      ; is one.
+.KIND:                         ; E is the token's kind.
+    LD   A,E                       ; Restore it.
     CP   TK_NUM                    ; A number?
     JR   Z,.NUMBER                 ; An exact literal.
     CP   TK_CHAR                   ; A character?
@@ -219,10 +238,14 @@ EX_U16:
     RET                            ; Return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse a unary expression: a primary preceded by any number of signs.
-; Unary + and - bind above the multiplicative operators.
+; Parse a unary expression: a primary preceded by any number of signs,
+; or the primary parsed already (EX_PRIME). Unary + and - bind above the
+; multiplicative operators.
 
 EX_UNARY:
+    LD   A,(EX_PRIME)              ; A primary parsed already
+    OR   A                         ; takes no sign:
+    JP   NZ,EX_TERM                ; it is the operand.
     CALL PR_PEEK                   ; Look at the next token.
     CP   TK_PLUS                   ; A unary plus?
     JR   Z,EX_PLUS                 ; Parse its operand.

@@ -8,8 +8,7 @@
 ;  of ACTIONS.ASM.
 ;
 ;  Principal entries:
-;    AC_EARLY, AC_MAIN  nothing may follow main; main must exist and every
-;              forward must be completed
+;    AC_MAIN   main must exist and every forward must be completed
 ;    AC_SUB, AC_SIG, AC_PROTO, AC_SEAL  routine and forward signatures
 ;    AC_PARAM, AC_JOIN, AC_GIVES, AC_GIVEN, AC_FAILS  signature parts
 ;    AC_BODY, AC_IMPL, AC_END  open and close a routine or main body
@@ -45,24 +44,14 @@
 
 ; ------------------------------------------------------- routines and main
 
-;@ROUTINE OUT A CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
-; RequireBeforeMain: main must be the last declaration. Once its body has
-; begun (RO_CUR is $FF), any further declaration raises DG_EOF.
-
-AC_EARLY:
-    LD   A,(RO_CUR)                ; The routine being declared.
-    INC  A                         ; $FF, main, becomes zero.
-    RET  NZ                        ; Not main: the declaration may follow.
-    JP   TR_OPER                   ; Not yet compiled natively.
-
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; RequireMain, at the end of the program: main must have a body (DG_TOP),
 ; and no forward routine may be left without its body (DG_UNMET).
 
 AC_MAIN:
-    LD   A,(RO_CUR)                ; Was main's body the last thing parsed?
-    INC  A                         ; $FF becomes zero.
-    JR   NZ,.NOMAIN                ; No: there is no main.
+    LD   A,(RO_MFLAG)              ; Main's flags
+    AND  RO_FMAIN                  ; say whether it was declared.
+    JR   Z,.NOMAIN                 ; No: there is no main.
     LD   A,(RO_RCNT)               ; The routines declared.
     LD   B,A                       ; Count them in B.
     XOR  A                         ; Start at index zero...
@@ -136,7 +125,6 @@ AC_CLEAR:
 
 AC_SIG:
     CALL AC_RESUB                  ; The routine's name is current again.
-    CALL AC_EARLY                  ; Nothing may follow main.
     CALL .FRESH                    ; Reject a name already in use.
     CALL EX_MAIN                   ; Is the name `main`?
     JR   C,.MAIN                   ; Yes: open main.
@@ -172,20 +160,24 @@ AC_SIG:
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Reject the current name, a routine's being declared, if it is already
-; taken, naming it: a routine declared forward is completed by `sub NAME`
-; alone (DG_FWDNO); any other routine, a program-wide symbol or a
-; predeclared name is a duplicate (DG_DUP).
+; taken, naming it: a forward still awaiting its body is completed by
+; `sub NAME` alone (DG_FWDNO); any other routine, main, a program-wide
+; symbol or a predeclared name is a duplicate (DG_DUP).
 
 .FRESH:                        ; The routine's name is current.
     CALL SY_FIND                   ; A program-wide symbol?
     JP   C,EX_EDUP                 ; A duplicate.
     CALL RO_FIND                   ; A routine?
+    JR   Z,.ROUTINE                ; Yes: which?
     LD   A,DG_DUP                  ; If not, a duplicate
-    JP   NZ,RO_FRESH               ; of a predeclared name, or free.
+    JP   RO_FRESH                  ; of a predeclared name, or free.
+.ROUTINE:                      ; A is the routine's index.
+    CP   RO_MAIN                   ; Main, declared already,
+    JP   Z,EX_EDUP                 ; is a duplicate.
     CALL RO_SUBAT                  ; HL is the routine's record.
     LD   DE,RO_RFLAG               ; Its flags:
-    ADD  HL,DE                     ; one declared forward
-    BIT  3,(HL)                    ; (RO_FFWD)
+    ADD  HL,DE                     ; a forward still open
+    BIT  2,(HL)                    ; (RO_FOPEN)
     JP   Z,EX_EDUP                 ; is completed by `sub NAME` alone;
     LD   A,DG_FWDNO                ; another, a duplicate.
     JP   DG_NAMED                  ; Raise it, named.
@@ -274,15 +266,15 @@ AC_FAILS:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; BeginForwardBody: `sub NAME` without a signature opens the body of an
-; open forward, recovering the signature it stored. An undeclared name
-; raises DG_UNDEF, and one whose body exists DG_DUP. Main is never found:
-; nothing may follow its body (AC_EARLY), and it is never forward.
+; open forward, recovering the signature it stored. A name that is no
+; routine, main, or a routine whose body exists raises forward-mismatch.
 
 AC_IMPL:
     CALL AC_RESUB                  ; The routine's name is current again.
-    CALL AC_EARLY                  ; Nothing may follow main.
     CALL RO_FIND                   ; Z, and A its index, if declared.
-    JR   NZ,.MISSING               ; Not declared: raise DG_UNDEF.
+    JR   NZ,.MISSING               ; Not declared: no forward.
+    CP   RO_MAIN                   ; Main is never forward.
+    JR   Z,.MISSING                ; Raise forward-mismatch.
     LD   (RO_CUR),A                ; It is the routine being defined.
     CALL RO_SUBAT                  ; HL addresses its record.
     LD   DE,RO_RPIDX               ; Skip the name...
@@ -404,8 +396,8 @@ AC_BEGIN:
     LD   E,A                       ; ...from zero.
 .BINDLOOP:                     ; Bind one parameter.
     LD   A,B                       ; Any left?
-    OR   A                         ; Zero means all are bound.
-    RET  Z                         ; The body is open.
+    OR   A                         ; Zero means all are bound:
+    JR   Z,AC_BLOCK                ; the body's block opens.
     CALL RO_DISP                   ; C is the argument's displacement.
     LD   A,D                       ; The parameter entry.
     PUSH DE                        ; Keep the indices.
@@ -433,7 +425,18 @@ AC_ENTRY:
     EX   DE,HL                     ; DE is the ordinal.
     LD   HL,KW_MAIN                ; Its name,
     LD   B,4                       ; four characters.
-    CALL RG_OPEN                   ; Begin main's blob; fall into AC_LIVE.
+    CALL RG_OPEN                   ; Begin main's blob; fall into AC_BLOCK.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; The body's block opens after the parameters (the reference's block in
+; the routine's scope): its symbols are those from SY_CNT on, and
+; RO_BODY holds that index plus one until the body ends (SY_HERE). Its
+; start is reachable.
+
+AC_BLOCK:
+    LD   A,(SY_CNT)                ; The first symbol of the block
+    INC  A                         ; plus one, never zero,
+    LD   (RO_BODY),A               ; marks a body as open; fall into AC_LIVE.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Control can reach this point.
@@ -480,6 +483,8 @@ AC_END:
 .SCOPE:                        ; Leave the routine's scope.
     LD   A,(RO_GLOBS)              ; Keep only the global symbols.
     LD   (SY_CNT),A                ; Parameters and locals go out of scope.
+    XOR  A                         ; No body
+    LD   (RO_BODY),A               ; is open.
     RET                            ; Back to the engine.
 .FLOW:                         ; missing-return, at the routine's end
     LD   A,(RO_CUR)                ; naming

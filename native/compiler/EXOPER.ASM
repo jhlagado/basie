@@ -318,8 +318,14 @@ EX_AND:
 
 EX_PARSE:
     CALL PR_PEEK                   ; The expression's first token:
-    LD   HL,(TK_POS)               ; its offset,
-    PUSH HL                        ; kept across the parse.
+    LD   HL,(TK_POS)               ; its offset; fall into EX_PFROM.
+
+;@ROUTINE IN HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; EX_PARSE for an expression that begins at offset HL, its first primary
+; perhaps parsed already (EX_PRIME).
+
+EX_PFROM:
+    PUSH HL                        ; The offset, kept across the parse.
     CALL EX_LOR                    ; A and HL are the result.
     EX   (SP),HL                   ; HL is the offset, the value kept.
     LD   (EX_START),HL             ; It is the value's.
@@ -525,12 +531,22 @@ EX_EVAL:                       ; A is the diagnostic.
 ; Clears the pending failable-call state and the operand stack.
 
 EX_RUN:
+    CALL EX_INIT                   ; Start a run-time expression.
+    JP   EX_PARSE                  ; Parse it.
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; Start a run-time expression of expected type A: no failable call is
+; pending, no arm unevaluated, the operand stack empty and no primary yet
+; parsed (EX_CHR). Returns A zero.
+
+EX_INIT:
     LD   (EX_WANT),A               ; Record the expected type.
     XOR  A                         ; Form zero.
     LD   (RO_PEND),A               ; No failable call is pending yet.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
-    JP   EX_PARSE                  ; Parse the expression.
+    LD   (EX_CHR),A                ; No primary yet.
+    RET                            ; A is zero.
 
 ;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse an expression with expected type A that must be known, for a

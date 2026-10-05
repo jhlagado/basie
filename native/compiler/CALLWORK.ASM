@@ -9,15 +9,16 @@
 ;  from MM_WBASE ($4800).
 ;
 ;    Offset  Size  Block
-;    +$AC2     29  routine state: counts, the signature being parsed, the
-;                  call being checked and the path in hand (RO_BASE)
-;    +$ADF    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$C5F    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$D5F     96  the routine's string literals: 16 of six bytes (RO_LTAB)
-;    +$DBF      3  multipart source cursor (SRC_DESC, SRC_LEFT)
-;    +$DC2      2  PR_SP, the stack DG_ISSUE restores
-;    +$DC4     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$E05         LL_WEND, the end of the compiler workspace, 3,589 bytes
+;    +$ACA     30  routine state: counts, the signature being parsed, the
+;                  body's block, the call being checked and the path in
+;                  hand (RO_BASE)
+;    +$AE8    384  routine table: 32 records of twelve bytes (RO_RTAB)
+;    +$C68    256  parameter table: 64 records of four bytes (RO_PTAB)
+;    +$D68     96  the routine's string literals: 16 of six bytes (RO_LTAB)
+;    +$DC8      3  multipart source cursor (SRC_DESC, SRC_LEFT)
+;    +$DCB      2  PR_SP, the stack DG_ISSUE restores
+;    +$DCD     65  the LL(1) stack (LL_DEPTH, LL_STACK)
+;    +$E0E         LL_WEND, the end of the compiler workspace, 3,598 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
@@ -83,10 +84,11 @@ RO_CARGS EQU  RO_BASE+$0C      ; Byte: the routine's argument bytes, removed by 
 RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
 RO_LCNT EQU  RO_BASE+$0E       ; Byte: string literals of the routine (RO_LTAB).
 RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FAILS).
+RO_BODY EQU  RO_BASE+$11       ; Byte: the body's first symbol plus one, zero outside one.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's
 ; Designator holds them, and the position of the index being parsed. The
 ; fourteen bytes are kept on the machine stack across a nested parse.
-RO_PLACE EQU  RO_BASE+$11      ; First byte of the path's block.
+RO_PLACE EQU  RO_BASE+$12      ; First byte of the path's block.
 RO_PKIND EQU  RO_PLACE+0       ; Byte: GA_BLOB, GA_FRAME, GA_ALIAS or GA_HELD.
 RO_PRO EQU  RO_PLACE+1         ; Byte: nonzero when the path is read-only.
 RO_PBASE EQU  RO_PLACE+2       ; Word: a static place's blob, an alias's word at IX+n.

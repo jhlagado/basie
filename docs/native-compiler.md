@@ -119,13 +119,24 @@ widening:
 - one terminal each for the multiplicative, additive and relational operator
   classes, read inside the expression island.
 
-That brings the count to about 60. The decision is made when the tables are
-regenerated (step 67), with the count recorded. The new generator writes ATOM
-under the naming scheme of the conversion: `GR_ROWn` prediction rows and
-`GR_ALTn` productions, directories `GR_ROWX`, `GR_ALTX`, `GR_ALTXH` and
-`GR_ACTX`, counts `GR_ROW_N`, `GR_ALT_N` and `GR_ACT_N`, and `GR_START`. It
-computes the row and production offsets itself, because ATOM takes a forward
-reference only as one symbol and a small addend.
+That brings the count to about 60. The generator (67a.1, `tools/llgen.ts`)
+writes ATOM under the naming scheme of the conversion: `GR_ROWn` prediction
+rows and `GR_ALTn` productions, directories `GR_ROWX`, `GR_ALTX`, `GR_ALTXH`
+and `GR_ACTX`, counts `GR_ROW_N`, `GR_ALT_N` and `GR_ACT_N`, and `GR_START`.
+It computes the row and production offsets itself, because ATOM takes a
+forward reference only as one symbol and a small addend.
+
+**Decided at 67a.** Only a token the grammar names, as a terminal or in an
+island's FIRST set, must be below `$40`; a token read only inside an island
+(the operators `*`, `/`, `<` and the rest, read by the expression parser)
+or never seen by the parser at all (`include`, whose lines the loader
+takes) may have any kind of a byte. So the encoding needs no widening, and
+the folding is needed only for the grammar's own terminals. At 67a the
+grammar names 43 of the 55 token kinds; the type
+keywords still have one terminal each. The folding of the type keywords
+into one terminal comes with the numeric types (67b), which would add five
+more, and the count is recorded in `tests/llgen_test.ts`, which fails past
+64.
 
 ## 3. Step 65 in increments
 
@@ -143,10 +154,25 @@ Each increment keeps a working, tested compiler. Each follows the D43 cycle
 | 65.5 | Chaining: the loader at the top of memory runs `BLINK.COM` with the build's tail. **Done** (`CHAIN.ASM`): after a compilation that succeeds, unless option `C` asks for none, and at once for option `X`, the shell writes `BLINK`'s tail at `$0080`, the first part's name as given and the options as given less `X` (never longer than the tail it comes from; `C` and `T` never chain, and `W` is refused), opens `BLINK.COM` on option `L`'s drive or the current one, then on `A:`, and copies a loader of 41 bytes with the open FCB, 77 bytes in all, to the top of memory, below the BDOS entry, with the stack under it. The loader, which refers only to itself and by relative jumps, reads `BLINK.COM` to `$0100` a record at a time (a read error warm boots), restores the DMA address to `$0080` and starts it; `BLINK` takes its stack from `$0006` and sets the final return code. A missing `BLINK.COM` is reported with `L-MISSING`'s text and `$FF12`, the streams kept for a later link. The CP/M harness needed nothing more than its drives: the loader reads `BLINK.COM` through the BDOS as it would on CP/M. `BASIE HELLO` makes `HELLO.COM`, which prints Hello, and `HELLO.LIN`, and deletes the streams; a failing build never chains; `K`, `Z`, `M`, `Y`, `N`, `S` and `O=` reach `BLINK`; `C` then `X` compiles and links in two runs (`tests/basie_native_test.ts`); and the same build runs on real CP/M 2.2 on the Triptych machine (`tests/conformance_triptych_test.ts`). `BASIE.COM` 16,171 bytes | `BASIE HELLO` under the harness produces a `HELLO.COM` that runs |
 | 66 | The message file and the overlays. **Done.** (a) Every diagnostic is by the reference's number (`ref/compile/messages.ts`), mapped site by site from the forked codes, at the reference's position, and named where the reference names the name at it (`DG_NAMED`, `DG_SETN`, `DG_WORD`); it is printed as the reference toolchain prints one, `MAIN.BSI 12:5: 27: count is not declared`, the line and column counted from the offset in the resident source, the text from `BASIE.MSG` with its arguments (`MESSAGE.ASM`), or `Message N` and the arguments without it (D39); the toolchain's own diagnostics as `BLINK` prints them, `Error 225: CPM22.BRL not found`. Native refusals of programs the reference accepts are `native-unsupported` (191: constructs not yet compiled, declarations after `main`, locals inside blocks, floating-point literals) and `native-exact` (192: exact values beyond 0..65,535), and native limits `capacity` (190) naming the limit. The 87 collision is gone. The equivalence test compares number, code, position and arguments for all 100 programs both compilers refuse. Nine faults of the reference's positions were fixed, each with a conformance program. (b) The overlays (`OVERLAY.ASM`, `native/compiler/build.ts`): five in `BASIE.OVL`, each assembled at its load address against the resident image's symbols and loaded into the area after the image when first needed: `COMMAND` (986 bytes), `START` (727: the library check, the parts, the stamp and the streams), `NAMES` (947: the predeclared names, loaded before the compilation and kept for all of it, so that every name lookup reads them where they are, as fast as from the resident image; the f32 conversion is to load above them), `CHAIN` (285) and `DIAG` (969). The area is 1,024 bytes. `BASIE.COM` 13,895 bytes | Diagnostics match the reference's (`tests/native_equivalence_test.ts`); `BASIE HELLO` under the harness and on real CP/M 2.2 with `BASIE.OVL` beside `BASIE.COM` |
 
-The language at the end of step 65 is the Nucleus subset of Basie. Test
-programs are therefore valid Basie, and the reference compiler is the oracle,
-comparing behaviour rather than bytes. Byte comparison waits until the native
-code generator follows the reference's templates (step 67).
+### Step 67 in stages
+
+Step 67 brings the reference compiler's roadmap steps 38 to 48 across, a
+stage at a time, each a set of claimed programs whose streams must equal
+the reference's (D45) and the D43 cycle for every increment. The order
+follows what the programs need: the library parts (`lib/`) and most of
+the conformance suite include `FORMAT.BSI`, which needs the numeric types
+and `f32`, so those come early.
+
+| # | Stage | State |
+| --- | --- | --- |
+| 67a | The reference's step 40 and D33: declarations anywhere and block scope (D28), typed and local constants and inference from typed initialisers (D20, D21), `include` and `private` | 67a.1 and 67a.2 done; 67a.3 (`include`, `private`) next. **67a.1:** the grammar generator, `tools/llgen.ts`, which writes `GRAMMAR.ASM` from `grammar/grammar.json` under the `GR_` scheme (the hand-kept tables reproduced byte for byte first). **67a.2:** a local or a constant may be declared at any statement position (`statement` predicts `var` and `const`; the forked `local-list` is gone, and `EM_LINE` marks the line once, for the statement); each block's names follow its enclosing block's in the symbol table and its end cuts the table back, as its frame shrinks back (`CT_FSYMS`, `CT_BLOCK`), so sibling blocks reuse names and slots as the reference's `block` does; a name in the current block is a duplicate and one visible from outside it is hidden (`SY_HERE`, `RO_BODY`). Declarations may follow `main` (`AC_EARLY` gone; `AC_MAIN` asks `RO_MFLAG`); a second `main`, `sub main` and a forward's full redeclaration are diagnosed as the reference does them, and a completed forward redeclared is a duplicate (the forked check read a record by the wrong index). A scalar constant may be typed (`const k as u8 = 200`), its value staged as an initializer is and its type kept, so it folds and wraps at its type; an untyped constant of a `u16` value needs a type (`constant-needs-type`); a typed integer constant may be a loop's step. Inference follows the reference: a character literal alone is a `u8` (`EX_CHR`), a typed constant gives its type, an aggregate variable, constant or routine result is copied into the local, and a scalar a path selects is loaded as the first primary of the expression that goes on (`EX_PRIME`, `EX_PFROM`). Refused for now: an aggregate constant in a routine's body (its rodata blob would begin inside the routine's) and `assert` statements. A loop's undeclared counter is `loop-counter`, as the reference has it. Claimed: `SCOPES`, `CONSTS`, `INFER`, `LATER` and the conformance programs `declare-anywhere`, `local-constant`, `sibling-blocks-reuse` and `services/keys`, all linked and run; 22 more programs both compilers refuse; the random assignments gain typed constants as operands, locals declared after a statement, and a local in each block of the if and the while (3,000 more in development). `BASIE.COM` 14,098 bytes |
+| 67b | Numeric types: `i8`, `i16`, `u32`, `i32`, the conversions and shifts, 32-bit folding (the 16-bit exact range goes) | — |
+| 67c | Branch shrinking: forward jumps to `JR`, so the equivalence test compiles the reference with shrinking on | — |
+| 67d | `select` | — |
+| 67e | Local aggregates in full, `var` parameters and results, `assert` | — |
+| 67f | `f32`: the decimal-to-`f32` overlay above `NAMES` | — |
+| 67g | Pools, handles, flow, leases and ownership | — |
+| 67h | The capacity tables: the hashed symbol table with a name heap, the scoped type descriptors, streaming the source | — |
 
 ## 4. Budget
 

@@ -184,6 +184,14 @@ overlay, must end with the image below the compiler's workspace, which
 `native/compiler/build.ts` checks. A diagnostic names at most a name's first
 32 characters (`DG_ALEN`). All three are in [limits](limits.md) §5.1.
 
+**At step 67a** declarations may come anywhere, with block scope. The
+symbol table keeps its 96 records, and scopes are its prefixes: a block's
+names follow its enclosing block's, and its end cuts the table back to
+where it began, as a routine's end already did (each control frame keeps
+the count, `CT_FSYMS`, so the cost is a byte a frame). Locals no longer
+have to come first, and the limit that said so is gone, with the refusal
+of declarations after `main`.
+
 ### 2.4 Workspace budget for `BASIE.COM` (Implementation)
 
 The minimums in [limits](limits.md) §5.1 are not backed by a model showing
@@ -588,7 +596,7 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 
 | Nucleus constant | Value | Basie replacement |
 | --- | ---: | --- |
-| `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals. At 65.4 (d), 96 records (`SY_CAP`, seven bytes each) shared by the program's names and the current routine's parameters and locals, the aggregate type held in the record; a hashed, scoped table replaces it at step 67 |
+| `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals. At 65.4 (d), 96 records (`SY_CAP`, seven bytes each) shared by the program's names and the current routine's parameters and locals, the aggregate type held in the record; at 67a its open blocks' locals and local constants, released at each block's end; a hashed table with a name heap replaces it in step 67's capacity stage |
 | `Stage7RoutineCapacity` | 4 | §3.25. At 65.4 (e), 32 records of twelve bytes (`RO_RCAP`) holding each routine's ordinal, need and argument bytes |
 | `Stage7ParameterCapacity` | 16 (program-wide) | §3.3: at least 32 per routine. At 65.4 (e), 64 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine |
 | `Stage7CallFrameCapacity` | 4 | §3.21: call nesting. At 65.4 (e) a call being parsed keeps its state on the machine stack; calls nest eight deep in arguments (`RO_NCAP`) |

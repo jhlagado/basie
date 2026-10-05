@@ -88,7 +88,6 @@
     "result-opt": "DiagnosticExpectedLine",
     "fails-opt": "DiagnosticExpectedLine",
     "routine-body": "DiagnosticExpectedStatement",
-    "local-list": "DiagnosticExpectedStatement",
     "local-declaration": "DiagnosticExpectedVar",
     "local-initializer-opt": "DiagnosticExpectedLine",
     "local-shape": "DiagnosticExpectedType",
@@ -113,7 +112,6 @@
   },
   "actions": {
     "RequireMain": "AC_MAIN",
-    "RequireBeforeMain": "AC_EARLY",
     "RetainDeclarationName": "AC_NAME",
     "ConstantExpression": "AC_FOLD",
     "FinishConstantExpression": "AC_VALUE",
@@ -192,7 +190,6 @@
   },
   "equates": {
     "GR_STMT": "statement",
-    "GR_LOCAL": "local-declaration",
     "GR_EXIT": "EmitExit",
     "GR_CONT": "EmitContinue",
     "GR_TO": "ForTo",
@@ -357,7 +354,6 @@
     {
       "lhs": "const-declaration",
       "rhs": [
-        "a:RequireBeforeMain",
         "TokenConst",
         "TokenName",
         "a:RetainDeclarationName",
@@ -390,7 +386,6 @@
     {
       "lhs": "assert-declaration",
       "rhs": [
-        "a:RequireBeforeMain",
         "a:BeginAssert",
         "TokenAssert",
         "x:ConstantExpression",
@@ -401,7 +396,6 @@
     {
       "lhs": "program-var-declaration",
       "rhs": [
-        "a:RequireBeforeMain",
         "TokenVar",
         "TokenName",
         "a:RetainDeclarationName",
@@ -428,7 +422,6 @@
     {
       "lhs": "record-declaration",
       "rhs": [
-        "a:RequireBeforeMain",
         "TokenRecord",
         "TokenName",
         "a:BeginRecord",
@@ -578,7 +571,6 @@
     {
       "lhs": "routine-body",
       "rhs": [
-        "local-list",
         "statement-sequence",
         "TokenEnd",
         "TokenNewline"
@@ -589,17 +581,6 @@
       "rhs": [
         "x:StrayClause"
       ]
-    },
-    {
-      "lhs": "local-list",
-      "rhs": [
-        "local-declaration",
-        "local-list"
-      ]
-    },
-    {
-      "lhs": "local-list",
-      "rhs": []
     },
     {
       "lhs": "local-declaration",
@@ -682,6 +663,18 @@
       "lhs": "statement",
       "rhs": [
         "for-statement"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "local-declaration"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "const-declaration"
       ]
     },
     {

@@ -306,6 +306,7 @@ PR_RESET:
     LD   (DG_PART),A               ; And no failing part.
     LD   (SY_CNT),A                ; No symbols.
     LD   (RG_FWD),A                ; No forward routines.
+    LD   (EX_PRIME),A              ; No primary parsed ahead.
     LD   HL,AG_DCNT                ; The aggregate counters, AG_DCNT..AG_GIVEN.
     LD   B,AG_GIVEN-AG_DCNT+1      ; Their byte count.
 .LOOP:                         ; Clear one aggregate counter.

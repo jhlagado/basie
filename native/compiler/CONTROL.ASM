@@ -47,6 +47,8 @@
 ;    CT_FVAR   +8  for: word, the counter's offset from IX
 ;    CT_FBND   +10 for: word, the bound's offset from IX
 ;    CT_FSTEP  +12 for: word, the step's magnitude
+;    CT_FSYMS  +14 SY_CNT as the frame opened: the first symbol of each of
+;                  its blocks, whose symbols go out of scope as it ends
 ;  The for fields from CT_FMODE are copied from the actions' scratch
 ;  AC_MODE..AC_DELTA, laid out alike.
 
@@ -66,8 +68,8 @@ CT_FRAME:
 
 ;@ROUTINE IN B OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Open a frame of kind B and return its address in HL: it keeps the label
-; count and the frame's size to restore when it closes, and its mode is
-; clear. A ninth frame raises DG_NEST.
+; count, the frame's size and the symbol count to restore when it or its
+; blocks end, and its mode is clear. A ninth frame raises DG_NEST.
 
 CT_PUSH:
     LD   A,(CT_DEPTH)              ; The new frame's index is the depth.
@@ -89,7 +91,11 @@ CT_PUSH:
     INC  HL                        ; and
     LD   (HL),D                    ; high byte;
     INC  HL                        ; then
-    LD   (HL),0                    ; the mode, clear.
+    LD   (HL),0                    ; the mode, clear;
+    LD   DE,CT_FSYMS-CT_FMODE      ; then
+    ADD  HL,DE                     ; the symbols
+    LD   A,(SY_CNT)                ; in scope,
+    LD   (HL),A                    ; kept.
     POP  HL                        ; HL is the frame.
     RET                            ; The construct may fill it.
 
@@ -101,32 +107,41 @@ CT_EDEEP:
     DB   DG_NEST                   ; Nesting too deep.
 
 ;@ROUTINE OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B
-; Close the innermost frame: the routine's frame shrinks back to its size
-; when the frame opened, and the labels allocated since are free again.
+; Close the innermost frame: its block ends (CT_BLOCK), and the labels
+; allocated since it opened are free again.
 
 CT_POP:
-    CALL CT_BLOCK                  ; The frame's size; HL is CT_FSIZE+1.
-    DEC  HL                        ; Back
-    DEC  HL                        ; to
-    LD   A,(HL)                    ; CT_FLCNT, the labels in use before.
-    LD   (EM_LCNT),A               ; The rest are free.
+    CALL CT_BLOCK                  ; The block ends; HL is the frame.
+    INC  HL                        ; Its
+    INC  HL                        ; labels
+    INC  HL                        ; in use
+    INC  HL                        ; before,
+    LD   A,(HL)                    ; CT_FLCNT:
+    LD   (EM_LCNT),A               ; the rest are free.
     LD   HL,CT_DEPTH               ; One frame
     DEC  (HL)                      ; fewer is open.
     RET                            ; The enclosing frame is innermost.
 
 ;@ROUTINE OUT DE,HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A block ends: the routine's frame shrinks back to its size when the
-; innermost frame opened (block restores r.frame), freeing what nested for
-; loops allocated for their bounds. HL returns at CT_FSIZE+1.
+; A block ends (the reference's block): the routine's frame shrinks back
+; to its size when the innermost frame opened, freeing the block's locals
+; and what nested for loops allocated for their bounds, and the symbols
+; declared since go out of scope. HL returns the frame's address.
 
 CT_BLOCK:
-    LD   B,CT_FSIZE                ; The size kept
-    CALL CT_FIELD                  ; when the frame opened.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; that
-    LD   D,(HL)                    ; size,
-    LD   (EM_FRAME),DE             ; the frame's again.
-    RET                            ; HL is at its high byte.
+    LD   B,CT_FSYMS                ; The symbols in scope
+    CALL CT_FIELD                  ; when the frame opened
+    LD   A,(HL)                    ; are
+    LD   (SY_CNT),A                ; again;
+    LD   DE,CT_FSIZE-CT_FSYMS      ; and so is
+    ADD  HL,DE                     ; the size
+    LD   E,(HL)                    ; of the
+    INC  HL                        ; frame,
+    LD   D,(HL)                    ; DE,
+    LD   (EM_FRAME),DE             ; then.
+    LD   DE,-CT_FSIZE-1            ; HL is
+    ADD  HL,DE                     ; the frame.
+    RET                            ; Its block has ended.
 
 ;@ROUTINE OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the innermost frame's address in HL. With no frame open this
@@ -286,8 +301,9 @@ CT_NOTE:
     RET                            ; The mark is made.
 
 ;@ROUTINE OUT A,B,DE,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,HL
-; Parse a for loop's step: an optional sign, then a number, a constant or
-; a predeclared constant, which must be nonzero. Return the magnitude in DE and
+; Parse a for loop's step: an optional sign, then a number, an integer
+; constant, exact or typed, or a predeclared constant, which must be
+; nonzero. Return the magnitude in DE and
 ; in B the mode bit CT_MDOWN for a negative step. Anything else raises
 ; DG_STEP.
 
@@ -319,10 +335,15 @@ CT_STEP:
     LD   E,(HL)                    ; a byte,
     LD   D,0                       ; widened into DE,
     JR   .NONZERO                  ; must not be zero.
-.CONST:                        ; The name must be a scalar constant.
+.CONST:                        ; The name must be an integer constant.
     CALL SY_GET                    ; A is its class and type, BC its value.
-    AND  SY_TYPE+SY_AGGR+SY_CMASK+SY_TMASK ; An exact constant has none of them.
-    JR   NZ,CT_ESTEP               ; A type, aggregate, variable or Boolean.
+    LD   D,A                       ; Keep them.
+    AND  SY_TYPE+SY_AGGR+SY_CMASK  ; A constant has none of these:
+    JR   NZ,CT_ESTEP               ; a type, aggregate or variable.
+    LD   A,D                       ; Its type
+    AND  SY_TMASK                  ; is exact, u8 or u16,
+    CP   SY_BOOL                   ; not Boolean.
+    JR   Z,CT_ESTEP                ; A Boolean is no step.
 .NUMBER:                       ; BC holds the value.
     LD   D,B                       ; Move it
     LD   E,C                       ; to DE.

@@ -1,0 +1,35 @@
+// Typed and local constants (D20; step 67): a typed scalar constant has
+// exactly its type, so arithmetic with it wraps at its width; untyped
+// ones adopt their context's; constants declared in blocks, typed and
+// untyped, of every scalar type, and a typed constant as a loop's step.
+const small as u8 = 200
+const wide as u16 = small * 2
+const yes as boolean = true
+const k = u8(12)
+const plain = 70
+var out as u16
+var b as u8
+
+sub main()
+    const local = 5
+    const lw as u16 = 60000
+    const lb as u8 = 250
+    out = small + 100
+    out = out + wide + local
+    b = lb + 10
+    if yes
+        const inner as u8 = 3
+        const half = 128
+        b = b + inner + half
+    end
+    var i as u8
+    const by as u8 = 2
+    for i = 0 to 10 step by
+        out = out + i
+    end
+    out = out + lw / k + plain
+    const flip as boolean = not yes
+    if flip
+        out = 0
+    end
+end

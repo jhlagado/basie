@@ -1,0 +1,43 @@
+// Locals whose types are inferred from their initializers (D21; step 67):
+// a character literal alone is a u8, a typed constant gives its type, an
+// aggregate variable, constant or routine result is copied, and a scalar
+// a path selects begins an expression that goes on.
+record point
+    x as u8
+    y as u16
+end
+const origin as point = (1, 2)
+const delta as u16 = 40
+var where as point
+var row as u8[4] = [1, 2, 3, 4]
+var name as string[6] = "abc"
+var out as u16
+
+sub make(n as u8) as point
+    where.x = n
+    return where
+end
+
+sub maybe(n as u8) as point fails
+    if n = 0
+        fail 9
+    end
+    return where
+end
+
+sub main() fails
+    var c = 'A'
+    var d = ('B')
+    var e = +'C'
+    var s = delta
+    var p = origin
+    var q = where
+    var r = make(3)
+    var t = maybe(4) else fail
+    var x = where.x + 1
+    var y = row[2] * 2 + c
+    var z = name.length
+    var w = make(5).y - s
+    var v = r.x
+    out = c + d + e + s + p.y + q.x + r.x + t.y + x + y + z + w + v
+end
