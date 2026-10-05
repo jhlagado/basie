@@ -217,7 +217,7 @@ An implementation may bound expression nesting, argument counts and expression-c
 
 For `i16` values `a`, `b` and `c`:
 
-```nucleus
+```basie
 a - b - c           // (a - b) - c
 a + b shl 2         // a + (b shl 2)
 - -a                // -(-a), wrapping in i16
@@ -228,7 +228,7 @@ not not flag        // not (not flag)
 
 Mixed operands:
 
-```nucleus
+```basie
 var small as u8 = 200
 var wide as i16 = -5
 var x = small + wide        // i16 addition: u8 widens to i16; x is i16
@@ -241,7 +241,7 @@ var ok = i32(w) + wide      // i32
 
 Handles:
 
-```nucleus
+```basie
 var n = new nodes(1, none)        // nodes
 var spare = new? nodes(2, none)   // nodes?
 var i = id(n)                     // id nodes
@@ -250,10 +250,10 @@ head = move n                     // n now holds none
 
 Invalid forms:
 
-```nucleus
+```basie
 first < second < third      // comparisons don't chain
 flag + 1                    // boolean is not an integer
-recordValue = other         // records have no equality
+if recordValue = other      // records have no equality
 x mod 1.5                   // mod is not defined for f32
 cells[signedIndex]          // a signed index must be converted
 var n2 = 0                  // no definite type

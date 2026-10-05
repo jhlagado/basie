@@ -608,7 +608,7 @@ it only after the image is written.
 
 The source:
 
-```nucleus
+```basie
 var count as u16
 
 forward sub reset()

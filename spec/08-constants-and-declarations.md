@@ -91,7 +91,7 @@ Parentheses and square brackets suppress logical newlines (Chapter 3), so a stru
 
 A named constant is **untyped** or **typed** (design decision D20):
 
-```nucleus
+```basie
 const bufferLength = 64            // untyped
 const enabled = true               // untyped
 const big as u32 = 70000           // typed
@@ -113,7 +113,7 @@ A scalar constant has no storage that source can observe. The compiler may place
 
 An aggregate constant declares one explicitly typed, statically initialized record, fixed array or bounded string:
 
-```nucleus
+```basie
 const Origin as Point = (0, 0)
 const Masks as u8[4] = [$01, $02, $04, $08]
 const Prompt as string[8] = "READY"
@@ -146,7 +146,7 @@ An array length is a constant expression whose value must lie from 1 through 65,
 
 A compile-time assertion has this top-level form:
 
-```nucleus
+```basie
 assert Rows * Columns <= 256
 ```
 
@@ -158,7 +158,7 @@ Inside a routine body, `assert` is the run-time statement of Chapter 10. A run-t
 
 A record declaration introduces one nominal type:
 
-```nucleus
+```basie
 record Point
     x as i16
     y as i16
@@ -222,7 +222,7 @@ An initializer for an owning handle follows the transfer rules of Chapter 7: a f
 
 An exact integer has no definite type: an integer literal, an untyped integer constant, or an expression built only from them. A local initialized with one must state its type. So must a local initialized with a string literal or `none`. An open view (`string[]` or `T[]`) is never a local's type, so a `string[]` or `T[]` parameter can't initialize an inferred local (Chapter 6, Section 6.8):
 
-```nucleus
+```basie
 var d = distance(a, b)        // the routine's result type
 var p = Origin                // Point, from the constant's type
 var n = new nodes(5, none)    // nodes, an owning handle
@@ -238,7 +238,7 @@ The local becomes visible only after its declaration has been checked, so its in
 
 A pool declaration declares a pool of slots, each holding one record of a single record type (Chapter 7):
 
-```nucleus
+```basie
 forward pool nodes
 
 record Node
@@ -303,7 +303,7 @@ An implementation may bound the numbers of declarations, fields, parameters, loc
 
 These declarations are valid:
 
-```nucleus
+```basie
 const cellCount = 8
 const scale as f32 = 0.125
 const notFound = 48               // a failure code (Chapter 14)
@@ -332,23 +332,23 @@ private const scratchSize = 32
 
 A routine declares locals where it needs them:
 
-```nucleus
+```basie
 sub fill(var items as Cell[cellCount], start as i16)
-    const step = 2
+    const stride = 2
     var next = start                  // i16, from the parameter
     var i as u8
     for i = 0 until cellCount
         var cell as Cell = (0, true)  // a fresh local on every iteration
         cell.value = next
         items[i] = cell
-        next = next + step
+        next = next + stride
     end
 end
 ```
 
 These are invalid; they are not one compilation:
 
-```nucleus
+```basie
 const Limit = 8
 var Limit as u16                     // exact duplicate
 const half = 0.5                     // a floating-point constant must be typed

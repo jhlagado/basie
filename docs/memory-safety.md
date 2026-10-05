@@ -120,7 +120,7 @@ leased node's owner can't be reached during the lease.
 
 ### 5.1 Pools
 
-```nucleus
+```basie
 forward pool nodes            // lets Node's fields name the pool (D40)
 
 record Node
@@ -169,7 +169,7 @@ assignment and by-value passing are errors.
 
 ### 5.3 Creating, moving and freeing
 
-```nucleus
+```basie
 var n = new nodes(5, "five", none, none)
 var t = new trees(1)              // trailing fields omitted: zeroed
 ```
@@ -258,7 +258,7 @@ the slot between the check and the access.
 
 ### 5.5 Testing optional handles
 
-```nucleus
+```basie
 select head
 case some(i)          // head is a program variable: i is an identifier
     print(i.value)
@@ -282,7 +282,7 @@ end
 
 ### 5.6 Leases
 
-```nucleus
+```basie
 sub bump(var n as Node)
     n.value = n.value + 1     // direct access: no check
 end
@@ -334,7 +334,7 @@ applies. `from` may not name a slot-holder.
 A `var` parameter of type `nodes?` lends a place that holds a node or `none`.
 The callee may move into it, move out of it, or overwrite it:
 
-```nucleus
+```basie
 sub push(var list as nodes?, v as u16)
     var n = new nodes(v, "", move list, none)
     list = move n
@@ -552,7 +552,7 @@ interrupt-mode-1 pushes. See the [CP/M target](cpm-target.md), Section 4.1.
 
 **A list.**
 
-```nucleus
+```basie
 var head as nodes?
 
 sub push(v as u16)
@@ -578,7 +578,7 @@ end
 **Working fast on one node owned by a program variable.** Move it into a local,
 work on it there, and move it back:
 
-```nucleus
+```basie
 sub bumpHead()
     select move head
     case some(n)                      // n owns the node: direct access
@@ -595,7 +595,7 @@ the tail's parent or be built at the head.
 
 **Deleting matching nodes.**
 
-```nucleus
+```basie
 sub removeAll(v as u16)
     while true                        // strip matching nodes from the head
         select head
@@ -666,7 +666,7 @@ compiles and is memory safe by bounds checking, but detects no stale index.
 | Cycle check | in the identifier store helper | about 60 per level between the destination and its root |
 | Owner word for a `var` owning parameter | 1 to 3 at the call site | 2 bytes of stack |
 | Activation-capacity check | 5 at the site, a 15-byte helper | 60 to 95, only in forward-declared routines |
-| Pool overhead | 4 bytes per slot, before each record; about 6 per pool | — |
+| Pool overhead | 6 bytes per slot, before each record (revision 6.1); about 6 per pool | — |
 | Prologue figures | 4 bytes per routine, after its code | about 10 |
 
 Compiler memory: a flow state per owning local per open block, and `need` per

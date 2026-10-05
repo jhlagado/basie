@@ -94,7 +94,7 @@ In this statement position, `=` is the assignment operator. Inside an expression
 
 ## 10.5 Routine-call statements
 
-A routine-call statement invokes one visible source routine with the argument list defined by Chapters 9 and 13. A result-free routine is valid in this form. A result may also be discarded; discarding it does not suppress argument evaluation, routine effects, checks, or traps. A discarded fresh owning result is held in the statement's temporary and freed when the statement ends (Section 10.8).
+A routine-call statement invokes one visible routine or service with the argument list defined by Chapters 9 and 13. A result-free routine is valid in this form. A result may also be discarded; discarding it does not suppress argument evaluation, routine effects, checks, or traps. A discarded fresh owning result is held in the statement's temporary and freed when the statement ends (Section 10.8).
 
 Only the invocation itself forms the statement. A scalar arithmetic expression, comparison, storage read, conversion, field selection, or index operation cannot stand as a statement. An aggregate result cannot be selected and then discarded as an expression statement. These restrictions keep name-led dispatch distinct from general expression parsing.
 
@@ -122,7 +122,7 @@ Chapter 7 defines owning handles, moves and freeing. Three rules apply to statem
 
 **The statement rule.** Within one statement, an owning local or parameter that is used directly anywhere, as an access path such as `x.value` or `x.kids[k]`, an assignment destination, a lease argument, or a `select` subject, must not be moved or overwritten anywhere else in that statement ([memory safety](../docs/memory-safety.md), Section 5.8). The exceptions are `id(x)`, reads of scalar fields, and a plain `x = ...` with no other direct use of `x`. So these are invalid, because the right side would free a node the left side or a lease still uses:
 
-```nucleus
+```basie
 x.value = eat(move x)        // invalid
 show(h, eat(move h))         // invalid
 ```
@@ -143,7 +143,7 @@ An implementation may bound statement nesting, active control contexts, branch f
 
 These are valid simple statements when the names have compatible declarations:
 
-```nucleus
+```basie
 var total as u16 = 0
 count = count + 1
 assert count < limit
@@ -160,10 +160,11 @@ continue
 
 These forms are invalid:
 
-```nucleus
+```basie
 count + 1                 // general expression statement
 call updateDisplay()      // no call keyword
-left = right = 0          // assignment is not an expression
+count = total = 0         // assignment is not an expression: with u16 locals,
+                          // this compares total with 0 and can't store a boolean
 cells = shorterCells      // invalid when the fixed-array types differ
 cells[index]              // storage read is not a statement
 ```

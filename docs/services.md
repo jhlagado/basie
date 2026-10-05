@@ -108,8 +108,8 @@ are not provided.
   itself allows 255. When the buffer fills, BDOS 10 ends the line without a
   return key, so the console never reports `lineTooLong`.
 - BDOS 10 echoes the return key as a carriage return without a line feed; the
-  library's `prompt` writes the line feed. (To be confirmed under the
-  full-fidelity harness.)
+  library's `prompt` writes the line feed. (Confirmed under real CP/M 2.2 on
+  the Triptych machine.)
 - A line whose first character is Control-Z is `endOfInput`, so console scripts
   can end cleanly.
 - Control-C typed at the start of a line makes CP/M warm-boot immediately; this
@@ -363,8 +363,7 @@ also Nucleus's. Every service shares one code space:
 
 ## 10. Alignment with the shared contracts
 
-Basie's services are its language adapter over the shared contracts, as Skate's
-ports and Nucleus's procedures are.
+Basie's services are its language adapter over the shared contracts.
 
 | Basie | Contract | Notes |
 | --- | --- | --- |

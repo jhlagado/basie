@@ -32,14 +32,14 @@ fixes it names the finding, as B1, A3 and so on).
 | A11 | minor | Chapter 1 names Nucleus documents and omits services, memory safety and code generation from the authority order. | Name the real documents |
 | A12 | minor | "First compiler" is a Nucleus term; streaming is called a chapter 2 constraint but isn't in chapter 2. | Say `BASIE.COM`; add to 2.4 |
 | A13 | minor | Stale cross-references to "Section 4.3" and "Chapter 1" diagnostic policy. | Fix |
-| A14 | minor | Code fences tagged `nucleus`; the README still says chapters describe Nucleus 0.1. | Fix |
+| A14 | minor (closed) | Code fences tagged `nucleus`; the README still says chapters describe Nucleus 0.1. | Fix |
 | A15 | minor | Reference diagnostics give a provisional part number for lexical errors in included parts. | Report the part's name |
 | A16 | minor | Part identity by drive and name, drives in includes, required types, several command-line parts, and `L=`'s meaning differ between chapter 4, the toolchain and the reference. | Align |
 | A17 | minor | Chapter 1 says the corpus has no `activation-capacity` trap; one test expects it. Tests are ranked lowest in 1.3 but called normative in 21.1. | Fix |
 | A18 | minor | `private-is-part-local.bsi` has only one part. | Add a multipart test |
 | A19 | minor | Because `id` lexes as `NAME`, `primary` and `type-atom` have two more LL(1) conflicts than the 17.4 table shows; the grammar check treats `id` as its own terminal. | Add the rows; check `id` as `NAME` |
 | A20 | minor | 3.6 doesn't say whether a tiny float literal is rounded before it is flushed. | Rounded first |
-| A21 | minor | Chapter 2's version 2 list omits generics and `repeat`. | Add |
+| A21 | minor (closed) | Chapter 2's version 2 list omits generics and `repeat`. | Add |
 
 ## Group B: chapters 6 to 9
 
@@ -63,10 +63,10 @@ fixes it names the finding, as B1, A3 and so on).
 | B16 | major (closed) | Whether an aggregate field reached through an owning local is copied or aliased is unclear; the compiler aliases. | Lease semantics for owner paths |
 | B17 | minor | Chapter 6 omits handle fields, exact indexes, arrays of arrays and handles, and `T[]` identity. | Add |
 | B18 | minor | Homes of `P` and `id P` omit routine results. | Add |
-| B19 | minor | The example in 8.15 uses `step`, a reserved word. | Rename |
+| B19 | minor (closed) | The example in 8.15 uses `step`, a reserved word. | Rename |
 | B20 | minor | A duplicate in one scope is reported as `shadowed-name`. | `duplicate-name` |
 | B21 | minor | 6.13's examples work only as locals. | Say so |
-| B22 | minor | 9.17 lists `recordValue = other` as invalid, but as a statement it is assignment. | Use `if` |
+| B22 | minor (closed) | 9.17 lists `recordValue = other` as invalid, but as a statement it is assignment. | Use `if` |
 | B23 | minor | 7.10's `new` examples use fields and pools not defined anywhere. | Use chapter 8's `Node` |
 | B24 | minor | `move` from a ticket's field is allowed by 9.16 but rejected by the compiler and memory safety 5.12. | "writable parameter" |
 | B25 | minor | 9.15 says designators are not constant, but named constants are designators. | Except named constants |
@@ -74,7 +74,7 @@ fixes it names the finding, as B1, A3 and so on).
 | B27 | minor | Field access through a fresh handle temporary is unspecified and badly diagnosed. | State invalid |
 | B28 | minor | A record with an `id P?` field has no static initializer, which 8.9 doesn't say. | Say so |
 | B29 | minor | The type grammar reads `u8[25][40]` backwards. | Note the binding |
-| B30 | minor | Fences tagged `nucleus`; planning text in 6.12; memory safety says 4-byte slot headers, revision 6.1 says 6. | Fix |
+| B30 | minor (closed) | Fences tagged `nucleus`; planning text in 6.12; memory safety says 4-byte slot headers, revision 6.1 says 6. | Fix |
 
 ## Group C: chapters 10 to 21
 
@@ -99,9 +99,9 @@ fixes it names the finding, as B1, A3 and so on).
 | C17 | major (closed) | Typed `case` labels use conversion rules rather than representability. | Pick one rule |
 | C18 | major (closed) | File-table generations saturate at $FFFF and the entry is reused, so a stale `File` can match a new file. | Withdraw the entry, as pool slots are |
 | C19 | major (closed) | The reference compiler lacks 32-bit `select` and counted loops (one crashes). | Implement or record |
-| C20 | minor | "in any order" for `case` arms contradicts `case else` last. | Fix wording |
-| C21 | minor | 14.6 examples call `readStorageByte`, which doesn't exist. | Use `readInputByte` |
-| C22 | minor | `head = move head.next` compiles under no declaration. | Use `h.next` |
+| C20 | minor (closed) | "in any order" for `case` arms contradicts `case else` last. | Fix wording |
+| C21 | minor (closed) | 14.6 examples call `readStorageByte`, which doesn't exist. | Use `readInputByte` |
+| C22 | minor (closed) | `head = move head.next` compiles under no declaration. | Use `h.next` |
 | C23 | minor | Three places say a trap frees slots; 15.1 says it frees none. | Exclude traps |
 | C24 | minor (closed) | 16.2 omits `textMode` and `binaryMode`. | Add |
 | C25 | minor | `File` is absent from chapter 6 and the assignment and parameter rules. | Classify it |
@@ -110,7 +110,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C28 | minor | Nothing produces `float-invalid`. | Drop or name one |
 | C29 | minor | Chapter 21 omits `library` and `services`, and misses `loop-range` and loop-boundary programs. | Update |
 | C30 | minor | 14.2's header fragment lacks the `var` and `from` result clause. | Align with 13.2 |
-| C31 | minor | `left = right = 0` is valid when `left` is boolean. | Better example |
+| C31 | minor (closed) | `left = right = 0` is valid when `left` is boolean. | Better example |
 | C32 | minor | An untyped constant `select` subject is unspecified. | State |
 | C33 | minor | Stale text: a Skate reference, `nucleus` fences, a wrong services section, a "to be confirmed", an empty forward reference, `abort` of a zero `File`. | Fix |
-| C34 | minor | "Source routine" excludes services. | "routine or service" |
+| C34 | minor (closed) | "Source routine" excludes services. | "routine or service" |

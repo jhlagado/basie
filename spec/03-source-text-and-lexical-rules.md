@@ -53,7 +53,7 @@ Blank and comment-only physical lines produce no `NEWLINE`. Consecutive physical
 
 Examples:
 
-```nucleus
+```basie
 total = (first +
     second)
 
@@ -64,7 +64,7 @@ value = table[
 
 Neither physical line ending inside the delimiters produces `NEWLINE`. By contrast, this source contains a logical newline after `+` and is rejected later by the statement or expression grammar:
 
-```nucleus
+```basie
 total = first +
 second
 ```
@@ -296,7 +296,7 @@ Capacity failure must not change token identity. In particular, an overlong name
 
 For this source:
 
-```nucleus
+```basie
 check(
     table[index]
 )

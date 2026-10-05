@@ -46,7 +46,7 @@ The flow state of each owning local after an `if` statement (Chapter 10, Section
 
 The flat form is:
 
-```nucleus
+```basie
 if firstCondition
     firstAction()
 elseif secondCondition
@@ -58,7 +58,7 @@ end
 
 A genuinely nested conditional has another `if` statement and another `end` in a clause body:
 
-```nucleus
+```basie
 if outerCondition
     if innerCondition
         innerAction()
@@ -105,7 +105,7 @@ Each label is a constant expression, or a range `low to high` of two. Each label
 
 The subject is evaluated once, before any label is compared. If its value is covered by a label, that arm's body executes. Otherwise the `case else` body executes if present; with no `case else`, no body executes. The arms need not cover every value.
 
-```nucleus
+```basie
 select key
 case 'q', 'Q'
     exit
@@ -120,7 +120,7 @@ A compiler may implement the comparison by tests, a jump table or a search; the 
 
 ### 11.7.3 Handle selection
 
-The subject has an optional handle type, `P?` or `id P?`, or the non-optional identifier type `id P`. A non-optional owning subject of type `P` is invalid, since it always holds a value. The arms are exactly one `case some(NAME)`, and either one `case none` or one `case else`, in any order; the second arm may be omitted. Integer labels are invalid.
+The subject has an optional handle type, `P?` or `id P?`, or the non-optional identifier type `id P`. A non-optional owning subject of type `P` is invalid, since it always holds a value. The arms are exactly one `case some(NAME)`, and either one `case none` or one `case else`; `case none` may come before or after the `some` arm, but `case else` comes last. The second arm may be omitted. Integer labels are invalid.
 
 - For an identifier subject, `some` means that the slot the identifier names is still live, and `none` means that the identifier is empty or its slot has been freed. The test never traps.
 - For an owning subject, `some` means that it holds a handle, and `none` that it is `none`.
@@ -136,7 +136,7 @@ The name in `some(NAME)` is declared in that arm's block scope. What it denotes 
 
 **`select move`.** `select move x` requires `x` to be an owning location of type `P?`. It moves the value out of `x`, leaving `none`, before choosing the arm. In `some(n)`, `n` owns the value and is freed at the end of the arm unless it is moved on; this is how a `P?` becomes a `P`. In `none`, nothing was moved. After the `select`, `x` certainly holds `none` if it is a local or parameter.
 
-```nucleus
+```basie
 select head
 case some(i)          // head is a program variable: i is an identifier
     show(i.value)
@@ -187,7 +187,7 @@ An implementation may bound nested conditional depth, clause count, `select` lab
 
 This chain evaluates `ready` first and `waiting` only when `ready` is false:
 
-```nucleus
+```basie
 if ready
     run()
 elseif waiting
@@ -199,7 +199,7 @@ end
 
 An empty body is valid:
 
-```nucleus
+```basie
 if unchanged
 elseif needsUpdate
     update()
@@ -208,7 +208,7 @@ end
 
 These headers are invalid:
 
-```nucleus
+```basie
 if count              // u16 is not a condition
 if ready then         // then is an identifier, not a header marker
 else if waiting       // not the flat elseif token

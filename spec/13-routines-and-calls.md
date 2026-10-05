@@ -94,7 +94,7 @@ A **handle result** of an owning type `P` or `P?` is a fresh owning value for th
 
 An **aggregate result** is an alias to an existing object of exactly the result type, not a copy (Chapter 7, Section 7.7). Its root must be program storage, or a parameter named in the routine's `from` clause; it must never be rooted in the routine's own locals (design decision D8). A `from` clause names parameters of aggregate type; it cannot name a slot-holder. Without a `from` clause, every aggregate result must be rooted in program storage.
 
-```nucleus
+```basie
 sub pick(items as Entry[8], index as u8) as Entry from items
     return items[index]
 end
@@ -151,7 +151,7 @@ An implementation may bound parameters, arguments, active expression-call nestin
 
 A result-free routine and a value routine use the same declaration family:
 
-```nucleus
+```basie
 sub display(value as u8)
     return
 end
@@ -167,13 +167,13 @@ end
 
 Both paths through `maximum` return a compatible value. The result may be used directly:
 
-```nucleus
+```basie
 largest = maximum(first, second)
 ```
 
 An aggregate result preserves alias identity:
 
-```nucleus
+```basie
 sub entryAt(index as u8) as Entry
     return entries[index]
 end
@@ -187,7 +187,7 @@ end
 
 To retain the complete returned value, the caller provides destination storage:
 
-```nucleus
+```basie
 sub retain(index as u8, var destination as Entry)
     destination = entryAt(index)
 end
@@ -197,7 +197,7 @@ or declares a local: `var copy = entryAt(index)` copies the entry into activatio
 
 Parameters with ownership:
 
-```nucleus
+```basie
 sub sink(n as nodes)                 // takes ownership; n is freed at its end
 end
 
@@ -220,7 +220,7 @@ end
 
 Mutual recursion needs a forward declaration for the routine called first; `even` calls the forward-declared `odd`, which carries the activation-capacity check:
 
-```nucleus
+```basie
 forward sub odd(value as u16) as boolean
 
 sub even(value as u16) as boolean
@@ -240,7 +240,7 @@ end
 
 These forms are invalid:
 
-```nucleus
+```basie
 sub missing(value as u8) as u8
     if value = 0
         return 1

@@ -48,7 +48,7 @@ A part may begin with `include` lines, each naming another part it depends on:
 include-line ::= "include" string-literal NEWLINE
 ```
 
-```nucleus
+```basie
 include "STRINGS.BSI"
 include "FORMAT.BSI"
 
@@ -102,7 +102,7 @@ After a routine's complete signature has been checked, its routine name and sign
 
 For example, this order satisfies the structural rules:
 
-```nucleus
+```basie
 forward sub emit(value as u8)
 
 sub run()
@@ -118,7 +118,7 @@ end
 
 The following order does not, because `emit` has no visible signature at the call:
 
-```nucleus
+```basie
 sub run()
     emit(0)
     return

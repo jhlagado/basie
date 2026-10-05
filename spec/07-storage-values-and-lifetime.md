@@ -117,7 +117,7 @@ An optional handle, owning or not, cannot be used to reach a record directly. It
 
 ## 7.10 Creating: `new` and `new?`
 
-```nucleus
+```basie
 var n = new nodes(5, "five", none, none)
 var t = new trees(1)                 // trailing fields omitted: zeroed
 ```
@@ -187,7 +187,7 @@ Scalar fields are read and written in place. An **aggregate field** is copied as
 
 **Slot-holders.** A `var` parameter of type `P?` lends a place that holds a handle or `none`; the callee may move into it, move out of it or overwrite it:
 
-```nucleus
+```basie
 sub push(var list as nodes?, v as u16)
     var n = new nodes(v, move list)
     list = move n

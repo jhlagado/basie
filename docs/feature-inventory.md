@@ -90,7 +90,7 @@ standard library (D36), the message file (D39) and the link-time file table
 
 ## 5. `select`
 
-```nucleus
+```basie
 select key
 case 'q', 'Q'
     exit
@@ -125,7 +125,7 @@ Rust's `match` is powerful because of variants whose cases carry data,
 destructuring, and exhaustiveness. Basie's version 2 takes the first and third
 with one level of destructuring, leaving out nested patterns and guards:
 
-```nucleus
+```basie
 variant Shape
     circle(radius as u16)
     rect(width as u16, height as u16)

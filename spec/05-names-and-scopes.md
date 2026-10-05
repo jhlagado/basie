@@ -47,7 +47,7 @@ Every ordinary binding has one canonical declaration. An abbreviated routine bod
 
 For example, the single namespace accepts this pair of names:
 
-```nucleus
+```basie
 record Point
     x as u16
 end
@@ -57,7 +57,7 @@ var origin as Point
 
 Case variants are distinct names, so this declaration is valid:
 
-```nucleus
+```basie
 record Point
     x as u16
 end
@@ -67,7 +67,7 @@ var point as Point
 
 Repeating the exact type name in the same namespace is invalid:
 
-```nucleus
+```basie
 record Point
     x as u16
 end
@@ -93,7 +93,7 @@ A completed declaration must precede every use. For routines, the checked signat
 
 A declaration is not visible in its own type, bound, initializer, or other declaration operand. A record type is not visible in its own field list. These rules reject self-reference by non-routine declarations and prevent declaration cycles without a dependency graph or a second declaration pass.
 
-```nucleus
+```basie
 const first = second   // invalid: second is not yet visible
 const second = 2
 
@@ -110,7 +110,7 @@ Lookup never selects a later declaration in preference to an earlier one. Basie 
 
 A parameter or local must not shadow any ordinary binding visible at its declaration point: a program binding, a part binding, a parameter, or a local of an enclosing block. Basie has no shadowing at any level. Locals in blocks that do not enclose one another may use the same identity, because neither is visible where the other is declared:
 
-```nucleus
+```basie
 sub show(flag as boolean)
     if flag
         var count as u8 = 1
@@ -122,7 +122,7 @@ sub show(flag as boolean)
 end
 ```
 
-```nucleus
+```basie
 const limit = 10
 
 sub clamp(limit as u16)       // invalid: parameter shadows visible constant
@@ -134,7 +134,7 @@ The no-shadowing rule is evaluated at the declaration point. A program declarati
 
 Within one record, two fields with the same exact identity conflict. The same field identity may appear in different records, and a field may share an identity with an ordinary binding, because field selection supplies the record type before field lookup.
 
-```nucleus
+```basie
 record Point
     value as u16
 end
@@ -174,7 +174,7 @@ Forward declarations apply only to routines and pools. Constants, variables, rec
 
 This completion matches:
 
-```nucleus
+```basie
 forward sub emit(value as u8)
 
 sub emit
@@ -188,7 +188,7 @@ After a routine's complete signature has been checked, its binding is visible in
 
 Mutual references require forward signatures for every later routine that an earlier body names. In this example both calls are valid: `second` through its forward declaration, and `first` because its body is complete before `second`'s begins:
 
-```nucleus
+```basie
 forward sub second(value as u16)
 
 sub first(value as u16)
@@ -204,7 +204,7 @@ end
 
 A routine calling itself needs the same form:
 
-```nucleus
+```basie
 forward sub countDown(n as u8)
 
 sub countDown
@@ -228,7 +228,7 @@ Compiler-generated temporaries, labels, and helper names remain outside the sour
 
 The word `private` before a top-level declaration places its binding in the part scope of its source part instead of the program scope (design decision D33):
 
-```nucleus
+```basie
 private const bufferSize = 64
 private sub flushBuffer()
     ...

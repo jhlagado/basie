@@ -4,7 +4,7 @@
 - Changes from Nucleus: [change log](CHANGELOG.md)
 - Design record: [design decisions](../docs/design-decisions.md), [memory safety](../docs/memory-safety.md)
 
-This specification is being revised chapter by chapter from the Nucleus 0.1 text. A chapter's entry in the [change log](CHANGELOG.md) says which design decisions it has absorbed. Until then, a chapter still describes Nucleus 0.1 behaviour, renamed.
+This specification was revised chapter by chapter from the Nucleus 0.1 text, and every chapter now describes Basie; the [change log](CHANGELOG.md) says which design decisions each absorbed. The adversarial review of 2026-10-05 ([report](../docs/reviews/2026-10-05-spec-review.md)) checked it against the reference compiler.
 
 ## Contents
 

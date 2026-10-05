@@ -18,7 +18,7 @@ declaration is a routine's complete and only signature, and the body that
 completes it begins with the abbreviated header `sub NAME`, exactly as in
 Nucleus §4.6:
 
-```nucleus
+```basie
 forward sub relay(text as string[]) fails
 
 sub emit(text as string[]) fails
@@ -171,7 +171,7 @@ storage that dies. The rule:
   the routine's `from` clause**.
 - It may never point into the routine's own local.
 
-```nucleus
+```basie
 sub pick(items as Entry[8], index as u8) as Entry from items
     return items[index]
 end
@@ -182,7 +182,7 @@ At a call, the result lives exactly as long as the arguments passed for the
 be used within the calling routine but can't be returned from it, unless that
 local is in turn a parameter listed in the caller's own `from` clause.
 
-```nucleus
+```basie
 sub bad() as Entry
     var mine as Entry[8]
     return pick(mine, 0)        // error: result points into the local mine
@@ -290,7 +290,7 @@ linker removes unreachable blobs before assigning addresses. See the
 
 Every declared name is followed by `as` and its type, as in Nucleus:
 
-```nucleus
+```basie
 var total as u32
 sub distance(a as Point, b as Point) as u16
 record Node
@@ -328,7 +328,7 @@ Basie version 1 has one selection statement, `select`, in the spirit of BASIC's
   `none` when there isn't. For an identifier, `none` covers both an empty
   identifier and one whose slot has been freed, so testing never traps.
 
-```nucleus
+```basie
 select key
 case 'q', 'Q'
     exit
@@ -393,7 +393,7 @@ is protected by unique ownership and generation checks. See
 An aggregate parameter is read-only unless it is written with `var` before its
 name, which lets the routine change the caller's object:
 
-```nucleus
+```basie
 sub scale(var p as Point, factor as i16)    // may change the caller's Point
 sub bump(var n as Node)                     // may change the caller's Node,
                                             //   wherever it lives (D30)
@@ -435,7 +435,7 @@ second way to do the same thing.
 Handing on an owned value held in a variable, parameter or field is always
 written with `move` at the point where it happens:
 
-```nucleus
+```basie
 kept = move n                               // n's node moves to kept
 sink(move n)                                // passed to an owning parameter
 var n = new nodes(v, "", move list) else fail
@@ -453,7 +453,7 @@ keyword, the neutral and familiar `move` described the action best.
 
 ### D20. Constants may be typed, and may be local
 
-```nucleus
+```basie
 const limit = 10                  // untyped: behaves like the literal 10
 const big as u32 = 70000          // typed
 const half as f32 = 0.5
@@ -473,7 +473,7 @@ integers. Local constants mirror local variables and cost little.
 
 ### D21. A variable's type may be inferred from a typed initialiser
 
-```nucleus
+```basie
 var d = distance(a, b)        // u16, from the routine's result type
 var p = Origin                // Point, from the constant's type
 var count as u16 = 0          // a bare literal: the type must be written
@@ -505,7 +505,7 @@ type allows `none`:
 | `id nodes` | refers to a slot of `nodes` without owning it |
 | `id nodes?` | refers to a slot, or is `none` |
 
-```nucleus
+```basie
 forward pool nodes            // D40
 record Node
     value  as u16
@@ -780,7 +780,7 @@ A record and its pool refer to each other: `record Node` has a field of type
 use, a **forward pool declaration** breaks the cycle, as `forward sub` does for
 mutually recursive routines:
 
-```nucleus
+```basie
 forward pool nodes
 
 record Node

@@ -244,7 +244,7 @@ The numeric type ID has no source meaning and need not match across compilations
 
 These declarations illustrate scalar compatibility:
 
-```nucleus
+```basie
 var byteValue as u8 = 42
 var wordValue as u16 = byteValue    // u8 widens to u16
 var delta as i8 = -3
@@ -258,7 +258,7 @@ var flag as boolean = true
 
 Each of the following is invalid under this chapter:
 
-```nucleus
+```basie
 var tooSmall as u8 = 256       // literal does not fit
 var narrowed as u8 = wordValue // explicit checked conversion required
 var unsigned as u16 = delta    // i8 does not widen to u16
@@ -270,7 +270,7 @@ var count as u16 = false       // Boolean is not integer
 
 Record identity is nominal:
 
-```nucleus
+```basie
 record LeftPoint
     x as u16
     y as u16
@@ -286,7 +286,7 @@ end
 
 Array and bounded-string bounds are part of their types:
 
-```nucleus
+```basie
 var bytes as u8[16]
 var name as string[12]
 ```

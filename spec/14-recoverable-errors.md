@@ -49,7 +49,7 @@ ends the current failable routine with failure. The expression is evaluated once
 
 Named codes are ordinary constants:
 
-```nucleus
+```basie
 const badDigit = 1
 const tooLarge = 2
 
@@ -86,9 +86,9 @@ failure-propagation ::= "else" "fail"
 
 On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `else fail` immediately returns the same `u8` code from the enclosing routine. The enclosing routine must declare `fails`.
 
-```nucleus
+```basie
 sub loadByte() as u8 fails
-    var value as u8 = readStorageByte() else fail
+    var value as u8 = readInputByte() else fail
     return value
 end
 ```
@@ -108,12 +108,12 @@ The name must resolve to an existing writable `u8` variable, parameter or local.
 
 On success, the call supplies its ordinary result, the assignment occurs when present, and the handler body is skipped. On failure, no success-result store occurs, then the compiler stores the error code in the named `u8` destination and executes the handler body. This ordering also applies when the assignment destination and error destination are the same variable: the variable receives the error code. Normal completion of the body continues after its closing `end`. A `return`, `fail`, `exit`, or `continue` inside the body has its ordinary enclosing context.
 
-```nucleus
+```basie
 sub copyOne()
     var code as u8
     var value as u8
 
-    value = readStorageByte() handle code
+    value = readInputByte() handle code
         return
     end
 

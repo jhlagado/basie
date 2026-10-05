@@ -79,7 +79,7 @@ The flow state after a loop is the meet of the state when the loop's test fails 
 
 The canonical traversal of indices from zero through a length minus one uses the exclusive form:
 
-```nucleus
+```basie
 for index = 0 until itemCount
     visit(index)
 end
@@ -132,7 +132,7 @@ An implementation may bound loop nesting, retained saved bounds, active counter 
 
 With `level`, `index`, `row`, and `position` declared as integer locals, these counted loops visit ascending, exclusive, and descending ranges:
 
-```nucleus
+```basie
 for level = 1 to 10
     loadLevel(level)
 end
@@ -153,7 +153,7 @@ end
 
 This direction mismatch executes zero iterations:
 
-```nucleus
+```basie
 for position = 7 to 0 step 1
     unreachableAction()
 end
@@ -161,7 +161,7 @@ end
 
 Nested transfer targets the inner loop:
 
-```nucleus
+```basie
 while active
     for index = 0 until itemCount
         if skip(index)
@@ -179,7 +179,7 @@ The `continue` advances and retests the `for`; the `exit` leaves that `for` and 
 
 These forms are invalid:
 
-```nucleus
+```basie
 for index = 0 until itemCount
     index = index + 1       // the active counter is read-only
 end
