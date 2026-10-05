@@ -92,7 +92,7 @@ Executable statements must appear inside a routine body. A call, assignment, con
 
 ## 4.5 Declaration order
 
-Except for a routine use covered by an earlier forward declaration, each name must be declared before use. Chapter 5 defines the declaration point, visibility, and lookup rules.
+Except for a routine use covered by an earlier forward routine declaration, or a pool name used as a type after its forward pool declaration (D40), each name must be declared before use. Chapter 5 defines the declaration point, visibility, and lookup rules.
 
 This rule applies across source-part boundaries because all parts contribute to one ordered compilation unit. Moving a declaration to a later part moves it later in declaration order. Splitting a unit into more parts does not make later names visible sooner.
 
@@ -133,7 +133,7 @@ These examples establish declaration order only. Later chapters determine the re
 
 ## 4.6 Forward routine declarations
 
-A forward routine declaration supplies a routine signature without a body. It is the only source-language exception to ordinary declaration before use. It must appear at top level before the first use that depends on it.
+A forward routine declaration supplies a routine signature without a body. With the forward pool declaration (Chapter 8, Section 8.11), it is one of the two source-language exceptions to ordinary declaration before use. It must appear at top level before the first use that depends on it.
 
 The parameter and result types in a forward declaration must already be available. Once checked, the declaration makes the routine callable at later positions under the same rules as a routine whose body has already appeared. It creates no executable statement and does not begin a routine body.
 
@@ -141,7 +141,9 @@ The forward declaration is the complete and sole signature. It records the routi
 
 A routine may have at most one forward declaration and exactly one definition. A second forward declaration, a forward declaration after the definition, a second definition, an abbreviated body without an incomplete forward, or a completion with another name is invalid. Completing a forward declaration does not declare a second routine. An ordinary routine without a forward retains the complete parenthesized header defined in Chapter 13.
 
-Forward declarations apply only to source routines. They do not provide a general forward reference for constants, types, variables, fields, or local names.
+Forward declarations apply only to routines and pools. They do not provide a general forward reference for constants, record types, variables, fields, or local names.
+
+A completion repeats the forward's visibility: the body of a `private` forward is written `private sub NAME`, and the body of a public one has no `private`. A mismatch is invalid (`forward-mismatch`), as it is for pools (Section 8.11).
 
 ## 4.7 Program entry
 
@@ -159,7 +161,7 @@ Program startup, initialization, termination, and system services are specified 
 
 At `EOF`, the compiler must verify that:
 
-- every forward routine declaration has one abbreviated body definition;
+- every forward routine declaration has one abbreviated body definition, and every forward pool declaration one complete pool declaration;
 - every routine has at most one body;
 - no top-level declaration remains structurally incomplete; and
 - exactly one defined `main` satisfies Section 4.7.

@@ -164,13 +164,13 @@ If lookup finds no binding, the compiler must issue an undeclared-name diagnosti
 
 ## 5.8 Forward routine signatures
 
-An explicit forward signature is the only source form that creates a name binding before its body. After its complete signature has been checked, it creates the routine's canonical program-scope binding and retains the parameter names and ordered types, optional result type, and `fails` effect. The parameter names do not become program-scope bindings or open a routine scope at the forward declaration.
+An explicit forward signature, and a forward pool declaration (D40), are the only source forms that create a name binding before its definition. After its complete signature has been checked, it creates the routine's canonical program-scope binding and retains the parameter names and ordered types, optional result type, and `fails` effect. The parameter names do not become program-scope bindings or open a routine scope at the forward declaration.
 
 The later abbreviated body header, `sub NAME`, completes that binding. It does not declare a second routine or repeat any signature component. The name must resolve by exact identity to one incomplete forward. At that point, the forward's parameter names become the formal bindings in the routine scope and remain the only parameter spellings for the body.
 
 A routine may have at most one forward declaration and one definition. A second forward declaration, a forward declaration after a definition, an abbreviated body without one matching incomplete forward, or another completion is invalid. Every forward declaration must have a completing definition in the same compilation unit.
 
-Forward declarations apply only to source routines. Constants, variables, record types, fields, parameters, and locals have no forward form.
+Forward declarations apply only to routines and pools. Constants, variables, record types, fields, parameters, and locals have no forward form.
 
 This completion matches:
 
@@ -220,7 +220,7 @@ Reserved words, built-in type words, and Boolean literals recognized by Chapter 
 
 Chapter 16 defines the complete standard set of predefined source routines and constants. The compiler establishes those ordinary program-scope bindings before the first source token. User declarations and routine-scope declarations cannot redeclare or shadow them. An implementation extension may add names only under the explicit extension rules in Section 1.7.
 
-`main` is not a predefined binding. Its required lowercase source definition creates the ordinary routine binding and must satisfy Section 4.7. `main` cannot be `private`. A differently cased name such as `Main` is distinct and does not satisfy the entry rule. No other declaration may use the exact identity `main`.
+`main` is not a predefined binding. Its required lowercase source definition creates the ordinary routine binding and must satisfy Section 4.7. `main` cannot be `private`. A differently cased name such as `Main` is distinct and does not satisfy the entry rule. No other program-scope or part-scope declaration may use the exact identity `main`; a field, a parameter or a local may, since it is not in the scope where `main` is declared.
 
 Compiler-generated temporaries, labels, and helper names remain outside the source namespace. They cannot collide with a source identifier or become visible to source lookup.
 
@@ -238,7 +238,7 @@ end
 1. A `private` binding is visible only within its own part, from its declaration point on, under the ordinary rules of Section 5.5.
 2. A `private` declaration must not use the identity of any binding visible at its declaration point, as for any declaration.
 3. A later part may declare a binding with the same identity as an earlier part's `private` binding, since that binding is not visible there. So two parts of the standard library may each have a private `helper`.
-4. A `private` forward routine declaration must be completed in the same part. A forward declaration that is not `private` may be completed in a later part; the completion is then `private` only if the forward was.
+4. A `private` forward routine declaration must be completed in the same part. A forward declaration that is not `private` may be completed in a later part; its completion repeats the forward's visibility, `private` exactly when the forward is, and a mismatch is `forward-mismatch`.
 5. Record fields, parameters and locals cannot be marked `private`; they are already local to their scope.
 
 `private` affects visibility only. A private routine, constant, pool or variable is compiled, linked and freed exactly like a public one, and its name appears in the name stream for reports and the symbol file.
