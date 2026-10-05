@@ -45,7 +45,9 @@
 %INCLUDE "CALLS.ASM"               ; Calls, services and aggregate paths.
 %INCLUDE "LL1.ASM"                 ; The LL(1) engine.
 %INCLUDE "GRAMMAR.ASM"             ; The generated grammar tables.
-%INCLUDE "ACTIONS.ASM"             ; The grammar's semantic actions.
+%INCLUDE "ACTIONS.ASM"             ; Actions: islands, types and declarations.
+%INCLUDE "ACTSUB.ASM"              ; Actions: routines, failure and handlers.
+%INCLUDE "ACTSTMT.ASM"             ; Actions: locals, statements and flow.
 %INCLUDE "EMIT.ASM"                ; Emitter primitives and fixups.
 %INCLUDE "TARGET.ASM"              ; Placed output, until step 65.4.
 %INCLUDE "GENEXPR.ASM"             ; Expression code generation.

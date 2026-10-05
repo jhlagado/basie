@@ -31,7 +31,7 @@ file before its includer, so the list is the layout.
 | `SYMBOLS.ASM` | `SY_` | Symbol table |
 | `PARSER.ASM` | `PR_` | Parser driver |
 | `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file), control, aggregate and routine parsing (routine names and signatures, then calls and aggregate paths) |
-| `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions |
+| `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
 | `EMIT.ASM` | `EM_` | Emitter primitives |
 | `TARGET.ASM` | `TG_` | Placed output, deleted at 65.4 |
 | `GENEXPR.ASM`, `GENCTRL.ASM`, `GENCALL.ASM`, `GENAGGR.ASM`, `GENTMPL.ASM` | `GX_`, `GC_`, `RG_`, `GA_`, `GT_` | Code generation and its templates |
