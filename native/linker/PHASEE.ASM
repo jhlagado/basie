@@ -6,13 +6,16 @@
 ; name section, each read forward in step with its directory: both hold one
 ; record per named blob, in directory order (object format §9).
 
-MAP_FD: DS      FDSIZE
+; The reports' FDs share memory with Phase D's, which are finished with by
+; publication: the library's byte section, the byte stream, the line stream
+; and the line table (publication leaves LT_MADE clear).
+MAP_FD  EQU     LIBB_FD
 MAP_TY: DB      "MAP"
-SYM_FD: DS      FDSIZE
+SYM_FD  EQU     BY_FD
 SYM_TY: DB      "SYM"
-NM_FD:  DS      FDSIZE
+NM_FD   EQU     LN_FD
 NM_TY:  DB      "$NM"
-LNM_FD: DS      FDSIZE          ; the library again, for its name section
+LNM_FD  EQU     LT_FD           ; the library again, for its name section
 REP_FD: DW      0               ; the report being written
 MAP_ON: DB      0
 SYM_ON: DB      0
@@ -20,9 +23,10 @@ SYMROWS: DW     0
 PREVEND: DW     0               ; the end of the last live blob listed
 NM_HAVE: DS     2               ; per owner: 1 while names remain
 NM_PORD: DS     4               ; per owner: the pending record's ordinal
-NM_PNAM: DS     64              ; per owner: its name, zero-terminated
-NAMEBUF: DS     33              ; the current blob's name, or empty
-NUMBUF: DS      10
+NM_PNAM EQU     OUT_FD          ; per owner: its name, zero-terminated (64)
+NAMEBUF EQU     OUT_FD+64       ; the current blob's name, or empty (33)
+NUMBUF  EQU     OUT_FD+97       ; a number's digits (10); all three in
+                                ; Phase D's output FD, free after publication
 KINDS:  DB      "code   rodata data   bss    startup"
 
 ; ---- writing text ------------------------------------------------------------

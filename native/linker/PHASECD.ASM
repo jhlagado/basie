@@ -547,10 +547,13 @@ PS_PTR: DW      0
 ; ---- Phase D -----------------------------------------------------------------
 
 OUT_FD: DS      FDSIZE
+TB_FD   EQU     OUT_FD          ; option W's dump, made before Phase D
 OUT_TY: DB      "$$$"
 OUT_TXT: DS     13
 LIBB_FD: DS     FDSIZE          ; the library again, for its byte section
 BY_FD:  DS      FDSIZE
+T_BUF   EQU     BY_FD           ; the command tail (130 bytes) and a bad
+T_BAD   EQU     LIBB_FD         ; option's text (32), used only in parsing
 BY_TY:  DB      "$BY"
 BY_TXT: DS      13
 

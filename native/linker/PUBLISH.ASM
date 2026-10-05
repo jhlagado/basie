@@ -4,7 +4,7 @@
 ; intermediate files are deleted unless option K.
 
 TMP_FD: DS      FDSIZE          ; a scratch FD for names
-TMP2_FD: DS     FDSIZE
+TMP2_FD EQU     LIBB_FD         ; Phase D's, finished with
 OUT_MADE: DB    0               ; 1 once NAME.$$$ exists
 LT_MADE: DB     0               ; 1 once NAME.$LT exists
 BAK_TY: DB      "BAK"

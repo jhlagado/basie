@@ -1275,7 +1275,6 @@ MARK:   BIT     5,(HL)
 ; NAME.$TB: for each defined entry, the ordinal, its flags and its size;
 ; then $FFFF and whether the program uses files. For testing the linker
 ; against the reference.
-TB_FD:  DS      FDSIZE
 TB_TY:  DB      "$TB"
 DUMP:   LD      IX,TB_FD
         LD      A,(O_DRV)

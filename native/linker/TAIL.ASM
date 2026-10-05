@@ -35,8 +35,8 @@ OF_Z    EQU     $40             ; no .BAK
 OF_V    EQU     $80             ; verify placeholders and the library CRC
 OF2_W   EQU     $01             ; write the link tables to NAME.$TB (testing)
 
-T_BUF:  DS      130             ; the tail, upper-cased and zero-terminated
-T_BAD:  DS      32              ; the text of a bad option, for the message
+; T_BUF, the tail upper-cased and zero-terminated, and T_BAD, the text of a
+; bad option for its message, are in two of Phase D's FDs (PHASECD.ASM).
 
 F_DRV:  DB      0               ; a parsed file name
 F_NM:   DS      8
