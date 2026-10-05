@@ -104,7 +104,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C22 | minor (closed) | `head = move head.next` compiles under no declaration. | Use `h.next` |
 | C23 | minor | Three places say a trap frees slots; 15.1 says it frees none. | Exclude traps |
 | C24 | minor (closed) | 16.2 omits `textMode` and `binaryMode`. | Add |
-| C25 | minor | `File` is absent from chapter 6 and the assignment and parameter rules. | Classify it |
+| C25 | minor (closed) | `File` is absent from chapter 6 and the assignment and parameter rules. | Classify it |
 | C26 | minor | `as var` results as `var` arguments are accepted but unstated. | State |
 | C27 | minor | `var x as T[]` taking `T[N]` is missing from 13.4. | Add |
 | C28 | minor | Nothing produces `float-invalid`. | Drop or name one |

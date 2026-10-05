@@ -10,7 +10,7 @@ The type system supports local checking during one streaming source pass. A comp
 ## 6.2 Type set
 
 Basie 1.0 has eight scalar types, four handle forms, three owned aggregate
-forms, and two parameter-only aggregate views:
+forms, two parameter-only aggregate views, and the predeclared type `File`:
 
 | Category        | Types or forms                                         |
 | --------------- | ------------------------------------------------------ |
@@ -18,6 +18,14 @@ forms, and two parameter-only aggregate views:
 | Handle          | `P`, `P?`, `id P`, `id P?` for a pool `P` (Section 6.14) |
 | Owned aggregate | nominal records, `T[N]`, `string[N]`                   |
 | Parameter view  | `string[]`, `T[]`                                      |
+| File            | `File` (Chapter 16, Section 16.3)                      |
+
+`File` is an opaque 4-byte value naming an open file or device. It is copied
+like a scalar: it may be the type of a constant (`console` or `printer`), a
+program variable, a field, a local, a parameter without `var` and a result,
+and its zero value is a closed file. It has no arithmetic, no ordering and no
+conversion to or from any other type; it compares only with `=` and `<>`
+(Chapter 9, Section 9.11). Like a scalar, it can't be a `var` parameter.
 
 The following skeleton records type formation without defining declaration grammar:
 
