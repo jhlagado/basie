@@ -8,7 +8,15 @@ import { Kind } from "../object/types.ts";
 import type { DirectoryRecord } from "../object/types.ts";
 import type { BlobLines } from "../object/streams.ts";
 import { CompileError, fail } from "./diagnostics.ts";
-import { Blob, dataBlob, JP_C, JP_NC, JP_NZ, JP_Z } from "./emit.ts";
+import {
+  Blob,
+  type BlobMark,
+  dataBlob,
+  JP_C,
+  JP_NC,
+  JP_NZ,
+  JP_Z,
+} from "./emit.ts";
 import {
   CONSOLE_FILE,
   Helper,
@@ -4946,21 +4954,20 @@ export class Compiler {
     return this.binary(op, left, at, right, constant);
   }
 
-  /** Discard emitted code while parsing an operand that is never evaluated. */
-  private suppress(): { bytes: number; refs: number; lines: number } {
-    const b = this.routine!.blob;
-    return {
-      bytes: b.bytes.length,
-      refs: b.references.length,
-      lines: b.lines.length,
-    };
+  /**
+   * Discard emitted code while parsing an operand that is never evaluated:
+   * its bytes, references, lines, jumps and labels (Blob.rewind) and the
+   * string literals it made. The frame accounting stays.
+   */
+  private suppress(): { blob: BlobMark; literals: number } {
+    const r = this.routine!;
+    return { blob: r.blob.mark(), literals: r.literals.length };
   }
 
-  private restore(s: { bytes: number; refs: number; lines: number }): void {
-    const b = this.routine!.blob;
-    b.bytes.length = s.bytes;
-    b.references.length = s.refs;
-    b.lines.length = s.lines;
+  private restore(s: { blob: BlobMark; literals: number }): void {
+    const r = this.routine!;
+    r.blob.rewind(s.blob);
+    r.literals.length = s.literals;
   }
 
   /**

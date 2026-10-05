@@ -1,0 +1,17 @@
+// The right operand of an and that a constant false decides is parsed and
+// discarded whole: a short circuit inside it leaves no jump to be
+// shortened, nor an operand to be resolved, in the code that follows.
+// spec: 9.11
+// expect output: OK\r\n
+
+var x as boolean
+var y as u16 = 3
+
+sub main() fails
+    x = false and (y > 1 and y < 5)
+    y = 19279
+    writeOutputByte(u8(y mod 256)) else fail
+    writeOutputByte(u8(y / 256)) else fail
+    writeOutputByte(13) else fail
+    writeOutputByte(10) else fail
+end

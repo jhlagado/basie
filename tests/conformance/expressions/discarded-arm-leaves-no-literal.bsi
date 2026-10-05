@@ -1,0 +1,21 @@
+// A string literal passed in a discarded arm of a short circuit is
+// discarded with the arm: nothing is placed after the routine for it.
+// spec: 9.11, 13.4
+// expect output: N\r\n
+
+var x as boolean
+
+sub long(s as string[]) as boolean
+    return s.length > 2
+end
+
+sub main() fails
+    x = false and long("abc")
+    if x
+        writeOutputByte('Y') else fail
+    else
+        writeOutputByte('N') else fail
+    end
+    writeOutputByte(13) else fail
+    writeOutputByte(10) else fail
+end

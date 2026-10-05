@@ -20,6 +20,15 @@ export type Label = {
   chain: number;
 };
 
+/** What `Blob.mark` records. */
+export type BlobMark = {
+  bytes: number;
+  refs: number;
+  lines: number;
+  jumps: number;
+  labels: Label[];
+};
+
 export class Blob {
   bytes: number[] = [];
   references: Reference[] = [];
@@ -127,6 +136,31 @@ export class Blob {
 
   labelOffset(label: number): number | undefined {
     return this.labels[label].offset;
+  }
+
+  /** A point that `rewind` returns the blob to. */
+  mark(): BlobMark {
+    return {
+      bytes: this.bytes.length,
+      refs: this.references.length,
+      lines: this.lines.length,
+      jumps: this.jumps.length,
+      labels: this.labels.map((l) => ({ ...l })),
+    };
+  }
+
+  /**
+   * Discard everything written since the mark: bytes, references, line
+   * entries, the jumps that might shrink, and the labels made since, and
+   * give every older label back the chain it had, so that no pending
+   * operand or shrinkable jump is left inside the discarded code.
+   */
+  rewind(m: BlobMark): void {
+    this.bytes.length = m.bytes;
+    this.references.length = m.refs;
+    this.lines.length = m.lines;
+    this.jumps.length = m.jumps;
+    this.labels = m.labels;
   }
 
   /** Every label must be defined before the blob is finished. */
