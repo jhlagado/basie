@@ -99,8 +99,9 @@ u16      u32      u8       until    var      while    xor
 
 `id` is a **contextual word**, not a reserved word: it is a keyword only where a
 type is expected and it is followed by a pool name (`id nodes`), and in the
-conversion form `id(...)`. Everywhere else it is an ordinary identifier, so a
-record may have a field named `id`.
+conversion form `id(...)`, which it always begins when `(` follows, so no
+routine may be named `id`. Everywhere else it is an ordinary identifier, so a
+record may have a field named `id`, and a variable may be named `id`.
 
 `from` is a **contextual word** too: it is a keyword only after the result
 type in a routine header, where it begins the `from` clause (Chapter 13,

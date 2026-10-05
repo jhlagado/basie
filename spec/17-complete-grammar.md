@@ -218,7 +218,7 @@ The grammar is deterministic with one token of lookahead, given these semantic p
 | `isCallableName` | At a statement head, the `NAME` is a routine or service: the statement is a call, and its suffixes must begin with an argument list. |
 | `isWritableName` | At a statement head, the `NAME` is a variable, parameter or local: the statement is an assignment, and must contain `=`. |
 | `isTypeName` | A `NAME` in a type is a record type or a pool; `?` is admitted only after a pool name. |
-| `isContextualId` | `id` begins a handle type when followed by a pool name, and the `id(...)` form when followed by `(` and no binding named `id` is visible; otherwise it is a `NAME`. |
+| `isContextualId` | `id` begins a handle type when followed by a pool name, and the `id(...)` form whenever followed by `(`, since no routine may be named `id`; otherwise it is a `NAME`. |
 | `isInitializerForDeclaredType` | The declared type selects the scalar, string, record or array initializer; `(` begins a record initializer only when the expected type is a record. |
 | `isConstantContext` | Constants, bounds, capacities, `select` labels, steps and static initializers admit only the operands of Chapter 8, Section 8.6. |
 | `isIncompleteForwardName` | `sub NAME NEWLINE` is a body header only when `NAME` is one incomplete forward routine; its stored parameters become the body's bindings. |

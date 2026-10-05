@@ -874,6 +874,10 @@ export class Compiler {
   private parseHeader(subToken: Token): Signature {
     void subToken;
     const name = this.expectName();
+    if (name.text === "id") {
+      // `id (` is always the conversion (3.5), so no routine can be named id.
+      fail("wrong-class", name, "a routine can't be named id");
+    }
     this.expectPunct("(");
     const parameters: Parameter[] = [];
     if (!this.isPunct(")")) {
@@ -4401,10 +4405,7 @@ export class Compiler {
 
   private nameExpression(constant: boolean): Value {
     const name = this.token as Token & { kind: "name" };
-    if (
-      name.text === "id" && this.isPunct("(", this.peek()) &&
-      !this.scopes.lookup("id")
-    ) {
+    if (name.text === "id" && this.isPunct("(", this.peek())) {
       this.advance();
       if (constant) fail("not-constant", name, "id is not constant");
       return this.idExpression(name);

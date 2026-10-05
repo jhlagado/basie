@@ -1,0 +1,11 @@
+// id followed by ( is always the conversion, so no routine may be named id
+// (3.5; review finding A1).
+// spec: 3.5, 9.2
+// expect error: wrong-class at 6:5
+
+sub id(x as u8) as u8
+    return x
+end
+
+sub main()
+end

@@ -37,7 +37,7 @@ argument-list       ::= "(" [ argument { "," argument } ] ")"
 argument            ::= expression | STRING
 ```
 
-`id` is the contextual word of Chapter 3: it begins the `id(...)` form only when the next token is `(` and no local, parameter or other visible binding named `id` exists at that point; otherwise it is an ordinary `NAME`. Chapter 17 incorporates this fragment into the complete grammar. The semantic rules below reject suffix combinations that the compact syntax admits but Basie does not.
+`id` is the contextual word of Chapter 3: it begins the `id(...)` form whenever the next token is `(`, and no routine may be named `id`, so the reading never depends on what is declared; otherwise it is an ordinary `NAME`. Chapter 17 incorporates this fragment into the complete grammar. The semantic rules below reject suffix combinations that the compact syntax admits but Basie does not.
 
 A string literal is not a general expression primary. It is admitted in exactly these positions, each with a bounded-string destination:
 
