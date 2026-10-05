@@ -62,8 +62,8 @@ export async function assembleFile(path: string) {
     entry: relative(root, path),
     assembler: undefined,
     target: undefined,
-    maxInstructions: 200_000_000,
-    maxCycles: 2_000_000_000,
+    maxInstructions: 4_000_000_000,
+    maxCycles: 40_000_000_000,
     sink: undefined,
   });
   const image = materializeAtomGeneration(result.generation);
