@@ -1,0 +1,43 @@
+// select on u32 and i32 subjects, with single labels, ranges and negative
+// values (11.7.2; review finding C19).
+// spec: 11.7.2
+// expect output: abcde fgh\r\n
+
+sub classify(v as u32) as u8
+    select v
+    case 0
+        return 'a'
+    case 1 to 65535
+        return 'b'
+    case 65536, 70000
+        return 'c'
+    case 4000000000 to 4294967295
+        return 'd'
+    case else
+        return 'e'
+    end
+end
+
+sub sign(v as i32) as u8
+    select v
+    case -2147483648 to -1
+        return 'f'
+    case 0
+        return 'g'
+    case else
+        return 'h'
+    end
+end
+
+sub main() fails
+    writeByte(console, classify(0)) else fail
+    writeByte(console, classify(300)) else fail
+    writeByte(console, classify(70000)) else fail
+    writeByte(console, classify(4294967295)) else fail
+    writeByte(console, classify(100000)) else fail
+    writeByte(console, ' ') else fail
+    writeByte(console, sign(-5)) else fail
+    writeByte(console, sign(0)) else fail
+    writeByte(console, sign(2000000000)) else fail
+    writeText(console, "\r\n") else fail
+end

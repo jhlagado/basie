@@ -1,0 +1,43 @@
+// Counted loops with u32 and i32 counters, including the type's edges and
+// a descending signed loop (12.4, 12.5; review finding C19).
+// spec: 12.4, 12.5
+// expect output: 70000..70003 4294967295 -2..2 3 0\r\n
+
+include "FORMAT.BSI"
+
+sub main() fails
+    var line as string[80]
+    var u as u32
+    var s as i32
+    var n as u16 = 0
+    for u = 70000 to 70003
+        if u = 70000
+            appendU32(line, u) else fail
+        end
+    end
+    append(line, "..") else fail
+    appendU32(line, u) else fail
+    for u = 4294967290 to 4294967295
+    end
+    appendByte(line, ' ') else fail
+    appendU32(line, u) else fail
+    for s = 2 to -2 step -1
+    end
+    appendByte(line, ' ') else fail
+    appendI32(line, s) else fail
+    for s = -2 to 2
+    end
+    append(line, "..") else fail
+    appendI32(line, s) else fail
+    for u = 0 until 1000000 step 300000
+        n = n + 1
+    end
+    appendByte(line, ' ') else fail
+    appendU16(line, n - 1) else fail
+    for u = 5 to 0 step -1
+    end
+    appendByte(line, ' ') else fail
+    appendU32(line, u) else fail
+    append(line, "\r\n") else fail
+    writeText(console, line) else fail
+end

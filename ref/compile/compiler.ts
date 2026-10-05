@@ -1792,7 +1792,6 @@ export class Compiler {
     }
     const name = (type as { name: ScalarName }).name;
     const s = SCALARS[name];
-    if (s.size > 2) throw new NotImplemented("32-bit select");
     this.expectNewline();
     // The subject lives in a hidden local for the arms' comparisons.
     this.toRegisters(v, type, subjectAt);
@@ -2549,6 +2548,35 @@ export class Compiler {
   ): void {
     const r = this.routine!;
     const s = SCALARS[name];
+    if (s.size === 4) {
+      // Compare unsigned after flipping the sign bit, through CMP32U, which
+      // may destroy every register: the subject is reloaded for each bound.
+      const flip32 = (x: number) =>
+        ((x >>> 0) ^ (s.signed ? 0x80000000 : 0)) >>> 0;
+      const compareWith = (k: number) => {
+        this.loadRegisters(scalar(name), { kind: "frame", offset });
+        if (s.signed) r.blob.u8(0x7a, 0xee, 0x80, 0x57); // LD A,D; XOR $80; LD D,A
+        r.blob.u8(0xd9, 0x21); // EXX; LD HL,low word
+        r.blob.u16(k & 0xffff);
+        r.blob.u8(0x11); // LD DE,high word
+        r.blob.u16(k >>> 16);
+        r.blob.u8(0xd9); // EXX
+        this.callHelper(Helper.CMP32U); // carry: subject < k; Z: equal
+      };
+      const lo32 = flip32(low), hi32 = flip32(high);
+      compareWith(lo32);
+      if (lo32 === hi32) {
+        r.blob.jpIf(JP_Z, body);
+        return;
+      }
+      const skip = r.blob.newLabel();
+      r.blob.jpIf(JP_C, skip);
+      compareWith(hi32);
+      r.blob.jpIf(JP_C, body);
+      r.blob.jpIf(JP_Z, body);
+      r.blob.defineLabel(skip);
+      return;
+    }
     const flip = s.signed ? (s.size === 1 ? 0x80 : 0x8000) : 0;
     const mask = s.size === 1 ? 0xff : 0xffff;
     // Signed values are compared unsigned after flipping the sign bit.
@@ -2654,9 +2682,7 @@ export class Compiler {
       fail("not-writable", name, `${name.text} is already a loop counter`);
     }
     const ctype = counter.type as Type & { kind: "scalar" };
-    if (SCALARS[ctype.name].size > 2) {
-      throw new NotImplemented("32-bit loop counters");
-    }
+    const big = SCALARS[ctype.name].size === 4;
     this.expectPunct("=");
     const startAt = this.token;
     const start = this.expression(ctype);
@@ -2696,12 +2722,19 @@ export class Compiler {
       }
       boundType = common;
     }
-    if (SCALARS[boundType].size > 2) {
-      throw new NotImplemented("32-bit loop bounds");
+    if (SCALARS[boundType].size > 2 && !big) {
+      throw new NotImplemented("a 32-bit bound with a narrower counter");
     }
-    const boundOffset = this.allocLocal(2);
+    const boundOffset = this.allocLocal(big ? 4 : 2);
     const storeBound = (value: Value) => {
       this.toRegisters(value, scalar(boundType), boundAt);
+      if (big) {
+        this.storeRegisters(scalar(boundType), {
+          kind: "frame",
+          offset: boundOffset,
+        });
+        return;
+      }
       if (SCALARS[boundType].size === 1) {
         this.widen(boundType, SCALARS[boundType].signed ? "i16" : "u16");
       }
@@ -2756,8 +2789,46 @@ export class Compiler {
     const exit = r.blob.newLabel();
     const next = r.blob.newLabel();
     const body = r.blob.newLabel();
+    // 32-bit counters: the same tests through the 32-bit helpers, which may
+    // destroy every register, so each operand is loaded where it is needed.
+    const frame32 = (o: number) => ({ kind: "frame" as const, offset: o });
+    const counterOffset = (counter.storage as { offset: number }).offset;
+    const flipD = () => r.blob.u8(0x7a, 0xee, 0x80, 0x57); // LD A,D; XOR $80; LD D,A
+    const altConst = (k: number) => {
+      r.blob.u8(0xd9, 0x21); // EXX; LD HL,low word
+      r.blob.u16(k & 0xffff);
+      r.blob.u8(0x11); // LD DE,high word
+      r.blob.u16(k >>> 16);
+      r.blob.u8(0xd9); // EXX
+    };
+    const altLoad = (o: number) => {
+      r.blob.u8(0xd9); // EXX
+      this.loadRegisters(ctype, frame32(o));
+      if (signed) flipD();
+      r.blob.u8(0xd9); // EXX
+    };
+    if (big && mode === "never") r.blob.jp(exit);
+    else if (big && mode === "word") {
+      // carry: counter < bound; Z: equal (signed values with sign bits flipped)
+      this.loadRegisters(ctype, frame32(counterOffset));
+      if (signed) flipD();
+      altLoad(boundOffset);
+      this.callHelper(Helper.CMP32U);
+      if (step > 0) {
+        if (inclusive) {
+          r.blob.jpIf(JP_C, body);
+          r.blob.jpIf(JP_Z, body);
+          r.blob.jp(exit);
+        } else r.blob.jpIf(JP_NC, exit);
+      } else {
+        r.blob.jpIf(JP_C, exit);
+        if (!inclusive) r.blob.jpIf(JP_Z, exit);
+      }
+    }
     // The first test (12.5): counter against the bound.
-    if (mode === "never") r.blob.jp(exit);
+    if (big) {
+      // emitted above
+    } else if (mode === "never") r.blob.jp(exit);
     else if (mode === "word") {
       this.loadCounterWide(counter, signed);
       this.ixWord(boundOffset, "DE");
@@ -2799,6 +2870,55 @@ export class Compiler {
     // loop goes on only if a step fits in that distance, and only then is
     // the new value computed and stored, so nothing wraps at the bound.
     r.blob.defineLabel(next);
+    if (big) {
+      if (mode === "word") {
+        // The distance to the bound in the loop's direction, then against the
+        // step: 32-bit differences are exact modulo 2^32, and the distance is
+        // never negative, so no sign flip is needed.
+        if (step > 0) {
+          this.loadRegisters(ctype, frame32(boundOffset));
+          r.blob.u8(0xd9); // EXX
+          this.loadRegisters(ctype, frame32(counterOffset));
+          r.blob.u8(0xd9); // EXX
+        } else {
+          this.loadRegisters(ctype, frame32(counterOffset));
+          r.blob.u8(0xd9); // EXX
+          this.loadRegisters(ctype, frame32(boundOffset));
+          r.blob.u8(0xd9); // EXX
+        }
+        this.callHelper(Helper.SUB32);
+        altConst(mag);
+        this.callHelper(Helper.CMP32U); // carry: the step doesn't fit
+        r.blob.jpIf(JP_C, exit);
+        if (!inclusive) r.blob.jpIf(JP_Z, exit);
+      } else {
+        // No bound in reach: trap when the next value would leave the type.
+        const s = SCALARS[ctype.name];
+        const limit = step > 0 ? s.max - mag : s.min + mag;
+        const flipped = ((limit >>> 0) ^ (signed ? 0x80000000 : 0)) >>> 0;
+        this.loadRegisters(ctype, frame32(counterOffset));
+        if (signed) flipD();
+        altConst(flipped);
+        this.callHelper(Helper.CMP32U);
+        const ok = r.blob.newLabel();
+        if (step > 0) {
+          r.blob.jpIf(JP_C, ok);
+          r.blob.jpIf(JP_Z, ok);
+          this.callHelper(Helper.TRAP_LOOP_RANGE);
+        } else {
+          r.blob.callBlobIf(JP_C, Helper.TRAP_LOOP_RANGE);
+        }
+        r.blob.defineLabel(ok);
+      }
+      this.loadRegisters(ctype, frame32(counterOffset));
+      altConst(mag);
+      this.callHelper(step > 0 ? Helper.ADD32 : Helper.SUB32);
+      this.storeRegisters(ctype, frame32(counterOffset));
+      r.blob.jp(body);
+      r.blob.defineLabel(exit);
+      r.fallsThrough = true;
+      return;
+    }
     this.loadCounterWide(counter, signed);
     if (mode === "word") {
       r.blob.u8(0xe5); // PUSH HL: the counter

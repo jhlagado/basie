@@ -98,7 +98,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C16 | major (closed) | "When the compiler proves" makes validity depend on cleverness. | Only constant operands |
 | C17 | major (closed) | Typed `case` labels use conversion rules rather than representability. | Pick one rule |
 | C18 | major (closed) | File-table generations saturate at $FFFF and the entry is reused, so a stale `File` can match a new file. | Withdraw the entry, as pool slots are |
-| C19 | major | The reference compiler lacks 32-bit `select` and counted loops (one crashes). | Implement or record |
+| C19 | major (closed) | The reference compiler lacks 32-bit `select` and counted loops (one crashes). | Implement or record |
 | C20 | minor | "in any order" for `case` arms contradicts `case else` last. | Fix wording |
 | C21 | minor | 14.6 examples call `readStorageByte`, which doesn't exist. | Use `readInputByte` |
 | C22 | minor | `head = move head.next` compiles under no declaration. | Use `h.next` |
