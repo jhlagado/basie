@@ -131,7 +131,7 @@ show(h, eat(move h))         // invalid
 
 ## 10.9 Execution and bounded failure
 
-Statements in a block begin in source order. A compound statement completes before the following statement begins. A `return`, `fail`, taken `exit`, taken `continue`, or trap prevents normal execution of the remaining statements on that path. When control leaves a block by any path, the block's owning locals are freed (Chapter 7).
+Statements in a block begin in source order. A compound statement completes before the following statement begins. A `return`, `fail`, taken `exit`, taken `continue`, or trap prevents normal execution of the remaining statements on that path. When control leaves a block by any path other than a trap, the block's owning locals are freed (Chapter 7); a trap ends the program and frees nothing (Chapter 15, Section 15.1).
 
 A compiler may emit semantic operations as it checks each statement. It need not retain a statement tree. Forward branches may use bounded fixup state under Chapter 2, provided capacity exhaustion produces a diagnostic rather than an unresolved or incorrect branch.
 

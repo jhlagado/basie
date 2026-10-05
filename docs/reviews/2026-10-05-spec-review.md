@@ -102,7 +102,7 @@ fixes it names the finding, as B1, A3 and so on).
 | C20 | minor (closed) | "in any order" for `case` arms contradicts `case else` last. | Fix wording |
 | C21 | minor (closed) | 14.6 examples call `readStorageByte`, which doesn't exist. | Use `readInputByte` |
 | C22 | minor (closed) | `head = move head.next` compiles under no declaration. | Use `h.next` |
-| C23 | minor | Three places say a trap frees slots; 15.1 says it frees none. | Exclude traps |
+| C23 | minor (closed) | Three places say a trap frees slots; 15.1 says it frees none. | Exclude traps |
 | C24 | minor (closed) | 16.2 omits `textMode` and `binaryMode`. | Add |
 | C25 | minor (closed) | `File` is absent from chapter 6 and the assignment and parameter rules. | Classify it |
 | C26 | minor | `as var` results as `var` arguments are accepted but unstated. | State |

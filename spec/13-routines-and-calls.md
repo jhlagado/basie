@@ -137,7 +137,7 @@ The check runs after argument evaluation; effects of the arguments remain, and t
 
 ## 13.10 Exit and lowering boundary
 
-When a routine is left by `return`, `fail`, reaching its `end` or a trap, every block it is in is left: its owning locals and owning parameters that still hold values are freed, and so are the owning handles inside its local aggregates (Chapter 7, Section 7.12). A result is evaluated before anything is freed, so `return move n` hands `n` on and frees nothing. A routine's exits may share one epilogue. There are no destructors, `finally` or `defer` beyond this automatic freeing.
+When a routine is left by `return`, `fail` or reaching its `end`, every block it is in is left: its owning locals and owning parameters that still hold values are freed, and so are the owning handles inside its local aggregates (Chapter 7, Section 7.12). A result is evaluated before anything is freed, so `return move n` hands `n` on and frees nothing. A routine's exits may share one epilogue. There are no destructors, `finally` or `defer` beyond this automatic freeing.
 
 This specification does not define registers, save areas, the hardware stack layout, helper entry points or the calling convention. A compiler may lower calls and returns while parsing, and may save and restore implementation state around a call, without any source-visible effect.
 

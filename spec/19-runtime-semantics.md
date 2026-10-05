@@ -16,7 +16,7 @@ Program storage lives for the run. A local lives from its declaration to the end
 
 ## 19.4 Calls
 
-Arguments are evaluated and bound left to right; ownership passes to owning parameters; record arguments held by owners are leased. Forward-declared routines check activation capacity on entry. Leaving a routine by any path frees its owning locals and parameters, after evaluating any result (Chapter 13).
+Arguments are evaluated and bound left to right; ownership passes to owning parameters; record arguments held by owners are leased. Forward-declared routines check activation capacity on entry. Leaving a routine by `return`, `fail` or its `end` frees its owning locals and parameters, after evaluating any result (Chapter 13); a trap frees nothing (Chapter 15, Section 15.1).
 
 ## 19.5 Failure and termination
 
