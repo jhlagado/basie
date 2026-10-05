@@ -157,8 +157,12 @@ export class Scopes {
   declare(sym: Symbol, at: Position, isPrivate = false): void {
     const existing = this.lookup(sym.name);
     if (existing) {
+      // At top level the program and part scopes are one level: a name in
+      // either is a duplicate there, not a name being hidden (5.10).
+      const atTop = this.stack.length === 2;
       const here = this.current.symbols.has(sym.name) ||
-        (isPrivate && this.part.symbols.has(sym.name));
+        (atTop && (this.program.symbols.has(sym.name) ||
+          this.part.symbols.has(sym.name)));
       fail(
         here ? "duplicate-name" : "shadowed-name",
         at,

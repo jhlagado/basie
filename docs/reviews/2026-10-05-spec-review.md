@@ -64,7 +64,7 @@ fixes it names the finding, as B1, A3 and so on).
 | B17 | minor | Chapter 6 omits handle fields, exact indexes, arrays of arrays and handles, and `T[]` identity. | Add |
 | B18 | minor | Homes of `P` and `id P` omit routine results. | Add |
 | B19 | minor (closed) | The example in 8.15 uses `step`, a reserved word. | Rename |
-| B20 | minor | A duplicate in one scope is reported as `shadowed-name`. | `duplicate-name` |
+| B20 | minor (closed) | A duplicate in one scope is reported as `shadowed-name`. | `duplicate-name` |
 | B21 | minor | 6.13's examples work only as locals. | Say so |
 | B22 | minor (closed) | 9.17 lists `recordValue = other` as invalid, but as a statement it is assignment. | Use `if` |
 | B23 | minor | 7.10's `new` examples use fields and pools not defined anywhere. | Use chapter 8's `Node` |

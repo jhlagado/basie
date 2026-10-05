@@ -1,0 +1,10 @@
+// Two top-level declarations of one name are a duplicate, not shadowing
+// (5.10; review finding B20).
+// spec: 5.10, 8.15
+// expect error: duplicate-name at 7:5
+
+const Limit = 4
+var Limit as u8
+
+sub main()
+end
