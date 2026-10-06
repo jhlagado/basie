@@ -655,7 +655,7 @@ transcript or activation table to bound.
 ## 5. Source-code discipline
 
 - **Named constants.** Every finite capacity in the native compiler and linker
-  is a named `EQU` in one file (planned: `limits.asmi`), and in the reference
+  is a named `EQU` in one file, and in the reference
   toolchain a named export in `ref/limits.ts` where the reference has a limit
   at all. The [limits register](limits.md) maps each published figure to its
   constant.

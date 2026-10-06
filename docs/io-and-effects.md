@@ -24,9 +24,8 @@ the boundary lies.
 
 Ordinary bytes carry standard input and output. Devices are reached through an
 optional **command channel**: framed messages on the same byte stream (`ESC ~`,
-a version, kind, opcode, correlation number, length, payload and CRC; the
-[external-effects frame format](../../skate/docs/public/external-effects.md)),
-which a provider such as a Triptych terminal interprets. A provider owns the
+a version, kind, opcode, correlation number, length, payload and CRC: the
+external-effects frame format), which a provider such as a Triptych terminal interprets. A provider owns the
 meaning of each capability and reports unsupported operations as errors. The
 CP/M console carries plain bytes; full framing needs a channel that can carry
 every byte. The language exposes no port addresses or hardware primitives.

@@ -89,7 +89,7 @@ Selective imports, published interfaces and precompiled libraries are different 
 
 ## Distinguishing language choices from temporary capacities
 
-The 16-literals-per-routine table and 2,048-byte routine output buffer currently block an example. These and the inherited symbol, field and nesting tables are implementation capacities recorded in the [capacity audit](capacity-audit.md). Correcting them belongs to completing the current language, not extending it.
+The 16-literals-per-routine table and 2,048-byte routine output buffer currently block an example. These and the fixed symbol, field and nesting tables are implementation capacities recorded in the [capacity audit](capacity-audit.md). Correcting them belongs to completing the current language, not extending it.
 
 Language choices such as the 253-byte string capacity, unsigned indices, constant loop steps and restrictions on alias retention deserve explicit rationale. Some support compact representation, others protect lifetimes or streaming checks. Review the current contracts before treating any as either essential or arbitrary.
 
