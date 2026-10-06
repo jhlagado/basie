@@ -1,0 +1,47 @@
+// Owning handle parameters and results: results returned through LINK0,
+// owning values passed to a statement's call, parameters moved, leased
+// and freed at every return, fail and the end.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var head as nodes?
+var g as u8
+sub make(v as u8) as nodes
+    return new nodes(v, none)
+end
+sub maybe(v as u8) as nodes?
+    if v = 0
+        return none
+    end
+    var n = new nodes(v, none)
+    return move n
+end
+sub keep(n as nodes)
+    head = move n
+end
+sub drop(n as nodes?, k as u8)
+    g = k
+end
+sub look(n as nodes) as u8
+    return n.value
+end
+sub lease(n as nodes?) fails
+    select n
+    case some(x)
+        x.value = 3
+        fail 4
+    end
+end
+sub main() fails
+    var a = make(1)
+    var b as nodes? = maybe(2)
+    keep(move a)
+    drop(move b, 3)
+    drop(new nodes(4, none), 5)
+    drop(none, 6)
+    keep(make(7))
+    lease(none) else fail
+end

@@ -632,9 +632,10 @@ EX_STORE:
     LD   L,C                       ; from IX.
     JP   GX_FPUT                   ; Store A or HL in the frame and return.
 
-EX_EFLOW:                      ; A result or exit the routine does not allow.
-    CALL DG_RAISE                  ; Report it; no return.
-    DB   DG_FLOW                   ; Diagnostic: invalid control flow.
+EX_EFLOW:                      ; A return of the wrong form:
+    LD   A,DG_RFORM                ; return-form,
+    LD   HL,AC_SPOS                ; at `return`
+    JP   DG_AT                     ; (AC_RET keeps it). No return.
 
 ;@ROUTINE IN A,HL OUT A,HL CLOBBERS BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Prepare the left operand A/HL of the operator EX_OPER, just taken, for

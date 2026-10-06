@@ -236,8 +236,8 @@ HN_OWNV:                       ; E is the handle's type.
     LD   A,C                       ; The kind:
     CP   TK_NONE                   ; none?
     JR   Z,.NONE                   ; LD HL,0.
-    CP   TK_NAME                   ; A name's value
-    JP   Z,TR_OPER                 ; waits (DG_NYI).
+    CP   TK_NAME                   ; A routine's
+    JR   Z,.CALL                   ; result?
     CP   TK_MOVE                   ; move?
     JR   Z,.MOVE                   ; Its handle.
     CP   TK_NEW                    ; new?
@@ -245,6 +245,19 @@ HN_OWNV:                       ; E is the handle's type.
     XOR  A                         ; Anything else
     CALL EX_RUN                    ; is an expression,
     JR   .CLASH                    ; but no handle.
+.CALL:                         ; A name:
+    PUSH DE                        ; (the type kept)
+    CALL PR_TAKE                   ; taken,
+    CALL RO_FIND                   ; a routine's
+    JP   NZ,TR_OPER                ; (a variable's value waits),
+    CALL RO_CALL                   ; called: A its result,
+    CALL PL_ISHND                  ; an owning
+    JR   NC,.OTHER                 ; handle,
+    BIT  1,A                       ; fresh;
+    JR   Z,.FRESH                  ; checked as new's is.
+.OTHER:                        ; Any other result
+    POP  DE                        ; is no
+    JR   .CLASH                    ; owner's value.
 .MOVE:                         ; move:
     PUSH DE                        ; (the type kept)
     CALL HN_MOVE                   ; the handle moved, A its type.
@@ -401,8 +414,19 @@ HN_INFER:                      ; The initializer's first token:
     CP   TK_MOVE                   ; or new
     JR   Z,.MOVE                   ; makes
     CP   TK_NEW                    ; the type;
-    JR   Z,.NEW                    ; anything
-    OR   A                         ; else is not
+    JR   Z,.NEW                    ; so does
+    CP   TK_NAME                   ; a name
+    JR   NZ,.NOT                   ; rooting
+    CALL AC_ROOT                   ; a handle,
+    CALL PL_ISHND                  ; a routine's
+    JR   NC,.NOT                   ; result's
+    PUSH AF                        ; (or a variable's,
+    LD   E,A                       ; whose value
+    CALL HN_OWNV                   ; waits):
+    POP  AF                        ; the value's type.
+    JR   .TYPED                    ; The local's.
+.NOT:                          ; Anything else
+    OR   A                         ; is not
     RET                            ; a handle (carry clear).
 .MOVE:                         ; move:
     CALL HN_MOVE                   ; the handle moved,
@@ -797,6 +821,90 @@ HN_ISID:                       ; The NAME is current.
     LD   (TK_PTR),HL               ; again.
     RET                            ; Back.
 
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A parameter's type (CommitParameter): an owning handle, not var, is a
+; value in the frame; a var handle (a slot-holder) or an identifier waits,
+; as does an owning aggregate (DG_NYI). A is kept.
+
+HN_PTYPE:                      ; A is the type.
+    CALL PL_ISHND                  ; Not a handle:
+    JP   NC,PL_LATER               ; no owning aggregate yet; return.
+    BIT  1,A                       ; An identifier
+    JP   NZ,TR_OPER                ; waits,
+    PUSH AF                        ; as
+    LD   A,(RO_VARP)               ; does
+    OR   A                         ; a var
+    JP   NZ,TR_OPER                ; handle.
+    POP  AF                        ; The type.
+    RET                            ; Accepted.
+
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A result's type (SaveSubResult): an owning handle is returned in HL; an
+; identifier waits, as does an owning aggregate (DG_NYI). A is kept.
+
+HN_RTYPE:                      ; A is the type.
+    CALL PL_ISHND                  ; Not a handle:
+    JP   NC,PL_LATER               ; no owning aggregate yet; return.
+    BIT  1,A                       ; An identifier
+    JP   NZ,TR_OPER                ; waits.
+    RET                            ; Accepted.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The routine's end, after its body's frees: when control reaches it,
+; its parameters' owners are freed (emitReturn's frees of the routine's
+; scope, without a result).
+
+HN_PEND:                       ; The body has ended.
+    LD   A,(CT_FALLS)              ; Unreachable:
+    OR   A                         ; nothing
+    RET  Z                         ; to free.
+    LD   A,(RO_BODY)               ; The parameters,
+    DEC  A                         ; before
+    LD   C,A                       ; the body,
+    LD   A,(RO_GLOBS)              ; from
+    LD   B,A                       ; the first.
+    JP   HN_SEG                    ; Freed; return.
+
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; An argument for an owning handle parameter of type A (argument): an
+; owning value (HN_OWNV), then CALL LINK0; the caller pushes HL. Only a
+; statement's call takes one, and not a call nested in its arguments,
+; where the reference's rules for move in expressions apply (DG_NYI).
+
+HN_ARG:                        ; A is the parameter's type.
+    LD   E,A                       ; Kept.
+    LD   A,(HN_SCALL)              ; A statement's
+    OR   A                         ; call,
+    JP   Z,TR_OPER                 ; at
+    LD   A,(RO_DEPTH)              ; its
+    DEC  A                         ; own
+    JP   NZ,TR_OPER                ; depth?
+    CALL HN_OWNV                   ; The value, in HL,
+    CALL EM_HELP                   ; CALL
+    DW   HP_LINK0                  ; LINK0.
+    RET                            ; Pushed by the caller.
+
+;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; BeginReturnValue of a routine whose result is an owning handle of type
+; A: its value is read here (HN_OWNV, then CALL LINK0, emitReturn), before
+; the engine predicts the return's form, which a `new`, `none` or `move`
+; would not begin; the bare return's action (AC_BARE) then ends it as the
+; return of a value (HN_RETF).
+
+HN_RETV:                       ; A is the result's type.
+    PUSH AF                        ; (kept)
+    CALL PR_PEEK                   ; A bare return
+    CP   TK_EOL                    ; is AC_BARE's
+    POP  DE                        ; (D the type)
+    RET  Z                         ; (return-form).
+    LD   E,D                       ; An owning
+    CALL HN_OWNV                   ; value, in HL,
+    CALL EM_HELP                   ; CALL
+    DW   HP_LINK0                  ; LINK0;
+    LD   A,1                       ; the return
+    LD   (HN_RETF),A               ; has its value.
+    RET                            ; Back to the engine.
+
 ; ---------------------------------------------------------------- frees
 
 ;@ROUTINE IN B,C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -815,7 +923,8 @@ HN_SEG:                        ; B the first, C past the last.
     INC  HL                        ; class
     INC  HL                        ; byte,
     LD   A,(HL)                    ; an aggregate
-    CP   SY_AGGR+SY_LOCAL          ; local's?
+    OR   SY_PARAM-SY_LOCAL         ; local's or
+    CP   SY_AGGR+SY_PARAM          ; parameter's?
     JR   NZ,.NEXT                  ; No.
     INC  HL                        ; Its
     LD   E,(HL)                    ; offset,

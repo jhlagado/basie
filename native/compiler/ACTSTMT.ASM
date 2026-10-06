@@ -387,7 +387,11 @@ AC_STMT:
 .ORDINARY:                     ; Not predeclared.
     CALL RO_FIND                   ; A routine?
     JR   NZ,.ASSIGN                ; No: an assignment.
-    CALL RO_CALL                   ; Parse and generate the call.
+    LD   HL,HN_SCALL               ; A statement's call
+    LD   (HL),1                    ; takes owning handles,
+    CALL RO_CALL                   ; parsed and generated,
+    LD   HL,HN_SCALL               ; and only
+    LD   (HL),0                    ; it.
     JP   AC_ROUTE                  ; Attach its failure handling.
 .ASSIGN:                       ; The name is a variable.
     CALL AC_FIND                   ; A is its class and type, BC its payload.
@@ -422,9 +426,13 @@ AC_STMT:
 ; result is parsed by RO_AGGR and needs no expected type.
 
 AC_RET:
+    LD   HL,(TK_POS)               ; `return`, where its form's
+    LD   (AC_SPOS),HL              ; faults are reported.
     LD   A,(RO_CTYPE)              ; The routine's result type.
     OR   A                         ; None?
     RET  Z                         ; AC_YIELD will reject a value.
+    CALL PL_ISHND                  ; An owning handle's value
+    JP   C,HN_RETV                 ; is read now (AC_BARE ends it).
     CP   AG_FIRST                  ; An aggregate?
     RET  NC                        ; Parsed by type, not expected type.
     JP   AC_WANT                   ; Expect the scalar type.
@@ -459,6 +467,8 @@ AC_RETOP:
     LD   A,(RO_CTYPE)              ; The routine's result type.
     OR   A                         ; None?
     JP   Z,EX_EFLOW                ; Raise DG_FLOW.
+    CALL PL_ISHND                  ; An owning handle
+    JR   C,.RETURN                 ; is in HL, A its type.
     CP   AG_FIRST                  ; An aggregate?
     JR   NC,.AGGR                  ; Check its type.
     LD   E,A                       ; The scalar result type.
@@ -493,6 +503,11 @@ AC_RETOK:
 ; end would be.
 
 AC_BARE:
+    LD   HL,HN_RETF                ; An owning handle's value
+    LD   A,(HL)                    ; read already
+    LD   (HL),0                    ; (HN_RETV)
+    OR   A                         ; is
+    JP   NZ,AC_RETOP               ; returned.
     LD   A,(RO_CTYPE)              ; The routine's result type.
     OR   A                         ; None?
     JP   NZ,EX_EFLOW               ; A value is required: raise DG_FLOW.

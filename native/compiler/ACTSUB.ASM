@@ -375,7 +375,7 @@ AC_VARP:
 AC_JOIN:
     CALL EX_RENEW                  ; The parameter's name is current again.
     LD   A,(AG_CTYPE)              ; Its type:
-    CALL PL_LATER                 ; no handle or owning type yet.
+    CALL HN_PTYPE                  ; an owning handle, not var; no owning type yet.
     LD   HL,RO_VARP                ; Is it var?
     DEC  (HL)                      ; Zero if it was,
     LD   (HL),0                    ; (cleared)
@@ -421,7 +421,7 @@ AC_VARR:
 
 AC_GIVEN:
     CALL AC_ITEM                   ; The result type: not a view, nor yet a File,
-    CALL PL_LATER                 ; nor yet a handle or an owning type.
+    CALL HN_RTYPE                  ; an owning handle, not yet another or owning.
     LD   (RO_CTYPE),A              ; The routine's result type.
     RET                            ; Back to the engine.
 
@@ -684,7 +684,8 @@ AC_END:
     OR   A                         ; Zero means every path returned.
     JR   NZ,.FLOW                  ; Then a path returns no value.
 .CLOSE:                        ; Close the routine.
-    CALL HN_ENDR                   ; Its body's owners freed.
+    CALL HN_ENDR                   ; Its body's owners freed, its parameters'
+    CALL HN_PEND                   ; when it falls off its end.
     CALL RG_CLOSE                  ; Write its blob; HL is its need.
     LD   A,(RO_CUR)                ; Was it main?
     INC  A                         ; $FF becomes zero.

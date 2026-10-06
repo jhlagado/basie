@@ -128,6 +128,7 @@ const CONFORMANCE: Record<string, string> = {
   MOVELEAV: "tests/conformance/storage/move-leaves-none.bsi",
   MOVENONE: "tests/conformance/storage/move-none.bsi",
   SELMOVEC: "tests/conformance/storage/select-move.bsi",
+  OWNDEST: "tests/conformance/storage/owning-destination-order.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -317,6 +318,8 @@ const CLAIMED: Record<string, string[]> = {
     "MOVELEAV",
     "MOVENONE",
     "SELMOVEC",
+    "HANDPARM",
+    "OWNDEST",
   ],
 };
 
@@ -1563,6 +1566,35 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    select g\n    case 1\n        return\n    case else\n        head = move a\n        return\n    end\n    g = a.value\nend\n",
   "a handle select's none arm moving, then a use":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    select head\n    case some(x)\n        return\n    case none\n        head = move a\n        return\n    end\n    g = a.value\nend\n",
+  "none returned for a non-optional handle":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub mk() as nodes\n    return none\nend\nsub main()\nend\n",
+  "another pool's handle returned":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub mk() as nodes?\n    return new leaves(1)\nend\nsub main()\nend\n",
+  "a bare return from a handle routine":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub mk() as nodes?\n    return\nend\nsub main()\nend\n",
+  "a handle routine that can end without a value":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub mk() as nodes?\n    g = 1\nend\nsub main()\nend\n",
+  "none passed for a non-optional handle":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes)\nend\nsub main()\n    f(none)\nend\n",
+  "another pool's handle passed":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes?)\nend\nsub main()\n    f(new leaves(1))\nend\n",
+  "a number passed for a handle":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes?)\nend\nsub main()\n    f(3)\nend\n",
+  "a parameter used after it is moved":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes)\n    head = move n\n    g = n.value\nend\nsub main()\nend\n",
+  "a parameter moved in a loop":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes)\n    while g < 3\n        head = move n\n    end\nend\nsub main()\nend\n",
+  "an optional parameter dereferenced":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes?)\n    g = n.value\nend\nsub main()\nend\n",
+  "a parameter named twice":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes, n as u8)\nend\nsub main()\nend\n",
+  "a parameter not optional for a field's handle":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar g as u8\nsub f(n as nodes)\nend\nsub main()\n    var a as nodes? = none\n    f(move a)\nend\n",
+  "bare return from a u8 routine":
+    "var g as u8\nsub mk() as u8\n    return\nend\nsub main()\nend\n",
+  "a value from a routine without a result":
+    "var g as u8\nsub mk()\n    return 3\nend\nsub main()\nend\n",
+  "a value returned from main": "sub main()\n    return 1\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 

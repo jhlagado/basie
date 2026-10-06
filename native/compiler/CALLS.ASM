@@ -136,7 +136,9 @@ RO_NAMED:
     JR   NZ,.LOCAL                 ; No: a local, in the frame.
     LD   A,(RO_OTYPE)              ; A File parameter
     CP   AG_FILE                   ; is a value
-    JR   Z,.LOCAL                  ; in the frame too.
+    JR   Z,.LOCAL                  ; in the frame too,
+    CALL PL_ISHND                  ; as is
+    JR   C,.LOCAL                  ; a handle.
     BIT  0,D                       ; SY_PFROM: named in from,
     JR   Z,.OWNED                  ; its root
     DEC  H                         ; may be returned.
@@ -583,6 +585,8 @@ RO_ARGS:
     CALL GX_ZEXT                   ; and a byte widens, LD L,A, LD H,0.
     JR   .PUSH                     ; Push the word.
 .AGGR:                         ; A is the parameter's type, AG_VAR for var.
+    CALL PL_ISHND                  ; An owning handle's
+    JR   C,.HANDLE                 ; value.
     LD   B,A                       ; Keep it.
     AND  $7F                       ; Without AG_VAR:
     CP   AG_FILE                   ; a File?
@@ -592,6 +596,9 @@ RO_ARGS:
     LD   A,B                       ; A view:
     CALL RO_VIEW                   ; its word is pushed.
     JR   .PUSH                     ; Then the address.
+.HANDLE:                       ; An owning handle:
+    CALL HN_ARG                    ; its value in HL, linked,
+    JR   .PUSH                     ; pushed.
 .FILE:                         ; A File argument.
     CALL RO_FVAL                   ; Its value in DEHL.
     JR   .OWNER                    ; PUSH DE, the high word, then the low.

@@ -243,7 +243,8 @@ frame, a four-byte snapshot of the owners' states and a four-byte meet
 Error 190, beyond); the table pushed the LL(1) stack a page up, and the
 image's growth the workspaces another $100 (`MM_WBASE` `$6000`), so the
 source area is about 21.9K on a 62K system, below the 22K the plan
-expected before the streaming source of 67h.
+expected before the streaming source of 67h. Owning handle parameters
+and results took the workspaces another $100 up (`$6100`, about 21.6K).
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each
 scope from the control frames' counts.

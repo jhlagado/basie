@@ -428,6 +428,7 @@ DG_LOOP EQU  82                ; outside-loop.
 DG_COUNT EQU  83               ; loop-counter.
 DG_STEP EQU  84                ; loop-step.
 DG_FLOW EQU  85                ; missing-return.
+DG_RFORM EQU  86               ; return-form: a value where none goes, or none where one does.
 DG_ALIAS EQU  104              ; alias-escapes: a result rooted in the frame.
 DG_ARITY EQU  111              ; arity: too many arguments.
 DG_SAFE EQU  112               ; not-failable.

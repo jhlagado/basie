@@ -373,6 +373,10 @@ RO_BIND:
     LD   D,A                       ; The symbol's class byte.
 .SYMBOL:                       ; D is the class, E the type.
     CALL SY_NEW                    ; Write the record; DE is kept.
+    PUSH DE                        ; (the type kept)
+    LD   A,FW_VALUE                ; An owning handle's
+    CALL HN_STAT                   ; flow: a value (any other's byte 7 unused).
+    POP  DE                        ; E is the type.
     LD   A,E                       ; Record the symbol's aggregate type;
     JP   SY_TAG                    ; SY_TAG also commits the symbol.
 

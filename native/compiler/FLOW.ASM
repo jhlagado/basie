@@ -47,7 +47,8 @@ FW_CAP EQU  16                 ; Tracked owners in scope; DG_OWNRS beyond.
 
 ;@ROUTINE IN HL OUT CARRY,HL CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry if the symbol record at HL is a tracked owner, an owning handle
-; local; HL returns at its FW_STATE byte either way. BC and DE are kept.
+; local or parameter (not var); HL returns at its FW_STATE byte either
+; way. BC and DE are kept.
 
 FW_TRK:                        ; HL is a record.
     INC  HL                        ; Its
@@ -57,7 +58,8 @@ FW_TRK:                        ; HL is a record.
     INC  HL                        ; On
     INC  HL                        ; to
     INC  HL                        ; its type,
-    CP   SY_AGGR+SY_LOCAL          ; an aggregate local's?
+    OR   SY_PARAM-SY_LOCAL         ; an aggregate local's
+    CP   SY_AGGR+SY_PARAM          ; or parameter's?
     LD   A,(HL)                    ; (the type)
     INC  HL                        ; (FW_STATE)
     JR   NZ,.NOT                   ; No.
