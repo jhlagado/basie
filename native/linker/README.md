@@ -47,8 +47,8 @@ instruction and data line carries a comment: at column 32 for labels and
 
 ## Names
 
-The sources follow ATOM's and Skate's label convention (`../atom/docs/labels.md`,
-the [compiler's naming guide](../../tools/atomize/README.md)): globals are
+The sources follow Basie's label convention ([naming guide](../../docs/naming.md),
+in the style of ATOM's `../atom/docs/labels.md`): globals are
 `AREA_WHAT` in at most eight characters, made of words; only what other
 routines use is global, and loop heads, exits and single-caller helpers are
 private to the routine that owns them; markers keep names that say what they
@@ -94,7 +94,7 @@ A workspace variable takes the prefix of the area that writes it.
 
 ## Renaming
 
-`tools/labels/` holds the tools of Skate's rename, pointed at `BLINK.ASM`, and
+`tools/labels/` holds the label-renaming tools, pointed at `BLINK.ASM`, and
 `tools/labels/maps/blink.json` records what each earlier name became, the
 privates included (October 2026; the files were split after it, so its
 private renames are keyed by the names of that time):

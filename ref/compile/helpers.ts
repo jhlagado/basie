@@ -157,7 +157,8 @@ export const SERVICES: ServiceEntry[] = SERVICE_SIGNATURES.map((
   signature,
   stack: helperStack(ordinal),
 }));
-export const NUCLEUS_SHORTHANDS = SERVICES.filter((x) =>
+/** The console shorthands (spec §16.2). */
+export const CONSOLE_SHORTHANDS = SERVICES.filter((x) =>
   x.name === "writeOutputByte" || x.name === "readInputByte"
 );
 

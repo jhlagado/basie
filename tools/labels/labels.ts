@@ -1,4 +1,4 @@
-// Label analysis for BLINK's ATOM sources, adapted from Skate's.
+// Label analysis for BLINK's ATOM sources.
 // Usage: deno run -A tools/labels/labels.ts <repo>
 import { dirname, join, relative } from "node:path";
 

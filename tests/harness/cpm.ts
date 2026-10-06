@@ -9,8 +9,8 @@
  * another drive by its name with the drive, "B:MAIN.BSI". An FCB's drive
  * byte of 0 means the current drive, A until BDOS 14 selects another.
  *
- * Full-fidelity proofs boot real CP/M 2.2 on the Triptych machine instead, as
- * Skate's proofs do; this harness is for quick checks of generated code.
+ * Full-fidelity proofs boot real CP/M 2.2 on the Triptych machine instead
+ * (triptych.ts); this harness is for quick checks of generated code.
  */
 import { assembleAtomProject, materializeAtomGeneration } from "atom-z80";
 import { createZ80Runtime } from "@jhlagado/z80-runtime";

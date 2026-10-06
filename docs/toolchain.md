@@ -43,8 +43,8 @@ The cost is one extra program load per build.
 
 **Rejected alternatives.**
 
-- **The linker as a phase of `BASIE.COM`,** as ATOM and Skate append their
-  materializers. It shares code but carries the linker's 5K through every
+- **The linker as a phase of `BASIE.COM`,** as ATOM appends its
+  materializer. It shares code but carries the linker's 5K through every
   compilation.
 - **An assembler as the second stage.** Basie generates machine code itself.
   No assembler takes part in building a Basie program.

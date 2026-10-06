@@ -1,6 +1,6 @@
 /**
  * Full-fidelity CP/M 2.2: boot the real CCP, BDOS and BIOS on the Triptych
- * machine and drive its console, as Skate's proofs do. Slower than the minimal
+ * machine and drive its console. Slower than the minimal
  * harness in cpm.ts, so it is used for end-to-end checks.
  */
 import { createRequire } from "node:module";
