@@ -38,11 +38,16 @@ export const OVERLAYS = [
   {
     name: "START",
     equate: "OV_START",
-    files: ["LIBRARY.ASM", "PARTNAME.ASM"],
+    files: ["LIBRARY.ASM", "BLOPEN.ASM", "PARTNAME.ASM"],
     offset: 0,
   },
   { name: "NAMES", equate: "OV_NAMES", files: ["PREDEF.ASM"], offset: 0 },
-  { name: "CHAIN", equate: "OV_CHAIN", files: ["CHAIN.ASM"], offset: 0 },
+  {
+    name: "CHAIN",
+    equate: "OV_CHAIN",
+    files: ["CHAIN.ASM", "BLCLOSE.ASM"],
+    offset: 0,
+  },
   {
     name: "DIAG",
     equate: "OV_DIAG",

@@ -469,3 +469,24 @@ SH_NAMED:                      ; HL is the message number.
 SH_LARGE:                      ; SH_LOAD found no room for a record.
     LD   A,DG_ROOM                 ; The source's capacity:
     JP   SH_OVER                   ; report it and fail.
+
+;@ROUTINE IN A,DE,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
+; Make the bytes [HL,DE) the current part, with identity A, and restart the
+; position counters at offset zero, line one, column one. The tokenizer's
+; line state starts afresh: no token yet on the line and no open brackets.
+
+SRC_INIT:
+    LD   (SRC_ID),A                ; Record the part identity for diagnostics.
+    LD   (SRC_PTR),HL              ; The next byte is the part's first.
+    EX   DE,HL                     ; Bring the exclusive end into HL.
+    LD   (SRC_END),HL              ; Bound the part for SRC_PEEK.
+    LD   HL,0                      ; Form offset zero.
+    LD   (SRC_POS),HL              ; Offsets count from the part's start.
+    INC  HL                        ; Lines and columns count from one.
+    LD   (SRC_LINE),HL             ; Begin on the part's first line.
+    LD   (SRC_COL),HL              ; Begin in its first column.
+    XOR  A                         ; Form zero and clear carry for success.
+    LD   (TK_LIVE),A               ; No token has been seen on this line yet.
+    LD   (TK_NEST),A               ; No bracket is open across a line break.
+    RET                            ; Return success with A zero.
+

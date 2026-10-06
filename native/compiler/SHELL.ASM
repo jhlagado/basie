@@ -11,12 +11,12 @@
 ;  intermediate streams NAME.$DR, $BY, $LN and $NM on the spool drive and
 ;  with the first part's name (toolchain §3.2) and names each part in the
 ;  line stream; NAMES holds the predeclared names while PR_BUILD compiles
-;  the parts into blobs; then the shell closes the
-;  streams and CHAIN runs BLINK.COM to link them, unless option C compiles
-;  only; option X runs BLINK at once. A diagnostic is printed by the DIAG
-;  overlay, by the reference's number with its text from BASIE.MSG. The
-;  stack and the source occupy the CCP's memory, so every exit is a warm
-;  boot through $0000 or the chain to BLINK.
+;  the parts into blobs; then CHAIN closes the streams and runs BLINK.COM
+;  to link them, unless option C compiles only; option X runs BLINK at
+;  once. A diagnostic is printed by the DIAG overlay, by the reference's
+;  number with its text from BASIE.MSG. The stack and the source occupy
+;  the CCP's memory, so every exit is a warm boot through $0000 or the
+;  chain to BLINK.
 ;
 ;  Principal entries:
 ;    SH_START  the program entry, reached from the jump at $0100
@@ -143,9 +143,10 @@ SH_START:                      ; Entered from the jump at $0100.
     INC  A                         ; The command line's: OV_CMD, zero.
     CALL OV_LOAD                   ; Load it,
     CALL OV_AREA                   ; and read the parts and options (CL_READ).
-    LD   A,(CL_SEEN+CL_IC)         ; Option X
+    LD   HL,OV_AREA                ; CH_RUN, if
+    LD   A,(CL_SEEN+CL_IC)         ; option X
     CP   'X'                       ; links only:
-    JP   Z,SH_CHAIN                ; run BLINK, compiling nothing.
+    JR   Z,SH_CHAIN                ; run BLINK, compiling nothing.
     LD   A,OV_START                ; The start of a build:
     CALL OV_LOAD                   ; check the library
     CALL OV_AREA                   ; (LB_FIRST);
@@ -160,19 +161,17 @@ SH_START:                      ; Entered from the jump at $0100.
     CALL OV_LOAD                   ; are in the overlay area for the compilation.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
     JP   C,SH_DIAG                 ; Print it and fail.
-    CALL BL_CLOSE                  ; Write the trailers and close the streams.
-    LD   A,(CL_SEEN+CL_IC)         ; Option C
-    CP   'C'                       ; compiles only: success,
-    JP   Z,0                       ; a warm boot, and a SUBMIT job runs on.
-                                   ; Otherwise BLINK links the streams.
+    LD   HL,OV_AREA+3              ; The chain's overlay closes the streams
+    JR   SH_CHAIN                  ; and runs BLINK unless C (CH_DONE).
 
-;@ROUTINE NORETURN
-; Run BLINK.COM with the build's tail (the CHAIN overlay's CH_RUN).
+;@ROUTINE IN HL NORETURN
+; Run the CHAIN overlay's entry HL: CH_RUN, which runs BLINK.COM with the
+; build's tail, or CH_DONE, which closes the streams first.
 
-SH_CHAIN:                      ; The streams are closed, or X was given.
-    LD   A,OV_CHAIN                ; The chain's overlay,
-    CALL OV_LOAD                   ; loaded,
-    JP   OV_AREA                   ; runs BLINK (CH_RUN).
+SH_CHAIN:                      ; HL is the entry.
+    PUSH HL                        ; Return to it
+    LD   A,OV_CHAIN                ; once the chain's overlay
+    JP   OV_LOAD                   ; is loaded.
 
 ;@ROUTINE CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Set the FCB to the current drive, a blank name and type, and zeros in the

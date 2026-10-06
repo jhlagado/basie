@@ -19,8 +19,8 @@
 ;  own delta form, because each arrives at a higher offset than the last.
 ;
 ;  Principal entries:
-;    BL_OPEN    open the streams and write their headers
-;    BL_PART    name a source part in the line stream
+;    BL_OPEN    open the streams and write their headers (BLOPEN.ASM)
+;    BL_PART    name a source part in the line stream (BLOPEN.ASM)
 ;    BL_BEGIN   start a blob: ordinal, kind, root flag and alignment
 ;    BL_BYTE    append a byte to the blob
 ;    BL_REF     append a reference and its zero placeholder
@@ -30,7 +30,10 @@
 ;    BL_ENTRY   write the entry control record
 ;    BL_LIMIT  write the limits control record
 ;    BL_NAME    write an ordinal's name to the name stream
-;    BL_CLOSE   write the trailers and close the streams
+;    BL_CLOSE   write the trailers and close the streams (BLCLOSE.ASM)
+;
+;  The opening and closing code each run once, so they are not resident:
+;  BLOPEN.ASM is part of the START overlay and BLCLOSE.ASM of CHAIN.
 ;
 ;  Blob header byte (object format §5.1): bits 0-2 kind, bit 3 explicit
 ;  ordinal, bit 4 root, bits 5-7 alignment code. Callers pass the kind,
@@ -89,121 +92,6 @@ BL_CODE EQU  BL_NM+OUT_SIZE    ; BL_CCAP bytes: the blob's bytes.
 BL_REFS EQU  BL_CODE+BL_CCAP   ; BL_RCAP bytes: its encoded references.
 BL_LINES EQU  BL_REFS+BL_RCAP  ; BL_LCAP bytes: its encoded line entries.
 BL_WEND EQU  BL_LINES+BL_LCAP  ; The end of the workspace.
-
-;@ROUTINE IN A,DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Open the streams named by DE, nine bytes of FCB drive and name, and write
-; their headers. HL is the program directory's 20-byte header (object format
-; §4.1), magic included, whose stamp and ordinal base the other headers and
-; the implicit ordinals follow. A holds BL_LNOUT and BL_NMOUT.
-
-BL_OPEN:                       ; HL is the header, DE the name, A the flags.
-    OR   BL_BYOUT                  ; The byte stream is always written.
-    LD   (BL_FLAGS),A              ; Keep the flags for the other routines.
-    LD   (BL_NAMEP),DE             ; Keep the name for each stream.
-    PUSH IX                        ; Keep the caller's IX.
-    PUSH HL                        ; Keep the header for the copy.
-    LD   DE,6                      ; The stamp is at offset 6.
-    ADD  HL,DE                     ; HL addresses it.
-    LD   E,(HL)                    ; DE is the stamp,
-    INC  HL                        ; low byte first.
-    LD   D,(HL)                    ; Every stream carries it.
-    LD   (BL_STAMP),DE             ; Keep it for the other headers.
-    LD   DE,9                      ; The ordinal base is at offset 16,
-    ADD  HL,DE                     ; nine bytes on.
-    LD   E,(HL)                    ; DE is the base:
-    INC  HL                        ; the first blob's implicit ordinal.
-    LD   D,(HL)                    ; A record numbers itself implicitly
-    DEC  DE                        ; when it follows the previous one,
-    LD   (BL_PREV),DE              ; so the first follows base less one.
-    LD   HL,0                      ; No blob is written yet:
-    LD   (BL_COUNT),HL             ; no records,
-    LD   (BL_HIGH),HL              ; and no highest ordinal.
-    LD   IX,BL_DR                  ; The directory stream first.
-    LD   HL,BL_TDR                 ; Type $DR.
-    CALL .OPEN                     ; Make the file.
-    POP  HL                        ; HL is the header.
-    LD   B,20                      ; Twenty bytes, magic to padding.
-    CALL .COPY                     ; Copy them to the directory stream.
-    LD   HL,BL_STAB                ; Then each stream of the table.
-.STREAM:                       ; HL is the next table entry.
-    LD   A,(HL)                    ; Its flag; zero ends the table.
-    OR   A                         ; Is the table done?
-    JR   Z,.DONE                   ; Every stream wanted is open.
-    LD   C,A                       ; C is the flag.
-    INC  HL                        ; The stream's record follows.
-    LD   E,(HL)                    ; Its low byte,
-    INC  HL                        ; then
-    LD   D,(HL)                    ; its high byte.
-    INC  HL                        ; HL is the type, then the magic.
-    LD   A,(BL_FLAGS)              ; Is this stream wanted?
-    AND  C                         ; Test its flag.
-    JR   Z,.SKIP                   ; Options leave it out.
-    PUSH DE                        ; IX is the stream's record.
-    POP  IX                        ; Every OUT_ call takes it there.
-    PUSH HL                        ; Keep the type's address.
-    CALL .OPEN                     ; Make the file.
-    POP  HL                        ; The magic follows the type:
-    INC  HL                        ; three bytes
-    INC  HL                        ; on
-    INC  HL                        ; from it.
-    LD   B,4                       ; Four bytes of magic.
-    CALL .COPY                     ; Copy them.
-    PUSH HL                        ; Keep the table's place.
-    LD   HL,1                      ; Version 1.0: major 1,
-    CALL OUT_WORD                  ; then minor 0.
-    LD   HL,(BL_STAMP)             ; The compilation stamp ties
-    CALL OUT_WORD                  ; the streams together.
-    POP  HL                        ; HL is the next entry.
-    JR   .STREAM                   ; Open it.
-.SKIP:                         ; HL is the type of a stream not wanted.
-    LD   DE,7                      ; Step over its type and magic.
-    ADD  HL,DE                     ; HL is the next entry.
-    JR   .STREAM                   ; Consider it.
-.DONE:                         ; Every stream wanted is open.
-    POP  IX                        ; Restore the caller's IX.
-    RET                            ; Blobs may now be written.
-
-;@ROUTINE IN HL,IX CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Open the stream at IX with the program's name and the type at HL.
-
-.OPEN:                         ; HL is the three-character type.
-    LD   DE,(BL_NAMEP)             ; DE is the drive and name.
-    JP   OUT_OPEN                  ; Make the file and return.
-
-;@ROUTINE IN B,HL,IX OUT HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the B bytes at HL to the stream at IX; HL is left after them.
-
-.COPY:                         ; HL is the next byte.
-    LD   A,(HL)                    ; Copy it
-    CALL OUT_BYTE                  ; to the stream.
-    INC  HL                        ; Move to the next.
-    DJNZ .COPY                     ; Until B are done.
-    RET                            ; HL is after them.
-
-;@ROUTINE IN A,B,HL CLOBBERS A,B,C,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Name source part A (0-based) as the B characters at HL, in a part record
-; of the line stream (object format §8). Nothing is written without one.
-
-BL_PART:                       ; A is the part's index.
-    LD   C,A                       ; Keep the index.
-    LD   A,(BL_FLAGS)              ; Is there a line stream?
-    AND  BL_LNOUT                  ; Option N leaves it out.
-    RET  Z                         ; Then there is nothing to name.
-    PUSH IX                        ; Keep the caller's IX.
-    LD   IX,BL_LN                  ; Write to the line stream.
-    LD   A,1                       ; Tag 1: a part record.
-    CALL OUT_BYTE                  ; Append it.
-    LD   A,C                       ; The part's index.
-    CALL OUT_BYTE                  ; Append it.
-    LD   A,B                       ; The name's length.
-    CALL OUT_BYTE                  ; Append it.
-.NAME:                         ; B characters of the name remain.
-    LD   A,(HL)                    ; Copy the next one
-    CALL OUT_BYTE                  ; to the stream.
-    INC  HL                        ; Move to the next.
-    DJNZ .NAME                     ; Until the name is written.
-    POP  IX                        ; Restore the caller's IX.
-    RET                            ; The part may now be cited.
 
 ;@ROUTINE IN A,HL CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Start blob HL. A is its header byte without the explicit-ordinal bit: the
@@ -622,71 +510,3 @@ BL_NAME:                       ; HL is the ordinal, DE the name, B its length.
     POP  IX                        ; Restore the caller's IX.
     RET                            ; The name is recorded.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the streams' trailers and close them: the directory's blob count,
-; byte stream length, highest ordinal and CRC; the line stream's end tag and
-; CRC; the name stream's zero ordinal and CRC.
-
-BL_CLOSE:                      ; Every blob is written.
-    PUSH IX                        ; Keep the caller's IX.
-    LD   IX,BL_DR                  ; The directory's trailer.
-    LD   A,$FF                     ; Its marker.
-    CALL OUT_BYTE                  ; Append it.
-    LD   HL,(BL_COUNT)             ; The number of blob records.
-    CALL OUT_WORD                  ; Append it.
-    LD   HL,(BL_BY+OUT_CNT)        ; The byte stream's length, without its
-    LD   DE,-8                     ; eight-byte header: the low word,
-    ADD  HL,DE                     ; less 8, carry clear on a borrow.
-    PUSH HL                        ; Keep it; the carry must reach the high word.
-    LD   HL,(BL_BY+OUT_CNT+2)      ; The high word,
-    LD   DE,$FFFF                  ; less the borrow:
-    ADC  HL,DE                     ; adding $FFFF and the carry does it.
-    EX   (SP),HL                   ; HL is the low word; the high word waits.
-    CALL OUT_WORD                  ; Append the low word.
-    POP  HL                        ; HL is the high word.
-    CALL OUT_WORD                  ; Append it.
-    LD   HL,(BL_HIGH)              ; The highest ordinal.
-    CALL OUT_WORD                  ; Append it.
-    XOR  A                         ; A reserved zero byte.
-    CALL OUT_BYTE                  ; Append it.
-    CALL OUT_CRC                   ; The CRC of the whole stream.
-    CALL OUT_END                   ; Close the directory.
-    LD   IX,BL_BY                  ; The byte stream has no trailer.
-    CALL OUT_END                   ; Close it.
-    LD   A,(BL_FLAGS)              ; Is there a line stream?
-    AND  BL_LNOUT                  ; Option N leaves it out.
-    JR   Z,.NOLINES                ; Then skip it.
-    LD   IX,BL_LN                  ; The line stream.
-    LD   A,$FF                     ; Its end tag.
-    CALL OUT_BYTE                  ; Append it.
-    CALL OUT_CRC                   ; Its CRC.
-    CALL OUT_END                   ; Close it.
-.NOLINES:                      ; The line stream is closed if it was open.
-    LD   A,(BL_FLAGS)              ; Is there a name stream?
-    AND  BL_NMOUT                  ; Only options M and Y need one.
-    JR   Z,.DONE                   ; Then skip it.
-    LD   IX,BL_NM                  ; The name stream.
-    LD   HL,0                      ; Ordinal zero ends it.
-    CALL OUT_WORD                  ; Append it.
-    CALL OUT_CRC                   ; Its CRC.
-    CALL OUT_END                   ; Close it.
-.DONE:                         ; Every stream is closed.
-    POP  IX                        ; Restore the caller's IX.
-    RET                            ; The linker may read them.
-
-; Stream types and magic numbers. BL_STAB lists the streams after the
-; directory: each entry is the flag that wants it, its record, its type and
-; its magic; a zero flag ends the table.
-
-BL_TDR: DB   "$DR"             ; The directory stream's type.
-BL_STAB:                       ; The other streams, in the order they open.
-    DB   BL_BYOUT                  ; The byte stream, always.
-    DW   BL_BY                     ; Its record.
-    DB   "$BYBSIB"                 ; Its type and magic.
-    DB   BL_LNOUT                  ; The line stream, unless option N.
-    DW   BL_LN                     ; Its record.
-    DB   "$LNBSIL"                 ; Its type and magic.
-    DB   BL_NMOUT                  ; The name stream, with option M or Y.
-    DW   BL_NM                     ; Its record.
-    DB   "$NMBSIN"                 ; Its type and magic.
-    DB   0                         ; The end of the table.

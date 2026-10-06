@@ -11,8 +11,9 @@
 ;  a record at a time, sets the DMA address back to $0080, as the CCP
 ;  leaves it, and starts BLINK, which takes its stack from $0006.
 ;
-;  Principal entry, the CHAIN overlay's (OVERLAY.ASM):
+;  Principal entries, the CHAIN overlay's (OVERLAY.ASM), with BLCLOSE.ASM:
 ;    CH_RUN    run BLINK.COM with the build's tail, at OV_AREA
+;    CH_DONE   close the streams, then run BLINK unless option C, at OV_AREA+3
 ;
 ;  The tail: the first part's name as the command line gave it, drive and
 ;  type included, then the options as given, less X, which BLINK does not
@@ -31,10 +32,23 @@ CH_RLINK EQU  $12              ; Return code's low byte: a link error, $FF12.
 CH_TAIL EQU  BL_CODE           ; The new tail is built here before it moves.
 
 ;@ROUTINE NORETURN
-; The overlay's entry, at OV_AREA: run BLINK.COM (CH_RUN).
+; The overlay's entries: OV_AREA, CH_RUN, when option X links alone, and
+; OV_AREA+3, CH_DONE, when a compilation has succeeded.
 
 CH_ENTRY:                      ; At OV_AREA.
     JP   CH_RUN                    ; Run BLINK.
+
+;@ROUTINE NORETURN
+; The compilation has succeeded: write the streams' trailers and close
+; them (BL_CLOSE, BLCLOSE.ASM), then, unless option C compiles only, run
+; BLINK; with C, warm boot, so that a SUBMIT job runs on.
+
+CH_DONE:                       ; At OV_AREA+3.
+    CALL BL_CLOSE                  ; Write the trailers and close the streams.
+    LD   A,(CL_SEEN+CL_IC)         ; Option C
+    CP   'C'                       ; compiles only:
+    JP   Z,0                       ; success, a warm boot.
+    JR   CH_RUN                    ; Otherwise BLINK links the streams.
 
 ;@ROUTINE IN DE,HL NORETURN
 ; The loader: read the file whose open FCB is DE to HL, $0100, and start

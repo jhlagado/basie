@@ -16,6 +16,7 @@
 ;    SRC_OPEN  begin the compilation at the stream's first part
 ;    SRC_BODY make the stream's part A current, at its body
 ;    SRC_INIT  make the byte range [HL,DE) the current part with identity A
+;              (in PARTS.ASM, the PARTS overlay: only the loader uses it)
 ;    SRC_PEEK  return the current byte without consuming it
 ;    SRC_TAKE  consume one byte, advancing the offset and column
 ;    SRC_EOL   advance the line counter for one logical line break
@@ -125,26 +126,6 @@ SRC_BODY:                      ; A is the part's number.
     LD   (TK_LIVE),A               ; on its line
     LD   (TK_NEST),A               ; and no bracket open.
     RET                            ; A is zero; carry clear.
-
-;@ROUTINE IN A,DE,HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-; Make the bytes [HL,DE) the current part, with identity A, and restart the
-; position counters at offset zero, line one, column one. The tokenizer's
-; line state starts afresh: no token yet on the line and no open brackets.
-
-SRC_INIT:
-    LD   (SRC_ID),A                ; Record the part identity for diagnostics.
-    LD   (SRC_PTR),HL              ; The next byte is the part's first.
-    EX   DE,HL                     ; Bring the exclusive end into HL.
-    LD   (SRC_END),HL              ; Bound the part for SRC_PEEK.
-    LD   HL,0                      ; Form offset zero.
-    LD   (SRC_POS),HL              ; Offsets count from the part's start.
-    INC  HL                        ; Lines and columns count from one.
-    LD   (SRC_LINE),HL             ; Begin on the part's first line.
-    LD   (SRC_COL),HL              ; Begin in its first column.
-    XOR  A                         ; Form zero and clear carry for success.
-    LD   (TK_LIVE),A               ; No token has been seen on this line yet.
-    LD   (TK_NEST),A               ; No bracket is open across a line break.
-    RET                            ; Return success with A zero.
 
 ;@ROUTINE OUT A,CARRY,ZERO,DE,HL CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the current byte in A without consuming it, with carry clear and

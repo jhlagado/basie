@@ -11,10 +11,12 @@
 ;
 ;  Principal entries:
 ;    OUT_OPEN   delete any old file of the name, make it and reset the stream
+;               (BLOPEN.ASM, in the START overlay)
 ;    OUT_BYTE   append A, updating the CRC and the count
 ;    OUT_WORD   append HL, low byte first
-;    OUT_CRC    append the stream's CRC, low byte first
-;    OUT_END  pad the last record with zeros, write it and close the file
+;    OUT_CRC    append the stream's CRC, low byte first (BLCLOSE.ASM)
+;    OUT_END    pad the last record with zeros, write it and close the file
+;               (BLCLOSE.ASM, in the CHAIN overlay)
 ;    OUT_UPD    fold A into the CRC word at HL
 ;
 ;  Stream record (OUT_SIZE bytes, addressed by IX):
@@ -43,45 +45,6 @@ BD_WRITE EQU  21               ; BDOS write sequential: A is nonzero when full.
 BD_MAKE EQU  22                ; BDOS make file: A is $FF when the directory is full.
 BD_DMA EQU  26                 ; BDOS set DMA address.
 
-;@ROUTINE IN IX,DE,HL CLOBBERS A,BC,DE,HL,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Open the stream at IX as a new file. DE is nine bytes, an FCB drive byte
-; and an eight-character name; HL is a three-character type. Any old file
-; of the name is deleted first: CP/M's make does not check for one, and a
-; crashed build could otherwise leave two entries with one name (toolchain
-; §3.2).
-
-OUT_OPEN:                      ; IX is the stream, DE the drive and name.
-    PUSH HL                        ; Keep the type until the name is in.
-    PUSH IX                        ; Copy the drive and name to the FCB:
-    POP  HL                        ; HL is the FCB.
-    EX   DE,HL                     ; DE is the FCB, HL the drive and name.
-    LD   BC,9                      ; Nine bytes.
-    LDIR                           ; DE is now the FCB's type field.
-    POP  HL                        ; HL is the type.
-    LD   C,3                       ; Three bytes; B is still zero.
-    LDIR                           ; DE is now the first byte after the type.
-    LD   B,OUT_FCBN-12             ; The extent, map and record bytes,
-    XOR  A                         ; all zero, as make expects.
-.CLEAR:                        ; B bytes of FCB remain to clear.
-    LD   (DE),A                    ; Clear this one.
-    INC  DE                        ; Move to the next.
-    DJNZ .CLEAR                    ; Through the random record number.
-    LD   (IX+OUT_POS),A            ; The buffer is empty.
-    LD   (IX+OUT_CNT),A            ; Nothing has been written:
-    LD   (IX+OUT_CNT+1),A          ; the count is zero
-    LD   (IX+OUT_CNT+2),A          ; in all
-    LD   (IX+OUT_CNT+3),A          ; four bytes.
-    DEC  A                         ; A is $FF.
-    LD   (IX+OUT_SUM),A            ; The CRC starts at $FFFF,
-    LD   (IX+OUT_SUM+1),A          ; both bytes.
-    LD   C,BD_DEL                  ; Delete any old file of the name;
-    CALL OUT_FCB                   ; an absent file is only a status.
-    LD   C,BD_MAKE                 ; Make the new file.
-    CALL OUT_FCB                   ; A is $FF if the directory is full.
-    INC  A                         ; $FF becomes zero.
-    RET  NZ                        ; The file is open and empty.
-    JP   OUT_FAIL                  ; No directory entry: the build cannot go on.
-
 ;@ROUTINE IN C,IX OUT A CLOBBERS BC,DE,HL,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Call BDOS function C on the FCB that starts the stream at IX, keeping IX.
 
@@ -101,18 +64,6 @@ OUT_WORD:                      ; HL is the word.
     CALL OUT_BYTE                  ; Append it.
     LD   A,H                       ; Then the high byte.
     JR   OUT_BYTE                  ; Append it and return.
-
-;@ROUTINE IN IX CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the stream's CRC of everything written so far, low byte first, as
-; the line, name and directory streams end (object format §7, §8, §9).
-
-OUT_CRC:                       ; IX is the stream.
-    PUSH HL                        ; Keep the caller's HL.
-    LD   L,(IX+OUT_SUM)            ; HL is the CRC
-    LD   H,(IX+OUT_SUM+1)          ; of the bytes before it.
-    CALL OUT_WORD                  ; Append it; the CRC changes, but is not used again.
-    POP  HL                        ; Restore HL.
-    RET                            ; The stream is complete.
 
 ;@ROUTINE IN A,IX CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append A to the stream at IX: fold it into the CRC, count it and buffer
@@ -177,27 +128,6 @@ OUT_BYTE:                      ; A is the byte.
     LD   (IX+OUT_POS),A            ; The buffer is empty again.
     POP  IY                        ; Restore the caller's IY.
     RET                            ; The record is on the disk.
-
-;@ROUTINE IN IX CLOBBERS A,BC,DE,HL,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Finish the stream at IX: pad a partly filled record with zeros, write it,
-; and close the file. Readers find each stream's end from its contents.
-
-OUT_END:                       ; IX is the stream.
-    LD   A,(IX+OUT_POS)            ; Is a record partly filled?
-    OR   A                         ; Zero means the last record was written.
-    JR   Z,.SHUT                   ; Then only the close remains.
-.PAD:                          ; The buffer holds part of a record.
-    XOR  A                         ; Pad with zeros,
-    CALL OUT_BYTE                  ; which also counts them; no reader uses the count after this.
-    LD   A,(IX+OUT_POS)            ; OUT_BYTE writes the record when it fills,
-    OR   A                         ; leaving the buffer empty.
-    JR   NZ,.PAD                   ; Until then, pad again.
-.SHUT:                         ; Every record is written.
-    LD   C,BD_CLOSE                ; Close the file, recording its extent.
-    CALL OUT_FCB                   ; A is $FF if the close failed.
-    INC  A                         ; $FF becomes zero.
-    RET  NZ                        ; The file is closed.
-    JP   OUT_FAIL                  ; A failed close loses the file.
 
 ;@ROUTINE IN A,HL OUT HL CLOBBERS B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Fold A into the CRC-16/CCITT-FALSE word at HL (polynomial $1021, most

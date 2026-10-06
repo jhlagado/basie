@@ -12,10 +12,12 @@
 ;    OV_CMD    COMMAND.ASM  the command line (CL_READ at OV_AREA)
 ;    OV_START  LIBRARY.ASM  the library check (LB_FIRST at OV_AREA), then,
 ;                           once the parts are loaded, the stamp and the
-;                           streams (LB_OPEN at OV_AREA+3)
+;                           streams (LB_OPEN at OV_AREA+3), with BLOPEN.ASM
 ;    OV_NAMES  PREDEF.ASM   the predeclared names (HP_NAMES at OV_AREA),
 ;                           loaded for the whole compilation
-;    OV_CHAIN  CHAIN.ASM    the chain to BLINK (CH_RUN at OV_AREA)
+;    OV_CHAIN  CHAIN.ASM    the chain to BLINK (CH_RUN at OV_AREA), or the
+;                           streams closed first, with BLCLOSE.ASM (CH_DONE
+;                           at OV_AREA+3)
 ;    OV_DIAG   MESSAGE.ASM  diagnostics from BASIE.MSG (MS_SHOWE at
 ;                           OV_AREA, MS_SHOWD at OV_AREA+3)
 ;    OV_PARTS  PARTS.ASM    the parts and their includes, loaded (SH_BEGIN
