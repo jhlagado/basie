@@ -181,7 +181,8 @@ PL_ENAME EQU  5                ;   word: its name's address in the source.
 PL_LEN EQU  7                  ; Bytes of one entry.
 HN_MODE EQU  PL_TAB+PL_LEN*PL_CAP ; Byte: nonzero while HN_SEG only looks.
 HN_SEEN EQU  HN_MODE+1         ; Byte: nonzero once HN_SEG sees an owner.
-PL_WEND EQU  HN_SEEN+1         ; The end of the pools' bytes.
+HN_AT EQU  HN_SEEN+1           ; Word: where HN_OWNV reports, or zero for the value.
+PL_WEND EQU  HN_AT+2           ; The end of the pools' bytes.
 
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.

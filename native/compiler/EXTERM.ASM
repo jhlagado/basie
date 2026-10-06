@@ -57,7 +57,7 @@ EX_TERM:
     JP   Z,EX_PAREN                ; Parse the enclosed expression.
     CP   TK_TYPE                   ; A type's name?
     JP   Z,EX_CONV                 ; A conversion, C the type.
-    JP   PR_ETERM                  ; Anything else: a value was expected.
+    JP   HN_ETERM                  ; Anything else: a value was expected.
 .NUMBER:                       ; BC and TK_NHI are the number's value.
     LD   H,B                       ; Its low word
     LD   L,C                       ; in HL,
@@ -129,6 +129,7 @@ EX_NAME:
     LD   H,0                       ; widened.
     JR   EX_LIT                    ; Return it.
 .ORDINARY:                     ; A routine or an ordinary symbol.
+    CALL HN_ISID                   ; Not id(...) yet.
     CALL RO_FIND                   ; Is it a routine?
     JP   Z,RO_FUNC                 ; Yes: parse a call for its result.
     CALL SY_GET                    ; Fetch class/type and payload, or fail.

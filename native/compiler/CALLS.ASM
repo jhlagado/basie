@@ -952,8 +952,10 @@ RO_PART:
 ; aggregate is no value here (DG_CLASH). A returns its type.
 
 RO_LOAD:
+    CALL PL_ISHND                  ; A handle's value
+    JP   C,TR_OPER                 ; waits (DG_NYI).
     CP   AG_FIRST                  ; An aggregate is not a scalar value:
-    JR   NC,RO_EFIT                ; DG_CLASH at the path.
+    JP   NC,RO_EFIT                ; DG_CLASH at the path.
     CALL GA_LOAD                   ; Load it into A or HL.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
@@ -1027,7 +1029,11 @@ RO_LET:
     LD   A,(RO_PRO)                ; A read-only target
     OR   A                         ; cannot be
     JP   NZ,RO_EROOT               ; assigned: raise DG_CONST at it.
-    POP  AF                        ; The target's type; fall into RO_ASGN.
+    POP  AF                        ; The target's type.
+    CALL PL_ISHND                  ; A handle's type-mismatch
+    JR   NC,RO_ASGN                ; is reported
+    LD   HL,(EX_START)             ; at the target
+    LD   (HN_AT),HL                ; (assign's at); fall into RO_ASGN.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Assign to the path in hand (RO_PLACE), of type A, its value parsed: as

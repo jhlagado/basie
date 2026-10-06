@@ -209,17 +209,35 @@ HN_NEW:                        ; `new` is next.
 ; Parse an owning value for a handle of type E into HL at run time
 ; (ownValue): new or new? of its pool, an optional one only for an
 ; optional handle; none, LD HL,0, only for an optional handle; either
-; else type-mismatch, at the value. Anything else is refused for now.
+; else type-mismatch, at HN_AT when an assignment set it (its target),
+; else at the value. A name's value waits (DG_NYI); anything else is
+; parsed as an expression, then type-mismatch.
 
 HN_OWNV:                       ; E is the handle's type.
     PUSH DE                        ; Kept.
-    CALL PR_SPOT                   ; The value's start, HL:
+    CALL PR_SPOT                   ; The value's kind, A, and start, HL,
+    LD   C,A                       ; (the kind kept)
+    LD   DE,(HN_AT)                ; unless
+    LD   A,D                       ; an assignment
+    OR   E                         ; gave its
+    JR   Z,.AT                     ; target's
+    EX   DE,HL                     ; place.
+.AT:                           ; HL is where a mismatch is reported.
+    LD   DE,0                      ; HN_AT is
+    LD   (HN_AT),DE                ; used once.
     POP  DE                        ; (the type)
-    PUSH HL                        ; kept.
+    PUSH HL                        ; The place, kept.
+    LD   A,C                       ; The kind:
     CP   TK_NONE                   ; none?
     JR   Z,.NONE                   ; LD HL,0.
+    CP   TK_NAME                   ; A name's value
+    JP   Z,TR_OPER                 ; waits (DG_NYI).
     CP   TK_NEW                    ; new?
-    JP   NZ,TR_OPER                ; Anything else waits (DG_NYI).
+    JR   Z,.NEW                    ; Its handle.
+    XOR  A                         ; Anything else
+    CALL EX_RUN                    ; is an expression,
+    JR   .CLASH                    ; but no handle.
+.NEW:                          ; new.
     PUSH DE                        ; The type, kept.
     CALL HN_NEW                    ; The new handle, A its type.
     POP  DE                        ; The target's type, E:
@@ -402,6 +420,42 @@ RO_HSEL:                       ; A is the next token's kind.
     CALL PL_ISHND                  ; a handle?
     JP   C,TR_OPER                 ; Not yet.
     POP  AF                        ; The kind.
+    RET                            ; Back.
+
+;@ROUTINE IN A NORETURN
+; No primary begins with token kind A, consumed: new, none and move
+; begin handle values, which wait in an expression (DG_NYI); anything
+; else is syntax, a value expected (PR_ETERM).
+
+HN_ETERM:                      ; A is the token's kind.
+    CP   TK_NEW                    ; new,
+    JP   Z,TR_OPER                 ; none
+    CP   TK_NONE                   ; and
+    JP   Z,TR_OPER                 ; move
+    CP   TK_MOVE                   ; wait;
+    JP   Z,TR_OPER                 ; anything
+    JP   PR_ETERM                  ; else is syntax.
+
+;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The current NAME is a primary: `id(`, an identifier made, waits (DG_NYI).
+; The NAME is kept.
+
+HN_ISID:                       ; The NAME is current.
+    LD   HL,KW_ID                  ; `id`
+    LD   B,2                       ; (two bytes)?
+    CALL TK_MATCH                  ; If not,
+    RET  NC                        ; an ordinary name.
+    LD   HL,(TK_PTR)               ; The NAME's
+    PUSH HL                        ; spelling,
+    LD   A,(TK_LEN)                ; kept across
+    PUSH AF                        ; the peek.
+    CALL PR_PEEK                   ; `(`
+    CP   TK_LPAR                   ; follows?
+    JP   Z,TR_OPER                 ; Then id(...) waits.
+    POP  AF                        ; The NAME
+    LD   (TK_LEN),A                ; is
+    POP  HL                        ; current
+    LD   (TK_PTR),HL               ; again.
     RET                            ; Back.
 
 ; ---------------------------------------------------------------- frees

@@ -1407,6 +1407,20 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new nodes\nend\n",
   "new without a name":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new (1)\nend\n",
+  "none assigned to a non-optional owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nsub main()\n    var a = new nodes(1, none)\n    a = none\nend\n",
+  "new? assigned to a non-optional owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nsub main()\n    var a = new nodes(1, none)\n    a = new? nodes(2, none)\nend\n",
+  "another pool's handle assigned to a program variable":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nsub main()\n    head = new leaves(1)\nend\n",
+  "another pool's handle assigned to a field":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nvar gw as Node\nsub main()\n    gw.next = new leaves(1)\nend\n",
+  "another pool's handle as a field of new":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nsub main()\n    var a = new nodes(1, new leaves(2))\nend\n",
+  "a missing field after a comma in new":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nsub main()\n    var a = new nodes()\n    var b = new nodes(1,)\nend\n",
+  "a record of the wrong type as a field of new":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nrecord R\n    a as Leaf\nend\npool rs as R[2]\nvar gn as Node\nsub main()\n    var a = new rs(gn)\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 
