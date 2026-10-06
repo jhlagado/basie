@@ -278,7 +278,13 @@ PR_WEND EQU  AG_WEND           ; End of this file's workspace.
 AG_LCAP EQU  4                 ; Initializer nesting levels; DG_INITS beyond.
 
 ; Token kinds, as TK_NEXT returns them in A. Grammar terminals use the same
-; ordinals, so they stay below $40. The spellings are in KEYWORDS.ASM.
+; ordinals, so they stay below $40 (LL1.ASM), and a kind the grammar
+; expects stays below 62, so that DG_TOKEN plus it is a syntax diagnostic
+; (below 190). Only the grammar's terminals and the pseudo-kinds need those
+; ordinals: a token only the expression island reads, or that the parser
+; never sees, takes a kind from $40 on (below). The spellings are in
+; KEYWORDS.ASM. Free below 62: 10, 26 to 28, 32 to 37, 39, 50, 53 and 54;
+; 63 too, for a terminal never expected alone (as `select` is).
 
 TK_EOF EQU  0                  ; End of the last source part.
 TK_EOL EQU  1                  ; End of a line that produced a token.
@@ -290,7 +296,6 @@ TK_RPAR EQU  6                 ; Right parenthesis.
 TK_EQ EQU  7                   ; Equals sign: assignment or equality.
 TK_SUB EQU  8                  ; Keyword sub.
 TK_FAILS EQU  9                ; Keyword fails.
-TK_OR EQU  10                  ; Keyword or.
 TK_FAIL EQU  11                ; Keyword fail.
 TK_END EQU  12                 ; Keyword end.
 TK_VAR EQU  13                 ; Keyword var.
@@ -307,20 +312,10 @@ TK_RET EQU  22                 ; Keyword return.
 TK_IF EQU  23                  ; Keyword if.
 TK_MINUS EQU  24               ; Minus sign.
 TK_PLUS EQU  25                ; Plus sign.
-TK_STAR EQU  26                ; Asterisk: multiplication.
-TK_SHL EQU  27                 ; Keyword shl.
-TK_SHR EQU  28                 ; Keyword shr.
 TK_TRUE EQU  29                ; Keyword true.
 TK_FALSE EQU  30               ; Keyword false.
 TK_CONST EQU  31               ; Keyword const.
-TK_SLASH EQU  32               ; Slash: division.
-TK_LT EQU  33                  ; Less than.
-TK_LE EQU  34                  ; Less than or equal.
-TK_GT EQU  35                  ; Greater than.
-TK_GE EQU  36                  ; Greater than or equal.
-TK_NE EQU  37                  ; Not equal.
 TK_NOT EQU  38                 ; Keyword not.
-TK_AND EQU  39                 ; Keyword and.
 TK_ELSIF EQU  40               ; Keyword elseif.
 TK_ELSE EQU  41                ; Keyword else.
 TK_WHILE EQU  42               ; Keyword while.
@@ -331,11 +326,8 @@ TK_CONT EQU  46                ; Keyword continue.
 TK_TEXT EQU  47                ; String literal: TK_PTR, decoded TK_LEN.
 TK_REC EQU  48                 ; Keyword record.
 TK_STR EQU  49                 ; Keyword string.
-TK_DOT EQU  50                 ; Full stop: field selection.
 TK_HANDL EQU  51               ; Keyword handle.
 TK_PRIV EQU  52                ; Keyword private.
-TK_XOR EQU  53                 ; Keyword xor.
-TK_MOD EQU  54                 ; Keyword mod.
 TK_ASSRT EQU  55               ; Keyword assert.
 TK_CASE EQU  61                ; Keyword case: a select's arm.
 TK_SEL EQU  62                 ; Keyword select, never expected alone (DG_TOKEN+62 is 190).
@@ -346,6 +338,24 @@ TK_SOME EQU  $40               ; Keyword some.
 TK_NONE EQU  $41               ; Keyword none.
 TK_MOVE EQU  $42               ; Keyword move.
 TK_INCL EQU  $43               ; Keyword include.
+; The operators, read only inside the expression island (EXPR.ASM,
+; EXOPER.ASM) and the path parser (CALLS.ASM), never by the grammar; the
+; orders of TK_STAR to TK_SHR, TK_SLASH to TK_NE and TK_XOR to TK_MOD
+; are kept.
+TK_OR EQU  $44                 ; Keyword or.
+TK_STAR EQU  $45               ; Asterisk: multiplication.
+TK_SHL EQU  $46                ; Keyword shl.
+TK_SHR EQU  $47                ; Keyword shr.
+TK_SLASH EQU  $48              ; Slash: division.
+TK_LT EQU  $49                 ; Less than.
+TK_LE EQU  $4A                 ; Less than or equal.
+TK_GT EQU  $4B                 ; Greater than.
+TK_GE EQU  $4C                 ; Greater than or equal.
+TK_NE EQU  $4D                 ; Not equal.
+TK_AND EQU  $4E                ; Keyword and.
+TK_DOT EQU  $4F                ; Full stop: field selection.
+TK_XOR EQU  $50                ; Keyword xor.
+TK_MOD EQU  $51                ; Keyword mod.
 
 ; Diagnostic codes, as DG_CODE reports them. Below DG_TOKEN and from 190
 ; to 199 a code is the reference compiler's number for the diagnostic

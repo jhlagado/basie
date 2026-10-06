@@ -160,6 +160,27 @@ lays out the rows from the first that starts 256 bytes or more from
 `GR_ROWS` on (`GR_RHIGH`) at offsets from the page after it, which costs
 the engine five bytes. The grammar names 44 terminals.
 
+**Decided before 67f.** Every kind below 62 was then taken, by 43 of the
+terminals (`select`, never expected alone, has 62), the five pseudo-kinds
+of the syntax diagnostics and the 14 tokens only the expression island
+and the path parser read, and stage 67g needs `pool`,
+`new` and the handles' words. Three ways were weighed: folding more token
+classes into one terminal with the class in the token's value (the
+relational, additive and multiplicative operators), which would change
+how the expression parser reads them; widening the encoding to two bytes
+a symbol, which would grow the tables and the engine; and taking the
+island-only tokens out of the grammar's ordinals, which the decision at
+67a already allowed. The last was chosen, the smallest coherent change:
+`or`, `*`, `shl`, `shr`, `/`, the five orders and `<>`, `and`, `.`, `xor`
+and `mod` took kinds `$44` to `$51` (keeping the runs the code relies on,
+`*` to `shr`, `/` to `<>` and `xor` to `mod`), which no byte of the image
+depends on beyond the kinds themselves: the image kept its size, 17,963
+bytes. Fourteen kinds below 62 are free (10, 26 to 28, 32 to 37, 39, 50,
+53 and 54), and 63 for a terminal never expected alone;
+`tests/llgen_test.ts` checks that no other token takes a grammar ordinal
+and counts the free ones. The relational, additive and multiplicative
+folding stays available should 67g need more.
+
 ## 3. Step 65 in increments
 
 Each increment keeps a working, tested compiler. Each follows the D43 cycle

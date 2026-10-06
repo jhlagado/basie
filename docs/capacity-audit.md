@@ -649,7 +649,7 @@ constant, a capacity diagnostic and a budget to argue.
 | Labels | 32 in use at once per routine (`EM_LCAP`), released by nesting; pending operands are chained through their references' addend words (`EMIT.ASM`, no limit) | §3.4 |
 | Source parts | 255 while memory lasts, in a part table that grows down from the top of the source area (`SOURCE.ASM`); 8 on the command line (`CL_PCAP`) | §3.17: 255 |
 | Predeclared names | the reference's 58, generated from its helper table into `PREDEF.ASM`; the services' records are read in place, so they have no capacity of their own | — |
-| Grammar terminals | 42, below `$40`: the eight type keywords are one terminal, `TK_TYPE`, its payload the type; Basie has 79 token kinds | native compiler §2 |
+| Grammar terminals | 44: 43 of the kinds below 62 (`DG_TOKEN` plus a kind is a syntax diagnostic below 190), and `select` at 62, with the five pseudo-kinds of the syntax diagnostics; 14 left free below 62, and 63 for a terminal never expected alone. The eight type keywords are one terminal, `TK_TYPE`, its payload the type; the operators, which only the expression island reads, take kinds from `$44` on (`tests/llgen_test.ts` counts the free kinds) | native compiler §2 |
 
 Code is generated as it is parsed, into a routine's blob ([native
 compiler](native-compiler.md) §2); blobs take 16-bit ordinals from `$0400`
