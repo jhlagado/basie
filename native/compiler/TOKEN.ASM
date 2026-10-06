@@ -212,18 +212,17 @@ TK_WORD:                       ; The current byte is a letter.
 .KEYLOOP:                      ; HL is at an entry's length byte.
     LD   B,(HL)                    ; Keyword length.
     INC  HL                        ; HL at the keyword's first byte.
-    LD   A,(TK_LEN)                ; Length of the name.
-    CP   B                         ; Only equal lengths need a byte compare.
-    JR   NZ,.SKIP                  ; Lengths differ: B bytes remain to pass.
-    LD   DE,(TK_PTR)               ; DE walks the name in the source.
-.BYTELOOP:                     ; B keyword bytes remain at HL.
-    LD   A,(DE)                    ; Next byte of the name.
-    CP   (HL)                      ; Keywords match exactly: case counts.
-    JR   NZ,.SKIP                  ; B bytes of the keyword remain at HL.
-    INC  DE                        ; Next byte of the name.
-    INC  HL                        ; Next byte of the keyword.
-    DJNZ .BYTELOOP                 ; Until the whole keyword agrees.
-    LD   A,(HL)                    ; HL is at the kind byte after the keyword.
+    LD   E,B                       ; DE is its length;
+    LD   D,0                       ; keywords are under 256 bytes.
+    PUSH HL                        ; The keyword waits
+    ADD  HL,DE                     ; while its kind byte's address
+    EX   (SP),HL                   ; takes its place on the stack.
+    PUSH BC                        ; Keep the count.
+    CALL TK_MATCH                  ; Carry if the name is this keyword, exactly.
+    POP  BC                        ; The count.
+    POP  HL                        ; HL at the kind byte; POP keeps the flags.
+    JR   NC,.SKIP                  ; No match: try the next.
+    LD   A,(HL)                    ; The keyword's kind.
     OR   A                         ; A type keyword's
     JP   M,.TYPE                   ; has bit 7 set.
     CP   TK_END                    ; An `end`
@@ -236,10 +235,7 @@ TK_WORD:                       ; The current byte is a letter.
     LD   C,A                       ; is the payload, B being zero,
     LD   A,TK_TYPE                 ; of a type keyword.
     JP   TK_DONE                   ; Return it.
-.SKIP:                         ; B bytes of this keyword remain at HL.
-    LD   E,B                       ; DE: the bytes still to pass.
-    LD   D,0                       ; Keywords are under 256 bytes.
-    ADD  HL,DE                     ; HL at the kind byte.
+.SKIP:                         ; HL is at this keyword's kind byte.
     INC  HL                        ; HL at the next entry.
     DEC  C                         ; One entry fewer to try.
     JR   NZ,.KEYLOOP               ; Try the next keyword.
@@ -255,12 +251,7 @@ TK_WORD:                       ; The current byte is a letter.
 ; first. Reached by a jump from TK_NEXT.
 
 TK_DIGIT:                      ; The current byte is a decimal digit.
-    XOR  A                         ; Zero:
-    LD   (TK_WIDE),A               ; not past 32 bits,
-    LD   H,A                       ; and the value
-    LD   L,A                       ; so far,
-    LD   (TK_NLO),HL               ; low word
-    LD   (TK_NHI),HL               ; and high word.
+    CALL TK_ZERO                   ; No value and no carry yet.
 .LOOP:                         ; TK_NLO and TK_NHI are the digits so far.
     CALL SRC_PEEK                  ; Next byte, not yet consumed.
     JR   C,TK_NUMOK                ; The end of the part ends the literal.
@@ -309,6 +300,19 @@ TK_NUMOK:                      ; TK_NLO and TK_NHI are the value.
     LD   BC,(TK_NLO)               ; BC: the low word.
     LD   A,TK_NUM                  ; The token kind.
     JP   TK_DONE                   ; Return the number.
+
+;@ROUTINE OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Start a number's value at zero, not past 32 bits (TK_WIDE): A and HL
+; return zero.
+
+TK_ZERO:                       ; A number begins.
+    XOR  A                         ; Zero:
+    LD   (TK_WIDE),A               ; not past 32 bits,
+    LD   H,A                       ; and the value
+    LD   L,A                       ; so far,
+    LD   (TK_NLO),HL               ; low word
+    LD   (TK_NHI),HL               ; and high word.
+    RET                            ; Scanning may begin.
 
 ;@ROUTINE OUT DE,HL
 ; Load the value scanned so far, TK_NHI and TK_NLO, into DEHL. Flags and
@@ -425,24 +429,17 @@ TK_ECODE:                      ; E is the diagnostic.
 ; the value and the string scan the flag; AGGR decodes \xHH with it.
 
 TK_HEX:                        ; A: the byte to classify.
-    CP   '0'                       ; Digits begin at '0'.
-    JR   C,.NO                     ; Below the digits.
-    CP   '9'+1                     ; Decimal digits end at '9'.
-    JR   C,.DECIMAL                ; '0'..'9'.
+    SUB  '0'                       ; '0'..'9' now lie in 0..9; others wrap above.
+    CP   10                        ; A decimal digit?
+    RET  C                         ; Carry: A is its value.
+    ADD  A,'0'                     ; The byte again.
     OR   $20                       ; Fold capitals onto lower case.
-    SUB  'a'                       ; 'a'..'f' now lie in 0..5.
+    SUB  'a'                       ; 'a'..'f' now lie in 0..5; others above.
     CP   6                         ; Six letter digits.
-    JR   NC,.NO                    ; Not 'a'..'f'.
+    RET  NC                        ; Not 'a'..'f': carry clear.
     ADD  A,10                      ; Value 10..15; this add leaves carry clear.
     SCF                            ; Carry set: a hexadecimal digit.
     RET                            ; A is its value.
-.DECIMAL:                      ; A is '0'..'9'.
-    SUB  '0'                       ; Value 0..9.
-    SCF                            ; Carry set: a hexadecimal digit.
-    RET                            ; A is its value.
-.NO:                           ; Not a hexadecimal digit.
-    OR   A                         ; Carry clear; A may have been folded.
-    RET                            ; Report no digit.
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan and validate a string literal, returning TK_TEXT with the decoded
@@ -484,12 +481,12 @@ TK_QESC:                       ; The backslash is consumed; the escape follows.
     LD   E,DG_ESC                  ; bad-escape.
     JR   TK_ECODE                  ; Raise it.
 .HEX:                          ; Exactly two digits must follow.
-    CALL SRC_TAKE                  ; The first digit.
+    LD   B,2                       ; B counts them.
+.DIGIT:                        ; B digits remain.
+    CALL SRC_TAKE                  ; The next digit; B survives.
     CALL TK_HEX                    ; Only its validity matters here.
     JR   NC,.BAD                   ; Not a hexadecimal digit.
-    CALL SRC_TAKE                  ; The second digit.
-    CALL TK_HEX                    ; Only its validity matters here.
-    JR   NC,.BAD                   ; Not a hexadecimal digit.
+    DJNZ .DIGIT                    ; Until both are taken.
     JR   TK_QCNT                   ; \xHH decodes to one byte.
 TK_QDONE:                      ; The closing quote is consumed; C is the length.
     LD   B,0                       ; BC: the payload; B was the escape count.
@@ -701,6 +698,7 @@ TK_BREAK:                      ; The line end is consumed.
     LD   A,(TK_LIVE)               ; Nonzero if the line produced a token.
     OR   A                         ; Test the flag.
     JP   Z,TK_AGAIN                ; Blank or comment-only: no TK_EOL.
+TK_EOLR:                       ; Return a line end; the next line starts empty.
     XOR  A                         ; The next line starts empty.
     LD   (TK_LIVE),A               ; Clear the flag.
     LD   A,TK_EOL                  ; The token kind; TK_POS marks the line end.
@@ -731,13 +729,9 @@ TK_ATEND:                      ; SRC_PEEK reported the end of the part.
     LD   A,(TK_LIVE)               ; Nonzero if the last line produced a token.
     OR   A                         ; Test the flag.
     JR   Z,.NEXTPART               ; No: no TK_EOL is owed.
-    XOR  A                         ; The next part starts with an empty line.
-    LD   (TK_LIVE),A               ; Clear the flag.
     EX   DE,HL                     ; HL is SRC_OWE:
     INC  (HL)                      ; step to the next part on the next call.
-    LD   A,TK_EOL                  ; A synthetic line end.
-    OR   A                         ; Carry clear; ZERO clear.
-    RET                            ; Return the line end.
+    JR   TK_EOLR                   ; A synthetic line end; TK_LIVE cleared.
 .NEXTPART:                     ; Step to the next source part.
     XOR  A                         ; No line end
     LD   (SRC_OWE),A               ; is owed there.
@@ -749,11 +743,7 @@ TK_ATEND:                      ; SRC_PEEK reported the end of the part.
     LD   A,(TK_LIVE)               ; Nonzero if the last line produced a token.
     OR   A                         ; Test the flag.
     JR   Z,.EOF                    ; No: nothing is owed.
-    XOR  A                         ; So that the next call reaches TK_EOF.
-    LD   (TK_LIVE),A               ; Clear the flag.
-    LD   A,TK_EOL                  ; End an unterminated last line.
-    OR   A                         ; Carry clear; ZERO clear.
-    RET                            ; Return the line end.
+    JR   TK_EOLR                   ; End an unterminated last line; TK_EOF follows.
 .EOF:                          ; The source is finished.
     LD   A,TK_EOF                  ; The token kind, zero.
     OR   A                         ; ZERO set marks the end; carry clear.
@@ -768,12 +758,7 @@ TK_ATEND:                      ; SRC_PEEK reported the end of the part.
 
 TK_RADIX:                      ; B, C: the digit limit plus one.
     CALL SRC_TAKE                  ; Consume the prefix.
-    XOR  A                         ; Zero:
-    LD   (TK_WIDE),A               ; no carry yet,
-    LD   H,A                       ; and the value
-    LD   L,A                       ; so far,
-    LD   (TK_NLO),HL               ; low word
-    LD   (TK_NHI),HL               ; and high word.
+    CALL TK_ZERO                   ; No value and no carry yet.
 .LOOP:                         ; B-1 digits are still allowed.
     CALL SRC_PEEK                  ; Next byte, not yet consumed.
     JR   C,.END                    ; The end of the part ends the literal.

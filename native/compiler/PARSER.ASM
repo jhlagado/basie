@@ -107,17 +107,11 @@ DG_SRC:
     LD   HL,SRC_PCNT               ; is there one?
     CP   (HL)                      ; If not, part B
     JR   Z,.LAST                   ; holds the address.
-    CALL SRC_PART                  ; HL is entry B+1.
-    LD   DE,PT_START               ; Its
-    ADD  HL,DE                     ; start
-    LD   E,(HL)                    ; is
-    INC  HL                        ; DE.
-    LD   D,(HL)                    ; Is the address
-    POP  HL                        ; below it?
-    PUSH HL                        ; (kept)
+    CALL .START                    ; DE is entry B+1's start.
+    POP  HL                        ; Is the address below it?
     OR   A                         ; Clear carry:
-    SBC  HL,DE                     ; carry if so.
-    POP  HL                        ; The address.
+    SBC  HL,DE                     ; carry if so,
+    ADD  HL,DE                     ; which adding it back carries again.
     JR   C,.FOUND                  ; Then part B holds it.
     INC  B                         ; Otherwise
     JR   .NEXT                     ; try the next part.
@@ -126,13 +120,8 @@ DG_SRC:
 .FOUND:                        ; Part B holds the address HL.
     LD   A,B                       ; Its entry:
     PUSH HL                        ; (the address kept)
-    CALL SRC_PART                  ; HL.
-    LD   DE,PT_START               ; Its
-    ADD  HL,DE                     ; start
-    LD   E,(HL)                    ; is
-    INC  HL                        ; DE.
-    LD   D,(HL)                    ; The address
-    POP  HL                        ; less it
+    CALL .START                    ; DE is its start.
+    POP  HL                        ; The address less it
     OR   A                         ; is the
     SBC  HL,DE                     ; offset.
     INC  B                         ; The part's id,
@@ -140,6 +129,14 @@ DG_SRC:
     POP  AF                        ; the
     LD   E,A                       ; code.
     JR   DG_PLACE                  ; Record them.
+.START:                        ; A is an entry's index.
+    CALL SRC_PART                  ; HL is the entry.
+    LD   DE,PT_START               ; Its
+    ADD  HL,DE                     ; start
+    LD   E,(HL)                    ; is
+    INC  HL                        ; DE.
+    LD   D,(HL)                    ; Done.
+    RET                            ; DE is the start.
 
 ;@ROUTINE NORETURN
 ; Raise the diagnostic whose code is the byte after the CALL: `CALL DG_RAISE`
@@ -258,11 +255,9 @@ PR_PEEK:
     CALL TK_NEXT                   ; Read a token: kind in A, payload in BC.
     LD   (PR_LKIND),A              ; Buffer its kind...
     LD   (PR_LVAL),BC              ; ...and its payload.
-    LD   A,(PR_LKIND)              ; Reload the kind (A already holds it).
-    RET                            ; Return the new lookahead.
+    RET                            ; Return it, with TK_NEXT's flags.
 .BUFFERED:                     ; A holds the buffered kind.
     LD   BC,(PR_LVAL)              ; Return the buffered payload.
-    LD   A,(PR_LKIND)              ; And its kind.
     OR   A                         ; Clear carry; Z reports TK_EOF.
     RET                            ; Leave the token buffered.
 
@@ -272,12 +267,9 @@ PR_PEEK:
 
 PR_TAKE:
     CALL PR_PEEK                   ; Fetch the token, buffered or fresh.
-    LD   D,A                       ; Keep its kind.
-    LD   A,$FF                     ; Mark the lookahead cell empty.
-    LD   (PR_LKIND),A              ; The token is now consumed.
-    LD   A,D                       ; Return its kind.
-    OR   A                         ; Clear carry; Z reports TK_EOF.
-    RET                            ; BC still holds the payload.
+    LD   HL,PR_LKIND               ; Mark the lookahead cell
+    LD   (HL),$FF                  ; empty: the token is consumed.
+    RET                            ; A, BC and the flags are PR_PEEK's.
 
 ; Frequent token checks share the PR_NEED tail. Each wrapper is four bytes,
 ; and each use saves two over an inline `LD E,kind` and `CALL PR_NEED`.

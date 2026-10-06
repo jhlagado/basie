@@ -138,11 +138,9 @@ SRC_PEEK:
     OR   A                         ; Clear carry for an exact comparison.
     SBC  HL,DE                     ; Zero when the pointer has reached the end.
     ADD  HL,DE                     ; Restore the pointer; zero flag survives.
-    JR   NZ,.BYTE                  ; Bytes remain in this part.
-    SCF                            ; Report the end of the part.
-    RET                            ; Return with A as the caller left it.
-.BYTE:                         ; A byte is available.
-    LD   A,(HL)                    ; Fetch it without advancing.
+    SCF                            ; Carry reports the end of the part,
+    RET  Z                         ; with A as the caller left it.
+    LD   A,(HL)                    ; A byte remains: fetch it without advancing.
     OR   A                         ; Clear carry; zero marks a NUL byte.
     RET                            ; Return the byte.
 
@@ -152,12 +150,9 @@ SRC_PEEK:
 ; LF and CRLF each end one logical line. BC is preserved.
 
 SRC_TAKE:
-    PUSH BC                        ; Preserve the caller's BC.
-    CALL SRC_PEEK                  ; Fetch the byte or detect the end.
-    JR   C,.EOF                    ; Nothing to consume at the end of a part.
-    LD   B,A                       ; Keep the byte across the counter updates.
-    LD   HL,(SRC_PTR)              ; Fetch the byte pointer.
-    INC  HL                        ; Consume the byte.
+    CALL SRC_PEEK                  ; Fetch the byte or detect the end; HL is the pointer.
+    RET  C                         ; Nothing to consume at the end of a part.
+    INC  HL                        ; Consume the byte; A and the flags are kept.
     LD   (SRC_PTR),HL              ; Publish the advanced pointer.
     LD   HL,(SRC_POS)              ; Fetch the part offset.
     INC  HL                        ; One more byte has been consumed.
@@ -165,14 +160,7 @@ SRC_TAKE:
     LD   HL,(SRC_COL)              ; Fetch the column.
     INC  HL                        ; Columns count bytes, not characters.
     LD   (SRC_COL),HL              ; Publish the advanced column.
-    LD   A,B                       ; Return the consumed byte.
-    POP  BC                        ; Restore the caller's BC.
-    OR   A                         ; Clear carry; zero marks a NUL byte.
-    RET                            ; Return the byte.
-.EOF:                          ; The part is exhausted.
-    POP  BC                        ; Restore the caller's BC.
-    SCF                            ; Report the end of the part.
-    RET                            ; Return with A as SRC_PEEK left it.
+    RET                            ; A and the flags are SRC_PEEK's.
 
 ;@ROUTINE OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,HL
 ; Count one logical line break: the next byte is in column one of the next

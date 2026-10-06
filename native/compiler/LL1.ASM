@@ -41,15 +41,20 @@ LL_WEND EQU  LL_STACK+LL_CAP   ; End of compiler workspace (marker).
 ; leaves through DG_ISSUE instead.
 
 LL_PARSE:
-    XOR  A                         ; Start with an empty stack.
-    LD   (LL_DEPTH),A              ; No symbols yet.
-    LD   A,GR_START                ; The compilation-unit nonterminal.
-    CALL .PUSHSYM                  ; Make it the only symbol.
+    LD   H,GR_START                ; The compilation unit
+    LD   L,1                       ; is the one symbol:
+    LD   (LL_DEPTH),HL             ; the depth, then LL_STACK's bottom.
 .LOOP:                         ; Pop and process one symbol.
     LD   A,(LL_DEPTH)              ; How many symbols remain?
     OR   A                         ; An empty stack means the program is complete.
     RET  Z                         ; Return with A zero, Z set and carry clear.
-    CALL .POPSYM                   ; A is the symbol on top, now removed.
+    DEC  A                         ; The top symbol is at depth minus one.
+    LD   (LL_DEPTH),A              ; Remove it from the count.
+    LD   L,A                       ; Form its slot...
+    LD   H,0                       ; ...from the new depth...
+    LD   DE,LL_STACK               ; ...plus the stack base.
+    ADD  HL,DE                     ; HL addresses the symbol.
+    LD   A,(HL)                    ; A is the symbol on top, now removed.
     CP   $40                       ; Below $40 is a terminal.
     JR   C,.TERMINAL               ; Consume the token it names.
     CP   $80                       ; $40..$7F is a nonterminal.
@@ -68,11 +73,10 @@ LL_PARSE:
     INC  HL                        ; ...low byte first...
     LD   D,(HL)                    ; ...then the high byte.
     EX   DE,HL                     ; HL is the action routine.
-    LD   DE,.RESUME                ; Its RET must come back to the loop.
-    PUSH DE                        ; Stack the return address.
-    JP   (HL)                      ; Run the action with A still the ordinal.
-.RESUME:                       ; Each action returns here.
+    CALL .RUN                      ; Run it with A still the ordinal.
     JR   .LOOP                     ; Process the next symbol.
+.RUN:                          ; HL is the action routine.
+    JP   (HL)                      ; Its RET returns to the loop.
 
 .TERMINAL:                     ; A is the token kind the grammar requires.
     LD   E,A                       ; PR_NEED expects it in E.
@@ -160,8 +164,7 @@ LL_PARSE:
     LD   A,(HL)                    ; Fetch that end offset.
     SUB  C                         ; A is the body's length.
     LD   B,A                       ; Keep the length in B.
-    LD   A,C                       ; Form the body's address...
-    LD   L,A                       ; ...from its start offset...
+    LD   L,C                       ; Form the body's address from its start offset...
     LD   H,0                       ; ...widened...
     ADD  HL,DE                     ; ...plus the base.
     LD   A,B                       ; Is the body empty?
@@ -175,8 +178,7 @@ LL_PARSE:
     JR   NC,.FULL                  ; Raise DG_LLCAP.
     LD   (LL_DEPTH),A              ; Commit the new depth.
     PUSH HL                        ; Keep the body's address.
-    LD   A,C                       ; Form the first free slot...
-    LD   E,A                       ; ...from the old depth...
+    LD   E,C                       ; Form the first free slot from the old depth...
     LD   D,0                       ; ...widened...
     LD   HL,LL_STACK               ; ...plus the stack base.
     ADD  HL,DE                     ; HL is the first free slot.
@@ -187,40 +189,6 @@ LL_PARSE:
     LDIR                           ; Push the reversed body; its leftmost symbol lands on top.
     XOR  A                         ; Report success with carry clear.
     RET                            ; The stack holds the right side.
-
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE,HL
-; Push symbol A, raising DG_LLCAP if the stack is full.
-
-.PUSHSYM:
-    LD   C,A                       ; Keep the symbol.
-    LD   A,(LL_DEPTH)              ; Fetch the depth.
-    CP   LL_CAP                    ; Is the stack full?
-    JR   NC,.FULL                  ; Raise DG_LLCAP.
-    LD   L,A                       ; Form the first free slot...
-    LD   H,0                       ; ...from the depth...
-    LD   DE,LL_STACK               ; ...plus the stack base.
-    ADD  HL,DE                     ; HL is the first free slot.
-    LD   (HL),C                    ; Store the symbol there.
-    LD   HL,LL_DEPTH               ; Address the depth.
-    INC  (HL)                      ; Count the symbol.
-    XOR  A                         ; Report success with carry clear.
-    RET                            ; The symbol is on top.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
-; Pop the top symbol into A. The caller has checked that the stack is not
-; empty.
-
-.POPSYM:
-    LD   A,(LL_DEPTH)              ; Fetch the depth.
-    DEC  A                         ; The top symbol is at depth minus one.
-    LD   (LL_DEPTH),A              ; Remove it from the count.
-    LD   L,A                       ; Form its slot...
-    LD   H,0                       ; ...from the new depth...
-    LD   DE,LL_STACK               ; ...plus the stack base.
-    ADD  HL,DE                     ; HL addresses the symbol.
-    LD   A,(HL)                    ; Fetch it.
-    OR   A                         ; Clear carry.
-    RET                            ; A is the popped symbol.
 
 .FULL:                         ; The grammar stack cannot take the push.
     CALL DG_RAISE                  ; Abandon the build.
