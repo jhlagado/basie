@@ -10,50 +10,92 @@
 ;  from HANDLES.ASM.
 ;
 ;  Principal entries:
-;    HN_ISIDW  carry if the current NAME is `id` and no symbol
+;    HN_IDQ    `id` followed by `(`, taken
+;    HN_TAIL   a handle's value ends there
 ;    HN_IDEX   `id(PATH)`
 ;    HN_IDV    an identifier's value for a location of a given type
 ;    HN_IDLET  assign to an identifier path
 ;    HN_INPTH  an inferred local from a handle path
 
-;@ROUTINE OUT CARRY CLOBBERS A,B,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
-; Carry if the current NAME is `id`, which no symbol is named: id(...).
+;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; The next token is a NAME, peeked: `id` is taken, and carry returned when
+; `(` follows (id(...), whatever is declared, as the reference's
+; nameExpression has it); without `(`, an undeclared `id` is
+; undeclared-name at it, a declared one's value waits (DG_NYI). Any other
+; name is left, no carry.
 
-HN_ISIDW:                      ; The NAME is current.
+HN_IDQ:                        ; A NAME is peeked.
     LD   HL,KW_ID                  ; `id`
     LD   B,2                       ; (two bytes)?
     CALL TK_MATCH                  ; If not,
-    RET  NC                        ; an ordinary name.
-    CALL SY_FIND                   ; No symbol
-    CCF                            ; of the name:
-    RET                            ; carry.
+    RET  NC                        ; another name.
+    CALL PR_TAKE                   ; Taken:
+    CALL HN_PAREN                  ; `(` next?
+    SCF                            ; Then
+    RET  Z                         ; id(...).
+    CALL SY_FIND                   ; Undeclared,
+    JP   NC,SY_UNDEF               ; or declared
+    JP   TR_OPER                   ; and waiting.
 
-;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
-; HN_ISIDW for a NAME taken already, which `(` must follow; the NAME is
-; kept.
+;@ROUTINE OUT ZERO CLOBBERS A,BC,HL,CARRY,SIGN,PARITY,HALFCARRY
+; Z if `(` follows the NAME taken; the NAME, its spelling and place, stay
+; current.
 
-HN_ISIDP:                      ; The NAME is taken.
-    CALL HN_ISIDW                  ; `id`, no symbol?
-    RET  NC                        ; No.
-    LD   HL,(TK_POS)               ; The NAME's
-    PUSH HL                        ; place,
+HN_PAREN:                      ; The NAME is taken.
+    LD   HL,(TK_POS)               ; Its place,
+    PUSH HL                        ; kept,
     LD   HL,(TK_PTR)               ; its
     PUSH HL                        ; spelling,
     LD   A,(TK_LEN)                ; kept across
     PUSH AF                        ; the peek:
     CALL PR_PEEK                   ; `(`
-    SUB  TK_LPAR                   ; next?
+    CP   TK_LPAR                   ; next? (Z)
     POP  BC                        ; The NAME
-    LD   C,A                       ; (the test kept)
     LD   A,B                       ; is
     LD   (TK_LEN),A                ; current
     POP  HL                        ; again,
     LD   (TK_PTR),HL               ; at
     POP  HL                        ; its
-    LD   (TK_POS),HL               ; place. Then
-    LD   A,C                       ; carry
-    CP   1                         ; if `(`.
+    LD   (TK_POS),HL               ; place.
+    RET                            ; Z if `(`.
+
+;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
+; The next token is a NAME, peeked: a scalar variable's or constant's
+; begins an expression, which is parsed whole (carry), as the reference
+; parses a value before judging it; any other name is left (no carry).
+
+HN_SCAL:                       ; A NAME is peeked.
+    CALL SY_FIND                   ; A symbol? If not,
+    RET  NC                        ; left.
+    INC  HL                        ; Its
+    INC  HL                        ; class
+    INC  HL                        ; byte:
+    BIT  7,(HL)                    ; an aggregate's
+    JR   Z,.SCALAR                 ; is left
+    OR   A                         ; (carry
+    RET                            ; clear);
+.SCALAR:                       ; a scalar's
+    XOR  A                         ; (nothing expected)
+    CALL EX_RUN                    ; expression
+    SCF                            ; is parsed.
     RET                            ; Done.
+
+;@ROUTINE CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A handle's value ends at the line, a comma, a `)`, `else` or `handle`;
+; an operator after it, which would make it an operand, waits (DG_NYI).
+; A is kept.
+
+HN_TAIL:                       ; The value is read.
+    PUSH AF                        ; Kept.
+    CALL PR_PEEK                   ; What follows?
+    LD   HL,.ENDS                  ; One of
+    LD   BC,5                      ; the ends,
+    CPIR                           ; or
+    JP   NZ,TR_OPER                ; it waits.
+    POP  AF                        ; A.
+    RET                            ; Back.
+.ENDS:                         ; The tokens a value ends at.
+    DB   TK_EOL,TK_COMMA,TK_RPAR,TK_ELSE,TK_HANDL ; Five.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; `id(PATH)`, `id` taken (idExpression): the path an owning handle
@@ -116,6 +158,10 @@ HN_IDEX:                       ; `id` was the token.
 ; assignment set it, else at the value. A routine's identifier waits.
 
 HN_IDV:                        ; E is the location's type.
+    CALL HN_IDV0                   ; The value,
+    JP   HN_TAIL                   ; ending there; return.
+
+HN_IDV0:                       ; E is the location's type.
     PUSH DE                        ; Kept.
     CALL HN_PLACE                  ; The value's kind, C, and place, HL.
     POP  DE                        ; (the type)
@@ -139,12 +185,15 @@ HN_IDV:                        ; E is the location's type.
     DB   6,$21,0,0,$11,0,0         ; LD DE,0.
     JR   .FIT                      ; Done.
 .NAME:                         ; A name:
-    CALL PR_TAKE                   ; taken.
-    CALL HN_ISIDP                  ; id(...)?
-    JR   NC,.PATH                  ; If not, a path.
+    CALL HN_IDQ                    ; id(...)?
+    JR   NC,.SCALAR                ; If not, a path.
     CALL HN_IDEX                   ; The identifier, A its type.
     JR   .CHECK                    ; Checked.
-.PATH:                         ; A routine's
+.SCALAR:                       ; A scalar's
+    CALL HN_SCAL                   ; expression
+    JR   C,.CLASH                  ; is none;
+    CALL PR_TAKE                   ; the name taken:
+.PATH:                         ; a routine's
     CALL RO_FIND                   ; identifier
     JP   Z,TR_OPER                 ; waits;
     CALL SY_FIND                   ; anything else
@@ -225,7 +274,8 @@ HN_INPTH:                      ; A is the handle's type.
     LD   (AG_CTYPE),A              ; type is the local's;
     LD   A,SY_U32                  ; its four
     LD   (RO_OTYPE),A              ; bytes
-    CALL GA_LOAD                   ; loaded.
+    CALL GA_LOAD                   ; loaded,
+    CALL HN_TAIL                   ; ending there.
     CALL AC_LOCAL                  ; The local,
     LD   A,AC_LHND                 ; bound
     LD   (EX_RMETA),A              ; to it.

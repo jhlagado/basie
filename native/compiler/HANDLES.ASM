@@ -220,6 +220,10 @@ HN_NEW:                        ; `new` is next.
 ; parsed as an expression, then type-mismatch.
 
 HN_OWNV:                       ; E is the handle's type.
+    CALL HN_OWN0                   ; The value,
+    JP   HN_TAIL                   ; ending there; return.
+
+HN_OWN0:                       ; E is the handle's type.
     PUSH DE                        ; Kept.
     CALL HN_PLACE                  ; The value's kind, C, and place, HL.
     POP  DE                        ; (the type)
@@ -238,18 +242,21 @@ HN_OWNV:                       ; E is the handle's type.
     JR   .CLASH                    ; but no handle.
 .CALL:                         ; A name:
     PUSH DE                        ; (the type kept)
+    CALL HN_IDQ                    ; id(...) is
+    JR   C,.IDEX                   ; no owner;
+    CALL HN_SCAL                   ; a scalar's expression neither;
+    JR   C,.OTHER                  ; else
     CALL PR_TAKE                   ; taken,
     CALL RO_FIND                   ; a routine's
     JR   Z,.ROUTINE                ; result;
-    CALL HN_ISIDP                  ; id(...) is
-    JR   C,.IDEX                   ; no owner;
     CALL SY_FIND                   ; anything else
     JP   NC,SY_UNDEF               ; undeclared is no name;
     CALL RO_NAMED                  ; a path's value:
     CALL PL_ISHND                  ; an owner's
     JR   NC,.OTHER                 ; is moved,
     BIT  1,A                       ; not copied
-    JR   NZ,.OTHER                 ; (needs-move);
+    JR   NZ,.OTHER                 ; (needs-move),
+    CALL HN_TAIL                   ; unless an operand;
     POP  DE                        ; (the type)
     POP  HL                        ; at the
     LD   A,DG_NMOVE                ; value.
@@ -402,8 +409,12 @@ HN_LINIT:                      ; The local's type is a handle.
     LD   A,(AG_CTYPE)              ; Its type:
     LD   E,A                       ; an identifier's
     BIT  1,A                       ; value
-    CALL NZ,HN_IDV                 ; in DEHL,
-    CALL Z,HN_OWNV                 ; an owner's in HL.
+    JR   Z,.OWNER                  ; in DEHL,
+    CALL HN_IDV                    ; or
+    JR   .BOUND                    ; an
+.OWNER:                        ; owner's
+    CALL HN_OWNV                   ; in HL.
+.BOUND:                        ; The value is read.
     LD   A,AC_LHND                 ; The local
     LD   (EX_RMETA),A              ; is bound to it.
     RET                            ; Back to the engine.
@@ -426,7 +437,7 @@ HN_INFER:                      ; The initializer's first token:
     JR   Z,.NEW                    ; so does
     CP   TK_NAME                   ; a routine's
     JR   NZ,.NOT                   ; name
-    CALL HN_ISIDW                  ; (or id(...),
+    CALL HN_IDQ                    ; (or id(...),
     JR   C,.ID                     ; an identifier)
     CALL RO_FIND                   ; whose
     JR   NZ,.NOT                   ; result
@@ -444,13 +455,13 @@ HN_INFER:                      ; The initializer's first token:
 .MOVE:                         ; move:
     CALL HN_MOVE                   ; the handle moved,
     JR   .TYPED                    ; A its type.
-.ID:                           ; id(...):
-    CALL PR_TAKE                   ; `id` taken,
+.ID:                           ; id(...), `id` taken:
     CALL HN_IDEX                   ; the identifier made,
     JR   .TYPED                    ; A its type.
 .NEW:                          ; new:
     CALL HN_NEW                    ; the handle, A its type,
 .TYPED:                        ; the local's,
+    CALL HN_TAIL                   ; ending there,
     LD   (AG_CTYPE),A              ; a value.
     LD   A,FW_VALUE                ; Its
     LD   (HN_VKIND),A              ; state.
@@ -815,18 +826,9 @@ HN_ISID:                       ; The NAME is current.
     LD   HL,KW_ID                  ; `id`
     LD   B,2                       ; (two bytes)?
     CALL TK_MATCH                  ; If not,
-    RET  NC                        ; an ordinary name.
-    LD   HL,(TK_PTR)               ; The NAME's
-    PUSH HL                        ; spelling,
-    LD   A,(TK_LEN)                ; kept across
-    PUSH AF                        ; the peek.
-    CALL PR_PEEK                   ; `(`
-    CP   TK_LPAR                   ; follows?
-    JP   Z,TR_OPER                 ; Then id(...) waits.
-    POP  AF                        ; The NAME
-    LD   (TK_LEN),A                ; is
-    POP  HL                        ; current
-    LD   (TK_PTR),HL               ; again.
+    RET  NC                        ; an ordinary name;
+    CALL HN_PAREN                  ; with `(`
+    JP   Z,TR_OPER                 ; it waits.
     RET                            ; Back.
 
 ;@ROUTINE IN A OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
