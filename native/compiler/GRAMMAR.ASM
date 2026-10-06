@@ -673,7 +673,7 @@ GR_ACTX:
     DW   AC_RECOK                  ; a:CommitRecord
     DW   AC_FIELD                  ; a:BeginRecordField
     DW   AC_PLACE                  ; a:CommitRecordField
-    DW   AC_SUB                    ; a:RetainSubName
+    DW   EX_KEEP                   ; a:RetainSubName
     DW   AC_PROTO                  ; a:BeginForward
     DW   AC_SEAL                   ; a:CommitForward
     DW   AC_SIG                    ; a:BeginSub

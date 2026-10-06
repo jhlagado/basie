@@ -9,6 +9,7 @@
 ;
 ;  Principal entries:
 ;    AC_LOCAL, AC_INIT, AC_LINIT, AC_ZERO, AC_ADOPT, AC_BIND  local declarations
+;    AC_STORE  store the registers into the variable in progress
 ;    AC_STMT   island NameStatement: a call or an assignment
 ;    AC_RET, AC_YIELD, AC_RETOP, AC_BARE  return statements
 ;    AC_GOTO   exit and continue
@@ -275,6 +276,17 @@ AC_FITTO:
     POP  BC                        ; Restore BC.
     RET                            ; D, E and HL describe it.
 
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Store the value in the registers into the variable of the declaration
+; or statement in progress: class and type AC_DINFO, place AC_DVAL
+; (EX_STORE).
+
+AC_STORE:                      ; The value is in the registers.
+    LD   A,(AC_DINFO)              ; The variable's class and type
+    LD   D,A                       ; for EX_STORE,
+    LD   BC,(AC_DVAL)              ; and its ordinal or offset.
+    JP   EX_STORE                  ; Store it and return.
+
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitLocal: allocate the local in the frame (allocLocal), then store its
 ; initial value there, a scalar brought into the registers at its type
@@ -306,10 +318,7 @@ AC_BIND:
     CALL EX_DTYPE                  ; E the local's
     LD   E,A                       ; type.
     CALL GX_TOREG                  ; The value in the registers at that type.
-    LD   A,(AC_DINFO)              ; The local's class and type
-    LD   D,A                       ; for EX_STORE,
-    LD   BC,(AC_DVAL)              ; and its offset.
-    CALL EX_STORE                  ; Store the value.
+    CALL AC_STORE                  ; Store the value in the local.
     JP   SY_CMT                    ; The local is now in scope.
 .ZERO:                         ; BC is the local's size.
     CALL GA_ZERO                   ; Zero its bytes.
@@ -378,10 +387,7 @@ AC_STMT:
     LD   A,D                       ; The metadata, with HL the value.
     CALL EX_FITS                   ; Check the value against the variable.
     CALL GX_TOREG                  ; Bring it into A or HL at that type.
-    LD   BC,(AC_DVAL)              ; The variable's ordinal or offset.
-    LD   A,(AC_DINFO)              ; Its class and type.
-    LD   D,A                       ; For EX_STORE.
-    CALL EX_STORE                  ; Store it.
+    CALL AC_STORE                  ; Store it in the variable.
     JP   AC_ROUTE                  ; Attach any failure handling and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
@@ -491,7 +497,7 @@ AC_GOTO:
 AC_ASSRT:
     LD   HL,(TK_POS)               ; The offset of `assert`,
     LD   (AC_SPOS),HL              ; kept.
-            JR   AC_COND                   ; Expect a Boolean.
+    JR   AC_COND                   ; Expect a Boolean.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitStatementAssert (assertStatement): a known condition must be the

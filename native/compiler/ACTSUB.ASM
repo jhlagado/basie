@@ -9,7 +9,8 @@
 ;
 ;  Principal entries:
 ;    AC_MAIN   main must exist and every forward must be completed
-;    AC_SUB, AC_SIG, AC_PROTO, AC_SEAL  routine and forward signatures
+;    AC_SIG, AC_PROTO, AC_SEAL  routine and forward signatures (RetainSubName
+;              is EX_KEEP: the name is checked later)
 ;    AC_PARAM, AC_JOIN, AC_GIVES, AC_GIVEN, AC_FAILS  signature parts
 ;    AC_BODY, AC_IMPL, AC_END  open and close a routine or main body
 ;    AC_FAIL, AC_THROW  the fail statement
@@ -229,13 +230,6 @@ AC_MAIN:
     EX   DE,HL                     ; in another part.
     LD   A,DG_UNMET                ; forward-incomplete.
     JP   DG_SRC                    ; No return.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; RetainSubName: keep the routine's name and position unchecked. The grammar
-; reads `main` as an ordinary NAME; the actions that follow tell it apart.
-
-AC_SUB:
-    JP   EX_KEEP                   ; Keep the name; the checks come later.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the retained name the current token again, at its own position, so
@@ -478,14 +472,12 @@ AC_FROM:
     CALL DG_RNAME                  ; from-clause,
     DB   DG_FROM                   ; naming it.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+;@ROUTINE CLOBBERS HL
 ; MarkSubFails: the routine can fail.
 
 AC_FAILS:
-    LD   A,(RO_CFLAG)              ; The routine's flags...
-    OR   RO_FFAIL                  ; ...gain the failable flag.
-    LD   (RO_CFLAG),A              ; Keep them.
-    OR   A                         ; Clear carry.
+    LD   HL,RO_CFLAG               ; The routine's flags
+    SET  0,(HL)                    ; gain RO_FFAIL.
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
@@ -919,10 +911,7 @@ AC_ONERR:
     DB   $D1                       ; drops one, keeping A.
     DJNZ .DROP                     ; Until all are dropped.
 .STORE:                        ; The code is in A.
-    LD   A,(AC_DINFO)              ; The variable's class and type
-    LD   D,A                       ; for EX_STORE,
-    LD   BC,(AC_DVAL)              ; and where it is.
-    CALL EX_STORE                  ; Store the code.
+    CALL AC_STORE                  ; Store the code in the variable.
     JP   AC_LIVE                   ; The handler's body is reachable.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL

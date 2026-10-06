@@ -119,16 +119,16 @@ AG_ADD:
     LD   A,(AG_TCNT)               ; Fetch the number of table types.
     CP   AG_TCAP                   ; Is there room for one more?
     JR   NC,AG_EMETA               ; No: the type table is full.
-    ADD  A,AG_FIRST                ; Form the new type's ID.
+    ADD  A,AG_FIRST                ; Form the new type's ID,
+    PUSH AF                        ; kept across the copy.
     CALL AG_DESC                   ; Address its descriptor slot.
     LD   D,H                       ; The slot is the copy's destination.
     LD   E,L                       ; Complete DE.
     LD   HL,AG_NKIND               ; The candidate's four bytes are the source.
     LD   BC,AG_TLEN                ; Copy one descriptor.
     LDIR                           ; Kind, auxiliary byte and dimension word.
-    LD   A,(AG_TCNT)               ; Recover the new slot's index.
-    ADD  A,AG_FIRST                ; Form its ID again.
-    LD   C,A                       ; Keep the ID for the return.
+    POP  AF                        ; The new type's ID,
+    LD   C,A                       ; kept for the return.
     CALL AG_SIZEP                  ; Address its extent word.
     LD   DE,(AG_NSIZE)             ; Fetch the candidate's extent.
     LD   (HL),E                    ; Record its low byte.
@@ -167,33 +167,28 @@ AG_REUSE:
     INC  DE                        ; Step through the candidate.
     INC  HL                        ; Step through the descriptor.
     DJNZ .BYTELOOP                 ; Continue through the four bytes.
-    POP  BC                        ; Restore the ID of the match.
-    JR   .FOUND                    ; Share the existing type.
+    POP  BC                        ; Restore the ID of the match:
+    LD   A,C                       ; return it, an identical type.
+    OR   A                         ; Clear carry; the ID is nonzero.
+    RET                            ; Return to the type action.
 .DIFFER:                       ; This type differs from the candidate.
     POP  BC                        ; Restore the count and ID.
     INC  C                         ; Step to the next ID.
     DJNZ .TYPELOOP                 ; Continue through the table.
     JR   AG_ADD                    ; No match: append the candidate.
-.FOUND:                        ; An identical type exists.
-    LD   A,C                       ; Return its ID.
-    OR   A                         ; Clear carry; the ID is nonzero.
-    RET                            ; Return to the type action.
 
-;@ROUTINE IN HL OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+;@ROUTINE IN HL OUT HL,CARRY CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY
 ; Accept an extent HL of at most 1024 bytes ($0400), the size of the
 ; initializer staging (AG_ICAP), with carry clear; a larger one raises
 ; DG_DATA. Used for one object, array or record.
 
 AG_FITRW:
-    LD   A,H                       ; Judge the extent by its high byte first.
-    CP   4                         ; Below $0400 always fits.
-    JR   C,.OK                     ; Accept it.
-    JR   NZ,.FULL                  ; Above $04FF never fits.
-    LD   A,L                       ; Between them only $0400 itself fits.
-    OR   A                         ; Is the low byte zero?
-    JR   NZ,.FULL                  ; No: it exceeds the staging.
-.OK:                           ; The extent fits.
-    OR   A                         ; Clear carry for success.
+    LD   A,L                       ; HL less $0401
+    CP   1                         ; borrows
+    LD   A,H                       ; exactly when
+    SBC  A,4                       ; HL is at most $0400.
+    JR   NC,.FULL                  ; No borrow: it exceeds the staging.
+    CCF                            ; Clear carry for success.
     RET                            ; Return the extent unchanged.
 .FULL:                         ; The extent exceeds the staging.
     CALL DG_RAISE                  ; Report it; no return.
@@ -214,9 +209,6 @@ AG_EVIEW:                      ; A view where it can't be.
     LD   A,DG_CLASH                ; type-mismatch,
     LD   HL,AG_TPOS                ; at the type.
     JP   DG_AT                     ; No return.
-AG_EWIDE:                      ; An extent past 65,535 bytes.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_RANGE                  ; Diagnostic: out-of-range.
 AG_EBND:                       ; A bound out of range, or not a constant:
     LD   A,DG_RANGE                ; out-of-range,
 AG_EVAL:                       ; or A,
@@ -246,101 +238,43 @@ AG_FRESH:
     LD   A,(AG_CFCNT)              ; Fetch this record's field count so far.
     OR   A                         ; The first field cannot repeat.
     RET  Z                         ; Return carry clear from the OR.
-    LD   C,A                       ; C counts the fields left to compare.
+    LD   B,A                       ; B counts the fields left to compare.
     LD   A,(AG_CFIDX)              ; A is the record's first field index.
 .LOOP:                         ; Compare one field per iteration.
     PUSH AF                        ; Keep the field index.
     PUSH BC                        ; Keep the count; TK_SAME needs no BC.
     CALL AG_FIELD                  ; Address this field's entry.
     CALL TK_SAME                   ; Is its name the token's spelling?
-    JR   C,.UNWIND                 ; Yes: the name repeats.
+    JP   C,EX_EDUP                 ; Yes: report the duplicate; no return.
     POP  BC                        ; Restore the count.
     POP  AF                        ; Restore the field index.
     INC  A                         ; Step to the next field.
-    DEC  C                         ; One fewer field to compare.
-    JR   NZ,.LOOP                  ; Continue through the record's fields.
+    DJNZ .LOOP                     ; Continue through the record's fields.
     OR   A                         ; Report no repeat with carry clear.
     RET                            ; Return to the field action.
-.UNWIND:                       ; A field of this name already exists.
-    POP  BC                        ; Balance the stack.
-    POP  AF                        ; Balance the stack.
-    JP   EX_EDUP                   ; Report the duplicate name.
 
-; Further failure exits. Neither returns.
+; A further failure exit. It does not return.
 
 AG_EVOID:                      ; A record type with no fields.
     CALL DG_RAISE                  ; Report it.
     DB   DG_EMPTY                  ; Diagnostic: empty record.
 
-AG_EDEEP:                      ; Initializers nested beyond AG_LCAP.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_INITS                  ; Diagnostic: initializers nested too deeply.
-
-;@ROUTINE OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,HL
-; Close one level of initializer nesting. A is preserved.
-
-AG_LEAVE:
-    LD   HL,AG_LEVEL               ; Address the nesting depth.
-    DEC  (HL)                      ; One level fewer is open.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return to the initializer parser.
-
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,DE,HL
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
 ; Store byte A at the staging cursor and advance the cursor. The object's
-; extent has passed AG_FITRW, so the cursor stays inside AG_IBUF.
+; extent has passed AG_FITRW, so the cursor stays inside AG_IBUF. BC and
+; HL are kept.
 
 AG_PUT:
-    LD   B,A                       ; Keep the byte while addressing.
-    LD   HL,(AG_OPOS)              ; Fetch the cursor offset.
-    LD   DE,AG_IBUF                ; Fetch the staging buffer base.
-    ADD  HL,DE                     ; Address the cursor byte.
-    LD   A,B                       ; Recover the byte.
+    PUSH HL                        ; Keep the caller's HL.
+    LD   HL,(AG_OPOS)              ; Fetch the cursor offset
+    INC  HL                        ; and advance it past the byte:
+    LD   (AG_OPOS),HL              ; publish it.
+    LD   DE,AG_IBUF-1              ; The byte is the one before it
+    ADD  HL,DE                     ; in the staging buffer.
     LD   (HL),A                    ; Stage it.
-    LD   HL,(AG_OPOS)              ; Fetch the cursor offset again.
-    INC  HL                        ; Advance past the byte.
-    LD   (AG_OPOS),HL              ; Publish the advanced cursor.
+    POP  HL                        ; The caller's HL.
     OR   A                         ; Clear carry for success.
     RET                            ; Return the byte in A.
-
-;@ROUTINE IN B OUT A,B,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE,HL
-; Stage the current string literal as a bounded string of capacity B: the
-; length byte, then the payload decoded straight from the resident source
-; (AG_CHAR). TK_LEN is the decoded length and TK_PTR addresses the opening
-; quote. The object is already zero, so the cursor simply skips the
-; padding and the terminator.
-
-AG_TEXT:
-    LD   A,(TK_LEN)                ; Fetch the decoded length.
-    LD   C,A                       ; C counts the characters to decode.
-    PUSH BC                        ; Keep capacity and count across the put.
-    CALL AG_PUT                    ; Stage the length byte.
-    POP  BC                        ; Restore capacity and count.
-    LD   A,B                       ; Start from the capacity.
-    SUB  C                         ; Less the length gives the padding.
-    LD   B,A                       ; B is the padding byte count.
-    LD   HL,(TK_PTR)               ; Address the opening quote.
-    INC  HL                        ; Step to the first character.
-.LOOP:                         ; Decode one character per iteration.
-    LD   A,C                       ; Are characters left?
-    OR   A                         ; Test the count.
-    JR   Z,.PAD                    ; No: skip the padding.
-    CALL AG_CHAR                   ; A is the next byte, decoded.
-    PUSH BC                        ; Keep padding and count across the put.
-    PUSH HL                        ; Keep the source pointer.
-    CALL AG_PUT                    ; Stage the byte.
-    POP  HL                        ; Restore the source pointer.
-    POP  BC                        ; Restore padding and count.
-    DEC  C                         ; One character fewer to decode.
-    JR   .LOOP                     ; Continue with the next.
-.PAD:                          ; The payload is staged.
-    LD   E,B                       ; Widen the padding count in DE.
-    LD   D,0                       ; Clear the high byte.
-    INC  DE                        ; Add the terminator at capacity plus one.
-    LD   HL,(AG_OPOS)              ; Fetch the cursor.
-    ADD  HL,DE                     ; Skip the zeroed padding and terminator.
-    LD   (AG_OPOS),HL              ; Publish the cursor past the string.
-    OR   A                         ; Clear carry for success.
-    RET                            ; Return to the initializer parser.
 
 ;@ROUTINE IN HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Decode the string literal's character at HL, which the tokenizer has
@@ -397,9 +331,17 @@ AG_CHAR:                       ; HL is the source.
 AG_ELONG:                      ; A string literal longer than its string.
     CALL DG_RAISE                  ; Report it.
     DB   DG_RANGE                  ; Diagnostic: out-of-range.
-AG_ECNT:                       ; Anything but a comma between two items.
-    CALL DG_RAISE                  ; Report it: the comma
-    DB   DG_COMMA                  ; is expected (syntax).
+AG_EWIDE EQU  AG_ELONG         ; An extent past 65,535 bytes, the same.
+AG_ECNT:                       ; Anything but a comma between two items:
+    LD   D,TK_COMMA                ; the comma is expected (syntax).
+
+;@ROUTINE IN D NORETURN
+; Raise syntax at the current token: token kind D expected.
+
+AG_EWANT:
+    LD   A,D                       ; The kind
+    OR   DG_TOKEN                  ; expected,
+    JP   DG_ISSUE                  ; at the token.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
 ; Peek at the next token kind, preserving BC for the item loops.
@@ -411,6 +353,25 @@ AG_PEEK:
     RET                            ; Return the kind in A.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
+; Consume the comma between two items: anything else, a close before the
+; last item among them, is syntax, the comma expected. BC is preserved.
+
+AG_COMMA:
+    LD   A,TK_COMMA                ; A comma separates the items; fall into AG_BRACK.
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
+; Consume the next token, which must be of kind A: a bracket, a comma or a
+; string literal. Any other is syntax, kind A expected (AG_EWANT). BC is
+; preserved.
+
+AG_BRACK:
+    PUSH AF                        ; Keep the expected kind.
+    CALL AG_PEEK                   ; Fetch the next token kind.
+    POP  DE                        ; D is the expected kind.
+    CP   D                         ; Is it the one?
+    JR   NZ,AG_EWANT               ; No: it is expected; else fall into AG_TAKE.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
 ; Consume the next token, preserving BC for the item loops.
 
 AG_TAKE:
@@ -418,16 +379,6 @@ AG_TAKE:
     CALL PR_TAKE                   ; Consume the token.
     POP  BC                        ; Discard the token value; restore BC.
     RET                            ; Return the kind in A.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
-; Consume the comma between two items: anything else, a close before the
-; last item among them, is syntax, the comma expected. BC is preserved.
-
-AG_COMMA:
-    CALL AG_PEEK                   ; The token after the item.
-    CP   TK_COMMA                  ; Does a comma separate the items?
-    JR   NZ,AG_ECNT                ; No: one is expected.
-    JR   AG_TAKE                   ; Consume the comma.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,C,D,DE,HL,IX,IY
 ; Parse one initializer for type ID A at the staging cursor, advancing the
@@ -438,12 +389,8 @@ AG_COMMA:
 AG_PARSE:
     CP   AG_FIRST                  ; Is this a scalar type?
     JR   C,.SCALAR                 ; Yes: parse a constant.
-    PUSH AF                        ; Keep the type ID.
     CALL AG_DESC                   ; Address its descriptor.
     LD   A,(HL)                    ; Fetch the kind.
-    POP  DE                        ; D is the type ID.
-    LD   E,D                       ; Move it to E.
-    LD   D,0                       ; DE is the type ID for the kind handler.
     CP   AG_KSTR                   ; A bounded string?
     JR   Z,.STRING                 ; Parse a string literal.
     CP   AG_KREC                   ; A record?
@@ -468,35 +415,56 @@ AG_PARSE:
     LD   HL,EX_KVAL                ; from the lowest,
 .BYTE:                         ; B bytes remain.
     LD   A,(HL)                    ; The next
-    PUSH BC                        ; is
-    PUSH HL                        ; staged
-    CALL AG_PUT                    ; (encodeScalar).
-    POP  HL                        ; The
-    INC  HL                        ; next
-    POP  BC                        ; byte.
-    DJNZ .BYTE                     ; Until all are staged.
+    CALL AG_PUT                    ; is staged (encodeScalar), BC and HL kept;
+    INC  HL                        ; the next
+    DJNZ .BYTE                     ; until all are staged.
     OR   A                         ; Clear carry for success.
     RET                            ; The value is staged.
 
-.STRING:                       ; A bounded string.
-    EX   DE,HL                     ; Bring the type ID into L.
-    LD   A,L                       ; Select it again.
-    CALL AG_DESC                   ; Address its descriptor.
+.STRING:                       ; A bounded string, HL its descriptor.
     INC  HL                        ; Step to the auxiliary byte.
     LD   B,(HL)                    ; B is the string's capacity.
-    PUSH BC                        ; Keep it across the token check.
-    LD   E,TK_TEXT                 ; A string literal must follow.
-    CALL PR_NEED                   ; Consume it or report the token.
-    POP  BC                        ; Restore the capacity.
+    LD   A,TK_TEXT                 ; A string literal must follow:
+    CALL AG_BRACK                  ; consume it or report the token.
     LD   A,(TK_LEN)                ; Fetch the literal's decoded length.
     CP   B                         ; Compare it with the capacity.
-    JR   C,.DECODE                 ; Shorter fits.
-    JR   Z,.DECODE                 ; Exactly full fits.
-    JR   AG_ELONG                  ; Longer does not; report it.
-.DECODE:                       ; The literal fits.
+    JR   Z,AG_TEXT                 ; Exactly full fits.
+    JR   NC,AG_ELONG               ; Longer does not; report it.
 ; AG_ZERO has already zeroed the whole object, so decoding need write only
-; the length and payload bytes.
-    JP   AG_TEXT                   ; Stage it and return.
+; the length and payload bytes: shorter fits, staged by AG_TEXT.
+
+;@ROUTINE IN B OUT A,B,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE,HL
+; Stage the current string literal as a bounded string of capacity B: the
+; length byte, then the payload decoded straight from the resident source
+; (AG_CHAR). TK_LEN is the decoded length and TK_PTR addresses the opening
+; quote. The object is already zero, so the cursor simply skips the
+; padding and the terminator.
+
+AG_TEXT:
+    LD   A,(TK_LEN)                ; Fetch the decoded length.
+    LD   C,A                       ; C counts the characters to decode.
+    CALL AG_PUT                    ; Stage the length byte; BC is kept.
+    LD   A,B                       ; Start from the capacity.
+    SUB  C                         ; Less the length gives the padding.
+    LD   B,A                       ; B is the padding byte count.
+    LD   HL,(TK_PTR)               ; Address the opening quote.
+    INC  HL                        ; Step to the first character.
+    INC  C                         ; C counts one more, at most 254.
+.LOOP:                         ; Decode one character per iteration.
+    DEC  C                         ; Are characters left?
+    JR   Z,.PAD                    ; No: skip the padding.
+    CALL AG_CHAR                   ; A is the next byte, decoded.
+    CALL AG_PUT                    ; Stage it; BC and HL are kept.
+    JR   .LOOP                     ; Continue with the next.
+.PAD:                          ; The payload is staged.
+    LD   E,B                       ; Widen the padding count in DE.
+    LD   D,0                       ; Clear the high byte.
+    INC  DE                        ; Add the terminator at capacity plus one.
+    LD   HL,(AG_OPOS)              ; Fetch the cursor.
+    ADD  HL,DE                     ; Skip the zeroed padding and terminator.
+    LD   (AG_OPOS),HL              ; Publish the cursor past the string.
+    OR   A                         ; Clear carry for success.
+    RET                            ; Return to the initializer parser.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
 ; Consume the opening bracket A of a record or array initializer and open
@@ -504,28 +472,26 @@ AG_PARSE:
 ; fifth level raises DG_INITS. BC is preserved.
 
 AG_ENTER:
-    PUSH AF                        ; Keep the expected bracket.
-    CALL AG_PEEK                   ; Fetch the next token kind.
-    POP  DE                        ; D is the expected bracket.
-    CP   D                         ; Does the initializer open with it?
-    JR   NZ,AG_EWANT               ; No: the bracket is expected.
-    CALL AG_TAKE                   ; Consume the bracket.
+    CALL AG_BRACK                  ; Consume the bracket.
     LD   A,(AG_LEVEL)              ; Fetch the nesting depth.
     CP   AG_LCAP                   ; Is another level allowed?
-    JP   NC,AG_EDEEP               ; No: nested too deeply.
+    JR   NC,AG_EDEEP               ; No: nested too deeply.
     INC  A                         ; Open one more level.
     LD   (AG_LEVEL),A              ; Publish the depth.
     OR   A                         ; Clear carry for success.
     RET                            ; Return to the list parser.
 
+; A failure exit. It does not return.
+
+AG_EDEEP:                      ; Initializers nested beyond AG_LCAP.
+    CALL DG_RAISE                  ; Report it.
+    DB   DG_INITS                  ; Diagnostic: initializers nested too deeply.
+
 ; Parse a record initializer, ( field, field, ... ), with one item for each
-; field in declaration order. DE is the record's type ID. Entered by jump
-; from AG_PARSE and returns through AG_CLOSE.
+; field in declaration order. HL is the record's descriptor. Entered by
+; jump from AG_PARSE and returns through AG_CLOSE.
 
 AG_REC:
-    EX   DE,HL                     ; Bring the type ID into L.
-    LD   A,L                       ; Select it again.
-    CALL AG_DESC                   ; Address its descriptor.
     INC  HL                        ; Step to the record ordinal.
     LD   A,(HL)                    ; Fetch it.
     ADD  A,A                       ; AG_RTAB entries are two bytes.
@@ -554,29 +520,24 @@ AG_REC:
     CALL AG_COMMA                  ; Require and consume a comma.
     JR   .LOOP                     ; Parse the next field.
 .CLOSE:                        ; Every field has its item.
-    LD   D,TK_RPAR                 ; Expect ')'.
+    LD   A,TK_RPAR                 ; Expect ')'.
     JR   AG_CLOSE                  ; Close the list and return.
 
 ; Parse an array initializer, [ item, item, ... ], with exactly one item for
-; each element. DE is the array's type ID. Entered by jump from AG_PARSE;
-; falls into AG_CLOSE.
+; each element. HL is the array's descriptor. Entered by jump from
+; AG_PARSE; falls into AG_CLOSE.
 
 AG_ARRAY:
-    EX   DE,HL                     ; Bring the type ID into L.
-    LD   A,L                       ; Select it again.
-    CALL AG_DESC                   ; Address its descriptor.
     INC  HL                        ; Step to the element type.
     LD   C,(HL)                    ; C is the element type.
     INC  HL                        ; Step to the element count.
     LD   E,(HL)                    ; Fetch its low byte.
     INC  HL                        ; Step to the high byte.
     LD   D,(HL)                    ; DE counts the elements to initialize.
-    PUSH BC                        ; Keep the element type.
-    PUSH DE                        ; Keep the count.
+    PUSH DE                        ; Keep the count; AG_ENTER keeps BC.
     LD   A,TK_LBRAC                ; An array initializer opens with '['.
     CALL AG_ENTER                  ; Consume it and nest one level.
     POP  DE                        ; Restore the count.
-    POP  BC                        ; Restore the element type.
 .LOOP:                         ; Parse one element's initializer.
     PUSH BC                        ; Keep the element type.
     PUSH DE                        ; Keep the count.
@@ -593,39 +554,35 @@ AG_ARRAY:
     POP  DE                        ; Restore the count.
     JR   .LOOP                     ; Parse the next element.
 .CLOSE:                        ; Every element has its item.
-    LD   D,TK_RBRAC                ; Expect ']'.
+    LD   A,TK_RBRAC                ; Expect ']'.
 
-;@ROUTINE IN D OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,BC,DE,HL
-; Close an initializer list: D is the closing bracket, which must follow
+;@ROUTINE IN A OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,DE,HL
+; Close an initializer list: A is the closing bracket, which must follow
 ; the last item; anything else, another item among them, is syntax, the
-; bracket expected. Closes one nesting level.
+; bracket expected. Closes one nesting level (AG_LEAVE). BC is preserved.
 
 AG_CLOSE:
-    PUSH DE                        ; Keep the bracket.
-    CALL AG_PEEK                   ; Fetch the token after the last item.
-    POP  DE                        ; D is the bracket.
-    CP   D                         ; Is it the expected close?
-    JR   NZ,AG_EWANT               ; No: it is expected.
-    CALL PR_TAKE                   ; Consume the bracket.
-    JP   AG_LEAVE                  ; Close the nesting level and return.
+    CALL AG_BRACK                  ; Consume the bracket; fall into AG_LEAVE.
 
-;@ROUTINE IN D NORETURN
-; Raise syntax at the current token: token kind D expected.
+;@ROUTINE OUT CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,HL
+; Close one level of initializer nesting. A is preserved.
 
-AG_EWANT:
-    LD   A,D                       ; The kind
-    OR   DG_TOKEN                  ; expected,
-    JP   DG_ISSUE                  ; at the token.
+AG_LEAVE:
+    LD   HL,AG_LEVEL               ; Address the nesting depth.
+    DEC  (HL)                      ; One level fewer is open.
+    OR   A                         ; Clear carry for success.
+    RET                            ; Return to the initializer parser.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Zero the AG_OSIZE bytes of the object at the staging cursor before an
-; explicit initializer is applied. This also makes every byte of an object
-; with no initializer defined. Returns A zero with carry clear.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,HL
+; Begin staging an object: the cursor AG_OPOS at the buffer's start, and
+; the AG_OSIZE bytes from there zeroed before an explicit initializer is
+; applied. This also makes every byte of an object with no initializer
+; defined. Returns A zero with carry clear.
 
 AG_ZERO:
-    LD   HL,(AG_OPOS)              ; Fetch the cursor offset.
-    LD   DE,AG_IBUF                ; Fetch the staging buffer base.
-    ADD  HL,DE                     ; Address the object's first byte.
+    LD   HL,0                      ; Stage from
+    LD   (AG_OPOS),HL              ; the first byte,
+    LD   HL,AG_IBUF                ; the buffer's start.
     LD   BC,(AG_OSIZE)             ; BC counts the object's bytes.
 .LOOP:                         ; Zero one byte per iteration.
     LD   A,B                       ; Are bytes left?

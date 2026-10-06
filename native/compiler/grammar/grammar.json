@@ -135,7 +135,7 @@
     "CommitRecord": "AC_RECOK",
     "BeginRecordField": "AC_FIELD",
     "CommitRecordField": "AC_PLACE",
-    "RetainSubName": "AC_SUB",
+    "RetainSubName": "EX_KEEP",
     "BeginForward": "AC_PROTO",
     "CommitForward": "AC_SEAL",
     "BeginSub": "AC_SIG",

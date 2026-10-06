@@ -234,22 +234,22 @@ RO_PFIND:
 
 RO_VET:
     CALL SY_FIND                   ; A program-wide symbol?
-    LD   A,DG_HIDE                 ; Then the parameter would hide it.
-    JP   C,DG_NAMED                ; Raise it, named.
-    CALL RO_FRESH                  ; Not a routine or a predeclared name.
+    LD   A,DG_HIDE                 ; Then the parameter would hide it,
+    JR   C,.HIDE                   ; raised, named.
+    CALL RO_FRESH                  ; Not a routine or a predeclared name (DG_HIDE).
     LD   A,(RO_CUR)                ; The routine being declared is not counted yet.
     CALL RO_SUBAT                  ; So address its entry and compare it directly.
     LD   E,(HL)                    ; Read the address of its spelling.
     INC  HL                        ; High byte.
     LD   D,(HL)                    ; DE addresses the spelling.
-    INC  HL                        ; Then its length.
-    LD   A,(HL)                    ; Read the length.
-    LD   B,A                       ; TK_MATCH takes it in B.
+    INC  HL                        ; Then its length,
+    LD   B,(HL)                    ; which TK_MATCH takes in B.
     EX   DE,HL                     ; And the spelling in HL.
     CALL TK_MATCH                  ; Is the parameter named as the routine?
-    LD   A,DG_HIDE                 ; Then it would hide it:
-    JP   C,DG_NAMED                ; raise it, named.
-    JR   RO_NODUP                  ; Check the earlier parameters.
+    JR   NC,RO_NODUP               ; No: check the earlier parameters.
+    LD   A,DG_HIDE                 ; It would hide the routine:
+.HIDE:                         ; A is DG_HIDE.
+    JP   DG_NAMED                  ; Raise it, named.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Append the current NAME as a parameter of type A to the parameter table
@@ -259,7 +259,7 @@ RO_VET:
 ; return.
 
 RO_ENROL:
-    LD   (RO_OTYPE),A              ; Keep the type.
+    PUSH AF                        ; Keep the type.
     CALL RO_WORDS                  ; B is the argument's bytes.
     LD   HL,RO_CARGS               ; The signature's argument bytes
     LD   A,(HL)                    ; grow
@@ -272,14 +272,13 @@ RO_ENROL:
     CALL RO_PARAM                  ; HL addresses the next free entry.
     CALL TK_KEEP                   ; Store the name; HL is at its length.
     INC  HL                        ; The type follows.
-    LD   A,(RO_OTYPE)              ; Recover the type.
+    POP  AF                        ; Recover the type.
     LD   (HL),A                    ; Store it.
     LD   HL,RO_PCNT                ; Count the entry in the whole table.
     INC  (HL)                      ; One parameter more for all routines.
     LD   HL,RO_CPCNT               ; And in the current signature.
     INC  (HL)                      ; One parameter more.
-    LD   A,(RO_OTYPE)              ; Return the type.
-    OR   A                         ; With carry clear.
+    OR   A                         ; Return the type with carry clear.
     RET                            ; The parameter is enrolled.
 .FULL:                         ; No room for another parameter.
     CALL DG_RAISE                  ; Raise the diagnostic below.
@@ -303,21 +302,15 @@ RO_WORDS:
     JR   C,.WORD                   ; an i32
     CP   SY_F32+1                  ; or an f32,
     JR   C,.DONE                   ; or
+    CP   AG_OLIM                   ; (past the open arrays
+    JR   NC,.WORD                  ; one word)
     CP   AG_OPEN                   ; an open
-    JR   C,.TABLE                  ; array;
-    CP   AG_OLIM                   ; otherwise
-    JR   C,.DONE                   ; one word.
-.WORD:                         ; One word:
-    LD   B,2                       ; two bytes.
-.DONE:                         ; B is the bytes.
-    POP  AF                        ; The type.
-    RET                            ; Done.
-.TABLE:                        ; A record, array or string.
-    POP  AF                        ; The type
+    JR   NC,.DONE                  ; array.
+.TABLE:                        ; A record, array or string:
+    POP  AF                        ; the type
     PUSH AF                        ; with
-    LD   B,2                       ; AG_VAR?
-    OR   A                         ; If not,
-    JP   P,.DONE                   ; one word;
+    OR   A                         ; AG_VAR?
+    JP   P,.WORD                   ; If not, one word;
     AND  $7F                       ; if so,
     PUSH DE                        ; (DE
     PUSH HL                        ; and HL kept) a record's
@@ -325,10 +318,13 @@ RO_WORDS:
     LD   A,(HL)                    ; its kind,
     POP  HL                        ; HL
     POP  DE                        ; and DE again:
-    CP   AG_KREC                   ; a record's?
-    JR   NZ,.DONE                  ; No: one word.
-    LD   B,4                       ; Yes: and the owner word.
-    JR   .DONE                     ; B is the bytes.
+    CP   AG_KREC                   ; a record's
+    JR   Z,.DONE                   ; takes its owner word too.
+.WORD:                         ; One word:
+    LD   B,2                       ; two bytes.
+.DONE:                         ; B is the bytes.
+    POP  AF                        ; The type.
+    RET                            ; Done.
 
 ;@ROUTINE IN A,C OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make parameter A, whose argument is at displacement C from IX, a symbol
@@ -338,22 +334,15 @@ RO_WORDS:
 ; token is replaced by the parameter's name.
 
 RO_BIND:
+    LD   B,0                       ; BC is the displacement, the payload,
+    PUSH BC                        ; kept.
     PUSH AF                        ; Keep the index.
     CALL RO_PARAM                  ; HL addresses the parameter's entry.
-    LD   E,(HL)                    ; Read the address of its spelling.
-    INC  HL                        ; High byte.
-    LD   D,(HL)                    ; DE addresses the spelling.
-    INC  HL                        ; Then its length.
-    LD   B,(HL)                    ; B is the length.
-    INC  HL                        ; Then its type.
-    LD   A,(HL)                    ; Read the type.
-    LD   (TK_PTR),DE               ; SY_NEW names the symbol from the token,
-    LD   E,A                       ; so, keeping the type,
-    LD   A,B                       ; the parameter's spelling
-    LD   (TK_LEN),A                ; becomes the token.
-    LD   B,0                       ; BC is the displacement, the payload.
+    LD   DE,TK_PTR                 ; SY_NEW names the symbol from the token,
+    LD   BC,3                      ; so the spelling's address and length,
+    LDIR                           ; TK_PTR and TK_LEN, become the token's.
+    LD   E,(HL)                    ; E is the type, which follows.
     POP  AF                        ; The index:
-    PUSH BC                        ; (the payload kept)
     LD   HL,RO_FROM                ; its bit
     CALL SY_BITAT                  ; in RO_FROM.
     AND  (HL)                      ; Set?
