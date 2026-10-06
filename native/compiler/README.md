@@ -1,13 +1,8 @@
 # The native compiler
 
-`BASIE.COM`, in ATOM source (design decision D44). The compiler began as a fork
-of the Nucleus native compiler at Nucleus commit `8d1ed07` (roadmap step 64).
-At step 65.0 it was converted from AZM syntax to ATOM. The conversion resolved
-the build-time conditionals for `BASIE.COM`'s configuration and gave every name
-an ATOM name under the label convention ([naming guide](../../tools/atomize/README.md)).
-ATOM assembles the result to an image byte-identical to the AZM build. The
-Nucleus sources are licensed GPL-3.0-only; Basie has not yet chosen its
-licence.
+`BASIE.COM`, in ATOM source (design decision D44), its names under the label
+convention of the [naming guide](../../docs/naming.md). Basie is released under
+the GNU General Public License, version 3 ([LICENSE](../../LICENSE)).
 
 ```text
 deno task build:compiler     build BASIE.COM and BASIE.OVL and report the extents
@@ -100,9 +95,7 @@ number, code, position and arguments against the reference's.
 `tools/llgen.ts` (`deno task grammar`; [grammar](grammar/README.md)), which
 computes the prediction rows and every offset under the `GR_` scheme
 ([native compiler](../../docs/native-compiler.md) §2);
-`tests/llgen_test.ts` checks the tables are current. The grammar began as
-Nucleus's, and from the conversion to ATOM until step 67 its tables were
-edited by hand.
+`tests/llgen_test.ts` checks the tables are current.
 
 ## State
 
@@ -127,6 +120,4 @@ needed, and the census figure in the commit. `tests/native_compiler_test.ts`
 pins the digests of `BASIE.COM` and `BASIE.OVL`, so a change to the
 compiler updates them and the sizes in the same commit.
 
-The line-by-line commentary that D44 asks for is stage 2 of the conversion,
-module by module. Until a module has had that pass, its comments are
-Nucleus's. Code written since follows D44 from its first line.
+Every module carries the line-by-line commentary that D44 asks for.

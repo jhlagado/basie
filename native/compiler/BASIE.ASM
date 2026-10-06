@@ -5,8 +5,8 @@
 ;  The root of the compiler's ATOM source tree (design decision D44). It
 ;  holds no code of its own: it includes every module, and ATOM assembles
 ;  each included file before its includer, so the include order below is
-;  the order of the image. The compiler was forked from the Nucleus native
-;  compiler and runs as a flat CP/M transient at $0100.
+;  the order of the image. The compiler runs as a flat CP/M transient at
+;  $0100.
 ;
 ;  A compilation is one pass. The parser (PARSER, the LL(1) engine with
 ;  its grammar and actions, and the expression, control, aggregate and

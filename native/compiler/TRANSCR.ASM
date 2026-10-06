@@ -2,11 +2,10 @@
 ;  Semantic transcript
 ;==========================================================================
 ;
-;  Nucleus's parser appended every operation to a semantic transcript that
-;  a later phase replayed into code. BASIE.COM generates each construct's
-;  code as it parses it, writing blobs in the reference compiler's
-;  templates (design decision D45, native compiler plan 65.4), and moves the
-;  constructs across stage by stage. What remains of the transcript is its
+;  BASIE.COM generates each construct's code as it parses it, writing
+;  blobs in the reference compiler's templates (design decision D45,
+;  native compiler plan 65.4), and moves the constructs across stage by
+;  stage. What remains of the transcript is its
 ;  refusal: the constructs not yet moved (calls to main, a forward main,
 ;  the services with a u32, File fields, elements, results and
 ;  initialized program variables) are refused with DG_NYI, so that a
