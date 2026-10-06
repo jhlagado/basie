@@ -98,3 +98,7 @@ Language choices such as the 253-byte string capacity, unsigned indices, constan
 Start by clarifying the source-level operations wanted: bounded region borrowing, constructing aggregate results, separating algorithms from caller behaviour and representing alternatives precisely. These can be discussed independently of an implementation budget. Then choose the smallest coherent mechanism for each accepted capability and establish its safety rules. Measurement follows that choice and determines whether the mechanism fits the native system.
 
 No feature in this document is approved for implementation. Its completion criterion is a reasoned disposition for each candidate, with unresolved semantic questions recorded before syntax or code is adopted.
+
+## Restart vectors must remain available to the platform
+
+John explicitly directed that Basie must not take over CP/M restart vectors for compiler compression. Preserve the platform's vector contents and their availability to drivers, debuggers and interrupt handlers. The existing CP/M target contract already declares no free restart vectors (cpm-target.md sections 2 and 8). The documented use of RST 0 for normal warm-boot exit is a call to the platform, not permission to replace its vector. Future compression work must respect this constraint and use other mechanisms.
