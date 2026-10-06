@@ -139,7 +139,7 @@ FW_TAKE:                       ; DE is the snapshot.
     INC  HL                        ; to
     DJNZ .ZERO                     ; begin.
     LD   HL,.PUT                   ; Each owner's state
-    JP   FW_RUN                    ; is put in; return.
+    JR   FW_RUN                    ; is put in; return.
 .PUT:                          ; HL its state, B its position.
     LD   A,(HL)                    ; The state,
     AND  3                         ; alone,
@@ -163,7 +163,7 @@ FW_TAKE:                       ; DE is the snapshot.
 
 FW_RUN:                        ; HL is the callee.
     LD   (FW_CB),HL                ; Kept;
-    JP   FW_EACH                   ; each owner; return.
+    JR   FW_EACH                   ; each owner; return.
 
 ;@ROUTINE IN B OUT A CLOBBERS C,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Position B's state in the snapshot at FW_PTR.
@@ -188,7 +188,7 @@ FW_GET:                        ; B is the position.
 FW_GIVE:                       ; HL is the snapshot.
     LD   (FW_PTR),HL               ; For the callee.
     LD   HL,.GET                   ; Each owner's state
-    JP   FW_RUN                    ; is taken from it; return.
+    JR   FW_RUN                    ; is taken from it; return.
 .GET:                          ; HL its state, B its position.
     CALL FW_GET                    ; Its state there:
     OR   A                         ; absent?
@@ -280,9 +280,15 @@ FW_ENTRY:                      ; The state now.
 ; when it falls through (FW_ARMM), then the arms' start is restored.
 
 FW_ARM:                        ; The arm has ended.
-    CALL FW_ARMM                   ; Met if it falls through.
-    CALL FW_TOP                    ; The start
-    JP   FW_GIVE                   ; restored; return.
+    CALL FW_ARMM                   ; Met if it falls through; fall into FW_REST.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The innermost frame's start is the state again: an if's next arm's, a
+; select's every arm's as it begins.
+
+FW_REST:                       ; The start
+    CALL FW_TOP                    ; is
+    JR   FW_GIVE                   ; restored; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The current state is met into the innermost frame's meet, when control
@@ -303,7 +309,7 @@ FW_MEETA:                      ; A is the frame.
     CALL FW_TAKE                   ; taken;
     POP  DE                        ; then met
     LD   HL,FW_TMP                 ; into
-    JP   FW_MEET                   ; it; return.
+    JR   FW_MEET                   ; it; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An if or a select ends (meetFlow): without an else arm (mode bit 1) its
@@ -365,7 +371,7 @@ FW_LOOP:                       ; The body has ended.
     CALL FW_MEETA                  ; its state met.
 .JOIN:                         ; The start
     CALL FW_START                  ; met,
-    JP   FW_APPLY                  ; the state; return.
+    JR   FW_APPLY                  ; the state; return.
 
 FW_EXIT EQU  FW_MEETA          ; exit from loop frame A: the state met into its.
 
@@ -401,7 +407,7 @@ FW_BACK:                       ; A the frame, HL the place.
     LD   DE,-FW_STATE              ; The owner's
     ADD  HL,DE                     ; record
     LD   A,DG_LMOVE                ; names it:
-    JP   FW_NAME                   ; loop-moves-owner, at the place.
+    JR   FW_NAME                   ; loop-moves-owner, at the place.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A statement begins (EM_LINE): no owner is used or moved in it yet.
@@ -454,6 +460,13 @@ FW_ALONE:                      ; The path is parsed.
 ; this statement (statement-rule), each naming it, at it.
 
 FW_USE:                        ; The root is RO_PROOT.
+    LD   C,0                       ; The root alone may be moved.
+
+;@ROUTINE IN C CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; FW_USE, C nonzero for a dereference (suffixes), which is never the root
+; alone, so the statement rule always applies. BC is kept.
+
+FW_USEC:                       ; C: a dereference?
     CALL FW_ROOT                   ; Tracked?
     RET  NC                        ; No.
     LD   A,(HL)                    ; Maybe
@@ -468,7 +481,11 @@ FW_USE:                        ; The root is RO_PROOT.
 .RULE:                         ; Moved in this statement?
     BIT  3,(HL)                    ; FW_MOVED:
     RET  Z                         ; no.
-    CALL FW_ALONE                  ; The root alone
+    LD   A,DG_SRULE                ; A dereference
+    INC  C                         ; always
+    DEC  C                         ; breaks
+    JR   NZ,FW_FAULT               ; the rule;
+    CALL FW_ALONE                  ; the root alone
     RET  Z                         ; is allowed;
     LD   A,DG_SRULE                ; else statement-rule.
 

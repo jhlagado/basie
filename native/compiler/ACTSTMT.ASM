@@ -641,7 +641,7 @@ AC_TEST:
 AC_ARM:
     CALL CT_NOTE                   ; Record whether the arm falls through.
     CALL CT_BLOCK                  ; The arm's block ends;
-    CALL FW_ARM                    ; its state met, the start restored.
+    CALL FW_ARMM                   ; its state met.
     LD   BC,CT_FEXIT*256+$C3       ; JP
     JP   CT_GO                     ; to the end; return.
 
@@ -651,7 +651,8 @@ AC_PART EQU  AC_ARM            ; FinishIfClauses: the last arm ends as any other
 ; End an arm before elseif or else, whose arm starts at the false label.
 
 AC_SHIFT:
-    CALL AC_ARM                    ; End the arm.
+    CALL AC_ARM                    ; End the arm;
+    CALL FW_REST                   ; the next starts from the if's state.
     LD   B,CT_FDEST                ; The false label
     JP   CT_DEF                    ; is here; return.
 

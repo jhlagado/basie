@@ -178,6 +178,7 @@ AC_SOPEN:                      ; The subject is in its slot.
 AC_CASE:
     LD   HL,(TK_POS)               ; `case`, where a handle arm's
     LD   (AC_SPOS),HL              ; faults are reported.
+    CALL FW_REST                   ; The arm starts from the select's state.
     CALL CT_MODE                   ; A handle select
     BIT  3,A                       ; reads its arm
     JR   NZ,.HANDLE                ; here.

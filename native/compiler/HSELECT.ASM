@@ -49,26 +49,11 @@ HN_SEL:                        ; A is the handle's type.
     CALL Z,FW_SEEN               ; (noteDirect),
     CALL FW_USE                    ; then checkUsable.
     LD   C,8                       ; A handle select,
-    LD   A,(AC_BOUND)              ; an
-    BIT  1,A                       ; identifier
-    JR   NZ,.LOAD                  ; no lease;
-    LD   A,(RO_PKIND)              ; an owner's lease
-    CP   GA_FRAME                  ; needs the frame,
-    JR   NZ,.LOAD                  ; and
-    LD   HL,(RO_PROOT)             ; the root,
-    INC  HL                        ; a
-    INC  HL                        ; local
-    INC  HL                        ; aggregate's
-    LD   A,(HL)                    ; class,
-    CP   SY_AGGR+SY_LOCAL          ; alone
-    JR   NZ,.LOAD                  ; (the path
-    INC  HL                        ; of the
-    INC  HL                        ; root's
-    INC  HL                        ; own
-    LD   A,(AC_BOUND)              ; type,
-    CP   (HL)                      ; with no
-    JR   NZ,.LOAD                  ; selection).
-    LD   C,8+64                    ; Bit 6: a lease.
+    CALL FW_ALONE                  ; a lease
+    JR   NZ,.LOAD                  ; for the root alone,
+    CALL FW_ROOT                   ; the routine's own owning local
+    JR   NC,.LOAD                  ; (a tracked owner):
+    LD   C,8+64                    ; bit 6.
 .LOAD:                         ; C is the mode.
     PUSH BC                        ; Kept.
     CALL HN_WIDE                   ; A word or a long:
@@ -342,15 +327,11 @@ HN_MOVE:                       ; `move` is next.
     CALL PR_TAKE                   ; taken;
     LD   E,TK_NAME                 ; the path's
     CALL PR_NEED                   ; root's name:
-    CALL SY_FIND                   ; a symbol
-    JR   NC,.PATH                  ; (or undeclared)
-    INC  HL                        ; not
-    INC  HL                        ; an
-    INC  HL                        ; aggregate
-    BIT  7,(HL)                    ; is
-    LD   A,0                       ; no owner;
-    JR   Z,.SCALAR                 ; else
-.PATH:                         ; the path:
+    CALL SY_FIND                   ; a symbol?
+    JR   C,.SYMBOL                 ; If not, a routine
+    CALL RO_FIND                   ; is
+    JR   Z,.CLASS                  ; wrong-class; else undeclared.
+.PATH:                         ; The path:
     CALL RO_NAMED                  ; A its type.
 .SCALAR:                       ; A is the type.
     POP  HL                        ; At `move`:
@@ -390,6 +371,31 @@ HN_MOVE:                       ; `move` is next.
 .FAULT:                        ; A is the diagnostic,
     LD   HL,(HN_AT)                ; at
     JP   DG_HERE                   ; `move`.
+.SYMBOL:                       ; A symbol, HL its record:
+    INC  HL                        ; its
+    INC  HL                        ; class
+    INC  HL                        ; byte.
+    LD   A,(HL)                    ; A type's name
+    AND  SY_TYPE                   ; is no
+    JR   NZ,.CLASS                 ; variable;
+    BIT  7,(HL)                    ; an aggregate's path is
+    JR   NZ,.PATH                  ; parsed (a constant's too);
+    LD   A,(HL)                    ; a scalar
+    AND  SY_CMASK                  ; constant is
+    JR   Z,.CLASS                  ; no variable;
+    CALL PR_PEEK                   ; a scalar has
+    CP   TK_DOT                    ; no fields
+    LD   A,DG_FIELD                ; (no-such-field
+    JP   Z,DG_ISSUE                ; at the dot),
+    CALL PR_PEEK                   ; no
+    CP   TK_LBRAC                  ; elements
+    LD   A,DG_NOIDX                ; (not-indexable,
+    JP   Z,DG_ISSUE                ; at the bracket),
+    XOR  A                         ; and is no owner.
+    JR   .SCALAR                   ; (not-owner)
+.CLASS:                        ; Not a variable:
+    LD   A,DG_CLASS                ; wrong-class,
+    JP   DG_NAMED                  ; naming it.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Move the owning handle at the path in hand into HL, leaving none
@@ -432,22 +438,9 @@ HN_ENDA:                       ; The innermost frame's arm ends.
     CALL CT_FBYTE                  ; index,
     LD   C,A                       ; C.
     LD   A,(CT_DEPTH)              ; Each frame
-    DEC  A                         ; outside it:
-.FRAME:                        ; frame A-1 next.
-    OR   A                         ; None
-    RET  Z                         ; left.
-    DEC  A                         ; Frame A:
-    PUSH AF                        ; (kept)
-    CALL CT_FRAME                  ; its
-    LD   DE,17                     ; subject,
-    ADD  HL,DE                     ; if it
-    LD   A,(HL)                    ; is this
-    CP   C                         ; one,
-    JR   NZ,.NEXT                  ; is
-    LD   DE,CT_FMODE-17            ; leased
-    ADD  HL,DE                     ; no
-    RES  7,(HL)                    ; longer.
-.NEXT:                         ; The one
-    POP  AF                        ; outside.
-    JR   .FRAME                    ; Next.
-
+    DEC  A                         ; outside it
+.FRAME:                        ; that leases it
+    CALL HN_SCAN                   ; too
+    RET  NC                        ; (none left)
+    RES  7,(HL)                    ; leases it no longer.
+    JR   .FRAME                    ; The next.

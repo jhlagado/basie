@@ -1509,6 +1509,60 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    select g\n    case 1\n        head = move a\n    case else\n        g = 2\n    end\n    g = a.value\nend\n",
   "inferred move":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    var b = move a\n    g = b.value\n    g = a.value\nend\n",
+  "move routine":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    head = move main\nend\n",
+  "move const":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nconst k = 5\nsub main()\n    head = move k\nend\n",
+  "move local const":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    const k = 5\n    head = move k\nend\n",
+  "move scalar dot":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    head = move g.x\nend\n",
+  "move record const":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nconst rc as u8[2] = [1, 2]\nsub main()\n    head = move rc\nend\n",
+  "move lease":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n        head = move x\n    end\nend\n",
+  "select move lease":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n        select move x\n        case some(y)\n        end\n    end\nend\n",
+  "select move int":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    select move g\n    case 1\n    end\nend\n",
+  "select move int expr":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    select move 1 + g\n    case 1\n    end\nend\n",
+  "move to identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    var i as nodes# = move a\nend\n",
+  "move stmt rule a.next = new(move a)":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    a.next = new nodes(1, move a)\nend\n",
+  "g = main":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    g = main\nend\n",
+  "move sub f":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub f()\nend\nsub main()\n    head = move f\nend\n",
+  "g = f":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub f()\nend\nsub main()\n    g = f\nend\n",
+  "move type name":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    head = move Node\nend\n",
+  "move pool name":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    head = move nodes\nend\n",
+  "select move const":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nconst k = 5\nsub main()\n    select move k\n    case 1\n    end\nend\n",
+  "move const array idx":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nconst rc as u8[2] = [1, 2]\nsub main()\n    head = move rc[1]\nend\n",
+  "move u8 array elem":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var arr as u8[2]\n    head = move arr[1]\nend\n",
+  "move g[1]":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    head = move g[1]\nend\n",
+  "move string len":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var s as string[4]\n    head = move s.length\nend\n",
+  "local init move const":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nconst k = 5\nsub main()\n    var b = move k\nend\n",
+  "typed local init move const":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nconst k = 5\nsub main()\n    var b as nodes? = move k\nend\n",
+  "new field move const":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nconst k = 5\nsub main()\n    head = new nodes(1, move k)\nend\n",
+  "a field read through an owner the statement reassigns":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    a = new nodes(a.value, none)\nend\n",
+  "a select's last arm moving, then a use":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    select g\n    case 1\n        return\n    case else\n        head = move a\n        return\n    end\n    g = a.value\nend\n",
+  "a handle select's none arm moving, then a use":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    select head\n    case some(x)\n        return\n    case none\n        head = move a\n        return\n    end\n    g = a.value\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 

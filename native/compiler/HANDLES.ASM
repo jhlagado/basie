@@ -140,7 +140,7 @@ HN_NEW:                        ; `new` is next.
 .FIELD:                        ; Field C next, B left.
     LD   A,B                       ; Another
     OR   A                         ; beyond the record's:
-    JP   Z,.ARITY                  ; arity.
+    JR   Z,.ARITY                  ; arity.
     PUSH BC                        ; The loop, kept.
     LD   A,C                       ; The field's
     CALL AG_FIELD                  ; entry:
@@ -535,17 +535,23 @@ HN_ARGCK:                      ; The path is parsed.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry if the path in hand's root, the routine's own owning local, is the
-; subject of an enclosing select's some arm that leases it (mode bits 3,
-; 6 and 7, its symbol's index in byte 17 of the frame), as the
+; subject of an enclosing select's some arm that leases it, as the
 ; reference's counting subject is.
 
 HN_LEASD:                      ; The root is RO_PROOT.
     CALL HN_SIDX                   ; Its symbol's index,
-    LD   C,A                       ; C.
-    LD   A,(CT_DEPTH)              ; Each frame,
-.FRAME:                        ; from the innermost:
-    OR   A                         ; none
-    RET  Z                         ; leases it (carry clear).
+    LD   C,A                       ; C,
+    LD   A,(CT_DEPTH)              ; from the innermost frame; fall into HN_SCAN.
+
+;@ROUTINE IN A,C OUT A,HL,CARRY CLOBBERS DE,ZERO,SIGN,PARITY,HALFCARRY
+; Find the next frame below frame A, inward to outward, whose some arm
+; leases symbol C (mode bits 7, 6 and 3, its subject's index in byte 17):
+; carry, A its index and HL its mode's address; no carry if none. BC is
+; kept.
+
+HN_SCAN:                       ; A frames to look below.
+    OR   A                         ; None
+    RET  Z                         ; (carry clear).
     DEC  A                         ; Frame A:
     PUSH AF                        ; (kept)
     CALL CT_FRAME                  ; a select's
@@ -558,14 +564,16 @@ HN_LEASD:                      ; The root is RO_PROOT.
     LD   DE,17-CT_FMODE            ; Its subject's
     ADD  HL,DE                     ; index:
     LD   A,(HL)                    ; this
-    CP   C                         ; local?
+    CP   C                         ; symbol?
+    LD   DE,CT_FMODE-17            ; (back to
+    ADD  HL,DE                     ; its mode)
     JR   NZ,.NEXT                  ; No.
-    POP  AF                        ; (dropped)
-    SCF                            ; Leased.
-    RET                            ; Done.
+    POP  AF                        ; A is its index.
+    SCF                            ; Found.
+    RET                            ; HL is its mode.
 .NEXT:                         ; Not this frame.
     POP  AF                        ; The one
-    JR   .FRAME                    ; outside.
+    JR   HN_SCAN                   ; outside.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An assignment's target of type A, parsed (assign): a tracked owner
@@ -635,7 +643,6 @@ RO_HSEL:                       ; A is the next token's kind.
 ; The path in hand, a handle local, goes through its slot (RO_HSEL).
 
 HN_DEREF:                      ; A dot follows the handle.
-    CALL FW_USE                    ; Usable (checkUsable)?
     LD   A,(RO_OTYPE)              ; The handle:
     RRA                            ; optional?
     LD   A,DG_OPTH                 ; Then
@@ -648,6 +655,8 @@ HN_DEREF:                      ; A dot follows the handle.
     PUSH AF                        ; (kept),
     LD   A,DG_PINC                 ; else pool-incomplete
     JP   Z,DG_ISSUE                ; when it is only forward.
+    LD   C,1                       ; Usable, a dereference
+    CALL FW_USEC                   ; (checkUsable).
     LD   A,(RO_OTYPE)              ; An identifier's
     BIT  1,A                       ; slot is
     LD   A,2                       ; checked:
@@ -853,7 +862,7 @@ HN_ENDB:                       ; The innermost frame's block ends.
     LD   B,A                       ; B,
     LD   A,(SY_CNT)                ; to the
     LD   C,A                       ; last.
-    JP   HN_SEG                    ; Freed; return.
+    JR   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The body ends: the frees of its scope, from RO_BODY less one to SY_CNT.
@@ -864,7 +873,7 @@ HN_ENDR:                       ; The body's block ends.
     LD   B,A                       ; B,
     LD   A,(SY_CNT)                ; to the
     LD   C,A                       ; last.
-    JP   HN_SEG                    ; Freed; return.
+    JR   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; exit or continue: the frees of the scopes from the innermost frame's to
@@ -963,7 +972,7 @@ HN_RET:                        ; A is the result's type.
     RET  Z                         ; to free.
     LD   A,H                       ; A size
     OR   A                         ; past
-    JP   NZ,HN_ALL                 ; 255 is not kept.
+    JR   NZ,HN_ALL                 ; 255 is not kept.
     LD   A,L                       ; One,
     LD   HL,HN_KEEP1               ; two
     DEC  A                         ; or
@@ -973,7 +982,7 @@ HN_RET:                        ; A is the result's type.
     JR   Z,.KEEP                   ; kept;
     LD   HL,HN_KEEP4               ; any
     SUB  2                         ; other
-    JP   NZ,HN_ALL                 ; is not.
+    JR   NZ,HN_ALL                 ; is not.
 .KEEP:                         ; HL is the push, the pop after it.
     CALL EM_RUN                    ; The push;
     PUSH HL                        ; (the pop kept)
