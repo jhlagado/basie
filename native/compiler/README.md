@@ -31,12 +31,15 @@ disks in the tests and the Triptych machine's.
 | `START` | `LIBRARY.ASM`, `BLOPEN.ASM`, `PARTNAME.ASM` | 812 | to check the library, then, once the parts are loaded, to choose the stamp, open the streams and name the parts |
 | `NAMES` | `PREDEF.ASM` | 947 | before the compilation, for all of it: the predeclared names stay where `RO_LIB` reads them, so lookups are as fast as from the image |
 | `CHAIN` | `CHAIN.ASM`, `BLCLOSE.ASM` | 448 | after a compilation, to close the streams and, unless option C, run `BLINK`; with option X, to run `BLINK` alone |
-| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,023 | to print a diagnostic |
+| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,034 | to print a diagnostic |
 | `PARTS` | `PARTS.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 915 | to load the parts and the parts they include |
+| `FLOAT` | `FLOAT.ASM` | 1,481 | the first time a compilation meets an `f32` constant, above `NAMES`, both kept for the rest of it: decimal literals to `f32` and the folding of `f32` constants |
 
-The overlay area is 1,024 bytes, the largest overlay in whole records.
-`DIAG` is one byte short of it, so it cannot grow without widening the area
-by a record; the others have room, and `START` and `CHAIN` the most. Code
+The overlay area is 2,560 bytes: `FLOAT` loads 1,024 bytes in, above
+`NAMES`, and the others at the start. `DIAG`, at 1,034 bytes, reaches into
+`FLOAT`'s first record; that is harmless, since a diagnostic ends the
+compilation, but the area must keep `DIAG` and `NAMES` below `FLOAT`'s
+records end (`build.ts` checks `NAMES`). Code
 that runs once, before the compilation or after it, belongs in an overlay
 rather than the image: the streams' opening code is `START`'s, their
 closing code `CHAIN`'s, and the decimal printer `SH_NUM` `DIAG`'s. The
@@ -101,18 +104,18 @@ computes the prediction rows and every offset under the `GR_` scheme
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 17,077 |
+| Compiler code | 17,494 |
 | Immutable data | 290 |
-| **Compiler core** | **17,367** |
-| CP/M shell and overlay loader | 593 |
-| **`BASIE.COM`** | **17,963** |
-| Overlay area, after the image | 1,024 |
-| `BASIE.OVL` (six overlays, 5,632 bytes on disk) | 5,123 |
+| **Compiler core** | **17,784** |
+| CP/M shell and overlay loader | 638 |
+| **`BASIE.COM`** | **18,425** |
+| Overlay area, after the image | 2,560 |
+| `BASIE.OVL` (seven overlays, 7,296 bytes on disk) | 6,613 |
 | Compiler workspace (not in the image) | 4,658 |
 | Blob writer's workspace (not in the image) | 4,432 |
 
-The image and the overlay area take 18,987 bytes, 7,637 to the 26K target
-and 9,685 to the 28K limit (D43). The compression pass before step 67c
+The image and the overlay area take 20,985 bytes, 5,639 to the 26K target
+and 7,687 to the 28K limit (D43). The compression pass before step 67c
 took 1,626 bytes from the image and the one after 67d 94 more
 ([native compiler](../../docs/native-compiler.md) §4, which lists what
 they did and what remains). Every increment follows D43's cycle: the

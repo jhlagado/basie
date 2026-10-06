@@ -319,10 +319,11 @@ where it had looked on `L`'s drive alone, took it to 10,876 bytes.
   predeclared names (`NAMES`), loaded before the compilation and kept for
   all of it, so that name lookups are as fast as before; the chain to
   `BLINK` (`CHAIN`); and the diagnostics, which read `BASIE.MSG` (`DIAG`).
-  The area is as large as the largest overlay, in whole records. The
-  conversion of decimal literals to `f32` is to be one more, loaded above
-  the predeclared names, which stay, when the first `f32` literal needs it:
-  a program that uses none never loads it.
+  The conversion of decimal literals to `f32` and the folding of `f32`
+  constants are one more (`FLOAT`), loaded above the predeclared names, which
+  stay, the first time a program needs it: a program that uses no `f32`
+  constant never loads it. The area runs from the start of the overlays to
+  the end of `FLOAT`'s records.
 - `BASIE.OVL` is the magic `BSIO`, a version (1.0), the 16-bit sum of
   `BASIE.COM`'s bytes, which ties the file to its `BASIE.COM`, a count, and
   for each overlay its load address, its first record and its records;
