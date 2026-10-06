@@ -323,6 +323,7 @@ const CLAIMED: Record<string, string[]> = {
     "OWNDEST",
     "HANDDISC",
     "ELSEFREE",
+    "SELF32",
   ],
 };
 

@@ -1,0 +1,26 @@
+// A handle select whose arms fold f32 constants: the FLOAT overlay and
+// the OWNERS overlay, which holds the select's actions, take turns in the
+// area above NAMES, each loaded again when next needed.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+var f as f32
+sub main()
+    var a as nodes? = new nodes(1, none)
+    select a
+    case some(x)
+        f = 1.5 * 2.0
+        x.value = 3
+    case none
+        f = 0.25 + 0.5
+    end
+    select a
+    case none
+        f = 7.0 / 2.0
+    case some(y)
+        f = 3.0e2
+    end
+end
