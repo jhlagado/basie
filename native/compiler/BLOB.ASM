@@ -73,11 +73,10 @@ BL_STAMP EQU  BL_NAMEP+2       ; Word: the compilation stamp of every header.
 BL_ORD EQU  BL_STAMP+2         ; Word: the blob being built.
 BL_HEAD EQU  BL_ORD+2          ; Byte: its kind, root and alignment bits.
 BL_LEN EQU  BL_HEAD+1          ; Word: its bytes so far.
-BL_RPTR EQU  BL_LEN+2          ; Word: the next free byte of BL_REFS.
-BL_RCNT EQU  BL_RPTR+2         ; Word: its references so far.
+BL_CUR EQU  BL_LEN+2           ; Word: BL_RPTR or BL_LPTR, where BL_PUT appends.
+BL_RCNT EQU  BL_CUR+2          ; Word: its references so far.
 BL_RLAST EQU  BL_RCNT+2        ; Word: the offset of its last reference.
-BL_LPTR EQU  BL_RLAST+2        ; Word: the next free byte of BL_LINES.
-BL_LCNT EQU  BL_LPTR+2         ; Word: its line entries so far.
+BL_LCNT EQU  BL_RLAST+2        ; Word: its line entries so far.
 BL_LLAST EQU  BL_LCNT+2        ; Word: the offset of its last line entry.
 BL_LPART EQU  BL_LLAST+2       ; Byte: the part of its last line entry.
 BL_LSRC EQU  BL_LPART+1        ; Word: where the last entry's line number is.
@@ -90,8 +89,10 @@ BL_LN EQU  BL_BY+OUT_SIZE      ; The line stream's record.
 BL_NM EQU  BL_LN+OUT_SIZE      ; The name stream's record.
 BL_CODE EQU  BL_NM+OUT_SIZE    ; BL_CCAP bytes: the blob's bytes.
 BL_REFS EQU  BL_CODE+BL_CCAP   ; BL_RCAP bytes: its encoded references.
-BL_LINES EQU  BL_REFS+BL_RCAP  ; BL_LCAP bytes: its encoded line entries.
-BL_WEND EQU  BL_LINES+BL_LCAP  ; The end of the workspace.
+BL_RPTR EQU  BL_REFS+BL_RCAP   ; Word: their next free byte, just past their end.
+BL_LINES EQU  BL_RPTR+2        ; BL_LCAP bytes: its encoded line entries.
+BL_LPTR EQU  BL_LINES+BL_LCAP  ; Word: their next free byte, just past their end.
+BL_WEND EQU  BL_LPTR+2         ; The end of the workspace.
 
 ;@ROUTINE IN A,HL CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Start blob HL. A is its header byte without the explicit-ordinal bit: the
@@ -105,6 +106,10 @@ BL_BEGIN:                      ; HL is the ordinal, A the header.
     LD   (BL_LEN),HL               ; no bytes,
     LD   (BL_RCNT),HL              ; no references,
     LD   (BL_LCNT),HL              ; no line entries.
+    LD   (BL_RLAST),HL             ; The first reference's delta is its offset,
+    LD   (BL_LLAST),HL             ; and the first line entry's.
+    DEC  HL                        ; No part is $FF, so the first entry names
+    LD   (BL_LPART),HL             ; its part (BL_LSRC's low byte is not yet read).
     LD   HL,BL_REFS                ; Both encodings start
     LD   (BL_RPTR),HL              ; at the start of their buffers.
     LD   HL,BL_LINES               ; The line entries
@@ -142,193 +147,152 @@ BL_BYTE:                       ; A is the byte.
 ; and bit 7 when a form follows, then the form, the target and the addend.
 
 BL_REF:                        ; A is the form, HL the target, DE the addend.
-    PUSH AF                        ; Keep the form for the placeholder.
     PUSH HL                        ; Keep the target for its word.
+    LD   HL,BL_RPTR                ; BL_PUT appends
+    LD   (BL_CUR),HL               ; to the reference encoding.
     LD   C,A                       ; C is the form.
-    LD   B,0                       ; B gathers the control's flag bits.
-    OR   A                         ; ABS16 is form 0 and needs no form byte.
-    JR   Z,.NOFORM                 ; Any other form does.
-    SET  7,B                       ; Bit 7: a form byte follows.
-.NOFORM:                       ; C is the form, B its flag.
+    ADD  A,$FF                     ; Carry unless it is ABS16, form 0,
+    SBC  A,A                       ; so A is $FF for any other form,
+    AND  $80                       ; which needs a form byte: bit 7.
+    LD   B,A                       ; B gathers the control's flag bits.
     LD   A,D                       ; Is the addend zero?
     OR   E                         ; An addend of zero is left out.
     JR   Z,.NOADD                  ; Then bit 6 stays clear.
     SET  6,B                       ; Bit 6: an addend follows.
 .NOADD:                        ; B holds the flags.
     PUSH DE                        ; Keep the addend for its word.
-    LD   HL,(BL_RCNT)              ; Is this the blob's first reference?
-    LD   A,H                       ; Its delta counts from offset zero,
-    OR   L                         ; not from a previous reference.
     LD   HL,(BL_LEN)               ; HL is this reference's offset.
-    PUSH HL                        ; Keep it to become the last offset.
-    JR   Z,.FIRST                  ; The first: the delta is the offset itself.
-    LD   DE,(BL_RLAST)             ; Subtract the last reference's offset.
-    OR   A                         ; Clear carry.
-    SBC  HL,DE                     ; HL is the delta, at least 1.
-.FIRST:                        ; HL is the delta.
-    LD   A,H                       ; Does it fit the control byte?
-    OR   A                         ; A delta above 255 does not,
-    JR   NZ,.ESCAPE                ; nor does one above 62.
-    LD   A,L                       ; A is the delta.
-    CP   63                        ; Is it 63 or more?
-    JR   NC,.ESCAPE                ; Then the offset goes in a word.
-    OR   B                         ; Combine the delta with the flags.
-    CALL .PUT                      ; The control byte.
-    POP  HL                        ; HL is the offset; nothing more to say of it.
-    JR   .TAIL                     ; Then the form, target and addend.
-.ESCAPE:                       ; The delta needs a word.
-    LD   A,63                      ; Control 63: an absolute offset follows.
-    OR   B                         ; With the flags.
-    CALL .PUT                      ; The control byte.
-    POP  HL                        ; HL is the absolute offset.
-    CALL .PUTW                     ; Its word.
-.TAIL:                         ; The control and any offset are encoded.
+    LD   DE,(BL_RLAST)             ; Less the last one's, zero for the first:
+    OR   A                         ; clear carry.
+    SBC  HL,DE                     ; HL is the delta.
+    LD   E,63                      ; 63 escapes to an absolute offset.
+    CALL BL_CTRL                   ; The control byte and any offset.
     LD   HL,(BL_LEN)               ; This offset becomes the last one.
     LD   (BL_RLAST),HL             ; The next reference's delta counts from it.
     LD   HL,(BL_RCNT)              ; Count the reference.
     INC  HL                        ; One more.
     LD   (BL_RCNT),HL              ; Keep the count for the record.
-    BIT  7,B                       ; Is there a form byte?
     LD   A,C                       ; A is the form.
-    CALL NZ,.PUT                   ; Append it when nonzero.
+    OR   A                         ; Any but ABS16
+    CALL NZ,BL_PUT                 ; is appended.
     POP  DE                        ; DE is the addend.
     POP  HL                        ; HL is the target.
-    CALL .PUTW                     ; The target's ordinal.
+    CALL BL_PUTW                   ; The target's ordinal.
     EX   DE,HL                     ; HL is the addend.
     BIT  6,B                       ; Is there an addend?
-    CALL NZ,.PUTW                  ; Append it when nonzero.
-    POP  AF                        ; A is the form again.
+    CALL NZ,BL_PUTW                ; Append it when nonzero.
     XOR  A                         ; The placeholder is zero.
     CALL BL_BYTE                   ; Its first byte.
-    LD   A,C                       ; LO8 and HI8 take one byte;
-    DEC  A                         ; forms 1 and 2
-    CP   2                         ; fall below 2 after the decrement.
-    RET  C                         ; One byte is enough.
+    LD   A,C                       ; LO8 and HI8 take one byte:
+    OR   A                         ; forms 1 and 2 have odd parity,
+    RET  PO                        ; so one byte is enough.
     XOR  A                         ; ABS16 and SIZE16 take a word:
-    JP   BL_BYTE                   ; the second byte, and return.
-
-;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the word HL to the reference encoding, low byte first.
-
-.PUTW:                         ; HL is the word.
-    LD   A,L                       ; The low byte first.
-    CALL .PUT                      ; Append it.
-    LD   A,H                       ; Then the high byte.
-
-;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append A to the reference encoding.
-
-.PUT:                          ; A is the byte.
-    PUSH HL                        ; Keep the caller's HL.
-    PUSH DE                        ; And DE.
-    LD   HL,(BL_RPTR)              ; HL is the next free byte.
-    LD   DE,BL_REFS+BL_RCAP        ; Is the buffer full?
-    OR   A                         ; Clear carry; A is kept.
-    SBC  HL,DE                     ; No carry at the buffer's end.
-    JP   NC,BL_OVER                ; Too many references for one blob.
-    ADD  HL,DE                     ; HL is the free byte again.
-    LD   (HL),A                    ; Store the byte.
-    INC  HL                        ; The next byte is free.
-    LD   (BL_RPTR),HL              ; Keep it.
-    POP  DE                        ; Restore DE
-    POP  HL                        ; and HL.
-    RET                            ; The byte is encoded.
+    JR   BL_BYTE                   ; the second byte, and return.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Record that the code from the blob's current offset belongs to line HL of
-; part A (object format §8). An entry at the same offset and part as the
-; last one replaces its line, as a statement that produced no code gives way
-; to the next. Each entry is a control byte, the offset's delta from the
-; last entry with 127 escaping to an absolute word and bit 7 when the part
-; changes, then the part if it changed, then the line.
+; part A (object format §8), A below 255. An entry at the same offset and
+; part as the last one replaces its line, as a statement that produced no
+; code gives way to the next. Each entry is a control byte, the offset's
+; delta from the last entry with 127 escaping to an absolute word and bit 7
+; when the part changes, then the part if it changed, then the line.
 
 BL_LINE:                       ; A is the part, HL the line.
     LD   C,A                       ; C is the part.
     EX   DE,HL                     ; DE is the line.
-    LD   HL,(BL_LCNT)              ; Is this the blob's first entry?
-    LD   A,H                       ; With none before it, the part
-    OR   L                         ; always changes and the delta is the offset.
+    LD   HL,BL_LPTR                ; BL_PUT appends
+    LD   (BL_CUR),HL               ; to the line encoding.
     LD   HL,(BL_LEN)               ; HL is the entry's offset.
-    JR   Z,.NEW                    ; The first entry is new.
     PUSH DE                        ; Keep the line across the comparison.
-    LD   DE,(BL_LLAST)             ; DE is the last entry's offset.
-    OR   A                         ; Clear carry.
+    LD   DE,(BL_LLAST)             ; Less the last entry's, zero for the first:
+    OR   A                         ; clear carry.
     SBC  HL,DE                     ; HL is the delta.
     POP  DE                        ; DE is the line again.
-    JR   NZ,.DELTA                 ; Code has been added since the last entry.
-    LD   A,(BL_LPART)              ; Same offset: the same part as well?
-    CP   C                         ; Two entries at one offset need two parts.
-    JR   NZ,.DELTA                 ; Different parts: a new entry.
+    LD   B,0                       ; Bit 7 only if the part changes.
+    LD   A,(BL_LPART)              ; A is the last entry's part, $FF before the first.
+    JR   NZ,.MOVED                 ; Code has been added since the last entry.
+    CP   C                         ; Same offset: the same part as well?
+    JR   NZ,.NEWPART               ; Two entries at one offset need two parts.
     LD   HL,(BL_LSRC)              ; Same part: the last entry's line
     LD   (HL),E                    ; gives way to this one,
     INC  HL                        ; low byte
     LD   (HL),D                    ; and high byte.
     RET                            ; No entry is added.
-.NEW:                          ; HL is the delta, the whole offset.
-    LD   B,$80                     ; The first entry names its part.
-    JR   .CONTROL                  ; Encode it.
-.DELTA:                        ; HL is the delta from the last entry.
-    LD   B,0                       ; Bit 7 only if the part changes.
-    LD   A,(BL_LPART)              ; Does it?
-    CP   C                         ; Compare the parts.
+.MOVED:                        ; HL is the delta from the last entry.
+    CP   C                         ; Does the part change?
     JR   Z,.CONTROL                ; The same part: no part byte.
-    LD   B,$80                     ; A new part: bit 7 and a part byte.
+.NEWPART:                      ; A new part, or the first entry:
+    LD   B,$80                     ; bit 7 and a part byte.
 .CONTROL:                      ; HL is the delta, B the part flag.
     PUSH DE                        ; Keep the line for the end.
-    LD   A,H                       ; Does the delta fit the control byte?
-    OR   A                         ; Not if it is above 255,
-    JR   NZ,.FAR                   ; nor if it is above 126.
-    LD   A,L                       ; A is the delta.
-    CP   127                       ; Is it 127 or more?
-    JR   NC,.FAR                   ; Then the offset goes in a word.
-    OR   B                         ; Combine it with the part flag.
-    CALL .PUT                      ; The control byte.
-    JR   .PART                     ; Then the part, if any.
-.FAR:                          ; The delta needs a word.
-    LD   A,127                     ; Control 127: an absolute offset follows.
-    OR   B                         ; With the part flag.
-    CALL .PUT                      ; The control byte.
-    LD   HL,(BL_LEN)               ; HL is the absolute offset.
-    CALL .PUTW                     ; Its word.
-.PART:                         ; The control and any offset are encoded.
+    LD   E,127                     ; 127 escapes to an absolute offset.
+    CALL BL_CTRL                   ; The control byte and any offset.
     BIT  7,B                       ; Has the part changed?
     LD   A,C                       ; A is the part.
-    CALL NZ,.PUT                   ; Name it when it has.
+    CALL NZ,BL_PUT                 ; Name it when it has.
     LD   (BL_LPART),A              ; It is now the last entry's part.
     LD   HL,(BL_LEN)               ; This offset is now the last entry's.
     LD   (BL_LLAST),HL             ; The next delta counts from it.
     LD   HL,(BL_LPTR)              ; The line number goes here:
     LD   (BL_LSRC),HL              ; a later entry at this offset may replace it.
     POP  HL                        ; HL is the line.
-    CALL .PUTW                     ; Its word.
+    CALL BL_PUTW                   ; Its word.
     LD   HL,(BL_LCNT)              ; Count the entry.
     INC  HL                        ; One more.
     LD   (BL_LCNT),HL              ; Keep the count for the line record.
     RET                            ; The statement is marked.
 
-;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the word HL to the line encoding, low byte first.
+;@ROUTINE IN B,E,HL CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append through BL_PUT the control byte of a reference or line entry whose
+; offset is HL past the last one's, with flag bits B: the delta itself when
+; it is below E, else E, and the absolute offset as a word after it.
 
-.PUTW:                         ; HL is the word.
+BL_CTRL:                       ; HL is the delta, E the escape, B the flags.
+    LD   A,H                       ; Does the delta fit the control byte?
+    OR   A                         ; Not if it is above 255,
+    JR   NZ,.FAR                   ; nor if it is E or more.
+    LD   A,L                       ; A is the delta.
+    CP   E                         ; Is it E or more?
+    JR   NC,.FAR                   ; Then the offset goes in a word.
+    OR   B                         ; Combine the delta with the flags:
+    JR   BL_PUT                    ; the control byte, and return.
+.FAR:                          ; The delta needs a word.
+    LD   A,E                       ; The escape,
+    OR   B                         ; with the flags,
+    CALL BL_PUT                    ; is the control byte.
+    LD   HL,(BL_LEN)               ; HL is the absolute offset: its word follows.
+
+;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the word HL to the encoding at BL_CUR, low byte first.
+
+BL_PUTW:                       ; HL is the word.
     LD   A,L                       ; The low byte first.
-    CALL .PUT                      ; Append it.
+    CALL BL_PUT                    ; Append it.
     LD   A,H                       ; Then the high byte.
 
 ;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append A to the line encoding.
+; Append A to the encoding whose pointer BL_CUR addresses: BL_RPTR or
+; BL_LPTR, each just past the end of its buffer, so that it is the limit too.
 
-.PUT:                          ; A is the byte.
+BL_PUT:                        ; A is the byte.
     PUSH HL                        ; Keep the caller's HL.
     PUSH DE                        ; And DE.
-    LD   HL,(BL_LPTR)              ; HL is the next free byte.
-    LD   DE,BL_LINES+BL_LCAP       ; Is the buffer full?
+    LD   HL,(BL_CUR)               ; HL addresses the pointer, the buffer's end.
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; the next
+    LD   D,(HL)                    ; free byte.
+    DEC  HL                        ; HL is the end again.
+    EX   DE,HL                     ; HL is the free byte, DE the end.
     OR   A                         ; Clear carry; A is kept.
     SBC  HL,DE                     ; No carry at the buffer's end.
-    JP   NC,BL_OVER                ; Too many statements for one blob.
+    JP   NC,BL_OVER                ; Too many references or statements for one blob.
     ADD  HL,DE                     ; HL is the free byte again.
     LD   (HL),A                    ; Store the byte.
     INC  HL                        ; The next byte is free.
-    LD   (BL_LPTR),HL              ; Keep it.
+    EX   DE,HL                     ; DE is it, HL the pointer.
+    LD   (HL),E                    ; Keep it,
+    INC  HL                        ; low byte
+    LD   (HL),D                    ; and high byte.
     POP  DE                        ; Restore DE
     POP  HL                        ; and HL.
     RET                            ; The byte is encoded.
@@ -346,11 +310,10 @@ BL_END:                        ; The blob is complete in memory.
     LD   DE,(BL_RPTR)              ; as encoded,
     CALL .COPY                     ; to the directory stream.
     LD   IX,BL_BY                  ; The bytes go to the byte stream.
-    LD   HL,BL_CODE                ; From the buffer's start
-    LD   DE,(BL_LEN)               ; for the blob's length:
-    ADD  HL,DE                     ; HL is the end,
-    EX   DE,HL                     ; DE the end,
-    LD   HL,BL_CODE                ; HL the start.
+    LD   HL,(BL_LEN)               ; The blob's length
+    LD   DE,BL_CODE                ; from the buffer's start:
+    ADD  HL,DE                     ; HL is the end.
+    EX   DE,HL                     ; DE the end, HL the start.
     CALL .COPY                     ; Append them.
     LD   A,(BL_HEAD)               ; Only routines have line records.
     AND  BL_KMASK                  ; Is this code?
@@ -376,13 +339,10 @@ BL_END:                        ; The blob is complete in memory.
 ; Append the bytes from HL up to DE to the stream at IX.
 
 .COPY:                         ; HL is the first byte, DE the end.
-    LD   A,L                       ; Has HL reached DE?
-    CP   E                         ; Compare the low bytes,
-    JR   NZ,.MORE                  ; then the high bytes.
-    LD   A,H                       ; Equal low bytes:
-    CP   D                         ; the high bytes decide.
+    OR   A                         ; Has HL reached DE?
+    SBC  HL,DE                     ; Zero when it has;
+    ADD  HL,DE                     ; HL is restored, zero kept.
     RET  Z                         ; Every byte is appended.
-.MORE:                         ; HL is below DE.
     LD   A,(HL)                    ; Append the byte
     CALL OUT_BYTE                  ; to the stream.
     INC  HL                        ; Move to the next.
@@ -451,37 +411,37 @@ BL_BSS:                        ; HL is the ordinal, DE the size, A the header.
     POP  IX                        ; Restore the caller's IX.
     RET                            ; The bss blob is written.
 
+;@ROUTINE IN A,DE,HL CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the limits control record: stack reserve HL, largest frame DE and
+; flags A (object format §5.3).
+
+BL_LIMIT:                      ; HL is the reserve, DE the frame, A the flags.
+    PUSH AF                        ; Keep the flags for last.
+    LD   A,$1E                     ; Control kind 6, subtype 3: limits,
+    CALL BL_CWORD                  ; then the stack reserve.
+    POP  AF                        ; The flags follow the frame's high byte:
+    LD   H,A                       ; they are the high byte
+    LD   L,D                       ; of a word whose low byte is the frame's,
+    LD   A,E                       ; after the frame's low byte.
+    JR   BL_CWORD                  ; Append the three, and return.
+
 ;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the entry control record: the program starts at blob HL (object
 ; format §5.3).
 
 BL_ENTRY:                      ; HL is main's ordinal.
-    PUSH IX                        ; Keep the caller's IX.
-    LD   IX,BL_DR                  ; The directory stream.
     LD   A,$0E                     ; Control kind 6, subtype 1: entry.
-    CALL OUT_BYTE                  ; Append it.
-    CALL OUT_WORD                  ; The entry's ordinal.
-    POP  IX                        ; Restore the caller's IX.
-    RET                            ; The entry is recorded.
 
-;@ROUTINE IN A,DE,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the limits control record: stack reserve HL, largest frame DE and
-; flags A (object format §5.3).
+;@ROUTINE IN A,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the byte A and then the word HL to the directory stream.
 
-BL_LIMIT:                      ; HL is the reserve, DE the frame, A the flags.
+BL_CWORD:                      ; A is the byte, HL the word.
     PUSH IX                        ; Keep the caller's IX.
     LD   IX,BL_DR                  ; The directory stream.
-    PUSH AF                        ; Keep the flags for last.
-    LD   A,$1E                     ; Control kind 6, subtype 3: limits.
-    CALL OUT_BYTE                  ; Append it.
-    CALL OUT_WORD                  ; The stack reserve.
-    EX   DE,HL                     ; HL is the largest frame.
-    CALL OUT_WORD                  ; Append it.
-    EX   DE,HL                     ; Restore HL.
-    POP  AF                        ; A is the flags.
-    CALL OUT_BYTE                  ; Append them.
+    CALL OUT_BYTE                  ; Append the byte,
+    CALL OUT_WORD                  ; then the word.
     POP  IX                        ; Restore the caller's IX.
-    RET                            ; The limits are recorded.
+    RET                            ; Both are in the stream.
 
 ;@ROUTINE IN B,DE,HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the name of ordinal HL, the B characters at DE, to the name stream
@@ -495,10 +455,10 @@ BL_NAME:                       ; HL is the ordinal, DE the name, B its length.
     PUSH IX                        ; Keep the caller's IX.
     LD   IX,BL_NM                  ; The name stream.
     CALL OUT_WORD                  ; The ordinal.
-    LD   A,B                       ; A is the length.
-    CP   32                        ; Is it above 31?
-    JR   C,.SHORT                  ; No: it is kept whole.
-    LD   B,31                      ; Yes: only 31 characters are kept.
+    LD   A,31                      ; Is the length
+    CP   B                         ; above 31?
+    JR   NC,.SHORT                 ; No: it is kept whole.
+    LD   B,A                       ; Yes: only 31 characters are kept.
 .SHORT:                        ; B is the length to write.
     LD   A,B                       ; The length byte.
     CALL OUT_BYTE                  ; Append it.

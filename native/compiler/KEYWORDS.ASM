@@ -18,8 +18,8 @@
 ;    KW_FILE   the spelling `File`, the type of files (AC_NAMED)
 ;    KW_FROM   the spelling `from`, which begins a result's from clause
 ;
-;  KW_TAB holds length-prefixed spellings: a length byte, the bytes of the
-;  word and the token kind. Matching is exact and case-sensitive. A word
+;  KW_TAB holds spellings whose last byte has bit 7 set, each followed by
+;  its token kind. Matching is exact and case-sensitive. A word
 ;  that matches no KW_TAB entry is a NAME, so `main`, `length`, `File` and
 ;  the predeclared names reach the parser as NAME tokens and are
 ;  recognised there. The counts (KW_CNT, KW_PCNT) must be kept equal to the
@@ -28,53 +28,55 @@
 MM_CEND:                       ; End of compiler code (marker).
 MM_IBEG:                       ; Start of compiler immutable data (marker).
 
-; Reserved words: length, spelling, token kind. A type keyword's kind
+; Reserved words: the spelling, its last byte with bit 7 set, then the
+; token kind; a zero byte ends the table. A type keyword's kind
 ; byte is KW_TYPE plus its type ID: it is a TK_TYPE token whose payload
 ; is the type. The search is linear, so order affects only speed.
 
 KW_TAB:
-    DB   3,"var",TK_VAR            ; Program or local variable declaration.
-    DB   2,"as",TK_AS              ; Introduces a type.
-    DB   2,"u8",KW_TYPE+SY_U8      ; Unsigned byte type.
-    DB   3,"u16",KW_TYPE+SY_U16    ; Unsigned word type.
-    DB   7,"boolean",KW_TYPE+SY_BOOL ; Boolean type.
-    DB   2,"i8",KW_TYPE+SY_I8      ; Signed byte type.
-    DB   3,"i16",KW_TYPE+SY_I16    ; Signed word type.
-    DB   3,"u32",KW_TYPE+SY_U32    ; Unsigned long type.
-    DB   3,"i32",KW_TYPE+SY_I32    ; Signed long type.
-    DB   3,"f32",KW_TYPE+SY_F32    ; Floating-point type, not yet compiled.
-    DB   4,"true",TK_TRUE          ; Boolean literal.
-    DB   5,"false",TK_FALSE        ; Boolean literal.
-    DB   5,"const",TK_CONST        ; Constant declaration.
-    DB   2,"or",TK_OR              ; Logical or bitwise or.
-    DB   3,"xor",TK_XOR            ; Bitwise exclusive or.
-    DB   3,"mod",TK_MOD            ; Remainder operator.
-    DB   3,"shl",TK_SHL            ; Shift left.
-    DB   3,"shr",TK_SHR            ; Shift right.
-    DB   6,"assert",TK_ASSRT       ; Compile-time assertion.
-    DB   3,"and",TK_AND            ; Logical or bitwise and.
-    DB   3,"not",TK_NOT            ; Logical or bitwise complement.
-    DB   4,"fail",TK_FAIL          ; Raise a recoverable failure; also `else fail`.
-    DB   3,"end",TK_END            ; Closes a block.
-    DB   3,"sub",TK_SUB            ; Routine definition.
-    DB   5,"fails",TK_FAILS        ; Marks a routine that can fail.
-    DB   3,"for",TK_FOR            ; Counted loop.
-    DB   5,"until",TK_UNTIL        ; Exclusive counted-loop bound.
-    DB   7,"forward",TK_FORW       ; Forward routine signature.
-    DB   6,"return",TK_RET         ; Return from a routine.
-    DB   2,"if",TK_IF              ; Conditional.
-    DB   6,"elseif",TK_ELSIF       ; Further conditional arm.
-    DB   4,"else",TK_ELSE          ; Final arm; also `else fail`.
-    DB   5,"while",TK_WHILE        ; Pre-tested loop.
-    DB   2,"to",TK_TO              ; Inclusive counted-loop bound.
-    DB   4,"step",TK_STEP          ; Counted-loop step.
-    DB   4,"exit",TK_EXIT          ; Leave the innermost loop.
-    DB   8,"continue",TK_CONT      ; Next iteration of the innermost loop.
-    DB   6,"record",TK_REC         ; Record type declaration.
-    DB   6,"string",TK_STR         ; String type.
-    DB   6,"handle",TK_HANDL       ; Local failure handler.
-    DB   7,"private",TK_PRIV       ; A declaration its part alone sees.
-    DB   7,"include",TK_INCL       ; A part a part depends on.
+    DB   "va",'r'+$80,TK_VAR       ; Program or local variable declaration.
+    DB   "a",'s'+$80,TK_AS         ; Introduces a type.
+    DB   "u",'8'+$80,KW_TYPE+SY_U8 ; Unsigned byte type.
+    DB   "u1",'6'+$80,KW_TYPE+SY_U16 ; Unsigned word type.
+    DB   "boolea",'n'+$80,KW_TYPE+SY_BOOL ; Boolean type.
+    DB   "i",'8'+$80,KW_TYPE+SY_I8 ; Signed byte type.
+    DB   "i1",'6'+$80,KW_TYPE+SY_I16 ; Signed word type.
+    DB   "u3",'2'+$80,KW_TYPE+SY_U32 ; Unsigned long type.
+    DB   "i3",'2'+$80,KW_TYPE+SY_I32 ; Signed long type.
+    DB   "f3",'2'+$80,KW_TYPE+SY_F32 ; Floating-point type, not yet compiled.
+    DB   "tru",'e'+$80,TK_TRUE     ; Boolean literal.
+    DB   "fals",'e'+$80,TK_FALSE   ; Boolean literal.
+    DB   "cons",'t'+$80,TK_CONST   ; Constant declaration.
+    DB   "o",'r'+$80,TK_OR         ; Logical or bitwise or.
+    DB   "xo",'r'+$80,TK_XOR       ; Bitwise exclusive or.
+    DB   "mo",'d'+$80,TK_MOD       ; Remainder operator.
+    DB   "sh",'l'+$80,TK_SHL       ; Shift left.
+    DB   "sh",'r'+$80,TK_SHR       ; Shift right.
+    DB   "asser",'t'+$80,TK_ASSRT  ; Compile-time assertion.
+    DB   "an",'d'+$80,TK_AND       ; Logical or bitwise and.
+    DB   "no",'t'+$80,TK_NOT       ; Logical or bitwise complement.
+    DB   "fai",'l'+$80,TK_FAIL     ; Raise a recoverable failure; also `else fail`.
+    DB   "en",'d'+$80,TK_END       ; Closes a block.
+    DB   "su",'b'+$80,TK_SUB       ; Routine definition.
+    DB   "fail",'s'+$80,TK_FAILS   ; Marks a routine that can fail.
+    DB   "fo",'r'+$80,TK_FOR       ; Counted loop.
+    DB   "unti",'l'+$80,TK_UNTIL   ; Exclusive counted-loop bound.
+    DB   "forwar",'d'+$80,TK_FORW  ; Forward routine signature.
+    DB   "retur",'n'+$80,TK_RET    ; Return from a routine.
+    DB   "i",'f'+$80,TK_IF         ; Conditional.
+    DB   "elsei",'f'+$80,TK_ELSIF  ; Further conditional arm.
+    DB   "els",'e'+$80,TK_ELSE     ; Final arm; also `else fail`.
+    DB   "whil",'e'+$80,TK_WHILE   ; Pre-tested loop.
+    DB   "t",'o'+$80,TK_TO         ; Inclusive counted-loop bound.
+    DB   "ste",'p'+$80,TK_STEP     ; Counted-loop step.
+    DB   "exi",'t'+$80,TK_EXIT     ; Leave the innermost loop.
+    DB   "continu",'e'+$80,TK_CONT ; Next iteration of the innermost loop.
+    DB   "recor",'d'+$80,TK_REC    ; Record type declaration.
+    DB   "strin",'g'+$80,TK_STR    ; String type.
+    DB   "handl",'e'+$80,TK_HANDL  ; Local failure handler.
+    DB   "privat",'e'+$80,TK_PRIV  ; A declaration its part alone sees.
+    DB   "includ",'e'+$80,TK_INCL  ; A part a part depends on.
+    DB   0                         ; The end of the table: no word starts with zero.
 KW_CNT EQU  42                 ; Entries in KW_TAB.
 KW_TYPE EQU  $80               ; A type keyword's kind byte: this plus its type.
 

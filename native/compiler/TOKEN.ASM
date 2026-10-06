@@ -63,20 +63,18 @@
 ;  clobber DE and HL but keep BC, so the scanners hold counts and payloads
 ;  in B and C, and save an accumulator in HL around each source call.
 
-;@ROUTINE CLOBBERS HL
+;@ROUTINE CLOBBERS BC,DE,HL,PARITY,HALFCARRY
 ; Record the source cursor as the start of the next token: the position
 ; for diagnostics and the byte pointer for names and literals.
 
 TK_MARK:                       ; Copy the four cursor words.
-    LD   HL,(SRC_POS)              ; Byte offset within the current part.
-    LD   (TK_POS),HL               ; Becomes the token's diagnostic offset.
-    LD   HL,(SRC_LINE)             ; Current line, counted from one.
-    LD   (TK_LINE),HL              ; Becomes the token's line.
-    LD   HL,(SRC_COL)              ; Current byte column, counted from one.
-    LD   (TK_COL),HL               ; Becomes the token's column.
+    LD   HL,SRC_POS                ; The offset, line and column, in a row,
+    LD   DE,TK_POS                 ; become the token's, in the same order
+    LD   BC,6                      ; (TK_POS, TK_LINE and TK_COL):
+    LDIR                           ; three words.
     LD   HL,(SRC_PTR)              ; Address of the token's first byte.
     LD   (TK_PTR),HL               ; Names and literals are read from here.
-    RET                            ; Flags and the other registers survive.
+    RET                            ; Carry, zero and sign survive.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS D,SIGN,PARITY,HALFCARRY
 ; Common return for a token of kind A. Mark the line as live, so that its
@@ -207,21 +205,34 @@ TK_WORD:                       ; The current byte is a letter.
 .DONE:                         ; B is the name's length.
     LD   A,B                       ; Publish the length for the parser.
     LD   (TK_LEN),A                ; TK_PTR already holds its address.
-    LD   HL,KW_TAB                 ; Entries: length, bytes, kind.
-    LD   C,KW_CNT                  ; C counts the entries left.
-.KEYLOOP:                      ; HL is at an entry's length byte.
-    LD   B,(HL)                    ; Keyword length.
-    INC  HL                        ; HL at the keyword's first byte.
-    LD   E,B                       ; DE is its length;
-    LD   D,0                       ; keywords are under 256 bytes.
-    PUSH HL                        ; The keyword waits
-    ADD  HL,DE                     ; while its kind byte's address
-    EX   (SP),HL                   ; takes its place on the stack.
-    PUSH BC                        ; Keep the count.
-    CALL TK_MATCH                  ; Carry if the name is this keyword, exactly.
-    POP  BC                        ; The count.
-    POP  HL                        ; HL at the kind byte; POP keeps the flags.
-    JR   NC,.SKIP                  ; No match: try the next.
+    LD   C,B                       ; C keeps the length.
+    LD   HL,KW_TAB                 ; Entries: bytes, the last with bit 7, kind.
+.KEYLOOP:                      ; HL is at an entry's first byte.
+    LD   DE,(TK_PTR)               ; DE walks the name.
+    LD   B,C                       ; B counts its bytes.
+.CHAR:                         ; HL and DE step together.
+    LD   A,(DE)                    ; The name's byte
+    XOR  (HL)                      ; is zero against an equal byte, $80 an equal last.
+    INC  HL                        ; Step the keyword
+    INC  DE                        ; and the name.
+    ADD  A,A                       ; Carry for the last; anything else but zero differs.
+    JR   NZ,.MISS                  ; A different byte: not this keyword.
+    JR   C,.LAST                   ; The keyword's last byte agrees.
+    DJNZ .CHAR                     ; The name is shorter than the keyword:
+.MISS:                         ; HL is past the byte that settled it.
+    DEC  HL                        ; Back to that byte,
+.SKIP:                         ; then past the keyword's last byte
+    BIT  7,(HL)                    ; (bit 7)
+    INC  HL                        ; to its kind,
+    JR   Z,.SKIP                   ; and past
+    INC  HL                        ; the kind to the next entry.
+    LD   A,(HL)                    ; Is there one?
+    OR   A                         ; The table ends with zero.
+    JR   NZ,.KEYLOOP               ; Try the next keyword.
+    LD   A,TK_NAME                 ; No keyword matched: an ordinary name.
+    JP   TK_DONE                   ; Return the name.
+.LAST:                         ; HL is at the kind; the name must end too.
+    DJNZ .MISS                     ; The name is longer than the keyword.
     LD   A,(HL)                    ; The keyword's kind.
     OR   A                         ; A type keyword's
     JP   M,.TYPE                   ; has bit 7 set.
@@ -235,12 +246,6 @@ TK_WORD:                       ; The current byte is a letter.
     LD   C,A                       ; is the payload, B being zero,
     LD   A,TK_TYPE                 ; of a type keyword.
     JP   TK_DONE                   ; Return it.
-.SKIP:                         ; HL is at this keyword's kind byte.
-    INC  HL                        ; HL at the next entry.
-    DEC  C                         ; One entry fewer to try.
-    JR   NZ,.KEYLOOP               ; Try the next keyword.
-    LD   A,TK_NAME                 ; No keyword matched: an ordinary name.
-    JP   TK_DONE                   ; Return the name.
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a decimal literal whose first digit is current and return TK_NUM

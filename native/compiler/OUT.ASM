@@ -49,9 +49,14 @@ BD_DMA EQU  26                 ; BDOS set DMA address.
 ; Call BDOS function C on the FCB that starts the stream at IX, keeping IX.
 
 OUT_FCB:                       ; C is the BDOS function.
-    PUSH IX                        ; BDOS may change IX.
     PUSH IX                        ; DE is the FCB,
     POP  DE                        ; which starts the stream record.
+
+;@ROUTINE IN C,DE,IX OUT A CLOBBERS BC,DE,HL,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Call BDOS function C with DE, keeping IX.
+
+OUT_BDOS:                      ; C is the function, DE its argument.
+    PUSH IX                        ; BDOS may change IX.
     CALL BD_ENTRY                  ; Perform the call; A is its status.
     POP  IX                        ; Restore the stream.
     RET                            ; The caller tests A.
@@ -62,8 +67,7 @@ OUT_FCB:                       ; C is the BDOS function.
 OUT_WORD:                      ; HL is the word.
     LD   A,L                       ; The low byte goes first.
     CALL OUT_BYTE                  ; Append it.
-    LD   A,H                       ; Then the high byte.
-    JR   OUT_BYTE                  ; Append it and return.
+    LD   A,H                       ; Then the high byte: append it and return.
 
 ;@ROUTINE IN A,IX CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append A to the stream at IX: fold it into the CRC, count it and buffer
@@ -75,52 +79,42 @@ OUT_BYTE:                      ; A is the byte.
     PUSH BC                        ; Every caller relies on that.
     PUSH IX                        ; HL is the CRC word's address:
     POP  HL                        ; the stream record,
-    LD   DE,OUT_SUM                ; plus the CRC's offset.
+    LD   DE,OUT_SUM                ; plus the CRC's offset; D stays zero.
     ADD  HL,DE                     ; HL addresses the CRC.
-    CALL OUT_UPD                   ; Fold A in; A is kept.
-    INC  HL                        ; HL addresses the count,
-    INC  HL                        ; just after the CRC.
-    INC  (HL)                      ; Count the byte in the low byte,
-    JR   NZ,.COUNTED               ; carrying into the higher ones
-    INC  HL                        ; when it wraps.
-    INC  (HL)                      ; The second byte.
-    JR   NZ,.COUNTED               ; Carry again only on wrapping.
-    INC  HL                        ; The third byte.
-    INC  (HL)                      ; A count past 16M needs the fourth.
-    JR   NZ,.COUNTED               ; No stream comes near it,
-    INC  HL                        ; but the field is exact.
-    INC  (HL)                      ; The fourth byte.
-.COUNTED:                      ; A is still the byte.
-    LD   E,(IX+OUT_POS)            ; E is where it goes in the buffer.
-    LD   D,0                       ; DE is that offset.
+    CALL OUT_UPD                   ; Fold A in; A, DE and HL are kept.
+    INC  HL                        ; The count follows the CRC's high byte.
+    LD   B,4                       ; It has four bytes.
+.COUNT:                        ; HL addresses the byte before the next.
+    INC  HL                        ; The count's next byte.
+    INC  (HL)                      ; Count the byte in it.
+    JR   NZ,.COUNTED               ; Only a wrap carries into the next.
+    DJNZ .COUNT                    ; No stream comes near 4G, but the field is exact.
+.COUNTED:                      ; A is still the byte, D zero.
+    LD   E,(IX+OUT_POS)            ; DE is where it goes in the buffer.
     PUSH IX                        ; HL is the buffer's start:
     POP  HL                        ; the stream record,
     ADD  HL,DE                     ; plus the offset,
-    LD   DE,OUT_BUF                ; plus the buffer's
+    LD   E,OUT_BUF                 ; plus the buffer's
     ADD  HL,DE                     ; offset in the record.
     LD   (HL),A                    ; Buffer the byte.
-    INC  (IX+OUT_POS)              ; One more byte is buffered.
-    BIT  7,(IX+OUT_POS)            ; Is the buffer full at 128?
-    CALL NZ,.WRITE                 ; Then write it out.
+    INC  (IX+OUT_POS)              ; One more byte is buffered: sign at 128.
+    CALL M,.WRITE                  ; A full buffer is written out.
     POP  BC                        ; Restore the caller's registers.
     POP  DE                        ; In the order they were saved.
     POP  HL                        ; HL last.
     RET                            ; The byte is in the stream.
 
-;@ROUTINE IN IX CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the buffer as the file's next record and empty it.
+;@ROUTINE IN HL,IX CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the buffer as the file's next record and empty it. HL addresses
+; the buffer's last byte.
 
 .WRITE:                        ; The buffer holds a whole record.
     PUSH IY                        ; The BIOS may change IY; the compiler keeps state in it.
-    PUSH IX                        ; DE is the buffer:
-    POP  HL                        ; the stream record,
-    LD   DE,OUT_BUF                ; plus the buffer's
-    ADD  HL,DE                     ; offset in the record.
+    LD   DE,-127                   ; The buffer starts
+    ADD  HL,DE                     ; 127 bytes before its last.
     EX   DE,HL                     ; DE is the buffer.
     LD   C,BD_DMA                  ; Point the DMA address at it.
-    PUSH IX                        ; BDOS may change IX.
-    CALL BD_ENTRY                  ; Set the DMA address to DE.
-    POP  IX                        ; Restore the stream.
+    CALL OUT_BDOS                  ; Set the DMA address to DE.
     LD   C,BD_WRITE                ; Write the next record.
     CALL OUT_FCB                   ; A is nonzero if the disk is full.
     OR   A                         ; Was it written?

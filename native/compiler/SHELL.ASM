@@ -161,8 +161,8 @@ SH_START:                      ; Entered from the jump at $0100.
     CALL OV_LOAD                   ; are in the overlay area for the compilation.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
     JR   C,SH_DIAG                 ; Print it and fail.
-    LD   HL,OV_AREA+3              ; The chain's overlay closes the streams
-    JR   SH_CHAIN                  ; and runs BLINK unless C (CH_DONE).
+    LD   HL,OV_AREA+3              ; The chain's overlay closes the streams and runs
+                                   ; BLINK unless C (CH_DONE): fall into SH_CHAIN.
 
 ;@ROUTINE IN HL NORETURN
 ; Run the CHAIN overlay's entry HL: CH_RUN, which runs BLINK.COM with the
@@ -313,7 +313,7 @@ OUT_FAIL:                      ; A stream could not be written or made.
     LD   (SH_RLOW),A               ; return code.
     CALL SH_SCRUB                  ; Delete the streams.
     LD   HL,SH_DMSG                ; The disk-full message.
-    JP   SH_FAIL                   ; Print it and fail.
+    JR   SH_FAIL                   ; Print it and fail.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Delete the four streams, NAME.$DR, $BY, $LN and $NM on the spool drive,

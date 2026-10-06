@@ -227,9 +227,7 @@ EX_CONV:                       ; C is the target type.
     PUSH HL                        ; Keep the parenthesis.
     LD   A,C                       ; The value
     LD   HL,EX_KVAL                ; must fit
-    PUSH BC                        ; (the target kept)
-    CALL VL_FITS                   ; the type,
-    POP  BC                        ; (the target)
+    CALL VL_FITS                   ; the type (the target kept),
     POP  HL                        ; (the parenthesis)
     LD   A,DG_TRUNC                ; else narrowing,
     JP   C,DG_HERE                 ; at the parenthesis.

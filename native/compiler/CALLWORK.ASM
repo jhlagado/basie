@@ -19,8 +19,10 @@
 ;    +$F0D      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE)
 ;    +$F12      2  PR_SP, the stack DG_ISSUE restores
-;    +$F14     65  the LL(1) stack (LL_DEPTH, LL_STACK)
-;    +$F55         LL_WEND, the end of the compiler workspace, 3,925 bytes
+;    +$F14    235  unused, so that the LL(1) stack starts a page
+;    +$FFF     65  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1000, a page
+;                  start, so a slot's address is the page and the depth)
+;    +$1040        LL_WEND, the end of the compiler workspace, 4,160 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and

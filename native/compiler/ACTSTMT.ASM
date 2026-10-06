@@ -15,6 +15,7 @@
 ;    AC_GOTO   exit and continue
 ;    AC_IF, AC_THEN, AC_ELIF, AC_ELSE, AC_TOTAL, AC_PART, AC_ENDIF  if
 ;    AC_WHILE, AC_DO, AC_LOOP  while
+;    AC_NOERR  close a handler (EndHandle), as AC_LEAVE closes a loop
 ;    AC_FOR, AC_FORTO, AC_STEP, AC_BYONE, AC_FORDO, AC_NEXT  for
 ;
 ;  Fallthrough. CT_FALLS says whether control can reach the current point,
@@ -368,8 +369,7 @@ AC_STMT:
     LD   A,D                       ; The class and type.
     CALL EX_CLASS                  ; A scalar? A is its class.
     CP   SY_LOCAL                  ; A local?
-    JR   NZ,.CHECKED               ; Only a local can be a counter.
-    CALL CT_GUARD                  ; Reject an active for counter (C, its offset).
+    CALL Z,CT_GUARD                ; Only a local can be an active for counter (C, its offset).
 .CHECKED:                      ; The variable may be written.
     LD   A,(AC_DINFO)              ; The class...
     AND  SY_CMASK                  ; ...is zero for a constant...
@@ -681,9 +681,12 @@ AC_LOOP:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Define the loop's exit here and close its frame; what follows is
-; reachable.
+; reachable. EndHandle (AC_NOERR) is the same: success skips to the
+; handler's exit, the frame closes, and control always reaches the end of
+; a handle statement.
 
-AC_LEAVE:
+AC_NOERR:                      ; A handle statement ends.
+AC_LEAVE:                      ; A loop ends.
     LD   B,CT_FEXIT                ; The exit
     CALL CT_DEF                    ; is here.
     CALL CT_POP                    ; Close the frame.
@@ -914,14 +917,12 @@ AC_STEP:
 ; does, E becomes A. BC and D are kept.
 
 .TRY:                          ; A is the type tried.
-    PUSH BC                        ; Keep BC
-    PUSH DE                        ; and DE.
+    PUSH DE                        ; Keep DE.
     PUSH AF                        ; And the type.
     LD   HL,EX_KVAL                ; Does the bound
-    CALL VL_FITS                   ; fit it?
+    CALL VL_FITS                   ; fit it? BC is kept.
     POP  HL                        ; H is the type.
     POP  DE                        ; DE again.
-    POP  BC                        ; BC again.
     RET  C                         ; It does not.
     LD   E,H                       ; It does: E is it.
     RET                            ; Carry is clear.

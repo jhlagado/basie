@@ -310,8 +310,10 @@ PR_ETERM:
 
 PR_RESET:
     XOR  A                         ; Zero for every cleared field.
-    LD   (DG_CODE),A               ; No diagnostic yet.
-    LD   (DG_PART),A               ; And no failing part.
+    LD   H,A                       ; HL is zero
+    LD   L,A                       ; for the word fields.
+    LD   (DG_CODE),HL              ; No diagnostic yet, and no failing part (DG_PART).
+    LD   (RG_LARGE),HL             ; No frame yet: the largest is zero.
     LD   (SY_CNT),A                ; No symbols.
     LD   (RG_FWD),A                ; No forward routines.
     LD   (EX_PRIME),A              ; No primary parsed ahead.
@@ -321,10 +323,7 @@ PR_RESET:
     LD   (HL),A                    ; Zero it.
     INC  HL                        ; Step to the next.
     DJNZ .LOOP                     ; Until all are clear.
-    LD   H,A                       ; No frame yet:
-    LD   L,A                       ; the largest
-    LD   (RG_LARGE),HL             ; is zero.
-    LD   H,$04                     ; The first blob takes the
+    LD   HL,$0400                  ; The first blob takes the
     LD   (RG_ORD),HL               ; program's ordinal base, $0400.
     DEC  A                         ; The empty-lookahead marker, $FF:
     LD   (PR_LKIND),A              ; no token is buffered.

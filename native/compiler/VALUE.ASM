@@ -412,14 +412,15 @@ VL_EXT:                        ; A is the type, HL the value.
     LD   B,A                       ; above.
     RET                            ; HL, B and C.
 
-;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,DE,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry when the value at HL is outside the range of integer type A, or,
-; for SY_EXACT, outside the exact range (fits). HL is kept.
+; for SY_EXACT, outside the exact range (fits). BC and HL are kept.
 
 VL_FITS:                       ; A is the type, HL the value.
     OR   A                         ; Exact?
-    JR   Z,VL_RANGE                ; The exact range.
-    PUSH HL                        ; Keep the value.
+    JR   Z,VL_RANGE                ; The exact range; it keeps BC.
+    PUSH BC                        ; Keep the caller's BC
+    PUSH HL                        ; and the value.
     CALL VL_EXT                    ; HL its top byte, B and C those above.
     INC  C                         ; Plus one, for the loop's test.
 .LOOP:                         ; C bytes remain to check, plus one.
@@ -432,6 +433,7 @@ VL_FITS:                       ; A is the type, HL the value.
     SCF                            ; Otherwise it does not fit.
 .DONE:                         ; Carry is the answer.
     POP  HL                        ; The value.
+    POP  BC                        ; BC again.
     RET                            ; Carry if out of range.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY

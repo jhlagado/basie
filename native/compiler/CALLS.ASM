@@ -717,11 +717,9 @@ RO_FAILS:
     LD   (RO_KEPT),A               ; beneath the call.
     CALL EM_LNEW                   ; A is the handler's label.
 .JUMP:                         ; A is the failure's label.
-    PUSH AF                        ; Keep it.
     LD   C,$DA                     ; JP C,
-    CALL EM_JUMP                   ; to it on failure.
-    POP  AF                        ; The label,
-    OR   $80                       ; marked,
+    CALL EM_JUMP                   ; to it on failure; A is kept.
+    OR   $80                       ; The label, marked,
     LD   (RO_PEND),A               ; is pending.
     RET                            ; The expression goes on.
 .LOST:                         ; A is DG_LEAK.
@@ -900,9 +898,8 @@ RO_FVAL:
     CALL EM_OP                     ; LD HL,n,
     DB   $21                       ; the opcode,
     CALL EM_WORD                   ; and n;
-    CALL EM_SEQ                    ; then LD DE,0,
-    DB   3,$11,0,0                 ; the high word.
-    RET                            ; DEHL is the File.
+    CALL EM_SEQX                   ; then LD DE,0, the high word,
+    DB   3,$11,0,0                 ; and return: DEHL is the File.
 .SERVICE:                      ; HL is the service's payload.
     CALL RO_SVC                    ; A is its result type,
 .FILE:                         ; or the variable's.

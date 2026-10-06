@@ -15,7 +15,7 @@
 ;    AC_BODY, AC_IMPL, AC_END  open and close a routine or main body
 ;    AC_FAIL, AC_THROW  the fail statement
 ;    AC_ROUTE, AC_RELAY  attach `else fail` or a handler to a failable call
-;    AC_ONERR, AC_NOERR  open and close a handler
+;    AC_ONERR  open a handler (AC_NOERR, in ACTSTMT.ASM, closes it)
 ;    AC_SAFE, AC_ELEAK  reject an unhandled failure
 ;    AC_LIVE, AC_DEAD  set the fallthrough state
 ;
@@ -533,7 +533,7 @@ AC_IMPL:
 AC_BODY:
     LD   A,(RO_CUR)                ; The routine declared.
     INC  A                         ; Is it main?
-    JP   Z,AC_ENTRY                ; Yes: open main's body.
+    JR   Z,AC_ENTRY                ; Yes: open main's body.
     CALL AC_PUB                    ; Publish the signature.
     JR   AC_BEGIN                  ; Open the body.
 
@@ -913,16 +913,6 @@ AC_ONERR:
 .STORE:                        ; The code is in A.
     CALL AC_STORE                  ; Store the code in the variable.
     JP   AC_LIVE                   ; The handler's body is reachable.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; EndHandle: success skips to here, and the frame closes. Control always
-; reaches the end of a handle statement.
-
-AC_NOERR:
-    LD   B,CT_FEXIT                ; The skip label
-    CALL CT_DEF                    ; is here.
-    CALL CT_POP                    ; Close the frame.
-    JP   AC_LIVE                   ; What follows is reachable.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Raise DG_LEAK if a failable call's failure is still pending.

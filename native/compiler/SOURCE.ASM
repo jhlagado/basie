@@ -122,10 +122,10 @@ SRC_BODY:                      ; A is the part's number.
     LD   (SRC_PTR),HL              ; the body's first byte.
     LD   HL,1                      ; The body
     LD   (SRC_COL),HL              ; begins in column one,
-    XOR  A                         ; no token
-    LD   (TK_LIVE),A               ; on its line
-    LD   (TK_NEST),A               ; and no bracket open.
-    RET                            ; A is zero; carry clear.
+    DEC  HL                        ; with no token on its line (TK_LIVE)
+    LD   (TK_LIVE),HL              ; and no bracket open (TK_NEST, after it).
+    XOR  A                         ; A is zero;
+    RET                            ; carry clear.
 
 ;@ROUTINE OUT A,CARRY,ZERO,DE,HL CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the current byte in A without consuming it, with carry clear and

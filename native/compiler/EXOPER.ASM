@@ -244,9 +244,7 @@ EX_NOT:
     PUSH DE                        ; Keep the offset.
     LD   A,C                       ; The value
     LD   HL,EX_KVAL                ; must fit
-    PUSH BC                        ; (kept)
-    CALL VL_FITS                   ; the type.
-    POP  BC                        ; The metadata and type.
+    CALL VL_FITS                   ; the type; BC is kept.
     POP  HL                        ; The offset:
     LD   A,DG_RANGE                ; out-of-range
     JP   C,DG_HERE                 ; at `not`.
@@ -645,10 +643,8 @@ EX_SHAPE:
     DEC  C                         ; itself
     JR   Z,.LEFT                   ; (no-definite-type, at the left).
     LD   HL,EX_KVAL                ; The value
-    LD   A,C                       ; must fit
-    PUSH BC                        ; it
-    CALL VL_FITS                   ; (out-of-range,
-    POP  BC                        ; at the left).
+    LD   A,C                       ; must fit it
+    CALL VL_FITS                   ; (out-of-range, at the left); BC is kept.
     LD   A,DG_RANGE                ; It is typed
     JR   C,.LEFT                   ; from here:
     LD   A,C                       ; the expected

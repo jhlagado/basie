@@ -401,7 +401,7 @@ EX_UNIFY:
     LD   A,(EX_LMETA)              ; No: out of range, blamed at the left
     RLCA                           ; after a known left,
     JR   C,EX_ELEFT                ; at the right
-    JP   EX_ERNG                   ; after a computed one.
+    JR   EX_ERNG                   ; after a computed one.
 .BOTH:                         ; A is the right's type, D the left's.
     CP   D                         ; The same?
     RET  Z                         ; Then that one, in C, carry clear.
@@ -426,11 +426,8 @@ EX_UNIFY:
 ; Carry when the value at HL does not fit type C. BC and HL are kept.
 
 .FITS:                         ; C is the type.
-    PUSH BC                        ; Keep it.
     LD   A,C                       ; The type
-    CALL VL_FITS                   ; checked.
-    POP  BC                        ; C is the type.
-    RET                            ; Carry if it does not fit.
+    JP   VL_FITS                   ; checked; carry if it does not fit.
 
 ;@ROUTINE IN A,D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
 ; Check that symbol info A (also in D) names a scalar, not a type or an
@@ -600,7 +597,7 @@ EX_SHIFT:
     JR   NZ,.TYPED                 ; Typed: foldTyped.
     LD   A,(EX_RMETA)              ; Exact: an exact count
     AND  SY_TMASK                  ; too,
-    JP   NZ,.NOTYPE                ; or no definite type.
+    JR   NZ,.NOTYPE                ; or no definite type.
     CALL .COUNT                    ; B is the count, below zero raises
     JP   C,EX_ELEFT                ; out-of-range.
     JR   .FOLD                     ; Fold it.

@@ -194,19 +194,16 @@ MS_KIND:                       ; A is the kind.
 .FOUND:                        ; HL is a phrase.
     LD   (DG_ARG1),HL              ; It is argument 1.
     RET                            ; Done.
-.WORDS:                        ; The keywords: a length, the spelling, the kind.
+.WORDS:                        ; The keywords: the spelling, the last byte's bit 7, the kind.
     LD   HL,KW_TAB                 ; The first.
     LD   B,KW_CNT                  ; Each of them.
 .KEY:                          ; HL is an entry.
-    LD   A,(HL)                    ; Its length.
-    INC  HL                        ; HL is its spelling.
     LD   E,L                       ; DE keeps
     LD   D,H                       ; the spelling.
-    ADD  A,L                       ; HL becomes
-    LD   L,A                       ; the spelling's end,
-    ADC  A,H                       ; carrying
-    SUB  L                         ; into
-    LD   H,A                       ; the high byte: its kind.
+.END:                          ; HL walks it to its last byte,
+    BIT  7,(HL)                    ; which has bit 7 set,
+    INC  HL                        ; and HL is
+    JR   Z,.END                    ; the spelling's end: its kind.
     LD   A,(HL)                    ; Is it
     CP   C                         ; the kind expected?
     JR   Z,.QUOTE                  ; Quote the spelling, DE to HL.
@@ -229,6 +226,7 @@ MS_KIND:                       ; A is the kind.
     LD   BC,DG_ABUF                ; Argument 1 is built here:
     LD   A,$27                     ; a quote,
 .COPY:                         ; A is the next byte of the argument.
+    AND  $7F                       ; A keyword's last byte loses bit 7.
     LD   (BC),A                    ; Store it.
     INC  BC                        ; The next place.
     LD   A,L                       ; Is the spelling done?
