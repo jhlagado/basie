@@ -6,7 +6,7 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($5800).
+;  from MM_WBASE ($5C00).
 ;
 ;    Offset  Size  Block
 ;    +$BF5     56  routine state: counts, the signature being parsed, the
@@ -179,7 +179,9 @@ PL_EPRIV EQU  3                ;   byte: nonzero when it is private;
 PL_EPART EQU  4                ;   byte: the part (SRC_ID) it was declared in;
 PL_ENAME EQU  5                ;   word: its name's address in the source.
 PL_LEN EQU  7                  ; Bytes of one entry.
-PL_WEND EQU  PL_TAB+PL_LEN*PL_CAP ; The end of the pools' bytes.
+HN_MODE EQU  PL_TAB+PL_LEN*PL_CAP ; Byte: nonzero while HN_SEG only looks.
+HN_SEEN EQU  HN_MODE+1         ; Byte: nonzero once HN_SEG sees an owner.
+PL_WEND EQU  HN_SEEN+1         ; The end of the pools' bytes.
 
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.

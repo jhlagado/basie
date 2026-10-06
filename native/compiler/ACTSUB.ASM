@@ -684,6 +684,7 @@ AC_END:
     OR   A                         ; Zero means every path returned.
     JR   NZ,.FLOW                  ; Then a path returns no value.
 .CLOSE:                        ; Close the routine.
+    CALL HN_ENDR                   ; Its body's owners freed.
     CALL RG_CLOSE                  ; Write its blob; HL is its need.
     LD   A,(RO_CUR)                ; Was it main?
     INC  A                         ; $FF becomes zero.
@@ -737,8 +738,9 @@ AC_THROW:
     LD   E,SY_U8                   ; The code must be a u8
     CALL AC_VALOK                  ; with no failure pending.
     CALL GX_TOREG                  ; The code in A.
-    CALL EM_SEQ                    ; PUSH AF, POP AF,
-    DB   3,$F5,$F1,$37             ; SCF: the routine fails.
+    CALL HN_FAIL                   ; PUSH AF, the frees, POP AF,
+    CALL EM_OP                     ; SCF:
+    DB   $37                       ; the routine fails.
     LD   C,$C3                     ; JP
     LD   A,RG_EXIT                 ; to the exit.
     CALL EM_JUMP                   ; Append it; fall into AC_DEAD.

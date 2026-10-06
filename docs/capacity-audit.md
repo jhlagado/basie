@@ -229,7 +229,12 @@ beyond). The workspace grew, and the workspaces and the source area moved
 on a 62K system. A build check keeps the pools' table below the LL(1)
 stack (`PL_WEND` at or below `LL_DEPTH`). The descriptor writer is the
 eighth overlay, `OWNERS`, so `BASIE.OVL`'s directory (`OV_DCAP`, 8) is
-full.
+full. With `new` and the frees (67g.1b, `HANDLES.ASM`) the image grew
+again, and the workspaces and the source area moved another 1K up
+(`MM_WBASE` `$5C00`), so the source area is about 23.3K on a 62K system.
+A `new` takes a two-byte frame temporary until its block ends, as the
+reference's does; the frees need no table, walking the symbols of each
+scope from the control frames' counts.
 
 ### 2.4 Workspace budget for `BASIE.COM` (Implementation)
 

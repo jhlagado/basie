@@ -46,6 +46,7 @@ AC_NONE EQU  $FF               ; EX_RMETA of a local without an initializer.
 AC_STAGE EQU  $FE              ; EX_RMETA of an aggregate local's static initializer.
 AC_LCOPY EQU  $FD              ; EX_RMETA of an aggregate local copied from a source.
 AC_LFILE EQU  $FC              ; EX_RMETA of a File local, its value in DEHL.
+AC_LHND EQU  $FB               ; EX_RMETA of a handle local, its value in HL.
 AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode (CT_MINC...).
 AC_INDEX EQU  AC_MODE+1        ; Word: the counter's offset from IX.
 AC_BOUND EQU  AC_INDEX+2       ; Word: the bound's offset from IX.

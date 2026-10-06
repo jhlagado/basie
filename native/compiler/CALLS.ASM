@@ -115,7 +115,6 @@ RO_NAMED:
     LD   HL,(TK_POS)               ; The root's offset,
     PUSH HL                        ; kept across the path.
     CALL RO_SYM                    ; A is the type, D the class, BC the payload.
-    CALL PL_LATER                 ; No handle or owning type yet.
     LD   (RO_OTYPE),A              ; The path's type.
     LD   (RO_PBASE),BC             ; A blob's ordinal or an offset from IX.
     LD   HL,0                      ; Nothing on
@@ -221,6 +220,7 @@ RO_PATH:
     CALL PR_PEEK                   ; Look at the next token.
     LD   HL,RO_PATH                ; Each selection returns
     PUSH HL                        ; to look for the next.
+    CALL RO_HSEL                   ; Not through a handle yet.
     CP   TK_DOT                    ; A field, length or capacity?
     JR   Z,.DOT                    ; Select it.
     CP   TK_LBRAC                  ; An index?
@@ -931,7 +931,12 @@ RO_AGGR:
 RO_PART:
     CALL RO_NAME                   ; A path starts with a name.
     CALL RO_FIND                   ; Is it a routine?
-    JP   NZ,RO_NAMED               ; Otherwise a symbol roots it; return.
+    JR   Z,.CALL                   ; Otherwise a symbol roots it,
+    CALL RO_NAMED                  ; its type A:
+    CALL PL_ISHND                  ; a handle's value
+    JP   C,TR_OPER                 ; waits (DG_NYI).
+    RET                            ; A is the type.
+.CALL:                         ; A routine.
     LD   HL,(TK_POS)               ; The call's offset,
     PUSH HL                        ; kept across it.
     CALL RO_CALL                   ; A is the result type, HL the address.
@@ -1022,20 +1027,30 @@ RO_LET:
     LD   A,(RO_PRO)                ; A read-only target
     OR   A                         ; cannot be
     JP   NZ,RO_EROOT               ; assigned: raise DG_CONST at it.
-    POP  AF                        ; The target's type.
+    POP  AF                        ; The target's type; fall into RO_ASGN.
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Assign to the path in hand (RO_PLACE), of type A, its value parsed: as
+; RO_LET does after the equals sign; new's fields too (HN_NEW).
+
+RO_ASGN:                       ; A is the path's type.
     CALL AG_ISVW                   ; A view as a whole
     JR   NC,.KIND                  ; is not writable:
     LD   A,DG_CONST                ; not-writable,
     JP   EX_EVAL                   ; at its start.
 .KIND:                         ; A is the target's type.
-    CALL PL_ISHND                  ; A handle is not
-    JP   C,TR_OPER                 ; assigned yet (DG_NYI).
+    CALL PL_ISHND                  ; A handle takes
+    JP   C,HN_LET                  ; an owning value.
     CP   AG_FILE                   ; A File?
     JR   Z,.FILE                   ; Its value is stored.
     CP   AG_FIRST                  ; A scalar?
     JR   C,.SCALAR                 ; Its value is stored; an aggregate
 .COPY:                         ; is copied whole, of type A.
     PUSH AF                        ; Keep the type.
+    CALL PL_OWNS                   ; An owning one
+    JP   C,TR_OPER                 ; is not copied (DG_NYI).
+    POP  AF                        ; The type,
+    PUSH AF                        ; kept.
     CALL GA_ADDR                   ; The target's address,
     CALL GX_PUSHW                  ; PUSH HL, two bytes pushed.
     CALL PR_PEEK                   ; A string literal?

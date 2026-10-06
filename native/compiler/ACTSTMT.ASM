@@ -36,8 +36,9 @@
 ; (AC_BIND), after its initializer, as the reference's does.
 
 AC_LOCAL:
-    LD   A,(AG_CTYPE)              ; The local's type:
-    CALL PL_LATER                 ; no handle or owning type yet,
+    LD   A,(AG_CTYPE)              ; The local's type: a handle,
+    CALL PL_ISHND                  ; or else no
+    CALL NC,PL_LATER               ; owning type yet,
     CALL AG_NOVW                   ; and a view is a parameter's only.
     LD   D,SY_AGGR+SY_LOCAL        ; An aggregate local's class,
     CP   AG_FIRST                  ; unless
@@ -87,6 +88,8 @@ AC_LINIT:
     JP   C,AC_EXPR                 ; A run-time expression.
     CP   AG_FILE                   ; A File?
     JR   Z,AC_FILE                 ; Its value.
+    CALL PL_ISHND                  ; A handle?
+    JP   C,HN_LINIT                ; An owning value.
     CALL PR_PEEK                   ; How does it begin?
     CP   TK_LPAR                   ; A record's fields,
     JR   Z,.IMAGE                  ; or
@@ -144,6 +147,13 @@ AC_INFER:
     CP   TK_TEXT                   ; has no definite type:
     LD   A,DG_INFER                ; no-definite-type,
     JP   Z,DG_ISSUE                ; at it.
+    CALL HN_INFER                  ; A new handle?
+    JR   NC,.OTHER                 ; If not, another value.
+    CALL AC_LOCAL                  ; The local, of its type (AG_CTYPE),
+    LD   A,AC_LHND                 ; is bound
+    LD   (EX_RMETA),A              ; to it.
+    RET                            ; Back to the engine.
+.OTHER:                        ; Not a handle.
     CALL PR_PEEK                   ; A name
     CP   TK_NAME                   ; may root
     JR   NZ,.SCALAR                ; a File or a path.
@@ -232,6 +242,7 @@ AC_ROOT:
 ; the frame (zeroFrame), which AC_NONE in EX_RMETA tells AC_BIND.
 
 AC_ZERO:
+    CALL HN_NOINI                  ; A handle must be optional.
     LD   A,AC_NONE                 ; No value was parsed:
     LD   (EX_RMETA),A              ; the local starts at zero.
     RET                            ; Back to the engine.
@@ -323,6 +334,8 @@ AC_BIND:
     JR   Z,.COPY                   ; Copy it.
     CP   AC_LFILE                  ; A File in DEHL?
     JR   Z,.FILE                   ; Store it.
+    CP   AC_LHND                   ; A handle in HL?
+    JR   Z,.HANDLE                 ; Link and store it.
     CALL EX_RTOK                   ; D is the value's metadata, HL a known value,
     CALL EX_DTYPE                  ; E the local's
     LD   E,A                       ; type.
@@ -337,6 +350,10 @@ AC_BIND:
     JR   .COMMIT                   ; Commit it.
 .COPY:                         ; BC is the local's size.
     CALL GA_COPY                   ; Copy the source into it.
+    JR   .COMMIT                   ; Commit it.
+.HANDLE:                       ; The local's slot is RO_PADD.
+    LD   HL,(RO_PADD)              ; LINK0, the handle
+    CALL HN_BIND                   ; stored, the symbol's offset set.
     JR   .COMMIT                   ; Commit it.
 .FILE:                         ; The local's place is set.
     CALL GA_STF                    ; Store DEHL there.
@@ -445,7 +462,8 @@ AC_RETOP:
     LD   E,A                       ; The scalar result type.
     CALL AC_VALOK                  ; Check the value, with nothing pending.
     CALL GX_TOREG                  ; The value in A or HL at that type.
-    JR   .RETURN                   ; Return it.
+    LD   A,(RO_CTYPE)              ; The result's type, kept
+    JR   .RETURN                   ; around the frees.
 .AGGR:                         ; A is the aggregate result type.
     LD   D,A                       ; Keep it.
     LD   A,(RO_OTYPE)              ; The value's type...
@@ -456,7 +474,9 @@ AC_RETOP:
     LD   A,DG_ALIAS                ; alias-escapes,
     JP   NZ,EX_EVAL                ; at the value.
     CALL AC_SAFE                   ; No failure may be pending.
-.RETURN:                       ; The result is in the registers.
+    LD   A,(RO_CTYPE)              ; The result's type.
+.RETURN:                       ; The result is in the registers, A its type.
+    CALL HN_RET                    ; The owners freed, the result kept;
     CALL RG_RET                    ; OR A if it can fail, then JP exit.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
@@ -474,6 +494,7 @@ AC_BARE:
     LD   A,(RO_CTYPE)              ; The routine's result type.
     OR   A                         ; None?
     JP   NZ,EX_EFLOW               ; A value is required: raise DG_FLOW.
+    CALL HN_RET                    ; The owners freed (A zero: no result);
     CALL RG_RET                    ; OR A if it can fail, then JP exit.
     JR   AC_RETOK                  ; Nothing follows the return.
 
@@ -490,6 +511,9 @@ AC_GOTO:
 .PICKED:                       ; E is the label's field.
     PUSH DE                        ; Keep it.
     CALL CT_LOOP                   ; HL addresses the innermost loop's frame.
+    PUSH HL                        ; (kept)
+    CALL HN_EXIT                   ; The owners from it in are freed.
+    POP  HL                        ; The frame.
     POP  DE                        ; The field,
     LD   D,0                       ; widened,
     ADD  HL,DE                     ; is addressed.
@@ -635,6 +659,7 @@ AC_ELSE:
 
 AC_TOTAL:
     CALL CT_NOTE                   ; Record whether the arm falls through.
+    CALL CT_BLOCK                  ; Its block ends.
     CALL CT_FLAGS                  ; HL addresses the if's flags.
     SET  1,(HL)                    ; Every case has an arm.
     RET                            ; Back to the engine.
@@ -681,6 +706,7 @@ AC_DO:
 ; A loop can always finish.
 
 AC_LOOP:
+    CALL CT_BLOCK                  ; The body's block ends.
     LD   BC,CT_FCONT*256+$C3       ; JP
     CALL CT_GO                     ; back to the test.
 
@@ -692,6 +718,7 @@ AC_LOOP:
 
 AC_NOERR:                      ; A handle statement ends.
 AC_LEAVE:                      ; A loop ends.
+    CALL CT_BLOCK                  ; Its block ends (again, for a loop).
     LD   B,CT_FEXIT                ; The exit
     CALL CT_DEF                    ; is here.
     CALL CT_POP                    ; Close the frame.

@@ -136,6 +136,7 @@ CT_POP:
 ; declared since go out of scope. HL returns the frame's address.
 
 CT_BLOCK:
+    CALL HN_ENDB                   ; Its owners freed.
     LD   B,CT_FSYMS                ; The symbols in scope
     CALL CT_FBYTE                  ; when the frame opened are
     LD   (SY_CNT),A                ; again;

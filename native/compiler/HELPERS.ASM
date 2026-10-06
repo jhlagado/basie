@@ -47,5 +47,16 @@ HP_ITOF EQU  $043F             ; I2F: ordinal $3F, 4 bytes of stack.
 HP_UTOF EQU  $0240             ; U2F: ordinal $40, 2 bytes of stack.
 HP_FTOI EQU  $0641             ; F2I: ordinal $41, 6 bytes of stack.
 HP_FTOU EQU  $0442             ; F2U: ordinal $42, 4 bytes of stack.
+HP_PFULL EQU  $0213            ; TRAP_POO: ordinal $13, 2 bytes of stack.
+HP_PTRY EQU  $081B             ; POOL_TRY: ordinal $1B, 8 bytes of stack.
+HP_PDEL EQU  $0E1C             ; POOL_DEL: ordinal $1C, 14 bytes of stack.
+HP_OFREE EQU  $181D            ; OBJ_FREE: ordinal $1D, 24 bytes of stack.
+HP_IDCHK EQU  $041E            ; ID_CHK: ordinal $1E, 4 bytes of stack.
+HP_IDTST EQU  $041F            ; ID_TEST: ordinal $1F, 4 bytes of stack.
+HP_OWN EQU  $1623              ; OWN_SET: ordinal $23, 22 bytes of stack.
+HP_OWNC EQU  $1624             ; OWN_SETC: ordinal $24, 22 bytes of stack.
+HP_LINK0 EQU  $0425            ; LINK0: ordinal $25, 4 bytes of stack.
+HP_IDMK EQU  $0426             ; ID_MAKE: ordinal $26, 4 bytes of stack.
+HP_CYCLE EQU  $0212            ; TRAP_CYC: ordinal $12, 2 bytes of stack.
 HP_VER EQU  1                  ; The helper-table version compiled in.
 HP_KEY EQU  $5524              ; Its interface key.

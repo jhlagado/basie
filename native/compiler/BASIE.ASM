@@ -54,6 +54,7 @@
 %INCLUDE "ACTSEL.ASM"              ; Actions: select.
 %INCLUDE "ACTSTMT.ASM"             ; Actions: locals, statements and flow.
 %INCLUDE "POOLS.ASM"               ; Pools, handle types and owner descriptors.
+%INCLUDE "HANDLES.ASM"             ; new, owning values, handle locals and frees.
 %INCLUDE "OUT.ASM"                 ; Output streams.
 %INCLUDE "BLOB.ASM"                ; The blob writer.
 %INCLUDE "SHRINK.ASM"              ; Branch shrinking.

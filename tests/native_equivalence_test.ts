@@ -119,6 +119,9 @@ const CONFORMANCE: Record<string, string> = {
   CHAREXCT: "tests/conformance/types/character-literals-are-exact.bsi",
   WIDENING: "tests/conformance/types/widening.bsi",
   INTZERO: "tests/conformance/types/integer-zero-to-f32.bsi",
+  FREEREUS: "tests/conformance/storage/freeing-reuses-slots.bsi",
+  POOLFULL: "tests/conformance/storage/pool-full-traps.bsi",
+  SIBOWNER: "tests/conformance/storage/sibling-owners.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -286,6 +289,10 @@ const CLAIMED: Record<string, string[]> = {
     "POOLPRV",
     "POOLNEST",
     "POOLF32",
+    "NEWFREE",
+    "FREEREUS",
+    "POOLFULL",
+    "SIBOWNER",
   ],
 };
 
@@ -1376,6 +1383,30 @@ const REFUSED: Record<string, string> = {
   "a record type as a value":
     "record R\nv as u8\nend\nvar k as u8\nsub main()\nk = R\nend\n",
   "a record type assigned": "record R\nv as u8\nend\nsub main()\nR = 1\nend\n",
+  "a non-optional handle local without an initializer":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a as nodes\nend\n",
+  "new of a forward pool":
+    "forward pool p\nrecord R\n    h as p?\nend\nsub main()\n    var a = new p(none)\nend\npool p as R[2]\n",
+  "new of a record":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new Node(1)\nend\n",
+  "new of an undeclared name":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new nope(1)\nend\n",
+  "new with too many fields":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new nodes(1, none, 3)\nend\n",
+  "new? for a non-optional local":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a as nodes = new? nodes(1)\nend\n",
+  "none for a non-optional local":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a as nodes = none\nend\n",
+  "none inferred":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = none\nend\n",
+  "new of another pool":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nsub main()\n    var a as nodes? = new leaves(1)\nend\n",
+  "a field value of the wrong type":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new nodes(300)\nend\n",
+  "new without parentheses":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new nodes\nend\n",
+  "new without a name":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var a = new (1)\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 

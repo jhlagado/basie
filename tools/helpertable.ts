@@ -62,6 +62,17 @@ export const NATIVE_NAMES: Record<string, string> = {
   U2F: "HP_UTOF",
   F2I: "HP_FTOI",
   F2U: "HP_FTOU",
+  TRAP_POO: "HP_PFULL",
+  POOL_TRY: "HP_PTRY",
+  POOL_DEL: "HP_PDEL",
+  OBJ_FREE: "HP_OFREE",
+  ID_CHK: "HP_IDCHK",
+  ID_TEST: "HP_IDTST",
+  OWN_SET: "HP_OWN",
+  OWN_SETC: "HP_OWNC",
+  LINK0: "HP_LINK0",
+  ID_MAKE: "HP_IDMK",
+  TRAP_CYC: "HP_CYCLE",
 };
 
 const hex = (n: number, width: number) =>
