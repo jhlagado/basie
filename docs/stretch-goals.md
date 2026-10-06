@@ -44,7 +44,7 @@ Writable slices require an explicit alias policy. Basie's current read-only tick
 
 Use a fixed-buffer utility as the first comparison: process an occupied prefix, produce output in caller-provided storage and report the number of elements written. Compare the current buffer/offset/count interface with checked views at equivalent behaviour. Measure compiler bytes, descriptor workspace, generated bounds checks and runtime cost. Growable vectors, stored references, closures and general type parameters are separate extensions.
 
-These arguments are distilled from supplied RustCurious lessons on enums and arrays and slices. They establish useful problems and possible mechanisms, not compatibility with Rust or an implementation commitment.
+These proposals record capabilities for future evaluation, not an implementation commitment.
 
 ## Audit implementation restrictions separately
 
