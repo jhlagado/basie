@@ -54,6 +54,7 @@
 %INCLUDE "ACTSTMT.ASM"             ; Actions: locals, statements and flow.
 %INCLUDE "OUT.ASM"                 ; Output streams.
 %INCLUDE "BLOB.ASM"                ; The blob writer.
+%INCLUDE "SHRINK.ASM"              ; Branch shrinking.
 %INCLUDE "EMIT.ASM"                ; Emitter primitives and labels.
 %INCLUDE "GENEXPR.ASM"             ; Expression templates: values.
 %INCLUDE "GENOPER.ASM"             ; Expression templates: operators.

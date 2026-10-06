@@ -1,0 +1,430 @@
+// Branch shrinking (67c): loops and ifs whose bodies put their jumps
+// on either side of a JR's reach, forward and back; jumps that reach
+// only once the jumps inside them shrink; string literals after shrunk
+// code; and a routine long enough that its references and line entries
+// need absolute offsets once the dropped jumps are gone.
+var n as u16
+var b as u8
+var s as string[20]
+
+sub edge0()
+    while n < 1000
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+    end
+    if b = 0
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+    else
+        s = "else"
+    end
+end
+
+sub edge1()
+    while n < 1000
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+    end
+    if b = 0
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+    else
+        s = "else"
+    end
+end
+
+sub edge2()
+    while n < 1000
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+    end
+    if b = 0
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+    else
+        s = "else"
+    end
+end
+
+sub edge3()
+    while n < 1000
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+    end
+    if b = 0
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+    else
+        s = "else"
+    end
+end
+
+sub edge4()
+    while n < 1000
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+    end
+    if b = 0
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+    else
+        s = "else"
+    end
+end
+
+sub edge5()
+    while n < 1000
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+    end
+    if b = 0
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+    else
+        s = "else"
+    end
+end
+
+sub edge6()
+    while n < 1000
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+        n = n + 1
+    end
+    if b = 0
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+        b = b + 1
+    else
+        s = "else"
+    end
+end
+
+sub cascade()
+    while n < 2000
+        if n = 0
+            n = n + 2
+            b = b + 1
+        end
+        if n = 1
+            n = n + 2
+            b = b + 1
+        end
+        if n = 2
+            n = n + 2
+            b = b + 1
+        end
+        if n = 3
+            n = n + 2
+            b = b + 1
+        end
+        if n = 4
+            n = n + 2
+            b = b + 1
+        end
+        if n = 5
+            n = n + 2
+            b = b + 1
+        end
+        n = n + 1
+        if b > 3
+            continue
+        end
+        b = b + 1
+    end
+end
+
+sub long()
+    if n = 0
+        s = "case 0"
+    end
+    if n = 1
+        s = "case 1"
+    end
+    if n = 2
+        s = "case 2"
+    end
+    if n = 3
+        s = "case 3"
+    end
+    if n = 4
+        s = "case 4"
+    end
+    if n = 5
+        s = "case 5"
+    end
+    if n = 6
+        s = "case 6"
+    end
+    if n = 7
+        s = "case 7"
+    end
+    if n = 8
+        s = "case 8"
+    end
+    if n = 9
+        s = "case 9"
+    end
+    if n = 10
+        s = "case 10"
+    end
+    if n = 11
+        s = "case 11"
+    end
+    if n = 12
+        s = "case 12"
+    end
+    if n = 13
+        s = "case 13"
+    end
+    if n = 14
+        s = "case 14"
+    end
+    if n = 15
+        s = "case 15"
+    end
+    if n = 16
+        s = "case 16"
+    end
+    if n = 17
+        s = "case 17"
+    end
+    if n = 18
+        s = "case 18"
+    end
+    if n = 19
+        s = "case 19"
+    end
+    if n = 20
+        s = "case 20"
+    end
+    if n = 21
+        s = "case 21"
+    end
+    if n = 22
+        s = "case 22"
+    end
+    if n = 23
+        s = "case 23"
+    end
+end
+
+sub main()
+    edge0()
+    edge1()
+    edge2()
+    edge3()
+    edge4()
+    edge5()
+    edge6()
+    cascade()
+    long()
+end

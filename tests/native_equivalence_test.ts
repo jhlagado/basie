@@ -1,7 +1,9 @@
 /**
  * The native compiler's streams equal the reference compiler's (design
  * decision D45). Each claimed program in tests/native/programs is compiled
- * by the reference compiler with branch shrinking off and by BASIE.COM under
+ * by the reference compiler, its jumps shrunk as its default build shrinks
+ * them (BASIE.COM always shrinks; the toolchain has no option to turn it
+ * off, so a comparison without shrinking would add nothing), and by BASIE.COM under
  * the CP/M harness, and NAME.$DR, $BY, $LN and $NM must agree byte for byte
  * before CP/M's padding of the last record, which must be zeros. BASIE.COM
  * chooses each compilation's stamp as object format §4.1 asks, from the
@@ -31,7 +33,7 @@ const basie = built.com;
 const OVL = built.ovl;
 const DIR = "tests/native/programs";
 
-/** Programs of the conformance suite inside the subset, by their 8.3 names. */
+/** Programs of the conformance suite and the examples inside the subset, by their 8.3 names. */
 const CONFORMANCE: Record<string, string> = {
   NARROW: "tests/conformance/types/narrowing-traps.bsi",
   DIVZERO: "tests/conformance/expressions/division-by-zero-traps.bsi",
@@ -69,6 +71,7 @@ const CONFORMANCE: Record<string, string> = {
   TXTCON: "tests/conformance/library/text-console.bsi",
   TRUNCREF: "tests/conformance/library/truncate-refuses.bsi",
   DIRECTRY: "tests/conformance/services/directory.bsi",
+  ADVENT: "examples/ADVENT.BSI",
 };
 
 /** The source file of a claimed program. */
@@ -171,6 +174,7 @@ const CLAIMED: Record<string, string[]> = {
     "DIRECTRY",
   ],
   "67e: aggregate constants in routines' bodies": ["LCONSTS"],
+  "67c: branch shrinking": ["SHRINK", "ADVENT"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -219,12 +223,11 @@ function stampOf(disk: Map<string, Uint8Array>, name: string) {
 }
 
 /**
- * The reference's four streams for NAME, compiled with shrinking off and
+ * The reference's four streams for NAME, compiled with its jumps shrunk and
  * the stamp the native run on the disk chose.
  */
 async function reference(name: string, disk: Map<string, Uint8Array>) {
   const result = await compile(`${name}.BSI`, {
-    shrink: false,
     mainSource: Deno.readFileSync(path(name)),
     libraryDirs: [dirname(path(name)), "lib"],
     stamp: stampOf(disk, name),
@@ -456,7 +459,6 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
       maxSteps: 50_000_000,
     });
     const ref = await compile("RANDOM.BSI", {
-      shrink: false,
       mainSource: source,
       stamp: run.disk.has("RANDOM.$DR") ? stampOf(run.disk, "RANDOM") : 1,
     });
@@ -520,6 +522,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67b: 32-bit values, counters and file positions"],
     ...CLAIMED["67e: var parameters, open arrays, from clauses and assert"],
     ...CLAIMED["67e: aggregate constants in routines' bodies"],
+    ...CLAIMED["67c: branch shrinking"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -531,7 +534,6 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     assertEquals(linked.output, "", name);
     const com = linked.disk.get(`${name}.COM`)!;
     const ref = await compile(`${name}.BSI`, {
-      shrink: false,
       mainSource: Deno.readFileSync(path(name)),
       libraryDirs: [dirname(path(name)), "lib"],
     });
@@ -969,7 +971,6 @@ for (const [what, text, file] of refusals) {
   Deno.test(`both compilers refuse ${what}`, async () => {
     const source = new TextEncoder().encode(text);
     const ref = await compile("REFUSED.BSI", {
-      shrink: false,
       mainSource: source,
       ...(file ? { libraryDirs: [dirname(file), "lib"] } : {}),
     });

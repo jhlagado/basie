@@ -992,8 +992,8 @@ knows its frame, its need and its literals before it writes the routine.
 
 The check is the conformance corpus. A test compiles each program the native
 compiler claims with both compilers and compares the streams. Until native
-branch shrinking exists, the reference compiles with shrinking off for this
-comparison. The claimed set only grows: a program once claimed must keep
+branch shrinking existed (step 67c), the reference compiled with shrinking
+off for this comparison; it now compiles with its default, shrinking on. The claimed set only grows: a program once claimed must keep
 matching.
 
 **Why.** The reference was built as an executable model of the native

@@ -15,11 +15,11 @@
 ;                  being checked and the path in hand (RO_BASE)
 ;    +$C2D    384  routine table: 32 records of twelve bytes (RO_RTAB)
 ;    +$DAD    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$EAD     96  the routine's string literals: 16 of six bytes (RO_LTAB)
-;    +$F0D      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;    +$EAD    288  the routine's string literals: 48 of six bytes (RO_LTAB)
+;    +$FCD      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE)
-;    +$F12      2  PR_SP, the stack DG_ISSUE restores
-;    +$F14    235  unused, so that the LL(1) stack starts a page
+;    +$FD2      2  PR_SP, the stack DG_ISSUE restores
+;    +$FD4     43  unused, so that the LL(1) stack starts a page
 ;    +$FFF     65  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1000, a page
 ;                  start, so a slot's address is the page and the depth)
 ;    +$1040        LL_WEND, the end of the compiler workspace, 4,160 bytes
@@ -147,7 +147,7 @@ RO_NCAP EQU  8                 ; Calls nested in arguments; DG_DEEP beyond.
 ; its opening quote, its decoded length and the bytes it occupies.
 RO_LTAB EQU  RO_PLIM           ; Literal table: RO_LCAP entries.
 RO_LLEN EQU  6                 ; Bytes in one literal entry.
-RO_LCAP EQU  16                ; Literals in one routine; DG_LITS beyond.
+RO_LCAP EQU  48                ; Literals in one routine; DG_LITS beyond.
 RO_LLIM EQU  RO_LTAB+RO_LLEN*RO_LCAP ; Exclusive end of the literal table.
 RO_WEND EQU  RO_LLIM           ; End of the routine workspace.
 

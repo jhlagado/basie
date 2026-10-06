@@ -33,7 +33,7 @@ disks in the tests and the Triptych machine's.
 | Overlay | Files | Bytes | Loaded |
 | --- | --- | ---: | --- |
 | `COMMAND` | `COMMAND.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 978 | first, to read the command line |
-| `START` | `LIBRARY.ASM`, `BLOPEN.ASM`, `PARTNAME.ASM` | 808 | to check the library, then, once the parts are loaded, to choose the stamp, open the streams and name the parts |
+| `START` | `LIBRARY.ASM`, `BLOPEN.ASM`, `PARTNAME.ASM` | 812 | to check the library, then, once the parts are loaded, to choose the stamp, open the streams and name the parts |
 | `NAMES` | `PREDEF.ASM` | 947 | before the compilation, for all of it: the predeclared names stay where `RO_LIB` reads them, so lookups are as fast as from the image |
 | `CHAIN` | `CHAIN.ASM`, `BLCLOSE.ASM` | 448 | after a compilation, to close the streams and, unless option C, run `BLINK`; with option X, to run `BLINK` alone |
 | `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,023 | to print a diagnostic |
@@ -77,6 +77,7 @@ number, code, position and arguments against the reference's.
 | `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `VALUE.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `VL_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file; the constants' arithmetic, five-byte values folded as the reference folds them, in `VALUE.ASM`), control (frames, conditions and counted loops), aggregate and routine parsing (routine names and signatures, then calls to routines and services, failable calls, File values and aggregate paths, each kept as a place: static, frame, alias or computed) |
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
 | `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
+| `SHRINK.ASM` | `BL_` | Branch shrinking: which of a routine's jumps to its own labels become `JR`, as the reference's `Blob.finish` chooses them; `BL_END` then writes the routine shrunk (`BL_MAP`) |
 | `BLOPEN.ASM`, `BLCLOSE.ASM` | `BL_`, `OUT_` | The streams' opening (`BL_OPEN`, `BL_PART`, `OUT_OPEN`) and closing (`BL_CLOSE`, `OUT_CRC`, `OUT_END`), which run once each: in the `START` and `CHAIN` overlays |
 | `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels and jumps, frame accounting |
 | `GENEXPR.ASM`, `GENOPER.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening and checked conversions, negation and complement (`GENEXPR.ASM`); the binary operators, comparisons and shifts, a long's through the 32-bit helpers (`GENOPER.ASM`) |
@@ -106,18 +107,18 @@ edited by hand.
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 15,832 |
+| Compiler code | 16,283 |
 | Immutable data | 263 |
-| **Compiler core** | **16,095** |
+| **Compiler core** | **16,546** |
 | CP/M shell and overlay loader | 593 |
-| **`BASIE.COM`** | **16,691** |
+| **`BASIE.COM`** | **17,142** |
 | Overlay area, after the image | 1,024 |
-| `BASIE.OVL` (six overlays, 5,632 bytes on disk) | 5,119 |
+| `BASIE.OVL` (six overlays, 5,632 bytes on disk) | 5,123 |
 | Compiler workspace (not in the image) | 4,160 |
-| Blob writer's workspace (not in the image) | 3,789 |
+| Blob writer's workspace (not in the image) | 4,432 |
 
-The image and the overlay area take 17,715 bytes, 8,909 to the 26K target
-and 10,957 to the 28K limit (D43). The compression pass before step 67c
+The image and the overlay area take 18,166 bytes, 8,458 to the 26K target
+and 10,506 to the 28K limit (D43). The compression pass before step 67c
 took 1,626 bytes from the image ([native compiler](../../docs/native-compiler.md)
 §4, which lists what it did and what remains). Every increment follows D43's cycle: the
 increment, a correctness review, a compression pass, a further review when

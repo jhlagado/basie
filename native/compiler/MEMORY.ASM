@@ -11,7 +11,7 @@
 ;    $5000  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
 ;    $6240  SH_WBEG   the shell's workspace, SH_WEND
 ;    $6400  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $7400  MM_SRC    resident source parts, loaded upward by the shell
+;    $7580  MM_SRC    resident source parts, loaded upward by the shell
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
 ;  Nothing in the workspace is initialised by the image, so the image and
@@ -26,5 +26,5 @@ MM_WBASE EQU  $5000            ; Compiler workspace: the image ends below.
 MM_WLIM EQU  $6400             ; Exclusive end of both workspaces.
 SH_WBEG EQU  $6240             ; The shell's workspace, above the compiler's.
 MM_BLOB EQU  $6400             ; The blob writer's workspace, BL_FLAGS on.
-MM_SRC EQU  $7400              ; Resident source parts, up to the stack.
+MM_SRC EQU  $7580              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

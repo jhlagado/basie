@@ -183,6 +183,9 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     PUSH HL                        ; Keep it to return.
     CALL EM_WORD                   ; The need word.
     CALL GA_LITS                   ; The string literals follow it.
+    CALL RG_SPAN                   ; DE is the free memory's end,
+    LD   HL,(RG_PEND)              ; after the waiting constants:
+    CALL BL_SHORT                  ; room to shrink its jumps.
     CALL BL_END                    ; Write the blob.
     LD   HL,(BL_ORD)               ; Its ordinal.
     LD   DE,(RG_NAME)              ; Its name,

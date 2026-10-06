@@ -278,10 +278,10 @@ Deno.test("without BASIE.MSG a diagnostic is its number and arguments", () => {
 });
 
 Deno.test("the source and the part table may fill memory to 1K below the BDOS entry", () => {
-  // The harness's BDOS entry is $E406, so the source runs up from $7400
+  // The harness's BDOS entry is $E406, so the source runs up from $7580
   // and the part table down from $E006, 21 bytes a part; each record must
   // fit below the table before it is read.
-  const room = Math.floor((0xe006 - 21 - 0x7400) / 128) * 128;
+  const room = Math.floor((0xe006 - 21 - 0x7580) / 128) * 128;
   const fill = (size: number) => {
     let text = PROGRAM;
     while (text.length < size - 70) text += "// " + "x".repeat(60) + "\n";

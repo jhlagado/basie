@@ -311,10 +311,12 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   `EM_LDEF`). The bound is on labels in use at once, 32 per routine
   (`EM_LCAP`): from 65.4 (f) each control statement frees its labels when it
   ends and `and` and `or` theirs when they join, so the bound is nesting, not
-  routine length; and on the routine's encoded references, 512 bytes
-  (`BL_RCAP`). A string literal's operand is chained the same way, through
-  an entry of the routine's literal table, 16 of six bytes (`RO_LCAP`,
-  `DG_LITS` beyond), which places each literal after the need word.
+  routine length; and on the routine's references, 146 of seven bytes
+  (`BL_RCAP`, from 67c, when references are kept as given until the
+  routine is written, for branch shrinking). A string literal's operand is
+  chained the same way, through an entry of the routine's literal table, 48
+  of six bytes (`RO_LCAP`, 16 until 67c; `DG_LITS` beyond), which places
+  each literal after the need word.
 
 ### 3.5 Routine code buffer
 
@@ -328,6 +330,14 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 - **Interaction:** an unbuffered routine still uses the deferred list
   (§3.4).
 - **Status:** behaviour confirmed by design; buffer size TBD.
+- **Native compiler at 67c:** the buffer is 2,048 bytes (`BL_CCAP`) and a
+  larger routine is refused (`DG_BLOB`): every routine of the corpus is
+  below 1,700 bytes, so the unbuffered fallback is not built. Branch
+  shrinking runs on every routine, as the reference's default build does;
+  its table of short jumps, four bytes each, lives in the free memory
+  above the source while the routine is written (`source size` when it
+  does not fit). The source area shrank by 384 bytes for the larger
+  reference and line buffers, to about 26.4K on a 62K system.
 
 ### 3.6 Compiler workspace budget
 

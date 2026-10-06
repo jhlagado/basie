@@ -42,6 +42,8 @@ BL_OPEN:                       ; HL is the header, DE the name, A the flags.
     LD   HL,0                      ; No blob is written yet:
     LD   (BL_COUNT),HL             ; no records,
     LD   (BL_HIGH),HL              ; and no highest ordinal.
+    DEC  L                         ; The entry before every blob's
+    LD   (BL_GUARD+2),HL           ; first line entry has the part $FF.
     LD   IX,BL_DR                  ; The directory stream first.
     LD   HL,BL_TDR                 ; Type $DR.
     CALL .OPEN                     ; Make the file.
