@@ -26,9 +26,8 @@ A test sets a minimum, and must not quietly set the maximum as well.
 
 ### 1.0 Why this is permanent
 
-Basie's development is driven largely by an LLM, which tends to choose the
-value that satisfies an acceptance test rather than the best trade-off across
-the whole machine. Every limit is therefore a **trade-off to be argued**, not a
+A limit chosen to satisfy one acceptance test is rarely the best trade-off
+across the whole machine. Every limit is therefore a **trade-off to be argued**, not a
 number to be carried over. The machine is 64K: the operating system, the compiler, its
 workspace, and later the finished program and its own data all share it, so
 nothing is unlimited, and a limit that is merely byte-convenient (255, 256)

@@ -11,15 +11,15 @@ The [specification](../spec/README.md) remains authoritative. The [stretch-goals
 
 ## Feedback into ongoing development
 
-This records John's discussion with Codex on 6 October 2026 as input to the coding agent's ongoing work. John wants these questions to stay on the agenda and authorises committing the discussion into the main repository. This is an account of the discussion and its rationale, not a verbatim transcript.
+This records a design discussion of 6 October 2026 as input to the ongoing development. John wants these questions to stay on the agenda and authorises committing the discussion into the main repository. This is an account of the discussion and its rationale, not a verbatim transcript.
 
 John's direction is to recover useful programming capability through checked compiler mechanisms rather than by weakening type safety or memory safety. Open strings and open arrays are the existing example: carrying the actual extent permits reusable library operations while preserving bounds. The next questions are whether similar bounded mechanisms can support regions of objects, constructed results, caller-supplied behaviour and reusable element types.
 
 John explicitly supports retaining enumerations, tagged unions and enumeration-indexed arrays as stretch candidates. Their benefits should be discussed separately. He does not require Pascal's whole ordinal model and does not regard public-name collisions as a sufficient reason for a module system. Naming conventions are acceptable. He also asks that familiar restrictions be reconsidered rather than automatically treated as Basie requirements.
 
-The examples and candidate mechanisms below are Codex's suggestions for that discussion. They are not all endorsed language changes. John asked for the capability argument to come before cost measurement: explain what ordinary programming becomes awkward or impossible to express directly, why a safe alternative could help and what obligations it introduces. Cost figures remain provisional and implementation requires a further design decision.
+The examples and candidate mechanisms below are suggestions raised in that discussion. They are not all endorsed language changes. John asked for the capability argument to come before cost measurement: explain what ordinary programming becomes awkward or impossible to express directly, why a safe alternative could help and what obligations it introduces. Cost figures remain provisional and implementation requires a further design decision.
 
-For the coding agent, finish the existing 1.0 commitments and capacity corrections while retaining this agenda. Revisit the relevant candidate when changing its subsystem, record evidence and unresolved questions here and in the design record, and avoid silently treating either an existing restriction or a suggested extension as settled authority.
+For the ongoing work: finish the existing 1.0 commitments and capacity corrections while retaining this agenda. Revisit the relevant candidate when changing its subsystem, record evidence and unresolved questions here and in the design record, and avoid silently treating either an existing restriction or a suggested extension as settled authority.
 
 ## Passing part of an existing object
 
