@@ -448,8 +448,10 @@ AC_FROM:
     ADD  HL,DE                     ; less
     LD   A,(HL)                    ; AG_VAR
     AND  $7F                       ; must be
-    CP   AG_FIRST                  ; an aggregate,
-    JR   C,.EFROM                  ; not a scalar
+    CALL PL_ISHND                  ; an aggregate,
+    JR   C,.EFROM                  ; not a handle,
+    CP   AG_FIRST                  ; nor
+    JR   C,.EFROM                  ; a scalar
     CP   AG_FILE                   ; nor
     JR   Z,.EFROM                  ; a File.
     LD   A,B                       ; Its bit

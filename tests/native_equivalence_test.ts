@@ -320,6 +320,7 @@ const CLAIMED: Record<string, string[]> = {
     "SELMOVEC",
     "HANDPARM",
     "OWNDEST",
+    "HANDDISC",
   ],
 };
 
@@ -1595,6 +1596,14 @@ const REFUSED: Record<string, string> = {
   "a value from a routine without a result":
     "var g as u8\nsub mk()\n    return 3\nend\nsub main()\nend\n",
   "a value returned from main": "sub main()\n    return 1\nend\n",
+  "from naming a handle parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar s as string[8]\nsub make(v as u8) as nodes\n    return new nodes(v, none)\nend\nsub nothing()\nend\nsub f(n as nodes) as string[8] from n\n    return s\nend\nsub main()\nend\n",
+  "a call without a result as an owner's value":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar s as string[8]\nsub make(v as u8) as nodes\n    return new nodes(v, none)\nend\nsub nothing()\nend\nsub main()\n    head = nothing()\nend\n",
+  "a call without a result returned as a handle":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar s as string[8]\nsub make(v as u8) as nodes\n    return new nodes(v, none)\nend\nsub nothing()\nend\nsub f() as nodes\n    return nothing()\nend\nsub main()\nend\n",
+  "an undeclared name as an owner's value":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar s as string[8]\nsub make(v as u8) as nodes\n    return new nodes(v, none)\nend\nsub nothing()\nend\nsub main()\n    head = nope()\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 

@@ -249,7 +249,12 @@ HN_OWNV:                       ; E is the handle's type.
     PUSH DE                        ; (the type kept)
     CALL PR_TAKE                   ; taken,
     CALL RO_FIND                   ; a routine's
-    JP   NZ,TR_OPER                ; (a variable's value waits),
+    JR   Z,.ROUTINE                ; result;
+    CALL SY_FIND                   ; a variable's value waits;
+    JP   C,TR_OPER                 ; anything else
+    JP   SY_UNDEF                  ; is undeclared.
+.ROUTINE:                      ; A is the routine.
+    CALL HN_VOIDQ                  ; It has a result (no-value),
     CALL RO_CALL                   ; called: A its result,
     CALL PL_ISHND                  ; an owning
     JR   NC,.OTHER                 ; handle,
@@ -415,10 +420,12 @@ HN_INFER:                      ; The initializer's first token:
     JR   Z,.MOVE                   ; makes
     CP   TK_NEW                    ; the type;
     JR   Z,.NEW                    ; so does
-    CP   TK_NAME                   ; a name
-    JR   NZ,.NOT                   ; rooting
-    CALL AC_ROOT                   ; a handle,
-    CALL PL_ISHND                  ; a routine's
+    CP   TK_NAME                   ; a routine's
+    JR   NZ,.NOT                   ; name
+    CALL RO_FIND                   ; whose
+    JR   NZ,.NOT                   ; result
+    CALL AC_ROOT                   ; is a handle:
+    CALL PL_ISHND                  ; its
     JR   NC,.NOT                   ; result's
     PUSH AF                        ; (or a variable's,
     LD   E,A                       ; whose value
@@ -821,21 +828,20 @@ HN_ISID:                       ; The NAME is current.
     LD   (TK_PTR),HL               ; again.
     RET                            ; Back.
 
-;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A parameter's type (CommitParameter): an owning handle, not var, is a
 ; value in the frame; a var handle (a slot-holder) or an identifier waits,
-; as does an owning aggregate (DG_NYI). A is kept.
+; as does an owning aggregate (DG_NYI). A is kept; HL is not.
 
 HN_PTYPE:                      ; A is the type.
     CALL PL_ISHND                  ; Not a handle:
     JP   NC,PL_LATER               ; no owning aggregate yet; return.
     BIT  1,A                       ; An identifier
     JP   NZ,TR_OPER                ; waits,
-    PUSH AF                        ; as
-    LD   A,(RO_VARP)               ; does
-    OR   A                         ; a var
+    LD   HL,RO_VARP                ; as
+    INC  (HL)                      ; does
+    DEC  (HL)                      ; a var
     JP   NZ,TR_OPER                ; handle.
-    POP  AF                        ; The type.
     RET                            ; Accepted.
 
 ;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -863,7 +869,7 @@ HN_PEND:                       ; The body has ended.
     LD   C,A                       ; the body,
     LD   A,(RO_GLOBS)              ; from
     LD   B,A                       ; the first.
-    JP   HN_SEG                    ; Freed; return.
+    JR   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An argument for an owning handle parameter of type A (argument): an
@@ -905,6 +911,45 @@ HN_RETV:                       ; A is the result's type.
     LD   (HN_RETF),A               ; has its value.
     RET                            ; Back to the engine.
 
+;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Routine A, its name current, is called for a value: one without a result
+; (or main) has none (no-value, naming it, at it). A is kept.
+
+HN_VOIDQ:                      ; A is the routine.
+    CP   RO_MAIN                   ; Main
+    JP   Z,RO_EVOID                ; has none;
+    PUSH AF                        ; (kept)
+    CALL RO_SUBAT                  ; another's
+    LD   DE,RO_RTYPE               ; result
+    ADD  HL,DE                     ; type:
+    LD   A,(HL)                    ; none?
+    OR   A                         ; Then
+    JP   Z,RO_EVOID                ; no-value.
+    POP  AF                        ; The routine.
+    RET                            ; Back.
+
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A statement's call returned A: an owning handle it discards is freed
+; (discard): LD A,H, OR L, CALL NZ,POOL_DEL.
+
+HN_DISC:                       ; A is the result's type.
+    CALL PL_ISHND                  ; An owning
+    RET  NC                        ; handle
+    AND  AG_HID                    ; result?
+    RET  NZ                        ; (An identifier is not.)
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Free the owning handle in HL at run time: LD A,H, OR L, CALL NZ,POOL_DEL,
+; its stack figure counted.
+
+HN_DELHL:                      ; The handle is in HL.
+    CALL EM_SEQ                    ; LD A,H, OR L,
+    DB   2,$7C,$B5                 ; then
+    LD   C,$C4                     ; CALL NZ
+    LD   DE,HP_PDEL                ; POOL_DEL,
+    LD   A,D                       ; its stack figure
+    JP   EM_HWORD                  ; counted; return.
+
 ; ---------------------------------------------------------------- frees
 
 ;@ROUTINE IN B,C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -945,12 +990,7 @@ HN_SEG:                        ; B the first, C past the last.
     EX   DE,HL                     ; The handle
     LD   A,SY_U16                  ; into
     CALL GX_FLOAD                  ; HL,
-    CALL EM_SEQ                    ; LD A,H, OR L:
-    DB   2,$7C,$B5                 ; a slot?
-    LD   C,$C4                     ; CALL NZ
-    LD   DE,HP_PDEL                ; POOL_DEL,
-    LD   A,D                       ; its stack
-    CALL EM_HWORD                  ; figure counted;
+    CALL HN_DELHL                  ; freed if a slot;
     LD   HL,0                      ; LD HL,0,
     CALL GX_LDHL                   ; then
     POP  HL                        ; the slot

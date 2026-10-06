@@ -391,7 +391,8 @@ AC_STMT:
     LD   (HL),1                    ; takes owning handles,
     CALL RO_CALL                   ; parsed and generated,
     LD   HL,HN_SCALL               ; and only
-    LD   (HL),0                    ; it.
+    LD   (HL),0                    ; it;
+    CALL HN_DISC                   ; a handle result is freed.
     JP   AC_ROUTE                  ; Attach its failure handling.
 .ASSIGN:                       ; The name is a variable.
     CALL AC_FIND                   ; A is its class and type, BC its payload.
