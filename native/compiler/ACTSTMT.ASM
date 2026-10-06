@@ -235,7 +235,7 @@ AC_ZERO:
     LD   (EX_RMETA),A              ; the local starts at zero.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; FinishLocalInitializer: a scalar's value must fit the local's type. A
 ; pending failure must be followed by `else fail`; without one, a
 ; following else raises DG_LEAK.
@@ -252,7 +252,6 @@ AC_ADOPT:
     LD   A,DG_SAFE                 ; is not-failable,
     LD   HL,AC_DPOS                ; at the local's name.
     JP   Z,DG_AT                   ; No return.
-    OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
@@ -1041,8 +1040,7 @@ AC_NEXT:
     DB   $19                       ; The next value.
     JR   .ADDED                    ; Added.
 .DOWN:                         ; OR A, SBC HL,DE.
-    CALL EM_SEQ                    ; Appended.
-    DB   3,$B7,$ED,$52             ; The next value.
+    CALL GX_MINUS                  ; The next value.
 .ADDED:                        ; HL is the next value.
     POP  AF                        ; The mode.
     PUSH AF                        ; Kept.
@@ -1142,21 +1140,15 @@ AC_LNEXT:
     PUSH AF                        ; down
     AND  CT_MDOWN                  ; a borrow
     JR   NZ,.DOWN                  ; traps;
-    CALL EM_LNEW                   ; going up, a label past the trap:
-    PUSH AF                        ; (kept)
-    LD   C,$DA                     ; JP C
-    CALL EM_JUMP                   ; to it,
-    POP  AF                        ; and
-    PUSH AF                        ; (kept)
+    LD   C,$DA                     ; going up, JP C to a new label past the trap,
+    CALL EM_FWD                    ; A the label, kept by EM_JUMP;
     LD   C,$CA                     ; JP Z
     CALL EM_JUMP                   ; to it,
+    PUSH AF                        ; (kept)
     CALL EM_HELP                   ; else CALL TRAP_LOO,
     DW   HP_LOOP                   ; its figure counted;
-    POP  AF                        ; the label
-    PUSH AF                        ; is
-    CALL EM_LDEF                   ; here,
-    POP  AF                        ; and
-    CALL EM_LFREE                  ; free again.
+    POP  AF                        ; the label is here,
+    CALL EM_LDONE                  ; and free again.
     JR   .STEP                     ; Then the next value.
 .DOWN:                         ; CALL C,TRAP_LOO.
     LD   A,$DC                     ; The site's opcode,

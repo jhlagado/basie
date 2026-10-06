@@ -449,10 +449,8 @@ EX_LOGIC:
     JR   C,.KNOWN                  ; Yes: it decided, or the right does.
     LD   HL,(EX_RVAL)              ; The right's value, if known,
     CALL GX_TOREG                  ; comes into A (a byte: EX_KVAL unread).
-    LD   A,(EX_LVAL)               ; The short circuit's label
-    CALL EM_LDEF                   ; is here,
-    LD   A,(EX_LVAL)               ; and nothing names it again:
-    CALL EM_LFREE                  ; it may be used anew.
+    LD   A,(EX_LVAL)               ; The short circuit's label is here, and nothing
+    CALL EM_LDONE                  ; names it again: it may be used anew.
     LD   A,SY_BOOL                 ; A run-time Boolean.
     OR   A                         ; Clear carry.
     RET                            ; Return it.

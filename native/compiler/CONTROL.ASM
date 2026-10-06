@@ -454,8 +454,7 @@ CT_TEST:
     CALL EM_SEQ                    ; Flip both sign bits:
     DB   8,$7C,$EE,$80,$67,$7A,$EE,$80,$57 ; H's and D's.
 .SBC:                          ; Then subtract:
-    CALL EM_SEQ                    ; OR A, SBC HL,DE: carry when the
-    DB   3,$B7,$ED,$52             ; counter is below, zero when equal.
+    CALL GX_MINUS                  ; OR A, SBC HL,DE: carry when the counter is below, zero when equal.
     POP  AF                        ; The mode.
     RET                            ; Compared.
 

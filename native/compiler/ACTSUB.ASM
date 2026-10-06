@@ -340,7 +340,7 @@ AC_PROTO:
     LD   (RO_CFLAG),A              ; Keep them.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; RetainParameter: main takes no parameters (DG_RPAR). Otherwise the name
 ; must not collide (RO_VET) and is kept in AC_DNAME until its type is
 ; known, its offset in AC_SPOS.
@@ -354,7 +354,6 @@ AC_PARAM:
     LD   (AC_SPOS),HL              ; for AC_JOIN.
     LD   HL,AC_DNAME               ; Keep the name...
     CALL TK_KEEP                   ; ...for AC_JOIN.
-    OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 .MAIN:                         ; Main has a parameter.
     JR   AC_EMAIN                  ; Raise bad-main.
@@ -415,17 +414,13 @@ AC_VARR:
     SET  4,(HL)                    ; gain RO_FVRES.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; SaveSubResult: the current type is the result type; not a view
 ; (DG_CLASH), nor yet a File (DG_NYI).
 
 AC_GIVEN:
-    LD   A,(AG_CTYPE)              ; The result type:
-    CALL AG_NOVW                   ; not a view.
-    CP   AG_FILE                   ; A File
-    JP   Z,TR_OPER                 ; is refused for now.
+    CALL AC_ITEM                   ; The result type: not a view, nor yet a File.
     LD   (RO_CTYPE),A              ; The routine's result type.
-    OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
