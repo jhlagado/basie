@@ -304,10 +304,8 @@ GX_REL:                        ; A is the relation, C the width.
     LD   A,C                       ; An equality
     CP   EX_LT                     ; is never
     JR   C,.SBC                    ; flipped;
-    BIT  7,B                       ; a signed order is:
-    JR   Z,.SBC                    ; LD A,H, XOR $80, LD H,A,
-    CALL EM_SEQ                    ; LD A,D, XOR $80, LD D,A.
-    DB   8,$7C,$EE,$80,$67,$7A,$EE,$80,$57 ; Both sign bits flipped.
+    BIT  7,B                       ; a signed order has both
+    CALL NZ,GX_SIGNS               ; sign bits flipped.
 .SBC:                          ; Then subtract.
     CALL GX_MINUS                  ; OR A, SBC HL,DE: carry if HL is less.
     LD   A,C                       ; An equality?
@@ -329,6 +327,23 @@ GX_TAIL:                       ; C is the relation.
     JP   NZ,EM_BYTE                ; Append it and return.
     CALL EM_SEQX                   ; AND 1: 1 when carry.
     DB   2,$E6,1                   ; The Boolean.
+
+;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD A,H, XOR $80, LD H,A, LD A,D, XOR $80, LD D,A: the sign bits
+; of the words in HL and DE flipped, so that an unsigned comparison
+; orders them as signed ones (compare16ToFlags).
+
+GX_SIGNS:                      ; Signed words are in HL and DE.
+    CALL EM_SEQX                   ; Both sign bits
+    DB   8,$7C,$EE,$80,$67,$7A,$EE,$80,$57 ; flipped.
+
+;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD A,D, XOR $80, LD D,A: the sign bit of the long in DEHL
+; flipped, so that CMP32U orders signed longs, or an f32 negated.
+
+GX_DSIGN:                      ; A long or an f32 is in DEHL.
+    CALL EM_SEQX                   ; Its sign bit
+    DB   4,$7A,$EE,$80,$57         ; flipped.
 
 ;@ROUTINE IN C OUT ZERO CLOBBERS A,CARRY,SIGN,PARITY,HALFCARRY
 ; Z when relation C swaps its operands: <= and >, which compare the right

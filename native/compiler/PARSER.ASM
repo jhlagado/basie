@@ -147,6 +147,14 @@ DG_RAISE:
     LD   A,(HL)                    ; Fetch the diagnostic's code.
     JR   DG_ISSUE                  ; Record it and abandon the build.
 
+;@ROUTINE IN A NORETURN
+; Record diagnostic A at the offset kept in AC_SPOS (a name statement's,
+; a select label's or an assert's first token) and abandon the build.
+
+DG_KEPT:                       ; A is the diagnostic.
+    LD   HL,(AC_SPOS)              ; The kept offset.
+    JR   DG_HERE                   ; Record it there.
+
 ;@ROUTINE NORETURN
 ; DG_RAISE for a message that names the current name (DG_NAMED).
 
@@ -242,6 +250,15 @@ PR_NEED:
     LD   A,E                       ; No: report the expected kind...
     OR   DG_TOKEN                  ; ...as a token diagnostic.
     JP   DG_ISSUE                  ; Abandon the build.
+
+;@ROUTINE OUT A,BC,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
+; Peek at the next token (PR_PEEK) and return in HL the offset where it
+; starts, where a diagnostic about what it begins is reported.
+
+PR_SPOT:                       ; The next token is wanted, and its place.
+    CALL PR_PEEK                   ; Its kind and payload;
+    LD   HL,(TK_POS)               ; its offset.
+    RET                            ; Done.
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Return the next token's kind in A and payload in BC without consuming it.

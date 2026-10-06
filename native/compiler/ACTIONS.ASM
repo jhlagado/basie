@@ -385,7 +385,7 @@ AC_CONST:
     LDIR                           ; Copied.
     JP   SY_CMT                    ; Commit it and return.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; CommitAggregateConstant: a typed scalar constant (D20) is declared with
 ; its type and the value staged, its bytes read back as the number they
 ; are at the type (VL_WRAP: a signed type's sign extended). An
@@ -482,7 +482,7 @@ AC_EXACT:
     JP   NZ,AG_ECNT                ; No: raise DG_ITEMS.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; CommitProgramVariable: write the object as a data blob if it had an
 ; initializer, otherwise as a bss blob, and declare it with the blob's
 ; ordinal as its payload. A scalar's information byte is its type with

@@ -514,8 +514,7 @@ AC_TRUE:
     RET  NZ                        ; holds.
 .FALSE:                        ; Anything else known:
     LD   A,DG_FALSE                ; assertion-false,
-    LD   HL,AC_SPOS                ; at `assert`.
-    JP   DG_AT                     ; No return.
+    JP   DG_KEPT                   ; at `assert`. No return.
 .TEST:                         ; Computed:
     LD   HL,(AC_SPOS)              ; a Boolean, as the reference
     LD   (EX_START),HL             ; reports it, at `assert`,
@@ -627,8 +626,7 @@ AC_ELSE:
 
 AC_TOTAL:
     CALL CT_NOTE                   ; Record whether the arm falls through.
-    LD   B,CT_FMODE                ; The if's flags.
-    CALL CT_FIELD                  ; HL addresses them.
+    CALL CT_FLAGS                  ; HL addresses the if's flags.
     SET  1,(HL)                    ; Every case has an arm.
     RET                            ; Back to the engine.
 
@@ -641,9 +639,8 @@ AC_ENDIF:
     CALL CT_DEF                    ; is here,
     LD   B,CT_FEXIT                ; and so is
     CALL CT_DEF                    ; the end.
-    LD   B,CT_FMODE                ; The flags:
-    CALL CT_FIELD                  ; bit 0 an arm falls through,
-    LD   A,(HL)                    ; bit 1 an else.
+    CALL CT_MODE                   ; The flags: bit 0 an arm falls
+                                   ; through, bit 1 an else.
     XOR  2                         ; Bit 1 now says there is none;
     AND  3                         ; nonzero if the if completes.
     LD   (CT_FALLS),A              ; Record it.
@@ -972,10 +969,8 @@ AC_FORDO:
     JR   .BODY                     ; The body follows.
 .DOWN:                         ; A is the mode.
     CALL CT_PAST                   ; JP C, and for until JP Z, to the exit.
-.BODY:                         ; The body starts here.
-    LD   B,CT_FDEST                ; Its label
-    CALL CT_DEF                    ; is defined.
-    JP   AC_LIVE                   ; The body is reachable.
+.BODY:                         ; The body starts here,
+    JP   AC_ENTER                  ; reachable; return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; EndFor: the body's block ends; the next value is computed where continue

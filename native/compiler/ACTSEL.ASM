@@ -73,13 +73,14 @@ AC_PICK:
     CALL Z,PR_TAKE                 ; is consumed.
     XOR  A                         ; Nothing is expected of
     CALL EX_INIT                   ; the subject.
-    CALL PR_PEEK                   ; A string literal
-    CP   TK_TEXT                   ; is no integer
-    LD   A,DG_CLASH                ; (type-mismatch
-    JP   Z,DG_ISSUE                ; at it).
     CALL PR_PEEK                   ; A variable's name
     CP   TK_NAME                   ; begins a designator,
-    JR   NZ,.VALUE                 ; anything else an expression.
+    JR   Z,.NAME                   ; anything else an expression,
+    CP   TK_TEXT                   ; but a string literal
+    JR   NZ,.VALUE                 ; is no integer
+    LD   A,DG_CLASH                ; (type-mismatch
+    JP   DG_ISSUE                  ; at it).
+.NAME:                         ; A name.
     CALL SY_FIND                   ; A symbol?
     JR   NC,.VALUE                 ; No: a routine, or undeclared.
     INC  HL                        ; Its
@@ -137,18 +138,15 @@ AC_PICK:
     LD   B,CT_FEXIT                ; Its end
     JP   CT_NEW                    ; label; return.
 
-;@ROUTINE CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE CLOBBERS BC,ZERO,SIGN,PARITY,HALFCARRY
 ; Refuse `move` (AC_MODE zero) with syntax at `select`: only a handle may
-; be moved. A and HL are kept.
+; be moved. A, HL and carry are kept.
 
 .MOVE:                         ; The subject is read.
-    PUSH AF                        ; Keep A.
-    LD   A,(AC_MODE)               ; Was `move` given?
-    OR   A                         ; Zero if so.
-    JR   Z,.MOVED                  ; Then refuse it.
-    POP  AF                        ; Restore A.
-    RET                            ; No `move`.
-.MOVED:                        ; `select move` on an integer:
+    LD   BC,(AC_MODE)              ; C is zero
+    INC  C                         ; if `move`
+    DEC  C                         ; was given;
+    RET  NZ                        ; it was not.
     LD   A,DG_STMT                 ; syntax,
     LD   HL,AC_DELTA+2             ; at `select`.
     JP   DG_AT                     ; No return.
@@ -190,11 +188,16 @@ AC_OTHER:
 
 AC_ARMIN:
     PUSH AF                        ; Keep the bits.
-    LD   B,CT_FMODE                ; The select's
-    CALL CT_FIELD                  ; mode
+    CALL CT_FLAGS                  ; The select's mode
     POP  AF                        ; takes
     OR   (HL)                      ; them.
-    LD   (HL),A                    ; Kept.
+    LD   (HL),A                    ; Kept; fall into AC_ENTER.
+
+;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Define the innermost frame's body label (CT_FDEST) here, and make it
+; reachable: a select arm's body, a for loop's.
+
+AC_ENTER:                      ; The body starts here.
     LD   B,CT_FDEST                ; The body
     CALL CT_DEF                    ; is here.
     JP   AC_LIVE                   ; It is reachable; return.
@@ -209,8 +212,7 @@ AC_SHUT:
     LD   B,CT_FCONT                ; The next arm
     CALL CT_DEF                    ; is here.
     LD   B,CT_FDEST                ; The body's label, the first
-    CALL CT_FIELD                  ; the arm allocated: it and
-    LD   A,(HL)                    ; every later one
+    CALL CT_FBYTE                  ; the arm allocated: it and every later one
     LD   (EM_LCNT),A               ; are free.
     RET                            ; Back to the engine.
 
@@ -225,9 +227,7 @@ AC_FINAL:
     CP   TK_END                    ; only `end`:
     LD   A,DG_CASE                 ; anything else, a `case` too,
     JP   NZ,DG_ISSUE               ; is syntax at it.
-    LD   B,CT_FMODE                ; The mode:
-    CALL CT_FIELD                  ; an arm
-    LD   A,(HL)                    ; with labels
+    CALL CT_MODE                   ; The mode: an arm with labels
     BIT  2,A                       ; is
     JR   Z,.EMPTY                  ; needed.
     XOR  2                         ; Bit 1 now says there is no case else:
@@ -252,8 +252,7 @@ AC_FINAL:
 ; the ranges and tested in turn (emitLabelTest); commas between them.
 
 AC_LABEL:
-    CALL PR_PEEK                   ; The label's first token:
-    LD   HL,(TK_POS)               ; its offset
+    CALL PR_SPOT                   ; The label's first token: its offset
     LD   (AC_SPOS),HL              ; is kept.
     LD   HL,(CT_RTOP)              ; Its range goes here,
     LD   DE,CT_RLIM                ; if there
@@ -292,29 +291,21 @@ AC_LABEL:
     SBC  HL,DE                     ; the new
     ADD  HL,DE                     ; one?
     JR   Z,.KEEP                   ; Then none overlaps it.
-    PUSH HL                        ; Keep the earlier range.
-    EX   DE,HL                     ; HL is the new one's low,
-    INC  DE                        ; DE
-    INC  DE                        ; the
-    INC  DE                        ; earlier's
-    INC  DE                        ; high:
+    PUSH HL                        ; Keep the earlier range,
+    PUSH DE                        ; and the new one:
+    CALL .PAST                     ; DE is the earlier's high;
+    EX   (SP),HL                   ; HL the new one's low (the earlier kept),
     CALL .LESS                     ; below it?
-    JR   C,.APART                  ; Then they are apart.
-    EX   DE,HL                     ; DE is the new one's low,
-    DEC  HL                        ; HL
-    DEC  HL                        ; the
-    DEC  HL                        ; earlier's
-    DEC  HL                        ; low,
-    INC  DE                        ; DE
-    INC  DE                        ; the
-    INC  DE                        ; new
-    INC  DE                        ; one's high:
+    JR   C,.BEYOND                 ; Then they are apart.
+    CALL .PAST                     ; DE is the new one's high,
+    POP  HL                        ; HL the earlier's low:
     CALL .LESS                     ; below it?
     JR   C,.APART                  ; Then they are apart.
     LD   A,DG_OVERL                ; They overlap: duplicate-case
 .AT:                           ; A is the diagnostic,
-    LD   HL,AC_SPOS                ; at the label.
-    JP   DG_AT                     ; No return.
+    JP   DG_KEPT                   ; at the label. No return.
+.BEYOND:                       ; The earlier range is kept twice.
+    POP  HL                        ; Once is enough.
 .APART:                        ; The earlier range does not overlap.
     POP  HL                        ; The
     LD   DE,8                      ; next
@@ -443,8 +434,7 @@ AC_LABEL:
 
 .TYPE:                         ; The innermost frame is the select's.
     LD   B,CT_FBND                 ; Its type
-    CALL CT_FIELD                  ; field:
-    LD   A,(HL)                    ; A.
+    CALL CT_FBYTE                  ; field: A.
     RET                            ; Done.
 
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -607,9 +597,8 @@ AC_LABEL:
     JR   NZ,.FLIPH                 ; in H.
     CALL EM_SEQX                   ; A byte, in A:
     DB   2,$EE,$80                 ; XOR $80.
-.FLIPD:                        ; A long, in D:
-    CALL EM_SEQX                   ; LD A,D, XOR $80,
-    DB   4,$7A,$EE,$80,$57         ; LD D,A.
+.FLIPD:                        ; A long, in D: LD A,D,
+    JP   GX_DSIGN                  ; XOR $80, LD D,A; return.
 .FLIPH:                        ; A word, in H:
     CALL EM_SEQX                   ; LD A,H, XOR $80,
     DB   4,$7C,$EE,$80,$67         ; LD H,A.

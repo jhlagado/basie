@@ -45,8 +45,9 @@
 ;
 ;  The program supplies MM_BLOB, the base of this module's workspace, and
 ;  two routines that do not return: OUT_FAIL for a full disk or directory,
-;  and BL_OVER for a blob that overflows one of its buffers. Every routine
-;  preserves IX and IY.
+;  and BL_OVER for a blob that overflows one of its buffers. The routines
+;  that write to a stream (BL_END, BL_BSS, BL_ENTRY, BL_LIMIT, BL_NAME)
+;  leave IX at it; every routine preserves IY.
 
 BL_KCODE EQU  0                ; Kind: a routine's code.
 BL_KRO EQU  1                  ; Kind: read-only data.
@@ -330,7 +331,7 @@ BL_CTRL:                       ; HL is the offset, E the escape, B the flags.
     POP  HL                        ; The offset
     JP   OUT_WORD                  ; follows it; return.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the blob: its directory record with its references, its bytes to
 ; the byte stream and, for code, its line record, its short jumps shrunk
 ; (BL_SHORT): every offset and every addend naming the blob itself mapped
@@ -343,7 +344,6 @@ BL_CTRL:                       ; HL is the offset, E the escape, B the flags.
 ; has bit 7 when its part changes, then the part, then the line.
 
 BL_END:                        ; The blob is complete in memory.
-    PUSH IX                        ; Keep the caller's IX.
     LD   HL,(BL_LEN)               ; The size once the jumps shrink
     LD   D,H                       ; is the end's
     LD   E,L                       ; new
@@ -503,10 +503,10 @@ BL_END:                        ; The blob is complete in memory.
     POP  HL                        ; (the next short jump)
     LD   A,(BL_HEAD)               ; Only routines have line records.
     AND  BL_KMASK                  ; Is this code?
-    JR   NZ,.DONE                  ; Data has no lines.
+    RET  NZ                        ; Data has no lines.
     LD   A,(BL_FLAGS)              ; Is there a line stream?
     AND  BL_LNOUT                  ; Option N leaves it out.
-    JR   Z,.DONE                   ; Then there is nowhere to write them.
+    RET  Z                         ; Then there is nowhere to write them.
     LD   IX,BL_LN                  ; The line stream.
     LD   A,2                       ; Tag 2: a blob's line record.
     CALL OUT_BYTE                  ; Append it.
@@ -524,7 +524,7 @@ BL_END:                        ; The blob is complete in memory.
     OR   A                         ; Zero
     SBC  HL,DE                     ; when
     ADD  HL,DE                     ; it is.
-    JR   Z,.DONE                   ; Then the blob is written.
+    RET  Z                         ; Then the blob is written.
     LD   E,(HL)                    ; DE
     INC  HL                        ; is
     LD   D,(HL)                    ; its
@@ -558,9 +558,17 @@ BL_END:                        ; The blob is complete in memory.
     CALL OUT_WORD                  ; the line.
     EX   DE,HL                     ; HL is the next entry.
     JR   .LINE                     ; Encode it.
-.DONE:                         ; The blob is written.
-    POP  IX                        ; Restore the caller's IX.
-    RET                            ; The next blob may begin.
+
+;@ROUTINE IN A,DE,HL CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the record of bss blob HL, of DE bytes, with header bits A (kind
+; BL_KBSS, any root flag and alignment). It has no references and no stored
+; bytes (object format §5.1).
+
+BL_BSS:                        ; HL is the ordinal, DE the size, A the header.
+    LD   (BL_ORD),HL               ; The record names this ordinal.
+    LD   (BL_HEAD),A               ; With these header bits.
+    EX   DE,HL                     ; HL is the size.
+    LD   DE,0                      ; No references; fall into BL_REC.
 
 ;@ROUTINE IN DE,HL CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the directory record of blob BL_ORD with size HL and DE references:
@@ -606,26 +614,10 @@ BL_REC:                        ; HL is the size, DE the count.
     CP   255                       ; Is it 255?
     JP   C,OUT_BYTE                ; No: one byte, and return.
 .WIDE:                         ; The count needs a word.
-    LD   A,255                     ; 255 escapes
-    CALL OUT_BYTE                  ; to a word.
-    JP   OUT_WORD                  ; Append the count and return.
+    LD   A,255                     ; 255 escapes to a word:
+    JR   BL_CWORD                  ; both appended; return.
 
-;@ROUTINE IN A,DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the record of bss blob HL, of DE bytes, with header bits A (kind
-; BL_KBSS, any root flag and alignment). It has no references and no stored
-; bytes (object format §5.1).
-
-BL_BSS:                        ; HL is the ordinal, DE the size, A the header.
-    LD   (BL_ORD),HL               ; The record names this ordinal.
-    LD   (BL_HEAD),A               ; With these header bits.
-    PUSH IX                        ; Keep the caller's IX.
-    EX   DE,HL                     ; HL is the size.
-    LD   DE,0                      ; No references.
-    CALL BL_REC                    ; Write the record.
-    POP  IX                        ; Restore the caller's IX.
-    RET                            ; The bss blob is written.
-
-;@ROUTINE IN A,DE,HL CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A,DE,HL CLOBBERS A,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the limits control record: stack reserve HL, largest frame DE and
 ; flags A (object format §5.3).
 
@@ -639,25 +631,22 @@ BL_LIMIT:                      ; HL is the reserve, DE the frame, A the flags.
     LD   A,E                       ; after the frame's low byte.
     JR   BL_CWORD                  ; Append the three, and return.
 
-;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN HL CLOBBERS A,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the entry control record: the program starts at blob HL (object
 ; format §5.3).
 
 BL_ENTRY:                      ; HL is main's ordinal.
     LD   A,$0E                     ; Control kind 6, subtype 1: entry.
 
-;@ROUTINE IN A,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A,HL CLOBBERS A,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the byte A and then the word HL to the directory stream.
 
 BL_CWORD:                      ; A is the byte, HL the word.
-    PUSH IX                        ; Keep the caller's IX.
     LD   IX,BL_DR                  ; The directory stream.
     CALL OUT_BYTE                  ; Append the byte,
-    CALL OUT_WORD                  ; then the word.
-    POP  IX                        ; Restore the caller's IX.
-    RET                            ; Both are in the stream.
+    JP   OUT_WORD                  ; then the word, and return.
 
-;@ROUTINE IN B,DE,HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN B,DE,HL CLOBBERS A,B,DE,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the name of ordinal HL, the B characters at DE, to the name stream
 ; (object format §9), keeping at most 31 of them. Nothing is written
 ; without the stream.
@@ -666,7 +655,6 @@ BL_NAME:                       ; HL is the ordinal, DE the name, B its length.
     LD   A,(BL_FLAGS)              ; Is there a name stream?
     AND  BL_NMOUT                  ; Only options M and Y need one.
     RET  Z                         ; Then the name goes nowhere.
-    PUSH IX                        ; Keep the caller's IX.
     LD   IX,BL_NM                  ; The name stream.
     CALL OUT_WORD                  ; The ordinal.
     LD   A,31                      ; Is the length
@@ -681,6 +669,5 @@ BL_NAME:                       ; HL is the ordinal, DE the name, B its length.
     CALL OUT_BYTE                  ; to the stream.
     INC  DE                        ; Move to the next.
     DJNZ .CHAR                     ; Until the name is written.
-    POP  IX                        ; Restore the caller's IX.
     RET                            ; The name is recorded.
 

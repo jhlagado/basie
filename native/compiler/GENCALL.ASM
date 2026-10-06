@@ -122,7 +122,7 @@ RG_RET:                        ; Control leaves the routine successfully.
     LD   A,RG_EXIT                 ; to the exit;
     JP   EM_JUMP                   ; return.
 
-;@ROUTINE OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE OUT HL CLOBBERS A,BC,DE,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; End the routine: the success return if its end is reachable (CT_FALLS),
 ; the exit sequence, the frame patched into the prologue, the frame and
 ; need words, then write the blob and its name, and after it the blobs of
@@ -294,7 +294,7 @@ RG_DEFER:                      ; Declared in a routine's body.
     CALL DG_RAISE                  ; the source's
     DB   DG_ROOM                   ; memory.
 
-;@ROUTINE IN A OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A OUT BC CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the object staged in AG_IBUF, AG_OSIZE bytes, as a blob of kind A
 ; (BL_KDATA or BL_KRO), named by the retained declaration name. BC returns
 ; its ordinal.
@@ -308,7 +308,7 @@ RG_DATA:                       ; A is the kind.
     CALL RG_WRITE                  ; appended, and the blob written.
     JR   RG_NAMED                  ; Name it and return its ordinal.
 
-;@ROUTINE IN BC,HL OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN BC,HL OUT HL CLOBBERS A,BC,DE,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the BC bytes at HL, at least one, to the blob, then write the
 ; blob (BL_END); HL returns past them.
 
@@ -325,7 +325,7 @@ RG_WRITE:                      ; BC bytes remain at HL.
     POP  HL                        ; HL is past them.
     RET                            ; Done.
 
-;@ROUTINE OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE OUT BC CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write a bss blob of the staged object's size, AG_OSIZE, named by the
 ; retained declaration name. BC returns its ordinal.
 
@@ -336,7 +336,7 @@ RG_BSS:                        ; A program variable without initializer.
     LD   A,BL_KBSS                 ; Kind bss, no root, no alignment.
     CALL BL_BSS                    ; Write its record.
 
-;@ROUTINE OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE OUT BC CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The tail of RG_DATA and RG_BSS, entered with the blob's ordinal pushed:
 ; name the blob with the retained declaration name (AC_DNAME, AC_DLEN) and
 ; return the ordinal in BC.
@@ -351,7 +351,7 @@ RG_NAMED:                      ; The ordinal is on top of the stack.
     POP  BC                        ; BC is the ordinal.
     RET                            ; The blob is written and named.
 
-;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the entry record, at main, and the limits record: the stack reserve
 ; main's need plus the guard band, the largest frame, and the flag that
 ; says some routine was declared forward.

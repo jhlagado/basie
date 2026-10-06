@@ -210,8 +210,7 @@ EX_CONV:                       ; C is the target type.
     CP   SY_F32                    ; is not
     JP   Z,TR_OPER                 ; yet compiled.
     PUSH BC                        ; Keep the target.
-    CALL PR_PEEK                   ; The parenthesis's
-    LD   HL,(TK_POS)               ; offset,
+    CALL PR_SPOT                   ; The parenthesis's offset,
     PUSH HL                        ; where the conversion's faults are.
     CALL EX_CAST                   ; The operand: A and HL.
     POP  HL                        ; The parenthesis.

@@ -58,8 +58,7 @@ SY_HERE:                       ; HL is a record found.
     LD   A,B                       ; whose block's
     JR   Z,.BASE                   ; first symbol
     LD   B,CT_FSYMS                ; it
-    CALL CT_FIELD                  ; kept
-    LD   A,(HL)                    ; then.
+    CALL CT_FBYTE                  ; kept then.
 .BASE:                         ; A is the block's first symbol.
     CALL SY_AT                     ; HL is its record.
     EX   DE,HL                     ; DE is,

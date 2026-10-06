@@ -386,8 +386,7 @@ AC_JOIN:
     JP   RO_ENROL                  ; it is appended; return.
 .EVAR:                         ; var on a scalar or a File:
     LD   A,DG_VARP                 ; var-parameter,
-    LD   HL,AC_SPOS                ; at its name.
-    JP   DG_AT                     ; No return.
+    JP   DG_KEPT                   ; at its name. No return.
 
 ;@ROUTINE OUT A CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
 ; AllowSubResult: main has no result (bad-main).
@@ -665,7 +664,7 @@ AC_LIVE:
     OR   A                         ; Clear carry.
     RET                            ; Back to the engine.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; EndSub: close main's body, or close a routine's: one with a result may
 ; not fall off its end (DG_FLOW). Write the blob (RG_CLOSE), keep main's
 ; need for the limits record or the routine's in its record, and discard
@@ -780,8 +779,7 @@ AC_ELINE:
 
 AC_EMOOT:
     LD   A,DG_SAFE                 ; not-failable,
-    LD   HL,AC_SPOS                ; at the statement.
-    JP   DG_AT                     ; No return.
+    JP   DG_KEPT                   ; at the statement. No return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; A failure is pending after a local initializer: only `else fail` may
@@ -896,9 +894,8 @@ AC_ONERR:
 .U8:                           ; The variable takes the code.
     LD   B,CT_FDEST                ; The failure
     CALL CT_DEF                    ; lands here.
-    LD   B,CT_FMODE                ; The temporaries
-    CALL CT_FIELD                  ; it left:
-    LD   B,(HL)                    ; their bytes.
+    CALL CT_MODE                   ; The temporaries it left:
+    LD   B,A                       ; their bytes.
     SRL  B                         ; One POP for two.
     JR   Z,.STORE                  ; None.
 .DROP:                         ; B pops remain.

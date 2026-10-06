@@ -101,20 +101,21 @@ computes the prediction rows and every offset under the `GR_` scheme
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 17,171 |
+| Compiler code | 17,077 |
 | Immutable data | 290 |
-| **Compiler core** | **17,461** |
+| **Compiler core** | **17,367** |
 | CP/M shell and overlay loader | 593 |
-| **`BASIE.COM`** | **18,057** |
+| **`BASIE.COM`** | **17,963** |
 | Overlay area, after the image | 1,024 |
 | `BASIE.OVL` (six overlays, 5,632 bytes on disk) | 5,123 |
 | Compiler workspace (not in the image) | 4,658 |
 | Blob writer's workspace (not in the image) | 4,432 |
 
-The image and the overlay area take 19,081 bytes, 7,543 to the 26K target
-and 9,591 to the 28K limit (D43). The compression pass before step 67c
-took 1,626 bytes from the image ([native compiler](../../docs/native-compiler.md)
-§4, which lists what it did and what remains). Every increment follows D43's cycle: the
+The image and the overlay area take 18,987 bytes, 7,637 to the 26K target
+and 9,685 to the 28K limit (D43). The compression pass before step 67c
+took 1,626 bytes from the image and the one after 67d 94 more
+([native compiler](../../docs/native-compiler.md) §4, which lists what
+they did and what remains). Every increment follows D43's cycle: the
 increment, a correctness review, a compression pass, a further review when
 needed, and the census figure in the commit. `tests/native_compiler_test.ts`
 pins the digests of `BASIE.COM` and `BASIE.OVL`, so a change to the

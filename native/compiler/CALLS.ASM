@@ -387,8 +387,7 @@ RO_INDEX:
 .KEEP:                         ; C holds the two flags.
     LD   A,C                       ; Record
     LD   (RO_PPUSH),A              ; them.
-    CALL PR_PEEK                   ; The index's first token:
-    LD   HL,(TK_POS)               ; its offset
+    CALL PR_SPOT                   ; The index's first token: its offset
     LD   (RO_IPOS),HL              ; is where an index out of range is reported.
     CALL RO_KEEP                   ; Keep the path's block across the index.
     LD   A,SY_U16                  ; An index is a u16.

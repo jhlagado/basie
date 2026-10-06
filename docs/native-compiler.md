@@ -255,6 +255,26 @@ useful: after `OR A` / `SBC HL,DE`, `ADD HL,DE` restores HL and recomputes
 the borrow as carry, and leaves Z alone, so it replaces `PUSH HL` / `POP HL`
 around a comparison whose carry or zero is read.
 
+### The compression pass after 67d
+
+`select` (67d) cost 812 bytes in `ACTSEL.ASM` against a smaller estimate,
+and branch shrinking (67c) about 330 in `SHRINK.ASM` and the blob
+writer's `BL_MAP`, so before `f32` those and the census's next
+candidates had a pass of their own, again with every stream and
+diagnostic unchanged. It took 94 bytes, from 18,057 to 17,963 (the
+total measured, the rows from the sites' opcode arithmetic):
+
+| What | Resident bytes |
+| --- | ---: |
+| The control frame's fields: `CT_MODE` (the mode in A, nine sites), `CT_FLAGS` (its address) and `CT_FBYTE` (a field's byte), in place of `LD B,CT_FMODE` / `CALL CT_FIELD` / `LD A,(HL)` | −23 |
+| The blob writer keeps IX no longer (`BL_END`, `BL_BSS`, `BL_CWORD`, `BL_NAME`; nothing in the compiler holds IX across them, and their callers' contracts now name it), `BL_BSS` falls into `BL_REC`, whose wide count shares `BL_CWORD`'s tail, and `BL_END` returns where it ends rather than through `.DONE` | −29 |
+| `PR_SPOT` (the next token and its offset, six sites) and `DG_KEPT` (a diagnostic at `AC_SPOS`, four) | −18 |
+| The words' sign flip of a signed comparison, `GX_SIGNS`, shared by `GX_REL` and the for loop's test; the long's, `GX_DSIGN`, by the for loop and `select` (and, at 67f, an `f32`'s negation) | −12 |
+| `ACTSEL.ASM`: the overlap test of two labels through `.PAST`, `move` refused through BC, the subject's first token read once; a select arm's and a for loop's body share `AC_ENTER` | −12 |
+
+`SHRINK.ASM` and `BL_MAP` were already tight: the census found no jump
+within `JR`'s reach and no repeated sequence there worth a routine.
+
 **What remains** (projected unless measured):
 
 - **The overlay area.** It is 1,024 bytes because `COMMAND` (978), `DIAG`
@@ -269,9 +289,6 @@ around a comparison whose carry or zero is read.
   install each. The vectors stay reserved for the BIOS and CP/M, and Basie's
   own code never takes them for compression (D46; [CP/M target](cpm-target.md)
   §8).
-- **The blob writer's IX saves.** `BL_END`, `BL_BSS`, `BL_ENTRY`,
-  `BL_LIMIT` and `BL_NAME` keep IX, which no caller needs: about 21 bytes,
-  with a contract change across GENCALL and EMIT.
 - **Small shared tails** (`POP BC` / `LD A,C` / `OR A` / `RET` at four
   sites, the `CT_FMODE` field fetch at seven): a few bytes each, needing
   restructuring.

@@ -84,8 +84,7 @@ EX_LOOK:                       ; Is the next token a binary operator?
     CALL PR_TAKE                   ; Consume the operator.
     LD   HL,(TK_POS)               ; Its offset locates its diagnostics...
     LD   (EX_OPPOS),HL             ; ...and any run-time trap.
-    CALL PR_PEEK                   ; The right operand's
-    LD   HL,(TK_POS)               ; first token
+    CALL PR_SPOT                   ; The right operand's first token
     LD   (EX_RAT),HL               ; (rightAt).
     POP  DE                        ; D is the minimum, E the right level.
     POP  HL                        ; Recover the left value.
@@ -314,8 +313,7 @@ EX_AND:
 ; leaves its own there, but the enclosing one's is set again as it ends.
 
 EX_PARSE:
-    CALL PR_PEEK                   ; The expression's first token:
-    LD   HL,(TK_POS)               ; its offset; fall into EX_PFROM.
+    CALL PR_SPOT                   ; The expression's first token: its offset; fall into EX_PFROM.
 
 ;@ROUTINE IN HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; EX_PARSE for an expression that begins at offset HL, its first primary
@@ -725,8 +723,7 @@ EX_PEEKK:                      ; C masks the type.
 ; reference's leftAt); HL returns it.
 
 EX_LHS:                        ; The next token
-    CALL PR_PEEK                   ; is read,
-    LD   HL,(TK_POS)               ; and its offset
+    CALL PR_SPOT                   ; is read, and its offset
     LD   (EX_LAT),HL               ; kept.
     RET                            ; HL is it.
 

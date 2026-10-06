@@ -137,8 +137,7 @@ CT_POP:
 
 CT_BLOCK:
     LD   B,CT_FSYMS                ; The symbols in scope
-    CALL CT_FIELD                  ; when the frame opened
-    LD   A,(HL)                    ; are
+    CALL CT_FBYTE                  ; when the frame opened are
     LD   (SY_CNT),A                ; again;
     LD   DE,CT_FSIZE-CT_FSYMS      ; and so is
     ADD  HL,DE                     ; the size
@@ -160,6 +159,13 @@ CT_TOP:
     JR   Z,CT_ELOOP                ; Raise DG_LOOP.
     DEC  A                         ; The innermost is at depth minus one.
     JR   CT_FRAME                  ; Return its address.
+
+;@ROUTINE OUT A,B,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; Return in HL the address of the innermost frame's mode (CT_FMODE). C is
+; kept.
+
+CT_FLAGS:
+    LD   B,CT_FMODE                ; The mode's field; fall into CT_FIELD.
 
 ;@ROUTINE IN B OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return in HL the address of field B (a CT_F offset) of the innermost
@@ -200,8 +206,7 @@ CT_NEW:
 ; Define the label in field B of the innermost frame here.
 
 CT_DEF:
-    CALL CT_FIELD                  ; HL addresses the field.
-    LD   A,(HL)                    ; The label
+    CALL CT_FBYTE                  ; The label in the field
     JP   EM_LDEF                   ; is defined here; return.
 
 ;@ROUTINE IN B,C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -209,8 +214,7 @@ CT_DEF:
 ; innermost frame.
 
 CT_GO:
-    CALL CT_FIELD                  ; HL addresses the field; C is kept.
-    LD   A,(HL)                    ; The label
+    CALL CT_FBYTE                  ; The label in the field (C is kept)
     JP   EM_JUMP                   ; is the jump's operand; return.
 
 ;@ROUTINE IN B CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -314,8 +318,7 @@ CT_NOTE:
     LD   A,(CT_FALLS)              ; Can control reach the end of this arm?
     OR   A                         ; Zero means the arm ends in a transfer.
     RET  Z                         ; Then the mark stands.
-    LD   B,CT_FMODE                ; Select the if's mode.
-    CALL CT_FIELD                  ; HL addresses it.
+    CALL CT_FLAGS                  ; HL addresses the if's mode.
     SET  0,(HL)                    ; Some arm falls through.
     RET                            ; The mark is made.
 
@@ -430,8 +433,7 @@ CT_TYPE:
 ; its sign bit flipped when signed. A returns the frame's mode.
 
 CT_TEST:
-    LD   B,CT_FMODE                ; A long
-    CALL CT_FIELD                  ; counter
+    CALL CT_FLAGS                  ; A long counter
     BIT  7,(HL)                    ; (CT_MLONG)
     JR   Z,.SHORT                  ; is
     LD   B,CT_FVAR                 ; loaded,
@@ -449,12 +451,10 @@ CT_TEST:
     CALL CT_BOUND                  ; DE is the bound.
     POP  AF                        ; The mode:
     PUSH AF                        ; (kept)
-    AND  CT_MCMPS                  ; a signed comparison?
-    JR   Z,.SBC                    ; No.
-    CALL EM_SEQ                    ; Flip both sign bits:
-    DB   8,$7C,$EE,$80,$67,$7A,$EE,$80,$57 ; H's and D's.
-.SBC:                          ; Then subtract:
-    CALL GX_MINUS                  ; OR A, SBC HL,DE: carry when the counter is below, zero when equal.
+    AND  CT_MCMPS                  ; A signed comparison
+    CALL NZ,GX_SIGNS               ; flips both sign bits.
+    CALL GX_MINUS                  ; OR A, SBC HL,DE: carry when the
+                                   ; counter is below, zero when equal.
     POP  AF                        ; The mode.
     RET                            ; Compared.
 
@@ -469,13 +469,27 @@ CT_LFLIP:
     CALL CT_LLOAD                  ; Load it; A is the mode.
     BIT  3,A                       ; CT_MSIGN?
     RET  Z                         ; Unsigned: done.
-    CALL EM_SEQ                    ; LD A,D, XOR $80, LD D,A:
-    DB   4,$7A,$EE,$80,$57         ; the sign bit flipped.
-CT_MODE:                       ; Return the mode in A.
-    LD   B,CT_FMODE                ; The frame's
-    CALL CT_FIELD                  ; mode
-    LD   A,(HL)                    ; is A.
+    CALL GX_DSIGN                  ; LD A,D, XOR $80, LD D,A; fall
+                                   ; into CT_MODE.
+
+;@ROUTINE OUT A,B,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; Return in A the innermost frame's mode (CT_FMODE: an if's flags, a for
+; loop's mode, a select's arms) and in HL its address. C is kept.
+
+CT_MODE:
+    LD   B,CT_FMODE                ; The mode's field; fall into CT_FBYTE.
+
+;@ROUTINE IN B OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; Return in A the byte in field B (a CT_F offset) of the innermost frame
+; and in HL its address. BC is kept.
+
+CT_FBYTE:
+    CALL CT_FIELD                  ; HL addresses the field:
+    LD   A,(HL)                    ; its byte.
     RET                            ; Done.
+
+; CT_LFLIP's second entry (its contract above): the long unflipped.
+
 CT_LLOAD:                      ; B is the field.
     CALL CT_FWORD                  ; HL is the offset,
     PUSH HL                        ; kept.
@@ -535,9 +549,7 @@ CT_ALTK:
 ; returns the frame's mode.
 
 CT_WIDE:
-    LD   B,CT_FMODE                ; The mode, then the counter's offset.
-    CALL CT_FIELD                  ; HL addresses the mode.
-    LD   A,(HL)                    ; Fetch it.
+    CALL CT_MODE                   ; The mode, then the counter's offset.
     INC  HL                        ; DE is
     LD   E,(HL)                    ; the
     INC  HL                        ; counter's
