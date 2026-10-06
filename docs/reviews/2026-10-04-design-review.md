@@ -3,12 +3,12 @@
 - Date: 2026-10-04
 - Documents: design-decisions.md (D1–D22, O1–O6), memory-safety.md revision 3,
   io-and-effects.md, feature-inventory.md, philosophy.md, README.md,
-  cpm-target.md §4.1 and §10; the Nucleus 0.1 specification chapters 3, 6–16;
-  Skate's external-effects.md and ports.md; the second memory-safety review
+  cpm-target.md §4.1 and §10; the specification chapters 3, 6–16; the
+  external-effects frame format; the second memory-safety review
   (NU1–NU11, NG1–NG8).
 - Method: every guarantee in revision 3 was attacked with a program written in
-  the syntax the documents use. Every feature was checked against the Nucleus
-  rule it inherits. Nothing here is a style comment unless the section says so.
+  the syntax the documents use. Every feature was checked against the
+  specification rule it touches. Nothing here is a style comment unless the section says so.
 
 Counts: 9 unsound or gap-to-unsound findings (U1–U9), 14 feature-interaction
 problems (F1–F14), 16 ergonomic oddities (E1–E16), 9 I/O findings (I1–I9),
@@ -49,7 +49,7 @@ The location of a slot-holder whose argument is `i.next` is inside slot
 *S(i)*. Nothing stops the callee, or anything it calls, from freeing *S(i)*,
 because the owner of *S(i)* is reachable by name:
 
-```nucleus
+```basie
 var head as nodes?
 
 sub steal(var list as nodes?) fails
@@ -98,7 +98,7 @@ inside a slot. The argument "the stored handle was owned elsewhere, so it
 can't be an ancestor of the destination" is false when the destination is a
 field of a slot that the stored subtree contains:
 
-```nucleus
+```basie
 sub cyc(var list as nodes?)
     var x = move head           // x owns the list; its first slot S holds `list`
     list = move x               // S.next = S. Owner path, so no check. x = none, head = none
@@ -123,12 +123,12 @@ claim 7 accordingly.
 ### U3. A local can be leased and moved in the same call
 
 **Where:** §5.6 "the same local may not be passed twice in one call";
-Nucleus §13.4 arguments evaluate left to right.
+spec §13.4: arguments evaluate left to right.
 
 `move n` is an argument expression, not a lease, so the "passed twice" wording
 does not obviously catch it:
 
-```nucleus
+```basie
 sub f(var h as nodes, x as nodes)
     sink(move x)                // sink frees the slot
     h.value = 1                 // h is a lease on that slot: write after free, no check
@@ -201,7 +201,7 @@ that nothing took".
 
 A `match` is a statement whose arms are statements:
 
-```nucleus
+```basie
 match build()               // build() as nodes?: a fresh temporary
 case some(i)
     print(i.value)          // is the temporary alive here? "end of the statement" is ambiguous
@@ -245,7 +245,7 @@ only).
 A handle is a scalar-sized field. Copying an owning payload into a binding
 makes two owners:
 
-```nucleus
+```basie
 variant Slot
     full(h as nodes?, tag as u16)
     empty
@@ -284,7 +284,7 @@ A single-pass compiler has not seen the back edges when it is at the top. NG8
 said this of revision 2 and the sentence is unchanged. `exit` is not a back
 edge; it feeds the state *after* the loop.
 
-```nucleus
+```basie
 var n = new nodes(1, "", none, none) else fail
 while cond()
     n.value = 1             // checked against the entry state: certainly holds
@@ -329,7 +329,7 @@ check, and that only the leaf is read or written.
 `match` binds an identifier, not a handle. `move head` has type `nodes?`.
 Nothing converts it:
 
-```nucleus
+```basie
 sub sink(n as nodes)
 var head as nodes?
 sink(move head)                 // nodes? to nodes: no rule admits it
@@ -366,21 +366,21 @@ moved ones when allocation fails, which makes the two agree.
 
 ### F3. Locals must be declared in a prefix, but every pattern declares them mid-body
 
-Nucleus §8.11: a local after the first statement is invalid. Every example in
+Spec §8.11: a local after the first statement is invalid. Every example in
 memory-safety §8 (`var p = id(head)` after a loop), D19 (`var n = new ...`
 inside `push`), and the flow check's "per open control level" assume
 block-scoped declarations, and §5.3's "freed on `exit` and `continue`" only
 means anything if a local can be declared inside a loop body. No decision
-lifts the Nucleus rule.
+lifts that rule.
 
 **Fix.** Decide: declarations anywhere, scoped to the enclosing block, with
 the usual single-pass cost (a scope mark per block). Then the `for` counter can
-be declared by the loop (`for i as u8 = 0 until n`), which Nucleus also
+be declared by the loop (`for i as u8 = 0 until n`), which the specification also
 forbids (§12.4).
 
 ### F4. `match` on an owning local pays an identifier check and defers a compile-time error to run time
 
-```nucleus
+```basie
 var n as nodes? = build()
 match n
 case some(i)
@@ -394,13 +394,13 @@ routine itself owns is the common case for local work, and the overwrite could
 be rejected at compile time.
 
 **Fix.** When the subject is an owning local or lease, freeze it for the arm
-exactly as Nucleus freezes a counted-loop counter (§12.4), and bind `some(h)`
+exactly as the specification freezes a counted-loop counter (§12.4), and bind `some(h)`
 as a direct owner access with no check. Keep the identifier binding for every
 other subject.
 
-### F5. Fresh owning results in Nucleus's statement positions
+### F5. Fresh owning results in the failable-call statement positions
 
-Nucleus §14.4: a failable call may be only a local initialiser, the whole
+Spec §14.4: a failable call may be only a local initialiser, the whole
 right side of an assignment, or a call statement. So `new` (failable) can't
 be an argument: `sink(new nodes(...) else fail)` is invalid, and every
 allocation needs a named local. That is consistent, but D19's "a fresh value
@@ -410,7 +410,7 @@ handles. Say so, and consider letting `else fail` attach to an argument-level
 
 ### F6. Constant expressions wrap, which is wrong once signed types exist
 
-Nucleus §9.7–9.8: two exact constants with no expected type use `u16` and
+Spec §9.7–9.8: two exact constants with no expected type use `u16` and
 wrap, so `const n = 3 - 5` is 65534, and `print(3 - 5)` passes 65534 to a
 `u16` parameter. With `i16` in the language a reader expects −2.
 
@@ -426,14 +426,14 @@ is fine and `i16var + u16var` is an error; `u16var < i32var` is fine. The
 rule a reader can apply is "an error unless one operand widens exactly into
 the other's type", and the table of widenings must include the signedness
 crossings explicitly. Also undefined: unary minus on an unsigned operand
-(Nucleus wraps; with signed types available it should be an error), the sign
+(the specification wraps; with signed types available it should be an error), the sign
 of `mod` with a negative operand (truncated like `/`, say so), `i8(-128) / -1`
 and `i8(-128) mod -1` (wrap to −128 and 0 under D5, say so), and whether
 shifts of signed values are arithmetic.
 
 ### F8. `for` with signed counters
 
-Nucleus §12: the counter is a `u8`/`u16` local, the step a signed constant,
+Spec §12: the counter is a `u8`/`u16` local, the step a signed constant,
 the bound "an integer expression" compared after widening. With `i8`/`i16`
 counters: the comparison must be signed; a `u16` bound against an `i16`
 counter is a mixed-sign error unless the rule says the comparison happens in
@@ -448,10 +448,10 @@ whether `i32`/`u32` counters exist (recommend: no).
 
 ### F9. Type inference (D21) is underspecified for literals that do have a type
 
-Nucleus gives a character literal type `u8` and `true`/`false` type
+The specification gives a character literal type `u8` and `true`/`false` type
 `boolean`, so `var c = 'a'` and `var ok = true` have definite types under the
 letter of D21 but may not be intended. `var s = "abc"` has no rule (string
-literals aren't expressions in Nucleus). `var t = text` where `text` is a
+literals aren't expressions in the specification). `var t = text` where `text` is a
 `string[]` view has no capacity to copy. `var e = entryAt(3)` copies the
 record (an alias result materialised), which is right but should be said.
 
@@ -460,9 +460,9 @@ constant, field or element; a routine result; a character literal (`u8`); a
 Boolean literal; an expression over those. Exclude integer and float literals,
 untyped constants, string literals and `string[]` views.
 
-### F10. `var` results need an assignment root that Nucleus forbids
+### F10. `var` results need an assignment root that the specification forbids
 
-§4: "A result is read-only unless declared `var`". Nucleus §9.4 and §10.4: a
+§4: "A result is read-only unless declared `var`". Spec §9.4 and §10.4: a
 call "is not an assignment root", so `pick(items, 0).value = 3` is invalid
 whatever `pick` declares. The syntax for a `var` result is also unwritten
 (`as var Entry`?), and so is the call-site rule that a ticket or a constant
@@ -503,7 +503,7 @@ declared with a marker, so the prologue check is emitted. Its type must carry
 
 ### F14. Error codes are `u8`, `handle` needs a writable `u8` variable, and nothing says how variants or enumerations change that
 
-Nucleus §14.6: `handle NAME` names an existing `u8` variable. With
+Spec §14.6: `handle NAME` names an existing `u8` variable. With
 enumerations in the inventory and variants decided, a reader expects
 `fails Error` and `handle e` with `e as Error`. See I8 and N6.
 
@@ -515,7 +515,7 @@ enumerations in the inventory and variants decided, a reader expects
 
 `record Customer; id as u16` is the first record half the audience will
 write. With `id nodes` as a type prefix and `id(h)` as a conversion, `id`
-must be reserved (Nucleus has one namespace and no contextual keywords).
+must be reserved (the specification has one namespace and no contextual keywords).
 Suggest `ref nodes` and `ref(h)`, or make `id` contextual after `as` and
 before `(`, and say which.
 
@@ -564,12 +564,12 @@ then `bump(h)` is a lease on it.
 `new nodes(5, "five", none, none)`: a ten-field record is ten arguments and
 the handle fields are always `none` at creation. Allow trailing fields to be
 omitted and zeroed, or named fields. Also note `new` passes a string literal
-as an argument, which Nucleus §13.4 forbids; Basie must admit string literals
+as an argument, which spec §13.4 forbids; Basie must admit string literals
 as arguments and initialisers (N5).
 
 ### E8. No arrays of arrays, no open arrays
 
-Nucleus §6.2: an array element can't be an array; a concrete array parameter
+Spec §6.2: an array element can't be an array; a concrete array parameter
 has one exact length. `DIM grid(8,8)` becomes a record of eight arrays, and a
 routine over `u8[16]` can't take a `u8[32]`. Only `string[]` is open. A
 feature-complete language needs `T[][]` or `T[8,8]`, and an open array
@@ -577,7 +577,7 @@ parameter `T[]` carrying its length as `string[]` carries its capacity.
 
 ### E9. Strings can't be built, returned, compared or passed as literals
 
-Nucleus §6.8: no append, slice, comparison or `length` assignment; `string[]`
+Spec §6.8: no append, slice, comparison or `length` assignment; `string[]`
 can't be a result; a literal can't be an argument. The inventory puts "string
 building" under *important*, not *essential*, and formatting into libraries.
 A BASIC programmer's first program prints a number and joins two strings.
@@ -588,7 +588,7 @@ service. See N3.
 
 ### E10. Case sensitivity
 
-Nucleus is case-sensitive (§3.5). Both BASIC and Pascal are not. Decide and
+The specification is case-sensitive (§3.5). Both BASIC and Pascal are not. Decide and
 say it on page one of the book; it will be the first error every reader hits.
 
 ### E11. Named-field access on identifiers that may be stale traps rather than being refused
@@ -600,20 +600,20 @@ the caller has just matched, and that the trap is the contract.
 
 ### E12. Identifier equality is undefined
 
-Graph code needs "is `i` the same node as `j`". Nucleus has no alias
+Graph code needs "is `i` the same node as `j`". The specification has no alias
 comparison; identifiers are values and should compare with `=` and `<>`
 (index and generation), and the spec should say so.
 
 ### E13. Nested declaration prefix, `for` counters as separate locals, no `repeat`
 
-Nucleus's declaration prefix, counter-as-declared-local and lack of
+The declaration prefix, counter-as-declared-local and lack of
 `repeat ... until` are each a small surprise; together they make a `for`
 loop four lines of ceremony. F3 covers the first two; the inventory already
 has `repeat`.
 
 ### E14. Compile-time `assert` exists; run-time `assert` doesn't
 
-Nucleus §8.7 has `assert` over constants only. A run-time assertion that
+Spec §8.7 has `assert` over constants only. A run-time assertion that
 traps with a reason is a one-helper feature and belongs in a checked language.
 
 ### E15. Enumerations are listed, not designed
@@ -655,17 +655,17 @@ That is a lifetime rule like an owning handle's; say whether a `File` is freed
 automatically (closed) at scope exit.
 
 Needed and not listed: random read and write by record number (CP/M 2.2
-functions 33 and 34; Nucleus had `seekStorageOutput`), file size, delete,
+functions 33 and 34; the storage services had `seekStorageOutput`), file size, delete,
 rename, directory search with a pattern, user number and drive selection, and
 exact lengths (CP/M files are whole 128-byte records; a text file ends at
-Control-Z; a binary file's length must be carried in the file). Skate's staged
+Control-Z; a binary file's length must be carried in the file). A staged
 open/write/commit model exists only on a host provider; on real CP/M a half-
 written file is what you get, so answer open question 2 with "plain sequential
 and random CP/M files; commit semantics only on profiles with a provider".
 
 ### I2. Console
 
-Nucleus's `readInputByte`/`writeOutputByte` go through BDOS 1 and 2, which
+`readInputByte`/`writeOutputByte` go through BDOS 1 and 2, which
 expand tabs, echo, honour Control-S and abort on Control-C. A game or an
 editor needs BDOS 6 (direct console I/O) and a "key waiting" poll (BDOS 11).
 The proposal's `readLine` and `writeText` are right for programs; add
@@ -683,7 +683,7 @@ tail (cpm-target §6).
 
 ### I4. The command channel on a plain CP/M machine has no provider
 
-Skate's framing (`ESC ~` plus CRC) works where a Triptych terminal or a host
+The command channel's framing (`ESC ~` plus CRC) works where a Triptych terminal or a host
 emulator interprets it. On a stock CP/M system with a serial terminal, the
 frames print as garbage. Full-screen CP/M programs of the period handled
 this with a terminal-type choice (Turbo Pascal's `TINST`, WordStar's patch
@@ -737,7 +737,7 @@ option, no "outside the claim" marker, because the claim is not affected.
 | Memory safety | Lost: a BDOS read writes 128 bytes at the DMA address, and the program would need an address | Kept: the runtime checks every alias's extent |
 | Portability | None across CP/M 2.2, 3, TEC-1, Triptych | Chosen at link time by the blob library |
 | New hardware | One line of source | A runtime blob in assembly, or I6's port services on bare machines |
-| Testing | The host must emulate the BDOS or the ports | Substitute providers, as Nucleus and Skate do |
+| Testing | The host must emulate the BDOS or the ports | Substitute providers |
 | What the compiler must know | BDOS function numbers, FCB layout, DMA; or nothing, if `bdos()` takes a buffer alias (unsafe) | A signature table it already has for helpers |
 
 The direct approach's only advantage is the hobbyist's one line of `OUT`,
@@ -745,7 +745,7 @@ and I6 gives that back where it is safe. Adopt the proposal with I1–I6.
 
 ### I8. How services report errors
 
-Keep `fails` with a `u8` code for 1.0, as Nucleus does, and predeclare the
+Keep `fails` with a `u8` code for 1.0, and predeclare the
 codes as named constants per service group (`fileNotFound`, `diskFull`,
 `endOfInput`, `noProvider`, ...), because `handle` binds a `u8` variable and
 `else fail` propagates a byte in a register; both are one instruction. Do not
@@ -764,7 +764,7 @@ operation on a profile fails with one shared code rather than being absent.
   the helper table numbers blobs; it does not currently carry Basie
   signatures (parameter types, `var`, `fails`). Object-format §10 must grow a
   signature record, or the compiler must have a built-in service table per
-  profile, which is what Nucleus did.
+  profile.
 - "The runtime ... must restore the DMA address to its own buffer before
   returning" (memory-safety §2.1) is the right rule; add "and must never
   leave an alias's address in the DMA register across a return".
@@ -783,7 +783,7 @@ operation on a profile fails with one shared code rather than being absent.
 | S6 | design-decisions.md:391 | "A non-optional `own` is always a local" (D18) | Same |
 | S7 | design-decisions.md:511–543 | O1 "Exclusivity and `inout`" | Superseded: `inout` is `var` (D17); exclusivity is moot for program storage (never freed) and for pools (no aliases, D16). Mark resolved: "no exclusivity; overlap through globals is visible through mutation and never a lifetime hazard" |
 | S8 | design-decisions.md:545–566 | O2 "Pools with owned handles" and its five problems | All five are decided (D16, D18, D19, D22; memory-safety §5.2, §5.3, §5.10, §5.11). Mark resolved and point at the sections |
-| S9 | design-decisions.md:9 | `../nucleus/docs/specification.md` | Path resolves to `basie/nucleus/...`; should be `../../nucleus/docs/specification.md`. Also io-and-effects.md:5 and build-pipeline.md:9 |
+| S9 | design-decisions.md:9 | a relative path to an external specification | The path does not resolve from `docs/`. Also io-and-effects.md:5 and build-pipeline.md:9 |
 | S10 | feature-inventory.md:53, 87–126, 154, 178, 184, 195, 224, 239 | `select` throughout | D15 named it `match`; the inventory still documents `select` and its examples use it |
 | S11 | feature-inventory.md:57 | "Ownership: pools, `own`, `id`, `new`, `give`, flow check ... retirement" | `own` and `give` removed (D19, D22); "retirement" is "freeing" (D18); `move` missing |
 | S12 | feature-inventory.md:169 | "an aggregate field is bound as an alias ... read-only unless the subject is a `var` parameter" | Contradicts memory-safety §5.5 (identifier bindings) and D16 for pool subjects; see U7 |

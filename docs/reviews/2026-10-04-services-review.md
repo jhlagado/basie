@@ -7,8 +7,7 @@
 - Contracts: z80-services (README, architecture, byte-gateway-v0,
   console-and-storage-v0, capability-model-v0, target-profile-v0,
   bindings-and-conformance-v0, consumer-audit, `contracts/z80-services-v0.json`);
-  z80-tool-services README and ABI v1; Skate `docs/ports.md` and
-  `docs/public/external-effects.md`; Nucleus runtime contract §8.
+  z80-tool-services README and ABI v1; the external-effects frame format.
 - Method: each service was mapped to the contract it should adapt, then
   checked against the CP/M 2.2 BDOS as it behaves, then attacked as a
   memory-safety and a disk-safety boundary. Findings are numbered by section:
@@ -50,7 +49,7 @@ future z80-services file profile will almost certainly be shaped like it.
 | --- | --- | --- |
 | `readByte(console)`, `readInputByte` | byteGateway `readInputByte` (0) | Aligned, with Basie policy on top (echo, Control-Z). **A1**: the policy's EOF code must be 1, not 4 |
 | `writeByte(console)`, `writeOutputByte`, `writeText(console)` | byteGateway `writeOutputByte` (1) | Aligned. The BDOS 2 / 6 choice is adapter policy (E1) |
-| `readLine(console)` | none; policy above the gateway (console-and-storage §Console bytes) | Basie-owned, as Skate's `read-line` is |
+| `readLine(console)` | none; policy above the gateway (console-and-storage §Console bytes) | Basie-owned |
 | `readKey`, `keyReady` | none; "input events" is a deferred profile | **Gap G1** |
 | `printer` | none; the gateway has no list-device role | **Gap G2** |
 | `openRead` | tool-services `openRead` | Aligned (handle at offset 0, `notFound`) |
@@ -70,7 +69,7 @@ future z80-services file profile will almost certainly be shaped like it.
 ### 1.3 Findings
 
 **A1 (major). Code 4 collides with the gateway's `storageFailure`, and the console's EOF is reported under two names.**
-§7 gives 4 to `endOfFile`; z80-services and Nucleus give 4 to
+§7 gives 4 to `endOfFile`; z80-services gives 4 to
 `storageFailure`. §2 says `readByte(console)` on Control-Z gives `endOfFile`
 (4), while §7 code 1 `endOfInput` is "standard input has ended". A program
 `handle`-ing both codes for one loop over "any file" needs two cases, and a
@@ -114,7 +113,7 @@ state that failure leaves the position unchanged.
 *Fix:* admit `position <= size`; see E12 for extending update files.
 
 **A5 (minor). The gateway's storage roles have no Basie surface.**
-Nucleus's `readStorageByte`, `rewindStorageInput`, `writeStorageByte` and
+The gateway's `readStorageByte`, `rewindStorageInput`, `writeStorageByte` and
 `seekStorageOutput` are dropped silently (§2 says only the two console
 routines "remain"). The plan's intention to run the z80-services vectors
 through Basie's providers needs those roles to exist somewhere.
@@ -156,7 +155,7 @@ console for Control-S. When the waiting key is not Control-S, the BDOS keeps
 it in its one-byte `kbchar` buffer for the next function 1, 10 or 11 call.
 Function 6 bypasses that buffer. So:
 
-```nucleus
+```basie
 writeText(console, "Press any key") else fail   // BDOS 2: user's key lands in kbchar
 var k = readKey()                               // BDOS 6: never sees it; waits for a second key
 ```
@@ -179,7 +178,7 @@ consume first.
 
 **E2 (critical). `readByte(console)` cannot report Control-Z under the stated code, and the EOF is not sticky.**
 See A1 for the code. Also: after Control-Z, does the next `readByte` read
-again? Nucleus's gateway says EOF "leaves the cursor unchanged", so every later
+again? The gateway says EOF "leaves the cursor unchanged", so every later
 read is EOF too. The draft is silent. With BDOS 1 (or 6) the next call simply
 waits for a key.
 *Fix:* state that end of input on the console is sticky for the run, or that
@@ -201,7 +200,7 @@ policy the only remaining route is BDOS 10.
 
 **E4 (major). BDOS 10 details are unstated or wrong.**
 The buffer is `max, count, bytes...`; `max` must be 1–255, and the string's
-capacity may be 0 (`string[0]` is legal in Nucleus) so the runtime must guard
+capacity may be 0 (`string[0]` is legal in the specification) so the runtime must guard
 `max = 0`. On 2.2 the line ends **without** a carriage return when the buffer
 fills, so `lineTooLong` is unreachable on the console (the draft only claims
 it "on a file", good, but say so). The terminating CR is not stored; BDOS 10
@@ -211,7 +210,7 @@ routine must write LF (or CR LF) itself. BDOS 10 also handles Control-H,
 Control-X, Control-U, Control-R, Control-E and Control-P, which the draft
 should list as the editing the user gets. Control-Z is an ordinary character
 to BDOS 10, so `readLine(console)` has no end-of-input unless Basie defines
-one (Skate's `read-line` treats a line beginning with Control-Z as EOF).
+one (a common rule treats a line beginning with Control-Z as EOF).
 *Fix:* document all of the above; define "a line whose first byte is
 Control-Z is `endOfInput`" if console scripts under redirection (CP/M 3,
 emulators) are to end cleanly.
@@ -298,7 +297,7 @@ BDOS 35 is used only for files not open, or restrict `size` to `openRead`
 and `openUpdate` and document the behaviour for `openUpdate` after extension.
 
 **E11 (major). Text-mode rules are incomplete.**
-- Lone CR is not mentioned (Skate folds CR, LF and CR LF). A WordStar or
+- Lone CR is not mentioned (a reader can fold CR, LF and CR LF). A WordStar or
   old editor file with bare CRs will read as one line.
 - Writing byte 13 in text mode: passed through, so a program that writes
   "CR LF" itself gets CR CR LF. Say so, or swallow a CR immediately before
@@ -306,12 +305,12 @@ and `openUpdate` and document the behaviour for `openUpdate` after extension.
 - The last record on `close` must be padded with Control-Z in text mode; in
   binary mode the pad byte should be stated (zero is conventional for `.COM`).
 - A final line with no terminator before Control-Z or the physical end: is it
-  returned, then `endOfFile`? (Skate: yes.) Say so.
+  returned, then `endOfFile`? (The usual answer: yes.) Say so.
 - On `lineTooLong`, what is in `line`? The first `capacity` bytes with
   `.length = capacity`, or untouched? The draft says the rest is left unread,
   so the next `readLine` returns the tail as a line; a handler that ignores
-  the failure has silently split a line. Say which, and consider the Skate
-  rule (discard to the end of the line) as the safer default.
+  the failure has silently split a line. Say which, and consider discarding
+  to the end of the line as the safer default.
 - Do `readBlock` and `writeBlock` translate in text mode, or are they
   forbidden there? Say.
 - A `mode` value other than `textMode` or `binaryMode`: trap or fail? Say.
@@ -431,7 +430,8 @@ contents". §3.5: a program that fails or traps "leaves the old file intact
 and the temporary file deleted at exit". Read together, an `openWrite` file
 that is never closed is **always** abandoned, even on a normal return from
 `main`, so a program that forgets `close` silently loses its whole output,
-while an `openUpdate` file is flushed. Skate flushes and closes at normal end.
+while an `openUpdate` file is flushed. Flushing and closing at normal end is
+the usual rule.
 *Fix:* state the rule in one place. Recommended: on normal return from `main`,
 the runtime closes every open file as `close` would (replacement included);
 on an unhandled failure or a trap it aborts `openWrite` files (deletes the
@@ -528,7 +528,7 @@ documented as reserved.
 
 **L7 (minor). Failure codes.**
 17 used, programs from 32: fine. Reserve 254 and 255 (A1), reserve 18–31 for
-future services explicitly, and move `endOfFile` off 4. Nucleus compatibility
+future services explicitly, and move `endOfFile` off 4. Gateway compatibility
 for 1–3 holds; for 4 it does not, unless A1 is adopted.
 
 ---
@@ -604,7 +604,7 @@ exactly as the service would. Keep it as a service if the FCB-building code is
 shared; otherwise drop it. Either is fine; say which.
 
 **M13 (minor). `readInputByte` and `writeOutputByte`.**
-Keep, as alias blobs costing nothing; say that Nucleus's four storage
+Keep, as alias blobs costing nothing; say that the gateway's four storage
 routines are not provided (A5).
 
 ### The failure-code list

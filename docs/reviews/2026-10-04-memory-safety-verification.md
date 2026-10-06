@@ -94,7 +94,7 @@ The owner word is the slot's address whenever the argument lies inside a leased
 node, including a nested record of a different type. `id(n)` then builds an
 identifier of `n`'s pool from a slot of another pool:
 
-```nucleus
+```basie
 record Sub
     x as u16
 end
@@ -154,7 +154,7 @@ was forward-declared."
 and that "a routine's exits share one epilogue that frees its owning locals".
 §7 lets side-by-side blocks share frame space. Together:
 
-```nucleus
+```basie
 sub f(flag as boolean)
     if flag
         var a = new nodes(1)   // frame offset 0, freed at the end of the arm

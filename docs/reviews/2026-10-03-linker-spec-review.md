@@ -6,7 +6,7 @@
 - Method: every byte of §13 decoded by hand; the linker walked on small
   programs through phases A to E; every figure recomputed; CP/M facts checked
   against the DRI manuals and seasip where reachable; the compiler side
-  checked against the single-pass rule and the Nucleus contract.
+  checked against the single-pass rule and the compiler's contract.
 
 Counts: 9 blocking, 22 major, 16 minor.
 
@@ -157,7 +157,7 @@ result is inside the target's memory").
 the target's memory.
 
 **Defect 2.** On the flat-ROM class (profile block target class 3, linker
-§6.1), RAM is commonly below ROM (Nucleus TEC-1 profile: image `$8000`,
+§6.1), RAM is commonly below ROM (a typical TEC-1 layout: image `$8000`,
 writable `$2000`). Every `ABS16` to a `data` or `bss` blob is "below the
 image base" and fails.
 
@@ -231,13 +231,13 @@ minus BIOS offsets (unreliable). Simplest: `top = ($0006) − $806`.
 
 ### M2. Traps inside runtime helpers report the helper's address
 
-**Where:** cpm-target §10; toolchain §8; design D11; Nucleus runtime contract
-§9.4 ("Entering a shared helper must not replace the source location").
+**Where:** cpm-target §10; toolchain §8; design D11. Entering a shared helper
+must not replace the source location.
 
 Division, narrowing, `f32` overflow, string bounds in helpers detect the
 condition inside the helper and `CALL` the reporter from there. The reporter
 prints "return address − 3" = an address in the helper. The lookup says "in
-runtime blob div16". This is a regression against Nucleus and makes most
+runtime blob div16". This is a regression against inline source positions and makes most
 arithmetic traps unlocatable.
 
 **Fix.** Either (a) helpers never trap: they return a condition flag and the
@@ -492,8 +492,8 @@ link error and `$FF02` for a trap, or similar.
   ordinal base so a library's ordinals can be relocated by addition; 2 bytes
   in the header, zero for 1.0.
 - **Banked (§9.2):** the object table has no bank byte and no spare bits;
-  the 8-byte entry becomes 9. The Nucleus model (every bank carries the
-  whole runtime) is incompatible with one ordinal per helper; decide now
+  the 8-byte entry becomes 9. A model in which every bank carries the
+  whole runtime is incompatible with one ordinal per helper; decide now
   whether helpers are per-bank copies with aliased ordinals or a common
   bank.
 - **Routine values (O5):** fine as references, but a value taken inside

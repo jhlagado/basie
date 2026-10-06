@@ -3,7 +3,7 @@
 - Date: 2026-10-04
 - Document: memory-safety.md revision 4, with design-decisions.md D1–D34,
   cpm-target.md §4.1 and §10, build-pipeline.md §6 (the routine buffer), the
-  Nucleus specification chapters 7, 9, 12, 13, 14 and 15, and the three earlier
+  specification chapters 7, 9, 12, 13, 14 and 15, and the three earlier
   reviews.
 - Method: every guarantee in §2 was assumed false until a program failed to
   break it. Every mechanism added or changed since revision 3 (leases through
@@ -67,7 +67,7 @@ and at run time nothing distinguishes a slot's address from a record's.
 
 If it writes 0:
 
-```nucleus
+```basie
 record Node
     value as u16
     next  as nodes?
@@ -98,7 +98,7 @@ again.
 If it instead writes the record's address, treating every `var` referent as a
 slot, a program record poisons the walk:
 
-```nucleus
+```basie
 var top as Node                       // program storage, no link word
 
 sub bad()
@@ -150,7 +150,7 @@ operands have been evaluated".
 The flow check sees the destination `x.value` before the right side, when `x`
 certainly holds. The generated code evaluates the right side first:
 
-```nucleus
+```basie
 sub eat(n as nodes) as u16              // frees n at its end
     return 0
 end
@@ -188,7 +188,7 @@ If the link store is unconditional, it writes two bytes at address 0 plus the
 link offset: the warm-boot jump, IOBYTE, or the BDOS jump at `$0005`,
 depending on the offset.
 
-```nucleus
+```basie
 var a as nodes?
 var b as nodes?
 sub z()
@@ -238,7 +238,7 @@ moved slot's link, the slot is a root with a stale link that outlives the
 statement. One lease-path store then closes a loop in the links while
 ownership is still a tree:
 
-```nucleus
+```basie
 var head as nodes?                       // head -> H -> O
 
 sub g(x as nodes)                        // x = O, O.link stale = H
@@ -282,7 +282,7 @@ the destination.
 §5.6 (rules stated only for `var`); D30; the whole-design review's E2
 ("a ticket `n as Node` could bind an owning local's slot read-only").
 
-```nucleus
+```basie
 sub show(n as Node, k as u16)
     print(n.value)                       // k is 0: n is a freed slot
 end
@@ -311,8 +311,8 @@ statement position); build-pipeline §6 (a routine buffer of 2K to 4K, and
 
 Three facts the prologue encodes are known only at the routine's `end`:
 `frame(R)` (D28 lets locals appear anywhere, and fresh temporaries add slots),
-`need(R)` (the maximum over callees), and whether `R` calls itself. Nucleus had
-the declaration prefix, so its frame was known before the first statement;
+`need(R)` (the maximum over callees), and whether `R` calls itself. With a
+declaration prefix, the frame was known before the first statement;
 revision 4 removes it without saying how the prologue is filled. For a buffered
 routine the compiler can patch two 16-bit immediates, and can patch a reserved
 5-byte check into `NOP`s or a call. For an unbuffered routine it cannot.
@@ -332,7 +332,7 @@ either is a sound bound as long as the prologue allocates what `need` counts.
 arguments"; §5.2 "Owning types can't be copied: whole-record assignment and
 by-value passing are errors".
 
-```nucleus
+```basie
 record Tree
     key  as u16
     kids as trees?[4]
@@ -435,7 +435,7 @@ and §8's list patterns should say that the tail insert pays it.
 
 ## 3. Implementability and costs
 
-Compiler figures are estimates over the 12K Nucleus base; program figures are
+Compiler figures are estimates over a 12K compiler core; program figures are
 per site.
 
 | Rule | Single pass, bounded memory? | Compiler cost | Program cost |
@@ -458,10 +458,10 @@ per site.
 | String zero-fill on length raise (D25) | Runtime helper | — | about 20 bytes; 21 T-states per exposed byte |
 | Arrays of arrays in descriptors and paths (D32) | Yes: flatten to stride and count | in D32's 0.3K | none |
 | `include` ordering for `need` (D33) | Yes: included files are compiled first, so their routines are defined before use | none extra | none |
-| Identifier path, one check (§5.4) | Yes: Nucleus's staging already buffers operands | about 80 bytes | none |
+| Identifier path, one check (§5.4) | Yes: the compiler's staging already buffers operands | about 80 bytes | none |
 
 Total for the memory-safety machinery: roughly 1.3K to 1.8K of compiler and
-a routine table 4 bytes per routine larger than Nucleus's. Nothing here is out
+a routine table 4 bytes per routine larger than the core's. Nothing here is out
 of line with 24K. Two things need watching:
 
 1. The per-exit-path freeing is a program-size cost, not a compiler cost, and
@@ -485,12 +485,12 @@ Each program is written against revision 4 as it stands. A line marked
 cycle walk; **check** is one generation check. Two assumptions are made
 throughout and should be stated in the design: an `id nodes` value may be
 assigned to an `id nodes?` location, and a `select` whose every arm does not
-fall through does not fall through (the Nucleus §13.7 summary extended to
+fall through does not fall through (the spec §13.7 summary extended to
 `select`).
 
 ### 4.1 Singly linked list: insert in order and delete
 
-```nucleus
+```basie
 record Node
     key  as u16
     next as nodes?
@@ -571,7 +571,7 @@ building a list by appending, which §8 should say.
 
 ### 4.2 Binary tree: insertion and in-order traversal
 
-```nucleus
+```basie
 record Tree
     key   as u16
     left  as trees?
@@ -623,7 +623,7 @@ end
 
 Nothing is rejected, but two shapes a programmer will try first are:
 
-```nucleus
+```basie
 sub insertAt(var slot as trees?, k as u16)   // recursive insert through a slot-holder
     select slot
     case some(i)
@@ -642,7 +642,7 @@ degenerate 128-node tree traps `bounds` at depth 32, safely but wrongly.
 
 ### 4.3 Doubly linked list with unlink
 
-```nucleus
+```basie
 record DNode
     key  as u16
     next as dnodes?
@@ -688,7 +688,7 @@ walk at `p.next = move nx` is the position of `p`, so unlinking the tail of a
 
 ### 4.4 A fixed-size LRU cache on a pool
 
-```nucleus
+```basie
 record Entry
     key   as u16
     value as u16

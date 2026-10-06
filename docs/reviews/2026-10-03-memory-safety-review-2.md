@@ -3,7 +3,7 @@
 - Date: 2026-10-03
 - Document: memory-safety.md revision 2, with cpm-target.md §4.1 and §10,
   object-format.md §6 (`LIMITS`), design-decisions.md D8, feature-inventory.md
-  §3 and §4, and the Nucleus specification chapters 7, 9, 10, 12, 13, 14, 15.
+  §3 and §4, and the specification chapters 7, 9, 10, 12, 13, 14, 15.
 - Method: every fix from the first review was assumed wrong until a program
   showed otherwise; every new mechanism was attacked with programs. Nothing
   here is a style comment.
@@ -72,7 +72,7 @@ held in a program variable, a local, a local aggregate's field or a parameter
 location yields an alias with an empty pool set, and the statement rule never
 fires. Four programs, each accepted by §6.2 as written:
 
-```nucleus
+```basie
 var root as own? nodes
 
 sub dropHead() as u16 frees nodes
@@ -130,7 +130,7 @@ statement".
 **Where:** §3.1 "A result has the union of the provenances of the arguments
 passed for its `from` parameters"; U3's fix, second half.
 
-```nucleus
+```basie
 sub peek(link as inout own? nodes) as Node from link
     select link
     case some(h)
@@ -175,7 +175,7 @@ of pool `P`, and the design's propagation rule says so. But the statement rule
 is checked only against calls, and the return value is formed before the
 epilogue runs.
 
-```nucleus
+```basie
 sub first() as Node frees nodes
     var h as own? nodes = take root
     var i as id? nodes = id(h)
@@ -211,7 +211,7 @@ A `select` binding is an alias with a pool set that survives for the whole
 case body, like an alias parameter, but nothing stages it: the statement rule
 sees each statement of the body separately.
 
-```nucleus
+```basie
 sub count(i as id? nodes) frees nodes
     select live(i)
     case live(n)                     // n: pools {nodes}
@@ -226,7 +226,7 @@ Variant payload bindings have a second hole: the subject can be assigned a
 different case inside the case body, overlaying the payload the binding
 aliases:
 
-```nucleus
+```basie
 variant Slot
     full(h as own? nodes, tag as u16)
     empty
@@ -264,7 +264,7 @@ rule "can't retire `h` without `frees nodes`" show the design treats
 retirements as effects of the routine, but not as events the staged set is
 checked against. Three programs:
 
-```nucleus
+```basie
 sub f(a as inout own? nodes) frees nodes
     root = none                      // overwrite retirement, not a call
     a = new nodes(1, none) else fail // a's location may be inside the list just freed
@@ -312,7 +312,7 @@ moving its content: an owned value "is moved when it is ... passed as an
 argument of type `own P`", and the flow check does not cover the location
 because it is not a local.
 
-```nucleus
+```basie
 sub steal(h as inout own nodes) frees nodes
     sink(h)                          // moves: stores none into the caller's local
 end
@@ -340,7 +340,7 @@ have been moved"; §5.3.
 
 The deref case is only an error when the local is *certainly* `none`:
 
-```nucleus
+```basie
 sub m(c as boolean) fails
     var h as own nodes = new nodes(1, none) else fail
     if c
@@ -381,7 +381,7 @@ The slot's last allocation was at generation `$FFFF`. Every identifier made
 during that life holds `$FFFF`. Retirement withdraws the slot without
 advancing, so those identifiers match forever:
 
-```nucleus
+```basie
 // slot s has generation $FFFF (after 65,534 reuses under FIFO)
 var h as own nodes = new nodes(1, none) else fail      // takes s eventually
 var i as id nodes = id(h)
@@ -409,7 +409,7 @@ slot ever has"; §5.2.
 Allocated slots have generation ≥ 1. Slot 0 before its first allocation has
 generation 0, as does a zeroed `id nodes` program variable:
 
-```nucleus
+```basie
 var cursor as id nodes               // bss: slot 0, generation 0
 
 sub main() fails
@@ -434,7 +434,7 @@ zero value; locals of type `id P` need an initialiser.
 A handle can be moved into a field of the slot it owns, or into a field of a
 slot in its own subtree:
 
-```nucleus
+```basie
 sub cyc() fails
     var h as own nodes = new nodes(1, none) else fail
     deref(h).next = h                // destination formed, then h moved: S.next = S
@@ -448,7 +448,7 @@ end
 A leak violates claim 7 but is contained. It becomes a double free the moment
 the cycle is retired, which needs only an identifier to it:
 
-```nucleus
+```basie
 var i as id nodes = id(h)            // before the move in cyc
 ...
 deref(i).next = none                 // retires S.next = S: work list pops S, reads S.next = S,
@@ -480,7 +480,7 @@ a pool field, which is not affordable.
 **Where:** §5.5 descriptors; feature-inventory §4.2 representation ("a tag byte
 followed by the largest variant's fields"); §5.7.
 
-```nucleus
+```basie
 variant Shape
     circle(h as own? nodes)          // payload byte 1..2: a handle
     rect(w as u16, hgt as u16)       // payload byte 1..2: w
@@ -505,7 +505,7 @@ sub-descriptor per case; the runtime dispatches on the tag. Say so and cost it
 
 #### NG1. Owned results can be discarded or dereferenced as temporaries, which leaks
 
-**Where:** §5.3; Nucleus §13.3 ("an infallible result-bearing routine may be
+**Where:** §5.3; spec §13.3 ("an infallible result-bearing routine may be
 used as ... a call statement that discards the result").
 
 `make()` as a statement, where `make` returns `own nodes`, discards an owned
@@ -567,8 +567,8 @@ through an `inout` subject binding.
 owned local" presumably includes it, so the epilogue must walk it by
 descriptor and the routine must declare `frees nodes`; neither is said. Also
 unsaid: `take x.head` and `x.head = none` through a read-only ticket `x as
-Holder` must be errors, since both write the location. Nucleus lost read-only
-through aliases; Basie has modes and must enforce them for these two
+Holder` must be errors, since both write the location. The specification lost
+read-only through aliases; Basie has modes and must enforce them for these two
 operations or U7's reasoning fails for tickets.
 
 **Fix.** State all three.
@@ -697,7 +697,7 @@ not visible to an argument that calls `new` on the same pool.
 
 ### 3.1 `removeAll` against the rules as written
 
-```nucleus
+```basie
 sub removeAll(v as u16) frees nodes
     while root is some and deref(root).value = v        // L1
         root = take deref(root).next                    // L2

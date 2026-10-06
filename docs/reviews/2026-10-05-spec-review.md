@@ -36,10 +36,10 @@ type, and typed constants computed in the wrong type.
 | A8 | minor (closed) | `.capacity` on `string[]` parameters is missing from 5.6's lookup table. | Add |
 | A9 | minor (closed) | `handle` bodies and `some(NAME)` bindings are missing from 5.3 and 5.4. | Add |
 | A10 | minor (closed) | Which part scope a body completing a forward from another part sees. | The body's part |
-| A11 | minor (closed) | Chapter 1 names Nucleus documents and omits services, memory safety and code generation from the authority order. | Name the real documents |
-| A12 | minor (closed) | "First compiler" is a Nucleus term; streaming is called a chapter 2 constraint but isn't in chapter 2. | Say `BASIE.COM`; add to 2.4 |
+| A11 | minor (closed) | Chapter 1 names another project's documents and omits services, memory safety and code generation from the authority order. | Name the real documents |
+| A12 | minor (closed) | "First compiler" is a stale term; streaming is called a chapter 2 constraint but isn't in chapter 2. | Say `BASIE.COM`; add to 2.4 |
 | A13 | minor (closed) | Stale cross-references to "Section 4.3" and "Chapter 1" diagnostic policy. | Fix |
-| A14 | minor (closed) | Code fences tagged `nucleus`; the README still says chapters describe Nucleus 0.1. | Fix |
+| A14 | minor (closed) | Code fences with a stale language tag; the README's status line is stale. | Fix |
 | A15 | minor (closed) | Reference diagnostics give a provisional part number for lexical errors in included parts. | Report the part's name |
 | A16 | minor (closed) | Part identity by drive and name, drives in includes, required types, several command-line parts, and `L=`'s meaning differ between chapter 4, the toolchain and the reference. | Align |
 | A17 | minor (closed) | Chapter 1 says the corpus has no `activation-capacity` trap; one test expects it. Tests are ranked lowest in 1.3 but called normative in 21.1. | Fix |
@@ -57,7 +57,7 @@ type, and typed constants computed in the wrong type.
 | B3 | critical (closed) | A typed constant combined with a literal is computed in `u16`: `const a as u8 = 200` then `a * 2` gives 400, and `var b as u8 = a + 100` is rejected. | 8.4: the constant behaves like a `u8` |
 | B4 | major (closed) | `id(n)` compares only the owner word, so a record at offset 0 of a node shares the node's address and `id(n)` names the wrong pool. | Also compare the slot's pool word |
 | B5 | major (closed) | "A routine whose result is an owning type" is called fresh, and owning aggregates may be copied "unless fresh". Aggregate results are aliases, so no aggregate is ever fresh. | Say "owning handle type" |
-| B6 | major (closed) | 6.5 keeps Nucleus statements: scalars only `u8`, `u16`, `boolean`; no local aggregates; results alias program storage. | Rewrite 6.5 to D8, D20 |
+| B6 | major (closed) | 6.5 keeps stale statements: scalars only `u8`, `u16`, `boolean`; no local aggregates; results alias program storage. | Rewrite 6.5 to D8, D20 |
 | B7 | major (closed) | Identifier comparison (`=`, `<>`, with `none`) is specified but not implemented. | Implement; state `id P` widens to `id P?` |
 | B8 | major (closed) | Exact operands of `not`, `shl`, `shr` and bitwise operators: 9.7 and 9.10 conflict; the compiler rejects `var x as u8 = 1 shl 3`. | Define them from the context type |
 | B9 | major (closed) | 8.10 says literals have no definite type, but 9.7 types `true`, characters, floats and comparisons, and the compiler accepts `var f = true`. | Restrict 8.10 to exact integers |
@@ -81,7 +81,7 @@ type, and typed constants computed in the wrong type.
 | B27 | minor (closed) | Field access through a fresh handle temporary is unspecified and badly diagnosed. | State invalid |
 | B28 | minor (closed) | A record with an `id P?` field has no static initializer, which 8.9 doesn't say. | Say so |
 | B29 | minor (closed) | The type grammar reads `u8[25][40]` backwards. | Note the binding |
-| B30 | minor (closed) | Fences tagged `nucleus`; planning text in 6.12; memory safety says 4-byte slot headers, revision 6.1 says 6. | Fix |
+| B30 | minor (closed) | Fences with a stale language tag; planning text in 6.12; memory safety says 4-byte slot headers, revision 6.1 says 6. | Fix |
 
 ## Group C: chapters 10 to 21
 
@@ -119,5 +119,5 @@ type, and typed constants computed in the wrong type.
 | C30 | minor (closed) | 14.2's header fragment lacks the `var` and `from` result clause. | Align with 13.2 |
 | C31 | minor (closed) | `left = right = 0` is valid when `left` is boolean. | Better example |
 | C32 | minor (closed) | An untyped constant `select` subject is unspecified. | State |
-| C33 | minor (closed) | Stale text: a Skate reference, `nucleus` fences, a wrong services section, a "to be confirmed", an empty forward reference, `abort` of a zero `File`. | Fix |
+| C33 | minor (closed) | Stale text: an external project reference, stale fence tags, a wrong services section, a "to be confirmed", an empty forward reference, `abort` of a zero `File`. | Fix |
 | C34 | minor (closed) | "Source routine" excludes services. | "routine or service" |

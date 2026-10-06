@@ -3,7 +3,7 @@
 - Date: 2026-10-03
 - Document: memory-safety.md (draft, "not yet reviewed"), with
   design-decisions.md D1, D3–D8, O1–O5; cpm-target.md §4.1 and §10;
-  philosophy.md; the Nucleus specification chapters 7, 13, 14 and 15;
+  philosophy.md; the specification chapters 7, 13, 14 and 15;
   object-format.md and linker.md for the stack bound.
 - Method: each guarantee in memory-safety §1 and each rule in §§3–7 was
   attacked with concrete programs. Every finding below is a program or an
@@ -15,7 +15,7 @@ Counts: 9 unsound, 12 major gaps, 11 minor issues (32 findings).
 **Notation.** The design leaves syntax open (§11.3). Examples use `deref(h)`
 for the record alias behind an owned handle or identifier, `id(h)` to make an
 identifier from a handle or an `own?` field, `h is none` / `h is some` for the
-optional test, and `retire h`. `string[]` is Nucleus's open string. Nothing
+optional test, and `retire h`. `string[]` is the open string. Nothing
 turns on the spelling.
 
 ---
@@ -33,7 +33,7 @@ global or a `from` parameter, never into the routine's own local. A pool is a
 top-level declaration, so an alias into a pool slot is rooted in a global. But
 the slot's lifetime is that of its owning handle, which can be a local.
 
-```nucleus
+```basie
 pool nodes as Node[64]
 
 sub fresh(v as u16) as Node fails
@@ -66,14 +66,14 @@ field per alias (see G1).
 
 **Where:** §6.2, "while an alias into a slot of `P` is live as an argument, the
 call it is passed to must not have the effect `frees P`"; §3.1, "a routine
-result the caller uses at once"; Nucleus §7.9 and §13.6 (staging).
+result the caller uses at once"; spec §7.9 and §13.6 (staging).
 
-The rule constrains only the call an alias is *passed to*. Nucleus evaluates
+The rule constrains only the call an alias is *passed to*. The specification evaluates
 arguments left to right and keeps an aggregate carrier staged across later
 argument evaluation (§13.6), and an assignment evaluates its destination path
 before its right side (§15.4). Three programs:
 
-```nucleus
+```basie
 var root as own? Node
 
 sub reset() frees nodes
@@ -103,7 +103,7 @@ all. Claim 2 is violated.
 
 The same hole exists with owned handles and `take`:
 
-```nucleus
+```basie
 sub d(h as own Node) frees nodes
     show(deref(h), sink(take h))    // sink retires h; show gets the freed slot
 end
@@ -127,7 +127,7 @@ D8 says the result lives "exactly as long as the arguments passed for the
 `from` parameters". For an owned parameter the argument is moved in, and the
 callee owns and retires it at return unless it moves it on.
 
-```nucleus
+```basie
 sub inspect(h as own Node) as Node from h
     return deref(h)             // rooted in parameter h, listed in from
 end                             // h retired here
@@ -147,7 +147,7 @@ rooted in an `inout own? T` parameter must additionally be treated as a pool
 alias of that pool for the purposes of U2 at the call site, because the slot
 can be retired by overwriting the location after the call returns:
 
-```nucleus
+```basie
 sub peek(link as inout own? Node) as Node from link
     return deref(link)
 end
@@ -172,7 +172,7 @@ Three separate defects:
    a profile threshold" and routines that "can recurse". A chain of routines
    each just under the threshold overflows with no check at all:
 
-   ```nucleus
+   ```basie
    sub l1()  var b as u8[500]  ... end    // 500 < threshold, no check
    sub l2()  var b as u8[500]  l1() end
    ...
@@ -224,7 +224,7 @@ makes the bound an overestimate, which is harmless.
 
 **Where:** §5.4 (retirement retires every owned field first), §6.2.
 
-```nucleus
+```basie
 record Leaf
     v as u16
 end
@@ -269,7 +269,7 @@ Pools return slots through a free list. A LIFO free list hands the most
 recently retired slot back first, so one slot is reused on every iteration of
 any allocate-then-free loop, and its generation advances once per iteration:
 
-```nucleus
+```basie
 sub main() fails
     var h as own Node = new nodes(0, none) else fail
     var stale as id Node = id(h)
@@ -308,7 +308,7 @@ statistics if the toolchain has any.
 caller and any routine that reaches it through a global can also write. A
 flow bit for it is a guess:
 
-```nucleus
+```basie
 var root as own? Node
 
 sub refill() fails
@@ -345,7 +345,7 @@ value"); §3.3; cpm-target §4 step 6 (`BSS` is zeroed).
 An `id T` in `bss` is all zero bytes: slot 0, generation 0. A fresh pool is
 also all zero bytes: every slot has generation 0.
 
-```nucleus
+```basie
 var cursor as id Node                       // zero: slot 0, generation 0
 
 sub main() fails
@@ -374,7 +374,7 @@ allocation path. Do (a) and also (b), because the doubly linked list needs
 `own T` has no `none`. If `take` is allowed on it, the field afterwards holds
 a stale handle, and retiring the container retires it again:
 
-```nucleus
+```basie
 record Pair
     left  as own Node
     right as own Node
@@ -443,7 +443,7 @@ bounded (16 is enough) and the bound is published.
 agree, or to be resolved by an implicit retire on the path that still holds a
 value".
 
-```nucleus
+```basie
 if c
     keep(h)                 // branch 1: h still held; jump to join emitted now
 elseif d
@@ -455,7 +455,7 @@ end                         // join: branches 1 and 3 need an implicit retire
 
 When branch 1 ends, the compiler has emitted its jump to the join and does not
 yet know that branch 2 will move `h`. It cannot go back and insert a retire
-before that jump. Nucleus's single pass has no mechanism for this.
+before that jump. A single pass has no mechanism for this.
 
 Loops have the mirror problem: at the loop top the compiler has not seen the
 body, so it cannot know the back-edge state. And a move inside a short-circuit
@@ -484,12 +484,12 @@ reverse is an error) and forbid moves inside `and`/`or` operands.
 
 **Where:** §5.4 "on overwrite".
 
-```nucleus
+```basie
 root = take deref(root).next        // remove the head
 ```
 
 If the compiler retires the old value of `root` when it forms the
-destination path (Nucleus evaluates the destination first, §15.4), the right
+destination path (the specification evaluates the destination first, §15.4), the right
 side then dereferences a freed slot. If it retires after evaluating the right
 side, the program is correct and the cascade stops at the field that was
 taken. The design does not say. Specify: destination path, then right side,
@@ -567,7 +567,7 @@ coincidence and reaches a live, wrong node. Make `own` and `id` name the pool
 
 **Where:** §6.2 propagation rule; §8 last bullet.
 
-```nucleus
+```basie
 sub printNode(n as Node)          // receives a ticket
     log("node")                   // log() keeps a bounded log in pool entries,
                                   // dropping the oldest: frees entries
@@ -607,7 +607,7 @@ Say which.
 
 A `var buf as u8[2048]` local must be zeroed to honour claim 4: 13 bytes of
 code and 21 T-states per byte, 43,000 T-states, about 11 ms at 4 MHz, per
-call. Nucleus had no such cost because it had no local aggregates. State the
+call. Program-lifetime aggregates have no such cost. State the
 rule and reduce it: a bounded string need only have its length byte zeroed
 (no byte beyond the length is observable); a record of scalars needs full
 zeroing; an array needs full zeroing unless it has an initialiser. Consider
@@ -616,9 +616,9 @@ come after the stack check, not before.
 
 #### G11. Services that write into program aggregates are outside the stated claim
 
-**Where:** §1 "trusted base"; Nucleus §16.
+**Where:** §1 "trusted base"; spec §16.
 
-Nucleus's services move single bytes, and the runtime owns the DMA buffer
+The byte services move single bytes, and the runtime owns the DMA buffer
 (cpm-target §4 step 1). Basie will presumably add a record read into a
 program buffer. A BDOS read writes 128 bytes at the DMA address regardless
 of the caller's buffer. If the service takes `string[]` or `u8[]`, the
@@ -631,9 +631,9 @@ DMA address to its own buffer before returning.
 
 #### G12. Result aliases carry no mode, so a ticket or a constant becomes writable through a result
 
-**Where:** §3.1 modes; D8; Nucleus §7.8.
+**Where:** §3.1 modes; D8; spec §7.8.
 
-```nucleus
+```basie
 const table as Entry[4] = ...
 
 sub pick(items as Entry[4], i as u8) as Entry from items   // items is a ticket
@@ -645,7 +645,7 @@ sub main()
 end
 ```
 
-Nucleus already loses the read-only marker through an alias and says
+The specification already loses the read-only marker through an alias and says
 portable programs must not rely on it. Basie has modes and should close
 this: a result alias has a mode, read by default; a routine returning an
 alias rooted in an `inout` parameter or a global variable may declare the
@@ -704,7 +704,7 @@ constants.
 
 #### m7. String growth needs a capacity trap
 
-Nucleus strings cannot change length. If Basie adds append or length
+Strings in the specification cannot change length. If Basie adds append or length
 assignment, the check against capacity is a new `bounds` site; `string[]`
 carries the capacity so it is implementable. Note it under claim 1.
 
@@ -770,10 +770,10 @@ is shown first.
 
 ### 3.1 Singly linked list with deletion during traversal
 
-The natural Nucleus form is rejected: a routine that receives a `Node` alias
+The natural form is rejected: a routine that receives a `Node` alias
 cannot free from `nodes`.
 
-```nucleus
+```basie
 sub removeAll(n as inout Node, v as u16) frees nodes   // error: n may be in nodes,
     ...                                                 // and this frees nodes
 end
@@ -781,7 +781,7 @@ end
 
 With identifiers it is writable, and every step pays generation checks:
 
-```nucleus
+```basie
 record Node
     value as u16
     next  as own? Node
@@ -815,10 +815,10 @@ each. A lease form (`h as inout own Node`, G8) would remove them.
 
 ### 3.2 Free-list allocator
 
-A pool *is* one. A user-level allocator over program storage is the Nucleus
+A pool *is* one. A user-level allocator over program storage is the familiar
 idiom and still compiles, with bounds checks and no temporal check at all:
 
-```nucleus
+```basie
 record Cell
     payload as u16
     link    as u8
@@ -841,7 +841,7 @@ sub release(c as u8)
 end
 ```
 
-Stale indices go undetected, as in Nucleus; the program is memory safe by
+Stale indices go undetected; the program is memory safe by
 bounds alone. This is what pools improve on, and the comparison is worth
 keeping in the document.
 
@@ -849,7 +849,7 @@ keeping in the document.
 
 Needs `id?` (G7). With it:
 
-```nucleus
+```basie
 record Node
     value as u16
     next  as own? Node
@@ -879,7 +879,7 @@ retired by *overwriting the field that owns it*. There is no way to say
 
 ### 3.4 Tree with parent links
 
-```nucleus
+```basie
 record Tree
     key    as u16
     left   as own? Tree
@@ -921,7 +921,7 @@ locals compiles under the flow check.
 
 ### 3.5 Graph
 
-```nucleus
+```basie
 record Vertex
     label as u16
     edges as id Vertex[4]     // see U8/G7: needs id? or a count
@@ -955,7 +955,7 @@ somewhat better.
 | Scope-exit retire, per owned local per exit path | site | ~9 | ~55 + retire | with a shared epilogue and run-time `none` (G2): 3 bytes per exit path |
 | Activation-capacity check | prologue of forward and self-recursive routines only | 13 inline, or 5 + 15 helper | 60–95 | compares `SP − need(R) − guard` with `FREE` |
 | Local aggregate zeroing | prologue | 13 | 40 + 21 per byte | 2K buffer: ~11 ms per call; string: 1 byte |
-| Bounds check on array/string index | site | as Nucleus | as Nucleus | pool index via `id` needs none with per-pool `id` types |
+| Bounds check on array/string index | site | unchanged | unchanged | pool index via `id` needs none with per-pool `id` types |
 | Trap site | site | 3 or 5 | — | D11 |
 | Owned-field descriptor | rodata per owning type | 2 per owned field, 3 per array of them | — | hidden metadata, G4 |
 | Pool overhead | bss per slot | 1 (8-bit gen) or 2 (16-bit) + 2 (free/work link outside payload) | — | G4 |
@@ -973,7 +973,7 @@ Compiler memory for the checks, single pass:
 | Branch retire trampolines (G2, option 1) | branch × local needing a retire | 2 (fixup) |
 | Staged-carrier pool set | expression-stack entry | 2 |
 
-Roughly 7 bytes per routine and 2 per parameter on top of Nucleus's tables,
+Roughly 7 bytes per routine and 2 per parameter on top of the existing tables,
 plus a few tens of bytes of transient state per routine. The flow analysis
 itself needs no control-flow graph.
 
