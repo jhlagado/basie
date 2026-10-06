@@ -20,7 +20,7 @@ Revision 2 of the services uses no other predeclared type.
 
 Predeclared names cannot be redeclared or shadowed (Chapter 5, Section 5.10). Service routines are called exactly like source routines; a service that can fail is declared `fails` and follows Chapter 14. A call to a service that the selected profile does not provide is a compile-time error. A program carries only the services it calls.
 
-Nucleus's `readInputByte()` and `writeOutputByte(b)` remain as shorthands for `readByte(console)` and `writeByte(console, b)`. Nucleus's storage-stream routines are not provided.
+`readInputByte()` and `writeOutputByte(b)` are predeclared as shorthands for `readByte(console)` and `writeByte(console, b)`.
 
 ## 16.3 `File`
 
