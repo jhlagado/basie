@@ -84,9 +84,8 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     POP  HL                        ; HL is the routine's ordinal.
     XOR  A                         ; Kind code, no root flag, no alignment.
     CALL BL_BEGIN                  ; Start the blob.
-    CALL EM_OPEN                   ; No frame, temporaries or labels yet.
-    XOR  A                         ; No string literals
-    LD   (RO_LCNT),A               ; either.
+    CALL EM_OPEN                   ; No frame, temporaries or labels yet;
+    LD   (RO_LCNT),A               ; A is zero: no string literals either.
     LD   A,(SRC_NUM)               ; The part's number in the stream
     LD   HL,(AC_DPOS+2)            ; and the line of the routine's name.
     CALL BL_LINE                   ; The blob starts on it.
@@ -95,10 +94,9 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     LD   A,(RO_CFLAG)              ; Was the routine declared forward?
     AND  RO_FFWD                   ; Then recursion may reach it:
     JR   Z,.FRAME                  ; check its need against the stack.
-    CALL EM_OP                     ; LD HL,(need):
-    DB   $2A                       ; the opcode,
-    LD   A,RG_PAIR                 ; and the need word's address,
-    CALL EM_LREF                   ; through the pair label.
+    LD   C,$2A                     ; LD HL,(need): the opcode, and the
+    LD   A,RG_PAIR                 ; need word's address, the pair label,
+    CALL EM_JUMP                   ; appended as a jump's are.
     CALL EM_HELP                   ; CALL STK_CHK,
     DW   HP_STACK                  ; its ordinal and stack figure.
 .FRAME:                        ; The frame is built.
@@ -106,9 +104,8 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     DB   9,$DD,$E5,$DD,$21,0,0,$DD,$39,$21 ; PUSH IX, LD IX,0, ADD IX,SP.
     LD   HL,(BL_LEN)               ; The operand is the frame, negated,
     LD   (RG_PATCH),HL             ; patched when the routine ends.
-    CALL EM_SEQ                    ; Its placeholder,
+    CALL EM_SEQX                   ; Its placeholder,
     DB   4,0,0,$39,$F9             ; then ADD HL,SP and LD SP,HL.
-    RET                            ; The body follows.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The success return (emitReturn without a result): OR A, carry clear, in
@@ -158,12 +155,13 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     JR   C,.SMALLER                ; Keep the larger one.
     LD   (RG_LARGE),HL             ; It is the largest frame.
 .SMALLER:                      ; HL is the frame.
-    PUSH HL                        ; Keep it for the frame word.
-    EX   DE,HL                     ; DE is the frame.
-    LD   HL,0                      ; Negate it:
-    OR   A                         ; zero less the frame
-    SBC  HL,DE                     ; is the prologue's operand.
-    EX   DE,HL                     ; DE is the operand.
+    XOR  A                         ; Negate it:
+    SUB  L                         ; zero less the low byte,
+    LD   E,A                       ; with a borrow
+    SBC  A,A                       ; unless it was zero,
+    SUB  H                         ; less the high byte:
+    LD   D,A                       ; DE is the prologue's operand.
+    PUSH HL                        ; Keep the frame for its word.
     LD   HL,(RG_PATCH)             ; Its offset in the blob,
     LD   BC,BL_CODE                ; plus the buffer's address,
     ADD  HL,BC                     ; is where it goes.
@@ -206,15 +204,13 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   C,(HL)                    ; BC is
     INC  HL                        ; its
     LD   B,(HL)                    ; size.
-    INC  HL                        ; Its bytes follow.
-    PUSH HL                        ; Keep
-    PUSH BC                        ; them.
+    INC  HL                        ; Its bytes follow:
+    PUSH HL                        ; kept.
     EX   DE,HL                     ; HL is the ordinal:
     LD   A,BL_KRO                  ; read-only data
-    CALL BL_BEGIN                  ; begins;
-    POP  BC                        ; BC bytes
-    POP  HL                        ; at HL
-    CALL RG_BYTES                  ; are appended.
+    CALL BL_BEGIN                  ; begins; BC is kept.
+    POP  HL                        ; BC bytes at HL
+    CALL RG_WRITE                  ; are appended and the blob written.
     LD   E,(HL)                    ; DE is
     INC  HL                        ; its
     LD   D,(HL)                    ; name,
@@ -222,14 +218,7 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   B,(HL)                    ; its
     INC  HL                        ; length.
     EX   (SP),HL                   ; HL is the ordinal, the next kept.
-    PUSH HL                        ; Keep
-    PUSH DE                        ; them
-    PUSH BC                        ; all
-    CALL BL_END                    ; while the blob is written.
-    POP  BC                        ; Then
-    POP  DE                        ; its
-    POP  HL                        ; name
-    CALL BL_NAME                   ; is recorded.
+    CALL BL_NAME                   ; The name is recorded.
     POP  HL                        ; The next.
     JR   .NEXT                     ; Write it.
 .DONE:                         ; Every constant is written.
@@ -311,22 +300,24 @@ RG_DATA:                       ; A is the kind.
     CALL BL_BEGIN                  ; Start the blob; no root, no alignment.
     LD   HL,AG_IBUF                ; The staged bytes,
     LD   BC,(AG_OSIZE)             ; all of them,
-    CALL RG_BYTES                  ; appended.
-    CALL BL_END                    ; Write the blob.
+    CALL RG_WRITE                  ; appended, and the blob written.
     JR   RG_NAMED                  ; Name it and return its ordinal.
 
-;@ROUTINE IN BC,HL OUT HL CLOBBERS A,BC,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the BC bytes at HL, at least one, to the blob; HL returns past
-; them.
+;@ROUTINE IN BC,HL OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the BC bytes at HL, at least one, to the blob, then write the
+; blob (BL_END); HL returns past them.
 
-RG_BYTES:                      ; BC bytes remain at HL.
+RG_WRITE:                      ; BC bytes remain at HL.
     LD   A,(HL)                    ; Append the next
     CALL BL_BYTE                   ; to the blob.
     INC  HL                        ; Move to the next.
     DEC  BC                        ; One fewer.
     LD   A,B                       ; Any left?
     OR   C                         ; Zero when all are written.
-    JR   NZ,RG_BYTES               ; Append the rest.
+    JR   NZ,RG_WRITE               ; Append the rest.
+    PUSH HL                        ; Keep the end of the bytes
+    CALL BL_END                    ; while the blob is written.
+    POP  HL                        ; HL is past them.
     RET                            ; Done.
 
 ;@ROUTINE OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -368,10 +359,9 @@ RG_END:                        ; The whole program is written.
     ADD  HL,DE                     ; are the stack reserve.
     LD   DE,(RG_LARGE)             ; The largest frame.
     LD   A,(RG_FWD)                ; Flag 1 when a routine is forward
-    OR   A                         ; (the limits record's recursion flag):
-    JR   Z,.FLAGS                  ; zero when none is,
-    LD   A,1                       ; else one.
-.FLAGS:                        ; A is the flags.
+    CP   1                         ; (the limits record's recursion flag):
+    SBC  A,A                       ; $FF when none is, else zero,
+    INC  A                         ; then zero or one.
     JP   BL_LIMIT                  ; Record them and return.
 
 ;@ROUTINE NORETURN

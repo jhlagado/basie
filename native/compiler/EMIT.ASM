@@ -32,9 +32,12 @@
 ;  Principal entries:
 ;    EM_OPEN   start the frame accounting and labels of a routine
 ;    EM_QUIET  NZ while code is being discarded
-;    EM_BYTE   append the byte in A (EM_OP: the inline byte after the CALL)
+;    EM_BYTE   append the byte in A (EM_OP: the inline byte after the CALL;
+;              EM_OPX: and return from the caller too; EM_OPA: the
+;              inline opcode, then A)
 ;    EM_WORD   append the word in HL
 ;    EM_SEQ    append the inline counted byte sequence after the CALL
+;              (EM_SEQX: and return from the caller too)
 ;    EM_REF    append an ABS16 reference to blob HL with addend DE
 ;    EM_TRAP   append CALL cc to a trap reporter
 ;    EM_HELP   append CALL helper, the inline ordinal and stack figure
@@ -42,18 +45,19 @@
 ;    EM_PUSH   count A bytes pushed; EM_POP counts them popped (EM_POP2: two)
 ;    EM_LNEW   allocate a label
 ;    EM_LREF   append the operand naming a label
+;    EM_SELF   append a reference to the routine itself
 ;    EM_LDEF   define a label at the current offset
-;    EM_JUMP   append JP or JP cc to a label
-;    EM_LFREE  free the last label allocated
+;    EM_JUMP   append JP or JP cc to a label (EM_FWD: to a new one)
+;    EM_LFREE  free the last label allocated (EM_LDONE: define it first)
 ;    EM_ALLOC  allocate a frame slot of A bytes (allocLocal); EM_ALLOW of DE
 ;    EM_LINE   mark the line of the statement at the lookahead
 ;
 ;  Workspace (STATE.ASM): EM_FRAME to EM_LLIM. A full label table raises
 ;  DG_LABEL; a blob too large for its buffers raises DG_BLOB (BL_OVER).
 
-;@ROUTINE CLOBBERS A,B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE OUT A CLOBBERS B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Start a routine: no frame, nothing pushed, no helper or callee stack, no
-; labels.
+; labels. A returns zero.
 
 EM_OPEN:                       ; A routine's blob has begun.
     LD   HL,EM_FRAME               ; The accounting words and the label count
@@ -63,7 +67,7 @@ EM_OPEN:                       ; A routine's blob has begun.
     LD   (HL),A                    ; Clear one.
     INC  HL                        ; Move to the next.
     DJNZ .LOOP                     ; Until the label count is clear too.
-    RET                            ; The routine owns nothing yet.
+    RET                            ; The routine owns nothing yet; A is zero.
 
 ;@ROUTINE OUT ZERO
 ; NZ while the parser is in a discarded arm (EX_QUIET nonzero), when
@@ -76,6 +80,30 @@ EM_QUIET:                      ; Is code being discarded?
     DEC  (HL)                      ; and sets Z only when it is zero.
     POP  HL                        ; Restore HL; POP keeps the flags.
     RET                            ; NZ: discard.
+
+;@ROUTINE IN A CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the opcode that follows the CALL, then its operand byte A, and
+; return past the opcode. Every register but A and F is kept.
+
+EM_OPA:                        ; A is the operand; the opcode follows.
+    EX   (SP),HL                   ; HL addresses it; the caller's HL waits.
+    PUSH AF                        ; Keep the operand.
+    LD   A,(HL)                    ; Fetch the opcode.
+    INC  HL                        ; Step over it: the return address.
+    CALL EM_BYTE                   ; Append the opcode.
+    POP  AF                        ; The operand.
+    EX   (SP),HL                   ; HL is restored.
+    JR   EM_BYTE                   ; Append it and return.
+
+;@ROUTINE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the byte that follows the CALL, then return from the caller too:
+; the byte ends the caller's routine. HL is kept.
+
+EM_OPX:                        ; The inline byte is the last opcode.
+    EX   (SP),HL                   ; HL addresses it; the caller's HL waits.
+    LD   A,(HL)                    ; Fetch it.
+    POP  HL                        ; HL is restored; the caller's return
+    JR   EM_BYTE                   ; address is ours. Append it and return.
 
 ;@ROUTINE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the byte that follows the CALL and return past it. HL is kept.
@@ -110,15 +138,33 @@ EM_WORD:                       ; HL is the word.
 
 EM_SEQ:                        ; The inline count and bytes follow.
     EX   (SP),HL                   ; HL addresses them; the caller's HL waits.
+    CALL EM_RUN                    ; Append them; HL is past them,
+    EX   (SP),HL                   ; the return address; HL is restored.
+    RET                            ; Continue after the sequence.
+
+;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the sequence that follows the CALL, as EM_SEQ does, then return
+; from the caller too: the sequence ends the caller's routine. HL is
+; kept.
+
+EM_SEQX:                       ; The inline count and bytes follow.
+    EX   (SP),HL                   ; HL addresses them; the caller's HL waits.
+    CALL EM_RUN                    ; Append them.
+    POP  HL                        ; HL is restored, and the caller's
+    RET                            ; return address is ours.
+
+;@ROUTINE IN HL OUT HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the count byte's bytes at HL, at least one; HL returns past them.
+
+EM_RUN:                        ; HL is the count.
     LD   B,(HL)                    ; B is the count.
 .LOOP:                         ; B bytes remain.
     INC  HL                        ; Step to the next.
     LD   A,(HL)                    ; Fetch it.
     CALL EM_BYTE                   ; Append it.
     DJNZ .LOOP                     ; Until the sequence is written.
-    INC  HL                        ; HL is past the sequence,
-    EX   (SP),HL                   ; the return address; HL is restored.
-    RET                            ; Continue after the sequence.
+    INC  HL                        ; HL is past the sequence.
+    RET                            ; Done.
 
 ;@ROUTINE IN A,L CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append a trap site, CALL cc to a trap reporter (emit.ts callBlobIf): the
@@ -184,23 +230,27 @@ EM_HWORD:                      ; C is the opcode, E the ordinal, A the figure.
     LD   (HL),A                    ; Yes: it is the largest.
 .SMALLER:                      ; EM_STACK is up to date.
     LD   A,C                       ; The opcode,
-    CALL EM_BYTE                   ; appended.
-    LD   L,E                       ; HL is the helper's ordinal
-    LD   H,0                       ; as a word.
-    LD   D,H                       ; With no addend:
-    LD   E,H                       ; DE is zero.
-    JR   EM_REF                    ; Append the reference and return.
+    LD   L,E                       ; then the helper's ordinal,
+    JR   EM_TRAP                   ; appended as a trap site's are; return.
 
 ;@ROUTINE IN A CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Count A bytes pushed as temporaries, and raise EM_DEEP to the frame and
 ; pushes now reached if that is deeper (the reference's push).
 
 EM_PUSH:                       ; A is the bytes pushed.
-    LD   HL,(EM_TEMPS)             ; The bytes already pushed.
     LD   E,A                       ; DE is the bytes
-    LD   D,0                       ; just pushed.
-    ADD  HL,DE                     ; The new total.
-    LD   (EM_TEMPS),HL             ; Keep it.
+    LD   D,0                       ; just pushed; fall into EM_COUNT.
+
+;@ROUTINE IN DE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Add DE, negative for bytes popped, to the temporaries, and raise EM_DEEP
+; to the frame and pushes now reached if that is deeper. A pop never
+; raises it: EM_DEEP covers the frame and pushes at every step, as every
+; push and every growth of the frame passes through here.
+
+EM_COUNT:                      ; DE is the change.
+    LD   HL,(EM_TEMPS)             ; The bytes already pushed,
+    ADD  HL,DE                     ; changed:
+    LD   (EM_TEMPS),HL             ; the new total.
     LD   DE,(EM_FRAME)             ; With the locals' bytes,
     ADD  HL,DE                     ; HL is the depth reached.
     EX   DE,HL                     ; DE is the depth.
@@ -221,17 +271,15 @@ EM_POP2:                       ; A temporary of two bytes was popped.
 ; Count A bytes popped (the reference's pop).
 
 EM_POP:                        ; A is the bytes popped.
-    LD   HL,(EM_TEMPS)             ; The bytes pushed.
-    LD   E,A                       ; DE is the bytes
-    LD   D,0                       ; just popped.
-    OR   A                         ; Clear carry.
-    SBC  HL,DE                     ; Fewer remain.
-    LD   (EM_TEMPS),HL             ; Keep the count.
-    RET                            ; The deepest point stays recorded.
+    NEG                            ; DE is minus them: NEG sets carry
+    LD   E,A                       ; unless A was zero, and SBC A,A
+    SBC  A,A                       ; makes the high byte $FF then,
+    LD   D,A                       ; zero otherwise.
+    JR   EM_COUNT                  ; Fewer remain; the deepest stays.
 
-;@ROUTINE OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Allocate a label, undefined and with no operand waiting: A is its
-; number and HL its entry. DG_LABEL when the routine has used them all.
+; number. DG_LABEL when the routine has used them all.
 
 EM_LNEW:                       ; A label is wanted.
     LD   HL,EM_LCNT                ; The labels used so far.
@@ -240,7 +288,6 @@ EM_LNEW:                       ; A label is wanted.
     JR   NC,.FULL                  ; No: refuse the routine.
     INC  (HL)                      ; Count it.
     CALL EM_LAT                    ; HL is its entry; A is kept.
-    PUSH HL                        ; Keep the entry.
     LD   (HL),EM_NONE&$FF          ; The offset is EM_NONE:
     INC  HL                        ; undefined,
     LD   (HL),EM_NONE/$100         ; both bytes.
@@ -248,7 +295,6 @@ EM_LNEW:                       ; A label is wanted.
     LD   (HL),0                    ; is zero:
     INC  HL                        ; no operand
     LD   (HL),0                    ; waits.
-    POP  HL                        ; HL is the entry again.
     RET                            ; A is the label.
 .FULL:                         ; Every label is in use.
     CALL DG_RAISE                  ; Report it; no return.
@@ -284,17 +330,10 @@ EM_LREF:                       ; A is the label.
     LD   A,D                       ; Is the offset EM_NONE?
     AND  E                         ; Both bytes $FF
     INC  A                         ; make zero here.
-    JR   Z,.PENDING                ; Undefined: chain the operand.
-    LD   HL,(BL_ORD)               ; Defined: the routine itself,
-    JP   EM_REF                    ; with the offset as the addend.
-.PENDING:                      ; DE is EM_NONE, a nonzero placeholder.
+    JR   NZ,EM_SELF                ; Defined: the offset is the addend.
     PUSH HL                        ; Keep the chain head's address.
-    LD   HL,(BL_ORD)               ; The routine itself.
-    CALL EM_REF                    ; The reference, with its addend word.
+    CALL EM_SELF                   ; DE, a nonzero placeholder, the addend.
     POP  HL                        ; HL is the chain head.
-    LD   DE,(BL_RPTR)              ; The addend word is the last two bytes
-    DEC  DE                        ; of the encoded references:
-    DEC  DE                        ; DE addresses it.
     LD   A,(HL)                    ; The old head's low byte
     LD   (DE),A                    ; becomes the link,
     LD   (HL),E                    ; and the addend word the head.
@@ -306,12 +345,26 @@ EM_LREF:                       ; A is the label.
     LD   (HL),D                    ; into the head.
     RET                            ; The operand waits for EM_LDEF.
 
-;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN DE OUT DE CLOBBERS A,BC,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append an ABS16 reference to the routine itself (BL_ORD) with addend DE.
+; Unless the code is discarded, DE returns the address of the addend word,
+; the last two bytes of the encoded references, for the caller to fill in.
+
+EM_SELF:                       ; DE is the addend.
+    LD   HL,(BL_ORD)               ; The routine being written.
+    CALL EM_REF                    ; The reference, with its addend word.
+    LD   DE,(BL_RPTR)              ; The addend word is the last two bytes
+    DEC  DE                        ; of the encoded references:
+    DEC  DE                        ; DE addresses it.
+    RET                            ; Done.
+
+;@ROUTINE IN A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Define label A at the blob's current offset (emit.ts defineLabel): write
 ; the offset into the addend word of every operand waiting on its chain.
+; A is kept.
 
 EM_LDEF:                       ; A is the label.
-    CALL EM_LAT                    ; HL is its entry.
+    CALL EM_LAT                    ; HL is its entry; A is kept.
     LD   DE,(BL_LEN)               ; DE is the current offset.
     LD   (HL),E                    ; It is the label's offset,
     INC  HL                        ; low byte
@@ -321,8 +374,8 @@ EM_LDEF:                       ; A is the label.
     INC  HL                        ; waiting addend word,
     LD   B,(HL)                    ; zero when none waits.
 .WALK:                         ; BC is the next word, or zero.
-    LD   A,B                       ; Is the chain at its end?
-    OR   C                         ; A zero link ends it.
+    INC  B                         ; A link is in BL_REFS, far above
+    DEC  B                         ; $00FF: a zero high byte ends it.
     RET  Z                         ; Every operand has its offset.
     LD   L,C                       ; HL is
     LD   H,B                       ; the addend word.
@@ -333,15 +386,33 @@ EM_LDEF:                       ; A is the label.
     LD   (HL),D                    ; both bytes.
     JR   .WALK                     ; Resolve the next.
 
-;@ROUTINE IN A,C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the jump C, JP ($C3) or JP cc, to label A (emit.ts jp, jpIf).
+;@ROUTINE IN C OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Allocate a label and append the jump C, JP ($C3) or JP cc, to it: a
+; jump forward. A returns the label.
+
+EM_FWD:                        ; C is the opcode.
+    CALL EM_LNEW                   ; A is a new label; fall into EM_JUMP.
+
+;@ROUTINE IN A,C CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the jump C, JP ($C3) or JP cc, to label A (emit.ts jp, jpIf), or
+; any opcode C whose operand is a label's address. A is kept.
 
 EM_JUMP:                       ; A is the label, C the opcode.
     PUSH AF                        ; Keep the label.
     LD   A,C                       ; The opcode,
     CALL EM_BYTE                   ; appended.
     POP  AF                        ; The label
-    JP   EM_LREF                   ; is its operand; return.
+    PUSH AF                        ; (kept)
+    CALL EM_LREF                   ; is its operand.
+    POP  AF                        ; A is the label again.
+    RET                            ; Done.
+
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Define label A here, as EM_LDEF does, then free it, as EM_LFREE does:
+; nothing will name it again.
+
+EM_LDONE:                      ; A is the label.
+    CALL EM_LDEF                   ; It is here; A is kept.
 
 ;@ROUTINE IN A CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Label A is defined and nothing will name it again: free it if it is

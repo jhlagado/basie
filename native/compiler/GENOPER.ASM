@@ -38,40 +38,26 @@ GX_BINOP:                      ; C is the width.
     CALL .RWIDEN                   ; Both computed: the right at the width,
     LD   A,C                       ; then
     CALL GX_SIZE                   ; the left back:
-    JR   Z,.WORDS                  ; words,
-    JR   NC,.LONGS                 ; longs,
-    CALL EM_OP                     ; or bytes: the right to E,
-    DB   $5F                       ; LD E,A, then the left: POP AF.
-    JR   .REGS                     ; Then operate.
-.WORDS:                        ; The right is in HL.
-    CALL EM_OP                     ; EX DE,HL: the right to DE.
-    DB   $EB                       ; Append it.
-    JR   .REGS                     ; Then the left, and operate.
-.LONGS:                        ; The right is in DEHL.
-    CALL EM_OP                     ; EXX: the right to the alternates.
-    DB   $D9                       ; Append it.
-.REGS:                         ; The left comes back.
-    CALL .POPL                     ; Popped and widened.
+    LD   A,$EB                     ; words EX DE,HL, the right to DE;
+    JR   Z,.ASIDE                  ; (LD keeps the flags)
+    LD   A,$D9                     ; longs EXX, to the alternates;
+    JR   NC,.ASIDE                 ; or bytes
+    LD   A,$5F                     ; LD E,A, then the left: POP AF.
+.ASIDE:                        ; A moves the right aside.
+    CALL EM_BYTE                   ; Append it.
+    CALL .POPL                     ; The left back, popped and widened.
     JP   GX_REGS                   ; Operate on the registers and return.
 .RIGHT:                        ; A known right beneath a pushed left.
     CALL .POPL                     ; The left back, at the width.
     LD   HL,EX_RVAL                ; The right's value
-    JP   GX_IMM                    ; is the immediate.
+    JR   GX_IMM                    ; is the immediate.
 .POPL:                         ; Pop the left operand, widened.
-    PUSH BC                        ; Keep the width.
     LD   A,(EX_LMETA)              ; The left's
     AND  SY_TMASK                  ; type:
     PUSH AF                        ; kept,
-    CALL GX_POPV                   ; its value popped,
-    POP  DE                        ; D is its type.
-    POP  BC                        ; The width
-    LD   E,C                       ; it is
-    PUSH BC                        ; widened
-    LD   A,D                       ; to
-    CP   E                         ; when
-    CALL NZ,GX_WIDEN               ; narrower.
-    POP  BC                        ; C is the width.
-    RET                            ; The left is back.
+    CALL GX_POPV                   ; its value popped (BC is kept),
+    POP  AF                        ; then widened to the width C
+    JR   .WIDEN                    ; when narrower; return.
 .LEFT:                         ; A known left; the right is computed.
     CALL .RWIDEN                   ; The right at the width.
     LD   HL,EX_LVAL                ; The left's value.
@@ -79,12 +65,10 @@ GX_BINOP:                      ; C is the width.
     CP   EX_NE+1                   ; = and <> do,
              JR   C,GX_IMM         ; so the left is the immediate.
     CP   TK_STAR                   ; So do *,
-             JR   Z,GX_IMM         ; and
-    CP   TK_PLUS                   ; +,
-             JR   Z,GX_IMM         ; and the
+             JR   Z,GX_IMM         ; and + and the
     CP   TK_MINUS                  ; bitwise operators, but not -:
     JR   Z,.SWAP                   ; it moves the right aside.
-    CALL GX_ALU                    ; The bitwise ones
+    CALL GX_ALU                    ; + and the bitwise ones (HL is kept)
              JR   NC,GX_IMM        ; take the left as the immediate.
 .SWAP:                         ; The right moves aside, the left loads.
     LD   A,C                       ; How wide?
@@ -101,20 +85,19 @@ GX_BINOP:                      ; C is the width.
     DB   2,$EB,$21                 ; then LD HL,nn.
     CALL GX_WMEM                   ; The left is nn.
             JR   GX_REGS           ; Operate on the registers and return.
-.SWAPL:                        ; Longs.
-    CALL EM_SEQ                    ; EXX, then LD HL,low word,
-    DB   2,$D9,$21                 ; LD DE,high word:
-    CALL GX_LONGV                  ; the left.
+.SWAPL:                        ; Longs: EXX, then LD HL,low word,
+    CALL GX_LONGV                  ; LD DE,high word: the left.
             JR   GX_REGS           ; Operate on the registers and return.
 
 ;@ROUTINE IN C CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Widen the computed right operand, of type EX_RMETA, to the width C when
-; it is narrower. BC is kept.
+; it is narrower; .WIDEN widens from type A. BC is kept.
 
 .RWIDEN:                       ; C is the width.
     LD   A,(EX_RMETA)              ; The right's
-    AND  SY_TMASK                  ; type
-    CP   C                         ; is the width's:
+    AND  SY_TMASK                  ; type.
+.WIDEN:                        ; A is the type to widen from.
+    CP   C                         ; Is it the width's?
     RET  Z                         ; nothing to do.
     PUSH BC                        ; Keep the width.
     LD   D,A                       ; From the right's type
@@ -122,6 +105,23 @@ GX_BINOP:                      ; C is the width.
     CALL GX_WIDEN                  ; Widened.
     POP  BC                        ; C is the width.
     RET                            ; The right is at the width.
+
+;@ROUTINE IN HL OUT HL CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append EXX, LD HL and the low word of the value at HL, then LD DE and
+; its high word: a long immediate's load, the right operand moved aside
+; into the alternates first. HL steps past the value.
+
+GX_LONGV:                      ; HL is the value.
+    CALL EM_SEQ                    ; EXX, then LD HL,
+    DB   2,$D9,$21                 ; the opcodes,
+    CALL GX_WMEM                   ; its low word; fall into GX_DEMEM.
+
+;@ROUTINE IN HL OUT HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD DE,nn, nn the word at HL; HL steps past it.
+
+GX_DEMEM:                      ; HL addresses the word.
+    CALL EM_OP                     ; LD DE,nn:
+    DB   $11                       ; the opcode; fall into GX_WMEM.
 
 ;@ROUTINE IN HL OUT HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the word at HL, low byte first; HL steps past it.
@@ -134,17 +134,6 @@ GX_WMEM:                       ; HL addresses the word.
     CALL EM_BYTE                   ; byte.
     INC  HL                        ; HL is past it.
     RET                            ; Appended.
-
-;@ROUTINE IN HL CLOBBERS A,B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the low word of the value at HL, LD DE, its high word and EXX:
-; the end of a long immediate's load into the alternates, after its
-; LD HL opcode.
-
-GX_LONGV:                      ; HL is the value; LD HL is written.
-    CALL GX_WMEM                   ; Its low word,
-    CALL EM_OP                     ; then LD DE,
-    DB   $11                       ; and
-    JR   GX_WMEM                   ; its high word; return.
 
 ;@ROUTINE IN C,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The operator EX_OPER of width C with the known value at HL as its right
@@ -167,20 +156,15 @@ GX_IMM:                        ; C is the width, HL the value.
     LD   A,(HL)                    ; Its operand
     JP   EM_BYTE                   ; is the immediate, and return.
 .LOADE:                        ; Through E.
-    CALL EM_OP                     ; LD E,n.
-    DB   $1E                       ; Append it.
-    LD   A,(HL)                    ; Its operand
-    CALL EM_BYTE                   ; is the immediate.
+    LD   A,(HL)                    ; The immediate
+    CALL EM_OPA                    ; is the operand of LD E,n.
+    DB   $1E                       ; The opcode.
     JR   GX_REGS                   ; Operate on the registers and return.
-.WORD:                         ; Through DE.
-    CALL EM_OP                     ; LD DE,nn.
-    DB   $11                       ; Append it.
-    CALL GX_WMEM                   ; Its operand is the immediate.
+.WORD:                         ; Through DE:
+    CALL GX_DEMEM                  ; LD DE,nn, the immediate.
     JR   GX_REGS                   ; Operate on the registers and return.
-.LONG:                         ; Through the alternates.
-    CALL EM_SEQ                    ; EXX, LD HL,nn,
-    DB   2,$D9,$21                 ; the low word,
-    CALL GX_LONGV                  ; LD DE,nn the high,
+.LONG:                         ; Through the alternates: EXX,
+    CALL GX_LONGV                  ; LD HL,low word, LD DE,high word,
     CALL EM_OP                     ; then EXX
     DB   $D9                       ; again; fall into GX_REGS.
 
@@ -211,7 +195,7 @@ GX_REGS:                       ; C is the width.
     JP   Z,EM_BYTE                 ; Append it and return.
     LD   A,C                       ; Word subtraction?
     CP   $93                       ; SUB E is its byte form.
-    JR   Z,.SUBW                   ; OR A then SBC HL,DE.
+    JR   Z,GX_MINUS                ; OR A then SBC HL,DE; return.
     CALL EM_OP                     ; Bitwise: LD A,H,
     DB   $7C                       ; then
     LD   A,C                       ; the operation
@@ -221,12 +205,8 @@ GX_REGS:                       ; C is the width.
     DB   2,$67,$7D                 ; and LD A,L,
     LD   A,C                       ; the operation
     CALL EM_BYTE                   ; on E,
-    LD   A,$6F                     ; then LD L,A.
-    JP   EM_BYTE                   ; Append it and return.
-.SUBW:                         ; Word subtraction.
-    CALL EM_SEQ                    ; OR A, SBC HL,DE.
-    DB   3,$B7,$ED,$52             ; Carry clear, then subtract.
-    RET                            ; The difference is in HL.
+    CALL EM_OPX                    ; then LD L,A.
+    DB   $6F                       ; Append it and return.
 .MULDIV:                       ; A is *, / or mod.
     LD   B,A                       ; B is the operator, C the width;
     PUSH BC                        ; keep both across the code.
@@ -247,37 +227,37 @@ GX_REGS:                       ; C is the width.
     POP  DE                        ; D is the operator.
     PUSH DE                        ; Keep it for the result.
     LD   A,D                       ; Multiplication?
-    CP   TK_STAR                   ; It has its own helper.
-    JR   NZ,.DIVIDE                ; Division and remainder share one.
-    CALL EM_HELP                   ; CALL MUL16,
-    DW   HP_MUL16                  ; its ordinal and stack figure.
-    JR   .CALLED                   ; Then the result.
-.DIVIDE:                       ; / or mod.
-    BIT  7,C                       ; Signed?
-    JR   NZ,.SIGNED                ; DIV16S.
-    CALL EM_HELP                   ; CALL DIV16,
-    DW   HP_DIV16                  ; its ordinal and stack figure.
-    JR   .CALLED                   ; Then the result.
-.SIGNED:                       ; A signed division.
-    CALL EM_HELP                   ; CALL DIV16S,
-    DW   HP_SDIV                   ; its ordinal and stack figure.
-.CALLED:                       ; HL is the quotient, DE the remainder.
+    LD   DE,HP_MUL16               ; It has its own helper, MUL16.
+    CP   TK_STAR                   ; Division and remainder
+    JR   Z,.CALL                   ; share one:
+    LD   DE,HP_DIV16               ; DIV16,
+    BIT  7,C                       ; or for
+    JR   Z,.CALL                   ; a signed division
+    LD   DE,HP_SDIV                ; DIV16S.
+.CALL:                         ; DE is the helper's word.
+    CALL EM_HELPD                  ; CALL it.
     POP  BC                        ; B is the operator, C the width.
     LD   A,C                       ; Bytes?
     CALL GX_SIZE                   ; Words want only the remainder moved.
+    LD   A,B                       ; The operator.
     JR   NC,.WORDS                 ; Words.
-    LD   A,B                       ; A byte result:
-    CP   TK_MOD                    ; the remainder
+    CP   TK_MOD                    ; A byte result: the remainder
     LD   A,$7B                     ; is LD A,E,
     JP   Z,EM_BYTE                 ; and return;
-    LD   A,$7D                     ; the quotient LD A,L.
-    JP   EM_BYTE                   ; Append it and return.
+    CALL EM_OPX                    ; the quotient LD A,L.
+    DB   $7D                       ; Append it and return.
 .WORDS:                        ; A word result.
-    LD   A,B                       ; The remainder?
-    CP   TK_MOD                    ; Then EX DE,HL brings it to HL.
+    CP   TK_MOD                    ; The remainder? EX DE,HL brings it to HL.
     RET  NZ                        ; The quotient is already there.
-    LD   A,$EB                     ; EX DE,HL.
-    JP   EM_BYTE                   ; Append it and return.
+    CALL EM_OPX                    ; EX DE,HL.
+    DB   $EB                       ; Append it and return.
+
+;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append OR A and SBC HL,DE: HL less DE, with carry when HL is the less.
+
+GX_MINUS:                      ; HL and DE are words.
+    CALL EM_SEQX                   ; OR A, SBC HL,DE:
+    DB   3,$B7,$ED,$52             ; carry clear, then subtract.
 
 ;@ROUTINE IN A,C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The relation A (EX_EQ..EX_GE) of width C, a byte or a word, the left in
@@ -292,9 +272,7 @@ GX_REL:                        ; A is the relation, C the width.
     CALL GX_PROP                   ; size and sign:
     LD   C,B                       ; C is the relation from here,
     LD   B,A                       ; B the properties.
-    DEC  A                         ; A byte, u8?
-    JR   Z,.BYTES                  ; Compare bytes.
-    CP   $80                       ; Or i8?
+    BIT  1,A                       ; A byte, u8 or i8, not a word?
     JR   NZ,.WORDS                 ; No: compare words.
 .BYTES:                        ; Bytes in A and E.
     LD   A,C                       ; An equality?
@@ -302,10 +280,10 @@ GX_REL:                        ; A is the relation, C the width.
     JR   NC,.ORDER                 ; No: an order.
     CALL EM_SEQ                    ; SUB E, then SUB 1 sets carry
     DB   3,$93,$D6,1               ; only when they were equal.
-    JR   .TAIL                     ; Make the Boolean.
+    JR   GX_TAIL                   ; Make the Boolean; return.
 .ORDER:                        ; < <= > >= on bytes.
     PUSH BC                        ; Keep the relation and properties.
-    CALL .SWAP                     ; Z if the operands swap (<= and >).
+    CALL GX_SWAP                   ; Z if the operands swap (<= and >).
     JR   NZ,.FLIPB                 ; < and >= compare as they are.
     CALL EM_SEQ                    ; LD D,A, LD A,E, LD E,D:
     DB   3,$57,$7B,$5A             ; the right is now the left.
@@ -318,13 +296,11 @@ GX_REL:                        ; A is the relation, C the width.
 .CPE:                          ; Compare A with E.
     CALL EM_OP                     ; CP E: carry if A is less.
     DB   $BB                       ; Append it.
-    JR   .TAIL                     ; Make the Boolean.
+    JR   GX_TAIL                   ; Make the Boolean; return.
 .WORDS:                        ; Words in HL and DE.
-    PUSH BC                        ; Keep the relation and properties.
-    CALL .SWAP                     ; <= and > swap them.
+    CALL GX_SWAP                   ; <= and > swap them.
     LD   A,$EB                     ; EX DE,HL.
-    CALL Z,EM_BYTE                 ; Swap them.
-    POP  BC                        ; B is the properties.
+    CALL Z,EM_BYTE                 ; Swap them; BC is kept.
     LD   A,C                       ; An equality
     CP   EX_LT                     ; is never
     JR   C,.SBC                    ; flipped;
@@ -333,26 +309,12 @@ GX_REL:                        ; A is the relation, C the width.
     CALL EM_SEQ                    ; LD A,D, XOR $80, LD D,A.
     DB   8,$7C,$EE,$80,$67,$7A,$EE,$80,$57 ; Both sign bits flipped.
 .SBC:                          ; Then subtract.
-    CALL EM_SEQ                    ; OR A, SBC HL,DE:
-    DB   3,$B7,$ED,$52             ; carry if HL is less.
+    CALL GX_MINUS                  ; OR A, SBC HL,DE: carry if HL is less.
     LD   A,C                       ; An equality?
     CP   EX_LT                     ; = and <> are below <.
-    JR   NC,.TAIL                  ; No: carry decides.
+    JR   NC,GX_TAIL                ; No: carry decides.
     CALL EM_SEQ                    ; LD A,H, OR L, SUB 1: carry
-    DB   4,$7C,$B5,$D6,1           ; only when they were equal.
-.TAIL:                         ; Carry holds the answer, or its inverse.
-    JR   GX_TAIL                   ; Make the Boolean; return.
-
-;@ROUTINE IN C OUT ZERO CLOBBERS A
-; Z when relation C swaps its operands: <= and >, which compare the right
-; with the left.
-
-.SWAP:                         ; C is the relation.
-    LD   A,C                       ; Is it
-    CP   EX_LE                     ; <=,
-    RET  Z                         ; which swaps,
-    CP   EX_GT                     ; or >?
-    RET                            ; Z if it swaps.
+    DB   4,$7C,$B5,$D6,1           ; when equal; fall into GX_TAIL.
 
 ;@ROUTINE IN C CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Make relation C's Boolean from carry: SBC A,A, then INC A for the odd
@@ -365,9 +327,19 @@ GX_TAIL:                       ; C is the relation.
     BIT  0,C                       ; <>, <= and >= are odd.
     LD   A,$3C                     ; INC A: 0 when carry, 1 otherwise.
     JP   NZ,EM_BYTE                ; Append it and return.
-    CALL EM_SEQ                    ; AND 1: 1 when carry.
+    CALL EM_SEQX                   ; AND 1: 1 when carry.
     DB   2,$E6,1                   ; The Boolean.
-    RET                            ; It is in A.
+
+;@ROUTINE IN C OUT ZERO CLOBBERS A,CARRY,SIGN,PARITY,HALFCARRY
+; Z when relation C swaps its operands: <= and >, which compare the right
+; with the left.
+
+GX_SWAP:                       ; C is the relation.
+    LD   A,C                       ; Is it
+    CP   EX_LE                     ; <=,
+    RET  Z                         ; which swaps,
+    CP   EX_GT                     ; or >?
+    RET                            ; Z if it swaps.
 
 ;@ROUTINE IN C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The operator EX_OPER of long width C (emitBinary32), the left in DEHL
@@ -386,33 +358,23 @@ GX_LOP:                        ; C is the width.
     JR   NC,.TABLE                 ; is
     XOR  A                         ; EX_EQ's.
 .TABLE:                        ; A is the row's key.
-    LD   HL,GX_LTAB                ; Its row of the table:
+    LD   HL,GX_LTAB                ; Unsigned: the table's rows;
+    BIT  7,B                       ; signed: GX_STAB's
+    JR   Z,.FIND                   ; first, then
+    LD   HL,GX_STAB                ; the table's.
 .FIND:                         ; HL is a row.
     CP   (HL)                      ; This operator?
-    INC  HL                        ; (its helpers follow)
+    INC  HL                        ; (its helper follows)
     JR   Z,.FOUND                  ; Found.
-    INC  HL                        ; Past
-    INC  HL                        ; its
-    INC  HL                        ; four
-    INC  HL                        ; bytes.
+    INC  HL                        ; Past its
+    INC  HL                        ; helper.
     JR   .FIND                     ; The next row.
-.FOUND:                        ; HL is the unsigned helper's word.
-    BIT  7,B                       ; Unsigned:
-    JR   Z,.UNSIGNED               ; this one.
-    INC  HL                        ; Signed:
-    INC  HL                        ; the next.
-.UNSIGNED:                     ; HL is the helper's word.
+.FOUND:                        ; HL is the helper's word.
     LD   E,(HL)                    ; DE is
     INC  HL                        ; its ordinal
     LD   D,(HL)                    ; and figure.
-    LD   A,C                       ; > and <= compare
-    CP   EX_GT                     ; the right
-    JR   Z,.EXX                    ; with
-    CP   EX_LE                     ; the left:
-    JR   NZ,.CALL                  ; EXX first.
-.EXX:                          ; Swap the operands.
-    CALL .ALT                      ; EXX.
-.CALL:                         ; DE is the helper.
+    CALL GX_SWAP                   ; > and <= compare the right
+    CALL Z,.ALT                    ; with the left: EXX first.
     PUSH BC                        ; Keep the operator.
     CALL EM_HELPD                  ; CALL it.
     POP  BC                        ; C is the operator.
@@ -422,56 +384,56 @@ GX_LOP:                        ; C is the width.
     CP   EX_GE+1                   ; Arithmetic
     RET  NC                        ; is done.
     CP   EX_LT                     ; An order
-    JR   NC,.ORDER                 ; from carry,
-    CALL EM_LNEW                   ; an equality from Z:
-    PUSH AF                        ; a label over INC A,
-    CALL EM_SEQ                    ; LD A,0,
+    JR   NC,GX_TAIL                ; from carry, as the narrower; return.
+    CALL EM_SEQ                    ; An equality from Z: LD A,0,
     DB   2,$3E,0                   ; then
-    LD   A,C                       ; for = JP NZ,
-    OR   A                         ; for <>
-    LD   C,$C2                     ; JP Z,
-    JR   Z,.JUMP                   ; to
-    LD   C,$CA                     ; the label;
-.JUMP:                         ; C is the jump.
-    POP  AF                        ; The label.
-    PUSH AF                        ; Kept.
-    CALL EM_JUMP                   ; Append the jump,
-    CALL EM_OP                     ; then INC A.
+    LD   A,C                       ; for = (0)
+    ADD  A,A                       ; JP NZ,
+    ADD  A,A                       ; for <> (1)
+    ADD  A,A                       ; JP Z,
+    ADD  A,$C2                     ; eight more,
+    LD   C,A                       ; over INC A
+    CALL EM_FWD                    ; to a new label.
+    PUSH AF                        ; Keep it.
+    CALL EM_OP                     ; INC A.
     DB   $3C                       ; Append it.
-    POP  AF                        ; The label
-    PUSH AF                        ; is
-    CALL EM_LDEF                   ; here,
-    POP  AF                        ; and
-    JP   EM_LFREE                  ; free again; return.
-.ORDER:                        ; < >= > <= from carry,
-            JR   GX_TAIL           ; as the narrower orders; return.
+    POP  AF                        ; The label is here,
+    JP   EM_LDONE                  ; and free again; return.
 .ALT:                          ; Append EXX.
-    CALL EM_OP                     ; EXX.
-    DB   $D9                       ; Append it.
-    RET                            ; Done.
+    CALL EM_OPX                    ; EXX.
+    DB   $D9                       ; Append it; return.
 
 ; The 32-bit helpers by operator: the token, or EX_EQ for every relation,
-; then the unsigned helper's word and the signed one's (HELPERS.ASM).
+; then the helper's word (HELPERS.ASM). A signed operation searches
+; GX_STAB's rows first, then GX_LTAB's, which hold the unsigned helpers
+; and those that serve both.
 
-GX_LTAB:                       ; Operator, unsigned helper, signed helper.
-    DB   TK_PLUS                   ; +:
-    DW   HP_LADD,HP_LADD           ; ADD32.
-    DB   TK_MINUS                  ; -:
-    DW   HP_LSUB,HP_LSUB           ; SUB32.
-    DB   TK_STAR                   ; *:
-    DW   HP_LMUL,HP_LMUL           ; MUL32.
+GX_STAB:                       ; Operator, signed helper.
     DB   TK_SLASH                  ; /:
-    DW   HP_LDIVU,HP_LDIVS         ; DIV32U and DIV32S.
+    DW   HP_LDIVS                  ; DIV32S.
     DB   TK_MOD                    ; mod:
-    DW   HP_LDIVU,HP_LDIVS         ; the same, the remainder taken.
-    DB   TK_AND                    ; and:
-    DW   HP_LAND,HP_LAND           ; AND32.
-    DB   TK_OR                     ; or:
-    DW   HP_LOR,HP_LOR             ; OR32.
-    DB   TK_XOR                    ; xor:
-    DW   HP_LXOR,HP_LXOR           ; XOR32.
+    DW   HP_LDIVS                  ; the same, the remainder taken.
     DB   EX_EQ                     ; Every relation:
-    DW   HP_LCMPU,HP_LCMPS         ; CMP32U and CMP32S.
+    DW   HP_LCMPS                  ; CMP32S.
+GX_LTAB:                       ; Operator, unsigned or either helper.
+    DB   TK_PLUS                   ; +:
+    DW   HP_LADD                   ; ADD32.
+    DB   TK_MINUS                  ; -:
+    DW   HP_LSUB                   ; SUB32.
+    DB   TK_STAR                   ; *:
+    DW   HP_LMUL                   ; MUL32.
+    DB   TK_SLASH                  ; /:
+    DW   HP_LDIVU                  ; DIV32U.
+    DB   TK_MOD                    ; mod:
+    DW   HP_LDIVU                  ; the same, the remainder taken.
+    DB   TK_AND                    ; and:
+    DW   HP_LAND                   ; AND32.
+    DB   TK_OR                     ; or:
+    DW   HP_LOR                    ; OR32.
+    DB   TK_XOR                    ; xor:
+    DW   HP_LXOR                   ; XOR32.
+    DB   EX_EQ                     ; Every relation:
+    DW   HP_LCMPU                  ; CMP32U.
 
 ;@ROUTINE IN A OUT A,CARRY CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
 ; Carry clear if token A is +, -, `and`, `or` or `xor`, with A its byte
@@ -518,10 +480,9 @@ GX_SHBY:                       ; A is the count, C the type.
     LD   C,A                       ; are C.
     AND  4                         ; A long?
     JR   Z,.SHORT                  ; No.
-    CALL EM_OP                     ; LD A,count,
-    DB   $3E                       ; the opcode,
-    LD   A,B                       ; then
-    CALL EM_BYTE                   ; the count;
+    LD   A,B                       ; LD A,count:
+    CALL EM_OPA                    ; the opcode and
+    DB   $3E                       ; the count;
     JR   GX_LSH                    ; then the helper; return.
 .SHORT:                        ; A byte or a word.
     LD   A,C                       ; Its size
@@ -546,22 +507,16 @@ GX_SHBY:                       ; A is the count, C the type.
     JR   NZ,.ZERO                  ; the sign:
     BIT  7,C                       ; for a signed
     JR   Z,.ZERO                   ; type,
-    LD   A,C                       ; a byte's
-    DEC  A                         ; RLCA, SBC A,A,
-    CP   $80                       ; i8?
-    JR   NZ,.SIGNW                 ; Or a word's.
-    CALL EM_SEQ                    ; RLCA, SBC A,A:
+    BIT  1,C                       ; a byte's RLCA, SBC A,A,
+    JR   NZ,.SIGNW                 ; or a word's.
+    CALL EM_SEQX                   ; RLCA, SBC A,A:
     DB   2,$07,$9F                 ; the sign in A.
-    RET                            ; Done.
 .SIGNW:                        ; i16: LD A,H, RLCA, SBC A,A,
-    CALL EM_SEQ                    ; LD L,A, LD H,A:
+    CALL EM_SEQX                   ; LD L,A, LD H,A:
     DB   5,$7C,$07,$9F,$6F,$67     ; the sign in HL.
-    RET                            ; Done.
 .ZERO:                         ; Zero:
-    LD   A,C                       ; XOR A
-    AND  7                         ; for a byte,
-    DEC  A                         ; or
-    LD   A,$AF                     ; LD HL,0
+    BIT  1,C                       ; XOR A for a byte,
+    LD   A,$AF                     ; or LD HL,0
     JP   Z,EM_BYTE                 ; for a word.
     LD   HL,0                      ; The word zero:
     JP   GX_LDHL                   ; LD HL,0; return.
@@ -571,20 +526,16 @@ GX_SHBY:                       ; A is the count, C the type.
 ; and the operator EX_OPER: ADD A,A or ADD HL,HL for shl; for shr, SRA A
 ; or SRL A, or SRA H or SRL H then RR L.
 
-GX_SH1:                        ; C is the properties.
-    LD   A,C                       ; A byte?
-    AND  7                         ; Then
-    DEC  A                         ; Z.
-    LD   B,A                       ; B is zero for a byte.
+GX_SH1:                        ; C is the properties: bit 1 for a word.
     LD   A,(EX_OPER)               ; shl?
     CP   TK_SHL                    ; Then a doubling:
     JR   NZ,.RIGHT                 ; shr is not.
-    LD   A,B                       ; A byte:
-    OR   A                         ; ADD A,A;
-    LD   A,$87                     ; a word:
-    JP   Z,EM_BYTE                 ; ADD HL,HL.
+    LD   A,$87                     ; A byte:
+    BIT  1,C                       ; ADD A,A;
+    JR   Z,.DOUBLE                 ; a word: ADD HL,HL.
     LD   A,$29                     ; Append it
-    JP   EM_BYTE                   ; and return.
+.DOUBLE:                       ; A is the doubling.
+    JP   EM_BYTE                   ; Append it and return.
 .RIGHT:                        ; shr: the top byte shifts,
     CALL EM_OP                     ; CB,
     DB   $CB                       ; then
@@ -593,14 +544,12 @@ GX_SH1:                        ; C is the properties.
     JR   NZ,.SIGNED                ; or
     LD   A,$3F                     ; SRL A.
 .SIGNED:                       ; A is the byte form.
-    INC  B                         ; A word
-    DEC  B                         ; shifts H
+    BIT  1,C                       ; A word shifts H
     JP   Z,EM_BYTE                 ; and then L.
     SUB  3                         ; SRA H or SRL H
     CALL EM_BYTE                   ; is appended,
-    CALL EM_SEQ                    ; then RR L.
+    CALL EM_SEQX                   ; then RR L.
     DB   2,$CB,$1D                 ; The word is shifted.
-    RET                            ; Done.
 
 ;@ROUTINE IN C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A long's shift through the runtime, its count in A: SHL32 for shl, and
@@ -635,13 +584,12 @@ GX_SHVAR:                      ; C is the left's type.
     ADD  A,A                       ; two,
     ADD  A,A                       ; four,
     ADD  A,A                       ; eight times.
-    LD   C,A                       ; C is the width.
+    LD   E,A                       ; E is the width.
     LD   A,(EX_RMETA)              ; The count's
     AND  SY_TMASK                  ; type:
     CALL GX_SIZE                   ; a byte needs no clamp from above.
     JR   C,.CLAMP                  ; It is one.
-    PUSH BC                        ; Keep the width
-    PUSH AF                        ; and the size.
+    PUSH AF                        ; Keep the size.
     CALL EM_OP                     ; LD A,H,
     DB   $7C                       ; and
     POP  AF                        ; for
@@ -651,25 +599,21 @@ GX_SHVAR:                      ; C is the left's type.
 .HIGH:                         ; Then OR A, LD A,L:
     CALL EM_SEQ                    ; zero
     DB   2,$B7,$7D                 ; when small.
+    PUSH DE                        ; Keep the width.
     LD   C,$CA                     ; JP Z
     CALL .AHEAD                    ; over LD A,width.
-    POP  BC                        ; C is the width.
+    POP  DE                        ; E is the width.
 .CLAMP:                        ; A is the count, at most a byte's.
-    CALL EM_OP                     ; CP width:
-    DB   $FE                       ; within it,
-    LD   A,C                       ; carry,
-    CALL EM_BYTE                   ; so
-    PUSH BC                        ; (the width kept)
+    LD   A,E                       ; CP width:
+    CALL EM_OPA                    ; within it, carry,
+    DB   $FE                       ; so
     LD   C,$DA                     ; JP C
     CALL .AHEAD                    ; over LD A,width.
-    POP  BC                        ; The width is no longer needed.
     CALL EM_OP                     ; LD C,A: the count.
     DB   $4F                       ; Kept in C.
-    POP  BC                        ; C is the left's type:
-    PUSH BC                        ; kept.
+    POP  BC                        ; C is the left's type.
     LD   A,C                       ; The left
-    CALL GX_POPV                   ; is popped.
-    POP  BC                        ; Its type.
+    CALL GX_POPV                   ; is popped; BC is kept.
     LD   A,C                       ; Its properties:
     CALL GX_PROP                   ; size and sign,
     LD   C,A                       ; in C.
@@ -681,71 +625,47 @@ GX_SHVAR:                      ; C is the left's type.
 .LOOP:                         ; A loop of one-bit shifts.
     CALL EM_OP                     ; LD B,C: the count.
     DB   $41                       ; Then a test for zero:
-    LD   A,C                       ; a byte
-    AND  7                         ; keeps its value
-    DEC  A                         ; in L meanwhile,
-    JR   NZ,.TEST                  ; LD L,A,
+    BIT  1,C                       ; a byte keeps its value
+    JR   NZ,.TEST                  ; in L meanwhile, LD L,A,
     CALL EM_OP                     ; then
     DB   $6F                       ; LD A,C, OR A, LD A,L;
 .TEST:                         ; a word only LD A,C, OR A.
     CALL EM_SEQ                    ; LD A,C,
     DB   2,$79,$B7                 ; OR A;
-    LD   A,C                       ; a byte
-    AND  7                         ; restores
-    DEC  A                         ; its value:
-    LD   A,$7D                     ; LD A,L.
-    CALL Z,EM_BYTE                 ; Appended.
+    BIT  1,C                       ; a byte restores
+    LD   A,$7D                     ; its value:
+    CALL Z,EM_BYTE                 ; LD A,L.
     PUSH BC                        ; Keep the properties.
-    CALL EM_LNEW                   ; The label past the loop:
-    PUSH AF                        ; kept,
-    LD   C,$CA                     ; JP Z
-    CALL EM_JUMP                   ; to it, for a zero count.
+    LD   C,$CA                     ; JP Z, for a zero count,
+    CALL EM_FWD                    ; to the label past the loop.
+    POP  BC                        ; The properties
+    PUSH AF                        ; beneath that label,
+    PUSH BC                        ; kept.
     CALL EM_LNEW                   ; The loop's label
-    PUSH AF                        ; (kept)
-    CALL EM_LDEF                   ; is here.
-    POP  AF                        ; The loop's label,
-    POP  DE                        ; the label past it, in D,
-    POP  BC                        ; the properties.
-    PUSH DE                        ; Keep the labels,
-    PUSH AF                        ; the loop's on top.
+    CALL EM_LDEF                   ; is here; A is kept.
+    POP  BC                        ; The properties.
+    PUSH AF                        ; Keep the loop's label.
     CALL GX_SH1                    ; One bit.
     CALL EM_OP                     ; DEC B,
     DB   $05                       ; then
     POP  AF                        ; JP NZ
-    PUSH AF                        ; to
-    LD   C,$C2                     ; the loop.
-    CALL EM_JUMP                   ; Appended.
-    POP  AF                        ; The loop's label
-    CALL EM_LFREE                  ; is free;
+    LD   C,$C2                     ; to
+    CALL EM_JUMP                   ; the loop; A is kept.
+    CALL EM_LFREE                  ; The loop's label is free;
     POP  AF                        ; the label past it is here,
-    JR   .HERE                     ; and free; return.
+    JP   EM_LDONE                  ; and free; return.
 
-;@ROUTINE IN C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append the jump C to a new label, then LD A,width, the width the
-; caller pushed beneath its return address, and define the label: the
-; clamp's two steps.
+;@ROUTINE IN C,E CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append the jump C to a new label, then LD A,width, the width E, and
+; define the label: the clamp's two steps.
 
-.AHEAD:                        ; C is the jump.
-    CALL EM_LNEW                   ; A new label:
-    PUSH AF                        ; kept.
-    CALL EM_JUMP                   ; The jump to it.
-    POP  AF                        ; The label
-    POP  HL                        ; beneath
-    POP  BC                        ; the return address and the width
-    PUSH BC                        ; (both
-    PUSH HL                        ; kept),
-    PUSH AF                        ; kept.
-    CALL EM_OP                     ; LD A,n,
-    DB   $3E                       ; n
-    LD   A,C                       ; the width.
-    CALL EM_BYTE                   ; Appended.
-    POP  AF                        ; The label; fall into .HERE.
-
-;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Define label A here and free it.
-
-.HERE:                         ; A is the label.
-    PUSH AF                        ; Keep it.
-    CALL EM_LDEF                   ; It is here.
-    POP  AF                        ; Nothing names it again:
-    JP   EM_LFREE                  ; free; return.
+.AHEAD:                        ; C is the jump, E the width.
+    PUSH DE                        ; Keep the width.
+    CALL EM_FWD                    ; A new label, and the jump to it.
+    POP  BC                        ; C is the width.
+    PUSH AF                        ; Keep the label.
+    LD   A,C                       ; LD A,n, n the width:
+    CALL EM_OPA                    ; the opcode and
+    DB   $3E                       ; the operand.
+    POP  AF                        ; The label is here,
+    JP   EM_LDONE                  ; and free; return.
