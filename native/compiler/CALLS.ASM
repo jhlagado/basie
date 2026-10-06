@@ -934,7 +934,9 @@ RO_FVAL:
 ; address into HL. A returns its type.
 
 RO_AGGR:
-    CALL RO_PART                   ; Parse it; A is its type.
+    CALL RO_PART                   ; Parse it; A is its type:
+    CALL PL_ISHND                  ; a handle's value
+    JP   C,TR_OPER                 ; waits (DG_NYI).
     CP   AG_FIRST                  ; It must be an aggregate:
     JR   C,RO_EFIT                 ; `.length` and elements are not.
     CALL GA_ADDR                   ; Its address into HL;
@@ -949,10 +951,7 @@ RO_PART:
     CALL RO_NAME                   ; A path starts with a name.
     CALL RO_FIND                   ; Is it a routine?
     JR   Z,.CALL                   ; Otherwise a symbol roots it,
-    CALL RO_NAMED                  ; its type A:
-    CALL PL_ISHND                  ; a handle's value
-    JP   C,TR_OPER                 ; waits (DG_NYI).
-    RET                            ; A is the type.
+    JP   RO_NAMED                  ; its type A; return.
 .CALL:                         ; A routine.
     LD   HL,(TK_POS)               ; The call's offset,
     PUSH HL                        ; kept across it.

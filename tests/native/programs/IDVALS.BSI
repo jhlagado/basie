@@ -1,0 +1,30 @@
+// Identifiers: id() of an owning local, none, an identifier copied, stored
+// in a local, a program variable and a field, written and read through,
+// and selected on.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+    peer as id nodes?
+end
+pool nodes as Node[8]
+var keep as id nodes?
+var g as u8
+sub main()
+    var n = new nodes(1, none, none)
+    var i = id(n)
+    var j as id nodes? = none
+    var k as id nodes? = id(n)
+    j = i
+    keep = id(n)
+    n.peer = j
+    i.value = 7
+    g = i.value
+    select k
+    case some(x)
+        x.peer = id(n)
+        g = x.value
+    case none
+    end
+    var m = i
+end

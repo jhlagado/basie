@@ -409,6 +409,7 @@ DG_MOVED EQU  102              ; use-after-move.
 DG_SRULE EQU  103              ; statement-rule.
 DG_OWNER EQU  106              ; not-owner.
 DG_LMOVE EQU  109              ; loop-moves-owner.
+DG_NMOVE EQU  100              ; needs-move: an owning handle is moved, not copied.
 DG_KNOWN EQU  51               ; not-constant.
 DG_NOCVT EQU  53               ; conversion-unavailable.
 DG_VARP EQU  54                ; var-parameter: var on a scalar or File.

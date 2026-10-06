@@ -165,6 +165,8 @@ AC_INFER:
     XOR  A                         ; Nothing is expected,
     CALL EX_INIT                   ; as of an expression.
     CALL RO_PART                   ; Parse the path; A is its type.
+    CALL PL_ISHND                  ; A handle's value
+    JP   C,HN_INPTH                ; (HN_INPTH).
     CP   AG_FIRST                  ; An aggregate?
     JR   C,.SELECT                 ; No: a scalar it selects.
     CALL AG_ISVW                   ; A view
@@ -215,7 +217,6 @@ AC_INFER:
 ; would.
 
 AC_ROOT:
-    CALL HN_IDNM                   ; Not id(...) yet.
     CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ROUTINE               ; No.
     AND  $7F                       ; A constant's type or a service's result.

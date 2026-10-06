@@ -56,6 +56,7 @@
 %INCLUDE "POOLS.ASM"               ; Pools, handle types and owner descriptors.
 %INCLUDE "HANDLES.ASM"             ; new, owning values, handle locals and frees.
 %INCLUDE "HSELECT.ASM"             ; select on handles, and move.
+%INCLUDE "HIDENT.ASM"              ; Identifiers: id(), their values and stores.
 %INCLUDE "FLOW.ASM"                ; The flow of owning handles.
 %INCLUDE "OUT.ASM"                 ; Output streams.
 %INCLUDE "BLOB.ASM"                ; The blob writer.

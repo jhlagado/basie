@@ -130,6 +130,9 @@ const CONFORMANCE: Record<string, string> = {
   SELMOVEC: "tests/conformance/storage/select-move.bsi",
   OWNDEST: "tests/conformance/storage/owning-destination-order.bsi",
   ELSEFREE: "tests/conformance/storage/else-fail-frees-owners.bsi",
+  STALEHAN: "tests/conformance/storage/stale-handle-traps.bsi",
+  STALEIDE: "tests/conformance/storage/stale-identifier-selects-none.bsi",
+  OWNCYCLE: "tests/conformance/storage/ownership-cycle-traps.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -324,6 +327,10 @@ const CLAIMED: Record<string, string[]> = {
     "HANDDISC",
     "ELSEFREE",
     "SELF32",
+    "IDVALS",
+    "STALEHAN",
+    "STALEIDE",
+    "OWNCYCLE",
   ],
 };
 
@@ -1607,6 +1614,33 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar s as string[8]\nsub make(v as u8) as nodes\n    return new nodes(v, none)\nend\nsub nothing()\nend\nsub f() as nodes\n    return nothing()\nend\nsub main()\nend\n",
   "an undeclared name as an owner's value":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar s as string[8]\nsub make(v as u8) as nodes\n    return new nodes(v, none)\nend\nsub nothing()\nend\nsub main()\n    head = nope()\nend\n",
+  "id of a scalar":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var i = id(g)\nend\n",
+  "id of an identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var i = id(n)\n    var j = id(i)\nend\n",
+  "id of another pool's handle into a location":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var l = new leaves(1)\n    keep = id(l)\nend\n",
+  "none for a non-optional identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var i as id nodes = none\nend\n",
+  "an optional identifier for a non-optional one":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var i as id nodes = keep\nend\n",
+  "an owner for an identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    keep = n\nend\n",
+  "an identifier for an owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var i = id(n)\n    var h as nodes? = i\nend\n",
+  "id of a moved owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var h as nodes? = move n\n    keep = id(n)\nend\n",
+  "a number for an identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    keep = 3\nend\n",
+  "id without parentheses":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    keep = id n\nend\n",
+  "an owner copied into a local":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var b = n\nend\n",
+  "an owner copied into an optional local":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar g as u8\nvar keep as id nodes?\nsub main()\n    var n = new nodes(1, none)\n    var b as nodes? = n\nend\n",
+  "an owner copied": Deno.readTextFileSync(
+    "tests/conformance/storage/owner-not-copied.bsi",
+  ),
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 

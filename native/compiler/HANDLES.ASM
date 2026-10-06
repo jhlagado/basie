@@ -221,16 +221,7 @@ HN_NEW:                        ; `new` is next.
 
 HN_OWNV:                       ; E is the handle's type.
     PUSH DE                        ; Kept.
-    CALL PR_SPOT                   ; The value's kind, A, and start, HL,
-    LD   C,A                       ; (the kind kept)
-    LD   DE,(HN_AT)                ; unless
-    LD   A,D                       ; an assignment
-    OR   E                         ; gave its
-    JR   Z,.AT                     ; target's
-    EX   DE,HL                     ; place.
-.AT:                           ; HL is where a mismatch is reported.
-    LD   DE,0                      ; HN_AT is
-    LD   (HN_AT),DE                ; used once.
+    CALL HN_PLACE                  ; The value's kind, C, and place, HL.
     POP  DE                        ; (the type)
     PUSH HL                        ; The place, kept.
     LD   A,C                       ; The kind:
@@ -250,9 +241,22 @@ HN_OWNV:                       ; E is the handle's type.
     CALL PR_TAKE                   ; taken,
     CALL RO_FIND                   ; a routine's
     JR   Z,.ROUTINE                ; result;
-    CALL SY_FIND                   ; a variable's value waits;
-    JP   C,TR_OPER                 ; anything else
-    JP   SY_UNDEF                  ; is undeclared.
+    CALL HN_ISIDP                  ; id(...) is
+    JR   C,.IDEX                   ; no owner;
+    CALL SY_FIND                   ; anything else
+    JP   NC,SY_UNDEF               ; undeclared is no name;
+    CALL RO_NAMED                  ; a path's value:
+    CALL PL_ISHND                  ; an owner's
+    JR   NC,.OTHER                 ; is moved,
+    BIT  1,A                       ; not copied
+    JR   NZ,.OTHER                 ; (needs-move);
+    POP  DE                        ; (the type)
+    POP  HL                        ; at the
+    LD   A,DG_NMOVE                ; value.
+    JP   DG_HERE                   ; No return.
+.IDEX:                         ; id(...):
+    CALL HN_IDEX                   ; an identifier,
+    JR   .OTHER                    ; no owner.
 .ROUTINE:                      ; A is the routine.
     CALL HN_VOIDQ                  ; It has a result (no-value),
     CALL RO_CALL                   ; called: A its result,
@@ -308,7 +312,7 @@ HN_OWNV:                       ; E is the handle's type.
 
 HN_LET:                        ; A is the handle's type.
     BIT  1,A                       ; AG_HID: an identifier
-    JP   NZ,TR_OPER                ; waits.
+    JP   NZ,HN_IDLET               ; is a value.
     LD   A,(RO_PKIND)              ; A computed
     CP   GA_HELD                   ; place?
     JR   NZ,.PLACED                ; No.
@@ -396,10 +400,10 @@ HN_LDBC:                       ; ixWord: BC = (IX+offset).
 
 HN_LINIT:                      ; The local's type is a handle.
     LD   A,(AG_CTYPE)              ; Its type:
-    BIT  1,A                       ; an identifier
-    JP   NZ,TR_OPER                ; waits.
-    LD   E,A                       ; An owning
-    CALL HN_OWNV                   ; value, in HL.
+    LD   E,A                       ; an identifier's
+    BIT  1,A                       ; value
+    CALL NZ,HN_IDV                 ; in DEHL,
+    CALL Z,HN_OWNV                 ; an owner's in HL.
     LD   A,AC_LHND                 ; The local
     LD   (EX_RMETA),A              ; is bound to it.
     RET                            ; Back to the engine.
@@ -422,6 +426,8 @@ HN_INFER:                      ; The initializer's first token:
     JR   Z,.NEW                    ; so does
     CP   TK_NAME                   ; a routine's
     JR   NZ,.NOT                   ; name
+    CALL HN_ISIDW                  ; (or id(...),
+    JR   C,.ID                     ; an identifier)
     CALL RO_FIND                   ; whose
     JR   NZ,.NOT                   ; result
     CALL AC_ROOT                   ; is a handle:
@@ -437,6 +443,10 @@ HN_INFER:                      ; The initializer's first token:
     RET                            ; a handle (carry clear).
 .MOVE:                         ; move:
     CALL HN_MOVE                   ; the handle moved,
+    JR   .TYPED                    ; A its type.
+.ID:                           ; id(...):
+    CALL PR_TAKE                   ; `id` taken,
+    CALL HN_IDEX                   ; the identifier made,
     JR   .TYPED                    ; A its type.
 .NEW:                          ; new:
     CALL HN_NEW                    ; the handle, A its type,
@@ -467,6 +477,10 @@ HN_NOINI:                      ; No initializer.
 ; takes the slot's offset, which a new in its initializer moved on.
 
 HN_BIND:                       ; HL is the slot's offset.
+    LD   A,(AG_CTYPE)              ; An identifier
+    BIT  1,A                       ; is stored,
+    LD   A,SY_U32                  ; its four bytes
+    JP   NZ,GX_FPUT                ; (DEHL); return.
     PUSH HL                        ; Kept.
     LD   A,(HN_VKIND)              ; Its state:
     CALL HN_STAT                   ; a value or none.
@@ -525,19 +539,6 @@ HN_KEEPF:                      ; The condition is parsed.
     LD   (HL),D                    ; Both bytes.
     POP  BC                        ; B.
     RET                            ; Done.
-
-;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; An initializer rooted at the current NAME (AC_ROOT): `id`, declared as
-; no symbol, begins id(...), which waits (DG_NYI).
-
-HN_IDNM:                       ; The NAME is current.
-    LD   HL,KW_ID                  ; `id`
-    LD   B,2                       ; (two bytes)?
-    CALL TK_MATCH                  ; If not,
-    RET  NC                        ; an ordinary name.
-    CALL SY_FIND                   ; A symbol named id
-    RET  C                         ; is one; else
-    JP   TR_OPER                   ; id(...) waits.
 
 ;@ROUTINE IN A,B OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An aggregate argument for parameter type B (AG_VAR for var), its path
@@ -949,6 +950,24 @@ HN_DELHL:                      ; The handle is in HL.
     LD   DE,HP_PDEL                ; POOL_DEL,
     LD   A,D                       ; its stack figure
     JP   EM_HWORD                  ; counted; return.
+
+;@ROUTINE OUT C,HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The next token's kind, C, and where a mismatch of the value it begins
+; is reported, HL: HN_AT when an assignment set it (its target), else the
+; value's start. HN_AT is then zero.
+
+HN_PLACE:                      ; A value is next.
+    CALL PR_SPOT                   ; Its kind, A, and start, HL,
+    LD   C,A                       ; (the kind kept)
+    LD   DE,(HN_AT)                ; unless
+    LD   A,D                       ; an assignment
+    OR   E                         ; gave its
+    JR   Z,.AT                     ; target's
+    EX   DE,HL                     ; place.
+.AT:                           ; HL is where a mismatch is reported.
+    LD   DE,0                      ; HN_AT is
+    LD   (HN_AT),DE                ; used once.
+    RET                            ; Done.
 
 ; ---------------------------------------------------------------- frees
 
