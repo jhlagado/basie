@@ -1,0 +1,19 @@
+// A lease's subject assigned after an inner select on it has ended: the
+// reference's one counting flag is cleared by the inner arm, so it is allowed.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+var g as u8
+sub main()
+    var a as nodes? = new? nodes(1, none)
+    select a
+    case some(x)
+        select a
+        case some(y)
+        end
+        a = none
+    end
+end

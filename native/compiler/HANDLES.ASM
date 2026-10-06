@@ -420,21 +420,170 @@ HN_BIND:                       ; HL is the slot's offset.
     PUSH HL                        ; Kept.
     CALL EM_HELP                   ; CALL LINK0.
     DW   HP_LINK0                  ; Then
-    POP  HL                        ; the slot
-    PUSH HL                        ; (kept)
+    POP  HL                        ; The slot
     LD   A,SY_U16                  ; holds
-    CALL GX_FPUT                   ; the handle.
-    LD   A,(SY_CNT)                ; The provisional
-    CALL SY_AT                     ; symbol's
-    INC  HL                        ; payload,
-    INC  HL                        ; past its
-    INC  HL                        ; spelling
-    INC  HL                        ; and class,
-    POP  DE                        ; is the
-    LD   (HL),E                    ; slot's
-    INC  HL                        ; offset.
-    LD   (HL),D                    ; Both bytes.
+    JP   GX_FPUT                   ; the handle; return.
+
+;@ROUTINE IN HL OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A local is allocated at offset HL after its initializer, whose
+; temporaries come before it (localVar): HL is its payload (AC_DVAL) and
+; the provisional symbol's. HL is kept.
+
+HN_PAYL:                       ; HL is the local's offset.
+    LD   (AC_DVAL),HL              ; Its payload,
+    PUSH HL                        ; kept,
+    LD   A,(SY_CNT)                ; the provisional
+    CALL SY_AT                     ; symbol's,
+    LD   DE,4                      ; after its spelling
+    ADD  HL,DE                     ; and class:
+    POP  DE                        ; the
+    LD   (HL),E                    ; offset,
+    INC  HL                        ; both
+    LD   (HL),D                    ; bytes.
+    EX   DE,HL                     ; HL is it.
     RET                            ; Done.
+
+;@ROUTINE IN B CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A condition is parsed (if, elseif, while): its temporaries stay
+; allocated until the enclosing block ends, as the reference's do, so the
+; innermost frame's size as it opened takes them. B is kept.
+
+HN_KEEPF:                      ; The condition is parsed.
+    PUSH BC                        ; B kept.
+    LD   B,CT_FSIZE                ; The frame's
+    CALL CT_FIELD                  ; size as it opened
+    LD   DE,(EM_FRAME)             ; is the frame's
+    LD   (HL),E                    ; size
+    INC  HL                        ; now.
+    LD   (HL),D                    ; Both bytes.
+    POP  BC                        ; B.
+    RET                            ; Done.
+
+;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; An initializer rooted at the current NAME (AC_ROOT): `id`, declared as
+; no symbol, begins id(...), which waits (DG_NYI).
+
+HN_IDNM:                       ; The NAME is current.
+    LD   HL,KW_ID                  ; `id`
+    LD   B,2                       ; (two bytes)?
+    CALL TK_MATCH                  ; If not,
+    RET  NC                        ; an ordinary name.
+    CALL SY_FIND                   ; A symbol named id
+    RET  C                         ; is one; else
+    JP   TR_OPER                   ; id(...) waits.
+
+;@ROUTINE IN A,B OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; An aggregate argument for parameter type B (AG_VAR for var), its path
+; in hand, of type A: through an identifier (RO_PPUSH bit 4) it is
+; not-writable for a var parameter, at the path, and its copy for any
+; other waits (DG_NYI); through an owner (bit 5) it passes no owner word.
+; A and BC are kept.
+
+HN_ARGCK:                      ; The path is parsed.
+    PUSH AF                        ; Kept.
+    LD   A,(RO_PPUSH)              ; Through
+    BIT  5,A                       ; a handle?
+    JR   Z,.DONE                   ; No.
+    BIT  4,A                       ; An identifier?
+    JR   NZ,.ID                    ; Then refused.
+    LD   HL,0                      ; An owner's:
+    LD   (RO_POWN),HL              ; no owner word.
+.DONE:                         ; Checked.
+    POP  AF                        ; A.
+    RET                            ; Back.
+.ID:                           ; Through an identifier:
+    BIT  7,B                       ; a value's copy
+    JP   Z,TR_OPER                 ; waits;
+    LD   A,DG_CONST                ; a var parameter's
+    JP   EX_EVAL                   ; is not-writable, at the path.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A handle assigned (RO_LET): the routine's own owning local, the subject
+; of an enclosing select's some arm that leases it (mode bits 3, 6 and 7,
+; its symbol's index in byte 17 of the frame), is not-writable, naming
+; it, at it, as the reference's counting subject is.
+
+HN_GUARD:                      ; The target is parsed.
+    LD   A,(RO_PKIND)              ; Only a local
+    CP   GA_FRAME                  ; can be
+    RET  NZ                        ; leased.
+    CALL HN_SIDX                   ; Its symbol's index,
+    LD   C,A                       ; C.
+    LD   A,(CT_DEPTH)              ; Each frame,
+.FRAME:                        ; from the innermost:
+    OR   A                         ; none
+    RET  Z                         ; leases it.
+    DEC  A                         ; Frame A:
+    PUSH AF                        ; (kept)
+    CALL CT_FRAME                  ; a select's
+    LD   DE,CT_FMODE               ; some arm
+    ADD  HL,DE                     ; leasing
+    LD   A,(HL)                    ; its subject?
+    AND  $C8                       ; (bits 7, 6
+    CP   $C8                       ; and 3)
+    JR   NZ,.NEXT                  ; No.
+    LD   DE,17-CT_FMODE            ; Its subject's
+    ADD  HL,DE                     ; index:
+    LD   A,(HL)                    ; this
+    CP   C                         ; local?
+    JR   Z,.LEASED                 ; Then it is leased.
+.NEXT:                         ; Not this frame.
+    POP  AF                        ; The one
+    JR   .FRAME                    ; outside.
+.LEASED:                       ; not-writable,
+    LD   HL,(RO_PROOT)             ; naming
+    LD   A,DG_CONST                ; the
+    CALL DG_SETN                   ; local,
+    LD   HL,(EX_START)             ; at
+    JP   DG_HERE                   ; it.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A select's arm ends (EndCase): when it leased its subject, the subject
+; is no longer leased by any enclosing arm either, as the reference's
+; one counting flag a symbol has says (bit 7 of their modes cleared).
+
+HN_ENDA:                       ; The innermost frame's arm ends.
+    CALL CT_MODE                   ; A lease's
+    AND  $C8                       ; arm
+    CP   $C8                       ; (bits 7, 6 and 3)?
+    RET  NZ                        ; No.
+    LD   B,17                      ; Its subject's
+    CALL CT_FBYTE                  ; index,
+    LD   C,A                       ; C.
+    LD   A,(CT_DEPTH)              ; Each frame
+    DEC  A                         ; outside it:
+.FRAME:                        ; frame A-1 next.
+    OR   A                         ; None
+    RET  Z                         ; left.
+    DEC  A                         ; Frame A:
+    PUSH AF                        ; (kept)
+    CALL CT_FRAME                  ; its
+    LD   DE,17                     ; subject,
+    ADD  HL,DE                     ; if it
+    LD   A,(HL)                    ; is this
+    CP   C                         ; one,
+    JR   NZ,.NEXT                  ; is
+    LD   DE,CT_FMODE-17            ; leased
+    ADD  HL,DE                     ; no
+    RES  7,(HL)                    ; longer.
+.NEXT:                         ; The one
+    POP  AF                        ; outside.
+    JR   .FRAME                    ; Next.
+
+;@ROUTINE OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The index of the path's root symbol (RO_PROOT).
+
+HN_SIDX:                       ; RO_PROOT is a record.
+    LD   HL,(RO_PROOT)             ; Its
+    LD   DE,-SY_BASE               ; offset
+    ADD  HL,DE                     ; in the table,
+    LD   DE,-SY_RECB               ; over the
+    LD   A,$FF                     ; records'
+.COUNT:                        ; size:
+    INC  A                         ; one more
+    ADD  HL,DE                     ; while
+    JR   C,.COUNT                  ; it lasts.
+    RET                            ; A is the index.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A is the next token's kind in a path (RO_PATH). A field selected
@@ -520,6 +669,7 @@ HN_DEREF:                      ; A dot follows the handle.
     DB   $EB                       ; slot:
     LD   A,$10                     ; bit 4.
 .PLACE:                        ; A is the slot's kind,
+    OR   $20                       ; through a handle (bit 5),
     LD   (RO_PPUSH),A              ; with nothing pushed.
     POP  AF                        ; The record
     LD   (RO_OTYPE),A              ; at that address
@@ -530,16 +680,11 @@ HN_DEREF:                      ; A dot follows the handle.
     RET                            ; Done.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The scalar type that holds handle RO_OTYPE: u16 for an owner, u32 for
-; an identifier's four bytes.
+; The scalar type that holds handle RO_OTYPE (HN_WIDE's).
 
 HN_WIDT:                       ; RO_OTYPE is a handle.
-    LD   A,(RO_OTYPE)              ; An
-    BIT  1,A                       ; identifier?
-    LD   A,SY_U16                  ; An owner
-    RET  Z                         ; is a word,
-    LD   A,SY_U32                  ; an identifier
-    RET                            ; a long.
+    LD   A,(RO_OTYPE)              ; Its type:
+    JP   HN_WIDA                   ; its width.
 
 ;@ROUTINE IN A OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; RO_ASGN begins: the target's identifier slot, when it reaches its
@@ -689,12 +834,18 @@ HN_SEL:                        ; A is the handle's type.
     LD   (AC_INDEX),HL             ; for the frame,
     POP  AF                        ; which
     CALL GX_FPUT                   ; takes it.
-    CALL AC_SOPEN                  ; The select's frame opens.
+    CALL HN_SIDX                   ; The subject's symbol,
+    PUSH AF                        ; kept
+    CALL AC_SOPEN                  ; as the select's frame opens.
     CALL CT_FLAGS                  ; Its mode
+    POP  DE                        ; (D the subject)
     POP  BC                        ; takes
     LD   A,C                       ; the
     OR   (HL)                      ; subject's
-    LD   (HL),A                    ; kind.
+    LD   (HL),A                    ; kind;
+    LD   BC,17-CT_FMODE            ; its byte 17
+    ADD  HL,BC                     ; the subject's
+    LD   (HL),D                    ; index.
     RET                            ; Back to the engine.
 
 ;@ROUTINE IN A OUT A,ZERO CLOBBERS DE,HL,CARRY,SIGN,PARITY,HALFCARRY
@@ -718,7 +869,12 @@ HN_REC:                        ; A is a handle's type.
 ; for an owner, u32 for an identifier's four bytes.
 
 HN_WIDE:                       ; The select's handle.
-    LD   A,(AC_BOUND)              ; Staged,
+    LD   A,(AC_BOUND)              ; Staged; fall into HN_WIDA.
+
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The scalar type that holds a handle of type A.
+
+HN_WIDA:                       ; A is a handle's type:
     BIT  1,A                       ; an identifier?
     LD   A,SY_U16                  ; An owner
     RET  Z                         ; is a word,

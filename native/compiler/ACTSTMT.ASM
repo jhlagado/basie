@@ -215,6 +215,7 @@ AC_INFER:
 ; would.
 
 AC_ROOT:
+    CALL HN_IDNM                   ; Not id(...) yet.
     CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ROUTINE               ; No.
     AND  $7F                       ; A constant's type or a service's result.
@@ -321,7 +322,8 @@ AC_BIND:
     PUSH HL                        ; Keep the size.
     EX   DE,HL                     ; The frame
     CALL EM_ALLOW                  ; holds the local.
-    LD   (RO_PADD),HL              ; Its place, for an aggregate:
+    CALL HN_PAYL                   ; Its offset, after its initializer's temporaries;
+    LD   (RO_PADD),HL              ; its place, for an aggregate:
     LD   A,GA_FRAME                ; in the frame
     LD   (RO_PKIND),A              ; at its offset.
     POP  BC                        ; BC is its size.
@@ -611,6 +613,7 @@ AC_THEN:
 ; (condition); the block that follows is reachable.
 
 AC_TEST:
+    CALL HN_KEEPF                  ; The condition's temporaries stay.
     CALL AC_BOOL                   ; Check the condition; B is kept.
     CALL CT_IFNOT                  ; Branch there when it is false.
     JP   AC_LIVE                   ; The block starts reachable.

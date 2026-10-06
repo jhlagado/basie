@@ -1,0 +1,13 @@
+// More conditions through a handle: a while loop, then the path again.
+record Leaf
+    v as u8
+end
+pool leaves as Leaf[3]
+var g as u8
+sub main()
+    var a = new leaves(1)
+    while a.v < 3
+        a.v = 3
+    end
+    g = a.v
+end

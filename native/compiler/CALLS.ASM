@@ -390,7 +390,7 @@ RO_INDEX:
     INC  C                         ; Bit 0 of RO_PPUSH: the base is pushed.
 .KEEP:                         ; C holds the two flags.
     LD   A,(RO_PPUSH)              ; Record them,
-    AND  $18                       ; with bits 3 and 4
+    AND  $38                       ; with bits 3 to 5
     OR   C                         ; kept (HN_ITEM, HN_DEREF).
     LD   (RO_PPUSH),A              ; Recorded.
     CALL PR_SPOT                   ; The index's first token: its offset
@@ -598,6 +598,7 @@ RO_ARGS:
     PUSH BC                        ; Keep the parameter's type.
     CALL RO_AGGR                   ; A is the argument's type, HL its address.
     POP  BC                        ; B is the parameter's,
+    CALL HN_ARGCK                  ; (not through an identifier)
     LD   C,A                       ; C the argument's:
     LD   A,B                       ; the types,
     AND  $7F                       ; less AG_VAR,
@@ -786,6 +787,7 @@ RO_VIEW:
     JR   Z,.CLASS                  ; is no variable: wrong-class.
     CALL RO_NAMED                  ; Parse the path; A is its type.
     POP  BC                        ; B is the view's type.
+    CALL HN_ARGCK                  ; (not through an identifier)
     LD   C,A                       ; C is the path's.
     BIT  7,B                       ; A var view takes
     CALL NZ,RO_WRITE               ; only a writable path; any other, any.
@@ -1038,7 +1040,10 @@ RO_LET:
     CALL PL_ISHND                  ; A handle's type-mismatch
     JR   NC,RO_ASGN                ; is reported
     LD   HL,(EX_START)             ; at the target
-    LD   (HN_AT),HL                ; (assign's at); fall into RO_ASGN.
+    LD   (HN_AT),HL                ; (assign's at),
+    PUSH AF                        ; (the type kept)
+    CALL HN_GUARD                  ; not leased;
+    POP  AF                        ; fall into RO_ASGN.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Assign to the path in hand (RO_PLACE), of type A, its value parsed: as

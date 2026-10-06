@@ -246,6 +246,7 @@ AC_ENTER:                      ; The body starts here.
 ; arm's labels are free again.
 
 AC_SHUT:
+    CALL HN_ENDA                   ; A lease ends.
     CALL AC_ARM                    ; The arm ends.
     LD   B,CT_FCONT                ; The next arm
     CALL CT_DEF                    ; is here.

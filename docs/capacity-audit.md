@@ -232,7 +232,8 @@ eighth overlay, `OWNERS`, so `BASIE.OVL`'s directory (`OV_DCAP`, 8) is
 full. With `new` and the frees (67g.1b, `HANDLES.ASM`) the image grew
 again, and the workspaces and the source area moved another 1K up
 (`MM_WBASE` `$5C00`), so the source area is about 23.3K on a 62K system;
-with `select` on handles, $200 more (`$5E00`, about 22.8K).
+with `select` on handles, $200 more (`$5E00`, about 22.8K), and $100 more
+after its review (`$5F00`, about 22.5K).
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each
 scope from the control frames' counts.

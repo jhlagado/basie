@@ -301,6 +301,11 @@ const CLAIMED: Record<string, string[]> = {
     "NEWSEL",
     "NEWFULL",
     "NEWTRAIL",
+    "HANDARG",
+    "CONDTMP",
+    "CONDTMPW",
+    "LOCTMP",
+    "LEASEIN",
   ],
 };
 
@@ -1453,6 +1458,20 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case else\n    case some(x)\n    end\nend\n",
   "an element through a handle":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a = new nodes(1, none)\n    g = a[1]\nend\n",
+  "a lease's subject assigned in its arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new? nodes(1, none)\n    select a\n    case some(x)\n        a = new? nodes(2)\n    end\nend\n",
+  "a lease's subject assigned none in its arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new? nodes(1, none)\n    select a\n    case some(x)\n        a = none\n    end\nend\n",
+  "a lease's subject assigned in an if in its arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new? nodes(1)\n    select a\n    case some(x)\n        if g = 1\n            a = none\n        end\n    end\nend\n",
+  "a lease's string length written":
+    'forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\n    s as string[3]\nend\npool leaves as Leaf[3]\nvar head as nodes?\nvar gl as Leaf\nvar gh as leaves?\nvar g as u8\nsub fv(r as Leaf)\nend\nsub fr(var r as Leaf)\nend\nsub main()\n    var a as nodes? = new? nodes(1, none)\n    var b as leaves? = new? leaves(1, "ab")\n    select b\n    case some(x)\n        x.s.length = 1\n    end\nend\n',
+  "a lease indexed":
+    'forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\n    s as string[3]\nend\npool leaves as Leaf[3]\nvar head as nodes?\nvar gl as Leaf\nvar gh as leaves?\nvar g as u8\nsub fv(r as Leaf)\nend\nsub fr(var r as Leaf)\nend\nsub main()\n    var a as nodes? = new? nodes(1, none)\n    var b as leaves? = new? leaves(1, "ab")\n    select b\n    case some(x)\n        g = x[1]\n    end\nend\n',
+  "a field through an identifier passed to a var parameter (M05)":
+    "record Leaf\n    v as u8\n    s as string[3]\nend\nrecord Outer\n    w as u8\n    inn as Leaf\n    arr as Leaf[2]\nend\npool outers as Outer[3]\nvar go as outers?\nvar gl as Leaf\nvar g as u8\nsub fv(r as Leaf)\n    g = r.v\nend\nsub fr(var r as Leaf)\n    r.v = 1\nend\nsub fs(var s as string[])\nend\nsub fo(var o as Outer)\nend\nsub main()\n    select go\n    case some(x)\n        fs(x.inn.s)\n    end\nend\n",
+  "a field through an identifier passed to a var parameter (T04)":
+    "record Leaf\n    v as u8\n    s as string[3]\n    arr as u8[2]\nend\npool leaves as Leaf[3]\nvar g as u8\nvar gh as leaves?\nsub fs(var s as string[])\nend\nsub fa(a as u8[])\nend\nsub main()\n    select gh\n    case some(j)\n        fs(j.s)\n    end\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 
