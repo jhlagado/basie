@@ -32,7 +32,7 @@
 ;  the whole compiler workspace for the build's boundary check.
 
 LL_CAP EQU  64                 ; Grammar stack capacity in symbols.
-LL_STACK EQU  (PR_SP+3+$FF)&$FF00 ; The stack, from a page's start; LL_STACK+0 is the bottom.
+LL_STACK EQU  (PL_WEND+$100)&$FF00 ; The stack, from a page's start past the pools' bytes.
 LL_DEPTH EQU  LL_STACK-1       ; Symbols on the stack (byte), just below it.
 ; The select statements' labels follow the stack (ACTSEL.ASM): CT_RTOP,
 ; the next free entry, then CT_RCAP ranges of eight bytes, the low and the

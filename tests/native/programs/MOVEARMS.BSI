@@ -1,0 +1,20 @@
+// An owner moved in every arm of an if, then given a new value.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var head as nodes?
+var g as u8
+var c as boolean
+sub main()
+    var a = new nodes(1, none)
+    if c
+        head = move a
+    else
+        head = move a
+    end
+    a = new nodes(2, none)
+    g = a.value
+end

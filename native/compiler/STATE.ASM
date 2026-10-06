@@ -405,6 +405,10 @@ DG_SINIT EQU  49               ; static-initializer.
 DG_NEEDI EQU  50               ; needs-initializer: a non-optional handle local.
 DG_PINC EQU  52                ; pool-incomplete.
 DG_OPTH EQU  105               ; optional-handle: tested with select before use.
+DG_MOVED EQU  102              ; use-after-move.
+DG_SRULE EQU  103              ; statement-rule.
+DG_OWNER EQU  106              ; not-owner.
+DG_LMOVE EQU  109              ; loop-moves-owner.
 DG_KNOWN EQU  51               ; not-constant.
 DG_NOCVT EQU  53               ; conversion-unavailable.
 DG_VARP EQU  54                ; var-parameter: var on a scalar or File.
@@ -488,6 +492,7 @@ DG_ROOM EQU  DG_CAP+13         ; Memory for the source.
 DG_INEST EQU  DG_CAP+14        ; Includes open at once (SH_ICAP).
 DG_FDIG EQU  DG_CAP+15         ; An f32 literal's digits (FLOAT.ASM, FL_NB).
 DG_POOLS EQU  DG_CAP+16        ; Pools (PL_CAP).
+DG_OWNRS EQU  DG_CAP+17        ; Owners in scope (FW_CAP).
 
 
 ; Scalar types and symbol information. An expression's metadata byte and a

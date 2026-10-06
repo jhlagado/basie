@@ -238,14 +238,21 @@ HN_OWNV:                       ; E is the handle's type.
     JR   Z,.NONE                   ; LD HL,0.
     CP   TK_NAME                   ; A name's value
     JP   Z,TR_OPER                 ; waits (DG_NYI).
+    CP   TK_MOVE                   ; move?
+    JR   Z,.MOVE                   ; Its handle.
     CP   TK_NEW                    ; new?
     JR   Z,.NEW                    ; Its handle.
     XOR  A                         ; Anything else
     CALL EX_RUN                    ; is an expression,
     JR   .CLASH                    ; but no handle.
+.MOVE:                         ; move:
+    PUSH DE                        ; (the type kept)
+    CALL HN_MOVE                   ; the handle moved, A its type.
+    JR   .FRESH                    ; Checked as new's is.
 .NEW:                          ; new.
     PUSH DE                        ; The type, kept.
     CALL HN_NEW                    ; The new handle, A its type.
+.FRESH:                        ; A fresh handle of type A.
     POP  DE                        ; The target's type, E:
     XOR  E                         ; the same pool
     CP   2                         ; and kind?
@@ -260,11 +267,15 @@ HN_OWNV:                       ; E is the handle's type.
     JP   DG_HERE                   ; value.
 .SAME:                         ; It fits.
     POP  HL                        ; (dropped)
+    LD   A,FW_VALUE                ; A value
+    LD   (HN_VKIND),A              ; it is.
     RET                            ; HL holds the handle.
 .NONE:                         ; none:
     BIT  0,E                       ; an optional
     JR   Z,.CLASH                  ; target only.
     POP  HL                        ; (dropped)
+    LD   A,FW_NONE                 ; None
+    LD   (HN_VKIND),A              ; it is.
     CALL PR_TAKE                   ; Taken:
     LD   HL,0                      ; LD HL,0.
     JP   GX_LDHL                   ; Appended; return.
@@ -287,7 +298,7 @@ HN_LET:                        ; A is the handle's type.
     CALL .VALUE                    ; The value,
     CALL HN_RECK                   ; its identifier rechecked,
     CALL GA_POPDE                  ; POP DE: the place.
-    JR   HN_OWNS                   ; Stored; return.
+    JR   HN_OWNS                   ; Stored; return (not the root alone).
 .PLACED:                       ; Static, in the frame or an alias.
     CALL .VALUE                    ; The value,
     CALL GX_PUSHW                  ; PUSH HL,
@@ -297,7 +308,9 @@ HN_LET:                        ; A is the handle's type.
     CALL EM_OP                     ; POP HL:
     DB   $E1                       ; the value,
     CALL EM_POP2                   ; two bytes fewer pushed.
-    JR   HN_OWNS                   ; Stored; return.
+    CALL HN_OWNS                   ; Stored;
+    LD   A,(HN_VKIND)              ; the root alone, tracked,
+    JP   FW_SET                    ; holds it now; return.
 .VALUE:                        ; The value, the place kept across it.
     CALL RO_KEEP                   ; The place kept.
     LD   A,(RO_OTYPE)              ; The handle's
@@ -385,15 +398,21 @@ HN_INFER:                      ; The initializer's first token:
     LD   A,DG_INFER                ; no definite
     JP   Z,DG_ISSUE                ; type.
     CALL PR_PEEK                   ; A move
-    CP   TK_MOVE                   ; waits;
-    JP   Z,TR_OPER                 ; new
-    CP   TK_NEW                    ; makes
-    JR   Z,.NEW                    ; the type;
-    OR   A                         ; anything else
-    RET                            ; is not a handle (carry clear).
+    CP   TK_MOVE                   ; or new
+    JR   Z,.MOVE                   ; makes
+    CP   TK_NEW                    ; the type;
+    JR   Z,.NEW                    ; anything
+    OR   A                         ; else is not
+    RET                            ; a handle (carry clear).
+.MOVE:                         ; move:
+    CALL HN_MOVE                   ; the handle moved,
+    JR   .TYPED                    ; A its type.
 .NEW:                          ; new:
-    CALL HN_NEW                    ; The handle, A its type,
-    LD   (AG_CTYPE),A              ; the local's.
+    CALL HN_NEW                    ; the handle, A its type,
+.TYPED:                        ; the local's,
+    LD   (AG_CTYPE),A              ; a value.
+    LD   A,FW_VALUE                ; Its
+    LD   (HN_VKIND),A              ; state.
     SCF                            ; A handle.
     RET                            ; Done.
 
@@ -418,6 +437,8 @@ HN_NOINI:                      ; No initializer.
 
 HN_BIND:                       ; HL is the slot's offset.
     PUSH HL                        ; Kept.
+    LD   A,(HN_VKIND)              ; Its state:
+    CALL HN_STAT                   ; a value or none.
     CALL EM_HELP                   ; CALL LINK0.
     DW   HP_LINK0                  ; Then
     POP  HL                        ; The slot
@@ -440,7 +461,22 @@ HN_PAYL:                       ; HL is the local's offset.
     LD   (HL),E                    ; offset,
     INC  HL                        ; both
     LD   (HL),D                    ; bytes.
-    EX   DE,HL                     ; HL is it.
+    EX   DE,HL                     ; HL is it;
+    LD   A,FW_NONE                 ; its state none until bound.
+
+;@ROUTINE IN A CLOBBERS DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The provisional symbol's flow state is A. HL is kept.
+
+HN_STAT:                       ; A is the state.
+    PUSH HL                        ; Kept.
+    PUSH AF                        ; (the state)
+    LD   A,(SY_CNT)                ; The provisional
+    CALL SY_AT                     ; symbol's
+    LD   DE,FW_STATE               ; state
+    ADD  HL,DE                     ; byte
+    POP  AF                        ; takes
+    LD   (HL),A                    ; it.
+    POP  HL                        ; HL.
     RET                            ; Done.
 
 ;@ROUTINE IN B CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -497,22 +533,19 @@ HN_ARGCK:                      ; The path is parsed.
     LD   A,DG_CONST                ; a var parameter's
     JP   EX_EVAL                   ; is not-writable, at the path.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A handle assigned (RO_LET): the routine's own owning local, the subject
-; of an enclosing select's some arm that leases it (mode bits 3, 6 and 7,
-; its symbol's index in byte 17 of the frame), is not-writable, naming
-; it, at it, as the reference's counting subject is.
+;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; Carry if the path in hand's root, the routine's own owning local, is the
+; subject of an enclosing select's some arm that leases it (mode bits 3,
+; 6 and 7, its symbol's index in byte 17 of the frame), as the
+; reference's counting subject is.
 
-HN_GUARD:                      ; The target is parsed.
-    LD   A,(RO_PKIND)              ; Only a local
-    CP   GA_FRAME                  ; can be
-    RET  NZ                        ; leased.
+HN_LEASD:                      ; The root is RO_PROOT.
     CALL HN_SIDX                   ; Its symbol's index,
     LD   C,A                       ; C.
     LD   A,(CT_DEPTH)              ; Each frame,
 .FRAME:                        ; from the innermost:
     OR   A                         ; none
-    RET  Z                         ; leases it.
+    RET  Z                         ; leases it (carry clear).
     DEC  A                         ; Frame A:
     PUSH AF                        ; (kept)
     CALL CT_FRAME                  ; a select's
@@ -526,49 +559,32 @@ HN_GUARD:                      ; The target is parsed.
     ADD  HL,DE                     ; index:
     LD   A,(HL)                    ; this
     CP   C                         ; local?
-    JR   Z,.LEASED                 ; Then it is leased.
+    JR   NZ,.NEXT                  ; No.
+    POP  AF                        ; (dropped)
+    SCF                            ; Leased.
+    RET                            ; Done.
 .NEXT:                         ; Not this frame.
     POP  AF                        ; The one
     JR   .FRAME                    ; outside.
-.LEASED:                       ; not-writable,
-    LD   HL,(RO_PROOT)             ; naming
-    LD   A,DG_CONST                ; the
-    CALL DG_SETN                   ; local,
-    LD   HL,(EX_START)             ; at
-    JP   DG_HERE                   ; it.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A select's arm ends (EndCase): when it leased its subject, the subject
-; is no longer leased by any enclosing arm either, as the reference's
-; one counting flag a symbol has says (bit 7 of their modes cleared).
+;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; An assignment's target of type A, parsed (assign): a tracked owner
+; assigned as a whole is moved in this statement, at its name; any other
+; path through one uses it directly (noteMove, noteDirect). A is kept.
 
-HN_ENDA:                       ; The innermost frame's arm ends.
-    CALL CT_MODE                   ; A lease's
-    AND  $C8                       ; arm
-    CP   $C8                       ; (bits 7, 6 and 3)?
-    RET  NZ                        ; No.
-    LD   B,17                      ; Its subject's
-    CALL CT_FBYTE                  ; index,
-    LD   C,A                       ; C.
-    LD   A,(CT_DEPTH)              ; Each frame
-    DEC  A                         ; outside it:
-.FRAME:                        ; frame A-1 next.
-    OR   A                         ; None
-    RET  Z                         ; left.
-    DEC  A                         ; Frame A:
-    PUSH AF                        ; (kept)
-    CALL CT_FRAME                  ; its
-    LD   DE,17                     ; subject,
-    ADD  HL,DE                     ; if it
-    LD   A,(HL)                    ; is this
-    CP   C                         ; one,
-    JR   NZ,.NEXT                  ; is
-    LD   DE,CT_FMODE-17            ; leased
-    ADD  HL,DE                     ; no
-    RES  7,(HL)                    ; longer.
-.NEXT:                         ; The one
-    POP  AF                        ; outside.
-    JR   .FRAME                    ; Next.
+HN_NOTE:                       ; A is the target's type.
+    PUSH AF                        ; Kept.
+    LD   HL,(EX_START)             ; At the
+    LD   (FW_PLACE),HL             ; root's name:
+    CALL FW_ALONE                  ; the root alone
+    JR   NZ,.DIRECT                ; is moved,
+    CALL FW_MOVE                   ; if tracked;
+    JR   .DONE                     ; any other path
+.DIRECT:                       ; through one
+    CALL FW_SEEN                 ; uses it.
+.DONE:                         ; Noted.
+    POP  AF                        ; A.
+    RET                            ; Back.
 
 ;@ROUTINE OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The index of the path's root symbol (RO_PROOT).
@@ -619,6 +635,7 @@ RO_HSEL:                       ; A is the next token's kind.
 ; The path in hand, a handle local, goes through its slot (RO_HSEL).
 
 HN_DEREF:                      ; A dot follows the handle.
+    CALL FW_USE                    ; Usable (checkUsable)?
     LD   A,(RO_OTYPE)              ; The handle:
     RRA                            ; optional?
     LD   A,DG_OPTH                 ; Then
@@ -770,265 +787,6 @@ HN_ISID:                       ; The NAME is current.
     POP  HL                        ; current
     LD   (TK_PTR),HL               ; again.
     RET                            ; Back.
-
-;-------------------------------------------------------------- select
-
-;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; SelectSubject's handle, of type A, the path in hand (selectHandle): its
-; pool complete (pool-incomplete) and, owning, optional (type-mismatch),
-; each at the subject; `select move` waits (DG_NYI). The handle, two bytes
-; or an identifier's four, is loaded into a frame slot of its own, which
-; the arms test, and the select's frame opens (AC_SOPEN) with mode bit 3
-; set, and bit 6 when the subject is the routine's own owning local,
-; whose `some` arm binds a lease.
-
-HN_SEL:                        ; A is the handle's type.
-    LD   (AC_BOUND),A              ; Kept for the frame.
-    LD   A,(AC_MODE)               ; `select move`
-    OR   A                         ; waits
-    JP   Z,TR_OPER                 ; (DG_NYI).
-    LD   A,(AC_BOUND)              ; The pool's
-    CALL HN_REC                    ; record:
-    LD   A,DG_PINC                 ; pool-incomplete
-    JR   Z,.FAULT                  ; without one.
-    LD   A,(AC_BOUND)              ; An owning
-    AND  3                         ; handle that is
-    LD   A,DG_CLASH                ; not optional
-    JR   NZ,.OWNER                 ; is type-mismatch.
-.FAULT:                        ; A is the diagnostic,
-    LD   HL,(EX_START)             ; at the
-    JP   DG_HERE                   ; subject.
-.OWNER:                        ; The subject's kind:
-    LD   C,8                       ; a handle select,
-    LD   A,(AC_BOUND)              ; an
-    BIT  1,A                       ; identifier
-    JR   NZ,.LOAD                  ; no lease;
-    LD   A,(RO_PKIND)              ; an owner's lease
-    CP   GA_FRAME                  ; needs the frame,
-    JR   NZ,.LOAD                  ; and
-    LD   HL,(RO_PROOT)             ; the root,
-    INC  HL                        ; a
-    INC  HL                        ; local
-    INC  HL                        ; aggregate's
-    LD   A,(HL)                    ; class,
-    CP   SY_AGGR+SY_LOCAL          ; alone
-    JR   NZ,.LOAD                  ; (the path
-    INC  HL                        ; of the
-    INC  HL                        ; root's
-    INC  HL                        ; own
-    LD   A,(AC_BOUND)              ; type,
-    CP   (HL)                      ; with no
-    JR   NZ,.LOAD                  ; selection).
-    LD   C,8+64                    ; Bit 6: a lease.
-.LOAD:                         ; C is the mode.
-    PUSH BC                        ; Kept.
-    CALL HN_WIDE                   ; A word or a long:
-    LD   (RO_OTYPE),A              ; the handle
-    PUSH AF                        ; (the type kept)
-    CALL GA_LOAD                   ; loaded.
-    POP  AF                        ; Its
-    PUSH AF                        ; size
-    CALL GX_PROP                   ; in
-    AND  7                         ; a slot
-    CALL EM_ALLOC                  ; of its own,
-    LD   (AC_INDEX),HL             ; for the frame,
-    POP  AF                        ; which
-    CALL GX_FPUT                   ; takes it.
-    CALL HN_SIDX                   ; The subject's symbol,
-    PUSH AF                        ; kept
-    CALL AC_SOPEN                  ; as the select's frame opens.
-    CALL CT_FLAGS                  ; Its mode
-    POP  DE                        ; (D the subject)
-    POP  BC                        ; takes
-    LD   A,C                       ; the
-    OR   (HL)                      ; subject's
-    LD   (HL),A                    ; kind;
-    LD   BC,17-CT_FMODE            ; its byte 17
-    ADD  HL,BC                     ; the subject's
-    LD   (HL),D                    ; index.
-    RET                            ; Back to the engine.
-
-;@ROUTINE IN A OUT A,ZERO CLOBBERS DE,HL,CARRY,SIGN,PARITY,HALFCARRY
-; The record of the pool of handle type A, zero (Z) while it is only
-; forward.
-
-HN_REC:                        ; A is a handle's type.
-    SUB  AG_HND                    ; The pool's
-    RRCA                           ; index,
-    RRCA                           ; a quarter
-    AND  $3F                       ; of the offset:
-    CALL PL_AT                     ; its entry's
-    INC  HL                        ; record
-    INC  HL                        ; byte,
-    LD   A,(HL)                    ; zero if
-    OR   A                         ; forward.
-    RET                            ; A is it.
-
-;@ROUTINE OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The scalar type that holds the innermost select's handle (CT_FBND): u16
-; for an owner, u32 for an identifier's four bytes.
-
-HN_WIDE:                       ; The select's handle.
-    LD   A,(AC_BOUND)              ; Staged; fall into HN_WIDA.
-
-;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The scalar type that holds a handle of type A.
-
-HN_WIDA:                       ; A is a handle's type:
-    BIT  1,A                       ; an identifier?
-    LD   A,SY_U16                  ; An owner
-    RET  Z                         ; is a word,
-    LD   A,SY_U32                  ; an identifier
-    RET                            ; a long.
-
-;@ROUTINE OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; CaseLabels of a handle select: `some(NAME)`, at most once, or `none`,
-; at most once with case else (syntax at `case`, AC_SPOS); the subject
-; tested, JP Z to the next arm for some, JP NZ for none. Mode bit 2 is
-; some seen, bit 1 none or else, bit 7 that this arm is some.
-
-HN_ARM:                        ; After `case`.
-    CALL PR_PEEK                   ; some
-    CP   TK_SOME                   ; or
-    JR   Z,.SOME                   ; none?
-    CP   TK_NONE                   ; Anything else:
-    LD   A,DG_TOKEN+TK_ELSE        ; `else`
-    JP   NZ,DG_ISSUE               ; expected.
-    CALL PR_TAKE                   ; `none`:
-    LD   C,2                       ; bit 1,
-    CALL HN_ONCE                   ; once,
-    RES  7,(HL)                    ; not some;
-    LD   C,$C2                     ; JP NZ
-    JR   HN_TEST                   ; on; return.
-.SOME:                         ; `some`:
-    CALL PR_TAKE                   ; taken,
-    LD   C,4                       ; bit 2,
-    CALL HN_ONCE                   ; once,
-    SET  7,(HL)                    ; some.
-    CALL PR_LEFT                   ; `(`,
-    LD   E,TK_NAME                 ; the name
-    CALL PR_NEED                   ; to bind,
-    CALL EX_DECL                   ; retained,
-    CALL PR_RIGHT                  ; `)`.
-    LD   C,$CA                     ; JP Z on.
-
-;@ROUTINE IN C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Test the select's handle in its slot, LD A,H, OR L for an owner, CALL
-; ID_TEST for an identifier, and append the jump C to the next arm.
-
-HN_TEST:                       ; C is JP Z or JP NZ.
-    PUSH BC                        ; Kept.
-    LD   B,CT_FVAR                 ; The slot,
-    CALL CT_FWORD                  ; HL:
-    LD   B,CT_FBND                 ; the type
-    PUSH HL                        ; (the slot kept)
-    CALL CT_FBYTE                  ; of the handle,
-    LD   (AC_BOUND),A              ; staged,
-    CALL HN_WIDE                   ; its width:
-    POP  HL                        ; loaded
-    PUSH AF                        ; (kept)
-    CALL GX_FLOAD                  ; from the slot.
-    POP  AF                        ; An owner
-    CP   SY_U16                    ; is tested
-    JR   NZ,.ID                    ; LD A,H, OR L,
-    CALL EM_SEQ                    ; an identifier
-    DB   2,$7C,$B5                 ; by
-    JR   .JUMP                     ; the runtime:
-.ID:                           ; CALL
-    CALL EM_HELP                   ; ID_TEST.
-    DW   HP_IDTST                  ; Then
-.JUMP:                         ; the jump
-    POP  BC                        ; C
-    LD   B,CT_FCONT                ; to the next
-    JP   CT_GO                     ; arm; return.
-
-;@ROUTINE IN C OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Mode bit C of the select is set once: a second some, or a second none
-; or case else, is syntax at `case` (AC_SPOS). HL returns the mode's
-; address.
-
-HN_ONCE:                       ; C is the bit.
-    CALL CT_FLAGS                  ; The mode:
-    LD   A,(HL)                    ; the bit
-    AND  C                         ; already
-    LD   A,DG_STMT                 ; set
-    JR   NZ,.TWICE                 ; is syntax;
-    LD   A,(HL)                    ; else
-    OR   C                         ; it is
-    LD   (HL),A                    ; set.
-    RET                            ; HL is the mode.
-.TWICE:                        ; At `case`:
-    LD   HL,AC_SPOS                ; syntax.
-    JP   DG_AT                     ; No return.
-
-;@ROUTINE OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; CaseElse of a handle select: once, with none (syntax at `case`), the
-; subject tested, JP NZ to the next arm; the arm is reachable.
-
-HN_ELSE:                       ; After `case else`.
-    LD   C,2                       ; Bit 1,
-    CALL HN_ONCE                   ; once,
-    RES  7,(HL)                    ; not some.
-    LD   C,$C2                     ; JP NZ
-    CALL HN_TEST                   ; on.
-    JP   AC_LIVE                   ; Reachable; return.
-
-;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; CaseBody of a handle select: a some arm binds its name, retained
-; (EX_DECL), at the start of its block: to the routine's own owning local
-; (mode bit 6), a lease, an alias through the subject's slot (SY_LEASE),
-; of the pool's record; otherwise an identifier, non-optional, in four
-; bytes of its own, LD the slot, CALL ID_MAKE for an owner, then stored.
-; The arm is reachable.
-
-HN_TAKEN:                      ; The arm's body begins.
-    BIT  7,A                       ; A some arm?
-    JP   Z,AC_LIVE                 ; No: nothing to bind.
-    PUSH AF                        ; The mode, kept.
-    LD   B,CT_FBND                 ; The handle's
-    CALL CT_FBYTE                  ; type,
-    LD   (AC_BOUND),A              ; staged.
-    LD   B,CT_FVAR                 ; The
-    CALL CT_FWORD                  ; slot,
-    POP  AF                        ; HL. The mode:
-    BIT  6,A                       ; a lease?
-    JR   Z,.ID                     ; No: an identifier.
-    LD   B,H                       ; The slot is
-    LD   C,L                       ; the payload,
-    CALL EX_RENEW                  ; the name
-    LD   D,SY_AGGR+SY_PARAM+SY_PVAR+SY_LEASE ; a writable lease,
-    CALL EX_PREP                   ; declared;
-    LD   A,(AC_BOUND)              ; its type
-    CALL HN_REC                    ; the record.
-    JR   .TAG                      ; Committed.
-.ID:                           ; HL is the slot.
-    PUSH HL                        ; Kept.
-    LD   A,4                       ; Four bytes
-    CALL EM_ALLOC                  ; of its own,
-    EX   (SP),HL                   ; kept; the slot:
-    CALL HN_WIDE                   ; the handle
-    PUSH AF                        ; (its width)
-    CALL GX_FLOAD                  ; loaded;
-    POP  AF                        ; an owner's
-    CP   SY_U16                    ; identifier
-    JR   NZ,.STORE                 ; is made,
-    CALL EM_HELP                   ; CALL
-    DW   HP_IDMK                   ; ID_MAKE;
-.STORE:                        ; DEHL is the identifier,
-    POP  HL                        ; stored
-    PUSH HL                        ; (the place kept)
-    LD   A,SY_U32                  ; in its
-    CALL GX_FPUT                   ; four bytes.
-    POP  BC                        ; Its offset,
-    CALL EX_RENEW                  ; the name's
-    LD   D,SY_AGGR+SY_LOCAL        ; payload,
-    CALL EX_PREP                   ; declared;
-    LD   A,(AC_BOUND)              ; its type
-    AND  $FE                       ; an identifier,
-    OR   AG_HID                    ; not optional.
-.TAG:                          ; A is the type.
-    CALL SY_TAG                    ; Committed.
-    JP   AC_LIVE                   ; Reachable; return.
 
 ; ---------------------------------------------------------------- frees
 

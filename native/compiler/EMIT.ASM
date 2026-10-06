@@ -460,5 +460,6 @@ EM_LINE:                       ; A statement is about to be parsed.
     LD   A,(SRC_NUM)               ; its part's number in the stream
     LD   HL,(TK_LINE)              ; and its line.
     CALL BL_LINE                   ; Mark it.
+    CALL FW_STMT                   ; No owner is used or moved in it yet.
     POP  AF                        ; Restore A.
     RET                            ; Parse the statement.

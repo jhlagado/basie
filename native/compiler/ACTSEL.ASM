@@ -101,6 +101,7 @@ AC_PICK:
     CALL RO_NAMED                  ; the path parsed: a handle
     CALL PL_ISHND                  ; is selected
     JP   C,HN_SEL                  ; by its arms;
+    CALL .MOVE                     ; (no `move` of anything else)
     CALL RO_LOAD                   ; a scalar is loaded.
 .LOADED:                       ; A is its type.
     CALL .MOVE                     ; `move` is refused first.
@@ -168,7 +169,8 @@ AC_SOPEN:                      ; The subject is in its slot.
     LD   BC,8                      ; and the offset
     LDIR                           ; of `select`.
     LD   B,CT_FEXIT                ; Its end
-    JP   CT_NEW                    ; label; return.
+    CALL CT_NEW                    ; label;
+    JP   FW_ENTRY                  ; the arms start from the state now.
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; BeginCase: `some` and `none` select on a handle, not an integer
 ; (type-mismatch at them); otherwise the arm's body and next labels.
@@ -277,6 +279,7 @@ AC_FINAL:
     LD   B,CT_FSTEP                ; Its ranges
     CALL CT_FWORD                  ; are
     LD   (CT_RTOP),HL              ; free.
+    CALL FW_JOIN                   ; The arms' states met.
     JP   CT_POP                    ; Close the frame; return.
 .EMPTY:                        ; No arm with labels:
     LD   B,CT_FSTEP+2              ; syntax

@@ -1,0 +1,18 @@
+// An optional owner moved leaves none, which select tests.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var head as nodes?
+var g as u8
+var c as boolean
+sub main()
+    var a as nodes? = new nodes(1, none)
+    head = move a
+    select a
+    case some(x)
+        g = 1
+    end
+end

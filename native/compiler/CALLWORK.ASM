@@ -6,7 +6,7 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($5F00).
+;  from MM_WBASE ($6000).
 ;
 ;    Offset  Size  Block
 ;    +$BF5     56  routine state: counts, the signature being parsed, the
@@ -184,7 +184,13 @@ HN_MODE EQU  PL_TAB+PL_LEN*PL_CAP ; Byte: nonzero while HN_SEG only looks.
 HN_SEEN EQU  HN_MODE+1         ; Byte: nonzero once HN_SEG sees an owner.
 HN_AT EQU  HN_SEEN+1           ; Word: where HN_OWNV reports, or zero for the value.
 HN_RCK EQU  HN_AT+2            ; Word: the identifier slot RO_ASGN rechecks, or zero.
-PL_WEND EQU  HN_RCK+2          ; The end of the pools' bytes.
+HN_VKIND EQU  HN_RCK+2         ; Byte: FW_NONE or FW_VALUE, the last owning value's.
+FW_PTR EQU  HN_VKIND+1         ; Word: a snapshot's address (FLOW.ASM).
+FW_CB EQU  FW_PTR+2            ; Word: the routine FW_EACH runs.
+FW_PLACE EQU  FW_CB+2          ; Word: where a flow diagnostic is reported.
+FW_TMP EQU  FW_PLACE+2         ; Four bytes: a snapshot being made.
+FW_TAB EQU  FW_TMP+4           ; 64 bytes: each control frame's start and meet.
+PL_WEND EQU  FW_TAB+8*CT_FCAP  ; The end of the pools' and flows' bytes.
 
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.

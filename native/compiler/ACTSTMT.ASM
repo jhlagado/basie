@@ -514,6 +514,19 @@ AC_GOTO:
     PUSH DE                        ; Keep it.
     CALL CT_LOOP                   ; HL addresses the innermost loop's frame.
     PUSH HL                        ; (kept)
+    PUSH AF                        ; The loop's index, kept.
+    LD   HL,4                      ; The field,
+    ADD  HL,SP                     ; under them:
+    LD   A,(HL)                    ; exit's
+    CP   CT_FEXIT                  ; (Z) or continue's.
+    POP  BC                        ; B is the index;
+    LD   A,B                       ; exit's state
+    PUSH AF                        ; meets the loop's,
+    CALL Z,FW_EXIT                 ; continue's back
+    POP  AF                        ; edge is
+    PUSH AF                        ; checked
+    CALL NZ,FW_CONT                ; (A the index).
+    POP  AF                        ; A is the index.
     CALL HN_EXIT                   ; The owners from it in are freed.
     POP  HL                        ; The frame.
     POP  DE                        ; The field,
@@ -613,7 +626,10 @@ AC_THEN:
 ; (condition); the block that follows is reachable.
 
 AC_TEST:
-    CALL HN_KEEPF                  ; The condition's temporaries stay.
+    CALL HN_KEEPF                  ; The condition's temporaries stay,
+    PUSH BC                        ; (B kept)
+    CALL FW_ENTRY                  ; and the arm starts from the state now.
+    POP  BC                        ; B.
     CALL AC_BOOL                   ; Check the condition; B is kept.
     CALL CT_IFNOT                  ; Branch there when it is false.
     JP   AC_LIVE                   ; The block starts reachable.
@@ -624,7 +640,8 @@ AC_TEST:
 
 AC_ARM:
     CALL CT_NOTE                   ; Record whether the arm falls through.
-    CALL CT_BLOCK                  ; The arm's block ends.
+    CALL CT_BLOCK                  ; The arm's block ends;
+    CALL FW_ARM                    ; its state met, the start restored.
     LD   BC,CT_FEXIT*256+$C3       ; JP
     JP   CT_GO                     ; to the end; return.
 
@@ -662,7 +679,8 @@ AC_ELSE:
 
 AC_TOTAL:
     CALL CT_NOTE                   ; Record whether the arm falls through.
-    CALL CT_BLOCK                  ; Its block ends.
+    CALL CT_BLOCK                  ; Its block ends;
+    CALL FW_ARMM                   ; its state met.
     CALL CT_FLAGS                  ; HL addresses the if's flags.
     SET  1,(HL)                    ; Every case has an arm.
     RET                            ; Back to the engine.
@@ -681,6 +699,7 @@ AC_ENDIF:
     XOR  2                         ; Bit 1 now says there is none;
     AND  3                         ; nonzero if the if completes.
     LD   (CT_FALLS),A              ; Record it.
+    CALL FW_JOIN                   ; The arms' states met.
     JP   CT_POP                    ; Close the frame and return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
@@ -709,7 +728,8 @@ AC_DO:
 ; A loop can always finish.
 
 AC_LOOP:
-    CALL CT_BLOCK                  ; The body's block ends.
+    CALL CT_BLOCK                  ; The body's block ends;
+    CALL FW_LOOP                   ; its back edge, the paths met.
     LD   BC,CT_FCONT*256+$C3       ; JP
     CALL CT_GO                     ; back to the test.
 
@@ -1015,6 +1035,7 @@ AC_FORDO:
 .DOWN:                         ; A is the mode.
     CALL CT_PAST                   ; JP C, and for until JP Z, to the exit.
 .BODY:                         ; The body starts here,
+    CALL FW_ENTRY                  ; from the state now,
     JP   AC_ENTER                  ; reachable; return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
@@ -1030,7 +1051,8 @@ AC_FORDO:
 ; the body, define the exit and close the frame.
 
 AC_NEXT:
-    CALL CT_BLOCK                  ; The body's block ends.
+    CALL CT_BLOCK                  ; The body's block ends;
+    CALL FW_LOOP                   ; its back edge, the paths met.
     LD   B,CT_FCONT                ; The next value
     CALL CT_DEF                    ; starts here.
     CALL CT_MODE                   ; A long counter

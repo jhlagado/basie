@@ -113,6 +113,7 @@ RO_BACK:                       ; The block is RO_PWORD words.
 
 RO_NAMED:
     LD   HL,(TK_POS)               ; The root's offset,
+    LD   (FW_PLACE),HL             ; where a use of it is reported,
     PUSH HL                        ; kept across the path.
     CALL RO_SYM                    ; A is the type, D the class, BC the payload.
     LD   (RO_OTYPE),A              ; The path's type.
@@ -1037,13 +1038,11 @@ RO_LET:
     OR   A                         ; cannot be
     JP   NZ,RO_EROOT               ; assigned: raise DG_CONST at it.
     POP  AF                        ; The target's type.
+    CALL HN_NOTE                   ; Its root used or moved (flow).
     CALL PL_ISHND                  ; A handle's type-mismatch
     JR   NC,RO_ASGN                ; is reported
     LD   HL,(EX_START)             ; at the target
-    LD   (HN_AT),HL                ; (assign's at),
-    PUSH AF                        ; (the type kept)
-    CALL HN_GUARD                  ; not leased;
-    POP  AF                        ; fall into RO_ASGN.
+    LD   (HN_AT),HL                ; (assign's at); fall into RO_ASGN.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Assign to the path in hand (RO_PLACE), of type A, its value parsed: as

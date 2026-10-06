@@ -1,0 +1,15 @@
+// A field's owner moved out of a record reached through an owning local.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var head as nodes?
+var g as u8
+var c as boolean
+sub main()
+    var a = new nodes(1, new nodes(2, none))
+    head = move a.next
+    g = a.value
+end

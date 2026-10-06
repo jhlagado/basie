@@ -125,6 +125,9 @@ const CONFORMANCE: Record<string, string> = {
   NEWSEL: "tests/conformance/storage/new-and-select.bsi",
   NEWFULL: "tests/conformance/storage/new-optional-when-full.bsi",
   NEWTRAIL: "tests/conformance/storage/new-trailing-fields.bsi",
+  MOVELEAV: "tests/conformance/storage/move-leaves-none.bsi",
+  MOVENONE: "tests/conformance/storage/move-none.bsi",
+  SELMOVEC: "tests/conformance/storage/select-move.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -306,6 +309,14 @@ const CLAIMED: Record<string, string[]> = {
     "CONDTMPW",
     "LOCTMP",
     "LEASEIN",
+    "MOVEARMS",
+    "MOVELOOP",
+    "MOVEOPT",
+    "MOVEFLD",
+    "SELMOVE",
+    "MOVELEAV",
+    "MOVENONE",
+    "SELMOVEC",
   ],
 };
 
@@ -1472,6 +1483,32 @@ const REFUSED: Record<string, string> = {
     "record Leaf\n    v as u8\n    s as string[3]\nend\nrecord Outer\n    w as u8\n    inn as Leaf\n    arr as Leaf[2]\nend\npool outers as Outer[3]\nvar go as outers?\nvar gl as Leaf\nvar g as u8\nsub fv(r as Leaf)\n    g = r.v\nend\nsub fr(var r as Leaf)\n    r.v = 1\nend\nsub fs(var s as string[])\nend\nsub fo(var o as Outer)\nend\nsub main()\n    select go\n    case some(x)\n        fs(x.inn.s)\n    end\nend\n",
   "a field through an identifier passed to a var parameter (T04)":
     "record Leaf\n    v as u8\n    s as string[3]\n    arr as u8[2]\nend\npool leaves as Leaf[3]\nvar g as u8\nvar gh as leaves?\nsub fs(var s as string[])\nend\nsub fa(a as u8[])\nend\nsub main()\n    select gh\n    case some(j)\n        fs(j.s)\n    end\nend\n",
+  "use after move":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    head = move a\n    g = a.value\nend\n",
+  "use after a move in one arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    if c\n        head = move a\n    end\n    g = a.value\nend\n",
+  "loop moves an owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    while c\n        head = move a\n    end\nend\n",
+  "loop moves an owner, continue":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    while c\n        head = move a\n        if c\n            continue\n        end\n        a = new nodes(2, none)\n    end\nend\n",
+  "for moves an owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    var i as u8\n    for i = 1 to 3\n        head = move a\n    end\nend\n",
+  "exit after a move":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    while c\n        head = move a\n        exit\n    end\n    g = a.value\nend\n",
+  "statement rule: move and use":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    a.next = move a\nend\n",
+  "move of a non-owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    g = 1\n    head = move g\nend\n",
+  "move of a lease subject in its arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n        head = move a\n    end\nend\n",
+  "select on a moved owner":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    var b as nodes? = move a\n    select a\n    case some(x)\n    end\nend\n",
+  "select move of a non-optional":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    select move a\n    case some(x)\n    end\nend\n",
+  "integer select arms merge moves":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    select g\n    case 1\n        head = move a\n    case else\n        g = 2\n    end\n    g = a.value\nend\n",
+  "inferred move":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar head as nodes?\nvar g as u8\nvar c as boolean\nsub main()\n    var a = new nodes(1, none)\n    var b = move a\n    g = b.value\n    g = a.value\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 

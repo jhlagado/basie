@@ -236,7 +236,14 @@ with `select` on handles, $200 more (`$5E00`, about 22.8K), and $100 more
 after its review (`$5F00`, about 22.5K). The pool declarations' actions
 then moved into the `OWNERS` overlay (918 bytes with the descriptor
 writer), so the image shrank by 478 bytes, leaving room below `$5F00`
-for the rest of 67g.
+for the rest of 67g. The flow check of owning handles (`FLOW.ASM`) keeps
+each owner's state in byte 7 of its symbol record and, for each control
+frame, a four-byte snapshot of the owners' states and a four-byte meet
+(`FW_TAB`, 64 bytes), so at most 16 owners may be in scope at once (`owners`,
+Error 190, beyond); the table pushed the LL(1) stack a page up, and the
+image's growth the workspaces another $100 (`MM_WBASE` `$6000`), so the
+source area is about 21.9K on a 62K system, below the 22K the plan
+expected before the streaming source of 67h.
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each
 scope from the control frames' counts.

@@ -103,6 +103,7 @@ CT_PUSH:
     ADD  HL,DE                     ; the symbols
     LD   A,(SY_CNT)                ; in scope,
     LD   (HL),A                    ; kept.
+    CALL FW_OPEN                   ; Its flows are empty.
     POP  HL                        ; HL is the frame.
     RET                            ; The construct may fill it.
 
