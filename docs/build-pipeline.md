@@ -5,8 +5,6 @@
 - Specifications: [object format](object-format.md), [linker](linker.md),
   [toolchain](toolchain.md), [CP/M target](cpm-target.md)
 - Research: [linker prior art](research/linker-prior-art.md)
-- Replaces: the final-address model of the Nucleus Object Stream Format 0.1
-  (`../../nucleus/docs/nucleus-object-format.md`)
 
 This document explains why Basie builds programs the way it does and how the
 pieces fit together. The four specifications above define the details; where
@@ -35,9 +33,9 @@ routines, constants, variables and runtime helpers the program can reach.
 
 ## 2. Why a linker
 
-Nucleus emitted every byte at its final address as soon as it generated it.
-Forward references became patch records; backward references were written
-straight into the image.
+A compiler could emit every byte at its final address as soon as it generated
+it, turning forward references into patch records and writing backward
+references straight into the image.
 
 Under that model a single-pass compiler cannot drop unused code. A routine's
 last possible caller may be the final line of the source, so the routine's
@@ -131,15 +129,15 @@ reference.
 ## 6. The compiler's side
 
 The specifications define what the compiler must write. This section records
-how the compiler changes from Nucleus to write it.
+what the compiler does to write it.
 
-### 6.1 What the compiler stops doing
+### 6.1 What the compiler does not do
 
-- It no longer knows any final address.
-- It no longer keeps a program-wide table of unresolved call sites.
-- It no longer emits patch records or a placed image.
+- It knows no final address.
+- It keeps no program-wide table of unresolved call sites.
+- It emits no patch records and no placed image.
 
-### 6.2 What the compiler starts doing
+### 6.2 What the compiler does
 
 - It chooses a compilation stamp and writes it into the header of every stream.
 - It assigns an ordinal to each blob as it meets the declaration, including at
@@ -181,14 +179,13 @@ When the deferred list fills, further literals are placed inline, which makes
 their references in-order. Jump tables go after the arms they dispatch to, so a
 table costs one deferred reference, not one per entry. So no count of
 references limits a routine; the only per-routine table is the labels not yet
-defined, one word each, bounded by nesting. This replaces Nucleus's
-program-wide table of unresolved call sites, and revision 5's limit of 512
-references per routine.
+defined, one word each, bounded by nesting. No program-wide table of unresolved
+call sites is needed.
 
 ### 6.3 Shorter forward branches
 
 A streaming compiler must emit a forward branch before it knows the distance,
-so Nucleus uses a 3-byte `JP` where a 2-byte `JR` would often do. With a bounded
+so it must choose a 3-byte `JP` where a 2-byte `JR` would often do. With a bounded
 routine buffer, the compiler can recover most of that byte:
 
 1. Generate the routine into the buffer, emitting every forward local branch as
@@ -255,9 +252,9 @@ code never tail-calls a runtime helper, because a trap inside the helper would
 then report the wrong call site ([CP/M target](cpm-target.md), Section 10.2).
 
 Blobs may not fall through into one another or share code by adjacency. A tail
-the Nucleus backend shared between routines becomes an explicit `JP` to a
-shared blob. The loss is small: a cross-routine tail was already a `JP` unless
-the two routines happened to be adjacent. Hand-written runtime helpers that fall
+shared between routines is an explicit `JP` to a shared blob. The loss is
+small: a cross-routine tail would be a `JP` anyway unless the two routines
+happened to be adjacent. Hand-written runtime helpers that fall
 into one another are either one blob with aliases for their extra entry points,
 or separate blobs joined by `JP`, whichever lets programs carry less.
 
@@ -267,9 +264,9 @@ The linker removes them. The compiler may still warn about a routine that is
 never referenced, since it knows at the end of input, but the warning is
 advisory.
 
-## 7. Comparison with Nucleus
+## 7. Compared with placing code at emission
 
-| | Nucleus NOBJ 0.1 | Basie |
+| | Final addresses at emission | Basie |
 | --- | --- | --- |
 | Addresses chosen by | compiler, at emission | linker, after liveness is known |
 | Unused code removed | no | yes: routines, data, constants, runtime helpers |
@@ -280,7 +277,7 @@ advisory.
 | Output | image and patch spools, merged by a materializer | written in address order by the linker |
 | Executables | compiler, plus a materializer | compiler `BASIE.COM` (26K target, 28K limit), then linker `BLINK.COM`, chained automatically |
 
-What carries over from Nucleus: append-only output files, a CRC that makes
+What does not depend on placement is kept: append-only output files, a CRC that makes
 partial output unusable, a publication sequence that never destroys the
 previous good output, and the separation between compiling a program and the
 target it runs on.

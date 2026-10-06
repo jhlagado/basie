@@ -98,7 +98,7 @@ source, at a size fixed when the program is linked.
 
 ## 4. Aliases
 
-As in Nucleus, an alias exists only as a parameter, for the length of a call, or
+An alias exists only as a parameter, for the length of a call, or
 as a result the caller uses at once. It can't be stored in a variable, field or
 array, and source code can't see its address.
 
@@ -374,7 +374,7 @@ For each owning local and owning parameter, the compiler tracks whether it
   condition.
 
 **Evaluation order.** Expressions and arguments are evaluated in source order,
-left to right, as in Nucleus, except where Section 5.3 states the order of an
+left to right, except where Section 5.3 states the order of an
 assignment. A local's flow state changes at the point of its `move`.
 
 **The statement rule.** Within one statement, an owning local or parameter that
@@ -637,7 +637,7 @@ subtrees; `parent` is `id trees?`. Removing a subtree is one assignment of
 `vertices as verts?[32]`; edges are `id verts?`. Removing a vertex makes every
 edge to it stale, and a sweep drops them with `select`, which never traps.
 
-**A Nucleus-style free list** over a program array with integer links still
+**A free list** over a program array with integer links still
 compiles and is memory safe by bounds checking, but detects no stale index.
 
 ## 9. What Basie gives up

@@ -110,7 +110,7 @@ the carry set.
 Expressions are evaluated left to right into the result registers of Section
 1. A binary operation evaluates its left operand, pushes it (one or two words),
 evaluates its right operand, pops the left into `DE` (or `BC:DE` for 4 bytes)
-and operates. This is the Nucleus scheme; it needs no register allocation and
+and operates. This scheme needs no register allocation, and
 its stack use is bounded by the expression nesting, which is counted into the
 frame.
 
@@ -166,8 +166,8 @@ into every program it compiles.
 
 ## 9. Why these choices
 
-- **Stack frames, not an arena.** Nucleus's bounded activation arena fixed
-  recursion depth at 8. Frames on the stack cost two instructions per call
+- **Stack frames, not an arena.** A bounded activation arena would fix
+  recursion depth at a small constant. Frames on the stack cost two instructions per call
   and make depth a property of memory, checked by the stack bound.
 - **Callee removes arguments.** One shared epilogue per routine instead of a
   stack adjustment at every call site; `RETN` makes it 5 bytes per routine.

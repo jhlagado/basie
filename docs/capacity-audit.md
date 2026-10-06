@@ -26,11 +26,10 @@ A test sets a minimum, and must not quietly set the maximum as well.
 
 ### 1.0 Why this is permanent
 
-Basie inherits Nucleus, which carried many unexamined assumptions, and its
-development is driven largely by an LLM, which tends to choose the value that
-satisfies an acceptance test rather than the best trade-off across the whole
-machine. Every limit is therefore a **trade-off to be argued**, not a number to
-be inherited. The machine is 64K: the operating system, the compiler, its
+Basie's development is driven largely by an LLM, which tends to choose the
+value that satisfies an acceptance test rather than the best trade-off across
+the whole machine. Every limit is therefore a **trade-off to be argued**, not a
+number to be carried over. The machine is 64K: the operating system, the compiler, its
 workspace, and later the finished program and its own data all share it, so
 nothing is unlimited, and a limit that is merely byte-convenient (255, 256)
 may be perfectly good, while a limit of 8 of anything is almost always a
@@ -67,13 +66,12 @@ user meets them as a rule of the language.
 | Implementation | State | Where |
 | --- | --- | --- |
 | Reference toolchain (TypeScript) | Object format, linker, publication, blob-library tool and lexer written; compiler not yet | `ref/`, `tools/` |
-| Native `BASIE.COM` | Not yet written. It will be forked from the Nucleus compiler (roadmap M7, step 64), so Nucleus's fixed tables are what it **inherits** unless each is replaced deliberately | `../nucleus/asm/vertical-slice/*.asmi` |
+| Native `BASIE.COM` | Written; several of its tables are still fixed sizes below the Basie minimums (Section 4), each to be replaced deliberately | `native/compiler/` |
 | Native `BLINK.COM` | Phases A to E written: .COM, .BIN and Intel HEX, options R, B, V, N, M and Y; ROM profiles refused | `native/linker/` |
 | `CPM22` runtime | Minimal library written | `runtime/cpm22/` |
 
-The Nucleus constants are recorded so that none of them crosses into Basie by
-accident. [Limits](limits.md) §6 already lists the main ones. This audit adds
-their source constant names.
+Section 4 lists the native compiler's fixed tables with their source constant
+names, so that none of them becomes a Basie limit by accident.
 
 ### 1.2 Overflow classes
 
@@ -91,8 +89,8 @@ acceptable.
 
 ## 2. Open items and their trade-offs
 
-These are the places where an estimate, a convenient size or an inherited
-value is currently acting as a ceiling. Each has a short discussion and, where
+These are the places where an estimate, a convenient size or a fixed table
+is currently acting as a ceiling. Each has a short discussion and, where
 one is defensible now, a **working position**: what we live with for the
 moment, not a ruling. Rulings go to [design decisions](design-decisions.md).
 
@@ -148,7 +146,7 @@ one routine", bounded by nesting.
 **Trade-offs.**
 
 - *Keep it.* Smallest header, 8-bit length arithmetic on a Z80, `.length` is a
-  `u8`, Nucleus's library and semantics carry over unchanged. Large text goes in
+  `u8`, and the library and semantics stay as they are. Large text goes in
   `u8[]` buffers with an explicit length variable, which is clumsy.
 - *16-bit length and capacity.* Two more header bytes per string, every length
   operation is 16-bit (bigger and slower on the Z80), `.length` becomes `u16`
@@ -161,14 +159,13 @@ one routine", bounded by nesting.
 **Settled for version 1** (step 57, on this working position). Live with 253 for version 1: the specification and the
 library are written to it, and a program that needs more has `u8[]`. Record the
 vector model as the version 2 question, with the explicit note that the length
-representation (one byte or two) is to be chosen then, not inherited.
+representation (one byte or two) is to be chosen then, on its merits.
 
-### 2.3 Inherited Nucleus tables (Implementation)
+### 2.3 The native compiler's fixed tables (Implementation)
 
-Every Nucleus table in Section 4 is a defect if it survives the fork
-unchanged. **Working position:** at roadmap step 64 the fork is audited
-table by table against Section 4 before any Basie feature is added, and each
-table gets a named constant, a budget and an overflow class.
+Every table in Section 4 is a defect if it stays below the Basie minimum it
+serves. **Working position:** each table has a named constant, a budget and an
+overflow class, and is replaced deliberately, at the step named for it.
 
 **At step 65.2** the tables are unchanged. `BASIE.COM` adds a CP/M shell with
 three limits of its own, all Reject class and all temporary: eight source parts
@@ -232,8 +229,8 @@ nesting, initializer depth, constant-expression nesting and line entries per
 routine have no entry. Each is listed as TBD in Section 3 with a first
 classification. For include depth the practical cost is small (a file position
 and a name per open level, or a 36-byte FCB if the file stays open), so a
-byte-convenient maximum would be generous; **8** would be the kind of inherited
-value to refuse.
+byte-convenient maximum would be generous; **8** would be the kind of
+convenient value to refuse.
 
 ### 2.6 The blob-library tool's 240-blob ceiling (Implementation, tool only)
 
@@ -252,13 +249,13 @@ identifier length to §5 and marks string capacity as under review.
 ## 3. Inventory
 
 Entries follow the user's numbering. "Ref" is the reference toolchain;
-"native" is the planned native toolchain; "Nucleus" is the inherited value.
+"native" is the native toolchain.
 
 ### 3.1 Top-level names
 
 - **Minimum:** 1,000 ([limits](limits.md) §5.1).
-- **Maximum:** ref: memory (JavaScript maps). Native: TBD. Nucleus:
-  `SymbolCapacity` = 16, a fixed table.
+- **Maximum:** ref: memory (JavaScript maps). Native: TBD; 96 records
+  (`SY_CAP`) today, a fixed table (Section 4).
 - **Cause:** native symbol table size within the 32K workspace.
 - **Overflow:** must be Reject (capacity diagnostic).
 - **Status:** TBD. The native table needs an explicit workspace budget, not
@@ -268,11 +265,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 - **Minimum:** 128 visible in one routine ([limits](limits.md) §5.1).
 - **Maximum:** ref: memory. Native: TBD; at 65.4 (d) locals share the 96
-  records of `SY_CAP` with the program's names. Nucleus: locals share
-  `SymbolCapacity` (16), and are scalar only.
-- **Check:** 128 must remain a minimum, not a table size. Nucleus's
-  scalar-only-local rule is gone from the language (D8); the fork must not
-  keep it in the implementation.
+  records of `SY_CAP` with the program's names.
+- **Check:** 128 must remain a minimum, not a table size. Locals may be
+  aggregates (D8); the native compiler must not restrict them to scalars.
 - **Status:** TBD.
 
 ### 3.3 Parameters and arguments
@@ -281,9 +276,7 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   ([limits](limits.md) §5.1).
 - **Maximum:** ref: memory. Native: TBD; at 65.4 (e) 64 parameters in the
   whole program (`RO_PCAP`) with at most 255 bytes of arguments per routine,
-  and calls nested eight deep in arguments. Nucleus:
-  `Stage7ParameterCapacity` = 16 (a program-wide parameter table),
-  `Stage7CallFrameCapacity` = 4.
+  and calls nested eight deep in arguments (`RO_NCAP`).
 - **Also bounded:** per-parameter metadata (`var`, owning, lease and owner-word
   flags, `from` membership) and result metadata. Encoding widths are TBD.
 - **ABI:** the calling convention is not yet fixed (roadmap steps 37 and 56), so any
@@ -353,10 +346,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.7 Type descriptors
 
 - **Minimum:** TBD; not in the limits register.
-- **Maximum:** ref: memory. Native: TBD. Nucleus: `AggregateTypeCapacity` = 8
-  interned aggregate types, `AggregateRecordCapacity` = 5,
-  `AggregateFieldCapacity` = 12 fields in total; type-metadata capacity has its
-  own diagnostic. At 65.4 (h) the native compiler holds 24 types
+- **Maximum:** ref: memory. Native: TBD; type-metadata capacity has its own
+  diagnostic. At 65.4 (h) the native compiler holds 24 types
   (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all (`AG_FCAP`),
   `DG_META` beyond, and an array type of up to eight dimensions
   (`AG_DCAP`, `DG_BOUND` beyond), whose bounds wait until the type is
@@ -370,8 +361,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.8 Identifier length
 
 - **Value:** 255 bytes ([limits](limits.md) §2, listed as a language limit).
-- **Cause:** a one-byte length, in Nucleus's source-backed names and in the
-  name stream (31 bytes there, truncated for reports only).
+- **Cause:** a one-byte length, in the compiler's names and in the name
+  stream (31 bytes there, truncated for reports only).
 - **Question:** the spec (§3.5) makes the full spelling the identity and lets
   an implementation impose a published maximum. So 255 is an implementation
   maximum, not a language rule. The register should move it from §2 to §5.
@@ -380,9 +371,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.9 Total name storage
 
 - **Minimum:** TBD. **Maximum:** TBD.
-- **Note:** Nucleus keeps names in the source ("source-backed"), which costs no
-  name pool but needs the source in memory or re-readable. Basie reads source
-  from disk in 128-byte records, so the native compiler must copy names. The
+- **Note:** names kept in the source ("source-backed") cost no name pool but
+  need the source in memory or re-readable. Once Basie reads source from disk
+  in 128-byte records, the native compiler must copy names. The
   byte budget for them is part of §3.6.
 - **Status:** TBD.
 
@@ -411,7 +402,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.12 Records
 
 - **Values:** extent at most 65,535 bytes. Fields per record: minimum 64
-  ([limits](limits.md) §5.1). Nucleus: 12 fields in total across all records.
+  ([limits](limits.md) §5.1); native today 48 in all records together
+  (`AG_FCAP`).
 - **Field offsets:** 16-bit. Nesting depth and descriptor size: TBD.
 - **Status:** field count and nesting TBD.
 
@@ -460,7 +452,7 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 ### 3.17 Source parts
 
-- **Value:** 255 ([limits](limits.md) §3). Nucleus: `SourcePartCapacity` = 8.
+- **Value:** 255 ([limits](limits.md) §3).
 - **Cause:** one-byte part numbers in the line stream (format §8) and the line
   table. A representation maximum.
 - **Status:** confirmed as a format maximum. The native compiler's, from
@@ -494,8 +486,7 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 ### 3.20 Block and statement nesting
 
-- **Minimum:** 32 ([limits](limits.md) §5.1). Nucleus: `ControlFrameCapacity`
-  = 8.
+- **Minimum:** 32 ([limits](limits.md) §5.1).
 - **Maximum:** TBD. Scope marks and flow states per open block are part of
   the cost.
 - **Native compiler at 65.4 (f):** 8 open `if`, `while`, `for` and `handle`
@@ -506,19 +497,18 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 ### 3.21 Expression nesting
 
-- **Minimum:** 32 ([limits](limits.md) §5.1). Nucleus:
-  `ExpressionStackCapacity` = 16, `HybridLL1StackCapacity` = 64.
+- **Minimum:** 32 ([limits](limits.md) §5.1). Native: 16 operand-stack
+  entries (`EX_STCAP`) and a 64-symbol grammar stack (`LL_CAP`).
 - **Distinguish:** parentheses, operator depth, call nesting, constant
   expressions and initializer nesting. TBD for each.
 - **Status:** TBD.
 
 ### 3.22 Aggregate initializers
 
-- **Depth minimum:** 32 ([limits](limits.md) §6). Nucleus:
-  `AggregateInitializerDepthCapacity` = 4.
+- **Depth minimum:** 32 ([limits](limits.md) §5.1). Native: 4 (`AG_LCAP`).
 - **Size:** no compiler limit; initialized data is streamed to the object files
-  ([limits](limits.md) §5.1). Nucleus: `AggregateInitializerCapacity` and
-  `StaticImageCapacity` = 1,024 bytes.
+  ([limits](limits.md) §5.1). Native: one object's initializer is staged in
+  1,024 bytes (`AG_ICAP`).
 - **Status:** depth TBD; size confirmed by design.
 
 ### 3.23 Constant expressions
@@ -542,13 +532,12 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   increment is checked mathematically and traps with `loop-range` rather than
   wrapping.
 - **Status:** confirmed. The native code generator must handle every integer
-  width; inherited 8-bit-only paths would be defects.
+  width; 8-bit-only paths would be defects.
 
 ### 3.25 Routines
 
-- **Compiler:** part of the 1,000 top-level names. Nucleus:
-  `Stage7RoutineCapacity` = 4; native at 65.4 (e), 32 routines besides
-  main (`RO_RCAP`).
+- **Compiler:** part of the 1,000 top-level names; native at 65.4 (e), 32
+  routines besides main (`RO_RCAP`).
 - **Format:** program ordinals, 64,480 (§3.27).
 - **Linker:** 2,000 program blobs minimum ([limits](limits.md) §5.2).
 - **Status:** compiler maximum TBD.
@@ -557,7 +546,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 - One combined minimum (1,000 names) covers variables, constants, routines,
   records and pools. **Check** that the native compiler has no smaller
-  per-category table hiding inside it, as Nucleus does (records 5, routines 4).
+  per-category table hiding inside it. Today it has two: 16 records
+  (`AG_RCAP`) and 32 routines (`RO_RCAP`).
 - **Status:** TBD.
 
 ### 3.27 Object-format ordinals and counts
@@ -627,43 +617,40 @@ comes from its method.
 | Stack reserve | `need(main)` + guard band, raised by `STACK=` | confirmed |
 | Guard band | profile value, 64 bytes in `CPM22` | confirmed |
 | Helper stack figures | computed per helper by `tools/stack.ts`; the largest ending path is 26 bytes, within the guard band ([helper table](helper-table.md)) | confirmed; a test checks every ending path against the guard band and every measured figure against the computed one |
-| Nucleus | `ActivationCapacity` = 8, a fixed activation-depth limit | must not be inherited |
 
 No conservative estimate here may become a language restriction. `need(R)` is
 computed exactly from frames and helper figures.
 
-## 4. Nucleus constants the native compiler would inherit
+## 4. The native compiler's fixed tables
 
-From Nucleus's `asm/vertical-slice/*.asmi`, now `native/compiler/STATE.ASM`
-and `CALLWORK.ASM` under ATOM names. Each is a defect if it survives the fork
-unchanged. Rows marked *gone* were removed with placed output at step 65.4.
+`native/compiler/STATE.ASM`, `CALLWORK.ASM` and the modules named. Each is a
+defect if it stays below the Basie minimum it serves; each has a named
+constant, a capacity diagnostic and a budget to argue.
 
-| Nucleus constant | Value | Basie replacement |
-| --- | ---: | --- |
-| `SymbolCapacity` | 16 | §3.1, §3.2: at least 1,000 names and 128 locals. At 65.4 (d), 96 records (`SY_CAP`, seven bytes each) shared by the program's names and the current routine's parameters and locals, the aggregate type held in the record; at 67a its open blocks' locals and local constants, released at each block's end; at 67b nine bytes each, a scalar constant's five-byte value in the record; a hashed table with a name heap replaces it in step 67's capacity stage |
-| `Stage7RoutineCapacity` | 4 | §3.25. At 65.4 (e), 32 records of twelve bytes (`RO_RCAP`) holding each routine's ordinal, need and argument bytes |
-| `Stage7ParameterCapacity` | 16 (program-wide) | §3.3: at least 32 per routine. At 65.4 (e), 64 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine |
-| `Stage7CallFrameCapacity` | 4 | §3.21: call nesting. At 65.4 (e) a call being parsed keeps its state on the machine stack; calls nest eight deep in arguments (`RO_NCAP`) |
-| `AggregateRecordCapacity` | 5 | §3.7, §3.26. At 65.4 (h), 16 (`AG_RCAP`) |
-| `AggregateFieldCapacity` | 12 (in total) | §3.12: at least 64 per record. At 65.4 (h), 48 in all records together (`AG_FCAP`) |
-| `AggregateTypeCapacity` | 8 | §3.7. At 65.4 (h), 24 (`AG_TCAP`) |
-| `AggregateInitializerDepthCapacity` | 4 | §3.22: at least 32 |
-| `AggregateInitializerCapacity`, `StaticImageCapacity` | 1,024 bytes | the static image is *gone* (each declaration is written as its blob at once); one object's initializer is still staged in 1,024 bytes (`AG_ICAP`), to be streamed |
-| `ControlFrameCapacity` | 8 | §3.20: at least 32. At 65.4 (f) still 8 (`CT_FCAP`), each frame sixteen bytes (eighteen at 67b) holding its labels, the label count and frame size to restore, and a for loop's counter, bound and step |
-| `ExpressionStackCapacity` | 16 | §3.21: at least 32. At 67b still 16 (`EX_STCAP`), each entry sixteen bytes: the left operand's five-byte value and the two operands' first offsets |
-| `HybridLL1StackCapacity` | 64 | parser stack, TBD |
-| `EmitControlFixupCapacity`, `EmitControlLabelCapacity` | 32 each | fixups *gone*: pending operands are chained through their references' addend words (`EMIT.ASM`, no limit); labels are per routine, 32 in use at once (`EM_LCAP`), released by nesting from 65.4 (f), §3.4 |
-| `EmitBooleanFixupCapacity` | 16 | *gone*: `and` and `or` use routine labels |
-| `SourcePartCapacity` | 8 | §3.17: 255. From 67a, 255 while memory lasts, in a part table that grows down from the top of the source area (`SOURCE.ASM`); 8 on the command line |
-| `ActivationCapacity` | 8 | §3.30: memory |
-| `SegmentCapacity` | 4 | *gone*: object-format blobs |
-| `ServiceInputCapacity` and similar | 4 | `F=n` file table, §3.16 |
-| Predefined names (`KW_NAMES`) | 6 services, 4 error constants | the reference's 58 predeclared names, generated from its helper table into `PREDEF.ASM` at 65.4 (i): no capacity of their own, the services' records being read in place |
-| `GeneratedRoDataCapacity` | 1K | *gone*: each constant is its own rodata blob |
-| `RuntimeProgramDataCapacity`, `RuntimeReadOnlyCapacity` | 2K, 4K | *gone*: the linker places everything |
-| Semantic transcript | 511 bytes, 255 operations, for the whole program | *gone*: code is generated as it is parsed, into a routine's blob ([native compiler](native-compiler.md) §2); the constructs not yet moved are refused (`DG_NYI`) |
-| Routine label ordinals | 5 bits, shared with control labels | blobs take 16-bit ordinals from `$0400` (`RG_ORD`); control labels are routine labels from 65.4 (f), and the program-wide count (`CT_LABNO`, 27 labels) is gone |
-| LL(1) terminal encoding | 64 terminal kinds (`$00`–`$3F`) | Basie needs 79 token kinds; only the grammar's terminals must be below `$40` (67a), and at 67b the eight type keywords became one terminal, `TK_TYPE`, its payload the type: 42 terminals (native compiler §2) |
+| Table | Native today | Basie target |
+| --- | --- | --- |
+| Symbol records | 96 (`SY_CAP`), nine bytes each, shared by the program's names and the current routine's parameters, locals and local constants, released at each block's end; the aggregate type and a scalar constant's five-byte value held in the record | §3.1, §3.2: at least 1,000 names and 128 locals; a hashed table with a name heap replaces it in step 67's capacity stage |
+| Routine records | 32 besides main (`RO_RCAP`), twelve bytes each, holding each routine's ordinal, need and argument bytes | §3.25 |
+| Parameters | 64 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine | §3.3: at least 32 per routine |
+| Calls nested in arguments | 8 (`RO_NCAP`); a call being parsed keeps its state on the machine stack | §3.21: call nesting |
+| Record types | 16 (`AG_RCAP`) | §3.7, §3.26 |
+| Fields | 48 in all records together (`AG_FCAP`) | §3.12: at least 64 per record |
+| Aggregate types | 24 (`AG_TCAP`) | §3.7 |
+| Initializer nesting | 4 (`AG_LCAP`) | §3.22: at least 32 |
+| Initializer staging | one object's initializer in 1,024 bytes (`AG_ICAP`); each declaration is otherwise written as its blob at once | §3.22: no compiler limit, to be streamed |
+| Control frames | 8 (`CT_FCAP`), eighteen bytes each, holding the frame's labels, the label count and frame size to restore, and a for loop's counter, bound and step | §3.20: at least 32 |
+| Operand stack | 16 entries (`EX_STCAP`), sixteen bytes each: the left operand's five-byte value and the two operands' first offsets | §3.21: at least 32 |
+| Grammar stack | 64 symbols (`LL_CAP`) | parser stack, TBD |
+| Labels | 32 in use at once per routine (`EM_LCAP`), released by nesting; pending operands are chained through their references' addend words (`EMIT.ASM`, no limit) | §3.4 |
+| Source parts | 255 while memory lasts, in a part table that grows down from the top of the source area (`SOURCE.ASM`); 8 on the command line (`CL_PCAP`) | §3.17: 255 |
+| Predeclared names | the reference's 58, generated from its helper table into `PREDEF.ASM`; the services' records are read in place, so they have no capacity of their own | — |
+| Grammar terminals | 42, below `$40`: the eight type keywords are one terminal, `TK_TYPE`, its payload the type; Basie has 79 token kinds | native compiler §2 |
+
+Code is generated as it is parsed, into a routine's blob ([native
+compiler](native-compiler.md) §2); blobs take 16-bit ordinals from `$0400`
+(`RG_ORD`), the linker places everything, and activation storage is the
+stack (§3.30), so the compiler has no static image, segment, read-only data,
+transcript or activation table to bound.
 
 ## 5. Source-code discipline
 
@@ -685,9 +672,8 @@ unchanged. Rows marked *gone* were removed with placed output at step 65.4.
 1. Decide the items in Section 2.
 2. Add register entries for every TBD resource, saying for each whether the
    figure is a minimum or a maximum.
-3. When the native fork begins (roadmap step 64), trace every table in
-   the forked source against this audit, and build the workspace model of
-   §3.6 from measured entry sizes.
+3. Trace every table in the native source against this audit, and build the
+   workspace model of §3.6 from measured entry sizes.
 4. Search the specification and native source for "maximum", "limit",
    "capacity", "too many", "full" and the convenience numbers 8, 16, 32, 64,
    128, 255, 256, 512 and 1024, and add anything found here.

@@ -2,9 +2,7 @@
 
 - Status: proposal, not yet reviewed
 - Date: 2026-10-04
-- Related: Nucleus runtime contract, Section 8 (`../../nucleus/docs/z80-runtime-contract.md`);
-  Skate's [external effects](../../skate/docs/public/external-effects.md) and
-  [ports](../../skate/docs/ports.md); [memory safety](memory-safety.md);
+- Related: [services](services.md), [memory safety](memory-safety.md),
   [CP/M target](cpm-target.md)
 
 ## 1. The question
@@ -19,24 +17,19 @@ line, the screen and sound? There are two broad approaches:
    each target, and talk to devices by sending commands over byte streams, which
    a **provider** interprets.
 
-Nucleus and Skate both took the indirect approach. This document proposes that
-Basie does too, and says exactly where the boundary lies.
+This document proposes the indirect approach for Basie, and says exactly where
+the boundary lies.
 
-## 2. What Nucleus and Skate do
+## 2. The command channel
 
-**Nucleus** has six stable services, called like ordinary failable routines:
-`readInputByte`, `writeOutputByte`, and four bulk-storage operations. Each target
-adapter implements them; generated code never calls the BDOS or a port
-directly.
-
-**Skate** uses ordinary bytes for standard input and output. Devices are reached
-through an optional **command channel**: framed messages on the same byte stream
-(`ESC ~`, a version, kind, opcode, correlation number, length, payload and CRC),
+Ordinary bytes carry standard input and output. Devices are reached through an
+optional **command channel**: framed messages on the same byte stream (`ESC ~`,
+a version, kind, opcode, correlation number, length, payload and CRC; the
+[external-effects frame format](../../skate/docs/public/external-effects.md)),
 which a provider such as a Triptych terminal interprets. A provider owns the
 meaning of each capability and reports unsupported operations as errors. The
-CP/M bridge carries plain console bytes; full framing needs a channel that can
-carry every byte. Skate exposes no port addresses or hardware primitives in the
-language.
+CP/M console carries plain bytes; full framing needs a channel that can carry
+every byte. The language exposes no port addresses or hardware primitives.
 
 ## 3. Proposal
 
@@ -49,7 +42,7 @@ a memory address. This withdraws the port built-ins listed in an earlier draft o
 ### 3.2 Services
 
 The runtime library for each profile provides **services**: predeclared routines
-with Basie signatures, failable where the operation can fail, as in Nucleus.
+with Basie signatures, failable where the operation can fail.
 
 | Group | Examples | Profiles |
 | --- | --- | --- |
@@ -70,7 +63,8 @@ error.
 
 ### 3.3 Devices through the command channel
 
-Video, sound and rich terminal control are reached as in Skate: a Basie library
+Video, sound and rich terminal control are reached through the command
+channel: a Basie library
 encodes commands into the external-effects frame format and sends them through a
 service; the provider on the other end interprets them. The language knows only
 bytes. This lets the same Basie program drive a Triptych terminal, a host
@@ -85,7 +79,7 @@ emulator or a test harness without change.
 - **Portability.** The same program runs on CP/M 2.2, CP/M 3, Triptych or a host
   emulator, with the target chosen at link time by the blob library.
 - **Testing.** The proof harness can substitute providers and record exactly
-  what a program asked for, as Nucleus and Skate already do.
+  what a program asked for.
 - **Cost.** With services as runtime blobs, there is no vector table and no
   indirection on CP/M, and tree shaking removes unused ones. The command channel
   costs framing bytes only for programs that use devices.
@@ -102,10 +96,10 @@ emulator or a test harness without change.
 ## 6. Open questions
 
 1. **The standard service set** is drafted in [services](services.md).
-2. **File services:** Skate's staged open/write/commit model with bounded
+2. **File services:** a staged open/write/commit model with bounded
    handles, or plain CP/M sequential files?
 3. **Typed service results:** with variants available, should services report
-   errors as richer values than the `u8` codes Nucleus uses?
+   errors as richer values than `u8` codes?
 4. **A raw escape hatch for experts,** such as unchecked BDOS access. If
    adopted, programs using it fall outside the memory-safety claim, and the
    compiler would say so. With CP/M 2.2 as the only target, the standard

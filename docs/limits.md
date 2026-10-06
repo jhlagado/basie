@@ -4,8 +4,7 @@
 - Date: 2026-10-04
 - Related: [implementation plan](implementation-plan.md) §7,
   [design decisions](design-decisions.md), [object format](object-format.md),
-  [services](services.md); Nucleus's capacity ledger
-  (`../../nucleus/docs/implementation-plan.md`)
+  [services](services.md), [capacity audit](capacity-audit.md)
 
 ## 1. The rule
 
@@ -36,7 +35,7 @@ Limits fall into four kinds:
 | Record or array extent | 65,535 bytes | 16-bit addressing |
 | Failure codes | 256 (`u8`) | D26; 1–31 services, 32–47 the library, 48–253 programs, 254–255 reserved ([services](services.md) §9) |
 | Integer literals | the range of the widest integer type, `u32` | D31 |
-| Counted-loop step | nonzero, within the counter type's range | Nucleus §12 |
+| Counted-loop step | nonzero, within the counter type's range | spec §12 |
 | Pool slots | 1 to 65,535 per pool; an identifier holds the slot address | memory safety §5.11 |
 | Files open at once | 1 to 255, chosen with `F=n`, default 4 | D38: one-byte slot in a file number |
 
@@ -74,7 +73,7 @@ steps 63 and 68.
 
 ### 5.1 Compiler (`BASIE.COM`, 32K workspace)
 
-These are minimums unless a row says otherwise. Resources not yet listed (include depth, type descriptors, name storage, pools, scope and initializer nesting) are TBD in the [capacity audit](capacity-audit.md) §3.
+These are minimums unless a row says otherwise. Resources not yet listed (include depth, type descriptors, name storage, pools, scope nesting) are TBD in the [capacity audit](capacity-audit.md) §3.
 
 | Capacity | Guaranteed minimum | Notes |
 | --- | ---: | --- |
@@ -86,6 +85,7 @@ These are minimums unless a row says otherwise. Resources not yet listed (includ
 | Forward declarations outstanding at once | 128 | |
 | Statement and block nesting | 32 | |
 | Expression nesting | 32 | |
+| Structured-initializer nesting | 32 | |
 | Arguments per call | 32 | |
 | `select` cases per statement | 256 | |
 | Owning locals tracked in one routine | 64 | Flow state per open block |
@@ -96,8 +96,8 @@ These are minimums unless a row says otherwise. Resources not yet listed (includ
 | Routine size | no compiler limit | Routines too large for the routine buffer are written unbuffered |
 
 **The native compiler today.** These minimums are the target for the finished
-`BASIE.COM`. Until each table is replaced, the native compiler is held to the
-forked Nucleus tables ([capacity audit](capacity-audit.md) §4) and to the
+`BASIE.COM`. Until each table is replaced, the native compiler is held to its
+fixed tables ([capacity audit](capacity-audit.md) §4) and to the
 following limits of its CP/M shell (step 65.2, [native compiler](native-compiler.md) §3):
 
 | Limit | Value | Until |
@@ -172,32 +172,11 @@ placement (`DATA` and `BSS` in RAM, only `COPY` stored) is not ported.
 | Stack | from `FREE` to the top of memory | Checked at startup against `REQUIRED` |
 | Pools | as declared | Fixed at link time; exhaustion traps or returns `none` (D27) |
 
-## 6. Nucleus limits Basie does not inherit
-
-Nucleus's first implementation fixed small limits to fit its 16K compiler. They
-are recorded here so that none survives into Basie by accident:
-
-| Nucleus limit | Nucleus value | Basie |
-| --- | ---: | --- |
-| Source parts | 8 | 255 (format) |
-| Ordinary binding symbols | 16 | at least 1,000 (§5.1) |
-| Non-main routines | 4 | part of the 1,000 names |
-| Retained parameters | 16 | 32 per routine |
-| Records, fields | 5, 12 | memory; 64 fields per record minimum |
-| Expression nesting | 16 | 32 |
-| Active control frames | 8 | 32 |
-| Branch fixups | 32 | 256 forward jumps per routine; no program-wide table |
-| Structured-initializer depth | 4 | 32 |
-| Initialised data, constants, zeroed data | 1,024 bytes each | no compiler limit; streamed to the object files |
-| Image bytes per bank | 4,096 | the CP/M image limit |
-| Activation bytes, activation depth | 3,840, 8 | memory; guarded by the stack bound |
-| Service streams | 4 | files chosen with `F=n` |
-
-## 7. Open items
+## 6. Open items
 
 - **The [capacity audit](capacity-audit.md)** lists every bounded resource with
   its minimum, its maximum in each implementation, its cause and its overflow
-  behaviour, and the inherited Nucleus tables. Its Section 2 items need
+  behaviour, and the native compiler's fixed tables. Its Section 2 items need
   decisions, and its TBD resources need entries here.
 
 - **Confirm the guaranteed minimums** by measuring the native compiler and linker

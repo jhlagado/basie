@@ -19,7 +19,7 @@ calls, port instructions or addresses ([I/O and effects](io-and-effects.md)).
 - **Signatures** are ordinary Basie signatures, compiled into the compiler from
   the runtime's helper table, so services are called like any routine, and a
   call to a service the profile lacks is a compile-time error.
-- **Failure** uses Nucleus's mechanism: a service that can fail is marked
+- **Failure** uses the language's own mechanism: a service that can fail is marked
   `fails` and reports a `u8` code (Section 9).
 - **Cost.** Each service is a runtime blob, so a program carries only the
   services it calls. On CP/M 2.2 a call is an ordinary `CALL`.
@@ -95,9 +95,8 @@ The consequences:
 On CP/M 3, the `CPM3` profile uses BDOS 6's blocking (`$FD`) and status (`$FE`)
 forms.
 
-Nucleus's `readInputByte()` and `writeOutputByte(b)` remain, as shorthands for
-`readByte(console)` and `writeByte(console, b)`. Nucleus's four storage routines
-are not provided.
+`readInputByte()` and `writeOutputByte(b)` are predeclared as shorthands for
+`readByte(console)` and `writeByte(console, b)`.
 
 ### 3.3 `readLine` on the console
 
@@ -332,8 +331,7 @@ and 31) is left to a later library release.
 
 ## 9. Failure codes
 
-Codes 1 to 4 and 254 keep their z80-services `byteGateway/0` meanings, which are
-also Nucleus's. Every service shares one code space:
+Codes 1 to 4 and 254 keep their z80-services `byteGateway/0` meanings. Every service shares one code space:
 
 | Code | Name | Meaning |
 | ---: | --- | --- |

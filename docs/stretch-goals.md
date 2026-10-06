@@ -23,13 +23,13 @@ Complete the existing native language work and capacity corrections before spend
 
 Open strings and open arrays already generalise capacity or length. They do not generalise the element type or permit an operation to be supplied by the caller. Before adding type parameters, demonstrate why a concrete Basie library cannot be expressed adequately using existing views and ordinary routines. Evaluate single-pass checking, code duplication, object-format implications and the native compiler's storage needs. C++ template machinery is not the requested model.
 
-## Audit inherited restrictions separately
+## Audit implementation restrictions separately
 
-A temporary Nucleus table size must not become a language restriction by default. The existing capacity audit already records replacements and acceptance minima. Complete that work regardless of whether stretch features are admitted.
+A temporary compiler table size must not become a language restriction by default. The existing capacity audit already records replacements and acceptance minima. Complete that work regardless of whether stretch features are admitted.
 
 At the observed commit c1384bc, examples reach the 16-literals-per-routine table and the 2,048-byte routine blob buffer. Other audit entries include the shared 96-entry symbol table, 32 routine records, 64 parameters across the program, 48 fields across records, eight control frames and sixteen expression-stack entries. These are implementation capacities to review against current contracts, not suggested language limits.
 
-For semantic restrictions, review the current rationale rather than presuming inheritance: the 253-byte string capacity, unsigned indexing, constant loop steps, restricted failure-call positions, non-storable aggregate aliases and lack of routine values. Some protect the lifetime model or single-pass checking. Others may be representation conveniences. Changing one requires evidence and explicit design work. Preserve type safety, memory safety and defined behaviour throughout.
+For semantic restrictions, review the current rationale rather than presuming it: the 253-byte string capacity, unsigned indexing, constant loop steps, restricted failure-call positions, non-storable aggregate aliases and lack of routine values. Some protect the lifetime model or single-pass checking. Others may be representation conveniences. Changing one requires evidence and explicit design work. Preserve type safety, memory safety and defined behaviour throughout.
 
 ## Required result of an evaluation
 

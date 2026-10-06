@@ -131,8 +131,8 @@ only raise it.
 
 Every cycle of calls passes through a forward-declared routine, because a
 routine that calls itself must be forward-declared. Each **forward-declared**
-routine begins with the **activation-capacity check**,
-Nucleus's `activation-capacity` trap carried over: a call to the runtime's
+routine begins with the **activation-capacity check**, which raises the
+`activation-capacity` trap: a call to the runtime's
 stack-check helper with `need(R)`, which traps if the stack pointer minus
 `need(R)` minus the guard band would fall below `FREE`. No other routine needs
 a check.

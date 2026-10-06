@@ -11,8 +11,8 @@ This document lists every feature of Basie, what each costs, and which version
 it belongs to. It is the ledger the compiler budget is kept against.
 
 All sizes are **estimates** until measured. They are anchored to one measured
-figure: the Nucleus compiler core, covering the Nucleus 0.1 language, is about
-15K, and its rewrite aims at 12K.
+figure: a compiler core for the base language (the first row of Section 3) is
+about 15K; 12K is the aim for a compact one.
 
 Two kinds of cost matter:
 
@@ -30,7 +30,7 @@ code doesn't count against this.
 
 The compiler is kept within budget by:
 
-1. building on the 12K Nucleus compiler rewrite;
+1. keeping the core of the base language to 12–15K;
 2. generating 32-bit and `f32` operations as calls to runtime helpers, so the
    compiler only checks types and selects helpers;
 3. keeping diagnostic text in `BASIE.MSG`, read only when needed;
@@ -44,7 +44,7 @@ The compiler is kept within budget by:
 
 | Feature | Compiler | Runtime, if used | Notes |
 | --- | --- | --- | --- |
-| Nucleus core: declarations, records, arrays, bounded strings, `if`, `while`, `for`, routines, `fails`, traps | 12–14K | multiply, divide, bounds, copy, trap reporters | built on the rewrite |
+| Base language: declarations, records, arrays, bounded strings, `if`, `while`, `for`, routines, `fails`, traps | 12–15K | multiply, divide, bounds, copy, trap reporters | measured at about 15K |
 | Signed `i8`, `i16` | 0.5K | 0.1–0.2K | D3 |
 | Shifts and bitwise operators | 0.3K | 0.1K | |
 | `u32`, `i32`, through helpers | 0.8K | 0.4–0.7K | D3, D9 |
@@ -60,10 +60,10 @@ The compiler is kept within budget by:
 | Pools, handles, `forward pool`, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
 | Stack bound and checks | 0.2K | 0.1K | memory safety §7 |
 | Services for I/O | 0.7K for the services' signatures | per service used | [services](services.md) |
-| Blob output for the linker | about neutral against Nucleus's placed output, which it replaces | — | build pipeline |
-| CP/M shell: command line, buffered files, library check, compilation stamp, chain loader | 2.3K, about 1.3K of it in overlays | — | [native compiler](native-compiler.md) §4; Nucleus kept this outside its core |
+| Blob output for the linker | about neutral against output placed at final addresses, which it replaces | — | build pipeline |
+| CP/M shell: command line, buffered files, library check, compilation stamp, chain loader | 2.3K, about 1.3K of it in overlays | — | [native compiler](native-compiler.md) §4 |
 | Branch shrinking | 0.3K | — | build pipeline §6.3 |
-| **Total** | **about 22.5–24.5K** on a 12K base; about 25.5–27.5K on the 15K base actually forked, with the shell's one-shot parts in overlays | | at or just over the 26K target: compression passes and early removal of Nucleus-only machinery are planned from the start (D43, [native compiler](native-compiler.md) §4) |
+| **Total** | **about 25.5–27.5K** on a 15K core (22.5–24.5K on a 12K one), with the shell's one-shot parts in overlays | | at or just over the 26K target: compression passes and early removal of machinery Basie does not use are planned from the start (D43, [native compiler](native-compiler.md) §4) |
 
 The standard library, written in Basie and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text

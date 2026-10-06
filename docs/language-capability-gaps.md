@@ -5,7 +5,7 @@ Status: discussion document requested by John, not a language amendment
 
 This document examines ordinary programming operations that the proposed Basie 1.0 language cannot express directly. It concerns the full language specification, not the native compiler's unfinished implementation. Its purpose is to identify useful capabilities and explain the restrictions before selecting mechanisms or measuring implementations.
 
-Type safety, memory safety, defined behaviour and an understandable compiler remain design goals. A restriction is not justified merely because Nucleus had it. Nor does familiarity in another language establish that a feature belongs in Basie. The question is what a programmer cannot express cleanly and what information a safe implementation would need.
+Type safety, memory safety, defined behaviour and an understandable compiler remain design goals. A restriction is not justified merely because an earlier design had it. Nor does familiarity in another language establish that a feature belongs in Basie. The question is what a programmer cannot express cleanly and what information a safe implementation would need.
 
 The [specification](../spec/README.md) remains authoritative. The [stretch-goals brief](stretch-goals.md) records evaluation priorities and existing cost estimates. Neither document admits new syntax into the frozen 1.0 language.
 
@@ -15,11 +15,11 @@ This records John's discussion with Codex on 6 October 2026 as input to the codi
 
 John's direction is to recover useful programming capability through checked compiler mechanisms rather than by weakening type safety or memory safety. Open strings and open arrays are the existing example: carrying the actual extent permits reusable library operations while preserving bounds. The next questions are whether similar bounded mechanisms can support regions of objects, constructed results, caller-supplied behaviour and reusable element types.
 
-John explicitly supports retaining enumerations, tagged unions and enumeration-indexed arrays as stretch candidates. Their benefits should be discussed separately. He does not require Pascal's whole ordinal model and does not regard public-name collisions as a sufficient reason for a module system. Naming conventions are acceptable. He also asks that familiar Nucleus restrictions be reconsidered rather than automatically promoted into Basie requirements.
+John explicitly supports retaining enumerations, tagged unions and enumeration-indexed arrays as stretch candidates. Their benefits should be discussed separately. He does not require Pascal's whole ordinal model and does not regard public-name collisions as a sufficient reason for a module system. Naming conventions are acceptable. He also asks that familiar restrictions be reconsidered rather than automatically treated as Basie requirements.
 
 The examples and candidate mechanisms below are Codex's suggestions for that discussion. They are not all endorsed language changes. John asked for the capability argument to come before cost measurement: explain what ordinary programming becomes awkward or impossible to express directly, why a safe alternative could help and what obligations it introduces. Cost figures remain provisional and implementation requires a further design decision.
 
-For the coding agent, finish the existing 1.0 commitments and capacity corrections while retaining this agenda. Revisit the relevant candidate when changing its subsystem, record evidence and unresolved questions here and in the design record, and avoid silently treating either an inherited restriction or a suggested extension as settled authority.
+For the coding agent, finish the existing 1.0 commitments and capacity corrections while retaining this agenda. Revisit the relevant candidate when changing its subsystem, record evidence and unresolved questions here and in the design record, and avoid silently treating either an existing restriction or a suggested extension as settled authority.
 
 ## Passing part of an existing object
 
