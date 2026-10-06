@@ -305,15 +305,24 @@ EX_EPOS:                       ; Report DG_RANGE at the offset at HL.
 EX_ETYPE:                      ; An operand of the wrong type.
     CALL DG_RAISE                  ; Report it.
     DB   DG_CLASH                  ; Diagnostic: type mismatch.
-EX_EZERO:                      ; Division by a known zero.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_ZERO                   ; Diagnostic: division by zero.
 
 ;@ROUTINE OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
 ; Zero if the pending left operand is Boolean. A returns its type.
 
 EX_LBOOL:
     LD   A,(EX_LMETA)              ; Fetch the left metadata.
+    JR   EX_TBOOL                  ; Test its type.
+
+;@ROUTINE IN D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
+; Zero if metadata D is a Boolean's. A returns its type.
+
+EX_DBOOL:
+    LD   A,D                       ; The metadata; fall into EX_TBOOL.
+
+;@ROUTINE IN A OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
+; Zero if metadata A is a Boolean's. A returns its type.
+
+EX_TBOOL:
     AND  SY_TMASK                  ; Keep its type.
     CP   SY_BOOL                   ; Is it Boolean?
     RET                            ; Return the comparison in zero.
@@ -369,8 +378,7 @@ EX_UNIFY:
     JR   Z,EX_ETYPE                ; Booleans have no arithmetic.
     LD   D,A                       ; D is the left type.
     LD   A,(EX_RMETA)              ; Fetch the right metadata.
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_BOOL                   ; Is it Boolean?
+    CALL EX_TBOOL                  ; Is its type Boolean?
     JR   Z,EX_ETYPE                ; Booleans have no arithmetic.
     LD   C,A                       ; C is the right type.
     LD   A,D                       ; Is the left operand typed?
@@ -380,7 +388,7 @@ EX_UNIFY:
     RET  Z                         ; C is exact, carry clear.
     LD   HL,EX_LVAL                ; The exact left
     CALL .FITS                     ; must fit the right's type.
-    JP   C,EX_ELEFT                ; It does not: out of range.
+    JR   C,EX_ELEFT                ; It does not: out of range.
     RET                            ; C is the type; carry is clear.
 .LTYPE:                        ; A typed left: D is it, C the right's.
     LD   A,C                       ; Is the right exact?
@@ -392,7 +400,7 @@ EX_UNIFY:
     RET  NC                        ; Yes: C is the type, carry clear.
     LD   A,(EX_LMETA)              ; No: out of range, blamed at the left
     RLCA                           ; after a known left,
-    JP   C,EX_ELEFT                ; at the right
+    JR   C,EX_ELEFT                ; at the right
     JP   EX_ERNG                   ; after a computed one.
 .BOTH:                         ; A is the right's type, D the left's.
     CP   D                         ; The same?
@@ -598,7 +606,7 @@ EX_SHIFT:
     JR   .FOLD                     ; Fold it.
 .TYPED:                        ; A typed left with a known count.
     CALL .COUNT                    ; B is the count; below zero
-    JP   C,.MISMATCH               ; is a type mismatch.
+    JR   C,.MISMATCH               ; is a type mismatch.
 .FOLD:                         ; B is the count, at most 40; C the type.
     PUSH BC                        ; Keep them.
     CALL VL_LTOK                   ; r = a.
@@ -630,17 +638,17 @@ EX_SHIFT:
     AND  SY_TMASK                  ; Its type,
     LD   E,A                       ; in E,
     CP   SY_BOOL                   ; not a Boolean,
-    JP   Z,.MISMATCH               ; and
+    JR   Z,.MISMATCH               ; and
     CALL GX_PROP                   ; unsigned
     RLCA                           ; (an exact count
-    JP   C,.MISMATCH               ; has no sign).
+    JR   C,.MISMATCH               ; has no sign).
     BIT  7,D                       ; A known count?
     JR   Z,.VARIABLE               ; No: shifted in a loop.
     PUSH BC                        ; Keep the type.
     LD   A,C                       ; The left
     CALL GX_POPV                   ; is popped.
     CALL .COUNT                    ; B is the count; below zero
-    JP   C,.MISMATCH               ; is a type mismatch.
+    JR   C,.MISMATCH               ; is a type mismatch.
     POP  DE                        ; E is the type.
     PUSH DE                        ; Kept.
     LD   A,E                       ; The width

@@ -361,9 +361,7 @@ CT_STEP:
     LD   D,A                       ; Keep them.
     AND  SY_TYPE+SY_AGGR+SY_CMASK  ; A constant has none of these:
     JR   NZ,CT_ESTEP               ; a type, aggregate or variable.
-    LD   A,D                       ; Its type
-    AND  SY_TMASK                  ; is an integer's,
-    CP   SY_BOOL                   ; not Boolean.
+    CALL EX_DBOOL                  ; Its type must be an integer's, not Boolean.
     JR   Z,CT_ESTEP                ; A Boolean is no step.
     INC  HL                        ; Its value's high bytes (SY_VHI):
     LD   E,(HL)                    ; the
@@ -404,33 +402,23 @@ CT_EVAR:
 
 ;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Return in A the counter's type from for mode A, its CT_MLONG, CT_MWORD
-; and CT_MSIGN: u8, u16, i8, i16, u32 or i32. HL is kept.
+; and CT_MSIGN: u8, u16, i8, i16, u32 or i32. Every other register is kept.
 
 CT_TYPE:
-    PUSH HL                        ; Keep HL.
     BIT  7,A                       ; CT_MLONG:
     JR   Z,.SHORT                  ; a long counter
     AND  CT_MSIGN                  ; is a u32,
     LD   A,SY_U32                  ; or
-    JR   Z,.DONE                   ; else
+    RET  Z                         ; else
     INC  A                         ; an i32.
-    JR   .DONE                     ; A is it.
+    RET                            ; A is it.
 .SHORT:                        ; A byte or a word.
     AND  CT_MWORD+CT_MSIGN         ; The two bits,
     RRCA                           ; as
-    RRCA                           ; an index,
-    LD   HL,.TABLE                 ; into
-    ADD  A,L                       ; the
-    LD   L,A                       ; types
-    ADC  A,H                       ; by
-    SUB  L                         ; mode,
-    LD   H,A                       ; select
-    LD   A,(HL)                    ; one.
-.DONE:                         ; A is the type.
-    POP  HL                        ; Restore HL.
+    RRCA                           ; an index: word plus twice signed.
+    CP   2                         ; Carry when unsigned:
+    SBC  A,$FE                     ; plus 1, else 2: u8, u16, i8, i16.
     RET                            ; A is it.
-.TABLE:                        ; By CT_MWORD and CT_MSIGN:
-    DB   SY_U8,SY_U16,SY_I8,SY_I16 ; byte, word, signed byte, signed word.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Compare the counter of the innermost frame, a for loop, with its bound

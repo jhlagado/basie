@@ -65,42 +65,16 @@ EX_STOP:                       ; Drop the saved precedence, then return.
 EX_LOOK:                       ; Is the next token a binary operator?
     PUSH BC                        ; Keep the minimum precedence.
     CALL PR_PEEK                   ; Look at the next token.
-    CP   TK_MINUS                  ; Subtraction?
-    JR   Z,.ADDPREC                ; Additive.
-    CP   TK_PLUS                   ; Addition?
-    JR   Z,.ADDPREC                ; Additive.
-    CP   TK_STAR                   ; Multiplication?
-    JR   Z,.MULPREC                ; Multiplicative.
-    CP   TK_SLASH                  ; Division?
-    JR   Z,.MULPREC                ; Multiplicative.
-    CP   TK_MOD                    ; Remainder?
-    JR   Z,.MULPREC                ; Multiplicative.
-    CP   TK_SHL                    ; Shifts
-    JR   Z,.MULPREC                ; are
-    CP   TK_SHR                    ; multiplicative
-    JR   Z,.MULPREC                ; too.
-    POP  BC                        ; Recover the minimum precedence.
-    LD   D,A                       ; Keep the token.
-    LD   A,B                       ; Comparisons are allowed only at level 0.
-    OR   A                         ; Is the minimum zero?
-    JR   NZ,EX_PEAK                ; No: the operand ends here.
-    LD   A,D                       ; Recover the token.
-    PUSH BC                        ; Keep the minimum across the lookup.
-    CALL .RELTOKEN                 ; Is it a comparison?
+    CALL .OPTOKEN                  ; An operator? C is its code; A is kept.
     JR   NC,EX_STOP                ; No: the operand ends here.
-    LD   A,C                       ; The comparison's enum...
-    LD   (EX_OPER),A               ; ...is the pending operator.
-    LD   C,0                       ; Comparisons have precedence zero.
-    JR   .HAVEPREC                 ; Compare it with the minimum.
-.MULPREC:                      ; A multiplicative operator.
-    LD   C,2                       ; Precedence two.
-    JR   .SETOP                    ; Record it.
-.ADDPREC:                      ; An additive operator.
-    LD   C,1                       ; Precedence one.
-.SETOP:                        ; The token itself is the operator.
-    LD   (EX_OPER),A               ; Record it as pending.
-.HAVEPREC:                     ; C is the operator's precedence.
-    LD   A,C                       ; Fetch it.
+    BIT  7,C                       ; A comparison?
+    JR   Z,.SETOP                  ; No: C is its precedence, A the operator.
+    LD   A,C                       ; A comparison's
+    AND  7                         ; enum is the operator,
+    LD   C,0                       ; at precedence zero, which only level 0 takes.
+.SETOP:                        ; A is the operator, C its precedence.
+    LD   (EX_OPER),A               ; Record it as pending; EX_POP restores an outer one.
+    LD   A,C                       ; Fetch the precedence.
     POP  BC                        ; Recover the minimum in B.
     CP   B                         ; Does the operator bind tightly enough?
     JR   C,EX_PEAK                 ; No: leave it to an outer level.
@@ -131,7 +105,7 @@ EX_LOOK:                       ; Is the next token a binary operator?
     JR   C,.RELATION               ; Reduce a comparison.
     CALL EX_ARITH                  ; Reduce an arithmetic operator.
     POP  BC                        ; Recover the minimum precedence.
-    JP   EX_RISE                   ; Look for a further operator.
+    JR   EX_RISE                   ; Look for a further operator.
 .RELATION:                     ; Reduce a comparison.
     CALL .REDUCE                   ; Emit and fold it.
     POP  BC                        ; Discard the levels.
@@ -144,32 +118,46 @@ EX_LOOK:                       ; Is the next token a binary operator?
     POP  AF                        ; Recover the metadata.
     RET                            ; Return the comparison.
 
-;@ROUTINE IN A OUT C,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,B,HL
-; Carry if token A is a comparison, with its EX_EQ..EX_GE enum in C.
+;@ROUTINE IN A OUT A,C,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,B,HL
+; Carry if token A is a binary operator of the climb, with its code in C:
+; a precedence, 1 additive or 2 multiplicative, or $80 plus a
+; comparison's EX_EQ..EX_GE enum. .RELTOKEN: carry for a comparison
+; only. A is kept.
 
-.RELTOKEN:
-    LD   HL,.RELTAB                ; Address the token-to-enum pairs.
-    LD   B,6                       ; Six comparisons.
+.OPTOKEN:
+    LD   HL,.OPTAB                 ; Address the token-to-code pairs.
+    LD   B,13                      ; Thirteen operators.
 .SCAN:                         ; Try one pair.
     CP   (HL)                      ; Is this the token?
-    JR   Z,.FOUND                  ; Yes: return its enum.
-    INC  HL                        ; Skip the token.
-    INC  HL                        ; Skip the enum.
+    INC  HL                        ; Step to its code; ZERO survives.
+    JR   Z,.FOUND                  ; Yes: return its code.
+    INC  HL                        ; Skip the code.
     DJNZ .SCAN                     ; Try the next pair.
-    OR   A                         ; Not a comparison: clear carry.
+    OR   A                         ; Not an operator: clear carry.
     RET                            ; Return.
-.FOUND:                        ; HL addresses the matching token.
-    INC  HL                        ; Step to its enum.
+.FOUND:                        ; HL addresses the matching code.
     LD   C,(HL)                    ; Return it in C.
-    SCF                            ; Report a comparison.
+    SCF                            ; Report an operator.
     RET                            ; Return.
-.RELTAB:                       ; Comparison tokens and their enums.
-    DB   TK_EQ,EX_EQ               ; = is equal.
-    DB   TK_NE,EX_NE               ; <> is not equal.
-    DB   TK_LT,EX_LT               ; < is less.
-    DB   TK_LE,EX_LE               ; <= is at most.
-    DB   TK_GT,EX_GT               ; > is more.
-    DB   TK_GE,EX_GE               ; >= is at least.
+.RELTOKEN:                     ; A comparison only.
+    LD   HL,.RELTAB                ; The comparisons' pairs,
+    LD   B,6                       ; six of them,
+    JR   .SCAN                     ; searched alike.
+.OPTAB:                        ; Operator tokens and their codes.
+    DB   TK_MINUS,1                ; - is additive.
+    DB   TK_PLUS,1                 ; + is additive.
+    DB   TK_STAR,2                 ; * is multiplicative,
+    DB   TK_SLASH,2                ; and /,
+    DB   TK_MOD,2                  ; and mod,
+    DB   TK_SHL,2                  ; and the
+    DB   TK_SHR,2                  ; shifts.
+.RELTAB:                       ; Comparison tokens and $80 plus their enums.
+    DB   TK_EQ,$80+EX_EQ           ; = is equal.
+    DB   TK_NE,$80+EX_NE           ; <> is not equal.
+    DB   TK_LT,$80+EX_LT           ; < is less.
+    DB   TK_LE,$80+EX_LE           ; <= is at most.
+    DB   TK_GT,$80+EX_GT           ; > is more.
+    DB   TK_GE,$80+EX_GE           ; >= is at least.
 
 .CHAINED:                      ; A comparison follows a comparison.
     POP  HL                        ; Balance the stack.
@@ -184,13 +172,10 @@ EX_LOOK:                       ; Is the next token a binary operator?
 ; Boolean.
 
 .REDUCE:
-    LD   A,(EX_LMETA)              ; Fetch the left metadata.
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_BOOL                   ; Is the left Boolean?
+    CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,.INTEGER               ; No: compare integers.
     LD   A,(EX_RMETA)              ; Then the right must be Boolean too.
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_BOOL                   ; Compare with Boolean.
+    CALL EX_TBOOL                  ; Is its type Boolean?
     JP   NZ,EX_ETYPE               ; It is not: a type mismatch.
     LD   A,(EX_OPER)               ; Booleans have no order...
     CP   EX_NE+1                   ; ...so only = and <> apply.
@@ -308,7 +293,7 @@ EX_AND:
     PUSH HL                        ; Keep its value.
     CALL PR_PEEK                   ; Look at the next token.
     CP   TK_AND                    ; Another `and`?
-    JP   NZ,EX_DONE                ; No: return the result.
+    JR   NZ,EX_DONE                ; No: return the result.
     LD   (EX_OPER),A               ; `and` is the pending operator.
     CALL PR_TAKE                   ; Consume it.
     POP  HL                        ; Recover the left value.
@@ -370,9 +355,7 @@ EX_ORS:                        ; A/HL is the result so far.
     LD   A,(EX_OPER)               ; `xor`?
     CP   TK_XOR                    ; It is for integers only.
     JR   NZ,.OPEN                  ; `or` takes Booleans too.
-    LD   A,D                       ; The left's type.
-    AND  SY_TMASK                  ; Alone.
-    CP   SY_BOOL                   ; A Boolean?
+    CALL EX_DBOOL                  ; Is the left's type Boolean?
     JP   Z,EX_ETYPE                ; Is a mismatch for `xor`.
 .OPEN:                         ; D is the left's metadata.
     LD   A,D                       ; Keep the left operand.
@@ -407,8 +390,7 @@ EX_OPEN:
     POP  HL                        ; The left
     POP  AF                        ; operand.
     LD   D,A                       ; Keep the metadata.
-    AND  SY_TMASK                  ; Its type.
-    CP   SY_BOOL                   ; A Boolean?
+    CALL EX_TBOOL                  ; Is its type Boolean?
     JR   Z,.BOOL                   ; It may short-circuit.
     LD   A,D                       ; An integer: keep it,
     CALL EX_SAVE                   ; with the operator.
@@ -461,8 +443,7 @@ EX_MUTE:
 EX_LOGIC:
     LD   A,(EX_RMETA)              ; Fetch the right metadata.
     LD   D,A                       ; Keep it.
-    AND  SY_TMASK                  ; Keep its type.
-    CP   SY_BOOL                   ; Is it Boolean?
+    CALL EX_TBOOL                  ; Is its type Boolean?
     JP   NZ,EX_ETYPE               ; No: a mismatch with the Boolean left.
     LD   E,A                       ; E is Boolean, for GX_TOREG.
     LD   A,(EX_LMETA)              ; Is the left known?
@@ -525,9 +506,7 @@ EX_FITS:
     JR   C,.FITS                   ; Then it fits.
     BIT  7,D                       ; A computed value needs
     JR   Z,.CONVERT                ; a conversion;
-    LD   A,D                       ; a known Boolean
-    AND  SY_TMASK                  ; for a number,
-    CP   SY_BOOL                   ; or a known number
+    CALL EX_DBOOL                  ; a known Boolean for a number, or a known number
     JR   Z,EX_EFIT                 ; for a Boolean,
     LD   A,E                       ; is
     CP   SY_BOOL                   ; a mismatch.
@@ -662,10 +641,9 @@ EX_SHAPE:
     BIT  6,A                       ; neither Boolean
     LD   A,DG_INFER                ; nor f32,
     JR   NZ,.LEFT                  ; nor
-    LD   A,C                       ; exact
-    OR   A                         ; itself
-    LD   A,DG_INFER                ; (no-definite-type,
-    JR   Z,.LEFT                   ; at the left).
+    INC  C                         ; exact
+    DEC  C                         ; itself
+    JR   Z,.LEFT                   ; (no-definite-type, at the left).
     LD   HL,EX_KVAL                ; The value
     LD   A,C                       ; must fit
     PUSH BC                        ; it

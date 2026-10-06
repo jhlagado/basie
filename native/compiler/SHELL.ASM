@@ -153,14 +153,14 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   A,OV_PARTS                ; load the parts
     CALL OV_LOAD                   ; and their includes
     CALL OV_AREA                   ; (SH_BEGIN),
-    JP   C,SH_DIAG                 ; a diagnostic of theirs printed;
+    JR   C,SH_DIAG                 ; a diagnostic of theirs printed;
     LD   A,OV_START                ; then choose the stamp,
     CALL OV_LOAD                   ; open the streams and name the parts
     CALL OV_AREA+3                 ; (LB_OPEN).
     LD   A,OV_NAMES                ; The predeclared names
     CALL OV_LOAD                   ; are in the overlay area for the compilation.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
-    JP   C,SH_DIAG                 ; Print it and fail.
+    JR   C,SH_DIAG                 ; Print it and fail.
     LD   HL,OV_AREA+3              ; The chain's overlay closes the streams
     JR   SH_CHAIN                  ; and runs BLINK unless C (CH_DONE).
 

@@ -699,9 +699,7 @@ AC_FOR:
     AND  SY_CMASK                  ; Its class.
     CP   SY_LOCAL                  ; A local?
     JP   NZ,CT_EVAR                ; No: raise DG_COUNT.
-    LD   A,D                       ; The class and type.
-    AND  SY_TMASK                  ; Its type.
-    CP   SY_BOOL                   ; Boolean?
+    CALL EX_DBOOL                  ; Is its type Boolean?
     JP   Z,CT_EVAR                 ; Cannot count: raise DG_COUNT.
     CALL GX_PROP                   ; Its size and sign:
     LD   E,A                       ; a word's size, 2,

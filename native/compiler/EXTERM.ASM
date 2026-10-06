@@ -166,19 +166,14 @@ EX_NAME:
     LDIR                           ; The value is EX_KVAL.
     POP  BC                        ; B is the constant's type,
     SET  7,B                       ; known (SY_KNOWN).
-    JP   EX_LITK                   ; Return it.
+    JR   EX_LITK                   ; Return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a parenthesized expression after its '(' and require the ')'.
 
 EX_PAREN:
     CALL EX_INNER                  ; Parse the enclosed expression.
-    PUSH AF                        ; Keep its metadata.
-    PUSH HL                        ; Keep its value.
-    CALL PR_RIGHT                  ; Require the closing parenthesis.
-    POP  HL                        ; Recover the value.
-    POP  AF                        ; Recover the metadata.
-    RET                            ; Return it.
+    JR   EX_RPAR                   ; Require the closing parenthesis.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse the parenthesized operand of an explicit conversion, with no type
@@ -189,7 +184,13 @@ EX_CAST:
     CALL PR_LEFT                   ; Require the opening parenthesis.
     XOR  A                         ; Nothing is expected inside the conversion.
     CALL EX_SUB                    ; Parse the operand; the type is restored.
-    PUSH AF                        ; Save its metadata, carry clear,
+
+;@ROUTINE IN A,HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
+; Require the closing parenthesis after the operand A/HL, and return the
+; operand with its flags as they came.
+
+EX_RPAR:                       ; A/HL is the operand.
+    PUSH AF                        ; Save its metadata and flags,
     PUSH HL                        ; and its value.
     CALL PR_RIGHT                  ; Require the closing parenthesis.
     POP  HL                        ; Recover the value.
@@ -218,11 +219,9 @@ EX_CONV:                       ; C is the target type.
     LD   D,A                       ; D is the operand's metadata.
     LD   A,C                       ; There is
     CP   SY_BOOL                   ; no conversion
-    JP   Z,.NONE                   ; to Boolean,
-    LD   A,D                       ; nor
-    AND  SY_TMASK                  ; from
-    CP   SY_BOOL                   ; one.
-    JP   Z,.NONE                   ; (conversion-unavailable)
+    JR   Z,.NONE                   ; to Boolean,
+    CALL EX_DBOOL                  ; nor from one.
+    JR   Z,.NONE                   ; (conversion-unavailable)
     BIT  7,D                       ; A known operand?
     JR   Z,.COMPUTED               ; No: converted at run time.
     PUSH HL                        ; Keep the parenthesis.
@@ -264,8 +263,7 @@ EX_CONV:                       ; C is the target type.
 
 EX_INT:
     LD   D,A                       ; Keep the metadata.
-    AND  SY_TMASK                  ; Keep the type.
-    CP   SY_BOOL                   ; Is it Boolean?
+    CALL EX_TBOOL                  ; Is its type Boolean?
     JP   Z,EX_ETYPE                ; Yes: an integer is required.
     LD   A,D                       ; Recover the metadata.
     OR   A                         ; Clear carry.
@@ -279,12 +277,13 @@ EX_INT:
 EX_UNARY:
     LD   A,(EX_PRIME)              ; A primary parsed already
     OR   A                         ; takes no sign:
-    JP   NZ,EX_TERM                ; it is the operand.
+    JR   NZ,.TERM                  ; it is the operand.
     CALL PR_PEEK                   ; Look at the next token.
     CP   TK_PLUS                   ; A unary plus?
     JR   Z,EX_PLUS                 ; Parse its operand.
     CP   TK_MINUS                  ; A unary minus?
     JR   Z,EX_MINUS                ; Parse and negate its operand.
+.TERM:                         ; No sign, or the primary parsed.
     JP   EX_TERM                   ; Otherwise parse a primary.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
