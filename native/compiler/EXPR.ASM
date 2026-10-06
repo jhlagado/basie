@@ -467,13 +467,19 @@ EX_UNIFY:
     JP   VL_FITS                   ; checked; carry if it does not fit.
 
 ;@ROUTINE IN A,D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
-; Check that symbol info A (also in D) names a scalar, not a type or an
-; aggregate, which raise DG_CLASH; return its storage class in A, with zero
-; set for a constant. D is preserved.
+; Check that symbol info A (also in D) names a scalar: a type name, a
+; record's or a pool's, is wrong-class, naming the current NAME, and an
+; aggregate DG_CLASH; return its storage class in A, with zero set for a
+; constant. D is preserved.
 
 EX_CLASS:
     AND  SY_TYPE+SY_AGGR           ; A type name or an aggregate?
-    JP   NZ,EX_ETYPE               ; Neither is a scalar value.
+    JR   Z,.SCALAR                 ; Neither: a scalar.
+    CP   SY_TYPE                   ; A type name
+    LD   A,DG_CLASS                ; is wrong-class,
+    JP   Z,DG_NAMED                ; naming it;
+    JP   EX_ETYPE                  ; an aggregate no scalar value.
+.SCALAR:                       ; A scalar's symbol.
     LD   A,D                       ; Recover the symbol info.
     AND  SY_CMASK                  ; Keep the storage class; zero is constant.
     RET                            ; Return it.

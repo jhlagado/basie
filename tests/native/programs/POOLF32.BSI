@@ -1,0 +1,15 @@
+// The FLOAT and OWNERS overlays share the area above NAMES: an f32
+// constant, an owner descriptor, then f32 constants again, each overlay
+// loaded again when it is next needed.
+const half as f32 = 0.5
+forward pool p
+record R
+    h as p?
+    x as f32
+end
+pool p as R[2]
+var y as f32 = 2.25
+sub main()
+    var z as f32 = half * 3.0
+    y = z + 1.5
+end

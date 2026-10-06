@@ -219,6 +219,7 @@
     "PoolRecord": "PL_REC",
     "SavePoolCapacity": "PL_HOLD",
     "CommitPool": "PL_CMT",
+    "RefuseOwningInitializer": "PL_SINIT",
     "MakeOptionalHandle": "PL_OPT"
   },
   "equates": {
@@ -490,6 +491,7 @@
       "lhs": "program-initializer-opt",
       "rhs": [
         "TokenEquals",
+        "a:RefuseOwningInitializer",
         "x:StaticInitializer",
         "a:FinishProgramInitializer"
       ]
@@ -568,8 +570,9 @@
       "rhs": [
         "TokenPool",
         "TokenName",
-        "a:ForwardPool",
-        "TokenNewline"
+        "a:BeginPool",
+        "TokenNewline",
+        "a:ForwardPool"
       ]
     },
     {

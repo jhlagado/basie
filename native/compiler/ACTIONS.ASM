@@ -306,7 +306,8 @@ AC_ARRAY:
     OR   (HL)                      ; (A is zero.)
     RET  Z                         ; No: the type is complete.
     LD   (HL),0                    ; Yes, this once:
-    CALL AC_ITEM                   ; the element type
+    CALL AC_ITEM                   ; the element type,
+    CALL PL_LATER                  ; neither a handle nor owning,
     ADD  A,AG_OPEN                 ; makes the open array's ID,
     LD   (AG_CTYPE),A              ; the current type.
     RET                            ; Back to the engine.
@@ -545,12 +546,10 @@ AC_FIDX:                       ; The fields in use.
     RET                            ; A is it.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; BeginRecordField: the field name must be new in this record (DG_DUP) and
-; the field table must have room (DG_META). The name goes into the
-; field's entry.
+; BeginRecordField: the field table must have room (DG_META). The name
+; goes into the field's entry; AC_PLACE checks that it is new.
 
 AC_FIELD:
-    CALL AG_FRESH                  ; Reject a repeated field name.
     CALL AC_FIDX                   ; The new field's index.
     CP   AG_FCAP                   ; Is there an entry for it?
     JP   NC,AG_EMETA               ; No: raise DG_META.
@@ -559,15 +558,21 @@ AC_FIELD:
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; CommitRecordField: give the field its type (not a view, DG_BOUND, nor
-; here a File, DG_NYI) and its offset, the record's size so far, then grow
-; the record by the field's extent within 1 KiB (DG_DATA).
+; here a File, DG_NYI; a handle optional, DG_HOPT; then its name new,
+; DG_DUP, in the reference's order) and its offset, the record's size so
+; far, then grow the record by the field's extent within 1 KiB (DG_DATA).
 
 AC_PLACE:
     CALL AC_ITEM                   ; The field's type: not a view, nor a File.
     LD   HL,AG_TPOS                ; A handle field
     CALL PL_NEEDO                  ; must be optional, at its type.
     CALL PL_FOWN                   ; An owning field makes its record owning.
-    LD   C,A                       ; Keep the type.
+    PUSH AF                        ; Keep the type.
+    CALL AC_FIDX                   ; The field's index:
+    CALL AG_FIELD                  ; its entry,
+    CALL AG_FRESH                  ; its name not a repeat.
+    POP  AF                        ; The type,
+    LD   C,A                       ; kept.
     CALL AC_FIDX                   ; The field's index.
     CALL AG_FIELD                  ; HL addresses its entry.
     INC  HL                        ; Skip the spelling's...

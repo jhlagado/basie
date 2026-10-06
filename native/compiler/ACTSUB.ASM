@@ -103,8 +103,7 @@ AC_ENDP:
     DEC  C                         ; One fewer.
     JR   .ROUTINE                  ; Until all are.
 .SYMBOLS:                      ; The symbols, all the program's.
-    LD   C,0                       ; A part's end: its private
-    CALL PL_ENDP                   ; forward pools must be complete.
+    CALL PL_ENDP                   ; Forward pools must be complete.
     LD   A,(SY_CNT)                ; How many?
     OR   A                         ; None:
     RET  Z                         ; none is private.
@@ -194,9 +193,7 @@ AC_SPLIT:
 ; name), and main must have a body (missing-main).
 
 AC_MAIN:
-    CALL AC_ENDP                   ; The last part ends.
-    LD   C,1                       ; The program's end: every
-    CALL PL_ENDP                   ; forward pool must be complete.
+    CALL AC_ENDP                   ; The last part ends, and the program.
     LD   A,(RO_RCNT)               ; The routines declared.
     LD   B,A                       ; Count them in B.
     XOR  A                         ; Start at index zero...

@@ -45,7 +45,7 @@
 GR_ROW_N EQU  50               ; Nonterminals, one row each.
 GR_ALT_N EQU  85               ; Productions.
 GR_SPLIT EQU  67               ; First production in the high directory.
-GR_ACT_N EQU  97               ; Actions in GR_ACTX.
+GR_ACT_N EQU  98               ; Actions in GR_ACTX.
 GR_START EQU  $40              ; Start symbol: compilation-unit, row 0.
 GR_RHIGH EQU  45               ; First row whose offset counts from GR_ROWS+256.
 GR_STMT EQU  $40+28            ; The statement nonterminal, row 28.
@@ -482,56 +482,56 @@ GR_ALTX:
     DB   35                        ; GR_ALT15-GR_ALTS; assert-declaration
     DB   40                        ; GR_ALT16-GR_ALTS; program-var-declaration
     DB   49                        ; GR_ALT17-GR_ALTS; program-initializer-opt
-    DB   52                        ; GR_ALT18-GR_ALTS; record-declaration
-    DB   60                        ; GR_ALT19-GR_ALTS; record-fields
-    DB   62                        ; GR_ALT20-GR_ALTS; record-field
-    DB   68                        ; GR_ALT21-GR_ALTS; forward-declaration
-    DB   70                        ; GR_ALT22-GR_ALTS; forward-tail
-    DB   81                        ; GR_ALT23-GR_ALTS; forward-tail
-    DB   85                        ; GR_ALT24-GR_ALTS; pool-declaration
-    DB   97                        ; GR_ALT25-GR_ALTS; sub-definition
-    DB   101                       ; GR_ALT26-GR_ALTS; sub-definition-tail
-    DB   111                       ; GR_ALT27-GR_ALTS; sub-definition-tail
-    DB   115                       ; GR_ALT28-GR_ALTS; parameter-list
-    DB   117                       ; GR_ALT29-GR_ALTS; parameter-tail
-    DB   120                       ; GR_ALT30-GR_ALTS; parameter
-    DB   125                       ; GR_ALT31-GR_ALTS; parameter
-    DB   132                       ; GR_ALT32-GR_ALTS; result-opt
-    DB   138                       ; GR_ALT33-GR_ALTS; result-var-opt
-    DB   140                       ; GR_ALT34-GR_ALTS; fails-opt
-    DB   142                       ; GR_ALT35-GR_ALTS; routine-body
-    DB   145                       ; GR_ALT36-GR_ALTS; routine-body
-    DB   146                       ; GR_ALT37-GR_ALTS; local-declaration
-    DB   152                       ; GR_ALT38-GR_ALTS; local-initializer-opt
-    DB   156                       ; GR_ALT39-GR_ALTS; local-initializer-opt
-    DB   157                       ; GR_ALT40-GR_ALTS; statement-sequence
-    DB   159                       ; GR_ALT41-GR_ALTS; statement
-    DB   161                       ; GR_ALT42-GR_ALTS; statement
-    DB   163                       ; GR_ALT43-GR_ALTS; statement
-    DB   165                       ; GR_ALT44-GR_ALTS; statement
-    DB   167                       ; GR_ALT45-GR_ALTS; statement
-    DB   168                       ; GR_ALT46-GR_ALTS; statement
-    DB   169                       ; GR_ALT47-GR_ALTS; statement
-    DB   170                       ; GR_ALT48-GR_ALTS; statement
-    DB   171                       ; GR_ALT49-GR_ALTS; statement
-    DB   176                       ; GR_ALT50-GR_ALTS; statement
-    DB   183                       ; GR_ALT51-GR_ALTS; select-arms
-    DB   186                       ; GR_ALT52-GR_ALTS; case-arm
-    DB   191                       ; GR_ALT53-GR_ALTS; case-arm
-    DB   197                       ; GR_ALT54-GR_ALTS; return-statement
-    DB   200                       ; GR_ALT55-GR_ALTS; return-value-opt
-    DB   202                       ; GR_ALT56-GR_ALTS; return-value-opt
-    DB   203                       ; GR_ALT57-GR_ALTS; fail-statement
-    DB   207                       ; GR_ALT58-GR_ALTS; name-statement-tail
-    DB   208                       ; GR_ALT59-GR_ALTS; name-statement-tail
-    DB   216                       ; GR_ALT60-GR_ALTS; transfer-statement
-    DB   218                       ; GR_ALT61-GR_ALTS; transfer-statement
-    DB   220                       ; GR_ALT62-GR_ALTS; if-statement
-    DB   230                       ; GR_ALT63-GR_ALTS; if-tail
-    DB   237                       ; GR_ALT64-GR_ALTS; if-tail
-    DB   242                       ; GR_ALT65-GR_ALTS; if-tail
-    DB   243                       ; GR_ALT66-GR_ALTS; while-statement
-    DB   252                       ; GR_ALTHI-GR_ALTS
+    DB   53                        ; GR_ALT18-GR_ALTS; record-declaration
+    DB   61                        ; GR_ALT19-GR_ALTS; record-fields
+    DB   63                        ; GR_ALT20-GR_ALTS; record-field
+    DB   69                        ; GR_ALT21-GR_ALTS; forward-declaration
+    DB   71                        ; GR_ALT22-GR_ALTS; forward-tail
+    DB   82                        ; GR_ALT23-GR_ALTS; forward-tail
+    DB   87                        ; GR_ALT24-GR_ALTS; pool-declaration
+    DB   99                        ; GR_ALT25-GR_ALTS; sub-definition
+    DB   103                       ; GR_ALT26-GR_ALTS; sub-definition-tail
+    DB   113                       ; GR_ALT27-GR_ALTS; sub-definition-tail
+    DB   117                       ; GR_ALT28-GR_ALTS; parameter-list
+    DB   119                       ; GR_ALT29-GR_ALTS; parameter-tail
+    DB   122                       ; GR_ALT30-GR_ALTS; parameter
+    DB   127                       ; GR_ALT31-GR_ALTS; parameter
+    DB   134                       ; GR_ALT32-GR_ALTS; result-opt
+    DB   140                       ; GR_ALT33-GR_ALTS; result-var-opt
+    DB   142                       ; GR_ALT34-GR_ALTS; fails-opt
+    DB   144                       ; GR_ALT35-GR_ALTS; routine-body
+    DB   147                       ; GR_ALT36-GR_ALTS; routine-body
+    DB   148                       ; GR_ALT37-GR_ALTS; local-declaration
+    DB   154                       ; GR_ALT38-GR_ALTS; local-initializer-opt
+    DB   158                       ; GR_ALT39-GR_ALTS; local-initializer-opt
+    DB   159                       ; GR_ALT40-GR_ALTS; statement-sequence
+    DB   161                       ; GR_ALT41-GR_ALTS; statement
+    DB   163                       ; GR_ALT42-GR_ALTS; statement
+    DB   165                       ; GR_ALT43-GR_ALTS; statement
+    DB   167                       ; GR_ALT44-GR_ALTS; statement
+    DB   169                       ; GR_ALT45-GR_ALTS; statement
+    DB   170                       ; GR_ALT46-GR_ALTS; statement
+    DB   171                       ; GR_ALT47-GR_ALTS; statement
+    DB   172                       ; GR_ALT48-GR_ALTS; statement
+    DB   173                       ; GR_ALT49-GR_ALTS; statement
+    DB   178                       ; GR_ALT50-GR_ALTS; statement
+    DB   185                       ; GR_ALT51-GR_ALTS; select-arms
+    DB   188                       ; GR_ALT52-GR_ALTS; case-arm
+    DB   193                       ; GR_ALT53-GR_ALTS; case-arm
+    DB   199                       ; GR_ALT54-GR_ALTS; return-statement
+    DB   202                       ; GR_ALT55-GR_ALTS; return-value-opt
+    DB   204                       ; GR_ALT56-GR_ALTS; return-value-opt
+    DB   205                       ; GR_ALT57-GR_ALTS; fail-statement
+    DB   209                       ; GR_ALT58-GR_ALTS; name-statement-tail
+    DB   210                       ; GR_ALT59-GR_ALTS; name-statement-tail
+    DB   218                       ; GR_ALT60-GR_ALTS; transfer-statement
+    DB   220                       ; GR_ALT61-GR_ALTS; transfer-statement
+    DB   222                       ; GR_ALT62-GR_ALTS; if-statement
+    DB   232                       ; GR_ALT63-GR_ALTS; if-tail
+    DB   239                       ; GR_ALT64-GR_ALTS; if-tail
+    DB   244                       ; GR_ALT65-GR_ALTS; if-tail
+    DB   245                       ; GR_ALT66-GR_ALTS; while-statement
+    DB   254                       ; GR_ALTHI-GR_ALTS
 GR_ALTXH:
     DB   0                         ; GR_ALT67-GR_ALTHI; for-statement
     DB   14                        ; GR_ALT68-GR_ALTHI; for-bound
@@ -591,7 +591,7 @@ GR_ALT15:                      ; assert-declaration
 GR_ALT16:                      ; program-var-declaration
     DB   $91,TK_EOL,$48,$90,$6a,TK_AS,$84,TK_NAME,TK_VAR
 GR_ALT17:                      ; program-initializer-opt
-    DB   $8a,$89,TK_EQ
+    DB   $8a,$89,$e0,TK_EQ
 GR_ALT18:                      ; record-declaration
     DB   $93,TK_EOL,TK_END,$4a,TK_EOL,$92,TK_NAME,TK_REC
 GR_ALT19:                      ; record-fields
@@ -603,7 +603,7 @@ GR_ALT21:                      ; forward-declaration
 GR_ALT22:                      ; forward-tail
     DB   $98,TK_EOL,$57,$55,TK_RPAR,$52,TK_LPAR,$97,$96,TK_NAME,TK_SUB
 GR_ALT23:                      ; forward-tail
-    DB   TK_EOL,$db,TK_NAME,TK_POOL
+    DB   $db,TK_EOL,$dc,TK_NAME,TK_POOL
 GR_ALT24:                      ; pool-declaration
     DB   $df,TK_EOL,TK_RBRAC,$de,$85,$ca,TK_LBRAC,$dd,TK_AS,$dc,TK_NAME,TK_POOL
 GR_ALT25:                      ; sub-definition
@@ -708,7 +708,7 @@ GR_ALT73:                      ; type-atom
 GR_ALT74:                      ; type-atom
     DB   $6c,$c9,TK_NAME
 GR_ALT75:                      ; type-optional-opt
-    DB   $e0,TK_QUEST
+    DB   $e1,TK_QUEST
 GR_ALT76:                      ; type-atom
     DB   TK_RBRAC,$6d,TK_LBRAC,TK_STR
 GR_ALT77:                      ; string-capacity
@@ -828,6 +828,7 @@ GR_ACTX:
     DW   PL_REC                    ; x:PoolRecord
     DW   PL_HOLD                   ; a:SavePoolCapacity
     DW   PL_CMT                    ; a:CommitPool
+    DW   PL_SINIT                  ; a:RefuseOwningInitializer
     DW   PL_OPT                    ; a:MakeOptionalHandle
 GR_ACTXE:                      ; End of the action directory.
 

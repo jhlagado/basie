@@ -280,7 +280,13 @@ const CLAIMED: Record<string, string[]> = {
     "FEXPS",
     "FZEROS",
   ],
-  "67g: pools and handle types": ["POOLDECL", "POOLDSC", "POOLPRV"],
+  "67g: pools and handle types": [
+    "POOLDECL",
+    "POOLDSC",
+    "POOLPRV",
+    "POOLNEST",
+    "POOLF32",
+  ],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1341,6 +1347,35 @@ const REFUSED: Record<string, string> = {
   "id of a record": "record R\nv as u8\nend\nvar r as id R\nsub main()\nend\n",
   "capacity not constant":
     "record R\nv as u8\nend\nvar n as u16 = 3\npool p as R[n]\nsub main()\nend\n",
+  "an initializer on a handle variable":
+    "record R\nv as u8\nend\npool p as R[2]\nvar g as p? = 0\nsub main()\nend\n",
+  "an initializer on an id variable":
+    "record R\nv as u8\nend\npool p as R[2]\nvar g as id p? = 0\nsub main()\nend\n",
+  "an initializer on an owning record variable":
+    "forward pool p\nrecord R\nh as p?\nk as u8\nend\npool p as R[2]\nvar s as R = (none, 1)\nsub main()\nend\n",
+  "a handle field repeating a name":
+    "forward pool p\nrecord R\nh as u8\nh as p\nend\npool p as R[2]\nsub main()\nend\n",
+  "a field repeating a name, its type unknown":
+    "record R\nh as u8\nh as Nope\nend\nsub main()\nend\n",
+  "a forward pool with more on its line":
+    "var p as u8\nforward pool p x\nsub main()\nend\n",
+  "two forward pools never completed":
+    "forward pool a\nforward pool b\nsub main()\nend\n",
+  "a public and a private forward pool never completed":
+    "forward pool a\nprivate forward pool b\nsub main()\nend\n",
+  "an owner descriptor of more than 255 entries":
+    "forward pool p\nrecord R\nh as p?[256][1]\nend\npool p as R[1]\nsub main()\nend\n",
+  "a pool as a value":
+    "record R\nv as u8\nend\npool p as R[2]\nvar k as u8\nsub main()\nk = p\nend\n",
+  "a pool assigned":
+    "record R\nv as u8\nend\npool p as R[2]\nsub main()\np = 1\nend\n",
+  "a pool called":
+    "record R\nv as u8\nend\npool p as R[2]\nsub main()\np()\nend\n",
+  "a pool as a bound":
+    "record R\nv as u8\nend\npool p as R[2]\nvar a as u8[p]\nsub main()\nend\n",
+  "a record type as a value":
+    "record R\nv as u8\nend\nvar k as u8\nsub main()\nk = R\nend\n",
+  "a record type assigned": "record R\nv as u8\nend\nsub main()\nR = 1\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 

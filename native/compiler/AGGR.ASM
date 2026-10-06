@@ -252,14 +252,27 @@ AG_FIELD:
     RET                            ; Return it in HL.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Compare the current NAME token with the fields already declared in the
-; record being declared (AG_CFCNT fields from index AG_CFIDX). A repeated
-; field name raises DG_DUP; otherwise return carry clear.
+; Compare the name of the field entry at HL, made the current NAME, with
+; the fields already declared in the record being declared (AG_CFCNT fields
+; from index AG_CFIDX). A repeated field name raises DG_DUP, naming it, at
+; it, after its type's checks as the reference makes them; otherwise
+; return carry clear, the current token's TK_PTR and TK_LEN restored.
 
-AG_FRESH:
+AG_FRESH:                      ; HL is the new field's entry.
+    LD   DE,(TK_PTR)               ; The current
+    PUSH DE                        ; token's
+    LD   A,(TK_LEN)                ; spelling,
+    PUSH AF                        ; kept.
+    LD   E,(HL)                    ; Its
+    INC  HL                        ; name's
+    LD   D,(HL)                    ; spelling
+    INC  HL                        ; and
+    LD   A,(HL)                    ; length
+    LD   (TK_PTR),DE               ; are the
+    LD   (TK_LEN),A                ; current NAME.
     LD   A,(AG_CFCNT)              ; Fetch this record's field count so far.
     OR   A                         ; The first field cannot repeat.
-    RET  Z                         ; Return carry clear from the OR.
+    JR   Z,.FRESH                  ; Carry clear from the OR.
     LD   B,A                       ; B counts the fields left to compare.
     LD   A,(AG_CFIDX)              ; A is the record's first field index.
 .LOOP:                         ; Compare one field per iteration.
@@ -267,13 +280,24 @@ AG_FRESH:
     PUSH BC                        ; Keep the count; TK_SAME needs no BC.
     CALL AG_FIELD                  ; Address this field's entry.
     CALL TK_SAME                   ; Is its name the token's spelling?
-    JP   C,EX_EDUP                 ; Yes: report the duplicate; no return.
+    JR   C,.DUP                    ; Yes: report the duplicate.
     POP  BC                        ; Restore the count.
     POP  AF                        ; Restore the field index.
     INC  A                         ; Step to the next field.
     DJNZ .LOOP                     ; Continue through the record's fields.
-    OR   A                         ; Report no repeat with carry clear.
+.FRESH:                        ; No repeat:
+    POP  AF                        ; the current
+    LD   (TK_LEN),A                ; token's
+    POP  DE                        ; spelling
+    LD   (TK_PTR),DE               ; again,
+    OR   A                         ; with carry clear.
     RET                            ; Return to the field action.
+.DUP:                          ; The name repeats a field's.
+    LD   HL,TK_PTR                 ; It
+    LD   A,DG_DUP                  ; is named
+    CALL DG_SETN                   ; by duplicate-name,
+    LD   HL,(TK_PTR)               ; at its
+    JP   DG_SRC                    ; spelling; no return.
 
 ; A further failure exit. It does not return.
 
@@ -411,6 +435,8 @@ AG_TAKE:
 AG_PARSE:
     CP   AG_FIRST                  ; Is this a scalar type?
     JR   C,.SCALAR                 ; Yes: parse a constant.
+    CALL PL_ISHND                  ; A handle has no
+    JR   C,.HANDLE                 ; static initializer.
     CALL AG_DESC                   ; Address its descriptor.
     LD   A,(HL)                    ; Fetch the kind.
     CP   AG_KSTR                   ; A bounded string?
@@ -421,6 +447,10 @@ AG_PARSE:
     JP   Z,AG_ARRAY                ; Parse its element list.
     CALL DG_RAISE                  ; Defensive: no other kind is interned.
     DB   DG_BUG                    ; Diagnostic: internal.
+.HANDLE:                       ; A handle's initializer:
+    CALL PR_PEEK                   ; at its first token,
+    CALL DG_RAISE                  ; static-initializer.
+    DB   DG_SINIT                  ; No return.
 
 .SCALAR:                       ; u8, u16 or Boolean.
     LD   E,A                       ; E is the destination type for EX_FITS.

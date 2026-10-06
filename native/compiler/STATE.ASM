@@ -401,6 +401,7 @@ DG_UNTYP EQU  43               ; constant-needs-type: an untyped constant's valu
 DG_INFER EQU  44               ; no-definite-type: an initializer to infer from.
 DG_FALSE EQU  45               ; assertion-false.
 DG_EMPTY EQU  48               ; empty-record.
+DG_SINIT EQU  49               ; static-initializer.
 DG_KNOWN EQU  51               ; not-constant.
 DG_NOCVT EQU  53               ; conversion-unavailable.
 DG_VARP EQU  54                ; var-parameter: var on a scalar or File.

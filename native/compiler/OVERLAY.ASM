@@ -31,10 +31,14 @@
 ;                           OV_FTOI and OV_FOLD reach its entries),
 ;                           loaded above NAMES, at OV_AREA plus NAMES'
 ;                           records, when first needed and kept
+;    OV_OWNS   OWNERS.ASM   an owning record's owner descriptor written
+;                           (OV_OWNER reaches OW_DESC, its first byte),
+;                           loaded above NAMES in FLOAT's place
 ;  A later overlay may load above another in the area, so that both are
-;  there at once: FLOAT loads after the predeclared names, which stay
-;  loaded while it is used, so the area is as large as NAMES' records and
-;  FLOAT together.
+;  there at once: FLOAT and OWNERS load after the predeclared names, which
+;  stay loaded while they are used, so the area is as large as NAMES'
+;  records and FLOAT together. FLOAT and OWNERS replace each other, each
+;  loaded again when next needed.
 ;
 ;  BASIE.OVL is magic BSIO, version 1.0, the 16-bit sum of the resident
 ;  image's bytes from $0100 to OV_AREA, which ties the file to this
@@ -61,6 +65,7 @@ OV_CHAIN EQU  3                ; The chain to BLINK.
 OV_DIAG EQU  4                 ; Diagnostics from BASIE.MSG.
 OV_PARTS EQU  5                ; The source parts, loaded.
 OV_FLOAT EQU  6                ; f32 constants: literals and folding.
+OV_OWNS EQU  7                 ; Owner descriptors.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 
@@ -148,6 +153,30 @@ OV_FCALL:                      ; A is the offset, HL the argument.
     RET                            ; the flags are the entry's.
 .RUN:                          ; DE is the entry.
     PUSH DE                        ; Its address
+    RET                            ; is jumped to; it returns above.
+
+;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the OWNERS overlay unless it is the one loaded last, and write the
+; owner descriptor of table type A, whose ordinal HL is (OW_DESC). IX and
+; IY, which loading may change, are kept.
+
+OV_OWNER:                      ; A is the type, HL the ordinal.
+    PUSH IX                        ; Keep IX
+    PUSH IY                        ; and IY,
+    PUSH HL                        ; the ordinal
+    PUSH AF                        ; and the type.
+    LD   A,OV_OWNS                 ; The overlay
+    CALL OV_LOAD                   ; is loaded, above NAMES.
+    POP  AF                        ; The type
+    POP  HL                        ; and the ordinal.
+    CALL .RUN                      ; The descriptor written.
+    POP  IY                        ; IY
+    POP  IX                        ; and IX again.
+    RET                            ; Done.
+.RUN:                          ; Jump to OW_DESC, HL kept:
+    PUSH HL                        ; its
+    LD   HL,(OV_DIR+4*OV_OWNS)     ; load address,
+    EX   (SP),HL                   ; on the stack,
     RET                            ; is jumped to; it returns above.
 
 ;@ROUTINE IN C,HL OUT CARRY CLOBBERS A,DE,IX,IY,ZERO,SIGN,PARITY,HALFCARRY

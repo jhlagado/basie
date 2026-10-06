@@ -227,7 +227,9 @@ record; a descriptor has at most 255 entries (`types`, Error 190,
 beyond). The workspace grew, and the workspaces and the source area moved
 1K up (`MM_WBASE` `$5800`), so the source area is 1K smaller, about 24.3K
 on a 62K system. A build check keeps the pools' table below the LL(1)
-stack (`PL_WEND` at or below `LL_DEPTH`).
+stack (`PL_WEND` at or below `LL_DEPTH`). The descriptor writer is the
+eighth overlay, `OWNERS`, so `BASIE.OVL`'s directory (`OV_DCAP`, 8) is
+full.
 
 ### 2.4 Workspace budget for `BASIE.COM` (Implementation)
 

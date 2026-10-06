@@ -92,11 +92,12 @@ PL_FIND:                       ; The NAME is current.
 PL_BEGIN EQU  EX_DECL          ; BeginPool: keep the pool's name and position.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; ForwardPool: `forward pool NAME`. The pool takes its ordinal now, and its
-; name is declared (duplicate-name otherwise); it is completed later.
+; ForwardPool: `forward pool NAME`, its line ended. The pool takes its
+; ordinal now, and its name is declared (duplicate-name otherwise); it is
+; completed later.
 
-PL_FWD:                        ; The NAME is current.
-    CALL EX_DECL                   ; Keep it and its position.
+PL_FWD:                        ; The name is retained (BeginPool).
+    CALL EX_RENEW                  ; The NAME is current again.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Declare the current NAME a pool: a new entry (PL_NEW) and its symbol,
@@ -123,7 +124,7 @@ PL_NEW:                        ; The name is retained.
     LD   A,(PL_CNT)                ; The pools so far:
     CP   PL_CAP                    ; is there room?
     LD   A,DG_POOLS                ; No: capacity,
-    JP   NC,DG_RAISE               ; pools.
+    JP   NC,DG_ISSUE               ; pools.
     LD   A,(PL_CNT)                ; Its index,
     PUSH AF                        ; kept.
     CALL PL_AT                     ; HL is its entry.
@@ -316,7 +317,7 @@ PL_CMT:                        ; The declaration is parsed.
     OR   A                         ; to write?
     RET  Z                         ; No.
     LD   A,(PL_NREC)               ; The record's,
-    JP   PL_DESCW                  ; written; return.
+    JP   OV_OWNER                  ; written (OWNERS); return.
 .WIDE:                         ; Past 65,535 bytes:
     LD   A,DG_RANGE                ; out-of-range,
     JP   .ATNAME                   ; at the name.
@@ -366,7 +367,6 @@ PL_NAMEC:                      ; HL and C are the name; the suffix pushed.
     JP   BL_NAME                   ; Recorded; return.
 
 PL_SLOTS: DB  ".slots",0       ; A pool's slots' name suffix.
-PL_OWNRS: DB  ".owners",0      ; An owner descriptor's name suffix.
 
 ;@ROUTINE OUT DE CLOBBERS A,BC,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The owner descriptor of the pool's record (PL_NREC), if it owns: DE
@@ -412,245 +412,6 @@ PL_DSLOT:                      ; A is a table type's ID.
     LD   HL,PL_DESC                ; from
     ADD  HL,DE                     ; the cache.
     RET                            ; HL is the word.
-
-;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the owner descriptor of table type A, whose ordinal HL is, as a
-; rodata blob named TYPE.owners: its entries' count (capacity, "types",
-; beyond 255), then the entries (PL_WALK).
-
-PL_DESCW:                      ; A is the type, HL its ordinal.
-    LD   (PL_NSTOR),HL             ; The blob's ordinal, for its name.
-    LD   (PL_WTYPE),A              ; The type, kept.
-    LD   HL,0                      ; Count
-    LD   (PL_WCNT),HL              ; the entries:
-    XOR  A                         ; a counting
-    LD   (PL_WEMIT),A              ; walk.
-    CALL PL_WROOT                  ; The entries counted.
-    LD   HL,(PL_WCNT)              ; At most
-    LD   A,H                       ; 255:
-    OR   A                         ; more is
-    LD   A,DG_META                 ; capacity,
-    JP   NZ,DG_RAISE               ; types.
-    LD   HL,(PL_NSTOR)             ; The blob,
-    LD   A,BL_KRO                  ; read-only,
-    CALL BL_BEGIN                  ; begun.
-    LD   A,(PL_WCNT)               ; The count,
-    CALL BL_BYTE                   ; first.
-    LD   A,1                       ; An emitting
-    LD   (PL_WEMIT),A              ; walk:
-    CALL PL_WROOT                  ; the entries.
-    CALL BL_END                    ; Written.
-    LD   A,(PL_WTYPE)              ; Its name: the type's,
-    CALL PL_TNAME                  ; at HL, B bytes,
-    LD   C,B                       ; C of them,
-    LD   DE,PL_OWNRS               ; then .owners:
-    PUSH DE                        ; the suffix.
-    JP   PL_NAMEC                  ; Named; return.
-
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Walk PL_WTYPE from offset zero with no pending array.
-
-PL_WROOT:                      ; The type is PL_WTYPE.
-    LD   A,(PL_WTYPE)              ; It,
-    LD   HL,0                      ; at offset zero,
-    LD   BC,0                      ; no array
-    LD   DE,0                      ; pending.
-
-;@ROUTINE IN A,BC,DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Visit the owning handles of type A at offset HL. BC and DE are the
-; stride and count of the innermost enclosing array not yet given to an
-; entry (count zero for none). Each owning handle is an entry: with the
-; pending array's stride and count, or unstrided. An array met while one is
-; pending expands the pending one, element by element, so only the
-; innermost array strides (the reference's owningEntries). In a counting
-; walk (PL_WEMIT zero) each entry adds one to PL_WCNT; in an emitting walk
-; it is appended to the blob.
-
-PL_WALK:                       ; A is the type.
-    CALL PL_ISHND                  ; A handle? If not,
-    JR   NC,.TABLE                 ; perhaps a table type.
-    AND  AG_HID                    ; An identifier
-    RET  NZ                        ; owns nothing.
-    LD   A,(PL_WEMIT)              ; Counting?
-    OR   A                         ; Then
-    JR   Z,.COUNT                  ; count it.
-    LD   A,D                       ; A pending
-    OR   E                         ; array?
-    LD   A,0                       ; Unstrided
-    JR   Z,.FLAG                   ; without one,
-    INC  A                         ; strided with.
-.FLAG:                         ; A is the flag.
-    CALL BL_BYTE                   ; The flag,
-    CALL PL_WORD                   ; the offset,
-    LD   A,D                       ; and
-    OR   E                         ; with an array
-    RET  Z                         ; pending,
-    LD   H,B                       ; its
-    LD   L,C                       ; stride
-    CALL PL_WORD                   ; and
-    EX   DE,HL                     ; its
-    JP   PL_WORD                   ; count; return.
-.COUNT:                        ; Count the entry.
-    LD   HL,(PL_WCNT)              ; One
-    INC  HL                        ; more
-    LD   (PL_WCNT),HL              ; entry.
-    RET                            ; Done.
-.TABLE:                        ; A table type, or no aggregate.
-    CP   AG_FIRST                  ; Below the table:
-    RET  C                         ; a scalar.
-    CP   AG_FIRST+AG_TCAP          ; Past it:
-    RET  NC                        ; an open view or a File.
-    PUSH HL                        ; The offset,
-    PUSH BC                        ; the pending
-    PUSH DE                        ; array,
-    PUSH AF                        ; and the type, kept.
-    CALL PL_OWNS                   ; Owning?
-    JR   C,.OWNS                   ; Then visit it.
-    POP  AF                        ; Not:
-    POP  DE                        ; nothing
-    POP  BC                        ; to
-    POP  HL                        ; visit.
-    RET                            ; Done.
-.OWNS:                         ; An owning record or array.
-    POP  AF                        ; The type; the offset and array stay.
-    CALL AG_DESC                   ; Its descriptor, HL.
-    LD   A,(HL)                    ; Its kind:
-    CP   AG_KREC                   ; a record?
-    INC  HL                        ; Its auxiliary byte,
-    LD   A,(HL)                    ; the record's ordinal or the element type.
-    INC  HL                        ; Its
-    LD   C,(HL)                    ; count,
-    INC  HL                        ; for
-    LD   B,(HL)                    ; an array.
-    JR   NZ,.ARRAY                 ; Not a record: an array.
-    CALL AG_RENT                   ; A is the record's ordinal: its entry,
-    LD   A,(HL)                    ; its first field,
-    INC  HL                        ; and
-    LD   B,(HL)                    ; its count, B,
-    LD   C,A                       ; the next field's index, C.
-.FIELD:                        ; The stack: count, stride, offset.
-    LD   A,B                       ; Any field
-    OR   A                         ; left?
-    JR   Z,.FIELDS                 ; No.
-    PUSH BC                        ; The loop, kept.
-    LD   A,C                       ; The field's
-    CALL AG_FIELD                  ; entry:
-    INC  HL                        ; past
-    INC  HL                        ; its
-    INC  HL                        ; name,
-    LD   A,(HL)                    ; its type,
-    INC  HL                        ; and
-    LD   E,(HL)                    ; its
-    INC  HL                        ; offset,
-    LD   D,(HL)                    ; DE.
-    LD   HL,6                      ; The record's offset,
-    ADD  HL,SP                     ; under the loop, count and stride:
-    PUSH AF                        ; (the type kept)
-    LD   A,(HL)                    ; its
-    INC  HL                        ; low and
-    LD   H,(HL)                    ; high
-    LD   L,A                       ; bytes,
-    ADD  HL,DE                     ; plus the field's: the field's offset.
-    POP  AF                        ; The type.
-    PUSH HL                        ; The field's offset, kept.
-    LD   HL,4                      ; The pending count and stride,
-    ADD  HL,SP                     ; under it and the loop:
-    LD   E,(HL)                    ; the
-    INC  HL                        ; count,
-    LD   D,(HL)                    ; DE,
-    INC  HL                        ; and
-    LD   C,(HL)                    ; the
-    INC  HL                        ; stride,
-    LD   B,(HL)                    ; BC.
-    POP  HL                        ; The field's offset.
-    CALL PL_WALK                   ; The field visited.
-    POP  BC                        ; The loop:
-    INC  C                         ; the next field,
-    DEC  B                         ; one fewer.
-    JR   .FIELD                    ; Until all are.
-.FIELDS:                       ; Every field is visited.
-    POP  DE                        ; The pending
-    POP  BC                        ; array and the offset,
-    POP  HL                        ; dropped.
-    RET                            ; Done.
-.ARRAY:                        ; A is the element, BC the element count.
-    LD   (PL_WELEM),A              ; The element type,
-    LD   (PL_WLEN),BC              ; and its count, kept.
-    POP  DE                        ; The pending
-    POP  BC                        ; array, and
-    POP  HL                        ; the offset.
-    LD   A,D                       ; None
-    OR   E                         ; pending? Then
-    JR   Z,.THIS                   ; it strides; else expand that first.
-.STEP:                         ; DE elements of BC bytes pend; each in turn:
-    PUSH HL                        ; its offset,
-    PUSH BC                        ; the stride
-    PUSH DE                        ; and the count kept.
-    LD   A,(PL_WELEM)              ; This array
-    PUSH AF                        ; (its element
-    LD   BC,(PL_WLEN)              ; and count
-    PUSH BC                        ; kept across)
-    CALL .THIS                     ; visited at HL, no array pending.
-    POP  BC                        ; Its
-    LD   (PL_WLEN),BC              ; element
-    POP  AF                        ; and count
-    LD   (PL_WELEM),A              ; restored.
-    POP  DE                        ; The count,
-    POP  BC                        ; the stride,
-    POP  HL                        ; the offset.
-    ADD  HL,BC                     ; The next element's offset.
-    DEC  DE                        ; One fewer.
-    LD   A,D                       ; Until
-    OR   E                         ; all
-    JR   NZ,.STEP                  ; are.
-    RET                            ; Done.
-.THIS:                         ; This array at HL, nothing pending.
-    LD   A,(PL_WELEM)              ; Its element's
-    PUSH HL                        ; (the offset kept)
-    CALL AG_SIZE                   ; size,
-    LD   B,H                       ; the
-    LD   C,L                       ; stride;
-    LD   DE,(PL_WLEN)              ; the count.
-    POP  HL                        ; The offset.
-    LD   A,(PL_WELEM)              ; The element
-    JP   PL_WALK                   ; visited; return.
-
-;@ROUTINE IN A OUT HL,B CLOBBERS A,C,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The name of table type A, a record's: the symbol of class SY_RTYPE whose
-; payload is A. HL returns its spelling and B its length.
-
-PL_TNAME:                      ; A is the type.
-    LD   C,A                       ; Kept.
-    LD   A,(SY_CNT)                ; The symbols:
-    LD   B,A                       ; each,
-.LOOK:                         ; from the last.
-    LD   A,B                       ; Symbol
-    DEC  A                         ; B-1:
-    CALL SY_AT                     ; its record.
-    PUSH HL                        ; Kept.
-    INC  HL                        ; Its
-    INC  HL                        ; class
-    INC  HL                        ; byte:
-    LD   A,(HL)                    ; a record
-    CP   SY_RTYPE                  ; type
-    JR   NZ,.NEXT                  ; whose
-    INC  HL                        ; payload
-    LD   A,(HL)                    ; is
-    CP   C                         ; the type?
-    JR   NZ,.NEXT                  ; No.
-    POP  HL                        ; The record:
-    LD   E,(HL)                    ; its
-    INC  HL                        ; spelling's
-    LD   D,(HL)                    ; address
-    INC  HL                        ; and
-    LD   B,(HL)                    ; length.
-    EX   DE,HL                     ; HL is the spelling.
-    RET                            ; Done.
-.NEXT:                         ; Not it.
-    POP  HL                        ; Dropped.
-    DJNZ .LOOK                     ; The one before.
-    LD   B,0                       ; None: no name.
-    RET                            ; HL is anything.
 
 ;@ROUTINE IN A OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A field of type A is committed: if it owns, its record will (PL_ROWN).
@@ -711,7 +472,9 @@ PL_OWNS:                       ; A is a type ID.
     RET                            ; Done.
 .TABLE:                        ; A table type?
     SUB  AG_FIRST                  ; Its index,
-    JR   C,.NOT                    ; none for a scalar.
+    JR   C,.NOT                    ; none for a scalar
+    CP   AG_TCAP                   ; nor for an
+    JR   NC,.NOT                   ; open array.
     CALL PL_OWNAT                  ; Its bit, A, and byte, HL.
     AND  (HL)                      ; Set?
     RET  Z                         ; No: carry clear.
@@ -799,22 +562,36 @@ PL_NEEDO:                      ; A is the type, HL the position.
     LD   A,DG_HOPT                 ; handle-must-be-optional,
     JP   DG_AT                     ; at the position.
 
-;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A is a local's, parameter's or result's type: a handle, or an owning
-; aggregate, is refused for now (native-unsupported, DG_NYI). A is kept.
+;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; RefuseOwningInitializer: a program variable of a handle or owning type
+; (AC_DINFO) has no initializer (static-initializer, at its name).
 
-PL_LATER:                     ; A is the type.
+PL_SINIT:                      ; After `=`.
+    LD   A,(AC_DINFO)              ; The variable's type:
+    CALL PL_ISHND                  ; a handle
+    CALL NC,PL_OWNS                ; or owning?
+    RET  NC                        ; Neither.
+    LD   A,DG_SINIT                ; static-initializer,
+    LD   HL,AC_DPOS                ; at the
+    JP   DG_AT                     ; name.
+
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A is a local's, parameter's, result's or open array's element type,
+; with or without its var bit: a handle, or an owning aggregate, is
+; refused for now (native-unsupported, DG_NYI). A is kept.
+
+PL_LATER:                      ; A is the type.
     PUSH AF                        ; Kept.
     PUSH DE                        ; (PL_OWNS
     PUSH HL                        ; clobbers these)
-    CALL PL_OWNS                   ; Owning,
-    POP  HL                        ; or
-    POP  DE                        ; a handle
-    JR   C,.REFUSE                 ; at all?
-    POP  AF                        ; The type:
+    AND  $7F                       ; Without the var bit:
     CALL PL_ISHND                  ; a handle
-    RET  NC                        ; of any form?
-    PUSH AF                        ; Then refused.
+    CALL NC,PL_OWNS                ; or owning?
+    POP  HL                        ; (DE and HL
+    POP  DE                        ; back)
+    JR   C,.REFUSE                 ; Then refused.
+    POP  AF                        ; The type.
+    RET                            ; Accepted.
 .REFUSE:                       ; Not yet compiled.
     POP  AF                        ; The type.
     JP   TR_OPER                   ; native-unsupported.
@@ -832,18 +609,22 @@ PL_ISHND:                      ; A is a type ID.
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; At a part's end (only its private pools) or the program's (every pool):
 ; a forward pool still without its declaration is forward-incomplete,
-; naming it, at its name. C is nonzero at the program's end. Includes
+; naming it, at its name, the first in their order as the reference's
+; endPart finds it. The program has ended when the next token is the
+; end of the source (RequireMain, before TokenEof). Includes
 ; come before declarations, so a part's end meets only pools of parts that
 ; have ended (their private forwards reported then) and of its own.
 
-PL_ENDP:                       ; C: nonzero at the program's end.
+PL_ENDP:                       ; A part or the program has ended.
+    CALL PR_PEEK                   ; The next token: C is
+    LD   C,A                       ; zero (TK_EOF) at the program's end.
     LD   A,(PL_CNT)                ; The pools,
     OR   A                         ; any?
     RET  Z                         ; None.
     LD   B,A                       ; B of them,
-.POOL:                         ; from the last.
-    LD   A,B                       ; Pool
-    DEC  A                         ; B-1:
+.POOL:                         ; from the first.
+    LD   A,(PL_CNT)                ; Pool
+    SUB  B                         ; PL_CNT-B:
     CALL PL_AT                     ; its entry.
     INC  HL                        ; Its
     INC  HL                        ; record:
@@ -852,13 +633,13 @@ PL_ENDP:                       ; C: nonzero at the program's end.
     JR   NZ,.NEXT                  ; it is done.
     LD   A,C                       ; At the program's end
     OR   A                         ; every forward
-    JR   NZ,.OPEN                  ; is incomplete;
+    JR   Z,.OPEN                   ; is incomplete;
     INC  HL                        ; at a part's end
     LD   A,(HL)                    ; only a private
     OR   A                         ; one, of the
     JR   Z,.NEXT                   ; part that ended.
     DEC  HL                        ; (back to the record byte)
-.OPEN:                         ; Pool B-1 is incomplete.
+.OPEN:                         ; The pool is incomplete.
     INC  HL                        ; Past
     INC  HL                        ; its visibility
     INC  HL                        ; and part,
@@ -867,14 +648,15 @@ PL_ENDP:                       ; C: nonzero at the program's end.
     LD   D,(HL)                    ; address.
     PUSH DE                        ; Kept.
     EX   DE,HL                     ; The name
-    CALL PL_ASTOK                 ; is the current token.
+    CALL PL_ASTOK                  ; is the current token.
+    LD   HL,TK_PTR                 ; Its record:
     LD   A,DG_UNMET                ; forward-incomplete,
     CALL DG_SETN                   ; naming it,
     POP  HL                        ; at it.
     LD   A,DG_UNMET                ; forward-incomplete.
     JP   DG_SRC                    ; No return.
-.NEXT:                         ; Pool B-1 is done.
-    DJNZ .POOL                     ; The one before.
+.NEXT:                         ; The pool is done.
+    DJNZ .POOL                     ; The one after.
     RET                            ; Every pool is complete.
 
 ;@ROUTINE IN HL CLOBBERS A,B,C,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY

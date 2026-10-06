@@ -1,0 +1,23 @@
+// Owner descriptors of arrays inside arrays: each entry of the innermost
+// array is listed for every element of the arrays outside it, the outer
+// elements varying fastest, as the reference's owningEntries lists them.
+forward pool p
+forward pool q
+record A
+    hs as p?[2][2][2]
+end
+record S
+    c as q?[2]
+    k as u8
+end
+record R
+    b as S[2]
+end
+record B
+    a as R[2]
+    m as id q?
+end
+pool p as A[1]
+pool q as B[2]
+sub main()
+end

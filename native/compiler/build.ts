@@ -69,6 +69,14 @@ export const OVERLAYS = [
     offset: 0,
     after: "NAMES",
   },
+  // Above NAMES too, in FLOAT's place: each is loaded again when needed.
+  {
+    name: "OWNERS",
+    equate: "OV_OWNS",
+    files: ["OWNERS.ASM"],
+    offset: 0,
+    after: "NAMES",
+  },
 ];
 
 export type Overlay = {
@@ -170,10 +178,13 @@ async function build(): Promise<BasieImage> {
       : area + o.offset;
     overlays.push(await overlay(o, address, symbols));
   }
-  const names = overlays.find((o) => o.name === "NAMES")!;
-  const float = overlays.find((o) => o.name === "FLOAT")!;
-  if (names.address + names.bytes.length > float.address) {
-    throw new Error("NAMES runs into FLOAT, which loads above it");
+  for (const o of OVERLAYS) {
+    if (!("after" in o)) continue;
+    const above = overlays.find((v) => v.name === o.name)!;
+    const below = overlays.find((v) => v.name === o.after)!;
+    if (below.address + below.bytes.length > above.address) {
+      throw new Error(`${o.after} runs into ${o.name}, which loads above it`);
+    }
   }
   const areaEnd = Math.max(
     ...overlays.map((o) => o.address + o.records * 128),

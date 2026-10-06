@@ -1028,6 +1028,8 @@ RO_LET:
     LD   A,DG_CONST                ; not-writable,
     JP   EX_EVAL                   ; at its start.
 .KIND:                         ; A is the target's type.
+    CALL PL_ISHND                  ; A handle is not
+    JP   C,TR_OPER                 ; assigned yet (DG_NYI).
     CP   AG_FILE                   ; A File?
     JR   Z,.FILE                   ; Its value is stored.
     CP   AG_FIRST                  ; A scalar?
