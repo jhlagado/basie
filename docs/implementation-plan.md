@@ -10,8 +10,8 @@
 
 Five things, in this order of dependency:
 
-1. **The language specification:** Basie 1.0, forked from the Nucleus 0.1
-   specification with decisions D1–D34 applied.
+1. **The language specification:** Basie 1.0, carrying design decisions
+   D1–D34.
 2. **The runtime library:** hand-written Z80 for CP/M 2.2, shipped as a blob
    library (`CPM22.BRL`), including startup, arithmetic helpers, pools, traps
    and the services.
@@ -32,8 +32,8 @@ native compiler, so that it is an executable model of the native algorithms, not
 an unrelated compiler.
 
 **Track B, the native toolchain:** `BASIE.COM` and `BLINK.COM` in Z80 assembly,
-assembled with ATOM as development tooling. The compiler starts from a fork of
-the Nucleus 12K compiler rewrite, evolved in stages; the linker is new.
+assembled with ATOM as development tooling. The compiler grows in stages from a
+working core that compiles the base language; the linker is written whole.
 
 **How the two relate:**
 
@@ -52,8 +52,8 @@ the Nucleus 12K compiler rewrite, evolved in stages; the linker is new.
   minutes; in Z80 it takes days. Every open question found while writing the
   reference compiler is found before it costs native work.
 - **A test oracle.** Every native stage is checked against the reference on the
-  same programs. Nucleus had to prove each feature from first principles; Basie
-  gets a second implementation to disagree with.
+  same programs, so each feature has a second implementation to disagree
+  with rather than being proved from first principles.
 - **Host tooling for free.** The reference compiler doubles as a fast
   cross-compiler for development, and its line tables and maps feed Debug80
   directly.
@@ -64,19 +64,19 @@ the Nucleus 12K compiler rewrite, evolved in stages; the linker is new.
 
 | Alternative | Why not |
 | --- | --- |
-| **Native only, as Nucleus was built** | Every language question would be answered in Z80. Nucleus showed this works but is slow, and Basie's language is several times larger |
+| **Native only** | Every language question would be answered in Z80. That works but is slow, and Basie's language is large |
 | **TypeScript only, as a cross-compiler** | Fails the project's premise: Basie compiles on the Z80 itself |
-| **Native compiler written from scratch** | Throws away the Nucleus rewrite's measured lexer, parser, scopes and code generation, which carry over almost unchanged |
+| **Native compiler written all at once** | No working compiler until the end; growing it in stages from a measured core keeps every stage tested against the reference |
 | **A reference compiler with a conventional tree-based design** | Easier to write, but it would not model the native single-pass algorithms, so it couldn't expose single-pass problems early |
 
 ### 2.4 Tools
 
 | Need | Tool | Status |
 | --- | --- | --- |
-| Language for the reference toolchain and tests | TypeScript on **Deno** | Skate already uses Deno for its proofs |
-| Z80 execution | `@jhlagado/z80-runtime` | Used by Skate under Deno |
-| Assembling native code and the runtime | ATOM, through `atom-z80` | Used by Skate under Deno; development tooling only |
-| CP/M 2.2 for running programs and the native toolchain | The CP/M harness used by Skate's and ATOM's proofs | To be shared or adapted |
+| Language for the reference toolchain and tests | TypeScript on **Deno** | In use |
+| Z80 execution | `@jhlagado/z80-runtime` | In use under Deno |
+| Assembling native code and the runtime | ATOM, through `atom-z80` | In use under Deno; development tooling only |
+| CP/M 2.2 for running programs and the native toolchain | A minimal CP/M harness, and real CP/M 2.2 on the Triptych machine (`tests/harness/`) | In use |
 | Service contracts | `z80-services` (byte gateway, console and storage) | Basie's services adopt them (Section 6) |
 | Turning runtime assembly into blobs | A blob output mode in ATOM, or a Deno tool over ATOM's output | To be decided in Phase 2 |
 
@@ -105,8 +105,7 @@ within a phase is committed and pushed in small steps.
 ### Phase 0: Foundations
 
 - Set up `deno.json`, formatting, linting and tasks.
-- Bring the Z80 emulator and CP/M 2.2 harness into the test setup, following
-  Skate's `tests/z80.ts`.
+- Bring the Z80 emulator and CP/M 2.2 harness into the test setup.
 - Write the **limits register** (Section 7) and audit every design document
   against it.
 - Settle the remaining design questions that block the specification: the
@@ -117,13 +116,11 @@ test`; the limits register has no unexplained entry.
 
 ### Phase 1: The specification
 
-- Fork the Nucleus 0.1 specification into `spec/`.
-- Apply D1–D34 chapter by chapter: types and conversions, `select`, local
+- Write the specification in `spec/`, applying D1–D34 chapter by chapter: types and conversions, `select`, local
   aggregates and `from`, arrays of arrays, `var` parameters, pools and handles,
   `private` and `include`, `assert`, services.
 - Seed the **conformance corpus**: for each rule, a small program with its
-  expected output, trap or diagnostic. Nucleus's conformance examples are the
-  starting point.
+  expected output, trap or diagnostic.
 
 **Gate:** the specification has no "to be decided" in any version 1 chapter, and
 every chapter has conformance programs.
@@ -147,7 +144,7 @@ from a hand-written object runs under CP/M.
 Built in the order the language is taught, so each step produces programs that
 run:
 
-1. The Nucleus core: lexer, declarations, expressions, statements, routines,
+1. The base language: lexer, declarations, expressions, statements, routines,
    records, arrays, strings, `fails`, traps, writing blobs.
 2. Signed and 32-bit integers, shifts, the numeric rules (D31).
 3. `f32`, through runtime helpers.
@@ -187,10 +184,10 @@ the helper table is complete.
 
 ### Phase 6: The native compiler
 
-Starting from a fork of the Nucleus 12K rewrite, in stages that each keep a
+Starting from a working core for the base language, in stages that each keep a
 working compiler:
 
-1. Replace Nucleus's placed output with blob output, and chain to `BLINK`.
+1. Write blob output, and chain to `BLINK`.
 2. Add the message file and the overlay mechanism.
 3. Add the features in Phase 3's order.
 
@@ -219,7 +216,7 @@ the commit.
 - Every feature has an entry in the [feature inventory](feature-inventory.md)
   with its estimated cost, replaced by its measured cost as soon as it exists.
 - The native compiler's size and workspace are measured on every commit that
-  touches it, as Nucleus's were.
+  touches it.
 - **Stop rule:** if `BASIE.COM` exceeds its 28K limit, no further features are
   added until it is back within it, by size work or by
   moving a feature to version 2. The feature inventory records which.
@@ -229,8 +226,7 @@ the commit.
 ## 6. Services and the shared service contracts
 
 Basie's [services](services.md) are its language-facing adapter over the
-**z80-services** contracts, in the way Skate exposes Scheme ports and Nucleus its
-own procedures. Before the runtime's services are written:
+**z80-services** contracts. Before the runtime's services are written:
 
 - map each Basie service to its z80-services operation (the byte gateway and the
   console and storage contracts), and record any service with no contract yet as
@@ -244,9 +240,7 @@ Every limit in Basie is listed in the [limits register](limits.md), with its
 value, its reason and its kind: language, format, CP/M, or capacity. **The
 rule:** no limit is smaller than memory allows unless the object format, CP/M or
 a measured cost requires it, and every limit is published and diagnosed.
-Capacity limits carry guaranteed minimums that the native toolchain must meet,
-and the register records every small limit from Nucleus's first implementation
-that Basie does not inherit.
+Capacity limits carry guaranteed minimums that the native toolchain must meet.
 
 ## 8. Library questions, not language questions
 
@@ -275,4 +269,4 @@ Phase 4:
 1. Fix the findings of the final memory-safety review.
 2. Review the services draft, and align it with z80-services.
 3. Phase 0: `deno.json`, the emulator and CP/M harness, and the limits register.
-4. Phase 1: fork the specification.
+4. Phase 1: the specification.

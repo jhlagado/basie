@@ -212,7 +212,8 @@ Other users of low memory:
 
 A compact calling convention through `RST` would save two bytes per call to a
 common helper. On CP/M it is safe only for vectors the profile declares free,
-and never `RST 0` or `RST 38h`. Both CP/M profiles declare none free. A profile
+and never `RST 0` or `RST 38h`. Both CP/M profiles declare none free, and
+Basie's own code never takes a vector for compression (design decision D46). A profile
 variant that declares some has startup install them, and its library marks each
 installed helper as a root.
 

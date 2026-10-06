@@ -4,10 +4,8 @@
 - Date: 2026-10-04
 
 This document records the language decisions made so far, with the reasons for
-each, and the questions still open. Where Basie keeps a Nucleus rule unchanged,
-the entry says so and points at the Nucleus specification
-(`../../nucleus/docs/specification.md`). Examples use Nucleus 0.1 syntax unless
-they show a new feature.
+each, and the questions still open. The [specification](../spec/README.md) is
+the authority for the rules; these entries record why they are as they are.
 
 ## Decided
 
@@ -15,8 +13,7 @@ they show a new feature.
 
 The compiler reads its source once. Names are declared before use. A forward
 declaration is a routine's complete and only signature, and the body that
-completes it begins with the abbreviated header `sub NAME`, exactly as in
-Nucleus §4.6:
+completes it begins with the abbreviated header `sub NAME` (spec §4.6):
 
 ```basie
 forward sub relay(text as string[]) fails
@@ -38,7 +35,7 @@ lifetime (D8), must be in the signature before the call.
 
 ### D2. Statement syntax
 
-Basie keeps Nucleus's lexical rules (§3.4):
+Basie's lexical rules (spec §3.4):
 
 - a logical newline is the only statement terminator;
 - a line ending inside `(` or `[` is whitespace, which is how an expression
@@ -50,8 +47,8 @@ Control flow uses words: `if`, `elseif`, `else`, `for`, `while`, `and`, `or`,
 
 **Not adopted:** Lua's `then`, `do` and `function`. Each would reserve a word
 and add scanner and table entries to the compiler without changing meaning.
-Nucleus §3 already requires that any new reserved word be justified by its
-cost.
+The specification (§3.12) requires that any new reserved word be justified by
+its cost.
 
 ### D3. Numeric types
 
@@ -71,8 +68,8 @@ cost.
 - **16 bits is the working size.** The Z80 handles 16-bit values natively: a
   16-bit add is the one-byte `ADD HL,DE`. Counters, indices, addresses and
   characters stay cheap.
-- **Signed types are new.** Nucleus 0.1 had only `u8`, `u16` and `boolean`. Their
-  absence was a larger gap for general use than the lack of floating point.
+- **Signed types.** A language with only `u8`, `u16` and `boolean` has a larger
+  gap for general use than the lack of floating point.
 - **`i8`** is for signed displacements and small deltas stored in records.
 - **32-bit types are opt-in.** The Z80 has three register pairs, so a 32-bit
   binary operation doesn't fit in registers and becomes a call to a runtime
@@ -92,8 +89,7 @@ cost.
   `i8` to `i16` to `i32`, `u8` to `i16`, `u16` to `i32`, and integer to `f32`
   only where the conversion is exact (`u8`, `i8`, `u16` and `i16`).
 - **Narrowing is explicit and checked.** A conversion such as `u8(x)` or
-  `i16(y)` traps with `narrowing` when the value doesn't fit, as `u8(...)` does
-  in Nucleus §9.5. When the compiler can prove from constants that it won't
+  `i16(y)` traps with `narrowing` when the value doesn't fit (spec §9.6). When the compiler can prove from constants that it won't
   fit, the source is invalid.
 - **Signedness changes are checked conversions.** Converting a negative value to
   an unsigned type traps. Converting an unsigned value above the signed range
@@ -108,7 +104,7 @@ cost.
 ### D5. Arithmetic wraps
 
 Addition, subtraction, multiplication and negation wrap modulo the width of the
-type, as in Nucleus §9: `65535 + 1` is `0` in `u16`. Signed types wrap in two's
+type (spec §9.8): `65535 + 1` is `0` in `u16`. Signed types wrap in two's
 complement.
 
 **Why.** Trapping on overflow would add about 3 bytes and 10 T-states to every
@@ -122,7 +118,8 @@ them. Debug and release builds never behave differently.
 
 ### D6. Traps and failures stay separate
 
-As in Nucleus §14 and §15:
+Recoverable failures and traps are separate mechanisms (spec Chapters 14 and
+15):
 
 - **`fails`** marks a routine whose errors a caller can recover from, such as
   I/O. Callers must deal with them using `else fail` or `handle`.
@@ -132,9 +129,9 @@ As in Nucleus §14 and §15:
 An expression that may trap, such as `a / b`, is not failable. New checks
 (D4, D7) are traps.
 
-Trap reasons carry over from Nucleus (`bounds`, `narrowing`,
-`division-by-zero`, `loop-range`, `activation-capacity`, `unhandled-error`),
-with additions for floating point (D7).
+The base trap reasons are `bounds`, `narrowing`, `division-by-zero`,
+`loop-range`, `activation-capacity` and `unhandled-error`, with additions for
+floating point (D7).
 
 ### D7. Floating point
 
@@ -161,11 +158,11 @@ float library while affecting almost no real program on this class of machine.
 ### D8. Local aggregates and the `from` clause
 
 Basie allows records, arrays and bounded strings as routine locals, living for
-the length of the call. Nucleus had only program-lifetime aggregates (§7.9),
-which forced every temporary buffer into a global.
+the length of the call. Program-lifetime aggregates alone would force every
+temporary buffer into a global.
 
-A routine may return an alias, as in Nucleus, but now the alias may point into
-storage that dies. The rule:
+A routine may return an alias, and the alias may point into storage that dies.
+The rule:
 
 - A returned alias may point into a **global**, or into a **parameter listed in
   the routine's `from` clause**.
@@ -202,8 +199,8 @@ return results rooted in globals and need no clause.
 received a local-rooted argument. It needs no syntax but rejects reasonable
 programs in a way that would surprise their authors.
 
-**Cost.** This gives up a property Nucleus stated (§7.9): that aggregate results
-need no lifetime information in signatures. Local aggregates also move
+**Cost.** This gives up a simpler property: that aggregate results need no
+lifetime information in signatures. Local aggregates also move
 aggregate storage into activation frames, which changes how peak memory is
 accounted.
 
@@ -222,7 +219,7 @@ The toolchain is two programs:
 
 Ways the compiler is kept within budget:
 
-1. It is built on the Nucleus native compiler (about 15K at the fork).
+1. It grows from a compiler core for the base language (about 15K, measured).
 2. 32-bit and `f32` operations are generated as calls to runtime helpers, never
    inline, so the compiler only checks types and selects helpers.
 3. Diagnostic message text lives in a message file, `BASIE.MSG`, read only when
@@ -234,7 +231,7 @@ Ways the compiler is kept within budget:
 6. Features are deferred to version 2 when they don't fit (D24).
 
 Every feature is costed in compiler bytes and in generated-code bytes before it
-is adopted, and the measurements are published, as Nucleus did.
+is adopted, and the measurements are published.
 
 ### D10. Target machine
 
@@ -261,7 +258,7 @@ address into a source line. A runtime helper that detects a failure jumps to
 the reporter with its stack balanced, so the report gives the program's call to
 the helper rather than an address inside it.
 
-**Why.** Nucleus put the source position inline at each site, about 8 bytes. A
+**Why.** A source position inline at each site costs about 8 bytes. A
 checked program has hundreds of sites, and the call form saves roughly 2K per
 500 of them, all in code that runs only when there is a bug. The person fixing
 a trap will have the line table. A later debug option may restore inline
@@ -288,7 +285,7 @@ linker removes unreachable blobs before assigning addresses. See the
 
 ### D14. Type annotations use `as`, after the name
 
-Every declared name is followed by `as` and its type, as in Nucleus:
+Every declared name is followed by `as` and its type:
 
 ```basie
 var total as u32
@@ -357,7 +354,7 @@ non-optional owning local, which is how a `nodes?` becomes a `nodes`.
 exhaustiveness checking and one level of destructuring, come together in
 version 2 (D24), since an enumeration is a variant without data. They extend
 `select`; Rust-style nested patterns and guards are not planned. Version 1
-programs use named constants, as Nucleus did.
+programs use named constants.
 
 **Why.** In version 1 the statement only chooses between constants, ranges and
 `some`/`none`, so the BASIC name is the honest one. Enumerations earn their
@@ -461,12 +458,12 @@ const Origin as Point = (0, 0)    // aggregate constants are always typed
 ```
 
 - A scalar constant may be written with or without a type. An untyped one
-  behaves like its literal at every use, as in Nucleus, adopting whichever
+  behaves like its literal at every use, adopting whichever
   compatible type the context needs. A typed one has exactly its declared type.
 - Constants may also be declared inside routines, with the same rules.
 
-**Why.** Nucleus forbade types on scalar constants, which worked with two
-integer types. With eight numeric types, an untyped `70000` or `0.5` leaves the
+**Why.** Untyped scalar constants alone would work with two integer types.
+With eight numeric types, an untyped `70000` or `0.5` leaves the
 reader guessing; an optional type removes the guess without forcing it on small
 integers. Local constants mirror local variables and cost little.
 
@@ -546,7 +543,8 @@ generics; Pascal never had them either.
 
 ### D24. Version 1 scope
 
-Version 1 includes the Nucleus core and: signed and 32-bit integers, `f32`,
+Version 1 includes the base language (declarations, records, arrays, bounded
+strings, structured control, routines, failures and traps) and: signed and 32-bit integers, `f32`,
 shifts and bitwise operators, `select` on integers, characters and optional
 handles, local aggregates with `from`, arrays of arrays, `var` parameters, pools
 and handles with `move`, `private` and `include`, run-time `assert`, and
@@ -561,7 +559,7 @@ programs can do without, and the version 1 set is meant to fit the compiler budg
 
 ### D25. Strings: bounded strings and a Basie library
 
-Basie keeps Nucleus's strings: `string[N]` with a fixed capacity of at most 253
+Basie has bounded strings: `string[N]` with a fixed capacity of at most 253
 and a current length; string literals as constants and as direct arguments; and
 open `string[]` parameters, which accept any capacity and can read `.capacity`
 and set `.length`. String building, comparison, searching and conversion between
@@ -573,7 +571,7 @@ be initialised by zeroing only its length byte.
 
 ### D26. Failure codes are named constants; enumerations later
 
-A failable routine reports a `u8` code, as in Nucleus, normally named by a
+A failable routine reports a `u8` code, normally named by a
 constant: `const fileMissing = 1`. In version 2, when enumerations arrive, a
 routine may name the enumeration its codes come from,
 `sub open(name as string[]) fails FileError`, and the compiler checks that
@@ -631,12 +629,12 @@ parameter kind `var h as nodes`.
 - **Literals** take the type their context requires and must fit it. A literal
   containing `.` or an exponent is an `f32` literal: `1.5`, `0.25`, `1e3`,
   `2.5e-3`. A digit is required before the decimal point.
-- **Unary minus** wraps, as in Nucleus: on an unsigned type it is subtraction
+- **Unary minus** wraps: on an unsigned type it is subtraction
   from zero modulo the width. On signed types it wraps in two's complement, so
   `-(-32768)` is `-32768` in `i16`.
 - **Division** truncates toward zero, and `mod` takes the sign of the dividend:
   `-7 / 2` is `-3` and `-7 mod 2` is `-1`. `-32768 / -1` wraps to `-32768`.
-  Division by zero traps, as in Nucleus.
+  Division by zero traps.
 - **Shifts** are written `shl` and `shr`, with an unsigned shift count. `shr`
   keeps the sign for signed types and shifts in zeros for unsigned ones. A shift
   by the type's width or more gives 0, or -1 for a negative signed value shifted
@@ -646,7 +644,7 @@ parameter kind `var h as nodes`.
 - **Comparisons** follow the operand rules above; mixed signed and unsigned
   comparisons that don't widen are errors.
 - **Counted loops** may use any integer type as the counter, with negative steps;
-  Nucleus's loop-range trap rules apply.
+  the loop-range trap rules of spec §12 apply.
 - **Indexes** are `u8` or `u16`. A signed value must be converted explicitly,
   and the checked conversion traps if it is negative, so a negative index can
   never wrap into a valid one. Assigning a signed value to a string's `.length`
@@ -662,20 +660,20 @@ division and `mod`), chosen so that no rule silently loses a value.
 
 Arrays may contain arrays, giving multi-dimensional arrays:
 `var screen as u8[25][40]`, used as `screen[r][c]`. Each index is checked
-against its own bound. Open array parameters (`u8[]`) work as in Nucleus, on the
-outermost dimension.
+against its own bound. Open array parameters (`u8[]`) apply to the outermost
+dimension.
 
 **Why.** Screens, boards and grids are common in CP/M programs; the record-per-row
-workaround is clumsy. It costs about 0.3K of compiler, and changes Nucleus's
-internal type encoding, which assumed arrays never nest.
+workaround is clumsy. It costs about 0.3K of compiler, and needs a type
+encoding that does not assume arrays never nest.
 
 ### D33. `private` and `include`
 
 - A top-level declaration marked `private` is visible only within its own source
   file.
 - A source file may begin with `include "STRINGS.BSI"` lines naming the files it
-  depends on. Each file is compiled once, before the files that include it, as
-  in ATOM and Skate. The command line then names only the main file.
+  depends on. Each file is compiled once, before the files that include it. The
+  command line then names only the main file.
 
 **Why.** The standard library is written in Basie, so its internal routines need
 to be hidden from programs, and programs need a way to pull in the library parts
@@ -684,12 +682,11 @@ not planned.
 
 ### D34. Case sensitivity and `assert`
 
-- Names are **case-sensitive**, as in Nucleus: `Count` and `count` are different.
+- Names are **case-sensitive**: `Count` and `count` are different.
 - **`assert condition`** checks a condition at run time and traps with
   `assertion` when it is false, reporting the site like any trap.
 
-**Why.** Case sensitivity is simpler and faster for the compiler and is what
-Nucleus already does. A run-time `assert` costs about 0.1K and suits a language
+**Why.** Case sensitivity is simpler and faster for the compiler. A run-time `assert` costs about 0.1K and suits a language
 whose errors stop the program with a located report.
 
 
@@ -701,14 +698,14 @@ Basie is built in two tracks ([implementation plan](implementation-plan.md)):
   single-pass style as the native compiler, which implements each feature first
   and serves as the test oracle; and
 - the **native toolchain**, `BASIE.COM` and `BLINK.COM` in Z80 assembly,
-  assembled with ATOM as development tooling. The compiler is forked from the
-  Nucleus 12K rewrite and evolved in stages; the linker is new.
+  assembled with ATOM as development tooling. The compiler grows in stages
+  from a working core for the base language; the linker is written whole.
 
 The native linker must produce byte-identical output to the reference linker; the
 native compiler must produce programs that behave identically on the whole
 conformance suite.
 
-**Why.** Basie's language is several times larger than Nucleus's, and design
+**Why.** Basie's language is large, and design
 questions are far cheaper to settle in TypeScript than in Z80. A second
 implementation catches errors a single one can't.
 
@@ -748,7 +745,7 @@ call.
 traps with `assertion`, and the report gives the site's address like any trap.
 There is no message argument: the line table names the source line. `assert`
 with a condition the compiler can prove false from constants is a compile-time
-error, as Nucleus does for other guaranteed traps.
+error, as other guaranteed traps are (spec §15.3).
 
 ### D38. The file table is sized at link time
 
@@ -812,31 +809,29 @@ has the detail. The reference compiler adopts it first; the native compiler and
 the helper table follow it, and its calling-convention codes feed the helper
 table's interface key.
 
-**Why.** Nucleus left the convention private to its implementation and chose
-a bounded activation arena with a depth of 8. Basie's stack bound (memory
-safety §7) assumes ordinary stack frames, and two implementations plus a
-runtime library can only agree if the convention is written down.
+**Why.** Basie's stack bound (memory safety §7) assumes ordinary stack frames,
+not a bounded activation arena, and two implementations plus a runtime library
+can only agree if the convention is written down rather than left private to
+one implementation.
 
 ### D42. The language is named Basie
 
-The working title Baton is replaced by **Basie**: BASIC with the C dropped,
+The language is named **Basie**: BASIC with the C dropped,
 and a nod to Count Basie, who was famous for playing few notes and making each
 one count, which is this language's approach to a 64K machine. The tagline is
 *few notes, make them count*, with "Count BASIC" as the pun beneath it.
 
-The rename covers everything at once: the language, the specification, the
+The name is used throughout: the language, the specification, the
 toolchain (`BASIE.COM`, `BASIE.MSG`, `BASIE.OVL`), the source extension
 (`.bsi`, and `.BSI` on CP/M; `.BAS` is left to MBASIC), and the 4-byte magics
 of the binary formats: `BSIP` program directory, `BSIB` byte stream, `BSIR`
 blob library, `BSIN` name stream, `BSIL` line stream, `BSIT` line table and
-`BSIM` message file. No file in the old formats exists outside this
-repository's tests, so the magics changed without a compatibility path.
+`BSIM` message file.
 
 **Why.** The name had to lean into the BASIC lineage without being merely
-generic, be short and easy to remember, and be a space Basie can own. A brief
-interim name, Basiq, was dropped on the day it was adopted because Basiq is an
-Australian open-banking API company that sells to developers and asserts the
-name as a trademark. Candidates checked and rejected: Basil, Basalt, Bascal,
+generic, be short and easy to remember, and be a space Basie can own.
+Candidates checked and rejected: Basiq (an Australian open-banking API company
+that sells to developers and asserts the name as a trademark), Basil, Basalt, Bascal,
 Basilisk and Plinth (existing languages), Gosub and Bastion (established
 software), Count BASIC (too long, and "count" alone is unsearchable), and
 Basa and Baza (clear, but weaker links to BASIC and noisier searches). No
@@ -847,7 +842,7 @@ programming language, software product or retro-computing project uses Basie.
 ### O1. Exclusivity (resolved)
 
 Resolved by D16 and D17: Basie has no exclusivity rule. Overlapping aliases to
-program storage remain allowed, as in Nucleus; they are visible through mutation
+program storage remain allowed; they are visible through mutation
 but never a lifetime hazard, because program storage is never freed. Pool
 storage is never aliased, so freeing can't reach an alias.
 
@@ -911,33 +906,34 @@ no further features are added until size work or a move to version 2 brings it
 back. The workspace left on a CP/M 2.2 system with 56.75K from `$0100` to the
 BDOS entry is then at least 28.75K at the limit and about 30.75K at the target.
 
-Every native increment follows the cycle that made Nucleus small: **the
+Every native increment follows a cycle that keeps the compiler small: **the
 increment, a review for correctness, a compression pass** over its object
 code, and a further review when the compression changed much. The compression
 pass is part of the increment, not a later clean-up: an inefficient
 implementation is not landed with the intention of fixing it afterwards. Each
 increment's commit records the census figure.
 
-**Why.** The Nucleus compiler was already about 15K when Basie forked it, not
-the 12K the plan assumed, and the estimate for Basie's additions put the total
+**Why.** The compiler core for the base language measured about 15K, not the
+12K the plan assumed, and the estimate for Basie's additions put the total
 at 22K to 27K. A 24K limit would have forced either deferring features Basie
 needs or a struggle that the incremental compression cycle handles better. 28K
 keeps enough workspace for real programs, and the target keeps pressure on
-every step. Nucleus showed that compressing at every step, not at the end, is
-what gets a comprehensive compiler into a small space.
+every step. Compressing at every step, not at the end, is what gets a
+comprehensive compiler into a small space.
 
 
-### D44. Native code is ATOM source, named and commented as ATOM and Skate are
+### D44. Native code is ATOM source, named and commented in ATOM's style
 
 Every native program, `BASIE.COM` and `BLINK.COM` alike, is written in the
-**ATOM dialect** and assembled by ATOM alone. The compiler forked from Nucleus
-is converted out of AZM syntax, and the source translation that let ATOM read
+**ATOM dialect** and assembled by ATOM alone. The compiler, first written in
+AZM syntax, is converted to ATOM, and the source translation that let ATOM read
 AZM is retired with it. The conversion is roadmap step 65.0, made before any
 more compiler code is written, so nothing new is written twice.
 
 The sources follow the conventions of ATOM's and Skate's own sources:
 
-- **Labels** (ATOM `docs/labels.md`, Skate `docs/labels.md`). Globals are
+- **Labels** ([naming](naming.md), in the style of ATOM's `docs/labels.md`
+  and Skate's `docs/labels.md`). Globals are
   `AREA_WHAT` in at most eight characters, made of words rather than consonant
   strings, from an approved list of short forms. Only names other routines use
   are global. Loop heads, join points, error exits and single-caller helpers
@@ -957,19 +953,18 @@ The sources follow the conventions of ATOM's and Skate's own sources:
 **Order of work.** The conversion is done in two stages, each verified
 byte-identical:
 
-1. **Mechanically.** Translate the fork into ATOM source with 8.3 names. Resolve
+1. **Mechanically.** Translate the compiler into ATOM source with 8.3 names. Resolve
    the build-time conditionals for `BASIE.COM`'s one configuration, which
    removes the dead banked and proof branches. Give long names temporary
    ATOM names from a map. Assemble the result with ATOM directly to an image
    byte-identical to the AZM build.
 2. **By curation, module by module.** Apply the label convention through
-   rename maps, with the rename and verify tools of Skate, and add the
+   rename maps, with label rename and verify tools (`tools/labels/`), and add the
    commentary. No output byte may change. `BLINK` receives the same pass.
 
 New code is written to the convention from its first line.
 
-**Why.** AZM is being retired across these projects, as Skate, a larger
-program, has already shown is practical. One dialect means one assembler to
+**Why.** AZM is being retired across these projects. One dialect means one assembler to
 trust, and no translation layer between the source and the image. Names that
 fit ATOM's limits without a ledger can be read in the source, the listing and
 the debugger alike. Line-by-line commentary is what keeps a 25K assembly
@@ -983,7 +978,7 @@ aliases in every listing, and contracts that nothing checks.
 
 From step 65.4, `BASIE.COM` writes the same `$DR`, `$BY`, `$LN` and `$NM`
 streams as the reference compiler for every program it accepts, byte for
-byte. The back end forked from Nucleus is rewritten to the reference's code
+byte. The back end is rewritten to the reference's code
 templates (`ref/compile/compiler.ts`, `ref/compile/emit.ts`) as each
 construct is brought across. Its front end, the tokenizer, the LL(1) parser
 and the actions, stays, and the semantic transcript is flushed and replayed
@@ -1009,7 +1004,7 @@ some that are not the smallest code it could emit. An improvement to code
 quality is made in the reference first and then carried across, so the two
 never drift.
 
-**Rejected.** Keeping Nucleus's stack-machine templates and comparing
+**Rejected.** Keeping the starting core's stack-machine templates and comparing
 behaviour only. That makes it harder to find divergences, and the templates
 would be rewritten anyway when D41's register conventions reach expressions.
 
@@ -1020,3 +1015,23 @@ which already gives the emitter what the replay was meant to: the frame is
 patched into the prologue when the routine ends, the frame and need words
 and the literals come after the code, and forward jumps are resolved when
 their labels are defined ([native compiler](native-compiler.md) §2).
+
+### D46. Restart vectors stay with the platform
+
+Basie's own code never takes the Z80 restart vectors (`RST 0` to `RST 7`, in
+page zero from `$0000` to `$0038`) for compression. Neither `BASIE.COM`,
+`BLINK.COM`, the runtime library nor generated code installs a routine at a
+restart vector or overwrites the platform's contents there to save bytes. The
+vectors stay reserved for the BIOS and CP/M, and for the drivers, debuggers and
+interrupt handlers the platform installs. Both CP/M profiles declare no free
+restart vector ([CP/M target](cpm-target.md) §2 and §8); a warm-boot exit
+through `RST 0` is a call to the platform, not a use of the vector.
+
+**Why.** A compiler or program that replaces a vector breaks whatever the
+platform put there, and the failure appears in some other program or tool, far
+from its cause.
+
+**Rejected.** Compressing `BASIE.COM` by calling its commonest emitters
+(`EM_SEQ`, `EM_OP`, `DG_RAISE`) through `RST 1` to `RST 5`, which would save
+about 250 bytes ([native compiler](native-compiler.md) §4). Compression uses
+other means.

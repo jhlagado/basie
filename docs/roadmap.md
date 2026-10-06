@@ -21,8 +21,8 @@ The **tracks**:
 Every step that introduces a table size, field width, buffer or threshold
 updates the [capacity audit](capacity-audit.md) and the
 [limits register](limits.md) in the same commit, classifying the limit and
-recording its trade-off. Steps 35 (deferred references), 64 (the inherited
-Nucleus tables) and 68 (measurement) have specific audit obligations noted
+recording its trade-off. Steps 35 (deferred references), 64 (the native
+compiler's fixed tables) and 68 (measurement) have specific audit obligations noted
 there.
 
 ## M0. Close the design
@@ -32,7 +32,7 @@ there.
 | 1 | Design | Apply the memory-safety verification pass and freeze revision 5 | Frozen memory-safety design (done: revision 6) | Verification report says ready |
 | 2 | Design | Apply the services review; align every service with z80-services; raise contract gaps there | Services revision 2 (done); contract gaps recorded in services §10 | Review findings closed |
 | 3 | Design | Write the remaining small decisions: string library contents, `assert` message form, the `F=n` link option and its pseudo-object, message-file format | Decisions D36–D39 (done) | Each referenced from the spec outline |
-| 4 | Design | Complete the limits register: audit every document and the Nucleus specification for fixed limits | [Limits register](limits.md), every row justified (done) | No unexplained limit |
+| 4 | Design | Complete the limits register: audit every document and the specification for fixed limits | [Limits register](limits.md), every row justified (done) | No unexplained limit |
 | 5 | Design | Freeze the version 1 feature list against the budget | Feature inventory marked frozen (done) | Totals within the budget (24K then; 26K target and 28K limit since D43) |
 
 ## M1. Foundations
@@ -50,7 +50,7 @@ there.
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
-| 12 | Spec | Fork the Nucleus 0.1 specification into `spec/`, with a change log | `spec/` chapters and change log (done) | Builds as Markdown |
+| 12 | Spec | Set up the specification in `spec/`, with a change log | `spec/` chapters and change log (done) | Builds as Markdown |
 | 13 | Spec | Lexical rules: new literals (`f32`), keywords (`select`, `move`, `pool`, `new`, `shl`, `shr`, `private`, `include`, `assert`), contextual `id` | Chapter 3 (done) | Conformance programs for each token |
 | 14 | Spec | Types: eight numeric types, handles, owning types, arrays of arrays | Chapter 6 (done) | Conformance programs |
 | 15 | Spec | Storage and lifetime: block scope, activation storage, pools, the memory-safety rules | Chapter 7 (done) | Conformance programs, including rejected programs |
@@ -60,7 +60,7 @@ there.
 | 19 | Spec | Routines: `var` parameters, leases, `from`, forward rules for recursion | Chapter 13 (done) | Conformance programs |
 | 20 | Spec | Errors and traps: the new traps, named failure constants | Chapters 14 and 15 (done) | Conformance programs |
 | 21 | Spec | The system boundary: services and the standard library | Chapter 16 (done) | Conformance programs |
-| 22 | Spec | Complete grammar, checked for single-pass parsing | Chapter 17 (done; `tools/grammar.ts` reads §17.2 and checks it against the §17.4 table, Chapter 3 and the lexer) | A grammar check like Nucleus's |
+| 22 | Spec | Complete grammar, checked for single-pass parsing | Chapter 17 (done; `tools/grammar.ts` reads §17.2 and checks it against the §17.4 table, Chapter 3 and the lexer) | A mechanical grammar check |
 | 23 | Spec | Adversarial review of the specification | Review report and fixes ([report](reviews/2026-10-05-spec-review.md): done; 85 findings, all closed) | Findings closed |
 
 Steps 12 to 23 can run alongside M3 once chapters 3 and 6 exist.
@@ -87,9 +87,9 @@ Each step adds conformance programs and runs them end to end.
 | ---: | --- | --- | --- | --- |
 | 33 | Ref | Lexer and source parts, with `include` | `ref/compile/lexer.ts`, `source.ts` (done) | Token tests |
 | 34 | Ref | Declarations, scopes, `private`, forward declarations | `ref/compile/symbols.ts`, `compiler.ts` (done) | Scope tests |
-| 35 | Ref | Expressions and statements on `u8`, `u16`, `boolean`: the Nucleus core | `ref/compile/compiler.ts`, `emit.ts`; `hello` runs (done) | Nucleus's conformance examples pass |
-| 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | (done: records, arrays, strings, open views, aggregate constants) | Nucleus examples |
-| 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | (done except the stack bound's recursion tests: see step 46) | Nucleus examples |
+| 35 | Ref | Expressions and statements on `u8`, `u16`, `boolean`: the base language | `ref/compile/compiler.ts`, `emit.ts`; `hello` runs (done) | The base language's conformance examples pass |
+| 36 | Ref | Records, arrays, bounded strings, open views, aggregate constants | (done: records, arrays, strings, open views, aggregate constants) | Conformance examples |
+| 37 | Ref | Routines, results, `from`, `fails`, `handle`, traps, the line stream | (done except the stack bound's recursion tests: see step 46) | Conformance examples |
 | 38 | Ref | Signed types, 32-bit types, shifts, bitwise operators, the numeric rules | runtime 32-bit helpers (done; 32-bit loop counters and select subjects still pending) | Edge-value tests |
 | 39 | Ref | `f32` through helpers, literal conversion, constant folding | `runtime/cpm22/f32.asm`, verified against IEEE single on 400 vectors (done) | Conversion and rounding tests |
 | 40 | Ref | Declarations anywhere, block scope, typed and local constants, inference | (done; `declarations/` and `scopes/` in the corpus) | Scope and inference tests |
@@ -135,21 +135,21 @@ Each stage keeps a working compiler, and the census runs on every commit.
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
-| 64 | Native | Fork the Nucleus compiler into `native/compiler/`; build and run its existing proofs | Baseline (done: byte-identical image, proof passes; core 15,286 bytes, 11,338 to the 26K target) | Nucleus proofs pass |
-| 65 | Native | Replace placed output with blob output; chain to `BLINK` | Increments 65.0 to 65.5 of the [native compiler](native-compiler.md) plan (done: ATOM source, D44; the CP/M shell; the blob writer; blob output equal to the reference compiler's streams, services and Files included; the options, the library check and the stamp; the chain to `BLINK`, so that `BASIE HELLO` builds `HELLO.COM`, under the harness and on real CP/M 2.2; `BASIE.COM` 16,171 bytes, 10,453 to the 26K target) | Nucleus examples link and run (the claimed programs of `tests/native_equivalence_test.ts`, linked by `BLINK` and run) |
+| 64 | Native | Set up the native compiler in `native/compiler/`; build it and run its proofs | Baseline (done: proof passes; core 15,286 bytes, 11,338 to the 26K target) | Proofs pass |
+| 65 | Native | Replace placed output with blob output; chain to `BLINK` | Increments 65.0 to 65.5 of the [native compiler](native-compiler.md) plan (done: ATOM source, D44; the CP/M shell; the blob writer; blob output equal to the reference compiler's streams, services and Files included; the options, the library check and the stamp; the chain to `BLINK`, so that `BASIE HELLO` builds `HELLO.COM`, under the harness and on real CP/M 2.2; `BASIE.COM` 16,171 bytes, 10,453 to the 26K target) | The examples link and run (the claimed programs of `tests/native_equivalence_test.ts`, linked by `BLINK` and run) |
 | 66 | Native | Message file and overlay mechanism | `BASIE.MSG`, `BASIE.OVL` (done: diagnostics by the reference's numbers, positions and arguments, printed from `BASIE.MSG`; five overlays in `BASIE.OVL`; `BASIE.COM` 13,895 bytes and a 1,024-byte overlay area, 11,705 to the 26K target) | Diagnostics match the reference |
 | 67 | Native | Steps 38 to 48 in order, each as a native stage | Stages 67a to 67h of the [native compiler](native-compiler.md) plan (in progress: 67a done, the reference's step 40 and D33: the grammar generator, declarations anywhere and block scope, typed and local constants, inference, `include` and `private`; 67b done: the signed bytes and words, the 32-bit types, shifts, conversions and folding over the whole exact range, 32-bit loop counters and the services with `u32` positions; 67e done: `var` parameters, open arrays, `from` clauses, var results, `assert` and aggregate constants in routines' bodies; `BASIE.COM` 18,317 bytes after 67e, then 16,691 after the compression pass before 67c; 67c done: branch shrinking as the reference's default build does it, the equivalence test comparing with that build, `ADVENT.BSI` claimed; `BASIE.COM` 17,142 bytes with a 1,024-byte overlay area, 8,458 to the 26K target) | Corpus behaviour identical to the reference after each stage; census within budget |
 | 68 | Native | Capacity measurement: largest compilable program, symbol counts, build times | Measured limits | Published |
 
 ## M8. Release
 
-[Stretch goals](stretch-goals.md) records candidates John requested for evaluation if capacity remains, plus a separate audit of inherited restrictions. It does not amend the frozen 1.0 language.
+[Stretch goals](stretch-goals.md) records candidates John requested for evaluation if capacity remains, plus a separate audit of implementation restrictions. It does not amend the frozen 1.0 language.
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
 | 69 | All | Large-program tests and stress tests | Test reports | Pass |
 | 70 | All | Release image: `BASIE.COM`, `BASIE.MSG`, `BASIE.OVL`, `BLINK.COM`, `CPM22.BRL`, the library | Disk image | Boots and builds the examples |
-| 71 | Design | The Basie book in debug80-docs | Book | Verification script like Nucleus's |
+| 71 | Design | The Basie book in debug80-docs | Book | A script that verifies the book's examples |
 | 72 | All | Version 2 planning: enumerations and variants, expression blocks, routine values | Plan | — |
 | 73 | Design | Debug information for source-level debugging: a binary, CP/M-readable format mapping addresses to statements and lines, and routines to their frame layouts and types, building on the line table (`.LIN`) and symbol file (`.SYM`). D8 is the reference point but is not assumed suitable for CP/M. Low priority: no debugger is planned yet, but the format must exist before one is | Format specification; a `D` link option | Round-trip tests; a host tool that lists source for an address |
 
