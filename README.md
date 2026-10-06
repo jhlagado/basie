@@ -3,8 +3,6 @@
 A statically typed systems language for Z80 machines, compiled to native code
 in a single pass, with memory whose lifetime the compiler can see.
 
-Basie is the successor to [Nucleus](../nucleus).
-
 ## The name
 
 Basie is BASIC with the C dropped, and a nod to Count Basie, who was famous
@@ -21,13 +19,13 @@ of a call, and no reference can outlive the storage it points into.
 
 ## What Basie is
 
-Nucleus showed that a small, strictly specified language can be compiled to
-native Z80 code by a compiler that itself runs on the Z80, in one streaming
-pass. It also showed where it was too narrow for general use: no signed
-integers, nothing wider than 16 bits, no floating point, no storage shorter-lived
-than the whole program, and no way to drop unused code from the output.
+Basie is a small, strictly specified language compiled to native Z80 code by
+a compiler that itself runs on the Z80, in one streaming pass. It is meant for
+general use: it has signed and unsigned integers of 8, 16 and 32 bits,
+floating point, storage that lives only as long as a routine call or a pool
+slot's owner, and a linker that drops unused code from the output.
 
-Basie keeps Nucleus's foundations and widens the language:
+Its foundations:
 
 - **Single-pass compilation.** The compiler reads its source once.
   Declarations come before use, and a forward declaration is a routine's
@@ -72,8 +70,8 @@ These terms are provisional, but the documents use them consistently.
 
 ## Documents
 
-- [Philosophy](docs/philosophy.md): the motivation, the principle and what
-  Basie learned from Nucleus.
+- [Philosophy](docs/philosophy.md): the motivation, the principle and the
+  constraints that shape the design.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
 - [Feature inventory](docs/feature-inventory.md): every feature, its cost

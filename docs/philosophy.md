@@ -1,6 +1,6 @@
 # Basie: philosophy
 
-*Basie: BASIC with the C dropped, and a nod to Count Basie, who made few notes count. The successor to Nucleus.*
+*Basie: BASIC with the C dropped, and a nod to Count Basie, who made few notes count.*
 
 ## The question
 
@@ -57,13 +57,13 @@ and only programs that use them pay for the runtime helpers they need.
 
 ## Memory without a collector
 
-Nucleus answered the memory question in the simplest way possible: every
-aggregate lives for the whole program. Routines receive aggregates by alias,
-an alias can't be stored, and since nothing is ever freed, nothing can dangle.
+The simplest safe answer to the memory question is that every aggregate lives
+for the whole program: routines receive aggregates by alias, an alias can't be
+stored, and since nothing is ever freed, nothing can dangle.
 
 That answer is safe and cheap, but too narrow. Programs need temporary storage
-shorter-lived than the program, and some need dynamic data. Basie extends
-Nucleus in the same spirit rather than adopting a collector:
+shorter-lived than the program, and some need dynamic data. Basie widens it in
+the same spirit rather than adopting a collector:
 
 - **Second-class references.** An alias exists only as a parameter for the
   length of a call, or as a result the caller uses at once. It can't be stored
@@ -105,33 +105,33 @@ rules that let the compiler check them.
 
 ## One pass, then one link step
 
-The Basie compiler, like Nucleus's, reads its source exactly once and streams
+The Basie compiler reads its source exactly once and streams
 its output. This keeps it small enough to run on the machine it targets, and it
 shapes the language: names are declared before use, a forward declaration
 carries a routine's complete signature, and every rule the compiler enforces
 can be checked with what it has already seen.
 
 One thing a single pass can't know is whether a routine will be called later in
-the source. Nucleus placed every routine as soon as it was compiled, so unused
-routines stayed in the output. Basie separates compilation from placement: the
+the source. A compiler that placed every routine as soon as it was compiled
+would leave unused routines in the output. Basie separates compilation from placement: the
 compiler writes position-free code, and a small linker removes what is
 unreachable before it assigns addresses. The
 [build pipeline](build-pipeline.md) describes the design.
 
-## Lessons from Nucleus
+## Design commitments
 
-- **A strict specification pays for itself.** Nucleus specified every rule,
-  capacity and trap before implementing it, and that made the compiler small
-  and its behaviour predictable. Basie keeps that discipline.
-- **Second-class aliases work.** Nucleus programs never needed to store a
-  reference, and the rule removed lifetime problems entirely.
-- **The type set was too small.** Without signed or wider integers, and without
-  floating point, Nucleus was a systems kernel rather than a general language.
-- **One lifetime is too few.** Program-lifetime storage alone forces every
+- **A strict specification pays for itself.** Every rule, capacity and trap is
+  specified before it is implemented, which keeps the compiler small and its
+  behaviour predictable.
+- **Second-class aliases.** Programs do not need to store a reference, and the
+  rule removes lifetime problems for aliases entirely.
+- **A general type set.** Signed and wider integers and floating point make
+  Basie a general language rather than a systems kernel.
+- **More than one lifetime.** Program-lifetime storage alone would force every
   temporary buffer into a global.
-- **Final addresses at emission cost too much.** They ruled out tree shaking,
-  forced every forward branch to its longest form and made the compiler track
-  every unresolved call site.
+- **No final addresses at emission.** Placing code as it is compiled would rule
+  out tree shaking, force every forward branch to its longest form and make the
+  compiler track every unresolved call site.
 
 ## The honest boundary
 
@@ -148,8 +148,7 @@ what is truly unknown.
 
 ## Lineage
 
-Basie descends from Nucleus, and through it from the long tradition of small
-compiled languages: Pascal, Modula-2 and Oberon for single-pass compilation
+Basie belongs to the long tradition of small compiled languages: Pascal, Modula-2 and Oberon for single-pass compilation
 and explicit declarations, BASIC and Lua for approachable syntax.
 
 Its memory model draws on:
