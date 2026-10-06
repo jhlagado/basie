@@ -81,8 +81,10 @@ KW_TAB:
     DB   "som",'e'+$80,TK_SOME     ; A handle selection's arm.
     DB   "non",'e'+$80,TK_NONE     ; A handle selection's arm; no handle.
     DB   "mov",'e'+$80,TK_MOVE     ; A handle moved.
+    DB   "poo",'l'+$80,TK_POOL     ; Pool declaration.
+    DB   "ne",'w'+$80,TK_NEW       ; A slot allocated.
     DB   0                         ; The end of the table: no word starts with zero.
-KW_CNT EQU  47                 ; Entries in KW_TAB.
+KW_CNT EQU  49                 ; Entries in KW_TAB.
 KW_TYPE EQU  $80               ; A type keyword's kind byte: this plus its type.
 
 ; Punctuators found by table search: the character, then a descriptor.
@@ -102,7 +104,8 @@ KW_PUNCT:
     DB   ".",TK_DOT                ; Field selection.
     DB   "$",$89                   ; Hexadecimal prefix: at most eight digits.
     DB   "%",$A1                   ; Binary prefix: at most 32 digits.
-KW_PCNT EQU  9                 ; Entries in KW_PUNCT.
+    DB   "?",TK_QUEST              ; An optional handle type; new?.
+KW_PCNT EQU  10                ; Entries in KW_PUNCT.
 
 ; Spellings compared against the current NAME token by length-checked
 ; matches, so none needs a length byte.

@@ -44,7 +44,9 @@
     "TokenAssert": "TK_ASSRT",
     "TokenPrivate": "TK_PRIV",
     "TokenSelect": "TK_SEL",
-    "TokenCase": "TK_CASE"
+    "TokenCase": "TK_CASE",
+    "TokenPool": "TK_POOL",
+    "TokenQuestion": "TK_QUEST"
   },
   "diagnosticCodes": {
     "DiagnosticExpectedDeclaration": "DG_DECL",
@@ -115,7 +117,10 @@
     "array-bound": "DiagnosticExpectedScalar",
     "scalar-type": "DiagnosticExpectedType",
     "select-arms": "DiagnosticExpectedCase",
-    "case-arm": "DiagnosticExpectedScalar"
+    "case-arm": "DiagnosticExpectedScalar",
+    "forward-tail": "DiagnosticExpectedSub",
+    "pool-declaration": "DiagnosticExpectedDeclaration",
+    "type-optional-opt": "DiagnosticExpectedType"
   },
   "actions": {
     "RequireMain": "AC_MAIN",
@@ -208,7 +213,13 @@
     "CaseLabels": "AC_LABEL",
     "CaseBody": "AC_TAKEN",
     "EndCase": "AC_SHUT",
-    "EndSelect": "AC_FINAL"
+    "EndSelect": "AC_FINAL",
+    "ForwardPool": "PL_FWD",
+    "BeginPool": "PL_BEGIN",
+    "PoolRecord": "PL_REC",
+    "SavePoolCapacity": "PL_HOLD",
+    "CommitPool": "PL_CMT",
+    "MakeOptionalHandle": "PL_OPT"
   },
   "equates": {
     "GR_STMT": "statement",
@@ -334,6 +345,11 @@
       "TokenPlus",
       "TokenMinus",
       "TokenNot"
+    ],
+    "PoolRecord": [
+      "TokenName",
+      "TokenType",
+      "TokenString"
     ]
   },
   "productions": [
@@ -406,6 +422,12 @@
       "lhs": "private-declaration",
       "rhs": [
         "sub-definition"
+      ]
+    },
+    {
+      "lhs": "private-declaration",
+      "rhs": [
+        "pool-declaration"
       ]
     },
     {
@@ -522,6 +544,12 @@
       "lhs": "forward-declaration",
       "rhs": [
         "TokenForward",
+        "forward-tail"
+      ]
+    },
+    {
+      "lhs": "forward-tail",
+      "rhs": [
         "TokenSub",
         "TokenName",
         "a:RetainSubName",
@@ -533,6 +561,32 @@
         "fails-opt",
         "TokenNewline",
         "a:CommitForward"
+      ]
+    },
+    {
+      "lhs": "forward-tail",
+      "rhs": [
+        "TokenPool",
+        "TokenName",
+        "a:ForwardPool",
+        "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "pool-declaration",
+      "rhs": [
+        "TokenPool",
+        "TokenName",
+        "a:BeginPool",
+        "TokenAs",
+        "x:PoolRecord",
+        "TokenLeftBracket",
+        "a:BeginTypeBound",
+        "x:ConstantExpression",
+        "a:SavePoolCapacity",
+        "TokenRightBracket",
+        "TokenNewline",
+        "a:CommitPool"
       ]
     },
     {
@@ -1000,8 +1054,20 @@
       "lhs": "type-atom",
       "rhs": [
         "TokenName",
-        "a:ResolveRecordType"
+        "a:ResolveRecordType",
+        "type-optional-opt"
       ]
+    },
+    {
+      "lhs": "type-optional-opt",
+      "rhs": [
+        "TokenQuestion",
+        "a:MakeOptionalHandle"
+      ]
+    },
+    {
+      "lhs": "type-optional-opt",
+      "rhs": []
     },
     {
       "lhs": "type-atom",

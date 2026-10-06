@@ -2,7 +2,7 @@
 ;  Compiler workspace and shared constants
 ;==========================================================================
 ;
-;  The first part of the compiler's workspace, from MM_WBASE ($5400), and
+;  The first part of the compiler's workspace, from MM_WBASE ($5800), and
 ;  the constants that every phase shares: token kinds, diagnostic numbers,
 ;  symbol classes, aggregate type ordinals and relation codes. CALLWORK.ASM
 ;  continues the workspace to LL_WEND. Nothing here is initialised by the
@@ -283,7 +283,7 @@ AG_LCAP EQU  4                 ; Initializer nesting levels; DG_INITS beyond.
 ; (below 190). Only the grammar's terminals and the pseudo-kinds need those
 ; ordinals: a token only the expression island reads, or that the parser
 ; never sees, takes a kind from $40 on (below). The spellings are in
-; KEYWORDS.ASM. Free below 62: 10, 26 to 28, 32 to 37, 39, 50, 53 and 54;
+; KEYWORDS.ASM. Free below 62: 28, 32 to 37, 39, 50, 53 and 54;
 ; 63 too, for a terminal never expected alone (as `select` is).
 
 TK_EOF EQU  0                  ; End of the last source part.
@@ -296,6 +296,7 @@ TK_RPAR EQU  6                 ; Right parenthesis.
 TK_EQ EQU  7                   ; Equals sign: assignment or equality.
 TK_SUB EQU  8                  ; Keyword sub.
 TK_FAILS EQU  9                ; Keyword fails.
+TK_POOL EQU  10                ; Keyword pool.
 TK_FAIL EQU  11                ; Keyword fail.
 TK_END EQU  12                 ; Keyword end.
 TK_VAR EQU  13                 ; Keyword var.
@@ -312,6 +313,7 @@ TK_RET EQU  22                 ; Keyword return.
 TK_IF EQU  23                  ; Keyword if.
 TK_MINUS EQU  24               ; Minus sign.
 TK_PLUS EQU  25                ; Plus sign.
+TK_QUEST EQU  26               ; Question mark: an optional handle, new?.
 TK_TRUE EQU  29                ; Keyword true.
 TK_FALSE EQU  30               ; Keyword false.
 TK_CONST EQU  31               ; Keyword const.
@@ -357,6 +359,7 @@ TK_AND EQU  $4E                ; Keyword and.
 TK_DOT EQU  $4F                ; Full stop: field selection.
 TK_XOR EQU  $50                ; Keyword xor.
 TK_MOD EQU  $51                ; Keyword mod.
+TK_NEW EQU  $52                ; Keyword new, a slot allocated.
 
 ; Diagnostic codes, as DG_CODE reports them. Below DG_TOKEN and from 190
 ; to 199 a code is the reference compiler's number for the diagnostic
@@ -392,6 +395,8 @@ DG_UNMET EQU  33               ; forward-incomplete.
 DG_CONV EQU  40                ; conversion-required.
 DG_CLASH EQU  41               ; type-mismatch.
 DG_RANGE EQU  42               ; out-of-range: a value or bound outside its type.
+DG_PNREC EQU  46               ; pool-needs-record.
+DG_HOPT EQU  47                ; handle-must-be-optional.
 DG_UNTYP EQU  43               ; constant-needs-type: an untyped constant's value.
 DG_INFER EQU  44               ; no-definite-type: an initializer to infer from.
 DG_FALSE EQU  45               ; assertion-false.
@@ -478,6 +483,7 @@ DG_PARTS EQU  DG_CAP+12        ; Source parts: 255, the line stream's limit.
 DG_ROOM EQU  DG_CAP+13         ; Memory for the source.
 DG_INEST EQU  DG_CAP+14        ; Includes open at once (SH_ICAP).
 DG_FDIG EQU  DG_CAP+15         ; An f32 literal's digits (FLOAT.ASM, FL_NB).
+DG_POOLS EQU  DG_CAP+16        ; Pools (PL_CAP).
 
 
 ; Scalar types and symbol information. An expression's metadata byte and a
@@ -527,6 +533,14 @@ AG_VIEW EQU  $7C               ; Type ID of an open string parameter.
 ; 7 (AG_VAR) set for a var parameter.
 AG_OPEN EQU  $40               ; Type ID of an open array of no element.
 AG_OLIM EQU  $68               ; Exclusive end of the open arrays' IDs.
+; A handle type is AG_HND plus four times its pool's index (POOLS.ASM)
+; plus its form: AG_HOPT for P? and AG_HID for id P, both for id P?. An
+; owning handle is two bytes, an identifier four: its slot and generation.
+AG_HND EQU  $68                ; Type ID of an owning handle of pool 0.
+AG_HOPT EQU  1                 ; Handle form bit: optional, may be none.
+AG_HID EQU  2                  ; Handle form bit: an identifier, not an owner.
+PL_CAP EQU  4                  ; Pools; DG_POOLS beyond.
+AG_HEND EQU  AG_HND+4*PL_CAP   ; Exclusive end of the handle IDs.
 AG_VAR EQU  $80                ; Parameter type flag: var.
 
 ; Relation codes: EXPR.ASM keeps the pending comparison as one of them in

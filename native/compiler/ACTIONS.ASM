@@ -127,12 +127,14 @@ AC_USE:
     RET                            ; Back to the engine.
 
 ;@ROUTINE OUT A,BC CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE,HL
-; ResolveRecordType: the current NAME must be File (services 2), which is
-; no symbol, as the reference's parseType has it, or a record type, which
-; becomes the current type. Anything else raises DG_BOUND. AC_DINFO and
+; ResolveRecordType: the current NAME must be `id` and a pool, a pool,
+; File (services 2), which is no symbol, as the reference's parseType has
+; it, or a record type, which becomes the current type. Anything else raises DG_BOUND. AC_DINFO and
 ; AC_DVAL receive a record type's symbol information.
 
 AC_NAMED:
+    CALL PL_TYPE                   ; A pool's handle, or `id P`?
+    RET  C                         ; Then it is the current type.
     LD   HL,KW_FILE                ; The spelling "File",
     LD   B,4                       ; four bytes:
     CALL TK_MATCH                  ; is the name the File type?
@@ -297,6 +299,7 @@ AC_ARRAY:
     LD   A,AG_KARR                 ; An array.
     LD   (AG_NKIND),A              ; The candidate's kind.
     CALL AC_REUSE                  ; Intern it and make it current.
+    CALL PL_AMARK                  ; Owning, if its element owns.
     JR   AC_ARRAY                  ; The next dimension out.
 .OPEN:                         ; Every bound is built.
     LD   HL,AG_OPENF               ; Was the outermost open?
@@ -442,7 +445,9 @@ AC_PROVE:
 ; SaveProgramType: begin a program variable of the current type.
 
 AC_VAR:
-    LD   A,(AG_CTYPE)              ; The declared type; fall into AC_OBJ.
+    LD   A,(AG_CTYPE)              ; The declared type:
+    LD   HL,AC_DPOS                ; a handle variable must be optional,
+    CALL PL_NEEDO                  ; at its name; fall into AC_OBJ.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Begin an object of type A: not a view (DG_BOUND). Its type goes to
@@ -559,6 +564,9 @@ AC_FIELD:
 
 AC_PLACE:
     CALL AC_ITEM                   ; The field's type: not a view, nor a File.
+    LD   HL,AG_TPOS                ; A handle field
+    CALL PL_NEEDO                  ; must be optional, at its type.
+    CALL PL_FOWN                   ; An owning field makes its record owning.
     LD   C,A                       ; Keep the type.
     CALL AC_FIDX                   ; The field's index.
     CALL AG_FIELD                  ; HL addresses its entry.
@@ -601,6 +609,7 @@ AC_RECOK:
     LD   HL,(AG_CSIZE)             ; The record's size...
     LD   (AG_NSIZE),HL             ; ...is the candidate's extent.
     CALL AG_ADD                    ; A is the new type's ID.
+    CALL PL_RMARK                  ; Owning, if a field owns.
     LD   (AG_CTYPE),A              ; Keep it,
     LD   C,A                       ; the name's payload below.
     LD   A,(AG_RCNT)               ; The record's ordinal...

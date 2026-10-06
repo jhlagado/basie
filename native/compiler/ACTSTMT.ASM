@@ -37,7 +37,8 @@
 
 AC_LOCAL:
     LD   A,(AG_CTYPE)              ; The local's type:
-    CALL AG_NOVW                   ; a view is a parameter's only.
+    CALL PL_LATER                 ; no handle or owning type yet,
+    CALL AG_NOVW                   ; and a view is a parameter's only.
     LD   D,SY_AGGR+SY_LOCAL        ; An aggregate local's class,
     CP   AG_FIRST                  ; unless
     JR   NC,.CLASS                 ; it is a scalar:

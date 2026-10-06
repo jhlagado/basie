@@ -104,7 +104,7 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | --- | --- | --- |
 | Source parts on the command line | 8 (`CL_PCAP`), each with the parts it includes | — |
 | Source parts in one compilation | 255, the line stream's part number, while memory lasts: each part's bytes and a 21-byte entry in the part table; Error 190 (`source parts`) beyond 255 | — |
-| Source text, all parts together | resident, from `$7580` (after the blob writer's 4.3K workspace) up to the part table, which grows down from 1K below the BDOS entry; each 128-byte record must fit below the table before it is copied there: about 26.4K, less 21 bytes a part, on a 62K system; Error 190 (`source size`) beyond | the streaming source adapter with a name heap (step 67, capacity tables) |
+| Source text, all parts together | resident, from `$7DC0` (after the blob writer's 4.3K workspace) up to the part table, which grows down from 1K below the BDOS entry; each 128-byte record must fit below the table before it is copied there: about 24.3K, less 21 bytes a part, on a 62K system; Error 190 (`source size`) beyond | the streaming source adapter with a name heap (step 67, capacity tables) |
 | Includes open at once | 16 (`SH_ICAP`): the parts whose include lines are being read, each holding about 20 bytes of the stack; Error 190 (`include depth`) beyond | measured against the stack at step 68 |
 | Include names | a CP/M name with its type, `[d:]name.type`, of the characters CP/M names may hold (services §4.1), at most 14 bytes once decoded; anything else is `include-syntax` (Error 24), where the reference, which allows any byte but a dot, a colon or a wildcard, finds no such file (`include-missing`) | — |
 | Diagnostic order across parts | a program with errors in several parts may be reported at another of them first: the reference tokenizes each part whole before it loads the parts the part includes, so a lexical error or a misplaced `include` anywhere in a part comes before any error of its includes, where the native compiler reads only a part's include lines as it loads it and finds the rest as it compiles, part by part in stream order | — |
@@ -132,8 +132,11 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | `BLINK.COM` when `BASIE` chains to it | must end below the loader `BASIE` leaves under the BDOS entry, 77 bytes with its FCB; `BLINK` is 10.6K | — |
 | Option `T`, trap lookup (toolchain §8) | read and checked, then refused as not yet available | a later step |
 | Floating-point literals | refused (`DG_NYI`, Error 191) | the decimal-to-`f32` overlay (toolchain §7.3) |
-| Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; seven today: `COMMAND` 978 bytes, `START` 812, `NAMES` 947, `CHAIN` 448, `DIAG` 1,034, `PARTS` 915 and `FLOAT` 1,460, each loaded into the overlay area when needed | — |
-| Overlay area | 2,483 bytes after the 18,425-byte resident image: `FLOAT` loads above `NAMES`, from its last byte, and the others at the start; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
+| Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; seven today: `COMMAND` 978 bytes, `START` 812, `NAMES` 947, `CHAIN` 448, `DIAG` 1,040, `PARTS` 915 and `FLOAT` 1,460, each loaded into the overlay area when needed | — |
+| Overlay area | 2,483 bytes after the 19,653-byte resident image: `FLOAT` loads above `NAMES`, from its last byte, and the others at the start; the image and the area together must end below the compiler's workspace at `$5800` (`MM_WBASE`) | — |
+| Pools | 4 in one compilation (`PL_CAP`), forward or not, each a 7-byte entry; Error 190 (`pools`) beyond; a pool's slots at most 65,535 bytes (`out-of-range`, as the reference) | the capacity tables (step 67h) |
+| Owner descriptors | one per owning record, at most 255 entries (Error 190, `types`, beyond); an array inside an array takes one entry per outer element | — |
+| Handles | variables and fields only (67g.1a): a handle or owning local, parameter or result, `new`, and every statement on handles are refused (`DG_NYI`, Error 191) | stage 67g |
 | A name in a diagnostic | its first 32 characters (`DG_ALEN`) | — |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)

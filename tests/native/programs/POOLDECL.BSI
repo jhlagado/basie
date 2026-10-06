@@ -1,0 +1,18 @@
+// Pools: a forward pool, owning and id handle fields, two pools and
+// handle program variables, arrays of handles among them.
+forward pool cells
+record Node
+    value as u16
+    next as cells?
+    other as id cells?
+end
+record Leaf
+    v as u8
+end
+pool leaves as Leaf[3]
+pool cells as Node[2]
+var head as cells?
+var mark as id leaves?
+var grid as cells?[3]
+sub main()
+end

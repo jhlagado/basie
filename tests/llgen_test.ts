@@ -55,6 +55,6 @@ Deno.test("the token kinds leave the grammar room for new terminals", async () =
   }
   const free = [];
   for (let k = 0; k < 62; k += 1) if (!used.has(k)) free.push(k);
-  assertEquals(named.size, 44);
-  assertEquals(free, [10, 26, 27, 28, 32, 33, 34, 35, 36, 37, 39, 50, 53, 54]);
+  assertEquals(named.size, 46);
+  assertEquals(free, [27, 28, 32, 33, 34, 35, 36, 37, 39, 50, 53, 54]);
 });

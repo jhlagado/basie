@@ -139,6 +139,9 @@ async function build(): Promise<BasieImage> {
     if (value === undefined) throw new Error(`no symbol ${name}`);
     return value;
   };
+  if (at("PL_WEND") > at("LL_DEPTH")) {
+    throw new Error("the pools' table runs into the LL(1) stack");
+  }
   if (at("LL_WEND") > at("SH_WBEG")) {
     throw new Error("the compiler's workspace runs into the shell's");
   }

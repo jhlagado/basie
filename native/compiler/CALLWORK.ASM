@@ -6,7 +6,7 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($5400).
+;  from MM_WBASE ($5800).
 ;
 ;    Offset  Size  Block
 ;    +$BF5     56  routine state: counts, the signature being parsed, the
@@ -165,6 +165,21 @@ SRC_WEND EQU  SRC_OWE+1        ; End of the source cursor.
 ; returns straight to the caller from any depth of the parse; the START
 ; overlay does the same while it loads the parts.
 PR_SP EQU  SRC_WEND            ; Word: SP that DG_ISSUE restores.
+; The pools (POOLS.ASM), in the bytes before the LL(1) stack's page:
+; PR_PARSE clears PL_CNT..PL_WEND. A pool's entry is PL_LEN bytes.
+PL_CNT EQU  PR_SP+2            ; Byte: pools declared, forward ones too.
+PL_NCAP EQU  PL_CNT+1          ; Word: the capacity of the pool being declared.
+PL_NREC EQU  PL_NCAP+2         ; Byte: its record type.
+PL_ROWN EQU  PL_NREC+1         ; Byte: nonzero once a field of the record being declared owns.
+PL_OWNB EQU  PL_ROWN+1         ; AG_TCAP/8 bytes: a bit for each owning table type.
+PL_TAB EQU  PL_OWNB+3          ; PL_CAP entries:
+PL_EORD EQU  0                 ;   word: the pool's ordinal, its information blob's;
+PL_EREC EQU  2                 ;   byte: its record type, zero while only forward;
+PL_EPRIV EQU  3                ;   byte: nonzero when it is private;
+PL_EPART EQU  4                ;   byte: the part (SRC_ID) it was declared in;
+PL_ENAME EQU  5                ;   word: its name's address in the source.
+PL_LEN EQU  7                  ; Bytes of one entry.
+PL_WEND EQU  PL_TAB+PL_LEN*PL_CAP ; The end of the pools' bytes.
 
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.

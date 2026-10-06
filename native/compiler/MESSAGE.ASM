@@ -548,3 +548,4 @@ MS_CAPS:                       ; Each a zero-terminated name.
     DB   "source size",0           ; DG_ROOM: memory for the source.
     DB   "include depth",0         ; DG_INEST: includes open at once.
     DB   "f32 digits",0            ; DG_FDIG: an f32 literal's digits.
+    DB   "pools",0                 ; DG_POOLS: the pool table.

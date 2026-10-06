@@ -280,6 +280,7 @@ const CLAIMED: Record<string, string[]> = {
     "FEXPS",
     "FZEROS",
   ],
+  "67g: pools and handle types": ["POOLDECL", "POOLDSC", "POOLPRV"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -825,6 +826,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67c: branch shrinking"],
     ...CLAIMED["67d: select on integers"],
     ...CLAIMED["67f: f32, and the programs of the library inside the subset"],
+    ...CLAIMED["67g: pools and handle types"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1319,6 +1321,27 @@ const REFUSED: Record<string, string> = {
   "overlapping select labels": Deno.readTextFileSync(
     "tests/conformance/statements/select-overlap.bsi",
   ),
+  "pool of a scalar": "pool p as u8[4]\nsub main()\nend\n",
+  "pool of an undeclared": "pool p as Nope[4]\nsub main()\nend\n",
+  "pool of zero slots":
+    "record R\nv as u8\nend\npool p as R[0]\nsub main()\nend\n",
+  "pool too large":
+    "record R\nv as u8[200]\nend\npool p as R[400]\nsub main()\nend\n",
+  "pool named twice":
+    "record R\nv as u8\nend\npool p as R[2]\npool p as R[2]\nsub main()\nend\n",
+  "forward pool never completed": "forward pool p\nsub main()\nend\n",
+  "forward pool completed private":
+    "record R\nv as u8\nend\nforward pool p\nprivate pool p as R[2]\nsub main()\nend\n",
+  "non-optional handle field":
+    "forward pool p\nrecord R\nh as p\nend\npool p as R[2]\nsub main()\nend\n",
+  "non-optional handle variable":
+    "record R\nv as u8\nend\npool p as R[2]\nvar h as p\nsub main()\nend\n",
+  "optional record type":
+    "record R\nv as u8\nend\nvar r as R?\nsub main()\nend\n",
+  "id of a record": "record R\nv as u8\nend\nvar r as id R\nsub main()\nend\n",
+  "capacity not constant":
+    "record R\nv as u8\nend\nvar n as u16 = 3\npool p as R[n]\nsub main()\nend\n",
+  "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 
 /** The code of a message number, from the message table. */

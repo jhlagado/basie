@@ -168,14 +168,23 @@ PR_BUILD:
 ; over every source part. The tables are written before they are read.
 
 PR_PARSE:
-    LD   HL,RO_BASE                ; Clear the routine state:
+    LD   HL,PL_CNT                 ; Clear the pools,
+    LD   B,PL_WEND-PL_CNT          ; their table,
+    CALL .WIPE                     ; zeroed;
+    LD   HL,PL_DESC                ; the owner descriptors'
+    LD   B,2*AG_TCAP               ; ordinals,
+    CALL .WIPE                     ; none yet;
+    LD   HL,RO_BASE                ; and the routine state:
     LD   B,RO_STEND-RO_BASE        ; its counts and fields.
-    XOR  A                         ; Zero each byte.
-.WIPE:                         ; Clear one byte.
-    LD   (HL),A                    ; Store zero.
-    INC  HL                        ; Next byte.
-    DJNZ .WIPE                     ; Clear the whole workspace.
-    JP   LL_PARSE                  ; Parse the program and return.
+    LD   DE,LL_PARSE               ; Then parse the program
+    PUSH DE                        ; and return.
+.WIPE:                         ; Clear B bytes at HL:
+    XOR  A                         ; zero
+.ZERO:                         ; each
+    LD   (HL),A                    ; byte
+    INC  HL                        ; in
+    DJNZ .ZERO                     ; turn.
+    RET                            ; Done.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Reject the current name if it is a routine's or a predeclared name, as

@@ -115,6 +115,7 @@ RO_NAMED:
     LD   HL,(TK_POS)               ; The root's offset,
     PUSH HL                        ; kept across the path.
     CALL RO_SYM                    ; A is the type, D the class, BC the payload.
+    CALL PL_LATER                 ; No handle or owning type yet.
     LD   (RO_OTYPE),A              ; The path's type.
     LD   (RO_PBASE),BC             ; A blob's ordinal or an offset from IX.
     LD   HL,0                      ; Nothing on

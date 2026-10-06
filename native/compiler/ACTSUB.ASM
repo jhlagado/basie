@@ -103,6 +103,8 @@ AC_ENDP:
     DEC  C                         ; One fewer.
     JR   .ROUTINE                  ; Until all are.
 .SYMBOLS:                      ; The symbols, all the program's.
+    LD   C,0                       ; A part's end: its private
+    CALL PL_ENDP                   ; forward pools must be complete.
     LD   A,(SY_CNT)                ; How many?
     OR   A                         ; None:
     RET  Z                         ; none is private.
@@ -193,6 +195,8 @@ AC_SPLIT:
 
 AC_MAIN:
     CALL AC_ENDP                   ; The last part ends.
+    LD   C,1                       ; The program's end: every
+    CALL PL_ENDP                   ; forward pool must be complete.
     LD   A,(RO_RCNT)               ; The routines declared.
     LD   B,A                       ; Count them in B.
     XOR  A                         ; Start at index zero...
@@ -373,7 +377,8 @@ AC_VARP:
 
 AC_JOIN:
     CALL EX_RENEW                  ; The parameter's name is current again.
-    LD   A,(AG_CTYPE)              ; Its type.
+    LD   A,(AG_CTYPE)              ; Its type:
+    CALL PL_LATER                 ; no handle or owning type yet.
     LD   HL,RO_VARP                ; Is it var?
     DEC  (HL)                      ; Zero if it was,
     LD   (HL),0                    ; (cleared)
@@ -418,7 +423,8 @@ AC_VARR:
 ; (DG_CLASH), nor yet a File (DG_NYI).
 
 AC_GIVEN:
-    CALL AC_ITEM                   ; The result type: not a view, nor yet a File.
+    CALL AC_ITEM                   ; The result type: not a view, nor yet a File,
+    CALL PL_LATER                 ; nor yet a handle or an owning type.
     LD   (RO_CTYPE),A              ; The routine's result type.
     RET                            ; Back to the engine.
 

@@ -1,0 +1,8 @@
+// A private pool and a handle to it.
+record R
+    v as u8
+end
+private pool rs as R[5]
+var a as rs?
+sub main()
+end

@@ -213,6 +213,22 @@ count is bounded by memory and by the line stream's one-byte part number,
 holds being small but not measured yet. Private names need a bit for each
 symbol (`SY_PRIV`, 12 bytes) and a flag in each routine record.
 
+**At step 67g** pools and handle types came (67g.1a). A pool is an entry
+of seven bytes in a table of four (`PL_CAP`, `pools`, Error 190, beyond):
+its ordinal, its record, its visibility, its part and its name's address,
+so that a forward pool still open at a part's or the program's end is
+named where it was declared. Handle types take type IDs `$68` to `$77`,
+four for each pool (owning or `id`, optional or not), so the pools'
+count is bounded by the type IDs as well as the table; the capacity
+tables of 67h widen both. Each aggregate type has a bit marking it
+owning (`PL_OWNB`, 3 bytes) and a word for its owner descriptor's
+ordinal (`PL_DESC`, 48 bytes), written once, at the first pool of its
+record; a descriptor has at most 255 entries (`types`, Error 190,
+beyond). The workspace grew, and the workspaces and the source area moved
+1K up (`MM_WBASE` `$5800`), so the source area is 1K smaller, about 24.3K
+on a 62K system. A build check keeps the pools' table below the LL(1)
+stack (`PL_WEND` at or below `LL_DEPTH`).
+
 ### 2.4 Workspace budget for `BASIE.COM` (Implementation)
 
 The minimums in [limits](limits.md) §5.1 are not backed by a model showing
@@ -649,7 +665,8 @@ constant, a capacity diagnostic and a budget to argue.
 | Labels | 32 in use at once per routine (`EM_LCAP`), released by nesting; pending operands are chained through their references' addend words (`EMIT.ASM`, no limit) | §3.4 |
 | Source parts | 255 while memory lasts, in a part table that grows down from the top of the source area (`SOURCE.ASM`); 8 on the command line (`CL_PCAP`) | §3.17: 255 |
 | Predeclared names | the reference's 58, generated from its helper table into `PREDEF.ASM`; the services' records are read in place, so they have no capacity of their own | — |
-| Grammar terminals | 44: 43 of the kinds below 62 (`DG_TOKEN` plus a kind is a syntax diagnostic below 190), and `select` at 62, with the five pseudo-kinds of the syntax diagnostics; 14 left free below 62, and 63 for a terminal never expected alone. The eight type keywords are one terminal, `TK_TYPE`, its payload the type; the operators, which only the expression island reads, take kinds from `$44` on (`tests/llgen_test.ts` counts the free kinds) | native compiler §2 |
+| Pools | 4 (`PL_CAP`), seven bytes each (`PL_TAB`), with a bit for each aggregate type marking it owning (`PL_OWNB`) and a word for each holding its owner descriptor's ordinal (`PL_DESC`); handle type IDs are `$68` to `$77`, four forms for each pool; an owner descriptor takes 255 entries | §3.7 |
+| Grammar terminals | 46: 45 of the kinds below 62 (`DG_TOKEN` plus a kind is a syntax diagnostic below 190), and `select` at 62, with the five pseudo-kinds of the syntax diagnostics; 12 left free below 62, and 63 for a terminal never expected alone. The eight type keywords are one terminal, `TK_TYPE`, its payload the type; the operators, which only the expression island reads, take kinds from `$44` on, and `new` `$52` (`tests/llgen_test.ts` counts the free kinds) | native compiler §2 |
 
 Code is generated as it is parsed, into a routine's blob ([native
 compiler](native-compiler.md) §2); blobs take 16-bit ordinals from `$0400`

@@ -105,6 +105,16 @@ AG_SIZE:
     LD   HL,4                      ; A File takes four bytes.
     CP   AG_FILE                   ; Is it one?
     RET  Z                         ; Carry is clear.
+    CP   AG_HND                    ; A handle?
+    JR   C,.TABLE                  ; Below them.
+    CP   AG_HEND                   ; Past
+    JR   NC,.TABLE                 ; them.
+    BIT  1,A                       ; AG_HID: an identifier
+    RET  NZ                        ; takes four bytes,
+    LD   L,2                       ; an owner two
+    OR   A                         ; (carry clear).
+    RET                            ; Return it.
+.TABLE:                        ; Not a handle.
     CP   AG_FIRST                  ; Is this a table type?
     JR   NC,.DYNAMIC               ; Yes: read its recorded extent.
     CALL GX_PROP                   ; A scalar: its size

@@ -1,0 +1,18 @@
+// Owner descriptors: arrays of records holding handles stride their
+// entries, arrays of arrays expand per outer element, and a descriptor
+// is written once, at the first pool of its record.
+forward pool p
+record A
+    h as p?
+    k as u8
+end
+record B
+    as1 as A[3]
+    hs as p?[2][2]
+    n as u16
+end
+pool q as B[2]
+pool p as A[1]
+var spare as B
+sub main()
+end

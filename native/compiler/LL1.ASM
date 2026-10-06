@@ -41,7 +41,8 @@ CT_RTOP EQU  LL_STACK+LL_CAP   ; Word: the next free label range.
 CT_RTAB EQU  CT_RTOP+2         ; The label ranges of the open selects.
 CT_RCAP EQU  63                ; Ranges; DG_LABEL beyond.
 CT_RLIM EQU  CT_RTAB+8*CT_RCAP ; Exclusive end of the ranges.
-LL_WEND EQU  CT_RLIM           ; End of compiler workspace (marker).
+PL_DESC EQU  CT_RLIM           ; AG_TCAP words: a type's owner descriptor, 0 until written.
+LL_WEND EQU  PL_DESC+2*AG_TCAP ; End of compiler workspace (marker).
 
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY
 ; Parse the program: push GR_START and expand, match and act until the
