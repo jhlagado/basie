@@ -664,10 +664,10 @@ Deno.test("BASIE.OVL describes every overlay, each loaded when first needed", ()
   const names = built.overlays.find((o) => o.name === "NAMES")!;
   for (const [i, o] of built.overlays.entries()) {
     const e = 9 + 4 * i;
-    // FLOAT loads above NAMES, which stays while it is used; every other
-    // overlay at the area's start.
+    // FLOAT loads above NAMES, from NAMES' last byte, since NAMES stays
+    // while it is used; every other overlay at the area's start.
     const at = o.name === "FLOAT"
-      ? built.area + names.records * 128
+      ? built.area + names.bytes.length
       : built.area;
     assertEquals(OVL[e] | (OVL[e + 1] << 8), at, o.name);
     const first = OVL[e + 2], records = OVL[e + 3];

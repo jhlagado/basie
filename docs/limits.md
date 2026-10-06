@@ -119,7 +119,7 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | Parameters | 64 in the whole program (`RO_PCAP`), and 255 bytes of arguments to one routine; `DG_PARAM` (Error 190, `parameters`) beyond | the symbol table (step 67) |
 | Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 190, `expression depth`) beyond | measured against the stack at step 68 |
 | Names visible at once | 96 (`SY_CAP`): the program's constants, variables and record types with the current routine's parameters and the locals and local constants of its open blocks (a block's names are released at its end); `DG_SYMS` (Error 190, `symbols`) beyond | the hashed symbol table with a name heap (step 67, capacity tables) |
-| One `f32` literal | about 95 significant digits (`FL_NB`, 64-byte exact arithmetic); `capacity` (Error 190, `f32 digits`) beyond | — |
+| One `f32` literal | about 150 significant digits before the point and 100 after (`FL_NB`, 64-byte exact arithmetic), counted from the first digit that is not zero to the last that is not: trailing zeros take no room; `capacity` (Error 190, `f32 digits`) beyond | — |
 | One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` (Error 190, `object size`) beyond | writing initializers to the blob as they are parsed |
 | Aggregate types | 24 distinct string and array types and records (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all records together (`AG_FCAP`); `DG_META` (Error 190, `types`) beyond | the scoped symbol table and type descriptors (step 67) |
 | `select` labels | 63 ranges (`CT_RCAP`) for the selects open at once, a constant label one range, a list one each; a select's ranges are free when it ends; Error 190 (`labels`) beyond | — |
@@ -132,8 +132,8 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | `BLINK.COM` when `BASIE` chains to it | must end below the loader `BASIE` leaves under the BDOS entry, 77 bytes with its FCB; `BLINK` is 10.6K | — |
 | Option `T`, trap lookup (toolchain §8) | read and checked, then refused as not yet available | a later step |
 | Floating-point literals | refused (`DG_NYI`, Error 191) | the decimal-to-`f32` overlay (toolchain §7.3) |
-| Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; seven today: `COMMAND` 978 bytes, `START` 812, `NAMES` 947, `CHAIN` 448, `DIAG` 1,034, `PARTS` 915 and `FLOAT` 1,329, each loaded into the overlay area when needed | — |
-| Overlay area | 2,432 bytes after the 18,425-byte resident image: `FLOAT` loads 1,024 bytes in, above `NAMES`, and the others at the start; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
+| Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; seven today: `COMMAND` 978 bytes, `START` 812, `NAMES` 947, `CHAIN` 448, `DIAG` 1,034, `PARTS` 915 and `FLOAT` 1,460, each loaded into the overlay area when needed | — |
+| Overlay area | 2,483 bytes after the 18,425-byte resident image: `FLOAT` loads above `NAMES`, from its last byte, and the others at the start; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
 | A name in a diagnostic | its first 32 characters (`DG_ALEN`) | — |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)

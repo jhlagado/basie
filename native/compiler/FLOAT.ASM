@@ -41,6 +41,8 @@
 ;  of a five-byte value, the fifth zero (EXPR.ASM).
 
 
+FL_TCAP EQU  16000             ; A power of ten beyond which a literal is settled.
+
 FL_BEG:                        ; The overlay's start: its entries.
     JP   FL_SCAN                   ; +0: a decimal literal.
     JP   FL_ITOF                   ; +3: an integer to f32.
@@ -318,8 +320,9 @@ FL_SCAN:                       ; The cursor is after the integer digits.
     INC  A                         ; and literal
     LD   (FL_MODE),A               ; rounding.
     LD   HL,0                      ; No
-    LD   (FL_TEN),HL               ; power of ten
-    LD   (FL_SIG),HL               ; nor significant digit yet.
+    LD   (FL_TEN),HL               ; power of ten,
+    LD   (FL_SIG),HL               ; significant digit
+    LD   (FL_ZRUN),HL              ; nor pending zero yet.
     LD   HL,(TK_NBEG)              ; From the first digit
 .INT:                          ; up to the cursor:
     LD   DE,(SRC_PTR)              ; the integer
@@ -346,12 +349,16 @@ FL_SCAN:                       ; The cursor is after the integer digits.
     DEC  HL                        ; the point
     LD   (FL_TEN),HL               ; one place.
     JR   .FRAC                     ; The next.
-.EXPO:                         ; An exponent?
-    CALL SRC_PEEK                  ; e or E
-    JR   C,.SCALE                  ; at the cursor,
+.EXPO:                         ; The pending zeros
+    LD   HL,(FL_TEN)               ; move the point
+    LD   DE,(FL_ZRUN)              ; as their factor
+    ADD  HL,DE                     ; would have:
+    LD   (FL_TEN),HL               ; both are within the source's length.
+    CALL SRC_PEEK                  ; An exponent, e or E?
+    JP   C,.SCALE                  ; at the cursor,
     OR   $20                       ; in either
     CP   'e'                       ; case.
-    JR   NZ,.TAIL                  ; Not one.
+    JP   NZ,.TAIL                  ; Not one.
     CALL SRC_TAKE                  ; Past it.
     CALL SRC_PEEK                  ; Its sign:
     LD   C,0                       ; positive
@@ -377,8 +384,8 @@ FL_SCAN:                       ; The cursor is after the integer digits.
     PUSH BC                        ; (the sign and the flag)
     LD   C,A                       ; and it is
     LD   A,H                       ; added
-    CP   3                         ; to a value
-    JR   NC,.CAPPED                ; kept below 7,690,
+    CP   12                        ; to a value
+    JR   NC,.CAPPED                ; kept below 30,720,
     LD   D,H                       ; ten
     LD   E,L                       ; times
     ADD  HL,HL                     ; it
@@ -387,7 +394,7 @@ FL_SCAN:                       ; The cursor is after the integer digits.
     ADD  HL,HL                     ; digit,
     LD   B,0                       ; which
     ADD  HL,BC                     ; is enough to
-.CAPPED:                       ; settle any literal.
+.CAPPED:                       ; past any power a source can offset.
     PUSH HL                        ; (the value kept)
     CALL SRC_TAKE                  ; Past it.
     POP  HL                        ; The value,
@@ -404,9 +411,46 @@ FL_SCAN:                       ; The cursor is after the integer digits.
     OR   A                         ; negated,
     SBC  HL,DE                     ; zero less it.
 .ADDEXP:                       ; HL is the exponent.
-    LD   DE,(FL_TEN)               ; It moves
-    ADD  HL,DE                     ; the point
-    LD   (FL_TEN),HL               ; further.
+    LD   DE,(FL_TEN)               ; It moves the point
+    OR   A                         ; further, the sum's
+    ADC  HL,DE                     ; overflow in V.
+    JP   PO,.CLAMP                 ; Overflowed, it is far past
+    LD   HL,FL_TCAP                ; FL_TCAP in the direction
+    BIT  7,D                       ; of both operands' sign,
+    JR   Z,.CLAMP                  ; which is DE's:
+    LD   HL,-FL_TCAP               ; held at either end.
+.CLAMP:                        ; Beyond FL_TCAP either way the
+    LD   DE,FL_TCAP                ; value is settled (past the
+    CALL .OVER                     ; largest f32, or zero), so
+    JR   C,.LOW                    ; the power is held to
+    LD   HL,FL_TCAP                ; plus or minus FL_TCAP,
+.LOW:                          ; which keeps the range
+    LD   DE,-FL_TCAP               ; checks below from
+    CALL .OVER                     ; wrapping.
+    JR   NC,.SET                   ; Within: kept.
+    LD   HL,-FL_TCAP               ; Below: held.
+.SET:                          ; HL is the power of ten.
+    LD   (FL_TEN),HL               ; Kept.
+    JR   .TAIL                     ; Then the literal's end.
+
+;@ROUTINE IN DE,HL OUT CARRY CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
+; Carry when HL is below DE, both signed words. HL and DE are kept.
+
+.OVER:                         ; Compare HL with DE, signed:
+    OR   A                         ; HL less DE sets
+    SBC  HL,DE                     ; the sign and overflow,
+    ADD  HL,DE                     ; which adding DE back keeps.
+    JP   PE,.FLIP                  ; Overflow inverts the sign.
+    JP   M,.LESS                   ; Negative: below.
+    OR   A                         ; Not below:
+    RET                            ; carry clear.
+.FLIP:                         ; The sign is inverted:
+    JP   P,.LESS                   ; positive means below.
+    OR   A                         ; Not below:
+    RET                            ; carry clear.
+.LESS:                         ; HL is below DE:
+    SCF                            ; carry set.
+    RET                            ; Done.
 .TAIL:                         ; No name byte may follow.
     CALL SRC_PEEK                  ; The next byte
     JR   C,.SCALE                  ; (none at the part's end)
@@ -484,12 +528,52 @@ FL_SCAN:                       ; The cursor is after the integer digits.
 
 ;@ROUTINE IN A OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; N = N times ten plus the digit A, an ASCII digit, counted in FL_SIG once
-; N is not zero (the significant digits). Carry returns clear.
+; N is not zero (the significant digits). A zero after a significant digit
+; is only counted in FL_ZRUN, and multiplied in, and counted significant,
+; when a later digit is not zero, so trailing zeros take no room in N: the
+; zeros still pending at the literal's end move its power of ten instead
+; (.EXPO). Carry returns clear.
 
 .DIGIT:                        ; A is the digit.
-    SUB  '0'                       ; Its value
-    LD   HL,FL_N                   ; joins
-    CALL FL_MULT                   ; N.
+    SUB  '0'                       ; Its value,
+    PUSH AF                        ; kept.
+    LD   HL,FL_N                   ; Is N zero
+    CALL FL_NZ                     ; so far?
+    JR   Z,.TAKE                   ; Then a leading zero or the first digit.
+    POP  AF                        ; The digit
+    PUSH AF                        ; again:
+    OR   A                         ; a zero
+    JR   NZ,.ZEROS                 ; after a significant digit
+    POP  AF                        ; waits:
+    LD   HL,(FL_ZRUN)              ; one more
+    INC  HL                        ; pending
+    LD   (FL_ZRUN),HL              ; zero, counted as significant only
+    OR   A                         ; if multiplied in. Carry clear.
+    RET                            ; Done.
+.ZEROS:                        ; A digit not zero: the pending zeros
+    LD   HL,(FL_ZRUN)              ; are significant digits
+    PUSH HL                        ; after all:
+    LD   DE,(FL_SIG)               ; their count
+    ADD  HL,DE                     ; joins
+    LD   (FL_SIG),HL               ; FL_SIG,
+    POP  HL                        ; and they are multiplied
+.ZLOOP:                        ; into N
+    LD   A,H                       ; one
+    OR   L                         ; at
+    JR   Z,.ZDONE                  ; a time.
+    PUSH HL                        ; (the count kept)
+    XOR  A                         ; N times
+    LD   HL,FL_N                   ; ten
+    CALL FL_MULT                   ; plus zero.
+    POP  HL                        ; The count,
+    DEC  HL                        ; one less.
+    JR   .ZLOOP                    ; The next.
+.ZDONE:                        ; None pending:
+    LD   (FL_ZRUN),HL              ; HL is zero.
+.TAKE:                         ; The digit
+    POP  AF                        ; joins
+    LD   HL,FL_N                   ; N.
+    CALL FL_MULT                   ; N times ten plus it.
     LD   HL,FL_N                   ; Leading
     CALL FL_NZ                     ; zeros
     RET  Z                         ; count for nothing.

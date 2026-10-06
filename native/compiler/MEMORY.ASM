@@ -43,6 +43,7 @@ FL_TEN EQU  FL_MODE+1          ; A literal's power of ten: a word.
 FL_SIG EQU  FL_TEN+2           ; Its significant digits: a word.
 FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
 FL_B EQU  FL_A+5               ; b unpacked.
-FL_WEND EQU  FL_B+5            ; The workspace's end.
+FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
+FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
 MM_SRC EQU  $7980              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

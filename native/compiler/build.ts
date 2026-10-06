@@ -60,9 +60,15 @@ export const OVERLAYS = [
     files: ["PARTS.ASM", "FILENAME.ASM", "PARTNAME.ASM"],
     offset: 0,
   },
-  // Above NAMES, which stays loaded while FLOAT is used: build() checks
-  // that NAMES' records end at or below this offset.
-  { name: "FLOAT", equate: "OV_FLOAT", files: ["FLOAT.ASM"], offset: 1024 },
+  // Above NAMES, which stays loaded while FLOAT is used: FLOAT starts at
+  // NAMES' last byte, and build() checks that they do not overlap.
+  {
+    name: "FLOAT",
+    equate: "OV_FLOAT",
+    files: ["FLOAT.ASM"],
+    offset: 0,
+    after: "NAMES",
+  },
 ];
 
 export type Overlay = {
@@ -150,11 +156,20 @@ async function build(): Promise<BasieImage> {
   const overlays: Overlay[] = [];
   for (const [i, o] of OVERLAYS.entries()) {
     if (at(o.equate) !== i) throw new Error(`${o.equate} is not ${i}`);
-    overlays.push(await overlay(o, area + o.offset, symbols));
+    // An overlay loaded above another starts at that one's last byte:
+    // loading it later overwrites only the padding of the other's last
+    // record, never its bytes.
+    const below = "after" in o
+      ? overlays.find((v) => v.name === o.after)!
+      : undefined;
+    const address = below
+      ? below.address + below.bytes.length
+      : area + o.offset;
+    overlays.push(await overlay(o, address, symbols));
   }
   const names = overlays.find((o) => o.name === "NAMES")!;
   const float = overlays.find((o) => o.name === "FLOAT")!;
-  if (names.address + names.records * 128 > float.address) {
+  if (names.address + names.bytes.length > float.address) {
     throw new Error("NAMES runs into FLOAT, which loads above it");
   }
   const areaEnd = Math.max(

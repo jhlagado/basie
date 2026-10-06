@@ -277,6 +277,8 @@ const CLAIMED: Record<string, string[]> = {
     "CHAREXCT",
     "WIDENING",
     "INTZERO",
+    "FEXPS",
+    "FZEROS",
   ],
 };
 
