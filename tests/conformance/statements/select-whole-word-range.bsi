@@ -1,0 +1,27 @@
+// A range that covers every value of a word subject, u16 or i16, takes
+// every value (11.7.2).
+// spec: 11.7.2
+// expect output: AAB\r\n
+
+sub wide(v as u16) as u8
+    select v
+    case 0 to 65535
+        return 'A'
+    end
+    return '?'
+end
+
+sub signed(v as i16) as u8
+    select v
+    case -32768 to 32767
+        return 'B'
+    end
+    return '?'
+end
+
+sub main() fails
+    writeByte(console, wide(0)) else fail
+    writeByte(console, wide(40000)) else fail
+    writeByte(console, signed(-5)) else fail
+    writeText(console, "\r\n") else fail
+end

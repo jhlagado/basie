@@ -2652,10 +2652,12 @@ export class Compiler {
     }
     const skip = r.blob.newLabel();
     r.blob.jpIf(JP_C, skip); // v < lo
-    r.blob.u8(0x11); // LD DE,hi-lo+1
-    r.blob.u16(hi - lo + 1);
-    r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE: carry if v-lo <= hi-lo
-    r.blob.jpIf(JP_C, body);
+    if (hi < 0xffff) {
+      r.blob.u8(0x11); // LD DE,hi-lo+1
+      r.blob.u16(hi - lo + 1);
+      r.blob.u8(0xb7, 0xed, 0x52); // OR A; SBC HL,DE: carry if v-lo <= hi-lo
+      r.blob.jpIf(JP_C, body);
+    } else r.blob.jp(body); // every value from lo up: hi-lo+1 may not fit
     r.blob.defineLabel(skip);
   }
 
