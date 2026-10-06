@@ -29,7 +29,7 @@
 ;    AC_VAR, AC_EXACT, AC_ALLOC  program variable declarations
 ;    AC_REC, AC_FIELD, AC_PLACE, AC_RECOK  record declarations
 ;
-;  A declaration's name is retained (AC_NAME, AC_SUB: spelling in AC_DNAME,
+;  A declaration's name is retained (AC_NAME, EX_KEEP: spelling in AC_DNAME,
 ;  position in AC_DPOS) while the rest is parsed; its class and type build
 ;  up in AC_DINFO and its payload in AC_DVAL. EX_PREP then writes the
 ;  symbol provisionally and SY_CMT or SY_TAG commits it, so a declaration
@@ -141,9 +141,7 @@ AC_NAMED:
     CALL TK_MATCH                  ; is the name the File type?
     LD   A,AG_FILE                 ; Then File
     JR   C,AC_USE                  ; is the current type.
-    CALL SY_GET                    ; A is the name's class and type, BC its payload.
-    LD   (AC_DINFO),A              ; Record them.
-    LD   (AC_DVAL),BC              ; Record the payload: the record's type ID.
+    CALL AC_FIND                   ; Its class and type, its payload the type ID, recorded.
     AND  SY_TYPE+SY_AGGR           ; Keep the type-name and aggregate flags.
     CP   SY_TYPE                   ; A type name, not an aggregate object?
     LD   A,DG_CLASS                ; No: wrong-class,
@@ -284,7 +282,7 @@ AC_ARRAY:
     INC  HL                        ; the
     LD   B,(HL)                    ; count.
     LD   (AG_NDIM),BC              ; The candidate's count.
-    CALL .ITEM                     ; The element type, A.
+    CALL AC_ITEM                   ; The element type, A.
     LD   (AG_NAUX),A               ; The candidate's element type.
     CALL AG_SIZE                   ; HL is one element's extent.
     LD   D,H                       ; Keep it...
@@ -308,11 +306,16 @@ AC_ARRAY:
     OR   (HL)                      ; (A is zero.)
     RET  Z                         ; No: the type is complete.
     LD   (HL),0                    ; Yes, this once:
-    CALL .ITEM                     ; the element type
+    CALL AC_ITEM                   ; the element type
     ADD  A,AG_OPEN                 ; makes the open array's ID,
     LD   (AG_CTYPE),A              ; the current type.
     RET                            ; Back to the engine.
-.ITEM:                         ; The current type as an element:
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; The current type (AG_CTYPE) as an element, a field or a result: not a
+; view (DG_CLASH, AG_NOVW), nor here a File (DG_NYI). A returns it.
+
+AC_ITEM:                       ; The current type as an element:
     LD   A,(AG_CTYPE)              ; not
     CALL AG_NOVW                   ; a view,
     CP   AG_FILE                   ; nor a File
@@ -529,6 +532,16 @@ AC_REC:
     LD   (AG_CSIZE),HL             ; ...in the record.
     RET                            ; Back to the engine.
 
+;@ROUTINE OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A is the index of the record's next field: its fields so far
+; (AG_CFCNT) and the earlier records', AG_FCNT, which HL addresses.
+
+AC_FIDX:                       ; The fields in use.
+    LD   A,(AG_CFCNT)              ; This record's fields so far,
+    LD   HL,AG_FCNT                ; plus those of earlier records,
+    ADD  A,(HL)                    ; are the next field's index.
+    RET                            ; A is it.
+
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; BeginRecordField: the field name must be new in this record (DG_DUP) and
 ; the field table must have room (DG_META). The name goes into the
@@ -536,9 +549,7 @@ AC_REC:
 
 AC_FIELD:
     CALL AG_FRESH                  ; Reject a repeated field name.
-    LD   A,(AG_CFCNT)              ; This record's fields so far...
-    LD   HL,AG_FCNT                ; ...plus those of earlier records...
-    ADD  A,(HL)                    ; ...is the new field's index.
+    CALL AC_FIDX                   ; The new field's index.
     CP   AG_FCAP                   ; Is there an entry for it?
     JP   NC,AG_EMETA               ; No: raise DG_META.
     CALL AG_FIELD                  ; HL addresses the entry.
@@ -550,14 +561,9 @@ AC_FIELD:
 ; the record by the field's extent within 1 KiB (DG_DATA).
 
 AC_PLACE:
-    LD   A,(AG_CTYPE)              ; The field's type:
-    CALL AG_NOVW                   ; not a view.
-    CP   AG_FILE                   ; A File
-    JP   Z,TR_OPER                 ; is never a field here (DG_NYI).
+    CALL AC_ITEM                   ; The field's type: not a view, nor a File.
     LD   C,A                       ; Keep the type.
-    LD   A,(AG_CFCNT)              ; The field's index is this record's...
-    LD   HL,AG_FCNT                ; ...so far plus...
-    ADD  A,(HL)                    ; ...the earlier fields.
+    CALL AC_FIDX                   ; The field's index.
     CALL AG_FIELD                  ; HL addresses its entry.
     INC  HL                        ; Skip the spelling's...
     INC  HL                        ; ...address...
@@ -601,11 +607,7 @@ AC_RECOK:
     LD   (AG_CTYPE),A              ; Keep it,
     LD   C,A                       ; the name's payload below.
     LD   A,(AG_RCNT)               ; The record's ordinal...
-    ADD  A,A                       ; ...times the entry size...
-    LD   E,A                       ; ...widened...
-    LD   D,0                       ; ...to DE...
-    LD   HL,AG_RTAB                ; ...indexes the record table.
-    ADD  HL,DE                     ; HL addresses the record's entry.
+    CALL AG_RENT                   ; HL addresses the record's entry in AG_RTAB.
     LD   DE,(AG_CFIDX)             ; Its first field, then AG_CFCNT, its count,
     LD   (HL),E                    ; into AG_RFIDX
     INC  HL                        ; and
@@ -614,10 +616,8 @@ AC_RECOK:
     LD   B,0                       ; whose payload, C, is its type ID.
     CALL EX_PREP                   ; Write the provisional symbol.
     CALL SY_CMT                    ; Commit it.
-    LD   A,(AG_CFCNT)              ; The record's fields...
-    LD   HL,AG_FCNT                ; ...join...
-    ADD  A,(HL)                    ; ...the fields...
-    LD   (HL),A                    ; ...in use.
+    CALL AC_FIDX                   ; The record's fields join
+    LD   (HL),A                    ; the fields in use.
     LD   HL,AG_RCNT                ; Count...
     INC  (HL)                      ; ...the record.
     RET                            ; Back to the engine.

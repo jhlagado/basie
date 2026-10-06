@@ -185,6 +185,15 @@ RO_NAMED:
     LD   (EX_START),HL             ; is the path's.
     RET                            ; A is the path's type, carry clear.
 
+;@ROUTINE OUT CARRY,ZERO CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY
+; Consume a name after a dot (RO_NAME) and set carry if it is `length`.
+
+RO_ISLEN:                      ; A name follows the dot.
+    CALL RO_NAME                   ; Consume it.
+    LD   HL,KW_LEN                 ; The spelling "length",
+    LD   B,6                       ; six bytes:
+    JP   TK_MATCH                  ; carry if the name is it.
+
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse the selections from a call's aggregate result of type A, a path's
 ; computed start, read-only unless the callee's result is var (RO_CRO):
@@ -238,10 +247,7 @@ RO_PATH:
     CALL DG_RAISE                  ; Raise the diagnostic below
     DB   DG_FIELD                  ; at the dot: no-such-field.
 .STRING:                       ; A string's length, an open string's capacity.
-    CALL RO_NAME                   ; Consume the name.
-    LD   HL,KW_LEN                 ; The spelling "length".
-    LD   B,6                       ; Its length.
-    CALL TK_MATCH                  ; Is the name length?
+    CALL RO_ISLEN                  ; Consume the name: is it length?
     JR   C,.LENGTH                 ; The length byte.
     LD   A,(RO_OTYPE)              ; Only an open string
     CP   AG_VIEW                   ; has a capacity.
@@ -280,10 +286,7 @@ RO_PATH:
 .OPEN:                         ; An open array's length:
     LD   HL,(TK_POS)               ; (the dot's offset
     PUSH HL                        ; kept)
-    CALL RO_NAME                   ; a name,
-    LD   HL,KW_LEN                 ; which must be
-    LD   B,6                       ; `length`,
-    CALL TK_MATCH                  ; else
+    CALL RO_ISLEN                  ; a name, which must be `length`, else
     POP  HL                        ; no-such-field
     LD   A,DG_FIELD                ; at the dot;
     JP   NC,DG_HERE                ; no return.
@@ -314,11 +317,7 @@ RO_FIELD:
     PUSH AF                        ; kept across
     CALL RO_NAME                   ; the field's name, consumed.
     POP  AF                        ; The record's index.
-    ADD  A,A                       ; Records take two bytes in AG_RTAB.
-    LD   E,A                       ; Form the offset as a word.
-    LD   D,0                       ; The table is small.
-    LD   HL,AG_RTAB                ; Index the record table.
-    ADD  HL,DE                     ; HL addresses the record's entry.
+    CALL AG_RENT                   ; HL addresses the record's entry in AG_RTAB.
     LD   B,(HL)                    ; B is the first field's index.
     INC  HL                        ; Then the field count.
     LD   D,(HL)                    ; D counts the fields left.

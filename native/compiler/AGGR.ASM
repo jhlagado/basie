@@ -40,6 +40,18 @@
 ;  bounded at four levels (AG_LCAP). Every extent is bounded at 1024 bytes,
 ;  the size of the staging buffer.
 
+;@ROUTINE IN A OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Address in HL the AG_RTAB entry of record ordinal A: its first field's
+; index, then its field count. BC is kept.
+
+AG_RENT:                       ; A is the record's ordinal.
+    ADD  A,A                       ; AG_RTAB entries are two bytes:
+    LD   E,A                       ; DE is
+    LD   D,0                       ; the offset,
+    LD   HL,AG_RTAB                ; from
+    ADD  HL,DE                     ; the table's base.
+    RET                            ; HL is the entry.
+
 ;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE
 ; Address the four-byte descriptor of dynamic type ID A in HL. A returns the
 ; table index (the ID less AG_FIRST). A File has no descriptor, no fields
@@ -494,11 +506,7 @@ AG_EDEEP:                      ; Initializers nested beyond AG_LCAP.
 AG_REC:
     INC  HL                        ; Step to the record ordinal.
     LD   A,(HL)                    ; Fetch it.
-    ADD  A,A                       ; AG_RTAB entries are two bytes.
-    LD   E,A                       ; Widen the offset in DE.
-    LD   D,0                       ; Clear the high byte.
-    LD   HL,AG_RTAB                ; Fetch the record table base.
-    ADD  HL,DE                     ; Address the record's entry.
+    CALL AG_RENT                   ; HL addresses the record's entry in AG_RTAB.
     LD   B,(HL)                    ; B is the first field index.
     INC  HL                        ; Step to the field count.
     LD   C,(HL)                    ; C counts the fields to initialize.

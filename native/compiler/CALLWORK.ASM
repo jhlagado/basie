@@ -103,7 +103,7 @@ RO_PKIND EQU  RO_PLACE+0       ; Byte: GA_BLOB, GA_FRAME, GA_ALIAS or GA_HELD.
 RO_PRO EQU  RO_PLACE+1         ; Byte: nonzero when the path is read-only.
 RO_PBASE EQU  RO_PLACE+2       ; Word: a static place's blob, an alias's word at IX+n.
 RO_PADD EQU  RO_PLACE+4        ; Word: bytes on from the base, or a frame place's offset.
-RO_OTYPE EQU  RO_PLACE+6       ; Byte: type of the path, operand or parameter in hand.
+RO_OTYPE EQU  RO_PLACE+6       ; Byte: type of the path or operand in hand.
 RO_PPUSH EQU  RO_PLACE+7       ; Byte: bit 0 a computed base pushed, 1 a string, 2 s.length.
 RO_IPOS EQU  RO_PLACE+8        ; Word: the offset of the index's first token.
 RO_PROOT EQU  RO_PLACE+10      ; Word: the root's symbol record, for its name.
