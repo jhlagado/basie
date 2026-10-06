@@ -33,13 +33,18 @@ disks in the tests and the Triptych machine's.
 | Overlay | Files | Bytes | Loaded |
 | --- | --- | ---: | --- |
 | `COMMAND` | `COMMAND.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 978 | first, to read the command line |
-| `START` | `LIBRARY.ASM`, `PARTNAME.ASM` | 544 | to check the library, then, once the parts are loaded, to choose the stamp, open the streams and name the parts |
+| `START` | `LIBRARY.ASM`, `BLOPEN.ASM`, `PARTNAME.ASM` | 808 | to check the library, then, once the parts are loaded, to choose the stamp, open the streams and name the parts |
 | `NAMES` | `PREDEF.ASM` | 947 | before the compilation, for all of it: the predeclared names stay where `RO_LIB` reads them, so lookups are as fast as from the image |
-| `CHAIN` | `CHAIN.ASM` | 285 | to run `BLINK` |
-| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 970 | to print a diagnostic |
-| `PARTS` | `PARTS.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 884 | to load the parts and the parts they include |
+| `CHAIN` | `CHAIN.ASM`, `BLCLOSE.ASM` | 448 | after a compilation, to close the streams and, unless option C, run `BLINK`; with option X, to run `BLINK` alone |
+| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,023 | to print a diagnostic |
+| `PARTS` | `PARTS.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 915 | to load the parts and the parts they include |
 
-The overlay area is 1,024 bytes, the largest overlay in whole records. The
+The overlay area is 1,024 bytes, the largest overlay in whole records.
+`DIAG` is one byte short of it, so it cannot grow without widening the area
+by a record; the others have room, and `START` and `CHAIN` the most. Code
+that runs once, before the compilation or after it, belongs in an overlay
+rather than the image: the streams' opening code is `START`'s, their
+closing code `CHAIN`'s, and the decimal printer `SH_NUM` `DIAG`'s. The
 conversion of decimal literals to `f32` is to be an overlay loaded above
 `NAMES`, which stays loaded while it is used.
 
@@ -72,6 +77,7 @@ number, code, position and arguments against the reference's.
 | `EXPR.ASM`, `EXTERM.ASM`, `EXOPER.ASM`, `VALUE.ASM`, `CONTROL.ASM`, `AGGR.ASM`, `ROUTINES.ASM`, `CALLS.ASM` | `EX_`, `VL_`, `CT_`, `AG_`, `RO_` | Expression (three files: ATOM takes at most 64K of source per file; the constants' arithmetic, five-byte values folded as the reference folds them, in `VALUE.ASM`), control (frames, conditions and counted loops), aggregate and routine parsing (routine names and signatures, then calls to routines and services, failable calls, File values and aggregate paths, each kept as a place: static, frame, alias or computed) |
 | `LL1.ASM`, `GRAMMAR.ASM`, `ACTIONS.ASM`, `ACTSUB.ASM`, `ACTSTMT.ASM` | `LL_`, `GR_`, `AC_` | The LL(1) engine, its tables and their actions (three files: declarations, then routines and failure, then statements and flow) |
 | `OUT.ASM`, `BLOB.ASM` | `OUT_`, `BL_` | Output streams and the blob writer: `NAME.$DR`, `$BY`, `$LN`, `$NM` |
+| `BLOPEN.ASM`, `BLCLOSE.ASM` | `BL_`, `OUT_` | The streams' opening (`BL_OPEN`, `BL_PART`, `OUT_OPEN`) and closing (`BL_CLOSE`, `OUT_CRC`, `OUT_END`), which run once each: in the `START` and `CHAIN` overlays |
 | `EMIT.ASM` | `EM_` | Emitter primitives: bytes, references, helper calls, labels and jumps, frame accounting |
 | `GENEXPR.ASM`, `GENOPER.ASM` | `GX_` | Expression templates: loads and stores of program variables and of frame slots (near and far), constants, widening and checked conversions, negation and complement (`GENEXPR.ASM`); the binary operators, comparisons and shifts, a long's through the 32-bit helpers (`GENOPER.ASM`) |
 | `GENAGGR.ASM` | `GA_` | Path templates: a place's address, fields and constant elements, checked elements and characters at run-time indexes, loads and stores at a place (a File's four bytes too), aggregate locals zeroed, initialized and copied, and the routine's string literals, placed after its need word |
@@ -79,14 +85,14 @@ number, code, position and arguments against the reference's.
 | `KEYWORDS.ASM` | `KW_` | Keyword and punctuation tables |
 | `PREDEF.ASM` | `HP_` | Overlay `NAMES`: the predeclared names: constants, `console` and `printer`, and the services with their signatures, ordinals and stack figures, generated from the reference's helper table and `ref/compile/helpers.ts` by `deno task helpers` (`tests/helper_table_test.ts` checks it is current) |
 | `SHELL.ASM` | `SH_` | The CP/M shell: its course through the overlays, the source parts' workspace, streams on the spool drive (deleted after a failure unless option `K`), diagnostics with their part, line and column, and return codes; on success it chains to `BLINK` |
-| `MESSAGE.ASM` | `MS_` | Overlay `DIAG`: diagnostics by the reference's numbers, with their part, line and column, their text and arguments from `BASIE.MSG`, or the number and arguments without it |
+| `MESSAGE.ASM` | `MS_` | Overlay `DIAG`: diagnostics by the reference's numbers, with their part, line and column, their text and arguments from `BASIE.MSG`, or the number and arguments without it; the decimal printer `SH_NUM` |
 | `COMMAND.ASM` | `CL_` | The command line: the parts' names and every option of toolchain §5.3, checked as `BLINK` checks them; overlay `COMMAND` |
 | `LIBRARY.ASM` | `LB_` | Overlay `START`, its two entries: the library check (header, version, helper-table key) and the streams' flags; then the compilation stamp, the streams opened and the parts named in the line stream |
 | `PARTS.ASM` | `SH_` | Overlay `PARTS`: the parts loaded into memory and described in the part table, each part's include lines read and the parts they name loaded first (D33) |
 | `FILENAME.ASM` | `CL_` | A CP/M file name parsed into the FCB; in the `COMMAND` and `PARTS` overlays |
 | `PARTNAME.ASM` | `SH_` | The parts' names, the command line's and the part table's, spelled for the line stream and diagnostics; in the `COMMAND`, `START`, `DIAG` and `PARTS` overlays |
 | `OVERLAY.ASM` | `OV_` | Resident: the overlay loader and `BASIE.OVL`'s format |
-| `CHAIN.ASM` | `CH_` | The chain to `BLINK.COM`: its tail, and the loader copied to the top of memory; overlay `CHAIN` |
+| `CHAIN.ASM` | `CH_` | The chain to `BLINK.COM`: its tail, and the loader copied to the top of memory; first, after a compilation, the streams closed (`CH_DONE`); overlay `CHAIN` |
 
 `GRAMMAR.ASM` is generated from the grammar, `grammar/grammar.json`, by
 `tools/llgen.ts` (`deno task grammar`; [grammar](grammar/README.md)), which
@@ -100,18 +106,20 @@ edited by hand.
 
 | Extent | Bytes |
 | --- | ---: |
-| Compiler code | 17,352 |
-| Immutable data | 304 |
-| **Compiler core** | **17,656** |
-| CP/M shell and overlay loader | 658 |
-| **`BASIE.COM`** | **18,317** |
+| Compiler code | 15,832 |
+| Immutable data | 263 |
+| **Compiler core** | **16,095** |
+| CP/M shell and overlay loader | 593 |
+| **`BASIE.COM`** | **16,691** |
 | Overlay area, after the image | 1,024 |
-| `BASIE.OVL` (six overlays, 5,120 bytes on disk) | 4,608 |
-| Compiler workspace (not in the image) | 3,925 |
-| Blob writer's workspace (not in the image) | 3,787 |
+| `BASIE.OVL` (six overlays, 5,632 bytes on disk) | 5,119 |
+| Compiler workspace (not in the image) | 4,160 |
+| Blob writer's workspace (not in the image) | 3,789 |
 
-The image and the overlay area take 19,341 bytes, 7,283 to the 26K target
-and 9,331 to the 28K limit (D43). Every increment follows D43's cycle: the
+The image and the overlay area take 17,715 bytes, 8,909 to the 26K target
+and 10,957 to the 28K limit (D43). The compression pass before step 67c
+took 1,626 bytes from the image ([native compiler](../../docs/native-compiler.md)
+§4, which lists what it did and what remains). Every increment follows D43's cycle: the
 increment, a correctness review, a compression pass, a further review when
 needed, and the census figure in the commit. `tests/native_compiler_test.ts`
 pins the digests of `BASIE.COM` and `BASIE.OVL`, so a change to the

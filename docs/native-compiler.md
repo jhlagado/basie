@@ -221,6 +221,61 @@ That exceeds the 26K target, so these levers are planned from the start:
 The census figure is recorded in every commit that touches the compiler. A
 commit that crosses the 28K limit is not made: compression comes first (D43).
 
+### The compression pass before 67c
+
+The numeric types (67b) cost 2.9K against a 1.6K estimate, so before 67c,
+with `f32`, `select`, branch shrinking and the pools still to come, the
+whole compiler had a compression pass. It changed no stream and no
+diagnostic: every commit passed the equivalence test, the both-refuse
+list and the conformance suite with the image pinned. It began with a
+census of the listing (bytes by file and routine; repeated instruction
+sequences; `JP` within reach of `JR`; `CALL` then `RET`; call and jump
+targets) and took the largest structures first.
+
+| Commit | What | Resident bytes |
+| --- | --- | ---: |
+| Overlays | The streams' opening code (`BL_OPEN`, `BL_PART`, `OUT_OPEN`, the stream table) runs once, before the compilation: `BLOPEN.ASM`, in `START`. Their closing (`BL_CLOSE`, `OUT_CRC`, `OUT_END`) runs once, after it: `BLCLOSE.ASM`, in `CHAIN`, whose new entry `CH_DONE` closes the streams and then runs `BLINK` unless option C. `SRC_INIT`, which only the loader calls, went to `PARTS`; `SH_NUM`, which only diagnostics call, to `DIAG` | −451, and −54 with `OV_TRY`'s count (`LD BC,OV_AREA` / `DEC B`) |
+| Expressions and control | 12 `JP`s to `JR`; the precedence chain of `EX_LOOK` became the comparison table's pairs; the Boolean type tests share `EX_LBOOL`'s tail (`EX_DBOOL`, `EX_TBOOL`); `EX_PAREN` and `EX_CAST` share `EX_RPAR`; `CT_TYPE` computes a short counter's type (`CP 2` / `SBC A,$FE`); the dead `EX_EZERO` | −76 |
+| Tokenizer, cursor, driver, LL(1) | `TK_WORD` calls `TK_MATCH`; `TK_HEX` by subtraction; `TK_ZERO`, `TK_EOLR` shared; `SRC_TAKE` uses the pointer `SRC_PEEK` returns and keeps A and the flags; `PR_PEEK` and `PR_TAKE` lose reloads; `LL_PARSE` inlines its one-use push and pop | −99 |
+| Calls, routines, aggregates, actions | `RO_PATH` pushes itself as each step's return; `RO_ARGS` one loop; `RO_LET` pushes `AC_ROUTE` as its return; shared exits `RO_EFIT`, `RO_TYPE`, `RO_WRITE`; `AG_BRACK`; `RO_BIND` by `LDIR`; the engine reads no action's flags, so carry clears went; `AC_STORE`, `AC_ITEM`, `AC_FIDX`, `AG_RENT`, `RO_ISLEN` | −317 |
+| Generators and emitter | `EM_FWD`, `EM_LDONE`, `EM_SELF`, `EM_OPA`, `EM_OPX`, `EM_SEQX` (20 `CALL EM_SEQ` / `DB` / `RET` tails); `EM_LDEF` and `EM_JUMP` keep A; a place's accesses through `GA_PLACE` to the frame and static load and store templates (`GA_ACC`, `GA_QUAD` gone); `GX_MINUS`, `GX_FLIP` shared | −390, and −35 at their remaining callers |
+| Blob writer, streams, keywords, second pass | `BL_REF` and `BL_LINE` share `BL_PUT`, `BL_PUTW` and `BL_CTRL`, each buffer's pointer just past its end; `KW_TAB` without length bytes (bit 7 ends a keyword); `LL_STACK` on a page, a slot's address the page and the depth; `VL_FITS` keeps BC; `AC_NOERR` is `AC_LEAVE` | −204 |
+
+The image went from 18,317 bytes to 16,691, 1,626 fewer (8.9%), and the
+image with the overlay area from 19,341 to 17,715, 8,909 to the 26K
+target. `BASIE.OVL` grew by four records. Two techniques recur and are
+worth applying to new code from its first line: a routine that is called
+in sequence pushes its continuation instead of being called (`RO_PATH`,
+`RO_LET`, `LL_PARSE`), and an inline-operand emitter that ends its caller
+(`EM_SEQX`, `EM_OPX`) replaces `CALL` / data / `RET`. One identity proved
+useful: after `OR A` / `SBC HL,DE`, `ADD HL,DE` restores HL and recomputes
+the borrow as carry, and leaves Z alone, so it replaces `PUSH HL` / `POP HL`
+around a comparison whose carry or zero is read.
+
+**What remains** (projected unless measured):
+
+- **The overlay area.** It is 1,024 bytes because `COMMAND` (978), `DIAG`
+  (1,023) and `NAMES` (947) each need eight records. Seven records would
+  free 128 bytes, but `DIAG` would have to lose 127 bytes, `COMMAND` 82
+  and `NAMES` 51; `NAMES` is generated (`tools/helpertable.ts`), and its
+  services' ordinal and stack figure could be bytes rather than words
+  (about 2 bytes a service) if `RO_CALL` read them so. Not worth it alone;
+  worth checking when `f32`'s overlay is sized.
+- **Restart vectors.** `EM_SEQ` (about 54 call sites), `EM_OP` (41) and
+  `DG_RAISE` (about 40) as `RST`s would save about 250 bytes less 10 to install
+  each, but the CP/M profiles declare no free restart vector
+  ([CP/M target](cpm-target.md) §8). It would need a decision that
+  `BASIE.COM`, unlike a Basie program, may install `RST 1` to `RST 5`.
+- **The blob writer's IX saves.** `BL_END`, `BL_BSS`, `BL_ENTRY`,
+  `BL_LIMIT` and `BL_NAME` keep IX, which no caller needs: about 21 bytes,
+  with a contract change across GENCALL and EMIT.
+- **Small shared tails** (`POP BC` / `LD A,C` / `OR A` / `RET` at four
+  sites, the `CT_FMODE` field fetch at seven): a few bytes each, needing
+  restructuring.
+- Tables already compact: the grammar (859 bytes, generated), `KW_TAB`,
+  `GX_PROP`. A further pass of this kind would probably find 2% to 3% more;
+  the larger levers left are the area and the restart vectors.
+
 ## 5. Findings from the commentary pass
 
 The commentary pass of step 65.0 read every line. It changed no code. These
@@ -291,12 +346,22 @@ gone at 65.4 a, `AG_MODE`, `SY_GSLOT`); a 34-byte block of `STATE.ASM` that
 only hosts two target tables (gone at 65.4 a); and a score of redundant instructions
 (`LD B,A` after `LD A,B`, `CALL` then `RET`, jumps to the next line). Most go
 with the placed output at 65.4; the rest are the first compression pass.
+At the compression pass before 67c (§4) none of these was left: `PR_FORD`,
+`EX_ISFWD`, `AG_MODE` and `SY_GSLOT` had gone, the census found no `CALL`
+then `RET` and no jump to the next line, and the one dead routine found,
+`EX_EZERO`, which nothing raised, went with it. `GX_TYPES` and `GX_PFROM`
+in `STATE.ASM` are now unused workspace (3 bytes, not in the image).
 
 **Contracts.** The commentary agents checked every `;@ROUTINE` line against the
 code by hand, and the actions' agent with a register-effect analyser that walks
 each path through `PUSH`/`POP` and its callees' contracts. Making that analyser
 a tool, run by the tests over every module, is planned with the first
-compression pass, so that contracts stay true as code changes.
+compression pass, so that contracts stay true as code changes. It was
+not built for the pass before 67c, which changed many contracts (actions
+no longer clear carry for the engine, `EM_LDEF`, `EM_JUMP` and `VL_FITS`
+keep more, `TK_MARK`, `BL_LIMIT` and `RO_ISLEN` clobber more) and checked
+each against its callers by hand, with the equivalence tests behind them;
+it is still worth building before the next.
 
 **Names to revisit,** each a byte-identical rename: tails of routines that are
 global only because their code spans several labels (`TK_TRAIL`, `RO_SEL` (gone at 65.4 h),

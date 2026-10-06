@@ -200,7 +200,9 @@ thirteen to sixteen, and a control frame from sixteen bytes to eighteen
 compiler's workspace grew to 3,908 bytes (3,925 at 67e, with a bit for
 each parameter a from clause names, `RO_FROM`, a var record's owner word
 in the path's block, and the end of a routine's waiting aggregate
-constants, which wait in the free memory above the source). The workspace, the shell's and the blob
+constants, which wait in the free memory above the source; 4,160 after the
+compression pass before 67c, which starts the LL(1) stack on a page, at
+$6000, still below the shell's workspace at $6240). The workspace, the shell's and the blob
 writer's, and the source area after them, moved 2K up (`MM_WBASE` `$5000`), so that the
 image and the overlay area can grow towards the target; the source area
 shrank by as much, to about 26.75K on a 62K system ([limits](limits.md)
