@@ -156,8 +156,11 @@ RO_NAMED:
     JR   NZ,.NOOWN                 ; No.
     LD   H,B                       ; The payload
     LD   L,C                       ; plus
+    BIT  2,D                       ; (a lease's,
+    JR   NZ,.LEASE                 ; SY_LEASE, its own)
     INC  HL                        ; two
     INC  HL                        ; is
+.LEASE:                        ; HL is the slot word's offset:
     LD   (RO_POWN),HL              ; its offset.
 .NOOWN:                        ; RO_POWN is set.
     POP  HL                        ; H is RO_ESC.
@@ -386,8 +389,10 @@ RO_INDEX:
     CALL GX_PUSHW                  ; PUSH HL, two bytes pushed; C is kept.
     INC  C                         ; Bit 0 of RO_PPUSH: the base is pushed.
 .KEEP:                         ; C holds the two flags.
-    LD   A,C                       ; Record
-    LD   (RO_PPUSH),A              ; them.
+    LD   A,(RO_PPUSH)              ; Record them,
+    AND  $18                       ; with bits 3 and 4
+    OR   C                         ; kept (HN_ITEM, HN_DEREF).
+    LD   (RO_PPUSH),A              ; Recorded.
     CALL PR_SPOT                   ; The index's first token: its offset
     LD   (RO_IPOS),HL              ; is where an index out of range is reported.
     CALL RO_KEEP                   ; Keep the path's block across the index.
@@ -411,9 +416,9 @@ RO_INDEX:
     JP   NZ,GA_CHAR                ; at run time,
     LD   A,(RO_OTYPE)              ; as are
     CP   AG_OPEN                   ; an open array's
-    JP   NC,GA_ITEM                ; elements.
+    JP   NC,HN_ITEM                ; elements.
     BIT  7,D                       ; SY_KNOWN: a constant index?
-    JP   Z,GA_ITEM                 ; No: checked at run time too.
+    JP   Z,HN_ITEM                 ; No: checked at run time too.
     PUSH HL                        ; Keep it.
     CALL AG_DESC                   ; The array's descriptor (A is its type):
     INC  HL                        ; its element type,
@@ -1040,6 +1045,7 @@ RO_LET:
 ; RO_LET does after the equals sign; new's fields too (HN_NEW).
 
 RO_ASGN:                       ; A is the path's type.
+    CALL HN_RSET                   ; An identifier's slot to recheck.
     CALL AG_ISVW                   ; A view as a whole
     JR   NC,.KIND                  ; is not writable:
     LD   A,DG_CONST                ; not-writable,
@@ -1068,6 +1074,7 @@ RO_ASGN:                       ; A is the path's type.
     JP   NZ,EX_EFIT                ; else DG_CLASH at the source.
 .COPIED:                       ; A is the type; the source is in HL.
     PUSH AF                        ; Keep the type.
+    CALL HN_RECK                   ; The target's identifier rechecked;
     CALL GA_POPDE                  ; POP DE, the target.
     POP  AF                        ; The type's
     CALL AG_SIZE                   ; size, HL:
@@ -1115,6 +1122,7 @@ RO_ASGN:                       ; A is the path's type.
     JR   Z,.THROUGH                ; store through it.
     JP   GA_STORE                  ; Store at the place; AC_ROUTE.
 .THROUGH:                      ; The address is pushed.
+    CALL HN_RECK                   ; Its identifier rechecked.
     LD   A,(RO_OTYPE)              ; A long?
     CALL GX_SIZE                   ; Then
     JR   C,.SHORT                  ; through

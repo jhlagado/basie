@@ -404,6 +404,7 @@ DG_EMPTY EQU  48               ; empty-record.
 DG_SINIT EQU  49               ; static-initializer.
 DG_NEEDI EQU  50               ; needs-initializer: a non-optional handle local.
 DG_PINC EQU  52                ; pool-incomplete.
+DG_OPTH EQU  105               ; optional-handle: tested with select before use.
 DG_KNOWN EQU  51               ; not-constant.
 DG_NOCVT EQU  53               ; conversion-unavailable.
 DG_VARP EQU  54                ; var-parameter: var on a scalar or File.
@@ -515,6 +516,7 @@ SY_TYPE EQU  $40               ; Symbol flag: the name is a record type.
 SY_AGGR EQU  $80               ; Symbol flag: the object is an aggregate.
 SY_PFROM EQU  1                ; Aggregate parameter flag: named in from.
 SY_PVAR EQU  2                 ; Aggregate parameter flag: var, writable.
+SY_LEASE EQU  4                ; Aggregate parameter flag: a lease, its slot word.
 SY_RTYPE EQU  SY_TYPE          ; Information byte of a record type name.
 SY_AGLOB EQU  SY_AGGR+SY_GLOB  ; Information byte of an aggregate variable.
 

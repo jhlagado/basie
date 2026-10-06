@@ -1,0 +1,21 @@
+// Paths through an owning handle local: fields read and written, an owning
+// element stored at a constant index (its slot word) and at a run-time
+// one (none), a string field, its length.
+forward pool trees
+record Tree
+    key as u8
+    kids as trees?[4]
+    name as string[5]
+end
+pool trees as Tree[8]
+var g as u8
+sub main()
+    var t = new trees('1')
+    g = t.key
+    t.key = g + 1
+    t.kids[2] = new trees(7)
+    t.name = "ab"
+    var i as u8 = 1
+    t.kids[i] = none
+    g = t.name.length
+end

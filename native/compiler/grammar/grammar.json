@@ -345,7 +345,8 @@
       "TokenType",
       "TokenPlus",
       "TokenMinus",
-      "TokenNot"
+      "TokenNot",
+      "Empty"
     ],
     "PoolRecord": [
       "TokenName",

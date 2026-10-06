@@ -1,0 +1,48 @@
+// select on handles: a local owner's some arm binds a lease, written
+// through; a program variable's and a field's bind identifiers, written
+// through and rechecked; none and case else arms; owners freed in arms.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+    name as string[4]
+end
+pool nodes as Node[6]
+record Box
+    n as nodes?
+end
+var head as nodes?
+var box as Box
+var g as u8
+sub main()
+    var a as nodes? = new? nodes(1, none)
+    select a
+    case some(x)
+        x.value = 5
+        x.name = "ab"
+        x.next = new nodes(2, none)
+        g = x.value
+        var t = new nodes(3)
+    case none
+        g = 0
+    end
+    head = new nodes(4, none)
+    select head
+    case some(h)
+        h.value = h.value + 1
+        h.next = none
+        select h.next
+        case some(q)
+            g = q.value
+        case else
+            g = 9
+        end
+    end
+    box.n = new? nodes(6)
+    select box.n
+    case none
+        g = 1
+    case some(b)
+        g = b.value
+    end
+end

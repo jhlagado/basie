@@ -88,25 +88,25 @@ GR_ROWX:
     DB   151,DG_STMT               ; GR_ROW28-GR_ROWS; statement
     DB   174,DG_CASE               ; GR_ROW29-GR_ROWS; select-arms
     DB   178,DG_VALUE              ; GR_ROW30-GR_ROWS; case-arm
-    DB   191,DG_RET                ; GR_ROW31-GR_ROWS; return-statement
-    DB   193,DG_EOL                ; GR_ROW32-GR_ROWS; return-value-opt
-    DB   206,DG_KFAIL              ; GR_ROW33-GR_ROWS; fail-statement
-    DB   208,DG_EOL                ; GR_ROW34-GR_ROWS; name-statement-tail
-    DB   212,DG_LOOP               ; GR_ROW35-GR_ROWS; transfer-statement
-    DB   216,DG_IF                 ; GR_ROW36-GR_ROWS; if-statement
-    DB   218,DG_STMT               ; GR_ROW37-GR_ROWS; if-tail
-    DB   224,DG_VALUE              ; GR_ROW38-GR_ROWS; while-statement
-    DB   226,DG_FOR                ; GR_ROW39-GR_ROWS; for-statement
-    DB   228,DG_UPTO               ; GR_ROW40-GR_ROWS; for-bound
-    DB   232,DG_EOL                ; GR_ROW41-GR_ROWS; for-step-opt
-    DB   236,DG_TYPE               ; GR_ROW42-GR_ROWS; type
-    DB   240,DG_TYPE               ; GR_ROW43-GR_ROWS; type-atom
-    DB   246,DG_TYPE               ; GR_ROW44-GR_ROWS; type-optional-opt
-    DB   0,DG_VALUE                ; GR_ROW45-GR_ROWS-256; string-capacity
-    DB   13,DG_VALUE               ; GR_ROW46-GR_ROWS-256; type-array-opt
-    DB   22,DG_VALUE               ; GR_ROW47-GR_ROWS-256; array-bound
-    DB   35,DG_TYPE                ; GR_ROW48-GR_ROWS-256; scalar-type
-    DB   37,DG_TYPE                ; GR_ROW49-GR_ROWS-256; local-shape
+    DB   192,DG_RET                ; GR_ROW31-GR_ROWS; return-statement
+    DB   194,DG_EOL                ; GR_ROW32-GR_ROWS; return-value-opt
+    DB   207,DG_KFAIL              ; GR_ROW33-GR_ROWS; fail-statement
+    DB   209,DG_EOL                ; GR_ROW34-GR_ROWS; name-statement-tail
+    DB   213,DG_LOOP               ; GR_ROW35-GR_ROWS; transfer-statement
+    DB   217,DG_IF                 ; GR_ROW36-GR_ROWS; if-statement
+    DB   219,DG_STMT               ; GR_ROW37-GR_ROWS; if-tail
+    DB   225,DG_VALUE              ; GR_ROW38-GR_ROWS; while-statement
+    DB   227,DG_FOR                ; GR_ROW39-GR_ROWS; for-statement
+    DB   229,DG_UPTO               ; GR_ROW40-GR_ROWS; for-bound
+    DB   233,DG_EOL                ; GR_ROW41-GR_ROWS; for-step-opt
+    DB   237,DG_TYPE               ; GR_ROW42-GR_ROWS; type
+    DB   241,DG_TYPE               ; GR_ROW43-GR_ROWS; type-atom
+    DB   247,DG_TYPE               ; GR_ROW44-GR_ROWS; type-optional-opt
+    DB   1,DG_VALUE                ; GR_ROW45-GR_ROWS-256; string-capacity
+    DB   14,DG_VALUE               ; GR_ROW46-GR_ROWS-256; type-array-opt
+    DB   23,DG_VALUE               ; GR_ROW47-GR_ROWS-256; array-bound
+    DB   36,DG_TYPE                ; GR_ROW48-GR_ROWS-256; scalar-type
+    DB   38,DG_TYPE                ; GR_ROW49-GR_ROWS-256; local-shape
 GR_ROWXE:                      ; End of the row directory.
 
 ; Rows: alternatives of production byte and predicting token kinds.
@@ -329,6 +329,7 @@ GR_ROW30:                      ; case-arm
     DB   TK_LPAR
     DB   TK_MINUS
     DB   TK_NAME
+    DB   TK_EOL
     DB   TK_NOT
     DB   TK_NUM
     DB   TK_PLUS

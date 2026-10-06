@@ -6,7 +6,7 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($5C00).
+;  from MM_WBASE ($5E00).
 ;
 ;    Offset  Size  Block
 ;    +$BF5     56  routine state: counts, the signature being parsed, the
@@ -108,7 +108,8 @@ RO_PRO EQU  RO_PLACE+1         ; Byte: nonzero when the path is read-only.
 RO_PBASE EQU  RO_PLACE+2       ; Word: a static place's blob, an alias's word at IX+n.
 RO_PADD EQU  RO_PLACE+4        ; Word: bytes on from the base, or a frame place's offset.
 RO_OTYPE EQU  RO_PLACE+6       ; Byte: type of the path or operand in hand.
-RO_PPUSH EQU  RO_PLACE+7       ; Byte: bit 0 a computed base pushed, 1 a string, 2 s.length.
+RO_PPUSH EQU  RO_PLACE+7       ; Byte: bit 0 a computed base pushed, 1 a string, 2 s.length, 3 no slot word,
+                               ; 4 the slot an identifier's (HANDLES.ASM).
 RO_IPOS EQU  RO_PLACE+8        ; Word: the offset of the index's first token.
 RO_PROOT EQU  RO_PLACE+10      ; Word: the root's symbol record, for its name.
 RO_POWN EQU  RO_PLACE+12       ; Word: the root's owner word at IX+n, or zero.
@@ -182,7 +183,8 @@ PL_LEN EQU  7                  ; Bytes of one entry.
 HN_MODE EQU  PL_TAB+PL_LEN*PL_CAP ; Byte: nonzero while HN_SEG only looks.
 HN_SEEN EQU  HN_MODE+1         ; Byte: nonzero once HN_SEG sees an owner.
 HN_AT EQU  HN_SEEN+1           ; Word: where HN_OWNV reports, or zero for the value.
-PL_WEND EQU  HN_AT+2           ; The end of the pools' bytes.
+HN_RCK EQU  HN_AT+2            ; Word: the identifier slot RO_ASGN rechecks, or zero.
+PL_WEND EQU  HN_RCK+2          ; The end of the pools' bytes.
 
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.
 RO_FFAIL EQU  1                ; Routine flag: it can fail.

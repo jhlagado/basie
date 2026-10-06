@@ -89,10 +89,20 @@ AC_PICK:
     LD   A,(HL)                    ; address and length:
     AND  SY_CMASK                  ; a constant's or a type's
     JR   Z,.VALUE                  ; is an expression's.
+    BIT  7,(HL)                    ; SY_AGGR: a path?
     LD   HL,(TK_POS)               ; The designator
     LD   (EX_START),HL             ; starts here:
+    JR   NZ,.PATH                  ; (a path)
     CALL PR_TAKE                   ; the name, then what it selects,
     CALL EX_NAME                   ; loaded as a primary: A is its type.
+    JR   .LOADED                   ; It is in the registers.
+.PATH:                         ; A path, its root's name next:
+    CALL PR_TAKE                   ; taken,
+    CALL RO_NAMED                  ; the path parsed: a handle
+    CALL PL_ISHND                  ; is selected
+    JP   C,HN_SEL                  ; by its arms;
+    CALL RO_LOAD                   ; a scalar is loaded.
+.LOADED:                       ; A is its type.
     CALL .MOVE                     ; `move` is refused first.
     JR   .TYPED                    ; A is its type.
 .VALUE:                        ; An expression,
@@ -125,18 +135,7 @@ AC_PICK:
     LD   (AC_INDEX),HL             ; kept for the frame.
     LD   A,(AC_BOUND)              ; The slot
     CALL GX_FPUT                   ; takes the subject.
-    LD   HL,(CT_RTOP)              ; The select's labels start
-    LD   (AC_DELTA),HL             ; at the ranges' top.
-    LD   B,CT_KSEL                 ; The select's frame
-    CALL CT_PUSH                   ; opens: HL is it.
-    LD   DE,CT_FVAR                ; Its fields from CT_FVAR
-    ADD  HL,DE                     ; are the scratch's from AC_INDEX:
-    EX   DE,HL                     ; the subject's offset and type,
-    LD   HL,AC_INDEX               ; the first range's place
-    LD   BC,8                      ; and the offset
-    LDIR                           ; of `select`.
-    LD   B,CT_FEXIT                ; Its end
-    JP   CT_NEW                    ; label; return.
+    JR   AC_SOPEN                  ; The frame opens; return.
 
 ;@ROUTINE CLOBBERS BC,ZERO,SIGN,PARITY,HALFCARRY
 ; Refuse `move` (AC_MODE zero) with syntax at `select`: only a handle may
@@ -151,11 +150,35 @@ AC_PICK:
     LD   HL,AC_DELTA+2             ; at `select`.
     JP   DG_AT                     ; No return.
 
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Open the select's frame, its subject staged: AC_INDEX its slot, AC_BOUND
+; its type, AC_DELTA+2 the offset of `select`; the first range is the
+; ranges' top. Its end label is allocated. HN_SEL opens a handle's so.
+
+AC_SOPEN:                      ; The subject is in its slot.
+    LD   HL,(CT_RTOP)              ; The select's labels start
+    LD   (AC_DELTA),HL             ; at the ranges' top.
+    LD   B,CT_KSEL                 ; The select's frame
+    CALL CT_PUSH                   ; opens: HL is it.
+    LD   DE,CT_FVAR                ; Its fields from CT_FVAR
+    ADD  HL,DE                     ; are the scratch's from AC_INDEX:
+    EX   DE,HL                     ; the subject's offset and type,
+    LD   HL,AC_INDEX               ; the first range's place
+    LD   BC,8                      ; and the offset
+    LDIR                           ; of `select`.
+    LD   B,CT_FEXIT                ; Its end
+    JP   CT_NEW                    ; label; return.
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; BeginCase: `some` and `none` select on a handle, not an integer
 ; (type-mismatch at them); otherwise the arm's body and next labels.
 
 AC_CASE:
+    LD   HL,(TK_POS)               ; `case`, where a handle arm's
+    LD   (AC_SPOS),HL              ; faults are reported.
+    CALL CT_MODE                   ; A handle select
+    BIT  3,A                       ; reads its arm
+    JR   NZ,.HANDLE                ; here.
     CALL PR_PEEK                   ; `some` or `none`,
     AND  $FE                       ; TK_SOME and TK_NONE,
     CP   TK_SOME                   ; after `case`?
@@ -165,12 +188,24 @@ AC_CASE:
     CALL CT_NEW                    ; label,
     LD   B,CT_FCONT                ; then the next
     JP   CT_NEW                    ; arm's; return.
+.HANDLE:                       ; A handle select's arm:
+    LD   B,CT_FDEST                ; its labels
+    CALL CT_NEW                    ; as
+    LD   B,CT_FCONT                ; any
+    CALL CT_NEW                    ; arm's;
+    CALL PR_PEEK                   ; then, before the engine predicts
+    CP   TK_ELSE                   ; it, some or none (HN_ARM),
+    JP   NZ,HN_ARM                 ; which CaseLabels finds read;
+    RET                            ; case else is the grammar's.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; CaseBody: the labels are tested; none matched goes to the next arm,
 ; and the body, a labelled arm's, starts here, reachable.
 
 AC_TAKEN:
+    CALL CT_MODE                   ; A handle select's arm
+    BIT  3,A                       ; binds
+    JP   NZ,HN_TAKEN               ; its name.
     LD   BC,CT_FCONT*256+$C3       ; JP
     CALL CT_GO                     ; to the next arm.
     LD   A,4                       ; Bit 2: an arm with labels.
@@ -180,6 +215,9 @@ AC_TAKEN:
 ; CaseElse: the case else arm's body starts here, reachable.
 
 AC_OTHER:
+    CALL CT_MODE                   ; A handle select's
+    BIT  3,A                       ; case else
+    JP   NZ,HN_ELSE                ; tests its subject.
     LD   A,2                       ; Bit 1: case else; fall into AC_ARMIN.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -252,6 +290,9 @@ AC_FINAL:
 ; the ranges and tested in turn (emitLabelTest); commas between them.
 
 AC_LABEL:
+    CALL CT_MODE                   ; A handle select's
+    BIT  3,A                       ; arm is read
+    RET  NZ                        ; (AC_CASE).
     CALL PR_SPOT                   ; The label's first token: its offset
     LD   (AC_SPOS),HL              ; is kept.
     LD   HL,(CT_RTOP)              ; Its range goes here,

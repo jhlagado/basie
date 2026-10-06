@@ -122,6 +122,9 @@ const CONFORMANCE: Record<string, string> = {
   FREEREUS: "tests/conformance/storage/freeing-reuses-slots.bsi",
   POOLFULL: "tests/conformance/storage/pool-full-traps.bsi",
   SIBOWNER: "tests/conformance/storage/sibling-owners.bsi",
+  NEWSEL: "tests/conformance/storage/new-and-select.bsi",
+  NEWFULL: "tests/conformance/storage/new-optional-when-full.bsi",
+  NEWTRAIL: "tests/conformance/storage/new-trailing-fields.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -293,6 +296,11 @@ const CLAIMED: Record<string, string[]> = {
     "FREEREUS",
     "POOLFULL",
     "SIBOWNER",
+    "HANDSEL",
+    "HANDPATH",
+    "NEWSEL",
+    "NEWFULL",
+    "NEWTRAIL",
   ],
 };
 
@@ -1421,6 +1429,30 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nsub main()\n    var a = new nodes()\n    var b = new nodes(1,)\nend\n",
   "a record of the wrong type as a field of new":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar head as nodes?\nrecord R\n    a as Leaf\nend\npool rs as R[2]\nvar gn as Node\nsub main()\n    var a = new rs(gn)\nend\n",
+  "a second some arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n    case some(y)\n    end\nend\n",
+  "a second none arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n    case none\n    case none\n    end\nend\n",
+  "none and case else":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n    case none\n    case else\n    end\nend\n",
+  "a handle select without some":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case none\n    end\nend\n",
+  "a non-optional owner selected":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a = new nodes(1, none)\n    select a\n    case some(x)\n    end\nend\n",
+  "a field of an optional handle":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    g = a.value\nend\n",
+  "a number labelling a handle arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case 1\n    end\nend\n",
+  "some without parentheses":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some x\n    end\nend\n",
+  "a lease's name repeated in its arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n        var x as u8\n    end\nend\n",
+  "a lease's field of the wrong type":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case some(x)\n        x.value = 300\n    end\nend\n",
+  "case else before some":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a as nodes? = new nodes(1, none)\n    select a\n    case else\n    case some(x)\n    end\nend\n",
+  "an element through a handle":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as u8\nsub main()\n    var a = new nodes(1, none)\n    g = a[1]\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
 };
 
