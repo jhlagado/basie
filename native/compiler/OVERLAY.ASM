@@ -26,9 +26,15 @@
 ;  and PARTS, which each need it, and FILENAME.ASM, CP/M names, into
 ;  COMMAND and PARTS.
 ;
+;    OV_FLOAT  FLOAT.ASM    f32 constants: decimal literals converted and
+;                           f32 operations folded (OV_FSCAN, OV_ITOF,
+;                           OV_FTOI and OV_FOLD reach its entries),
+;                           loaded above NAMES, at OV_AREA plus NAMES'
+;                           records, when first needed and kept
 ;  A later overlay may load above another in the area, so that both are
-;  there at once: the conversion of decimal literals to f32 is planned
-;  after the predeclared names, which stay loaded while it is used.
+;  there at once: FLOAT loads after the predeclared names, which stay
+;  loaded while it is used, so the area is as large as NAMES' records and
+;  FLOAT together.
 ;
 ;  BASIE.OVL is magic BSIO, version 1.0, the 16-bit sum of the resident
 ;  image's bytes from $0100 to OV_AREA, which ties the file to this
@@ -54,6 +60,7 @@ OV_NAMES EQU  2                ; The predeclared names.
 OV_CHAIN EQU  3                ; The chain to BLINK.
 OV_DIAG EQU  4                 ; Diagnostics from BASIE.MSG.
 OV_PARTS EQU  5                ; The source parts, loaded.
+OV_FLOAT EQU  6                ; f32 constants: literals and folding.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 
@@ -93,6 +100,55 @@ OV_LOAD:                       ; A is the overlay.
     ADD  HL,DE                     ; this one.
     DJNZ .NEXT                     ; Until all are read.
     RET                            ; The overlay is there.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The FLOAT overlay's entries (FLOAT.ASM), each loading it above NAMES
+; first, with its argument in HL: OV_FSCAN converts the decimal literal
+; being scanned (FL_SCAN), OV_ITOF the integer at HL to f32, with carry
+; when it was rounded (FL_ITOF), OV_FTOI the f32 at HL to an integer
+; (FL_FTOI), and OV_FOLD folds EX_LVAL op EX_RVAL to EX_KVAL, with carry
+; past the largest f32 (FL_ARITH).
+
+OV_FSCAN:                      ; A literal: entry 0.
+    XOR  A                         ; Its offset;
+    JR   OV_FCALL                  ; called.
+OV_ITOF:                       ; An integer to f32: entry 3.
+    LD   A,3                       ; Its offset;
+    JR   OV_FCALL                  ; called.
+OV_FTOI:                       ; An f32 to an integer: entry 6.
+    LD   A,6                       ; Its offset;
+    JR   OV_FCALL                  ; called.
+OV_FOLD:                       ; An operation folded: entry 9.
+    LD   A,9                       ; Its offset; fall into OV_FCALL.
+
+;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the FLOAT overlay unless it is the one loaded last, and run its
+; entry at offset A with HL; carry returns as the entry leaves it. IX and
+; IY, which loading may change, are kept.
+
+OV_FCALL:                      ; A is the offset, HL the argument.
+    PUSH IX                        ; Keep IX
+    PUSH IY                        ; and IY,
+    PUSH HL                        ; the argument
+    PUSH AF                        ; and the offset.
+    LD   A,OV_FLOAT                ; The overlay
+    CALL OV_LOAD                   ; is loaded, above NAMES.
+    POP  AF                        ; The offset
+    LD   HL,(OV_DIR+4*OV_FLOAT)    ; from its load address
+    ADD  A,L                       ; is
+    LD   L,A                       ; the
+    ADC  A,H                       ; entry's
+    SUB  L                         ; address,
+    LD   D,A                       ; DE.
+    LD   E,L                       ; (its low byte)
+    POP  HL                        ; HL is the argument.
+    CALL .RUN                      ; Run the entry.
+    POP  IY                        ; IY
+    POP  IX                        ; and IX again;
+    RET                            ; the flags are the entry's.
+.RUN:                          ; DE is the entry.
+    PUSH DE                        ; Its address
+    RET                            ; is jumped to; it returns above.
 
 ;@ROUTINE IN C,HL OUT CARRY CLOBBERS A,DE,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read record C of BASIE.OVL to HL. Carry if it can't be read. B, C and

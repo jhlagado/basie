@@ -357,23 +357,32 @@ GX_SWAP:                       ; C is the relation.
     RET                            ; Z if it swaps.
 
 ;@ROUTINE IN C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The operator EX_OPER of long width C (emitBinary32), the left in DEHL
-; and the right in DE'HL', through the runtime's 32-bit helpers (GX_LTAB):
-; a remainder is the alternates' after DIV32 (EXX); = and <> make the
-; Boolean from Z (LD A,0, JP NZ or JP Z over INC A), the orders from
-; carry, > and <= comparing the right with the left (EXX first).
+; The operator EX_OPER of long or f32 width C (emitBinary32,
+; emitBinaryF32), the left in DEHL and the right in DE'HL', through the
+; runtime's 32-bit helpers (GX_LTAB) or its f32 ones (GX_FTAB, whose
+; operators EX_ARITH has allowed): a remainder is the alternates' after
+; DIV32 (EXX); = and <> make the Boolean from Z (LD A,0, JP NZ or JP Z
+; over INC A), the orders from carry, > and <= comparing the right with
+; the left (EXX first).
 
 GX_LOP:                        ; C is the width.
     LD   A,C                       ; Signed?
     CALL GX_PROP                   ; Bit 7
     LD   B,A                       ; of B.
+    LD   A,C                       ; An f32's
+    SUB  SY_F32                    ; operator, zero
+    LD   E,A                       ; in E.
     LD   A,(EX_OPER)               ; The operator
     LD   C,A                       ; is kept.
     CP   EX_GE+1                   ; A relation's row
     JR   NC,.TABLE                 ; is
     XOR  A                         ; EX_EQ's.
 .TABLE:                        ; A is the row's key.
-    LD   HL,GX_LTAB                ; Unsigned: the table's rows;
+    LD   HL,GX_FTAB                ; An f32's: GX_FTAB's rows;
+    INC  E                         ; (f32: E
+    DEC  E                         ; is zero)
+    JR   Z,.FIND                   ; else
+    LD   HL,GX_LTAB                ; unsigned: the table's rows;
     BIT  7,B                       ; signed: GX_STAB's
     JR   Z,.FIND                   ; first, then
     LD   HL,GX_STAB                ; the table's.
@@ -423,6 +432,17 @@ GX_LOP:                        ; C is the width.
 ; GX_STAB's rows first, then GX_LTAB's, which hold the unsigned helpers
 ; and those that serve both.
 
+GX_FTAB:                       ; Operator, f32 helper.
+    DB   TK_PLUS                   ; +:
+    DW   HP_FADD                   ; FADD.
+    DB   TK_MINUS                  ; -:
+    DW   HP_FSUB                   ; FSUB.
+    DB   TK_STAR                   ; *:
+    DW   HP_FMUL                   ; FMUL.
+    DB   TK_SLASH                  ; /:
+    DW   HP_FDIV                   ; FDIV.
+    DB   EX_EQ                     ; Every relation:
+    DW   HP_FCMP                   ; FCMP.
 GX_STAB:                       ; Operator, signed helper.
     DB   TK_SLASH                  ; /:
     DW   HP_LDIVS                  ; DIV32S.

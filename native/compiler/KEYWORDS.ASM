@@ -43,7 +43,7 @@ KW_TAB:
     DB   "i1",'6'+$80,KW_TYPE+SY_I16 ; Signed word type.
     DB   "u3",'2'+$80,KW_TYPE+SY_U32 ; Unsigned long type.
     DB   "i3",'2'+$80,KW_TYPE+SY_I32 ; Signed long type.
-    DB   "f3",'2'+$80,KW_TYPE+SY_F32 ; Floating-point type, not yet compiled.
+    DB   "f3",'2'+$80,KW_TYPE+SY_F32 ; Floating-point type.
     DB   "tru",'e'+$80,TK_TRUE     ; Boolean literal.
     DB   "fals",'e'+$80,TK_FALSE   ; Boolean literal.
     DB   "cons",'t'+$80,TK_CONST   ; Constant declaration.

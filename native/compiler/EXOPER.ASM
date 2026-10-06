@@ -166,9 +166,9 @@ EX_LOOK:                       ; Is the next token a binary operator?
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
 ; Reduce the comparison EX_OPER on the popped operands to a Boolean. Two
-; Booleans compare only for = and <> (GX_BOOL); integers compare at the
-; unified width, unsigned (GX_BINOP). Known operands fold to a known
-; Boolean.
+; Booleans compare only for = and <> (GX_BOOL); numbers compare at the
+; unified width (GX_BINOP). Known operands fold to a known Boolean, two
+; f32 values as the numbers they are (VL_FKEYS).
 
 .REDUCE:
     CALL EX_LBOOL                  ; Is the left Boolean?
@@ -184,11 +184,16 @@ EX_LOOK:                       ; Is the next token a binary operator?
     LD   A,(EX_OPER)               ; = or <>.
     CALL GX_BOOL                   ; Compare them at run time.
     JR   .RUNTIME                  ; A computed Boolean.
-.INTEGER:                      ; Integer operands.
+.INTEGER:                      ; Numeric operands.
     CALL EX_UNIFY                  ; Check them; C is the width.
     CALL EX_KNOWN                  ; Are both known?
-    JR   NZ,.FOLD                  ; Then fold them.
-    CALL GX_BINOP                  ; Compare them at run time.
+    JR   Z,.EMIT                   ; No: compare them at run time.
+    LD   A,C                       ; Two f32 values
+    CP   SY_F32                    ; are ordered
+    CALL Z,VL_FKEYS                ; as numbers,
+    JR   .FOLD                     ; folded.
+.EMIT:                         ; Not both known:
+    CALL GX_BINOP                  ; compared at run time.
 .RUNTIME:                      ; The Boolean is in A.
     LD   A,SY_BOOL                 ; A run-time Boolean.
     OR   A                         ; Clear carry.
@@ -248,6 +253,9 @@ EX_NOT:
     LD   A,DG_RANGE                ; out-of-range
     JP   C,DG_HERE                 ; at `not`.
 .TYPED:                        ; C is the result's type, B the metadata.
+    LD   A,C                       ; An f32
+    CP   SY_F32                    ; is no integer:
+    JR   Z,.FLOAT                  ; type-mismatch at `not`.
     BIT  7,B                       ; SY_KNOWN: is the operand known?
     JR   NZ,.FOLD                  ; Yes: fold it.
     PUSH BC                        ; Keep the type.
@@ -272,6 +280,10 @@ EX_NOT:
 .NODEF:                        ; No integer type is expected:
     EX   DE,HL                     ; at `not`,
     LD   A,DG_INFER                ; no-definite-type.
+    JP   DG_HERE                   ; No return.
+.FLOAT:                        ; An f32 operand (unaryNot):
+    EX   DE,HL                     ; at `not`,
+    LD   A,DG_CLASH                ; type-mismatch.
     JP   DG_HERE                   ; No return.
 
 ; Boolean `and` and `or` short-circuit: after a computed left operand, OR A
@@ -475,8 +487,10 @@ EX_LOGIC:
 ; and may not become a Boolean (DG_CLASH). A typed value fits its own type
 ; and those it widens to (EX_WIDEN); any other needs a conversion
 ; (DG_CONV), but a known one where only a Boolean or only a number will do
-; is a mismatch (DG_CLASH). Returns E with the result's SY_KNOWN in A, the
-; metadata in D; HL and E are kept.
+; is a mismatch (DG_CLASH), as a known f32 is anywhere but an f32. A known
+; integer for an f32 becomes one, which must be it exactly (DG_RANGE).
+; Returns E with the result's SY_KNOWN in A, the metadata in D; HL, the
+; value's low word, and E are kept.
 
 EX_FITS:
     LD   D,A                       ; Keep the metadata.
@@ -485,6 +499,8 @@ EX_FITS:
     LD   A,E                       ; An exact constant: what is the target?
     CP   SY_BOOL                   ; A Boolean?
     JR   Z,EX_EFIT                 ; A number is not a Boolean.
+    CP   SY_F32                    ; An f32?
+    JR   Z,.FLOAT                  ; It becomes one.
     PUSH DE                        ; Keep the metadata and the target.
     LD   HL,EX_KVAL                ; The value
     CALL VL_FITS                   ; must fit it,
@@ -496,8 +512,28 @@ EX_FITS:
 .TYPED:                        ; A is the result's type.
     CP   E                         ; The destination's?
     JR   Z,.FITS                   ; It fits.
+    CP   SY_F32                    ; An f32 to another:
+    JR   Z,.FROMF                  ; known, never; computed, converted.
     CALL EX_WIDEN                  ; Does it widen to it?
-    JR   C,.FITS                   ; Then it fits.
+    JR   NC,.NARROW                ; No.
+    BIT  7,D                       ; A known integer
+    JR   Z,.FITS                   ; widening
+    LD   A,E                       ; to an f32
+    CP   SY_F32                    ; becomes
+    JR   NZ,.FITS                  ; one.
+.FLOAT:                        ; The known value becomes an f32:
+    PUSH DE                        ; (the metadata and the target)
+    LD   HL,EX_KVAL                ; exactly
+    CALL OV_ITOF                   ; (coerceConst),
+    POP  DE                        ; else
+    LD   HL,(EX_KVAL)              ; (its low word)
+    LD   A,DG_RANGE                ; out of range,
+    JR   C,EX_EVAL                 ; at the value.
+    JR   .FITS                     ; It fits.
+.FROMF:                        ; An f32 for an integer or a Boolean:
+    BIT  7,D                       ; a known one
+    JR   NZ,EX_EFIT                ; never adapts (type-mismatch).
+.NARROW:                       ; It does not widen.
     BIT  7,D                       ; A computed value needs
     JR   Z,.CONVERT                ; a conversion;
     CALL EX_DBOOL                  ; a known Boolean for a number, or a known number
@@ -682,15 +718,20 @@ EX_PEEKC:
     LD   C,0                       ; Any type will do; fall into EX_PEEKK.
 
 ;@ROUTINE IN C OUT ZERO CLOBBERS A,BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
-; Z when the next token is a number, or names a scalar constant whose
-; type has none of C's bits.
+; Z when the next token is a number, or names a scalar constant, whose
+; type has none of C's bits: an integer literal has none, an f32 literal
+; SY_F32 (TK_WIDE).
 
 EX_PEEKK:                      ; C masks the type.
     PUSH BC                        ; Keep it.
     CALL PR_PEEK                   ; The next token.
     POP  BC                        ; C is the mask.
     CP   TK_NUM                    ; A number
-    RET  Z                         ; is one.
+    JR   NZ,.NAME                  ; is one,
+    LD   A,(TK_WIDE)               ; its type, an f32's
+    AND  C                         ; or none,
+    RET                            ; masked.
+.NAME:                         ; A is the kind.
     CP   TK_NAME                   ; Anything else but a name
     RET  NZ                        ; is not.
     PUSH BC                        ; Keep the mask.

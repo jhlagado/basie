@@ -38,5 +38,14 @@ HP_LSHRU EQU  $0234            ; SHR32U: ordinal $34, 2 bytes of stack.
 HP_LSHRS EQU  $0235            ; SHR32S: ordinal $35, 2 bytes of stack.
 HP_ASSRT EQU  $0214            ; TRAP_AST: ordinal $14, 2 bytes of stack.
 HP_SETL EQU  $0419             ; STR_SETL: ordinal $19, 4 bytes of stack.
+HP_FADD EQU  $0E3A             ; FADD: ordinal $3A, 14 bytes of stack.
+HP_FSUB EQU  $0E3B             ; FSUB: ordinal $3B, 14 bytes of stack.
+HP_FMUL EQU  $0E3C             ; FMUL: ordinal $3C, 14 bytes of stack.
+HP_FDIV EQU  $0E3D             ; FDIV: ordinal $3D, 14 bytes of stack.
+HP_FCMP EQU  $083E             ; FCMP: ordinal $3E, 8 bytes of stack.
+HP_ITOF EQU  $043F             ; I2F: ordinal $3F, 4 bytes of stack.
+HP_UTOF EQU  $0240             ; U2F: ordinal $40, 2 bytes of stack.
+HP_FTOI EQU  $0641             ; F2I: ordinal $41, 6 bytes of stack.
+HP_FTOU EQU  $0442             ; F2U: ordinal $42, 4 bytes of stack.
 HP_VER EQU  1                  ; The helper-table version compiled in.
 HP_KEY EQU  $5524              ; Its interface key.

@@ -291,17 +291,16 @@ EX_RTOK:
 ; compiler reports it.
 
 EX_ERNG:                       ; The right operand is out of range.
+    LD   A,DG_RANGE                ; out-of-range,
+EX_EROP:                       ; Diagnostic A at the right operand.
     LD   HL,EX_RAT                 ; At its first token.
-    JR   EX_EPOS                   ; Report it there.
+    JR   EX_EPOSA                  ; Report it there.
 EX_ELEFT:                      ; The left operand is out of range.
     LD   A,DG_RANGE                ; out-of-range,
 EX_ELOP:                       ; Diagnostic A at the left operand.
     LD   HL,EX_LAT                 ; At its first token.
 EX_EPOSA:                      ; Diagnostic A at the offset in the word at HL.
     JP   DG_AT                     ; Reported; no return.
-EX_EPOS:                       ; Report DG_RANGE at the offset at HL.
-    LD   A,DG_RANGE                ; out-of-range,
-    JR   EX_EPOSA                  ; there.
 EX_ETYPE:                      ; An operand of the wrong type.
     CALL DG_RAISE                  ; Report it.
     DB   DG_CLASH                  ; Diagnostic: type mismatch.
@@ -366,14 +365,52 @@ EX_WIDEN:                      ; A is the source, E the target.
     DB   $D0,$C0,0,0,0             ; i8, i16, u32, i32, f32.
 
 ;@ROUTINE OUT C,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,B,DE,HL
-; Resolve the type of a binary integer operation from both operands in
+; Resolve the type of a binary numeric operation from both operands in
 ; EX_LMETA/EX_LVAL and EX_RMETA/EX_RVAL, returning it in C with carry
 ; clear: SY_EXACT when both are exact (the reference's foldExact). A
 ; Boolean operand raises DG_CLASH. An exact operand adopts its typed
 ; peer's type and must fit it (DG_RANGE); two typed ones take the one the
-; other widens to (commonType), or raise DG_MIXED (mixed-operands).
+; other widens to (commonType), or raise DG_MIXED (mixed-operands). At
+; f32 a known integer operand becomes an f32, which must be it exactly
+; (coerceConst; DG_RANGE where a misfit is blamed).
 
 EX_UNIFY:
+    CALL .PAIR                     ; C is the type.
+    LD   A,C                       ; Not f32:
+    XOR  SY_F32                    ; done,
+    RET  NZ                        ; carry clear.
+    LD   HL,EX_LMETA               ; A known left
+    LD   DE,EX_LVAL                ; becomes an f32,
+    CALL .FLOAT                    ; exactly,
+    JR   C,EX_ELEFT                ; or is out of range.
+    LD   HL,EX_RMETA               ; So does
+    LD   DE,EX_RVAL                ; a known
+    CALL .FLOAT                    ; right,
+    LD   C,SY_F32                  ; (the type again)
+    RET  NC                        ; blamed when inexact
+    JR   .BLAME                    ; as a misfit is.
+
+;@ROUTINE IN DE,HL OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; The operand with metadata at HL and value at DE, when known and not an
+; f32, becomes an f32 (OV_ITOF): carry when that is not its value
+; exactly.
+
+.FLOAT:                        ; HL is the metadata, DE the value.
+    LD   A,(HL)                    ; Computed?
+    RLCA                           ; Then
+    RET  NC                        ; nothing; carry clear.
+    RRCA                           ; Its type:
+    AND  SY_TMASK                  ; an f32
+    CP   SY_F32                    ; already?
+    RET  Z                         ; Carry clear.
+    LD   (HL),SY_KNOWN+SY_F32      ; It is one now:
+    EX   DE,HL                     ; its value
+    JP   OV_ITOF                   ; rounded; carry if inexact.
+
+;@ROUTINE OUT C,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,B,DE,HL
+; EX_UNIFY's resolution of the type, before an f32's operands convert.
+
+.PAIR:                         ; The operands are popped.
     CALL EX_LBOOL                  ; Fetch the left type.
     JR   Z,EX_ETYPE                ; Booleans have no arithmetic.
     LD   D,A                       ; D is the left type.
@@ -388,7 +425,7 @@ EX_UNIFY:
     RET  Z                         ; C is exact, carry clear.
     LD   HL,EX_LVAL                ; The exact left
     CALL .FITS                     ; must fit the right's type.
-    JR   C,EX_ELEFT                ; It does not: out of range.
+    JP   C,EX_ELEFT                ; It does not: out of range.
     RET                            ; C is the type; carry is clear.
 .LTYPE:                        ; A typed left: D is it, C the right's.
     LD   A,C                       ; Is the right exact?
@@ -398,10 +435,11 @@ EX_UNIFY:
     LD   HL,EX_RVAL                ; must fit it.
     CALL .FITS                     ; Does it?
     RET  NC                        ; Yes: C is the type, carry clear.
-    LD   A,(EX_LMETA)              ; No: out of range, blamed at the left
+.BLAME:                        ; The right is out of range:
+    LD   A,(EX_LMETA)              ; blamed at the left
     RLCA                           ; after a known left,
-    JR   C,EX_ELEFT                ; at the right
-    JR   EX_ERNG                   ; after a computed one.
+    JP   C,EX_ELEFT                ; at the right
+    JP   EX_ERNG                   ; after a computed one.
 .BOTH:                         ; A is the right's type, D the left's.
     CP   D                         ; The same?
     RET  Z                         ; Then that one, in C, carry clear.
@@ -415,8 +453,7 @@ EX_UNIFY:
     CCF                            ; Then the right's,
     RET  NC                        ; in C, carry clear.
     LD   A,DG_MIXED                ; Neither: mixed-operands,
-    LD   HL,EX_RAT                 ; at the right operand.
-    JP   EX_EPOSA                  ; No return.
+    JP   EX_EROP                   ; at the right operand.
 .LEFT:                         ; The right widens to the left.
     LD   C,D                       ; The left's type,
     OR   A                         ; carry clear.
@@ -492,29 +529,31 @@ EX_ARITH:
     CP   TK_SHR                    ; shr
     JP   Z,EX_SHIFT                ; take their own rules.
     CALL EX_UNIFY                  ; Check the operands; C is the type.
-    LD   A,(EX_OPER)               ; Fetch the operator token.
+    LD   A,C                       ; At f32
+    CP   SY_F32                    ; only +, -, *
+    LD   A,(EX_OPER)               ; and / are
+    JR   NZ,.WHOLE                 ; defined:
+    CP   TK_AND                    ; `and`, `xor`
+    JR   NC,.UNDEF                 ; and mod (TK_AND on),
+    CP   TK_OR                     ; and `or`,
+    JR   NZ,.WHOLE                 ; are not, but
+.UNDEF:                        ; type-mismatch,
+    LD   A,(EX_LMETA)              ; at a known left
+    RLCA                           ; (foldTyped,
+    LD   A,DG_CLASH                ; emitBinaryConstLeft),
+    JP   C,EX_ELOP                 ; or else
+    LD   A,(EX_OPER)               ; at the right, mod's
+    CP   TK_MOD                    ; known zero divisor
+    CALL Z,.NOZERO                 ; first.
+    LD   A,DG_CLASH                ; type-mismatch
+    JP   EX_EROP                   ; at the right.
+.WHOLE:                        ; Integers: A is the operator.
     CP   TK_SLASH                  ; Division?
     JR   Z,.DIVIDES                ; Its divisor may not be a known zero.
     CP   TK_MOD                    ; Remainder?
     JR   NZ,.CHECKED               ; Anything else divides by nothing.
 .DIVIDES:                      ; A division or remainder.
-    LD   A,(EX_RMETA)              ; Is the divisor known?
-    AND  SY_KNOWN                  ; Test its flag.
-    JR   Z,.CHECKED                ; No: the helper checks it at run time.
-    LD   HL,EX_RVAL                ; The known divisor:
-    LD   B,5                       ; all five bytes
-    XOR  A                         ; ored
-.ZERO:                         ; together
-    OR   (HL)                      ; are zero
-    INC  HL                        ; for
-    DJNZ .ZERO                     ; zero.
-    JR   NZ,.CHECKED               ; It is not.
-    LD   A,(EX_LMETA)              ; A known left
-    RLCA                           ; folds, blamed
-    LD   A,DG_ZERO                 ; at the left;
-    JP   C,EX_ELOP                 ; a computed one
-    LD   HL,EX_RAT                 ; at the divisor.
-    JP   EX_EPOSA                  ; No return.
+    CALL .NOZERO                   ; Its divisor is no known zero.
 .CHECKED:                      ; The operands are acceptable.
     CALL EX_KNOWN                  ; Are both known?
     JR   NZ,.FOLD                  ; Then fold them.
@@ -525,6 +564,15 @@ EX_ARITH:
     OR   A                         ; Clear carry.
     RET                            ; Return it.
 .FOLD:                         ; Both are known: compute the result.
+    LD   A,C                       ; At f32
+    CP   SY_F32                    ; the overlay
+    JR   NZ,.INTS                  ; folds it
+    CALL OV_FOLD                   ; (foldTyped),
+    LD   A,DG_FOVER                ; float-overflow
+    JP   C,EX_ELOP                 ; at the left past f32.
+    LD   C,SY_F32                  ; The type,
+    JP   EX_FOLD                   ; not wrapped; return.
+.INTS:                         ; Integers.
     PUSH BC                        ; Keep the type.
     LD   A,(EX_OPER)               ; The operator:
     LD   C,A                       ; kept in C.
@@ -571,6 +619,37 @@ EX_ARITH:
     POP  BC                        ; C is the type.
     JP   EX_FOLD                   ; Check or wrap it; return.
 
+;@ROUTINE IN C CLOBBERS A,B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Raise DG_ZERO when the divisor, at type C, is a known zero (an f32's
+; sign aside: -0 is zero too), at the left when that is known, as the
+; reference folds it, otherwise at the divisor. C is kept.
+
+.NOZERO:                       ; C is the type.
+    LD   A,(EX_RMETA)              ; Is the divisor known?
+    AND  SY_KNOWN                  ; Test its flag.
+    RET  Z                         ; No: the helper checks it at run time.
+    LD   HL,EX_RVAL+3              ; Its fourth byte,
+    LD   A,C                       ; without
+    SUB  SY_F32                    ; an f32's
+    LD   A,(HL)                    ; sign
+    JR   NZ,.FIFTH                 ; bit,
+    ADD  A,A                       ; and
+.FIFTH:                        ; its fifth,
+    INC  HL                        ; with
+    OR   (HL)                      ; its
+    LD   HL,EX_RVAL                ; first
+    LD   B,3                       ; three,
+.ZERO:                         ; ored
+    OR   (HL)                      ; together,
+    INC  HL                        ; are zero
+    DJNZ .ZERO                     ; for zero.
+    RET  NZ                        ; It is not.
+    LD   A,(EX_LMETA)              ; A known left
+    RLCA                           ; folds, blamed
+    LD   A,DG_ZERO                 ; at the left;
+    JP   C,EX_ELOP                 ; a computed one
+    JP   EX_EROP                   ; at the divisor.
+
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE
 ; Reduce shl or shr (EX_OPER) on the popped operands, the left's type the
 ; result's (binary, emitShift): an exact left with an exact count folds
@@ -584,7 +663,9 @@ EX_ARITH:
 
 EX_SHIFT:
     CALL EX_LBOOL                  ; The left's type:
-    JP   Z,.MISMATCH               ; a Boolean is no number.
+    JP   Z,.MISMATCH               ; a Boolean is no number,
+    CP   SY_F32                    ; and an f32
+    JP   Z,.MISMATCH               ; no integer (emitShift).
     LD   C,A                       ; C is the left's type.
     LD   A,(EX_LMETA)              ; Is the left
     RLCA                           ; known?
@@ -597,11 +678,15 @@ EX_SHIFT:
     JR   NZ,.TYPED                 ; Typed: foldTyped.
     LD   A,(EX_RMETA)              ; Exact: an exact count
     AND  SY_TMASK                  ; too,
-    JR   NZ,.NOTYPE                ; or no definite type.
+    JP   NZ,.NOTYPE                ; or no definite type.
     CALL .COUNT                    ; B is the count, below zero raises
     JP   C,EX_ELEFT                ; out-of-range.
     JR   .FOLD                     ; Fold it.
 .TYPED:                        ; A typed left with a known count.
+    LD   A,(EX_RMETA)              ; An f32 count
+    AND  SY_TMASK                  ; is
+    CP   SY_F32                    ; no
+    JR   Z,.MISMATCH               ; integer.
     CALL .COUNT                    ; B is the count; below zero
     JR   C,.MISMATCH               ; is a type mismatch.
 .FOLD:                         ; B is the count, at most 40; C the type.
@@ -686,7 +771,7 @@ EX_SHIFT:
 .COUNT:                        ; The count is EX_RVAL.
     LD   HL,EX_RVAL+4              ; Its top byte:
     LD   A,(HL)                    ; negative?
-    RLA                            ; Then
+    ADD  A,A                       ; Then (nothing shifted in)
     RET  C                         ; carry.
     LD   B,40                      ; At most 40:
     DEC  HL                        ; any of

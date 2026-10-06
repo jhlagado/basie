@@ -8,10 +8,10 @@
 ;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
 ;           OV_AREA   the overlay area, from MM_END, as large as the largest
 ;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
-;    $5000  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
-;    $6240  SH_WBEG   the shell's workspace, SH_WEND
-;    $6400  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $7580  MM_SRC    resident source parts, loaded upward by the shell
+;    $5400  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
+;    $6640  SH_WBEG   the shell's workspace, SH_WEND
+;    $6800  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
+;    $7980  MM_SRC    resident source parts, loaded upward by the shell
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
 ;  Nothing in the workspace is initialised by the image, so the image and
@@ -21,10 +21,10 @@
 ;  tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $5000             ; Exclusive end of room for the image.
-MM_WBASE EQU  $5000            ; Compiler workspace: the image ends below.
-MM_WLIM EQU  $6400             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $6240             ; The shell's workspace, above the compiler's.
-MM_BLOB EQU  $6400             ; The blob writer's workspace, BL_FLAGS on.
-MM_SRC EQU  $7580              ; Resident source parts, up to the stack.
+MM_RLIM EQU  $5400             ; Exclusive end of room for the image.
+MM_WBASE EQU  $5400            ; Compiler workspace: the image ends below.
+MM_WLIM EQU  $6800             ; Exclusive end of both workspaces.
+SH_WBEG EQU  $6640             ; The shell's workspace, above the compiler's.
+MM_BLOB EQU  $6800             ; The blob writer's workspace, BL_FLAGS on.
+MM_SRC EQU  $7980              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

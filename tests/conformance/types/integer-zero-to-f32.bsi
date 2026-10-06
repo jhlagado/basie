@@ -1,0 +1,26 @@
+// An integer zero becomes the f32 0.0, however it was computed: integers
+// have no negative zero, so a negated zero or a zero times a negative
+// number adopts f32 as +0.0, while an f32's own -0.0 stays a value.
+// spec: 6.4, 9.6
+// expect output: 0.00 0.00 0.00 0.00\r\n
+
+include "FORMAT.BSI"
+
+const minus as i16 = -0
+var a as f32 = -0
+var b as f32 = 0 * -5
+var c as f32 = f32(-0)
+
+sub main() fails
+    var line as string[24]
+    var d as f32 = minus
+    appendF32(line, a, 2) else fail
+    appendByte(line, ' ') else fail
+    appendF32(line, b, 2) else fail
+    appendByte(line, ' ') else fail
+    appendF32(line, c, 2) else fail
+    appendByte(line, ' ') else fail
+    appendF32(line, d, 2) else fail
+    writeText(console, line) else fail
+    writeText(console, "\r\n") else fail
+end

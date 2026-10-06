@@ -252,10 +252,13 @@ TK_WORD:                       ; The current byte is a letter.
 ; with its value's low word in BC and its high word in TK_NHI. Every digit
 ; is read, as the reference reads them, before a value beyond 32 bits
 ; (TK_WIDE), or a name byte straight after the digits, is found
-; malformed: a decimal point and a digit make it a floating-point literal
-; first. Reached by a jump from TK_NEXT.
+; malformed: a decimal point and a digit, or an exponent, make it a
+; floating-point literal first, its f32 the value and TK_WIDE SY_F32.
+; Reached by a jump from TK_NEXT.
 
 TK_DIGIT:                      ; The current byte is a decimal digit.
+    LD   HL,(SRC_PTR)              ; Its place, where a floating-point
+    LD   (TK_NBEG),HL              ; literal's digits are read again.
     CALL TK_ZERO                   ; No value and no carry yet.
 .LOOP:                         ; TK_NLO and TK_NHI are the digits so far.
     CALL SRC_PEEK                  ; Next byte, not yet consumed.
@@ -269,32 +272,37 @@ TK_DIGIT:                      ; The current byte is a decimal digit.
     CALL SRC_TAKE                  ; Consume the digit.
     JR   .LOOP                     ; Scan the next byte.
 .END:                          ; A is the byte less '0'.
-    ADD  A,'0'                     ; The byte again; fall into TK_TRAIL.
-
-; The literal has ended at the byte in A, which is not consumed. An integer
-; cannot be followed immediately by a name byte: forms such as 0x2a and
-; 12u8 are one malformed number, not a misleading number and name
-; (malformed-number). A decimal point and a digit, or an exponent, make it
-; a floating-point literal, not yet compiled (DG_NYI); a point without a
-; digit after it is malformed. TK_RADIX joins here too.
-
-TK_TRAIL:                      ; A: the byte after the literal.
-    CP   '.'                       ; A decimal point?
+    ADD  A,'0'                     ; The byte after the digits:
+    CP   '.'                       ; a decimal point?
     JR   Z,.POINT                  ; A float, or malformed.
-    CALL TK_ALNUM                  ; Carry if a letter, digit or underscore.
-    JR   NC,TK_NUMOK               ; Anything else ends the number.
+    PUSH AF                        ; (kept)
     OR   $20                       ; An exponent,
     CP   'e'                       ; e or E,
-    JR   NZ,TK_ENUM                ; or else a malformed number.
-.FLOAT:                        ; A floating-point literal.
-    JP   TR_OPER                   ; Not yet compiled natively.
+    JR   Z,.FLOAT                  ; makes a float.
+    POP  AF                        ; Otherwise
+    JR   TK_TRAIL                  ; no name byte may follow.
 .POINT:                        ; A decimal point follows the digits.
     LD   DE,(SRC_PTR)              ; The byte
     INC  DE                        ; after it:
     LD   A,(DE)                    ; a digit
     SUB  '0'                       ; makes
     CP   10                        ; a float;
-    JR   C,.FLOAT                  ; anything else is malformed.
+    JR   NC,TK_ENUM                ; anything else is malformed.
+    PUSH AF                        ; (balanced below)
+.FLOAT:                        ; A floating-point literal:
+    POP  AF                        ; (the byte)
+    CALL OV_FSCAN                  ; its fraction and exponent, and f32
+    JR   TK_YIELD                  ; (FLOAT.ASM), TK_WIDE SY_F32.
+
+; The literal has ended at the byte in A, which is not consumed. A number
+; cannot be followed immediately by a name byte: forms such as 0x2a and
+; 12u8 are one malformed number, not a misleading number and name
+; (malformed-number). TK_RADIX joins here; a decimal literal after its
+; point and exponent are ruled out.
+
+TK_TRAIL:                      ; A: the byte after the literal.
+    CALL TK_ALNUM                  ; Carry if a letter, digit or underscore.
+    JR   NC,TK_NUMOK               ; Anything else ends the number.
 TK_ENUM:                       ; A malformed number.
     CALL DG_RAISE                  ; Raise the diagnostic below.
     DB   DG_FORM                   ; malformed-number, at the number.
@@ -302,6 +310,7 @@ TK_NUMOK:                      ; TK_NLO and TK_NHI are the value.
     LD   A,(TK_WIDE)               ; Past 32 bits
     OR   A                         ; is beyond
     JR   NZ,TK_ENUM                ; a u32: malformed.
+TK_YIELD:                      ; Return the number, f32 too:
     LD   BC,(TK_NLO)               ; BC: the low word.
     LD   A,TK_NUM                  ; The token kind.
     JP   TK_DONE                   ; Return the number.

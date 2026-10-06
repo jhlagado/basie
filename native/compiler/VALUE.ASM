@@ -414,9 +414,12 @@ VL_EXT:                        ; A is the type, HL the value.
 
 ;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,DE,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry when the value at HL is outside the range of integer type A, or,
-; for SY_EXACT, outside the exact range (fits). BC and HL are kept.
+; for SY_EXACT, outside the exact range (fits). An f32's bits always fit
+; f32: an integer becomes one through OV_ITOF first. BC and HL are kept.
 
 VL_FITS:                       ; A is the type, HL the value.
+    CP   SY_F32                    ; An f32
+    RET  Z                         ; fits, carry clear.
     OR   A                         ; Exact?
     JR   Z,VL_RANGE                ; The exact range; it keeps BC.
     PUSH BC                        ; Keep the caller's BC
@@ -436,12 +439,38 @@ VL_FITS:                       ; A is the type, HL the value.
     POP  BC                        ; BC again.
     RET                            ; Carry if out of range.
 
+;@ROUTINE CLOBBERS A,B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Make the f32 values a and b comparable as five-byte integers, so that
+; VL_CMP orders them as the reference compares numbers: each becomes its
+; magnitude's bits, negated when its sign is set, so that -0 is 0 too.
+
+VL_FKEYS:                      ; a and b are f32 values.
+    LD   HL,EX_LVAL                ; a,
+    CALL .KEY                      ; then b.
+    LD   HL,EX_RVAL                ; Fall into .KEY for b.
+.KEY:                          ; HL is a value.
+    PUSH HL                        ; Keep it.
+    INC  HL                        ; Its
+    INC  HL                        ; top
+    INC  HL                        ; byte:
+    LD   A,(HL)                    ; the sign
+    RES  7,(HL)                    ; leaves it,
+    POP  HL                        ; and when it was set
+    RLA                            ; the magnitude
+    JP   C,VL_NEG                  ; is negated; return.
+    RET                            ; Done.
+
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Reduce the value at HL to integer type A, as the run time wraps it: the
 ; type's bytes are kept and those above made its sign's, or zero. HL is
-; kept.
+; kept. An f32's four bytes are kept as a u32's are, the fifth zero.
 
 VL_WRAP:                       ; A is the type, HL the value.
+    CP   SY_F32                    ; An f32
+    JR   NZ,.WRAP                  ; is kept
+    DEC  A                         ; as
+    DEC  A                         ; a u32.
+.WRAP:                         ; A is an integer type.
     PUSH HL                        ; Keep the value.
     CALL VL_EXT                    ; HL its top byte, B and C those above.
     INC  C                         ; Plus one, for the loop's test.

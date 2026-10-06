@@ -53,6 +53,15 @@ export const NATIVE_NAMES: Record<string, string> = {
   SHR32S: "HP_LSHRS",
   TRAP_AST: "HP_ASSRT",
   STR_SETL: "HP_SETL",
+  FADD: "HP_FADD",
+  FSUB: "HP_FSUB",
+  FMUL: "HP_FMUL",
+  FDIV: "HP_FDIV",
+  FCMP: "HP_FCMP",
+  I2F: "HP_ITOF",
+  U2F: "HP_UTOF",
+  F2I: "HP_FTOI",
+  F2U: "HP_FTOU",
 };
 
 const hex = (n: number, width: number) =>

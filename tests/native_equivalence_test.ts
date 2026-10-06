@@ -76,6 +76,49 @@ const CONFORMANCE: Record<string, string> = {
   SELSIGN: "tests/conformance/statements/select-signed-range.bsi",
   SEL32: "tests/conformance/statements/select-32-bit.bsi",
   SELWORD: "tests/conformance/statements/select-whole-word-range.bsi",
+  DUMP: "examples/DUMP.BSI",
+  INFERCON: "tests/conformance/declarations/inference.bsi",
+  TCARITH: "tests/conformance/declarations/typed-constant-arithmetic.bsi",
+  TCONSTS: "tests/conformance/declarations/typed-constants.bsi",
+  EXSHNOT: "tests/conformance/expressions/exact-shifts-and-not.bsi",
+  FOVTRAP: "tests/conformance/expressions/float-overflow-traps.bsi",
+  FTRUNC: "tests/conformance/expressions/float-truncates.bsi",
+  MIXWIDE: "tests/conformance/expressions/mixed-widening.bsi",
+  MOSTNEG: "tests/conformance/expressions/most-negative-divided.bsi",
+  MULTIPLY: "tests/conformance/expressions/multiply.bsi",
+  SHIFTMUL: "tests/conformance/expressions/shift-binds-like-multiply.bsi",
+  SHIFTSC: "tests/conformance/expressions/shifts.bsi",
+  SIGNDIV: "tests/conformance/expressions/signed-division.bsi",
+  WIDEARIT: "tests/conformance/expressions/wide-arithmetic.bsi",
+  WRAPPING: "tests/conformance/expressions/wrapping.bsi",
+  FLITS: "tests/conformance/lexical/float-literals.bsi",
+  IDCONTXT: "tests/conformance/lexical/id-is-contextual.bsi",
+  WIDELITS: "tests/conformance/lexical/wide-literals.bsi",
+  FMTHEX: "tests/conformance/library/format-hex.bsi",
+  PARSEF32: "tests/conformance/library/parse-f32.bsi",
+  RANDOMS: "tests/conformance/library/random-numbers.bsi",
+  STRROUT: "tests/conformance/library/string-routines.bsi",
+  TXTFILES: "tests/conformance/library/text-files.bsi",
+  DEEPREC: "tests/conformance/scopes/deep-recursion-runs.bsi",
+  BADNAME: "tests/conformance/services/bad-name.bsi",
+  BINSEEK: "tests/conformance/services/binary-seek.bsi",
+  READBYTE: "tests/conformance/services/console-read-byte.bsi",
+  MACHINE: "tests/conformance/services/machine.bsi",
+  OPENMISS: "tests/conformance/services/open-missing.bsi",
+  PRINTER: "tests/conformance/services/printer.bsi",
+  TEXTCOPY: "tests/conformance/services/text-copy.bsi",
+  TOOMANY: "tests/conformance/services/too-many-files.bsi",
+  HANDROPS: "tests/conformance/statements/handle-drops-temporaries.bsi",
+  HANDCODE: "tests/conformance/statements/handle-stores-code.bsi",
+  LOCAGGR: "tests/conformance/statements/local-aggregate.bsi",
+  LOOP32: "tests/conformance/statements/loop-32-bit.bsi",
+  LOOPBND: "tests/conformance/statements/loop-boundaries.bsi",
+  OPENPARM: "tests/conformance/statements/open-array-param.bsi",
+  SLOOPDN: "tests/conformance/statements/signed-loop-down.bsi",
+  VARWRITE: "tests/conformance/statements/var-parameter-writes.bsi",
+  CHAREXCT: "tests/conformance/types/character-literals-are-exact.bsi",
+  WIDENING: "tests/conformance/types/widening.bsi",
+  INTZERO: "tests/conformance/types/integer-zero-to-f32.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -186,6 +229,54 @@ const CLAIMED: Record<string, string[]> = {
     "SELSIGN",
     "SEL32",
     "SELWORD",
+  ],
+  "67f: f32, and the programs of the library inside the subset": [
+    "FLOATS",
+    "FCODE",
+    "RUNF32",
+    "DUMP",
+    "INFERCON",
+    "TCARITH",
+    "TCONSTS",
+    "EXSHNOT",
+    "FOVTRAP",
+    "FTRUNC",
+    "MIXWIDE",
+    "MOSTNEG",
+    "MULTIPLY",
+    "SHIFTMUL",
+    "SHIFTSC",
+    "SIGNDIV",
+    "WIDEARIT",
+    "WRAPPING",
+    "FLITS",
+    "IDCONTXT",
+    "WIDELITS",
+    "FMTHEX",
+    "PARSEF32",
+    "RANDOMS",
+    "STRROUT",
+    "TXTFILES",
+    "DEEPREC",
+    "BADNAME",
+    "BINSEEK",
+    "READBYTE",
+    "MACHINE",
+    "OPENMISS",
+    "PRINTER",
+    "TEXTCOPY",
+    "TOOMANY",
+    "HANDROPS",
+    "HANDCODE",
+    "LOCAGGR",
+    "LOOP32",
+    "LOOPBND",
+    "OPENPARM",
+    "SLOOPDN",
+    "VARWRITE",
+    "CHAREXCT",
+    "WIDENING",
+    "INTZERO",
   ],
 };
 
@@ -529,6 +620,165 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
   }
 });
 
+// (67f) Random f32 statements: assignments of f32 expressions mixing
+// literals, variables, constants, fields, elements, integers and
+// conversions both ways; comparisons; a routine taking and returning an
+// f32; inferred locals; f32 where only an integer will do (loop counters,
+// bounds and steps, select subjects, shifts, `not`, `mod`); constant
+// divisions by zero and folds past the largest f32. Each compiles to the
+// reference's streams or both compilers refuse it alike.
+Deno.test("67f: random f32 statements compile as the reference compiles them", async () => {
+  let seed = 2654435761;
+  const rnd = (n: number) => {
+    seed ^= seed << 13;
+    seed >>>= 0;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    seed >>>= 0;
+    return Math.floor((seed / 4294967296) * n);
+  };
+  const pick = <T>(a: T[]) => a[rnd(a.length)];
+  const literals = [
+    "0.0",
+    "1.0",
+    "0.5",
+    "2.5",
+    "1e10",
+    "3.4028234e38",
+    "1.17549435e-38",
+    "0.1",
+    "100.0",
+    "16777216.0",
+    "3.0e-5",
+    "7.25",
+    "1e-40",
+    "65535.0",
+    "4294967296.0",
+    "1.5e3",
+  ];
+  const ints = [
+    "0",
+    "1",
+    "7",
+    "300",
+    "65535",
+    "16777217",
+    "-5",
+    "4294967295",
+    "k",
+    "tk",
+    "tw",
+    "a",
+    "x",
+    "q",
+    "l",
+  ];
+  const constants = [...literals, "cf", "cg", "k", "tk", "tw", "-5", "7"];
+  const known = ["7", "k", "tw", "300", "tk"];
+  const leaf = () =>
+    pick([...literals, "f", "g", "h", "cf", "cg", "fa[1]", "fa[a and 3]"]);
+  const float = (d: number, only = false): string => {
+    if (d <= 0 || rnd(3) === 0) {
+      if (only) return pick(constants);
+      return rnd(4) === 0 ? pick(ints) : leaf();
+    }
+    const r = rnd(14);
+    if (r === 0) {
+      return `f32(${rnd(2) ? float(d - 1, only) : integer(d - 1, only)})`;
+    }
+    if (r === 1) return `(${float(d - 1, only)})`;
+    if (r === 2) return `-${float(d - 1, only)}`;
+    if (r === 3) {
+      return `${float(d - 1, only)} ${pick(["mod", "shl"])} ${
+        pick(only ? known : ints)
+      }`;
+    }
+    if (r === 4) return `not ${float(d - 1, only)}`;
+    const op = pick(["+", "-", "*", "/", "+", "*"]);
+    return `${float(d - 1, only)} ${op} ${
+      rnd(4) ? float(d - 1, only) : integer(d - 1, only)
+    }`;
+  };
+  const integer = (d: number, only = false): string => {
+    if (d <= 0 || rnd(2) === 0) return pick(only ? known : ints);
+    if (rnd(4) === 0) {
+      return `${pick(["u8", "i8", "u16", "i16", "u32", "i32"])}(${
+        float(d - 1, only)
+      })`;
+    }
+    const from = only ? known : ints;
+    return `${pick(from)} ${pick(["+", "*", "-"])} ${pick(from)}`;
+  };
+  const compare = (d: number) =>
+    `${float(d)} ${pick(["=", "<>", "<", "<=", ">", ">="])} ${float(d)}`;
+  const head = "record rec\nm as u8\nv as f32\nend\n" +
+    "const k = 12\nconst tk as u8 = 99\nconst tw as u16 = 4000\n" +
+    "const cf as f32 = 1.5\nconst cg as f32 = -1e-3\n" +
+    "var r as rec\nvar fa as f32[4]\nvar t as boolean\n" +
+    "sub half(p as f32, i as i16) as f32\nreturn p / 2.0 + i\nend\n";
+  const locals = "var a as u8 = 200\nvar x as u16 = 1000\n" +
+    "var q as i16 = -300\nvar l as u32 = 100000\nvar f as f32 = 1.25\n" +
+    "var g as f32 = -3.5\nvar h as f32\nvar n as i32\nvar u as u8\n";
+  for (let i = 0; i < 300; i++) {
+    const target = pick(["f", "g", "h", "fa[2]", "r.v", "fa[a and 3]"]);
+    const kind = rnd(5);
+    const plain = kind === 0
+      ? `t = ${compare(2)}`
+      : kind === 1
+      ? `${pick(["n", "u", "a", "x", "l", "q"])} = ${integer(3)}`
+      : kind === 2
+      ? `const z as f32 = ${float(3, true)}\n${target} = z`
+      : `${target} = ${float(3)}`;
+    const special = [
+      `var v = ${float(2)}\nf = v`,
+      `f = half(${float(2)}, ${pick(ints)})`,
+      `for n = 1 to ${float(1)}\nend`,
+      "for h = 1 to 3\nend",
+      `for q = 1 to 9 step ${pick(["1.5", "cf", "2", "k"])}\nend`,
+      `select ${float(1)}\ncase 1\nend`,
+      `l = u32(${float(2)}) + l`,
+      `n = i32(${float(2)}) * 2`,
+      "f = f32(l) + f32(n)",
+      `f = ${pick(ints)} / ${pick(["0.0", "-0.0", "0", "f"])}`,
+      `f = ${pick(["3.4e38", "1e38", "f"])} * ${pick(["10.0", "2", "f"])}`,
+      `assert ${compare(1)}`,
+      `while ${compare(1)}\nf = f + 1\nend`,
+      `x = ${pick(["u16", "u8"])}(${float(2)}) shr 1`,
+    ];
+    const statement = rnd(3) === 0 ? pick(special) : plain;
+    const body = rnd(3) === 0
+      ? `if ${compare(1)}\n${statement}\nend`
+      : statement;
+    const source = new TextEncoder().encode(
+      `${head}sub main()\n${locals}${body}\nend\n`,
+    );
+    const run = runCom(basie, {
+      tail: "RANDOM [C]",
+      files: { "RANDOM.BSI": source, "CPM22.BRL": LIBRARY, "BASIE.OVL": OVL },
+      maxSteps: 50_000_000,
+    });
+    const ref = await compile("RANDOM.BSI", {
+      mainSource: source,
+      stamp: run.disk.has("RANDOM.$DR") ? stampOf(run.disk, "RANDOM") : 1,
+    });
+    if (!ref.ok) {
+      if (!("diagnostics" in ref)) throw new Error("no diagnostic");
+      const want = ref.diagnostics[0];
+      const m = run.output.match(/ (\d+):(\d+): (\d+): /);
+      assertEquals(
+        m ? [Number(m[3]), Number(m[1]), Number(m[2])] : run.output,
+        [want.number, want.line, want.column],
+        `the reference refuses ${body}`,
+      );
+      continue;
+    }
+    assertEquals(run.output, "", body);
+    same(body, run.disk.get("RANDOM.$DR"), ref.objects.directory);
+    same(body, run.disk.get("RANDOM.$BY"), ref.objects.bytes);
+    same(body, run.disk.get("RANDOM.$LN"), ref.objects.lines);
+  }
+});
+
 Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
   const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));
   const library: Record<string, Uint8Array> = {
@@ -572,6 +822,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67e: aggregate constants in routines' bodies"],
     ...CLAIMED["67c: branch shrinking"],
     ...CLAIMED["67d: select on integers"],
+    ...CLAIMED["67f: f32, and the programs of the library inside the subset"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -617,6 +868,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
         "LSEEK",
         "SAMETYPE",
         "RUNVAR",
+        "RUNF32",
       ].includes(name)
     ) {
       assertEquals(/^TRAP narrowing/.test(expected), true);
@@ -641,6 +893,47 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "an f32 loop counter": "sub main()\nvar f as f32\nfor f = 1 to 3\nend\nend\n",
+  "an f32 select subject":
+    "sub main()\nvar f as f32 = 1.5\nselect f\ncase 1\nend\nend\n",
+  "an f32 literal step":
+    "sub main()\nvar n as u8\nfor n = 1 to 9 step 1.5\nend\nend\n",
+  "an f32 constant step":
+    "const s as f32 = 2.0\nsub main()\nvar n as u8\nfor n = 1 to 9 step s\nend\nend\n",
+  "an f32 bound for an integer counter":
+    "sub main()\nvar n as u8\nfor n = 1 to 2.5\nend\nend\n",
+  "mod on f32 values": "sub main()\nvar f as f32 = 7.5\nf = f mod 2.0\nend\n",
+  "mod on a known f32": "var f as f32 = 7.5 mod 2.0\nsub main()\nend\n",
+  "mod of an f32 by a known zero":
+    "sub main()\nvar f as f32 = 7.5\nf = f mod 0.0\nend\n",
+  "an untyped f32 constant": "const c = 1.5\nsub main()\nend\n",
+  "a known f32 for an integer": "var x as u8 = 1.5\nsub main()\nend\n",
+  "a computed f32 for an integer":
+    "sub main()\nvar f as f32 = 1.5\nvar x as u16 = f\nend\n",
+  "an integer not exactly an f32": "var f as f32 = 16777217\nsub main()\nend\n",
+  "an integer operand not exactly an f32":
+    "sub main()\nvar f as f32 = 1.5\nf = f + 16777217\nend\n",
+  "an f32 literal past the largest": "var f as f32 = 1e39\nsub main()\nend\n",
+  "an f32 literal's exponent without digits":
+    "var f as f32 = 1.5e+\nsub main()\nend\n",
+  "an f32 literal run into a name": "var f as f32 = 1.5f\nsub main()\nend\n",
+  "an f32 fold past the largest":
+    "const c as f32 = 3e38 * 10.0\nsub main()\nend\n",
+  "an f32 constant divided by zero":
+    "const c as f32 = 1.0 / 0.0\nsub main()\nend\n",
+  "an f32 divided by a known minus zero":
+    "sub main()\nvar f as f32 = 1.5\nf = f / -0.0\nend\n",
+  "not on an f32": "sub main()\nvar f as f32 = 1.5\nf = not f\nend\n",
+  "an f32 shifted": "sub main()\nvar f as f32 = 1.5\nf = f shl 1\nend\n",
+  "an f32 count":
+    "sub main()\nvar n as u16 = 1\nvar f as f32 = 1.5\nn = n shl f\nend\n",
+  "an f32 and an i32 mixed":
+    "sub main()\nvar f as f32 = 1.5\nvar n as i32 = 2\nf = f + n\nend\n",
+  "an f32 conversion that does not fit":
+    "var x as u8 = u8(256.5)\nsub main()\nend\n",
+  "an f32 conversion of 2^32":
+    "var x as u32 = u32(4294967296.0)\nsub main()\nend\n",
+  "an f32 to a Boolean": "sub main()\nvar g as boolean = f32(1)\nend\n",
   "a routine calls itself without a forward":
     "sub f(n as u8)\nf(n)\nend\nsub main()\nend\n",
   "a routine without a result used as a value":

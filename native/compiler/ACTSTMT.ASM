@@ -265,7 +265,8 @@ AC_FIT:
 ; Check the expression just parsed (EX_RMETA, EX_RVAL) against type E;
 ; a mismatch raises DG_CLASH, DG_CONV or DG_RANGE. It is the latest
 ; result again (EX_RTOK), D its metadata and HL its value, as GX_TOREG
-; takes them. BC is kept.
+; takes them, and a known value is kept at type E (an integer become an
+; f32) in EX_RVAL too, for the store that follows. BC is kept.
 
 AC_FITTO:
     PUSH BC                        ; Keep BC
@@ -273,6 +274,13 @@ AC_FITTO:
     CALL EX_RTOK                   ; The value, A its metadata.
     POP  DE                        ; E is the type.
     CALL EX_FITS                   ; Check it.
+    PUSH DE                        ; (D and E kept)
+    LD   HL,EX_KVAL                ; The value at the type
+    LD   DE,EX_RVAL                ; is the one
+    LD   BC,5                      ; kept,
+    LDIR                           ; five bytes.
+    POP  DE                        ; D and E.
+    LD   HL,(EX_KVAL)              ; HL its low word.
     POP  BC                        ; Restore BC.
     RET                            ; D, E and HL describe it.
 
@@ -706,6 +714,8 @@ AC_FOR:
     JP   NZ,CT_EVAR                ; No: raise DG_COUNT.
     CALL EX_DBOOL                  ; Is its type Boolean?
     JP   Z,CT_EVAR                 ; Cannot count: raise DG_COUNT.
+    CP   SY_F32                    ; Nor can
+    JP   Z,CT_EVAR                 ; an f32.
     CALL GX_PROP                   ; Its size and sign:
     LD   E,A                       ; a word's size, 2,
     AND  2                         ; doubled,
@@ -882,7 +892,7 @@ AC_STEP:
 
 ;@ROUTINE IN A,E OUT E CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY,HL
 ; A is a typed bound's type, E the counter's: return their common type
-; in E, the type the other widens to (commonType); none raises
+; in E, the type the other widens to (commonType); none, or f32, raises
 ; mixed-operands at the bound, and a long one for a narrower counter is
 ; the reference's NotImplemented, refused here too (DG_NYI).
 
@@ -895,8 +905,12 @@ AC_STEP:
     LD   A,E                       ; the counter's
     LD   E,B                       ; widening to the bound's
     CALL EX_WIDEN                  ; is
-    JR   C,.LONG                   ; the bound's.
-    LD   A,DG_MIXED                ; Neither: mixed-operands,
+    JR   NC,.MIXED                 ; the bound's,
+    LD   A,E                       ; unless
+    CP   SY_F32                    ; it is
+    JR   NZ,.LONG                  ; an f32.
+.MIXED:                        ; Neither, or f32:
+    LD   A,DG_MIXED                ; mixed-operands,
     JP   EX_EVAL                   ; at the bound.
 .LONG:                         ; E is the common type.
     LD   A,(AC_MODE)               ; A long counter

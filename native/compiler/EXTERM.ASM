@@ -61,7 +61,9 @@ EX_TERM:
 .NUMBER:                       ; BC and TK_NHI are the number's value.
     LD   H,B                       ; Its low word
     LD   L,C                       ; in HL,
-    LD   B,SY_KNOWN+SY_EXACT       ; a known value of no type yet,
+    LD   A,(TK_WIDE)               ; a known value of no type yet,
+    OR   SY_KNOWN                  ; or an f32's bits
+    LD   B,A                       ; (TK_WIDE SY_F32),
     CALL EX_LIT                    ; with a zero high word,
     LD   HL,(TK_NHI)               ; but for
     LD   (EX_KVAL+2),HL            ; the token's.
@@ -200,15 +202,13 @@ EX_RPAR:                       ; A/HL is the operand.
 ;@ROUTINE IN C OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a conversion to type C, its type's name read (conversion): its
 ; operand, a number, is parenthesized. There is no conversion to Boolean,
-; nor from one (conversion-unavailable, at the parenthesis); f32 is not
-; yet compiled (DG_NYI). A known operand must fit the type (narrowing, at
-; the parenthesis) and keeps its value; a computed one widens to the type
-; (GX_WIDEN), or narrows with a check (GX_TRIM).
+; nor from one (conversion-unavailable, at the parenthesis). A known
+; operand becomes an f32 rounded to nearest (OV_ITOF), or an integer
+; truncated from an f32 (OV_FTOI), and must fit the type (narrowing, at
+; the parenthesis); a computed one widens to the type (GX_WIDEN), or
+; narrows with a check (GX_TRIM), an f32's through the runtime.
 
 EX_CONV:                       ; C is the target type.
-    LD   A,C                       ; f32
-    CP   SY_F32                    ; is not
-    JP   Z,TR_OPER                 ; yet compiled.
     PUSH BC                        ; Keep the target.
     CALL PR_SPOT                   ; The parenthesis's offset,
     PUSH HL                        ; where the conversion's faults are.
@@ -224,6 +224,22 @@ EX_CONV:                       ; C is the target type.
     BIT  7,D                       ; A known operand?
     JR   Z,.COMPUTED               ; No: converted at run time.
     PUSH HL                        ; Keep the parenthesis.
+    PUSH BC                        ; (and the target)
+    LD   HL,EX_KVAL                ; The value:
+    LD   A,D                       ; from
+    AND  SY_TMASK                  ; an f32
+    CP   SY_F32                    ; to an integer
+    JR   NZ,.FROMINT               ; it is truncated,
+    LD   A,C                       ; to an f32
+    CP   SY_F32                    ; kept;
+    CALL NZ,OV_FTOI                ; (Math.trunc)
+    JR   .FIT                      ; then checked.
+.FROMINT:                      ; From an integer: to an f32
+    LD   A,C                       ; it is rounded
+    CP   SY_F32                    ; to nearest,
+    CALL Z,OV_ITOF                 ; (Math.fround) which fits.
+.FIT:                          ; EX_KVAL is the value at the type.
+    POP  BC                        ; The target.
     LD   A,C                       ; The value
     LD   HL,EX_KVAL                ; must fit
     CALL VL_FITS                   ; the type (the target kept),
@@ -295,8 +311,8 @@ EX_PLUS:
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse unary minus (negate): an exact operand is negated exactly, and
 ; stays exact until its context types it; a typed known one is negated
-; and wrapped at its type; a computed one is negated in the registers
-; (GX_NEG).
+; and wrapped at its type, an f32 by its sign bit; a computed one is
+; negated in the registers (GX_NEG).
 
 EX_MINUS:
     CALL EX_PLUS                   ; Consume '-' and parse the operand.
@@ -309,6 +325,17 @@ EX_MINUS:
     OR   A                         ; of its type; carry clear.
     RET                            ; Return it.
 .FOLD:                         ; EX_KVAL is the known value.
+    LD   B,A                       ; An f32's
+    AND  SY_TMASK                  ; sign
+    CP   SY_F32                    ; bit
+    LD   A,B                       ; (the metadata)
+    JR   NZ,.WHOLE                 ; flips,
+    LD   HL,EX_KVAL+3              ; zero
+    LD   A,(HL)                    ; becoming
+    XOR  $80                       ; -0,
+    LD   (HL),A                    ; as the reference's
+    JP   EX_LITK                   ; does; return it.
+.WHOLE:                        ; An integer.
     PUSH AF                        ; Keep the metadata.
     LD   HL,EX_KVAL                ; The value
     CALL VL_NEG                    ; negated.

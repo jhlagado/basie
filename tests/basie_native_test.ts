@@ -278,10 +278,10 @@ Deno.test("without BASIE.MSG a diagnostic is its number and arguments", () => {
 });
 
 Deno.test("the source and the part table may fill memory to 1K below the BDOS entry", () => {
-  // The harness's BDOS entry is $E406, so the source runs up from $7580
+  // The harness's BDOS entry is $E406, so the source runs up from $7980
   // and the part table down from $E006, 21 bytes a part; each record must
   // fit below the table before it is read.
-  const room = Math.floor((0xe006 - 21 - 0x7580) / 128) * 128;
+  const room = Math.floor((0xe006 - 21 - 0x7980) / 128) * 128;
   const fill = (size: number) => {
     let text = PROGRAM;
     while (text.length < size - 70) text += "// " + "x".repeat(60) + "\n";
@@ -661,9 +661,15 @@ Deno.test("BASIE.OVL describes every overlay, each loaded when first needed", ()
   const sum = basie.reduce((s, b) => (s + b) & 0xffff, 0);
   assertEquals(OVL[6] | (OVL[7] << 8), sum);
   assertEquals(OVL[8], built.overlays.length);
+  const names = built.overlays.find((o) => o.name === "NAMES")!;
   for (const [i, o] of built.overlays.entries()) {
     const e = 9 + 4 * i;
-    assertEquals(OVL[e] | (OVL[e + 1] << 8), built.area, o.name);
+    // FLOAT loads above NAMES, which stays while it is used; every other
+    // overlay at the area's start.
+    const at = o.name === "FLOAT"
+      ? built.area + names.records * 128
+      : built.area;
+    assertEquals(OVL[e] | (OVL[e + 1] << 8), at, o.name);
     const first = OVL[e + 2], records = OVL[e + 3];
     assertEquals(records, Math.ceil(o.bytes.length / 128), o.name);
     assertEquals(
@@ -671,7 +677,10 @@ Deno.test("BASIE.OVL describes every overlay, each loaded when first needed", ()
       o.bytes,
     );
   }
-  // The area is as large as the largest overlay, in whole records.
-  const largest = Math.max(...built.overlays.map((o) => o.records * 128));
-  assertEquals(built.areaSize, largest);
+  // The area ends where the overlay that reaches furthest ends, in whole
+  // records: FLOAT, above NAMES.
+  const end = Math.max(
+    ...built.overlays.map((o) => o.address + o.records * 128),
+  );
+  assertEquals(built.areaSize, end - built.area);
 });

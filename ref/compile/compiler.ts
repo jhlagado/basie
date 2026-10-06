@@ -885,7 +885,7 @@ export class Compiler {
           `${v.type.name} doesn't convert to ${to.name} implicitly`,
         );
       }
-      return { kind: "const", type: to, value: v.value };
+      return { kind: "const", type: to, value: integerToF32(v, to) };
     }
     if (!fits(v.value, to.name)) {
       fail("out-of-range", at, `${v.value} doesn't fit ${to.name}`);
@@ -895,7 +895,7 @@ export class Compiler {
       // f32(...) converts with rounding instead.
       fail("out-of-range", at, `${v.value} isn't exactly an f32: convert it`);
     }
-    return { kind: "const", type: to, value: v.value };
+    return { kind: "const", type: to, value: integerToF32(v, to) };
   }
 
   // ---- routines (chapter 13) ------------------------------------------------------
@@ -4748,7 +4748,9 @@ export class Compiler {
       if (
         target !== "f32" && v.type?.kind === "scalar" && v.type.name === "f32"
       ) value = Math.trunc(value);
-      if (target === "f32") value = Math.fround(value);
+      if (target === "f32") {
+        value = integerToF32(v, to, Math.fround(value as number));
+      }
       if (!fits(value, target)) {
         fail("narrowing", at, `${v.value} doesn't fit ${target}`);
       }
@@ -5984,6 +5986,23 @@ export class Compiler {
 
 export function reporterOrdinal(reason: string): number {
   return TRAP_REPORTERS[reason];
+}
+
+/**
+ * The value a constant takes at type `to` (6.4, 9.6): an integer that
+ * becomes an f32 is +0.0 when it is zero, since integers have no negative
+ * zero, even where JavaScript's arithmetic left it as -0 (a negated zero, a
+ * zero times a negative, a truncated quotient between -1 and 0); an f32's
+ * own value is kept, -0.0 included. `value` is the value to give, the
+ * constant's own by default.
+ */
+function integerToF32(
+  v: { value: number | boolean; type?: Type },
+  to: Type,
+  value = v.value as number,
+): number {
+  if (to.kind !== "scalar" || to.name !== "f32") return value;
+  return v.type?.kind === "scalar" && v.type.name === "f32" ? value : value + 0;
 }
 
 export { CompileError, HELPER_VERSION };

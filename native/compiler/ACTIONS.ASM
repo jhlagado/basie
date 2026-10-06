@@ -112,15 +112,12 @@ AC_STRAY:
 
 ; ----------------------------------------------------------------- types
 
-;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE OUT A
 ; TypeScalar: the type keyword just matched, its type ID the token's
-; payload (PR_LVAL, KEYWORDS.ASM), is the current type. f32 is not yet
-; compiled (DG_NYI).
+; payload (PR_LVAL, KEYWORDS.ASM), is the current type.
 
 AC_TYPE:
-    LD   A,(PR_LVAL)               ; The keyword's type ID.
-    CP   SY_F32                    ; f32
-    JP   Z,TR_OPER                 ; is refused for now.
+    LD   A,(PR_LVAL)               ; The keyword's type ID; fall into AC_USE.
 
 ;@ROUTINE IN A OUT A
 ; Make type ID A the current type.

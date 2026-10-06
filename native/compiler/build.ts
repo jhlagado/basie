@@ -25,8 +25,8 @@ const STAGE = join(ROOT, "build/ovl");
 
 /**
  * The overlays, in the order of OVERLAY.ASM's OV_ numbers, each with its
- * sources and its offset in the overlay area. The conversion of decimal
- * literals to f32 is to be an overlay loaded after NAMES, above it.
+ * sources and its offset in the overlay area. FLOAT, the f32 constants,
+ * is loaded after NAMES, above it, both kept while the program compiles.
  */
 export const OVERLAYS = [
   {
@@ -60,6 +60,9 @@ export const OVERLAYS = [
     files: ["PARTS.ASM", "FILENAME.ASM", "PARTNAME.ASM"],
     offset: 0,
   },
+  // Above NAMES, which stays loaded while FLOAT is used: build() checks
+  // that NAMES' records end at or below this offset.
+  { name: "FLOAT", equate: "OV_FLOAT", files: ["FLOAT.ASM"], offset: 1024 },
 ];
 
 export type Overlay = {
@@ -145,6 +148,11 @@ async function build(): Promise<BasieImage> {
   for (const [i, o] of OVERLAYS.entries()) {
     if (at(o.equate) !== i) throw new Error(`${o.equate} is not ${i}`);
     overlays.push(await overlay(o, area + o.offset, symbols));
+  }
+  const names = overlays.find((o) => o.name === "NAMES")!;
+  const float = overlays.find((o) => o.name === "FLOAT")!;
+  if (names.address + names.records * 128 > float.address) {
+    throw new Error("NAMES runs into FLOAT, which loads above it");
   }
   const areaEnd = Math.max(
     ...overlays.map((o) => o.address + o.records * 128),

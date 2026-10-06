@@ -379,9 +379,9 @@ GX_LDHL:                       ; HL is nn.
 ;@ROUTINE IN D,E CLOBBERS A,BC,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Widen the value in the registers from type D to type E, which it widens
 ; to (widen): a byte into HL, sign-extended (LD L,A, RLCA, SBC A,A,
-; LD H,A) or not (LD L,A, LD H,0); then, for a long, HL into DEHL
-; (LD A,H, RLCA, SBC A,A, LD D,A, LD E,A, or LD DE,0). D's signedness
-; decides both. DE and HL are kept.
+; LD H,A) or not (LD L,A, LD H,0); then, for a long or an f32, HL into
+; DEHL (LD A,H, RLCA, SBC A,A, LD D,A, LD E,A, or LD DE,0), and for an
+; f32 CALL I2F or U2F. D's signedness decides each. DE and HL are kept.
 
 GX_WIDEN:                      ; D is the type, E the type it becomes.
     LD   A,D                       ; The source's
@@ -404,11 +404,27 @@ GX_WIDEN:                      ; D is the type, E the type it becomes.
     RET  Z                         ; nor for a word.
     BIT  7,C                       ; Signed?
     JR   Z,.UNSIGNED               ; No: a zero high word.
-    CALL EM_SEQX                   ; LD A,H, RLCA, SBC A,A, LD D,A, LD E,A:
+    CALL EM_SEQ                    ; LD A,H, RLCA, SBC A,A, LD D,A, LD E,A:
     DB   5,$7C,$07,$9F,$57,$5F     ; the sign in DE.
+    JR   .FLOAT                    ; Then perhaps an f32.
 .UNSIGNED:                     ; A zero high word:
-    CALL EM_SEQX                   ; LD DE,0.
+    CALL EM_SEQ                    ; LD DE,0.
     DB   3,$11,0,0                 ; Append it.
+.FLOAT:                        ; DEHL is a long:
+    LD   A,E                       ; an f32
+    CP   SY_F32                    ; is converted
+    RET  NZ                        ; from it
+    PUSH DE                        ; (DE
+    PUSH HL                        ; and HL kept)
+    LD   DE,HP_UTOF                ; by U2F,
+    BIT  7,C                       ; or for
+    JR   Z,.CALL                   ; a signed one
+    LD   DE,HP_ITOF                ; I2F.
+.CALL:                         ; DE is the helper's word.
+    CALL EM_HELPD                  ; CALL it.
+    POP  HL                        ; HL
+    POP  DE                        ; and DE again.
+    RET                            ; Widened.
 
 ;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Widen the byte in A to a word in HL with a zero high byte: LD L,A,
@@ -465,13 +481,51 @@ GX_POPV:                       ; A is the value's type.
     JP   EM_POP2                   ; Two bytes popped; return.
 
 ;@ROUTINE IN D,E CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Convert the registers from integer type D to integer type E, which D
+; Convert the registers from numeric type D to numeric type E, which D
 ; does not widen to, with the checks of a narrowing (checkedNarrow,
 ; checkedNarrow32): a call to TRAP_NAR unless the value fits E, then the
 ; value at E's size. The reference's i8 to u16, which it left unchecked
 ; and unwidened, is checked and zero-extended (a fault fixed there too).
+; A u32 or i32 becomes an f32 through U2F or I2F; an f32 becomes an i32
+; through F2I, or a u32 through F2U, for a signed or unsigned E, then is
+; narrowed from it to a narrower E.
 
 GX_TRIM:                       ; D is the source's type, E the target's.
+    LD   A,D                       ; From
+    CP   SY_F32                    ; an f32?
+    JR   Z,.FROMF                  ; Through F2I or F2U.
+    LD   A,E                       ; To
+    CP   SY_F32                    ; an f32?
+    JR   NZ,.INTS                  ; No: integers.
+    LD   A,D                       ; From a long:
+    CALL GX_PROP                   ; signed,
+    RLA                            ; I2F,
+    LD   DE,HP_UTOF                ; unsigned,
+    JR   NC,.FLOAT                 ; U2F.
+    LD   DE,HP_ITOF                ; (I2F)
+.FLOAT:                        ; DE is the helper's word.
+    JP   EM_HELPD                  ; CALL it; return.
+.FROMF:                        ; An f32 to an integer E.
+    LD   A,E                       ; Its
+    CALL GX_PROP                   ; properties:
+    LD   C,A                       ; kept;
+    PUSH BC                        ; (with them)
+    PUSH DE                        ; (and E)
+    RLA                            ; signed,
+    LD   DE,HP_FTOU                ; F2I,
+    JR   NC,.TRUNC                 ; unsigned,
+    LD   DE,HP_FTOI                ; F2U.
+.TRUNC:                        ; DE is the helper's word.
+    CALL EM_HELPD                  ; CALL it.
+    POP  DE                        ; E is the target,
+    POP  BC                        ; C its properties.
+    BIT  2,C                       ; A long
+    RET  NZ                        ; is all;
+    LD   D,SY_U32                  ; a narrower one
+    BIT  7,C                       ; is narrowed
+    JR   Z,.INTS                   ; from a u32
+    LD   D,SY_I32                  ; or an i32.
+.INTS:                         ; D and E are integer types.
     LD   A,D                       ; The source's
     CALL GX_PROP                   ; properties
     LD   B,A                       ; are kept in B until a call, and the
@@ -657,7 +711,8 @@ GX_FLIP:                       ; A Boolean is in A.
 
 ;@ROUTINE IN D CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Negate the computed value of type D in place (negate): NEG for a byte;
-; for a word, EX DE,HL, LD HL,0, OR A, SBC HL,DE; for a long, NEG32.
+; for a word, EX DE,HL, LD HL,0, OR A, SBC HL,DE; for a long, NEG32; for
+; an f32, its sign bit flipped.
 
 GX_NEG:                        ; D is the type.
     LD   A,D                       ; Its size.
@@ -669,8 +724,11 @@ GX_NEG:                        ; D is the type.
 .WORD:                         ; HL.
     CALL EM_SEQX                   ; EX DE,HL, LD HL,0, OR A, SBC HL,DE.
     DB   7,$EB,$21,0,0,$B7,$ED,$52 ; HL is zero less the value.
-.LONG:                         ; DEHL, through the runtime:
-    CALL EM_HELP                   ; CALL NEG32,
+.LONG:                         ; DEHL: an f32
+    LD   A,D                       ; by its
+    CP   SY_F32                    ; sign bit,
+    JP   Z,GX_DSIGN                ; LD A,D, XOR $80, LD D,A;
+    CALL EM_HELP                   ; a long through CALL NEG32,
     DW   HP_LNEG                   ; its ordinal and stack figure.
     RET                            ; Done.
 

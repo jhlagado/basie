@@ -1,0 +1,60 @@
+// f32 at run time (67f): variables, locals, parameters, results, fields
+// and elements in DEHL; the operators through FADD, FSUB, FMUL, FDIV and
+// FCMP, a constant left loaded after the right; negation by the sign bit;
+// conversions from every integer type through I2F and U2F and to each
+// through F2I and F2U, then narrowed.
+record sample
+v as f32
+n as u8
+end
+
+var s as sample
+var series as f32[8]
+var total as f32
+
+sub mean(values as f32[], count as u8) as f32
+    var sum as f32 = 0.0
+    var i as u8
+    for i = 0 until count
+        sum = sum + values[i]
+    end
+    return sum / f32(count)
+end
+
+sub scale(x as f32, by as i16) as f32
+    return x * by - 1 / x
+end
+
+sub main()
+    var a as f32 = 2.5
+    var b as f32 = -a
+    var c as u8 = 7
+    var d as i8 = -3
+    var e as u16 = 60000
+    var f as i16 = -30000
+    var g as u32 = 4000000000
+    var h as i32 = -2000000000
+    var far as u8[140]
+    var z as f32
+    series[1] = a * b
+    series[c and 7] = a / 3.0 - b
+    s.v = 1.0 - a
+    total = mean(series, 8) + scale(s.v, f)
+    z = a + c + d + e + f
+    z = f32(g) + f32(h) - 0.5
+    z = 2.0 - z
+    z = 10 / z
+    if z < a or z >= b and a <> b
+        z = -z
+    end
+    if 1.5 > z and z <= total and z = 3.0
+        z = z * 0.5
+    end
+    c = u8(a * 10.0)
+    d = i8(b)
+    e = u16(a + 1000)
+    f = i16(b * 100.0)
+    g = u32(a * 1e9)
+    h = i32(b * 1e9)
+    far[139] = u8(z)
+end

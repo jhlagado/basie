@@ -365,7 +365,9 @@ CT_STEP:
     AND  SY_TYPE+SY_AGGR+SY_CMASK  ; A constant has none of these:
     JR   NZ,CT_ESTEP               ; a type, aggregate or variable.
     CALL EX_DBOOL                  ; Its type must be an integer's, not Boolean.
-    JR   Z,CT_ESTEP                ; A Boolean is no step.
+    JR   Z,CT_ESTEP                ; A Boolean is no step,
+    CP   SY_F32                    ; nor
+    JR   Z,CT_ESTEP                ; an f32.
     INC  HL                        ; Its value's high bytes (SY_VHI):
     LD   E,(HL)                    ; the
     INC  HL                        ; high
@@ -376,7 +378,10 @@ CT_STEP:
     JR   NZ,CT_ESTEP               ; no magnitude.
     EX   DE,HL                     ; HL is the high word.
     JR   .NUMBER                   ; BC is the low.
-.LITERAL:                      ; A number:
+.LITERAL:                      ; A number, an integer
+    LD   A,(TK_WIDE)               ; (an f32
+    OR   A                         ; literal
+    JR   NZ,CT_ESTEP               ; is none):
     LD   HL,(TK_NHI)               ; its high word.
 .NUMBER:                       ; BC holds the low word.
     LD   D,B                       ; Move it

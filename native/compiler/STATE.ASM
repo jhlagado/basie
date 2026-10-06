@@ -2,7 +2,7 @@
 ;  Compiler workspace and shared constants
 ;==========================================================================
 ;
-;  The first part of the compiler's workspace, from MM_WBASE ($5000), and
+;  The first part of the compiler's workspace, from MM_WBASE ($5400), and
 ;  the constants that every phase shares: token kinds, diagnostic numbers,
 ;  symbol classes, aggregate type ordinals and relation codes. CALLWORK.ASM
 ;  continues the workspace to LL_WEND. Nothing here is initialised by the
@@ -101,9 +101,8 @@ RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
 RG_FWD EQU  RG_NLEN+1          ; Byte: nonzero once a routine is declared forward.
 RG_PEND EQU  RG_FWD+1          ; Word: the end of the routine's waiting constants.
 GX_IMMV EQU  RG_PEND+2         ; Byte: the immediate of a frame byte's store (GX_DSTN).
-GX_TYPES EQU  GX_IMMV+1        ; Word: a narrowing's types, target low (GX_TRIM).
-GX_PFROM EQU  GX_TYPES+2       ; Byte: its source's properties (GX_PROP).
-GX_PTO EQU  GX_PFROM+1         ; Byte: its target's properties.
+TK_NBEG EQU  GX_IMMV+1         ; Word: the first digit of a decimal number (TOKEN.ASM).
+GX_PTO EQU  TK_NBEG+2          ; Byte: a narrowing's target's properties (GX_TRIM).
 EM_WEND EQU  GX_PTO+1          ; End of the emitter's state.
 
 ; The predictive expression path keeps one token of lookahead. $FF denotes an
@@ -163,7 +162,8 @@ VL_TB EQU  SY_LIM+$3B          ; Five bytes: its second.
 VL_TR EQU  SY_LIM+$40          ; Five bytes: its remainder.
 TK_NLO EQU  SY_LIM+$45         ; Word: a number's low word as it is scanned (TOKEN.ASM).
 TK_NHI EQU  SY_LIM+$47         ; Word: a number token's high word.
-TK_WIDE EQU  SY_LIM+$49        ; Byte: nonzero once a decimal number passes 32 bits.
+TK_WIDE EQU  SY_LIM+$49        ; Byte: nonzero once a decimal number passes 32
+                               ; bits; then SY_F32 for a floating-point literal.
 EX_STACK EQU  SY_LIM+$4A       ; First operand-stack entry.
 EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
 EX_STLEN EQU  16               ; Bytes in one entry.
@@ -341,7 +341,8 @@ TK_INCL EQU  $43               ; Keyword include.
 ; The operators, read only inside the expression island (EXPR.ASM,
 ; EXOPER.ASM) and the path parser (CALLS.ASM), never by the grammar; the
 ; orders of TK_STAR to TK_SHR, TK_SLASH to TK_NE and TK_XOR to TK_MOD
-; are kept.
+; are kept, and TK_AND, TK_XOR and TK_MOD, with TK_OR, are the only
+; arithmetic operators from TK_AND on (EX_ARITH's f32 test).
 TK_OR EQU  $44                 ; Keyword or.
 TK_STAR EQU  $45               ; Asterisk: multiplication.
 TK_SHL EQU  $46                ; Keyword shl.
@@ -403,6 +404,7 @@ DG_MIXED EQU  70               ; mixed-operands.
 DG_CHAIN EQU  71               ; chained-comparison.
 DG_INDEX EQU  72               ; index-type.
 DG_ZERO EQU  73                ; division-by-zero.
+DG_FOVER EQU  80               ; float-overflow: an f32 fold past the largest.
 DG_CONST EQU  74               ; not-writable.
 DG_FIELD EQU  76               ; no-such-field.
 DG_NOIDX EQU  77               ; not-indexable.
@@ -475,6 +477,7 @@ DG_LLCAP EQU  DG_CAP+11        ; The grammar stack (LL_CAP).
 DG_PARTS EQU  DG_CAP+12        ; Source parts: 255, the line stream's limit.
 DG_ROOM EQU  DG_CAP+13         ; Memory for the source.
 DG_INEST EQU  DG_CAP+14        ; Includes open at once (SH_ICAP).
+DG_FDIG EQU  DG_CAP+15         ; An f32 literal's digits (FLOAT.ASM, FL_NB).
 
 
 ; Scalar types and symbol information. An expression's metadata byte and a
@@ -491,7 +494,7 @@ SY_I8 EQU  4                   ; Type: i8.
 SY_I16 EQU  5                  ; Type: i16.
 SY_U32 EQU  6                  ; Type: u32.
 SY_I32 EQU  7                  ; Type: i32.
-SY_F32 EQU  8                  ; Type: f32, not yet compiled.
+SY_F32 EQU  8                  ; Type: f32, a known value its IEEE single bits.
 SY_TMASK EQU  $0F              ; Mask of the type bits.
 SY_KNOWN EQU  $80              ; Metadata flag: the value is exact, in HL.
 SY_CONST EQU  $00              ; Class: a constant.
