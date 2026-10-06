@@ -129,6 +129,7 @@ const CONFORMANCE: Record<string, string> = {
   MOVENONE: "tests/conformance/storage/move-none.bsi",
   SELMOVEC: "tests/conformance/storage/select-move.bsi",
   OWNDEST: "tests/conformance/storage/owning-destination-order.bsi",
+  ELSEFREE: "tests/conformance/storage/else-fail-frees-owners.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -321,6 +322,7 @@ const CLAIMED: Record<string, string[]> = {
     "HANDPARM",
     "OWNDEST",
     "HANDDISC",
+    "ELSEFREE",
   ],
 };
 

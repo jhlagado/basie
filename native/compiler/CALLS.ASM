@@ -724,8 +724,9 @@ RO_FAILS:
     AND  RO_FFAIL                  ; a failable routine;
     LD   A,DG_SAFE                 ; this one is not:
     JR   Z,.AT                     ; not-failable.
-    LD   A,RG_EXIT                 ; To the exit, A the code.
-    JR   .JUMP                     ; Write the jump.
+    CALL HN_RELAY                  ; To the exit, owners freed, A the code.
+    LD   A,RG_EXIT                 ; The exit
+    JR   .PEND                     ; is pending.
 .TRAP:                         ; A handler follows.
     LD   A,(EM_TEMPS)              ; The temporaries
     LD   (RO_KEPT),A               ; beneath the call.
@@ -733,7 +734,8 @@ RO_FAILS:
 .JUMP:                         ; A is the failure's label.
     LD   C,$DA                     ; JP C,
     CALL EM_JUMP                   ; to it on failure; A is kept.
-    OR   $80                       ; The label, marked,
+.PEND:                         ; A is the failure's label:
+    OR   $80                       ; the label, marked,
     LD   (RO_PEND),A               ; is pending.
     RET                            ; The expression goes on.
 .LOST:                         ; A is DG_LEAK.

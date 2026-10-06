@@ -85,7 +85,7 @@ The propagation suffix is:
 failure-propagation ::= "else" "fail"
 ```
 
-On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `else fail` immediately returns the same `u8` code from the enclosing routine. The enclosing routine must declare `fails`.
+On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `else fail` immediately returns the same `u8` code from the enclosing routine, leaving every block as `fail` does, so its owning locals and parameters are freed (Section 7.12). The enclosing routine must declare `fails`.
 
 ```basie
 sub loadByte() as u8 fails

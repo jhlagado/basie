@@ -1,0 +1,31 @@
+// else fail passes a failure on and leaves the routine, so its owning
+// locals are freed first, as a fail statement frees them.
+// spec: 7.12, 14.4
+// expect output: ok\r\n
+
+forward pool nodes
+
+record Node
+    value as u8
+end
+
+pool nodes as Node[1]
+
+sub inner() fails
+    fail 3
+end
+
+sub outer() fails
+    var n = new nodes(1)
+    inner() else fail
+end
+
+sub main() fails
+    var i as u8
+    var e as u8
+    for i = 1 to 3
+        outer() handle e
+        end
+    end
+    writeText(console, "ok\r\n") else fail
+end

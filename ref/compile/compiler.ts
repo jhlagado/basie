@@ -1620,13 +1620,7 @@ export class Compiler {
     // the result safe on the stack.
     const size = sig.result ? sizeOf(sig.result) : 0;
     const owners = this.scopes.scopesFrom(this.scopes.routineDepth());
-    const anyOwner = owners.some((sc) =>
-      [...sc.symbols.values()].some((x) =>
-        x.kind === "var" && x.storage.kind === "frame" && !x.lease &&
-        isOwningType(x.type)
-      )
-    );
-    if (anyOwner) {
+    if (this.hasOwners(owners)) {
       if (size === 1) r.blob.u8(0xf5);
       else if (size === 2) r.blob.u8(0xe5);
       else if (size === 4) r.blob.u8(0xd5, 0xe5);
@@ -2441,6 +2435,16 @@ export class Compiler {
   }
 
   // ---- freeing (7.12) and the flow check (7.17) --------------------------------------
+
+  /** Whether any of these scopes holds an owner that a return must free. */
+  private hasOwners(scopes: Scope[]): boolean {
+    return scopes.some((sc) =>
+      [...sc.symbols.values()].some((x) =>
+        x.kind === "var" && x.storage.kind === "frame" && !x.lease &&
+        isOwningType(x.type)
+      )
+    );
+  }
 
   /** Free the owning locals of these scopes; registers are destroyed. */
   private emitFrees(scopes: Scope[]): void {
@@ -4195,7 +4199,18 @@ export class Compiler {
         if (!r.symbol.signature.fails) {
           fail("not-failable", at, "else fail needs a routine declared fails");
         }
-        r.blob.jpIf(JP_C, r.exitLabel); // carry set, A = the code
+        // Passing the failure on leaves the routine, so its owners are freed
+        // first, as a fail statement frees them; A and carry are kept.
+        const owners = this.scopes.scopesFrom(this.scopes.routineDepth());
+        if (this.hasOwners(owners)) {
+          const ok = r.blob.newLabel();
+          r.blob.jpIf(JP_NC, ok);
+          r.blob.u8(0xf5); // PUSH AF
+          this.emitFrees(owners);
+          r.blob.u8(0xf1); // POP AF
+          r.blob.jp(r.exitLabel);
+          r.blob.defineLabel(ok);
+        } else r.blob.jpIf(JP_C, r.exitLabel); // carry set, A = the code
         this.pendingFailure = { kind: "fail" };
       } else if (this.isKeyword("handle")) {
         const failLabel = r.blob.newLabel();

@@ -6,7 +6,7 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($6100).
+;  from MM_WBASE ($6200).
 ;
 ;    Offset  Size  Block
 ;    +$BF5     56  routine state: counts, the signature being parsed, the

@@ -1108,17 +1108,9 @@ HN_RET:                        ; A is the result's type.
     CALL AG_SIZE                   ; else its size.
 .SIZED:                        ; HL is the size.
     PUSH HL                        ; Kept.
-    LD   A,1                       ; Look
-    LD   (HN_MODE),A               ; for
-    XOR  A                         ; an
-    LD   (HN_SEEN),A               ; owner
-    CALL HN_ALL                    ; in every scope.
-    XOR  A                         ; Write
-    LD   (HN_MODE),A               ; again.
+    CALL HN_ANY                    ; An owner in any scope?
     POP  HL                        ; The size.
-    LD   A,(HN_SEEN)               ; None:
-    OR   A                         ; nothing
-    RET  Z                         ; to free.
+    RET  Z                         ; None: nothing to free.
     LD   A,H                       ; A size
     OR   A                         ; past
     JR   NZ,HN_ALL                 ; 255 is not kept.
@@ -1138,6 +1130,43 @@ HN_RET:                        ; A is the result's type.
     CALL HN_ALL                    ; the frees;
     POP  HL                        ; the
     JP   EM_RUN                    ; pop; return.
+
+;@ROUTINE OUT A,ZERO CLOBBERS BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
+; NZ if any scope of the routine holds an owner a return frees (the
+; reference's hasOwners): HN_ALL run only looking.
+
+HN_ANY:                        ; Every scope of the routine.
+    LD   A,1                       ; Look
+    LD   (HN_MODE),A               ; for
+    XOR  A                         ; an
+    LD   (HN_SEEN),A               ; owner
+    CALL HN_ALL                    ; in every scope.
+    XOR  A                         ; Write
+    LD   (HN_MODE),A               ; again.
+    LD   A,(HN_SEEN)               ; NZ if
+    OR   A                         ; one is
+    RET                            ; seen.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; `else fail` passes a failure on (RO_FAILS): with no owner in scope, JP
+; C to the exit; with owners, which leave the routine, JP NC past, PUSH AF,
+; every owner freed, POP AF, JP to the exit, as a fail statement frees
+; them. A and carry reach the exit as the call left them.
+
+HN_RELAY:                      ; A failable call has returned.
+    CALL HN_ANY                    ; Owners?
+    LD   C,$DA                     ; If not,
+    LD   A,RG_EXIT                 ; JP C,exit;
+    JP   Z,EM_JUMP                 ; return.
+    LD   C,$D2                     ; JP NC
+    CALL EM_FWD                    ; past them:
+    PUSH AF                        ; (its label kept)
+    CALL HN_FAIL                   ; PUSH AF, the frees, POP AF,
+    LD   C,$C3                     ; JP
+    LD   A,RG_EXIT                 ; to the
+    CALL EM_JUMP                   ; exit.
+    POP  AF                        ; The label
+    JP   EM_LDONE                  ; is here; return.
 
 ; The result's push and pop, each a count and its bytes.
 
