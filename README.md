@@ -99,3 +99,8 @@ These terms are provisional, but the documents use them consistently.
 - [Toolchain](docs/toolchain.md): the `BASIE` executable, its command line,
   files and memory plan.
 - [CP/M target](docs/cpm-target.md): profiles, memory map, startup and exit.
+
+## Licence
+
+Basie is free software, released under the GNU General Public License,
+version 3 ([LICENSE](LICENSE)).
