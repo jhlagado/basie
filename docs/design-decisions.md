@@ -1035,3 +1035,31 @@ from its cause.
 (`EM_SEQ`, `EM_OP`, `DG_RAISE`) through `RST 1` to `RST 5`, which would save
 about 250 bytes ([native compiler](native-compiler.md) §4). Compression uses
 other means.
+
+### D47. Traps report source positions
+
+A trap reports where it happened in the source, in two ways (option 3 of
+the choice John made on 2026-10-07):
+
+1. **Trap lookup, always.** A trap prints its reason, the address of the call
+   that trapped, and the command that finds the statement:
+   `TRAP narrowing at 029D (BASIE MAIN [T=029D])`. `BASIE MAIN [T=029D]`
+   reads `MAIN.LIN` and prints the part, line and column and the source line
+   ([toolchain](toolchain.md) §8). The program carries nothing extra.
+2. **An embedded table, by option.** Linked with the debug option, the image
+   carries a compact table from addresses to parts, lines and columns, and the
+   parts' names, and the runtime's trap reporter searches it and prints
+   `TRAP narrowing at FILE.BSI:11:4` directly. The table costs program space
+   (two to four bytes a statement, about 1-2K for a program of `ADVENT.BSI`'s
+   size, and the lookup's code in the runtime), so it is off by default.
+
+The line stream gains each statement's first column, so that both forms can
+name it; the reference toolchain and the native one change together, as D45
+requires.
+
+**Why.** An address alone sends the programmer to a map. The lookup costs the
+program nothing; the embedded table saves the second command when space
+allows.
+
+**Rejected.** Embedding the table always: on a CP/M machine the bytes come out
+of every program's transient area.
