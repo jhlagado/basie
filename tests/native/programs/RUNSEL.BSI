@@ -1,0 +1,133 @@
+// select at run time (67d): every integer type, ranges at both ends of
+// each type, lists, case else, nested selects, and a select in a loop
+// whose arms exit and continue. Each line of output is a run of letters
+// the reference build must print too.
+// expect output: aabbcdz\r\nABCDEFG\r\nhijkl\r\nmnomn\r\n13 8\r\n
+
+var line as string[20]
+
+sub put(c as u8) fails
+    writeByte(console, c) else fail
+end
+
+sub bytes(v as u8) as u8
+    select v
+    case 0
+        return 'a'
+    case 1 to 9, 11
+        return 'b'
+    case 10
+        return 'c'
+    case 200 to 255
+        return 'd'
+    case else
+        return 'z'
+    end
+end
+
+sub signed(v as i8) as u8
+    select v
+    case -128 to -100
+        return 'A'
+    case -99 to -1
+        return 'B'
+    case 0
+        return 'C'
+    case 1 to 126
+        return 'D'
+    case 127
+        return 'E'
+    end
+    return '?'
+end
+
+sub words(v as u16, s as i16) as u8
+    select v
+    case 0 to 999
+        select s
+        case -32768 to -1
+            return 'F'
+        case 0 to 32767
+            return 'G'
+        end
+    case 1000, 2000
+        return 'h'
+    case 2001 to 65534
+        return 'i'
+    case 65535
+        return 'j'
+    end
+    return '?'
+end
+
+sub longs(v as u32, s as i32) as u8
+    select s
+    case -2147483648
+        return 'k'
+    case 2147483647
+        return 'l'
+    end
+    select v
+    case 0 to 99999
+        return 'm'
+    case 100000 to 4294967294
+        return 'n'
+    case 4294967295
+        return 'o'
+    end
+    return '?'
+end
+
+sub main() fails
+    put(bytes(0)) else fail
+    put(bytes(0)) else fail
+    put(bytes(5)) else fail
+    put(bytes(11)) else fail
+    put(bytes(10)) else fail
+    put(bytes(255)) else fail
+    put(bytes(100)) else fail
+    writeText(console, "\r\n") else fail
+    put(signed(-128)) else fail
+    put(signed(-50)) else fail
+    put(signed(0)) else fail
+    put(signed(5)) else fail
+    put(signed(127)) else fail
+    put(words(5, -1)) else fail
+    put(words(5, 1)) else fail
+    writeText(console, "\r\n") else fail
+    put(words(1000, 0)) else fail
+    put(words(3000, 0)) else fail
+    put(words(65535, 0)) else fail
+    put(longs(0, -2147483648)) else fail
+    put(longs(0, 2147483647)) else fail
+    writeText(console, "\r\n") else fail
+    put(longs(5, 0)) else fail
+    put(longs(100000, 0)) else fail
+    put(longs(4294967295, 0)) else fail
+    put(longs(99999, 1)) else fail
+    put(longs(4294967294, 1)) else fail
+    writeText(console, "\r\n") else fail
+    var i as u8
+    var sum as u8
+    var odd as u8
+    while i < 30
+        i = i + 1
+        select (i mod 3)
+        case 0
+            continue
+        case 1
+            select i
+            case 13 to 255
+                exit
+            end
+            odd = odd + 1
+        case else
+            sum = sum + 1
+        end
+    end
+    writeByte(console, '0' + i / 10) else fail
+    writeByte(console, '0' + i mod 10) else fail
+    writeByte(console, ' ') else fail
+    writeByte(console, '0' + sum + odd) else fail
+    writeText(console, "\r\n") else fail
+end

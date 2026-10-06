@@ -76,8 +76,13 @@ KW_TAB:
     DB   "handl",'e'+$80,TK_HANDL  ; Local failure handler.
     DB   "privat",'e'+$80,TK_PRIV  ; A declaration its part alone sees.
     DB   "includ",'e'+$80,TK_INCL  ; A part a part depends on.
+    DB   "selec",'t'+$80,TK_SEL    ; Selection by a subject's value.
+    DB   "cas",'e'+$80,TK_CASE     ; A select's arm.
+    DB   "som",'e'+$80,TK_SOME     ; A handle selection's arm.
+    DB   "non",'e'+$80,TK_NONE     ; A handle selection's arm; no handle.
+    DB   "mov",'e'+$80,TK_MOVE     ; A handle moved.
     DB   0                         ; The end of the table: no word starts with zero.
-KW_CNT EQU  42                 ; Entries in KW_TAB.
+KW_CNT EQU  47                 ; Entries in KW_TAB.
 KW_TYPE EQU  $80               ; A type keyword's kind byte: this plus its type.
 
 ; Punctuators found by table search: the character, then a descriptor.

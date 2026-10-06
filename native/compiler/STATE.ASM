@@ -183,6 +183,7 @@ CT_KIF EQU  1                  ; Frame kind: if, elseif, else.
 CT_KLOOP EQU  2                ; Frame kind: while loop.
 CT_KFOR EQU  3                 ; Frame kind: counted for loop.
 CT_KTRAP EQU  4                ; Frame kind: failure handler.
+CT_KSEL EQU  5                 ; Frame kind: select.
 CT_FKIND EQU  0                ; Frame field: kind.
 CT_FDEST EQU  1                ; Frame field: next arm, body or failure label.
 CT_FCONT EQU  2                ; Frame field: continue label.
@@ -336,7 +337,15 @@ TK_PRIV EQU  52                ; Keyword private.
 TK_XOR EQU  53                 ; Keyword xor.
 TK_MOD EQU  54                 ; Keyword mod.
 TK_ASSRT EQU  55               ; Keyword assert.
-TK_INCL EQU  61                ; Keyword include, which the grammar never names.
+TK_CASE EQU  61                ; Keyword case: a select's arm.
+TK_SEL EQU  62                 ; Keyword select, never expected alone (DG_TOKEN+62 is 190).
+; Keywords the grammar never names, so their kinds may pass $3F: include,
+; read by the loader, and the handle selection's words, which an integer
+; select refuses where it meets them.
+TK_SOME EQU  $40               ; Keyword some.
+TK_NONE EQU  $41               ; Keyword none.
+TK_MOVE EQU  $42               ; Keyword move.
+TK_INCL EQU  $43               ; Keyword include.
 
 ; Diagnostic codes, as DG_CODE reports them. Below DG_TOKEN and from 190
 ; to 199 a code is the reference compiler's number for the diagnostic
@@ -398,6 +407,7 @@ DG_ALIAS EQU  104              ; alias-escapes: a result rooted in the frame.
 DG_ARITY EQU  111              ; arity: too many arguments.
 DG_SAFE EQU  112               ; not-failable.
 DG_LEAK EQU  113               ; failure-unconsumed.
+DG_OVERL EQU  75               ; duplicate-case: a select's labels overlap.
 DG_DEST EQU  114               ; handle-destination.
 DG_NYI EQU  191                ; native-unsupported: not yet compiled natively.
 DG_BUG EQU  199                ; internal.
@@ -423,8 +433,8 @@ DG_NAME EQU  DG_TOKEN+TK_NAME  ; A name expected.
 
 ; Pseudo-kinds, above the token kinds the grammar names and below
 ; DG_CAP-DG_TOKEN: what a syntax diagnostic expected that is no single
-; token (MESSAGE.ASM's phrases, the reference compiler's words). TK_INCL,
-; which no grammar row names, shares their range.
+; token (MESSAGE.ASM's phrases, the reference compiler's words). TK_CASE
+; follows them, the last kind whose DG_TOKEN code is a syntax diagnostic.
 TK_XEXPR EQU  56               ; An expression.
 TK_XTYPE EQU  57               ; A type.
 TK_XDECL EQU  58               ; A declaration.
@@ -435,6 +445,7 @@ DG_TYPE EQU  DG_TOKEN+TK_XTYPE ; Expected a type.
 DG_DECL EQU  DG_TOKEN+TK_XDECL ; Expected a declaration.
 DG_STMT EQU  DG_TOKEN+TK_XSTMT ; Expected a statement.
 DG_UPTO EQU  DG_TOKEN+TK_XUPTO ; Expected to or until.
+DG_CASE EQU  DG_TOKEN+TK_CASE  ; Expected case.
 
 ; The limits of this compiler: `capacity`, with the limit's name
 ; (MS_CAPS, in this order) as its argument.

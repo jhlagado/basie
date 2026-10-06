@@ -491,7 +491,13 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 - **Native compiler at 65.4 (f):** 8 open `if`, `while`, `for` and `handle`
   statements (`CT_FCAP`, `DG_NEST`), sixteen bytes each, 130 bytes with the
   depth and fallthrough bytes; at 67b eighteen bytes each (a long
-  counter's four-byte step), 146 bytes.
+  counter's four-byte step), 146 bytes. At 67d a `select` takes a frame
+  too, and its labels eight bytes each in a table after the LL(1) stack, 63
+  for the selects open at once (`CT_RCAP`, 506 bytes with its top; Error
+  190, `labels`, beyond), in what had been the gap between the compiler's
+  workspace and the shell's; each label is checked against the earlier
+  ones of its select (`duplicate-case`), so a select with n labels costs
+  n²/2 comparisons, at compile time only.
 - **Status:** TBD.
 
 ### 3.21 Expression nesting

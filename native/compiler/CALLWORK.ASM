@@ -22,7 +22,9 @@
 ;    +$FD4     43  unused, so that the LL(1) stack starts a page
 ;    +$FFF     65  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1000, a page
 ;                  start, so a slot's address is the page and the depth)
-;    +$1040        LL_WEND, the end of the compiler workspace, 4,160 bytes
+;    +$1040   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
+;                  ranges of eight bytes (CT_RTAB)
+;    +$1232        LL_WEND, the end of the compiler workspace, 4,658 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and

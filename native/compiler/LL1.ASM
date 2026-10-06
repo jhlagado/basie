@@ -34,7 +34,14 @@
 LL_CAP EQU  64                 ; Grammar stack capacity in symbols.
 LL_STACK EQU  (PR_SP+3+$FF)&$FF00 ; The stack, from a page's start; LL_STACK+0 is the bottom.
 LL_DEPTH EQU  LL_STACK-1       ; Symbols on the stack (byte), just below it.
-LL_WEND EQU  LL_STACK+LL_CAP   ; End of compiler workspace (marker).
+; The select statements' labels follow the stack (ACTSEL.ASM): CT_RTOP,
+; the next free entry, then CT_RCAP ranges of eight bytes, the low and the
+; high value of a label at the subject's type, its sign bit flipped.
+CT_RTOP EQU  LL_STACK+LL_CAP   ; Word: the next free label range.
+CT_RTAB EQU  CT_RTOP+2         ; The label ranges of the open selects.
+CT_RCAP EQU  63                ; Ranges; DG_LABEL beyond.
+CT_RLIM EQU  CT_RTAB+8*CT_RCAP ; Exclusive end of the ranges.
+LL_WEND EQU  CT_RLIM           ; End of compiler workspace (marker).
 
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY
 ; Parse the program: push GR_START and expand, match and act until the
@@ -87,8 +94,9 @@ LL_PARSE:
     LD   E,A                       ; PR_NEED expects it in E,
     JP   PR_NEED                   ; consumes it or raises DG_TOKEN+kind, and loops.
 
-; A nonterminal. Its GR_ROWX entry is the row's offset from GR_ROWS and
-; the diagnostic for a token the row does not predict. A row is a list of
+; A nonterminal. Its GR_ROWX entry is the row's offset from GR_ROWS, or
+; from GR_ROWS+256 for a row from GR_RHIGH on, and the diagnostic for a
+; token the row does not predict. A row is a list of
 ; alternatives, each a production byte and then the token kinds that
 ; select it; bit 7 marks the last token of an alternative and, on the
 ; production byte, the last alternative of the row.
@@ -100,7 +108,11 @@ LL_PARSE:
     LD   DE,GR_ROWX                ; The row directory's entry: E is the row's
     CALL .ENTRY                    ; offset from GR_ROWS, D its diagnostic,
     PUSH DE                        ; kept until a production is chosen.
-    LD   D,0                       ; Widen the offset.
+    LD   D,0                       ; Widen the offset: a row
+    CP   GR_RHIGH                  ; from GR_RHIGH on (A is kept)
+    JR   C,.LOW                    ; counts from the page
+    INC  D                         ; after GR_ROWS.
+.LOW:                          ; DE is the row's offset.
     LD   HL,GR_ROWS                ; The rows' common base.
     ADD  HL,DE                     ; HL addresses the row's first alternative.
     PUSH HL                        ; PR_PEEK clobbers HL.

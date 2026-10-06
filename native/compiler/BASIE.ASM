@@ -51,6 +51,7 @@
 %INCLUDE "GRAMMAR.ASM"             ; The generated grammar tables.
 %INCLUDE "ACTIONS.ASM"             ; Actions: islands, types and declarations.
 %INCLUDE "ACTSUB.ASM"              ; Actions: routines, failure and handlers.
+%INCLUDE "ACTSEL.ASM"              ; Actions: select.
 %INCLUDE "ACTSTMT.ASM"             ; Actions: locals, statements and flow.
 %INCLUDE "OUT.ASM"                 ; Output streams.
 %INCLUDE "BLOB.ASM"                ; The blob writer.

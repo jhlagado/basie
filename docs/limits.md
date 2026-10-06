@@ -113,14 +113,15 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | One blob's references | 146 (`BL_RCAP`, kept as given, seven bytes each, until the blob is written) | the 128-byte buffer spilling to `NAME.$RF` (toolchain §3.2) |
 | One blob's line entries | 128 statements (`BL_LCAP`, five bytes each until the blob is written) | spilling with the references |
 | A routine's short jumps | four bytes each, and four for the table's end, in the free memory between the source's last part and the part table, above the routine's waiting aggregate constants, while the routine is written; Error 190 (`source size`) when they do not fit | — |
-| Labels in use at once in one routine | 32 (`EM_LCAP`), two of them the exit and the need word; an `if`, `while`, `for` or handler frees its labels when it ends, and `and` and `or` theirs when they join, so the count is bounded by nesting (about 3 per level); `DG_LABEL` beyond | — |
-| Open `if`, `while`, `for` and `handle` statements | 8 nested (`CT_FCAP`); `DG_NEST` (Error 190, `nesting`) beyond | 32 (§5.1) with the scoped symbol table (step 67) |
+| Labels in use at once in one routine | 32 (`EM_LCAP`), two of them the exit and the need word; an `if`, `while`, `for`, `select` or handler frees its labels when it ends (a `select` each arm's at the arm's end), and `and` and `or` theirs when they join, so the count is bounded by nesting (about 3 per level); `DG_LABEL` beyond | — |
+| Open `if`, `while`, `for`, `select` and `handle` statements | 8 nested (`CT_FCAP`); `DG_NEST` (Error 190, `nesting`) beyond | 32 (§5.1) with the scoped symbol table (step 67) |
 | Routines | 32 besides main (`RO_RCAP`); `DG_PROCS` (Error 190, `routines`) beyond | the hashed, scoped symbol table (step 67) |
 | Parameters | 64 in the whole program (`RO_PCAP`), and 255 bytes of arguments to one routine; `DG_PARAM` (Error 190, `parameters`) beyond | the symbol table (step 67) |
 | Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 190, `expression depth`) beyond | measured against the stack at step 68 |
 | Names visible at once | 96 (`SY_CAP`): the program's constants, variables and record types with the current routine's parameters and the locals and local constants of its open blocks (a block's names are released at its end); `DG_SYMS` (Error 190, `symbols`) beyond | the hashed symbol table with a name heap (step 67, capacity tables) |
 | One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` (Error 190, `object size`) beyond | writing initializers to the blob as they are parsed |
 | Aggregate types | 24 distinct string and array types and records (`AG_TCAP`), 16 records (`AG_RCAP`) and 48 fields in all records together (`AG_FCAP`); `DG_META` (Error 190, `types`) beyond | the scoped symbol table and type descriptors (step 67) |
+| `select` labels | 63 ranges (`CT_RCAP`) for the selects open at once, a constant label one range, a list one each; a select's ranges are free when it ends; Error 190 (`labels`) beyond | — |
 | String literals in one routine | 48 (`RO_LCAP`), each placed after the routine's need word; `DG_LITS` (Error 190, `literals`) beyond | measured at step 68 |
 | Dimensions of one array type | 8 (`AG_DCAP`); `DG_META` (Error 190, `types`) beyond | the type descriptors of step 67 |
 | One array type or object | 1,024 bytes (`AG_ICAP`), the initializer staging, even without an initializer; `DG_DATA` beyond | writing initializers to the blob as they are parsed |
@@ -131,7 +132,7 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | Option `T`, trap lookup (toolchain §8) | read and checked, then refused as not yet available | a later step |
 | Floating-point literals | refused (`DG_NYI`, Error 191) | the decimal-to-`f32` overlay (toolchain §7.3) |
 | Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; six today: `COMMAND` 978 bytes, `START` 812, `NAMES` 947, `CHAIN` 448, `DIAG` 1,023 and `PARTS` 915, each loaded into the overlay area when needed | — |
-| Overlay area | 1,024 bytes after the 17,142-byte resident image, the largest overlay in whole records; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
+| Overlay area | 1,024 bytes after the 18,057-byte resident image, the largest overlay in whole records; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
 | A name in a diagnostic | its first 32 characters (`DG_ALEN`) | — |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)

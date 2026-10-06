@@ -226,6 +226,7 @@ export function grammarSource(g: GrammarFile): string {
   out.push(
     pad(`GR_START EQU  $40`, 31) + `; Start symbol: ${g.start}, row 0.`,
   );
+  const rsplitAt = out.length; // GR_RHIGH goes here once the rows are laid out
   if (t.rows[0] !== g.start) throw new Error("the start symbol must be row 0");
   for (const [name, target] of Object.entries(g.equates)) {
     const r = t.rows.indexOf(target);
@@ -259,15 +260,20 @@ export function grammarSource(g: GrammarFile): string {
     });
     return b;
   });
+  // A row's offset is a byte: the rows from the first that starts 256
+  // bytes or more from GR_ROWS on (GR_RHIGH) count from GR_ROWS+256.
   let at = 0;
+  let rsplit = t.rows.length;
   t.rows.forEach((row, r) => {
     const diag = g.diagnosticCodes[g.diagnostics[row]];
     if (!diag) throw new Error(`${row}: no diagnostic`);
-    out.push(line(`DB   ${at},${diag}`, `GR_ROW${r}-GR_ROWS; ${row}`));
+    if (at >= 256 && rsplit === t.rows.length) rsplit = r;
+    const base = r >= rsplit ? "GR_ROWS-256" : "GR_ROWS";
+    out.push(line(`DB   ${at & 255},${diag}`, `GR_ROW${r}-${base}; ${row}`));
     at += rowBytes[r].length;
   });
-  if (at > 256) {
-    throw new Error(`the rows take ${at} bytes, more than a byte's offsets`);
+  if (at > 512) {
+    throw new Error(`the rows take ${at} bytes, more than two pages' offsets`);
   }
   out.push(pad("GR_ROWXE:", 31) + "; End of the row directory.");
   out.push("");
@@ -281,6 +287,12 @@ export function grammarSource(g: GrammarFile): string {
     for (const b of rowBytes[r]) out.push(`    DB   ${b}`);
   });
   out.push(pad("GR_ROW_E:", 31) + "; End of the rows.");
+  out.splice(
+    rsplitAt,
+    0,
+    pad(`GR_RHIGH EQU  ${rsplit}`, 31) +
+      "; First row whose offset counts from GR_ROWS+256.",
+  );
   out.push("");
   out.push(
     "; Production directories: body offsets, each list closed by an end entry.",

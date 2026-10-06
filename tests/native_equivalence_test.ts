@@ -72,6 +72,10 @@ const CONFORMANCE: Record<string, string> = {
   TRUNCREF: "tests/conformance/library/truncate-refuses.bsi",
   DIRECTRY: "tests/conformance/services/directory.bsi",
   ADVENT: "examples/ADVENT.BSI",
+  SELINT: "tests/conformance/statements/select-integers.bsi",
+  SELSIGN: "tests/conformance/statements/select-signed-range.bsi",
+  SEL32: "tests/conformance/statements/select-32-bit.bsi",
+  SELWORD: "tests/conformance/statements/select-whole-word-range.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -175,6 +179,14 @@ const CLAIMED: Record<string, string[]> = {
   ],
   "67e: aggregate constants in routines' bodies": ["LCONSTS"],
   "67c: branch shrinking": ["SHRINK", "ADVENT"],
+  "67d: select on integers": [
+    "SELECTS",
+    "RUNSEL",
+    "SELINT",
+    "SELSIGN",
+    "SEL32",
+    "SELWORD",
+  ],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -443,13 +455,49 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
     // condition.
     // (67a) A local declared in the block comes and goes with it.
     const local = rnd(2) === 0 ? "" : `var t${i} as u16 = ${integer(2)}\n`;
+    // (67d) or in an arm of a select on a random subject, with labels
+    // and ranges at random (overlaps and labels beyond the type are
+    // refused alike).
+    const label = () => {
+      const low = pick(["0", "1", "7", "200", "255", "-5", "300", "tk", "'A'"]);
+      return rnd(3) === 0
+        ? `${low} to ${pick(["9", "255", "65535", "-1", "tw"])}`
+        : low;
+    };
+    const select = () => {
+      let arms = "";
+      for (let n = 1 + rnd(3); n > 0; n -= 1) {
+        arms += `case ${label()}${rnd(2) ? `, ${label()}` : ""}\n${local}${
+          rnd(2) ? statement + "\n" : ""
+        }`;
+      }
+      if (rnd(2)) arms += `case else\n${statement}\n`;
+      const subject = pick([
+        "a",
+        "x",
+        "p",
+        "q",
+        "l",
+        "m",
+        "r.n",
+        "arr[b and 3]",
+        "(a + b)",
+        "u16(a) * 2",
+        "tw",
+        integer(1),
+      ]);
+      return `select ${subject}\n${arms}end`;
+    };
+    const shape = rnd(3);
     const body = i % 5 !== 4
       ? statement
-      : rnd(2) === 0
+      : shape === 0
       ? `if ${boolean(2)}\n${local}${statement}\nelseif ${
         boolean(1)
       }\n${local}else\n${local}end`
-      : `while ${boolean(2)}\n${local}${statement}\nend`;
+      : shape === 1
+      ? `while ${boolean(2)}\n${local}${statement}\nend`
+      : select();
     const source = new TextEncoder().encode(
       `${head}${body}\nend\n${tail}`,
     );
@@ -523,6 +571,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67e: var parameters, open arrays, from clauses and assert"],
     ...CLAIMED["67e: aggregate constants in routines' bodies"],
     ...CLAIMED["67c: branch shrinking"],
+    ...CLAIMED["67d: select on integers"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -923,6 +972,58 @@ const REFUSED: Record<string, string> = {
     "sub main()\nif true\nconst k as u8[2] = [1, 2]\nend\nvar c as u8 = k[0]\nend\n",
   "a routine's aggregate constant of an open type":
     "sub main()\nconst k as u8[] = [1, 2]\nend\n",
+  "a select subject that goes on past a variable":
+    "var x as u8\nsub main()\nselect x + 1\ncase 1\nend\nend\n",
+  "an exact select subject": "sub main()\nselect 5\ncase 1\nend\nend\n",
+  "a character as a select subject":
+    "sub main()\nselect 'a'\ncase 1\nend\nend\n",
+  "a Boolean select subject":
+    "var b as boolean\nsub main()\nselect b\ncase 1\nend\nend\n",
+  "a record as a select subject":
+    "record r\na as u8\nend\nvar v as r\nsub main()\nselect v\ncase 1\nend\nend\n",
+  "a string literal as a select subject":
+    'sub main()\nselect "a"\ncase 1\nend\nend\n',
+  "a File as a select subject":
+    "sub main()\nselect console\ncase 1\nend\nend\n",
+  "select move on an integer":
+    "var x as u8\nsub main()\nselect move x\ncase 1\nend\nend\n",
+  "a select with only case else":
+    "var x as u8\nsub main()\nselect x\ncase else\nend\nend\n",
+  "a case after case else":
+    "var x as u8\nsub main()\nselect x\ncase 1\ncase else\ncase 2\nend\nend\n",
+  "labels that overlap in one arm":
+    "var x as u8\nsub main()\nselect x\ncase 1, 1\nend\nend\n",
+  "signed labels that overlap":
+    "sub main()\nvar i as i8\nselect i\ncase -5 to 5\ncase -1\nend\nend\n",
+  "a reversed range":
+    "var x as u8\nsub main()\nselect x\ncase 5 to 1\nend\nend\n",
+  "a label beyond the subject's type":
+    "var x as u8\nsub main()\nselect x\ncase 300\nend\nend\n",
+  "a negative label for a u8":
+    "var x as u8\nsub main()\nselect x\ncase -1\nend\nend\n",
+  "a label that is no constant":
+    "var x as u8\nvar y as u8\nsub main()\nselect x\ncase y\nend\nend\n",
+  "a u16 constant labelling a u8":
+    "var x as u8\nconst big as u16 = 3\nsub main()\nselect x\ncase big\nend\nend\n",
+  "a Boolean label": "var x as u8\nsub main()\nselect x\ncase true\nend\nend\n",
+  "some on an integer":
+    "var x as u8\nsub main()\nselect x\ncase some(x)\nend\nend\n",
+  "none on an integer":
+    "var x as u8\nsub main()\nselect x\ncase none\nend\nend\n",
+  "a statement before the first case":
+    "var x as u8\nsub main()\nselect x\nx = 1\ncase 1\nend\nend\n",
+  "a failable select subject":
+    "sub f() as u8 fails\nreturn 1\nend\nsub main() fails\nselect f()\ncase 1\nend\nend\n",
+  "else fail after a select subject":
+    "sub f() as u8 fails\nreturn 1\nend\nsub main() fails\nselect f() else fail\ncase 1\nend\nend\n",
+  "exit in a select outside a loop":
+    "var x as u8\nsub main()\nselect x\ncase 1\nexit\nend\nend\n",
+  "a value routine whose select has no case else":
+    "sub g(n as u8) as u8\nselect n\ncase 1\nreturn 1\nend\nend\nsub main()\nend\n",
+  "move as a name": "sub main()\nvar move as u8\nend\n",
+  "overlapping select labels": Deno.readTextFileSync(
+    "tests/conformance/statements/select-overlap.bsi",
+  ),
 };
 
 /** The code of a message number, from the message table. */

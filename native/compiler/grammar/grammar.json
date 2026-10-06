@@ -42,7 +42,9 @@
     "TokenString": "TK_STR",
     "TokenHandle": "TK_HANDL",
     "TokenAssert": "TK_ASSRT",
-    "TokenPrivate": "TK_PRIV"
+    "TokenPrivate": "TK_PRIV",
+    "TokenSelect": "TK_SEL",
+    "TokenCase": "TK_CASE"
   },
   "diagnosticCodes": {
     "DiagnosticExpectedDeclaration": "DG_DECL",
@@ -63,7 +65,8 @@
     "DiagnosticExpectedToOrUntil": "DG_UPTO",
     "DiagnosticExpectedType": "DG_TYPE",
     "DiagnosticExpectedVar": "DG_VAR",
-    "DiagnosticRecordEmpty": "DG_EMPTY"
+    "DiagnosticRecordEmpty": "DG_EMPTY",
+    "DiagnosticExpectedCase": "DG_CASE"
   },
   "diagnostics": {
     "compilation-unit": "DiagnosticExpectedDeclaration",
@@ -110,7 +113,9 @@
     "string-capacity": "DiagnosticExpectedScalar",
     "type-array-opt": "DiagnosticExpectedScalar",
     "array-bound": "DiagnosticExpectedScalar",
-    "scalar-type": "DiagnosticExpectedType"
+    "scalar-type": "DiagnosticExpectedType",
+    "select-arms": "DiagnosticExpectedCase",
+    "case-arm": "DiagnosticExpectedScalar"
   },
   "actions": {
     "RequireMain": "AC_MAIN",
@@ -196,7 +201,14 @@
     "TypeScalar": "AC_TYPE",
     "MakeArrayTypes": "AC_ARRAY",
     "LocalInitializer": "AC_LINIT",
-    "InferredInitializer": "AC_INFER"
+    "InferredInitializer": "AC_INFER",
+    "SelectSubject": "AC_PICK",
+    "BeginCase": "AC_CASE",
+    "CaseElse": "AC_OTHER",
+    "CaseLabels": "AC_LABEL",
+    "CaseBody": "AC_TAKEN",
+    "EndCase": "AC_SHUT",
+    "EndSelect": "AC_FINAL"
   },
   "equates": {
     "GR_STMT": "statement",
@@ -288,6 +300,30 @@
       "TokenNot"
     ],
     "InferredInitializer": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenType",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "SelectSubject": [
+      "TokenNumber",
+      "TokenCharacter",
+      "TokenTrue",
+      "TokenFalse",
+      "TokenName",
+      "TokenLeftParen",
+      "TokenType",
+      "TokenPlus",
+      "TokenMinus",
+      "TokenNot"
+    ],
+    "CaseLabels": [
       "TokenNumber",
       "TokenCharacter",
       "TokenTrue",
@@ -731,6 +767,51 @@
         "x:RuntimeExpression",
         "a:CommitStatementAssert",
         "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "statement",
+      "rhs": [
+        "TokenSelect",
+        "x:SelectSubject",
+        "TokenNewline",
+        "select-arms",
+        "a:EndSelect",
+        "TokenEnd",
+        "TokenNewline"
+      ]
+    },
+    {
+      "lhs": "select-arms",
+      "rhs": [
+        "TokenCase",
+        "a:BeginCase",
+        "case-arm"
+      ]
+    },
+    {
+      "lhs": "select-arms",
+      "rhs": []
+    },
+    {
+      "lhs": "case-arm",
+      "rhs": [
+        "TokenElse",
+        "a:CaseElse",
+        "TokenNewline",
+        "statement-sequence",
+        "a:EndCase"
+      ]
+    },
+    {
+      "lhs": "case-arm",
+      "rhs": [
+        "x:CaseLabels",
+        "TokenNewline",
+        "a:CaseBody",
+        "statement-sequence",
+        "a:EndCase",
+        "select-arms"
       ]
     },
     {
