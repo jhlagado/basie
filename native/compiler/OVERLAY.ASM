@@ -31,8 +31,8 @@
 ;                           OV_FTOI and OV_FOLD reach its entries),
 ;                           loaded above NAMES, at OV_AREA plus NAMES'
 ;                           records, when first needed and kept
-;    OV_OWNS   OWNERS.ASM   an owning record's owner descriptor written
-;                           (OV_OWNER reaches OW_DESC, its first byte),
+;    OV_OWNS   OWNERS.ASM   pool declarations and owners' descriptors
+;                           (OV_PCALL, for POOLS.ASM, reaches its entries),
 ;                           loaded above NAMES in FLOAT's place
 ;  A later overlay may load above another in the area, so that both are
 ;  there at once: FLOAT and OWNERS load after the predeclared names, which
@@ -155,29 +155,30 @@ OV_FCALL:                      ; A is the offset, HL the argument.
     PUSH DE                        ; Its address
     RET                            ; is jumped to; it returns above.
 
-;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the OWNERS overlay unless it is the one loaded last, and write the
-; owner descriptor of table type A, whose ordinal HL is (OW_DESC). IX and
-; IY, which loading may change, are kept.
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the OWNERS overlay unless it is the one loaded last, and run its
+; entry at offset A; A and the flags return as the entry leaves them. IX
+; and IY, which loading may change, are kept.
 
-OV_OWNER:                      ; A is the type, HL the ordinal.
+OV_PCALL:                      ; A is the entry's offset.
     PUSH IX                        ; Keep IX
     PUSH IY                        ; and IY,
-    PUSH HL                        ; the ordinal
-    PUSH AF                        ; and the type.
+    PUSH AF                        ; and the offset.
     LD   A,OV_OWNS                 ; The overlay
     CALL OV_LOAD                   ; is loaded, above NAMES.
-    POP  AF                        ; The type
-    POP  HL                        ; and the ordinal.
-    CALL .RUN                      ; The descriptor written.
+    POP  AF                        ; The offset
+    LD   HL,(OV_DIR+4*OV_OWNS)     ; from its load address
+    ADD  A,L                       ; is
+    LD   L,A                       ; the
+    ADC  A,H                       ; entry's
+    SUB  L                         ; address,
+    LD   H,A                       ; HL.
+    CALL .RUN                      ; Run it.
     POP  IY                        ; IY
-    POP  IX                        ; and IX again.
-    RET                            ; Done.
-.RUN:                          ; Jump to OW_DESC, HL kept:
-    PUSH HL                        ; its
-    LD   HL,(OV_DIR+4*OV_OWNS)     ; load address,
-    EX   (SP),HL                   ; on the stack,
-    RET                            ; is jumped to; it returns above.
+    POP  IX                        ; and IX again;
+    RET                            ; A and the flags are the entry's.
+.RUN:                          ; HL is the entry.
+    JP   (HL)                      ; It returns above.
 
 ;@ROUTINE IN C,HL OUT CARRY CLOBBERS A,DE,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read record C of BASIE.OVL to HL. Carry if it can't be read. B, C and

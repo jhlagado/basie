@@ -233,7 +233,10 @@ full. With `new` and the frees (67g.1b, `HANDLES.ASM`) the image grew
 again, and the workspaces and the source area moved another 1K up
 (`MM_WBASE` `$5C00`), so the source area is about 23.3K on a 62K system;
 with `select` on handles, $200 more (`$5E00`, about 22.8K), and $100 more
-after its review (`$5F00`, about 22.5K).
+after its review (`$5F00`, about 22.5K). The pool declarations' actions
+then moved into the `OWNERS` overlay (918 bytes with the descriptor
+writer), so the image shrank by 478 bytes, leaving room below `$5F00`
+for the rest of 67g.
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each
 scope from the control frames' counts.
