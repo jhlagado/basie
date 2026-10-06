@@ -285,43 +285,6 @@ SH_PRINT:                      ; HL is in the text.
     INC  HL                        ; Move to the next character.
     JR   SH_PRINT                  ; Print the rest.
 
-;@ROUTINE IN HL CLOBBERS A,B,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Print HL in decimal, without leading zeros.
-
-SH_NUM:                        ; HL is an unsigned word.
-    LD   B,0                       ; B becomes nonzero once a digit is printed.
-    LD   DE,10000                  ; A word has at most five digits.
-    CALL .DIGIT                    ; Print the ten thousands; HL keeps the rest.
-    LD   DE,1000                   ; Then the thousands.
-    CALL .DIGIT                    ; The rest is below 1000.
-    LD   DE,100                    ; Then the hundreds.
-    CALL .DIGIT                    ; The rest is below 100.
-    LD   DE,10                     ; Then the tens.
-    CALL .DIGIT                    ; The units are left in L.
-    LD   A,L                       ; A is the units digit, below ten.
-    ADD  A,'0'                     ; Make it a character.
-    JR   SH_CHAR                   ; Always print it, so zero prints as 0.
-
-;@ROUTINE IN B,DE,HL OUT B,HL CLOBBERS A,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Print the digit of HL for the power of ten DE, unless it is a leading zero,
-; and leave the remainder in HL. B becomes nonzero once a digit is printed.
-
-.DIGIT:                        ; HL is below ten times DE.
-    LD   A,'0'-1                   ; A counts the powers that fit, as a digit character.
-.COUNT:                        ; A is one less than the digit so far.
-    INC  A                         ; Count one more power.
-    OR   A                         ; Clear carry; A is a digit character, never zero.
-    SBC  HL,DE                     ; Take one power away.
-    JR   NC,.COUNT                 ; It fitted: try another.
-    ADD  HL,DE                     ; It did not: put it back, leaving the remainder.
-    CP   '0'                       ; Is the digit zero?
-    JR   NZ,.PRINT                 ; A nonzero digit always prints.
-    INC  B                         ; Test B for zero without changing it.
-    DEC  B                         ; Zero means no digit has been printed.
-    RET  Z                         ; This zero is leading, so skip it.
-.PRINT:                        ; A is a digit to print.
-    LD   B,1                       ; From now on zeros print; fall into SH_CHAR.
-
 ;@ROUTINE IN A CLOBBERS IX,IY
 ; Print A on the console, keeping AF, BC, DE and HL across the BDOS call.
 

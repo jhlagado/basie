@@ -19,6 +19,8 @@
 ;    MS_SHOWE  at OV_AREA: "Error N: text" for diagnostic HL (MS_FAIL's)
 ;    MS_SHOWD  at OV_AREA+3: the compiler's diagnostic, DG_CODE in DG_PART
 ;              at DG_POS (SH_DIAG's and SH_OVER's)
+;    SH_NUM    print HL in decimal; only diagnostics print numbers, so it is
+;              here rather than in the resident shell
 ;
 ;  The compiler's codes (DG_ in STATE.ASM) are the reference's numbers,
 ;  below DG_TOKEN and from 190 to 199, and two families MS_DIAG maps:
@@ -458,6 +460,44 @@ MS_TEXT:                       ; HL is the message number.
     POP  DE                        ; Restore DE
     POP  BC                        ; and BC.
     RET                            ; A is the byte, unless carry.
+
+;@ROUTINE IN HL CLOBBERS A,B,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Print HL in decimal, without leading zeros.
+
+SH_NUM:                        ; HL is an unsigned word.
+    LD   B,0                       ; B becomes nonzero once a digit is printed.
+    LD   DE,10000                  ; A word has at most five digits.
+    CALL .DIGIT                    ; Print the ten thousands; HL keeps the rest.
+    LD   DE,1000                   ; Then the thousands.
+    CALL .DIGIT                    ; The rest is below 1000.
+    LD   DE,100                    ; Then the hundreds.
+    CALL .DIGIT                    ; The rest is below 100.
+    LD   DE,10                     ; Then the tens.
+    CALL .DIGIT                    ; The units are left in L.
+    LD   A,L                       ; A is the units digit, below ten.
+    ADD  A,'0'                     ; Make it a character.
+    JP   SH_CHAR                   ; Always print it, so zero prints as 0.
+
+;@ROUTINE IN B,DE,HL OUT B,HL CLOBBERS A,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Print the digit of HL for the power of ten DE, unless it is a leading zero,
+; and leave the remainder in HL. B becomes nonzero once a digit is printed.
+
+.DIGIT:                        ; HL is below ten times DE.
+    LD   A,'0'-1                   ; A counts the powers that fit, as a digit character.
+.COUNT:                        ; A is one less than the digit so far.
+    INC  A                         ; Count one more power.
+    OR   A                         ; Clear carry; A is a digit character, never zero.
+    SBC  HL,DE                     ; Take one power away.
+    JR   NC,.COUNT                 ; It fitted: try another.
+    ADD  HL,DE                     ; It did not: put it back, leaving the remainder.
+    CP   '0'                       ; Is the digit zero?
+    JR   NZ,.PRINT                 ; A nonzero digit always prints.
+    INC  B                         ; Test B for zero without changing it.
+    DEC  B                         ; Zero means no digit has been printed.
+    RET  Z                         ; This zero is leading, so skip it.
+.PRINT:                        ; A is a digit to print.
+    LD   B,1                       ; From now on zeros print.
+    JP   SH_CHAR                   ; Print it and return.
 
 ; ---- data ------------------------------------------------------------------
 

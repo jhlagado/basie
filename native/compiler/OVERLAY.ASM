@@ -175,11 +175,8 @@ OV_TRY:                        ; A is the drive.
     INC  HL                        ; The next
     INC  DE                        ; bytes.
     DJNZ .CHECK                    ; Until all six match.
-    LD   HL,OV_AREA                ; The resident image's
-    LD   DE,-$0100                 ; bytes from $0100
-    ADD  HL,DE                     ; to OV_AREA,
-    LD   B,H                       ; BC
-    LD   C,L                       ; of them,
+    LD   BC,OV_AREA                ; The resident image's bytes,
+    DEC  B                         ; $0100 to OV_AREA, BC of them,
     LD   HL,$0100                  ; from there,
     LD   DE,0                      ; summed in DE.
 .SUM:                          ; BC bytes remain at HL.
