@@ -132,8 +132,8 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | `BLINK.COM` when `BASIE` chains to it | must end below the loader `BASIE` leaves under the BDOS entry, 77 bytes with its FCB; `BLINK` is 10.6K | — |
 | Option `T`, trap lookup (toolchain §8) | read and checked, then refused as not yet available | a later step |
 | Floating-point literals | refused (`DG_NYI`, Error 191) | the decimal-to-`f32` overlay (toolchain §7.3) |
-| Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; seven today: `COMMAND` 978 bytes, `START` 812, `NAMES` 947, `CHAIN` 448, `DIAG` 1,034, `PARTS` 915 and `FLOAT` 1,481, each loaded into the overlay area when needed | — |
-| Overlay area | 2,560 bytes after the 18,425-byte resident image: `FLOAT` loads 1,024 bytes in, above `NAMES`, and the others at the start; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
+| Overlays | 8 described by `BASIE.OVL` (`OV_DCAP`), in at most 255 records; seven today: `COMMAND` 978 bytes, `START` 812, `NAMES` 947, `CHAIN` 448, `DIAG` 1,034, `PARTS` 915 and `FLOAT` 1,329, each loaded into the overlay area when needed | — |
+| Overlay area | 2,432 bytes after the 18,425-byte resident image: `FLOAT` loads 1,024 bytes in, above `NAMES`, and the others at the start; the image and the area together must end below the compiler's workspace at `$5000` (`MM_WBASE`) | — |
 | A name in a diagnostic | its first 32 characters (`DG_ALEN`) | — |
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)

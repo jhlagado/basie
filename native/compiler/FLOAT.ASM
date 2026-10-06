@@ -40,7 +40,6 @@
 ;  An f32 constant is kept as its IEEE single bits in the first four bytes
 ;  of a five-byte value, the fifth zero (EXPR.ASM).
 
-FL_NB EQU  64                  ; Bytes of FL_N and FL_D.
 
 FL_BEG:                        ; The overlay's start: its entries.
     JP   FL_SCAN                   ; +0: a decimal literal.
@@ -938,17 +937,7 @@ FL_ESET:                       ; HL plus A.
 
 FL_CEND:                       ; End of the overlay's code (marker).
 
-; The overlay's workspace, after its code, in the overlay area.
+; The overlay's workspace, FL_WBEG to FL_WEND, is resident (MEMORY.ASM),
+; so that it takes no records of the overlay area.
 
-FL_N:   DS   FL_NB             ; N, the dividend.
-FL_D:   DS   FL_NB             ; D, the divisor.
-FL_Q:   DS   5                 ; q, the quotient, then the f32's bits.
-FL_E:   DS   2                 ; E, q's lowest bit's exponent.
-FL_SIGN: DS  1                 ; The result's sign, bit 7.
-FL_LOST: DS  1                 ; Nonzero when bits were lost in rounding.
-FL_MODE: DS  1                 ; Nonzero for a literal's rounding.
-FL_TEN: DS   2                 ; A literal's power of ten.
-FL_SIG: DS   2                 ; Its significant digits.
-FL_A:   DS   5                 ; a unpacked: sign, exponent, significand.
-FL_B:   DS   5                 ; b unpacked.
 FL_END:                        ; End of the overlay (marker).
