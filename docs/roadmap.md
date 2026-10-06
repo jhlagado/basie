@@ -143,6 +143,8 @@ Each stage keeps a working compiler, and the census runs on every commit.
 
 ## M8. Release
 
+[Stretch goals](stretch-goals.md) records candidates John requested for evaluation if capacity remains, plus a separate audit of inherited restrictions. It does not amend the frozen 1.0 language.
+
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
 | 69 | All | Large-program tests and stress tests | Test reports | Pass |
