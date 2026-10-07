@@ -1,0 +1,10 @@
+// A forward left open in an earlier part of a program larger than the
+// source area, reported in that part (67h.2).
+include "BIGFWD.BSI"
+include "BIGB.BSI"
+include "BIGC.BSI"
+
+sub main()
+    var t as u16
+    t = secondB(1)
+end

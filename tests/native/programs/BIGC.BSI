@@ -1,0 +1,99 @@
+// A part of BIGMAIN.BSI: it completes BIGA.BSI's forward.
+// The rest of BIGC's first lines make it about 7.5K, so that the
+// program's parts together exceed the source area: only one part's
+// bytes are in memory as it is compiled (67h.2).
+//
+// BIGC line 001: these bytes are read, ordered and dropped, then read again.
+// BIGC line 002: these bytes are read, ordered and dropped, then read again.
+// BIGC line 003: these bytes are read, ordered and dropped, then read again.
+// BIGC line 004: these bytes are read, ordered and dropped, then read again.
+// BIGC line 005: these bytes are read, ordered and dropped, then read again.
+// BIGC line 006: these bytes are read, ordered and dropped, then read again.
+// BIGC line 007: these bytes are read, ordered and dropped, then read again.
+// BIGC line 008: these bytes are read, ordered and dropped, then read again.
+// BIGC line 009: these bytes are read, ordered and dropped, then read again.
+// BIGC line 010: these bytes are read, ordered and dropped, then read again.
+// BIGC line 011: these bytes are read, ordered and dropped, then read again.
+// BIGC line 012: these bytes are read, ordered and dropped, then read again.
+// BIGC line 013: these bytes are read, ordered and dropped, then read again.
+// BIGC line 014: these bytes are read, ordered and dropped, then read again.
+// BIGC line 015: these bytes are read, ordered and dropped, then read again.
+// BIGC line 016: these bytes are read, ordered and dropped, then read again.
+// BIGC line 017: these bytes are read, ordered and dropped, then read again.
+// BIGC line 018: these bytes are read, ordered and dropped, then read again.
+// BIGC line 019: these bytes are read, ordered and dropped, then read again.
+// BIGC line 020: these bytes are read, ordered and dropped, then read again.
+// BIGC line 021: these bytes are read, ordered and dropped, then read again.
+// BIGC line 022: these bytes are read, ordered and dropped, then read again.
+// BIGC line 023: these bytes are read, ordered and dropped, then read again.
+// BIGC line 024: these bytes are read, ordered and dropped, then read again.
+// BIGC line 025: these bytes are read, ordered and dropped, then read again.
+// BIGC line 026: these bytes are read, ordered and dropped, then read again.
+// BIGC line 027: these bytes are read, ordered and dropped, then read again.
+// BIGC line 028: these bytes are read, ordered and dropped, then read again.
+// BIGC line 029: these bytes are read, ordered and dropped, then read again.
+// BIGC line 030: these bytes are read, ordered and dropped, then read again.
+// BIGC line 031: these bytes are read, ordered and dropped, then read again.
+// BIGC line 032: these bytes are read, ordered and dropped, then read again.
+// BIGC line 033: these bytes are read, ordered and dropped, then read again.
+// BIGC line 034: these bytes are read, ordered and dropped, then read again.
+// BIGC line 035: these bytes are read, ordered and dropped, then read again.
+// BIGC line 036: these bytes are read, ordered and dropped, then read again.
+// BIGC line 037: these bytes are read, ordered and dropped, then read again.
+// BIGC line 038: these bytes are read, ordered and dropped, then read again.
+// BIGC line 039: these bytes are read, ordered and dropped, then read again.
+// BIGC line 040: these bytes are read, ordered and dropped, then read again.
+// BIGC line 041: these bytes are read, ordered and dropped, then read again.
+// BIGC line 042: these bytes are read, ordered and dropped, then read again.
+// BIGC line 043: these bytes are read, ordered and dropped, then read again.
+// BIGC line 044: these bytes are read, ordered and dropped, then read again.
+// BIGC line 045: these bytes are read, ordered and dropped, then read again.
+// BIGC line 046: these bytes are read, ordered and dropped, then read again.
+// BIGC line 047: these bytes are read, ordered and dropped, then read again.
+// BIGC line 048: these bytes are read, ordered and dropped, then read again.
+// BIGC line 049: these bytes are read, ordered and dropped, then read again.
+// BIGC line 050: these bytes are read, ordered and dropped, then read again.
+// BIGC line 051: these bytes are read, ordered and dropped, then read again.
+// BIGC line 052: these bytes are read, ordered and dropped, then read again.
+// BIGC line 053: these bytes are read, ordered and dropped, then read again.
+// BIGC line 054: these bytes are read, ordered and dropped, then read again.
+// BIGC line 055: these bytes are read, ordered and dropped, then read again.
+// BIGC line 056: these bytes are read, ordered and dropped, then read again.
+// BIGC line 057: these bytes are read, ordered and dropped, then read again.
+// BIGC line 058: these bytes are read, ordered and dropped, then read again.
+// BIGC line 059: these bytes are read, ordered and dropped, then read again.
+// BIGC line 060: these bytes are read, ordered and dropped, then read again.
+// BIGC line 061: these bytes are read, ordered and dropped, then read again.
+// BIGC line 062: these bytes are read, ordered and dropped, then read again.
+// BIGC line 063: these bytes are read, ordered and dropped, then read again.
+// BIGC line 064: these bytes are read, ordered and dropped, then read again.
+// BIGC line 065: these bytes are read, ordered and dropped, then read again.
+// BIGC line 066: these bytes are read, ordered and dropped, then read again.
+// BIGC line 067: these bytes are read, ordered and dropped, then read again.
+// BIGC line 068: these bytes are read, ordered and dropped, then read again.
+// BIGC line 069: these bytes are read, ordered and dropped, then read again.
+// BIGC line 070: these bytes are read, ordered and dropped, then read again.
+// BIGC line 071: these bytes are read, ordered and dropped, then read again.
+// BIGC line 072: these bytes are read, ordered and dropped, then read again.
+// BIGC line 073: these bytes are read, ordered and dropped, then read again.
+// BIGC line 074: these bytes are read, ordered and dropped, then read again.
+// BIGC line 075: these bytes are read, ordered and dropped, then read again.
+// BIGC line 076: these bytes are read, ordered and dropped, then read again.
+// BIGC line 077: these bytes are read, ordered and dropped, then read again.
+// BIGC line 078: these bytes are read, ordered and dropped, then read again.
+// BIGC line 079: these bytes are read, ordered and dropped, then read again.
+// BIGC line 080: these bytes are read, ordered and dropped, then read again.
+// BIGC line 081: these bytes are read, ordered and dropped, then read again.
+// BIGC line 082: these bytes are read, ordered and dropped, then read again.
+// BIGC line 083: these bytes are read, ordered and dropped, then read again.
+// BIGC line 084: these bytes are read, ordered and dropped, then read again.
+
+private const scale = 7
+
+sub later
+    return u16(n) * scale + 1
+end
+
+sub showC() fails
+    writeText(console, "C: the third part\r\n") else fail
+end

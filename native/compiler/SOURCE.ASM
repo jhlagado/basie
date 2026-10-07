@@ -3,18 +3,21 @@
 ;==========================================================================
 ;
 ;  Present the program's source to the tokenizer as one ordered stream of
-;  bytes, drawn from the resident parts in stream order: each part after
-;  the parts it includes (spec 4.3.2). The START overlay (PARTS.ASM) has
-;  read every part into memory and described it in the part table before
-;  compilation begins, and the parts and the table stay resident until it
-;  finishes, so the adapter keeps only a pointer into the current part,
-;  its end and the position counters that diagnostics report.
+;  bytes, drawn from the parts in stream order: each part after the parts
+;  it includes (spec 4.3.2). The PARTS overlay (PARTS.ASM) has read every
+;  part and described it in the part table before compilation begins; the
+;  table stays until it finishes, but a part's bytes are loaded again, at
+;  MM_SRC, as it becomes current (SRC_BODY, SRC_LOAD), over the part before,
+;  so the source area holds the largest part rather than all of them. The
+;  adapter keeps a pointer into the current part, its end and the position
+;  counters that diagnostics report.
 ;
 ;  Principal entries:
 ;    SRC_PART  address a part's entry in the part table
 ;    SRC_FIND  find the part with a given number in the stream
 ;    SRC_OPEN  begin the compilation at the stream's first part
 ;    SRC_BODY make the stream's part A current, at its body
+;    SRC_LOAD  load a part's bytes again, at MM_SRC
 ;    SRC_INIT  make the byte range [HL,DE) the current part with identity A
 ;              (in PARTS.ASM, the PARTS overlay: only the loader uses it)
 ;    SRC_PEEK  return the current byte without consuming it
@@ -93,22 +96,36 @@ SRC_FIND:                      ; A is the number.
     JR   .LOOP                     ; Try it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Begin a compilation at the stream's first part, owing no line end.
+; Begin a compilation at the stream's first part, owing no line end, the
+; name heap starting below the part table.
 
 SRC_OPEN:
+    LD   A,(SRC_PCNT)              ; The part table's
+    DEC  A                         ; last entry,
+    CALL SRC_PART                  ; its bottom,
+    LD   (NH_PTR),HL               ; begins the name heap (TK_KEEP).
     XOR  A                         ; No boundary line end
     LD   (SRC_OWE),A               ; is owed; part zero of the stream
                                    ; is current; fall into SRC_BODY.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the stream's part A current at its body: the bytes after its
-; include lines, at the offset and line where they begin, in column one.
-; The tokenizer's line state starts afresh: no token yet on the line and
-; no open brackets.
+; include lines, at the offset and line where they begin, in column one,
+; its bytes loaded first unless they are (SRC_LOAD); no constant waits
+; after them yet (RG_PEND). The tokenizer's line state starts afresh: no
+; token yet on the line and no open brackets.
 
 SRC_BODY:                      ; A is the part's number.
     LD   (SRC_NUM),A               ; It is current.
     CALL SRC_FIND                  ; HL is its PT_NUM, B its index.
+    LD   A,(SRC_RES)               ; Are its bytes
+    CP   B                         ; the ones loaded?
+    JR   Z,.HERE                   ; Yes.
+    LD   A,B                       ; Otherwise
+    CALL SRC_LOAD                  ; they are loaded,
+    LD   A,(SRC_NUM)               ; and its entry
+    CALL SRC_FIND                  ; found again.
+.HERE:                         ; HL is its PT_NUM, B its index.
     INC  B                         ; Its index plus one
     LD   A,B                       ; is its identity
     LD   (SRC_ID),A                ; for diagnostics.
@@ -120,12 +137,46 @@ SRC_BODY:                      ; A is the part's number.
     LD   DE,(SRC_POS)              ; and the body's offset
     ADD  HL,DE                     ; give
     LD   (SRC_PTR),HL              ; the body's first byte.
+    LD   HL,(SRC_END)              ; Nothing waits
+    LD   (RG_PEND),HL              ; after its end.
     LD   HL,1                      ; The body
     LD   (SRC_COL),HL              ; begins in column one,
     DEC  HL                        ; with no token on its line (TK_LIVE)
     LD   (TK_LIVE),HL              ; and no bracket open (TK_NEST, after it).
     XOR  A                         ; A is zero;
     RET                            ; carry clear.
+
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load part table entry A again, at MM_SRC below the name heap (the PARTS
+; overlay's SH_AGAIN), then the overlays it displaced: NAMES, and the one
+; loaded last, which may be above it. DG_ROOM if its records do not fit.
+; IX and IY are kept.
+
+SRC_LOAD:                      ; A is the entry.
+    PUSH IX                        ; Keep IX
+    PUSH IY                        ; and IY.
+    LD   B,A                       ; The entry;
+    LD   A,(OV_CUR)                ; the overlay
+    PUSH AF                        ; loaded last, kept.
+    PUSH BC                        ; (the entry)
+    LD   A,OV_PARTS                ; The parts'
+    CALL OV_LOAD                   ; overlay
+    POP  AF                        ; loads entry A
+    LD   HL,(NH_PTR)               ; below the heap
+    CALL OV_AREA+3                 ; (SH_AGAIN).
+    POP  DE                        ; The overlay, D;
+    PUSH AF                        ; carry kept.
+    PUSH DE                        ; The names
+    LD   A,OV_NAMES                ; are
+    CALL OV_LOAD                   ; loaded again,
+    POP  AF                        ; and the one
+    CALL OV_LOAD                   ; before.
+    POP  AF                        ; Carry:
+    POP  IY                        ; IY
+    POP  IX                        ; and IX again.
+    RET  NC                        ; The part is loaded,
+    CALL DG_RAISE                  ; or too large
+    DB   DG_ROOM                   ; for the memory.
 
 ;@ROUTINE OUT A,CARRY,ZERO,DE,HL CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the current byte in A without consuming it, with carry clear and

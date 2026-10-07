@@ -1,0 +1,103 @@
+// A part of BIGMAIN.BSI: a forward completed by BIGC.BSI, and a routine
+// whose string literals end the part.
+// The rest of BIGA's first lines make it about 7.5K, so that the
+// program's parts together exceed the source area: only one part's
+// bytes are in memory as it is compiled (67h.2).
+//
+// BIGA line 001: these bytes are read, ordered and dropped, then read again.
+// BIGA line 002: these bytes are read, ordered and dropped, then read again.
+// BIGA line 003: these bytes are read, ordered and dropped, then read again.
+// BIGA line 004: these bytes are read, ordered and dropped, then read again.
+// BIGA line 005: these bytes are read, ordered and dropped, then read again.
+// BIGA line 006: these bytes are read, ordered and dropped, then read again.
+// BIGA line 007: these bytes are read, ordered and dropped, then read again.
+// BIGA line 008: these bytes are read, ordered and dropped, then read again.
+// BIGA line 009: these bytes are read, ordered and dropped, then read again.
+// BIGA line 010: these bytes are read, ordered and dropped, then read again.
+// BIGA line 011: these bytes are read, ordered and dropped, then read again.
+// BIGA line 012: these bytes are read, ordered and dropped, then read again.
+// BIGA line 013: these bytes are read, ordered and dropped, then read again.
+// BIGA line 014: these bytes are read, ordered and dropped, then read again.
+// BIGA line 015: these bytes are read, ordered and dropped, then read again.
+// BIGA line 016: these bytes are read, ordered and dropped, then read again.
+// BIGA line 017: these bytes are read, ordered and dropped, then read again.
+// BIGA line 018: these bytes are read, ordered and dropped, then read again.
+// BIGA line 019: these bytes are read, ordered and dropped, then read again.
+// BIGA line 020: these bytes are read, ordered and dropped, then read again.
+// BIGA line 021: these bytes are read, ordered and dropped, then read again.
+// BIGA line 022: these bytes are read, ordered and dropped, then read again.
+// BIGA line 023: these bytes are read, ordered and dropped, then read again.
+// BIGA line 024: these bytes are read, ordered and dropped, then read again.
+// BIGA line 025: these bytes are read, ordered and dropped, then read again.
+// BIGA line 026: these bytes are read, ordered and dropped, then read again.
+// BIGA line 027: these bytes are read, ordered and dropped, then read again.
+// BIGA line 028: these bytes are read, ordered and dropped, then read again.
+// BIGA line 029: these bytes are read, ordered and dropped, then read again.
+// BIGA line 030: these bytes are read, ordered and dropped, then read again.
+// BIGA line 031: these bytes are read, ordered and dropped, then read again.
+// BIGA line 032: these bytes are read, ordered and dropped, then read again.
+// BIGA line 033: these bytes are read, ordered and dropped, then read again.
+// BIGA line 034: these bytes are read, ordered and dropped, then read again.
+// BIGA line 035: these bytes are read, ordered and dropped, then read again.
+// BIGA line 036: these bytes are read, ordered and dropped, then read again.
+// BIGA line 037: these bytes are read, ordered and dropped, then read again.
+// BIGA line 038: these bytes are read, ordered and dropped, then read again.
+// BIGA line 039: these bytes are read, ordered and dropped, then read again.
+// BIGA line 040: these bytes are read, ordered and dropped, then read again.
+// BIGA line 041: these bytes are read, ordered and dropped, then read again.
+// BIGA line 042: these bytes are read, ordered and dropped, then read again.
+// BIGA line 043: these bytes are read, ordered and dropped, then read again.
+// BIGA line 044: these bytes are read, ordered and dropped, then read again.
+// BIGA line 045: these bytes are read, ordered and dropped, then read again.
+// BIGA line 046: these bytes are read, ordered and dropped, then read again.
+// BIGA line 047: these bytes are read, ordered and dropped, then read again.
+// BIGA line 048: these bytes are read, ordered and dropped, then read again.
+// BIGA line 049: these bytes are read, ordered and dropped, then read again.
+// BIGA line 050: these bytes are read, ordered and dropped, then read again.
+// BIGA line 051: these bytes are read, ordered and dropped, then read again.
+// BIGA line 052: these bytes are read, ordered and dropped, then read again.
+// BIGA line 053: these bytes are read, ordered and dropped, then read again.
+// BIGA line 054: these bytes are read, ordered and dropped, then read again.
+// BIGA line 055: these bytes are read, ordered and dropped, then read again.
+// BIGA line 056: these bytes are read, ordered and dropped, then read again.
+// BIGA line 057: these bytes are read, ordered and dropped, then read again.
+// BIGA line 058: these bytes are read, ordered and dropped, then read again.
+// BIGA line 059: these bytes are read, ordered and dropped, then read again.
+// BIGA line 060: these bytes are read, ordered and dropped, then read again.
+// BIGA line 061: these bytes are read, ordered and dropped, then read again.
+// BIGA line 062: these bytes are read, ordered and dropped, then read again.
+// BIGA line 063: these bytes are read, ordered and dropped, then read again.
+// BIGA line 064: these bytes are read, ordered and dropped, then read again.
+// BIGA line 065: these bytes are read, ordered and dropped, then read again.
+// BIGA line 066: these bytes are read, ordered and dropped, then read again.
+// BIGA line 067: these bytes are read, ordered and dropped, then read again.
+// BIGA line 068: these bytes are read, ordered and dropped, then read again.
+// BIGA line 069: these bytes are read, ordered and dropped, then read again.
+// BIGA line 070: these bytes are read, ordered and dropped, then read again.
+// BIGA line 071: these bytes are read, ordered and dropped, then read again.
+// BIGA line 072: these bytes are read, ordered and dropped, then read again.
+// BIGA line 073: these bytes are read, ordered and dropped, then read again.
+// BIGA line 074: these bytes are read, ordered and dropped, then read again.
+// BIGA line 075: these bytes are read, ordered and dropped, then read again.
+// BIGA line 076: these bytes are read, ordered and dropped, then read again.
+// BIGA line 077: these bytes are read, ordered and dropped, then read again.
+// BIGA line 078: these bytes are read, ordered and dropped, then read again.
+// BIGA line 079: these bytes are read, ordered and dropped, then read again.
+// BIGA line 080: these bytes are read, ordered and dropped, then read again.
+// BIGA line 081: these bytes are read, ordered and dropped, then read again.
+// BIGA line 082: these bytes are read, ordered and dropped, then read again.
+// BIGA line 083: these bytes are read, ordered and dropped, then read again.
+// BIGA line 084: these bytes are read, ordered and dropped, then read again.
+
+private const scale = 3
+
+forward sub later(n as u8) as u16
+
+sub firstA(n as u8) as u16
+    return later(n) * scale
+end
+
+sub showA() fails
+    writeText(console, "A: the first part, ") else fail
+    writeText(console, "dropped and loaded again\r\n") else fail
+end

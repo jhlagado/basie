@@ -220,9 +220,29 @@ SH_OVER:                       ; A is the limit's code.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Print the compiler's diagnostic DG_CODE, in DG_PART at DG_POS, through
-; the DIAG overlay (MS_SHOWD), its line not yet ended.
+; the DIAG overlay (MS_SHOWD), its line not yet ended, the part's bytes
+; loaded again first if another's are (SRC_RES).
 
 SH_TELL:                       ; DG_CODE, DG_PART and DG_POS are set.
+    LD   A,(DG_PART)               ; The part it names,
+    DEC  A                         ; its entry:
+    LD   HL,SRC_RES                ; its bytes
+    CP   (HL)                      ; are loaded,
+    JR   Z,.SHOW                   ; or none is,
+    INC  A                         ; or it names
+    JR   Z,.SHOW                   ; no part,
+    LD   A,(HL)                    ; or the parts
+    INC  A                         ; are still loading ($FF),
+    JR   Z,.SHOW                   ; their bytes all there.
+    LD   A,OV_PARTS                ; Otherwise
+    CALL OV_LOAD                   ; its bytes
+    LD   A,(SRC_PCNT)              ; are loaded
+    DEC  A                         ; again,
+    CALL SRC_PART                  ; below the part table
+    LD   A,(DG_PART)               ; (the heap is no longer
+    DEC  A                         ; needed), where they fit
+    CALL OV_AREA+3                 ; (SH_AGAIN).
+.SHOW:                         ; The part's bytes are loaded.
     LD   A,OV_DIAG                 ; The diagnostics' overlay,
     CALL OV_LOAD                   ; loaded,
     JP   OV_AREA+3                 ; prints it (MS_SHOWD); return.

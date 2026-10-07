@@ -377,6 +377,7 @@ const CLAIMED: Record<string, string[]> = {
     "COLWIDE",
     "PARSEINT",
   ],
+  "67h: a source larger than its area": ["BIGMAIN"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -923,6 +924,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67d: select on integers"],
     ...CLAIMED["67f: f32, and the programs of the library inside the subset"],
     ...CLAIMED["67g: pools and handle types"],
+    ...CLAIMED["67h: a source larger than its area"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1932,6 +1934,8 @@ const REFUSED_WITH_PARTS: Record<string, string> = {
   "an include of a string with more after it":
     "tests/native/programs/INCMORE.BSI",
   "an include of no name": "tests/native/programs/INCNONE.BSI",
+  "a forward left open in a part since replaced in memory":
+    "tests/native/programs/BIGOPEN.BSI",
 };
 
 const refusals: [string, string, string | undefined][] = [

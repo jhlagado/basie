@@ -12,7 +12,6 @@
 ;    DG_ISSUE  record diagnostic A at the current token and abandon the build
 ;    DG_AT     the same at the offset in the word at HL
 ;    DG_HERE   the same at the offset HL
-;    DG_SRC    the same at the source address HL, in any part
 ;    DG_NAMED  DG_ISSUE with argument 1 the current name's spelling
 ;    DG_RAISE  DG_ISSUE with the code in the byte after the CALL
 ;    DG_RNAME  DG_NAMED with the code in the byte after the CALL
@@ -91,52 +90,6 @@ DG_PLACE:
     LD   SP,(PR_SP)                ; Discard every frame above PR_BUILD's.
     SCF                            ; Carry reports the failure.
     RET                            ; Return from PR_BUILD.
-
-;@ROUTINE IN A,HL NORETURN
-; Record diagnostic A at the source address HL, in any part, and abandon
-; the build. The parts lie in memory in the order they were loaded, so
-; the part is the last whose start is not above the address.
-
-DG_SRC:
-    PUSH AF                        ; Keep the code.
-    LD   B,0                       ; The parts from the first,
-.NEXT:                         ; B is the next to try.
-    PUSH HL                        ; Keep the address.
-    LD   A,B                       ; The next part,
-    INC  A                         ; B+1:
-    LD   HL,SRC_PCNT               ; is there one?
-    CP   (HL)                      ; If not, part B
-    JR   Z,.LAST                   ; holds the address.
-    CALL .START                    ; DE is entry B+1's start.
-    POP  HL                        ; Is the address below it?
-    OR   A                         ; Clear carry:
-    SBC  HL,DE                     ; carry if so,
-    ADD  HL,DE                     ; which adding it back carries again.
-    JR   C,.FOUND                  ; Then part B holds it.
-    INC  B                         ; Otherwise
-    JR   .NEXT                     ; try the next part.
-.LAST:                         ; B is the last part.
-    POP  HL                        ; The address.
-.FOUND:                        ; Part B holds the address HL.
-    LD   A,B                       ; Its entry:
-    PUSH HL                        ; (the address kept)
-    CALL .START                    ; DE is its start.
-    POP  HL                        ; The address less it
-    OR   A                         ; is the
-    SBC  HL,DE                     ; offset.
-    INC  B                         ; The part's id,
-    LD   D,B                       ; and
-    POP  AF                        ; the
-    LD   E,A                       ; code.
-    JR   DG_PLACE                  ; Record them.
-.START:                        ; A is an entry's index.
-    CALL SRC_PART                  ; HL is the entry.
-    LD   DE,PT_START               ; Its
-    ADD  HL,DE                     ; start
-    LD   E,(HL)                    ; is
-    INC  HL                        ; DE.
-    LD   D,(HL)                    ; Done.
-    RET                            ; DE is the start.
 
 ;@ROUTINE NORETURN
 ; Raise the diagnostic whose code is the byte after the CALL: `CALL DG_RAISE`

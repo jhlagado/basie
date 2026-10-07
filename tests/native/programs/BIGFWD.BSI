@@ -1,0 +1,93 @@
+// A part of BIGOPEN.BSI: a forward it never completes, reported at the
+// program's end, when BIGB.BSI's bytes and BIGOPEN.BSI's have replaced
+// this part's, which are loaded again for its line and column.
+// The rest of BIGFWD's first lines make it about 7.5K, so that the
+// program's parts together exceed the source area: only one part's
+// bytes are in memory as it is compiled (67h.2).
+//
+// BIGFWD line 001: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 002: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 003: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 004: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 005: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 006: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 007: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 008: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 009: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 010: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 011: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 012: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 013: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 014: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 015: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 016: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 017: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 018: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 019: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 020: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 021: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 022: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 023: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 024: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 025: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 026: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 027: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 028: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 029: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 030: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 031: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 032: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 033: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 034: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 035: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 036: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 037: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 038: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 039: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 040: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 041: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 042: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 043: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 044: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 045: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 046: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 047: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 048: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 049: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 050: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 051: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 052: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 053: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 054: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 055: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 056: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 057: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 058: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 059: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 060: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 061: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 062: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 063: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 064: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 065: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 066: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 067: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 068: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 069: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 070: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 071: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 072: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 073: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 074: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 075: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 076: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 077: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 078: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 079: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 080: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 081: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 082: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 083: these bytes are read, ordered and dropped, then read again.
+// BIGFWD line 084: these bytes are read, ordered and dropped, then read again.
+
+forward sub never(n as u8) as u16

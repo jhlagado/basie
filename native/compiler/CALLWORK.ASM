@@ -162,12 +162,13 @@ RO_WEND EQU  RO_LLIM           ; End of the routine workspace.
 
 ; The part table and the source bytes stay outside the compiler workspace,
 ; at the top and the base of the source area, so the cursor keeps only
-; these five bytes (SOURCE.ASM).
+; these six bytes (SOURCE.ASM).
 SRC_PTAB EQU  RO_WEND          ; Word: the part table's top, above part 0.
 SRC_PCNT EQU  SRC_PTAB+2       ; Byte: the parts in the table.
 SRC_NUM EQU  SRC_PCNT+1        ; Byte: the current part's number in the stream.
 SRC_OWE EQU  SRC_NUM+1         ; Byte: nonzero once a part's last line end is returned.
-SRC_WEND EQU  SRC_OWE+1        ; End of the source cursor.
+SRC_RES EQU  SRC_OWE+1         ; Byte: the entry whose bytes are loaded, $FF while loading.
+SRC_WEND EQU  SRC_RES+1        ; End of the source cursor.
 ; PR_BUILD saves the caller's SP here, so that a diagnostic (DG_ISSUE)
 ; returns straight to the caller from any depth of the parse; the START
 ; overlay does the same while it loads the parts.

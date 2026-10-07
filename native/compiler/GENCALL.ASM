@@ -32,7 +32,7 @@
 ;  where it is declared, after the routine's, and its blob follows the
 ;  routine's, as the reference's list has them; the blob writer builds one
 ;  blob at a time, so the constant waits, staged in the free memory
-;  between the source's last part and the part table (RG_SPAN), until the
+;  between the current part and the name heap (RG_SPAN), until the
 ;  routine's blob is written (RG_DEFER, RG_CLOSE). Each waiting constant
 ;  is its ordinal, its size, its bytes, then its name's address and length.
 ;
@@ -146,43 +146,14 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   A,3                       ; Entry 3,
     JP   OV_CCALL                  ; run; return.
 
-;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Start the name heap (TK_KEEP) at the part table's bottom, growing down,
-; and the waiting constants at the source's end, growing up, before the
-; program is parsed. BC is kept.
+;@ROUTINE OUT HL,DE
+; Return in HL the current part's end and in DE the name heap's bottom
+; (NH_PTR): the memory between them is free while the part is compiled.
+; The flags and the other registers are kept.
 
-NH_INIT:                       ; The parts are loaded.
-    CALL RG_SPANP                  ; The source's end and the table's bottom:
-    LD   (RG_PEND),HL              ; the constants grow from one,
-    LD   (NH_PTR),DE               ; the heap from the other.
-    RET                            ; Done.
-
-;@ROUTINE OUT HL,DE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Return in HL the end of the source's last part and in DE the name heap's
-; bottom (NH_PTR): the memory between them is free while the program is
-; compiled. BC is kept.
-
-RG_SPAN:                       ; The parts are loaded.
-    CALL RG_SPANP                  ; The source's end,
+RG_SPAN:                       ; A part is current.
+    LD   HL,(SRC_END)              ; Its end,
     LD   DE,(NH_PTR)               ; and the heap's bottom.
-    RET                            ; Done.
-
-;@ROUTINE OUT HL,DE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Return in HL the end of the source's last part and in DE the part
-; table's bottom. BC is kept.
-
-RG_SPANP:                      ; The parts are loaded.
-    LD   A,(SRC_PCNT)              ; The last
-    DEC  A                         ; part's
-    CALL SRC_PART                  ; entry is the table's bottom.
-    PUSH HL                        ; Keep it.
-    LD   DE,PT_END                 ; Its bytes'
-    ADD  HL,DE                     ; end
-    LD   E,(HL)                    ; is
-    INC  HL                        ; the last
-    LD   D,(HL)                    ; loaded.
-    EX   DE,HL                     ; HL is it,
-    POP  DE                        ; DE the bottom.
     RET                            ; Done.
 
 ;@ROUTINE OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY

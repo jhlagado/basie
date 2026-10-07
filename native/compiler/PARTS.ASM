@@ -9,8 +9,9 @@
 ;  command line and every part it includes into memory above the
 ;  compiler's workspace and describes them in the part table (SOURCE.ASM).
 ;
-;  Principal entry:
+;  Principal entries:
 ;    SH_BEGIN  load the parts, at OV_AREA
+;    SH_AGAIN  load one part again, at OV_AREA+3
 ;
 ;  Includes (spec 4.3.2, D33). A part's include lines are read with the
 ;  tokenizer as the part is loaded: `include "NAME.TYP"`, then the line's
@@ -30,7 +31,11 @@
 ;  Memory. Each part's bytes are loaded at SH_LOADP, upward, and its entry
 ;  in the part table is made at SH_LIMIT, which then moves down to it, so
 ;  the table and the bytes grow towards each other; a record must fit
-;  below the table before it is read.
+;  below the table before it is read. A part's bytes are dropped once its
+;  include lines are read, so that only the parts whose includes are open
+;  are in memory at once; part 0 is left loaded at MM_SRC (SRC_RES). The
+;  compilation loads each part again, there, before it is compiled
+;  (SRC_BODY, SH_AGAIN), and the shell one a diagnostic names (SH_TELL).
 ;
 ;  Failure. A part named on the command line that is not on the disk
 ;  (L-MISSING) or one CP/M can't read (L-IO), and source too large for
@@ -43,6 +48,13 @@
 ;  table, so the read that finds a part's end needs no room.
 
 SH_STATE EQU  14               ; Bytes of the tokenizer's state, SRC_ID to TK_NEST.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The overlay's entries: OV_AREA, SH_BEGIN, and OV_AREA+3, SH_AGAIN.
+
+SH_ENTRY:                      ; At OV_AREA.
+    JP   SH_BEGIN                  ; SH_AGAIN follows at +3.
+    JP   SH_AGAIN                  ; At OV_AREA+3.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load the parts the command line names and every part they include, and
@@ -63,7 +75,8 @@ SH_BEGIN:                      ; At OV_AREA.
     LD   (SH_DEPTH),A              ; and no include open;
     LD   (SRC_OWE),A               ; while the parts load,
     DEC  A                         ; each is the last
-    LD   (SRC_PCNT),A              ; part of the stream
+    LD   (SRC_PCNT),A              ; part of the stream,
+    LD   (SRC_RES),A               ; each loaded where it is,
     DEC  A                         ; to the tokenizer
     LD   (SRC_NUM),A               ; (TK_ATEND).
     XOR  A                         ; The command line's parts in order,
@@ -94,8 +107,13 @@ SH_BEGIN:                      ; At OV_AREA.
     JR   C,.ROOTS                  ; Load it.
     LD   A,(SH_LCNT)               ; The parts loaded
     LD   (SRC_PCNT),A              ; are the stream's.
-    OR   A                         ; Carry clear: loaded.
-    RET                            ; The part table is complete.
+    LD   A,(SH_PCNT)               ; One part named:
+    SUB  1                         ; its bytes, part 0's,
+    LD   (SRC_RES),A               ; are still at MM_SRC;
+    RET  Z                         ; carry clear: loaded.
+    XOR  A                         ; Otherwise part 0
+    LD   HL,(SH_LIMIT)             ; is loaded again
+    JP   SH_AGAIN                  ; below the table; it fits.
 
 ;@ROUTINE IN HL OUT CARRY,HL CLOBBERS A,BC,DE,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry if a part loaded already has the drive and name at HL: HL then
@@ -331,6 +349,14 @@ SH_LOAD:                       ; HL is the part's name.
     JP   .LINE                     ; The next line.
 .DONE:                         ; The include lines are over.
     LD   HL,(SH_CUR)               ; The part's
+    LD   DE,PT_START               ; bytes
+    ADD  HL,DE                     ; are
+    LD   A,(HL)                    ; dropped:
+    INC  HL                        ; the next
+    LD   H,(HL)                    ; loads
+    LD   L,A                       ; at its
+    LD   (SH_LOADP),HL             ; start.
+    LD   HL,(SH_CUR)               ; The part's
     LD   DE,PT_NUM                 ; number
     ADD  HL,DE                     ; in the stream
     LD   A,(SH_SNUM)               ; is
@@ -392,6 +418,93 @@ SH_INAME:                      ; HL is the quote, A the length.
     LD   A,DG_INCL                 ; include-syntax,
     LD   HL,(SH_IPOS)              ; at the name;
     JP   DG_HERE                   ; no return.
+
+;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
+; Load part table entry A again, at MM_SRC, its whole records below the
+; limit HL, and make it the one loaded (SRC_RES): its length is its end
+; less its start, which become MM_SRC and MM_SRC plus the length. Carry if
+; its records would cross the limit, the bytes there kept. A part no
+; longer on the disk, or one CP/M can't read, does not return.
+
+SH_AGAIN:                      ; A is the entry, HL the limit.
+    PUSH AF                        ; Keep the entry
+    PUSH HL                        ; and the limit.
+    CALL SRC_PART                  ; HL is the entry,
+    LD   (SH_CUR),HL               ; named if it can't be read.
+    CALL SH_BLANK                  ; A clear FCB
+    LD   DE,SH_FCB                 ; takes
+    LD   BC,SH_SLOT                ; its drive
+    LDIR                           ; and name; HL is at its PT_START.
+    LD   DE,MM_SRC                 ; It loads at the base:
+    LD   C,(HL)                    ; its start,
+    LD   (HL),E                    ; BC,
+    INC  HL                        ; becomes
+    LD   B,(HL)                    ; the
+    LD   (HL),D                    ; base;
+    INC  HL                        ; its end
+    LD   A,(HL)                    ; less
+    SUB  C                         ; its
+    LD   C,A                       ; start
+    INC  HL                        ; is
+    LD   A,(HL)                    ; its
+    SBC  A,B                       ; length,
+    LD   B,A                       ; BC,
+    EX   DE,HL                     ; and the
+    ADD  HL,BC                     ; base plus it
+    EX   DE,HL                     ; its
+    LD   (HL),D                    ; new
+    DEC  HL                        ; end,
+    LD   (HL),E                    ; DE.
+    LD   HL,127                    ; Its whole
+    ADD  HL,BC                     ; records'
+    LD   A,L                       ; bytes,
+    AND  $80                       ; rounded
+    LD   L,A                       ; up,
+    LD   B,H                       ; are
+    LD   C,L                       ; BC;
+    LD   DE,MM_SRC                 ; from
+    ADD  HL,DE                     ; the base
+    EX   DE,HL                     ; they end
+    POP  HL                        ; at or
+    OR   A                         ; below
+    SBC  HL,DE                     ; the limit,
+    POP  DE                        ; (the entry, D)
+    RET  C                         ; or there is no room.
+    LD   A,C                       ; The records
+    RLA                            ; are their
+    LD   A,B                       ; bytes over
+    RLA                            ; 128,
+    PUSH AF                        ; kept.
+    LD   A,D                       ; The entry
+    LD   (SRC_RES),A               ; is the one loaded.
+    LD   DE,SH_FCB                 ; Open
+    LD   C,SH_OPEN                 ; the
+    CALL SH_BDOS                   ; part;
+    INC  A                         ; not on the disk ($FF):
+    LD   HL,(SH_CUR)               ; L-MISSING,
+    JP   Z,SH_MISS                 ; naming it.
+    POP  BC                        ; B records
+    LD   HL,MM_SRC                 ; to the base.
+.READ:                         ; HL is the next record's place.
+    LD   A,B                       ; None left:
+    OR   A                         ; carry clear,
+    RET  Z                         ; loaded.
+    PUSH BC                        ; Keep the count
+    PUSH HL                        ; and the place.
+    EX   DE,HL                     ; The record
+    LD   C,SH_DMA                  ; is read
+    CALL SH_BDOS                   ; there,
+    LD   DE,SH_FCB                 ; the
+    LD   C,SH_READ                 ; next
+    CALL SH_BDOS                   ; of the part.
+    POP  HL                        ; The place
+    POP  BC                        ; and the count.
+    OR   A                         ; Unread, or the file shorter:
+    JP   NZ,SH_RERR                ; L-IO.
+    LD   DE,128                    ; The next
+    ADD  HL,DE                     ; place,
+    DEC  B                         ; one fewer
+    JR   .READ                     ; to read.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open the part SH_FCB names: on its drive if it names one; otherwise on

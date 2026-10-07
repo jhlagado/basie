@@ -1,0 +1,14 @@
+// A program larger than the source area (67h.2): three parts of about
+// 7.5K each and this one. Each part is loaded again just before it is
+// compiled, over the part before, so the source area holds the largest.
+include "BIGB.BSI"
+include "BIGC.BSI"
+
+var total as u16
+
+sub main() fails
+    total = secondB(2) + later(1)
+    showA() else fail
+    showB() else fail
+    showC() else fail
+end
