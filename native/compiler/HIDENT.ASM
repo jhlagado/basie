@@ -343,3 +343,15 @@ HN_SLARG:                      ; A is the parameter's type.
 .PUSH:                         ; PUSH DE,
     LD   A,$D5                     ; two bytes
     JP   GX_PUSHA                  ; pushed; return.
+
+;@ROUTINE CLOBBERS HL,ZERO,SIGN,PARITY,HALFCARRY
+; `and` or `or` is next: a statement with a move inside an expression
+; waits (DG_NYI), for the reference's move-position rules (10.8) are not
+; yet followed; marked (HN_MVLG bit 1). A and the carry are kept.
+
+HN_LOGIC:                      ; The operator is next.
+    LD   HL,HN_MVLG                ; A move
+    BIT  0,(HL)                    ; in its statement
+    JP   NZ,TR_OPER                ; waits;
+    SET  1,(HL)                    ; else marked.
+    RET                            ; Back.

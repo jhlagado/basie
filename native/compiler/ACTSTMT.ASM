@@ -388,11 +388,7 @@ AC_STMT:
 .ORDINARY:                     ; Not predeclared.
     CALL RO_FIND                   ; A routine?
     JR   NZ,.ASSIGN                ; No: an assignment.
-    LD   HL,HN_SCALL               ; A statement's call
-    LD   (HL),1                    ; takes owning handles,
-    CALL RO_CALL                   ; parsed and generated,
-    LD   HL,HN_SCALL               ; and only
-    LD   (HL),0                    ; it;
+    CALL RO_CALL                   ; Parsed and generated;
     CALL HN_DISC                   ; a handle result is freed.
     JP   AC_ROUTE                  ; Attach its failure handling.
 .ASSIGN:                       ; The name is a variable.
@@ -561,7 +557,7 @@ AC_GOTO:
 AC_ASSRT:
     LD   HL,(TK_POS)               ; The offset of `assert`,
     LD   (AC_SPOS),HL              ; kept.
-    JR   AC_COND                   ; Expect a Boolean.
+    JR   AC_NOMOV                  ; Expect a Boolean.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitStatementAssert (assertStatement): a known condition must be the
@@ -630,6 +626,15 @@ AC_ARMS:
 AC_COND:
     LD   A,SY_BOOL                 ; A condition is a Boolean.
     JP   AC_WANT                   ; Expect it.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; A while's or an assert's condition, where no move may appear (10.8):
+; one waits (HN_MVLG bit 1, DG_NYI). Expect a Boolean.
+
+AC_NOMOV:                      ; The condition is next.
+    LD   HL,HN_MVLG                ; No move
+    SET  1,(HL)                    ; in it;
+    JR   AC_COND                   ; expect it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginIfBody: check the condition and branch to the next arm when it is
@@ -732,7 +737,7 @@ AC_WHILE:
     CALL EM_LDEF                   ; is here.
     LD   B,CT_FEXIT                ; The exit.
     CALL CT_NEW                    ; Allocate it.
-    JR   AC_COND                   ; Expect a Boolean condition.
+    JP   AC_NOMOV                  ; Expect a Boolean condition.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginWhileBody: check the condition and leave the loop when it is false.

@@ -303,6 +303,7 @@ EX_AND:
     CALL PR_PEEK                   ; Look at the next token.
     CP   TK_AND                    ; Another `and`?
     JR   NZ,EX_DONE                ; No: return the result.
+    CALL HN_LOGIC                  ; (No move in its statement.)
     LD   (EX_OPER),A               ; `and` is the pending operator.
     CALL PR_TAKE                   ; Consume it.
     POP  HL                        ; Recover the left value.
@@ -354,6 +355,7 @@ EX_ORS:                        ; A/HL is the result so far.
     JR   Z,.OPER                   ; Reduce it.
     CP   TK_OR                     ; An `or`?
     JR   NZ,EX_DONE                ; No: return the result.
+    CALL HN_LOGIC                  ; (No move in its statement.)
 .OPER:                         ; A is `or` or `xor`.
     LD   (EX_OPER),A               ; It is the pending operator.
     CALL PR_TAKE                   ; Consume it.

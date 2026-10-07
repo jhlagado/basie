@@ -185,8 +185,8 @@ HN_SEEN EQU  HN_MODE+1         ; Byte: nonzero once HN_SEG sees an owner.
 HN_AT EQU  HN_SEEN+1           ; Word: where HN_OWNV reports, or zero for the value.
 HN_RCK EQU  HN_AT+2            ; Word: the identifier slot RO_ASGN rechecks, or zero.
 HN_VKIND EQU  HN_RCK+2         ; Byte: FW_NONE or FW_VALUE, the last owning value's.
-HN_SCALL EQU  HN_VKIND+1       ; Byte: nonzero while a statement's call is parsed.
-HN_RETF EQU  HN_SCALL+1        ; Byte: nonzero once a return's owning value is read.
+HN_MVLG EQU  HN_VKIND+1        ; Byte: a statement's move (bit 0), and or or (bit 1).
+HN_RETF EQU  HN_MVLG+1        ; Byte: nonzero once a return's owning value is read.
 FW_PTR EQU  HN_RETF+1          ; Word: a snapshot's address (FLOW.ASM).
 FW_CB EQU  FW_PTR+2            ; Word: the routine FW_EACH runs.
 FW_PLACE EQU  FW_CB+2          ; Word: where a flow diagnostic is reported.

@@ -915,12 +915,6 @@ HN_ARG:                        ; A is the parameter's type.
     OR   A                         ; A slot-holder
     JP   M,HN_SLARG                ; takes a location.
     LD   E,A                       ; Kept.
-    LD   A,(HN_SCALL)              ; A statement's
-    OR   A                         ; call,
-    JP   Z,TR_OPER                 ; at
-    LD   A,(RO_DEPTH)              ; its
-    DEC  A                         ; own
-    JP   NZ,TR_OPER                ; depth?
     CALL HN_OWNV                   ; The value, in HL,
     CALL EM_HELP                   ; CALL
     DW   HP_LINK0                  ; LINK0.

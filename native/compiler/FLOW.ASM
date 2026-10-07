@@ -419,6 +419,8 @@ FW_STMT:                       ; Each symbol in scope:
     LD   A,(RO_BODY)               ; only
     OR   A                         ; in a body.
     RET  Z                         ; (Not.)
+    XOR  A                         ; No move, `and`
+    LD   (HN_MVLG),A               ; or `or` yet.
     LD   A,(RO_GLOBS)              ; From the routine's first
     LD   C,A                       ; symbol, C,
 .NEXT:                         ; to

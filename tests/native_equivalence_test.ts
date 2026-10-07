@@ -352,6 +352,7 @@ const CLAIMED: Record<string, string[]> = {
     "IDREC",
     "IDNEST",
     "IDNESTL",
+    "MOVEXPR",
   ],
 };
 
@@ -1677,6 +1678,29 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "an owner moved twice in one expression":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    g = eat(move x) + eat(move x)\nend\n",
+  "an owner used after its move in one expression":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    g = eat(move x) + x.value\nend\n",
+  "an owner copied to a call in an expression":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    g = eat(x)\nend\n",
+  "an owner used after a move in an expression":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    g = eat(move x)\n    g = x.value\nend\n",
+  "an owner moved in a condition used in the else arm":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    if eat(move x) = 1\n        g = 1\n    else\n        g = x.value\n    end\nend\n",
+  "an owner moved in an expression in a loop":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    while b\n        g = eat(move x)\n    end\nend\n",
+  "an owner moved in its own assignment's value":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    x.value = eat(take(move x))\nend\n",
+  "the statement rule": Deno.readTextFileSync(
+    "tests/conformance/storage/statement-rule.bsi",
+  ),
+  "a lease then a move in one statement": Deno.readTextFileSync(
+    "tests/conformance/storage/lease-then-move.bsi",
+  ),
+  "a move in an elseif condition": Deno.readTextFileSync(
+    "tests/conformance/storage/move-in-elseif-condition.bsi",
+  ),
   "a maybe-moved owner of another pool lent":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new leaves(1)\n    if g = 1\n        var b = move a\n    end\n    bump(a)\nend\n",
   "id of a value record parameter":

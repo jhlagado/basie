@@ -1,0 +1,59 @@
+// Owning arguments to calls inside expressions: moves, new and none.
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[8]
+
+var g as u8
+
+sub eat(n as nodes) as u8
+    return n.value
+end
+
+sub maybe(n as nodes?) as u8
+    select n
+    case some(m)
+        return m.value
+    case none
+    end
+    return '-'
+end
+
+sub wrap(v as u8) as nodes
+    return new nodes(v, none)
+end
+
+sub total() as u8
+    var a = new nodes(1, none)
+    return eat(move a) + 1
+end
+
+sub main() fails
+    var x = new nodes('A', none)
+    g = eat(move x)
+    writeByte(console, g) else fail
+    var y = new nodes('B', none)
+    if eat(move y) = 'B'
+        writeByte(console, 'b') else fail
+    end
+    writeByte(console, eat(wrap('C'))) else fail
+    writeByte(console, eat(new nodes('D', none)) + 1) else fail
+    writeByte(console, maybe(none)) else fail
+    var z as nodes? = new nodes('F', none)
+    select maybe(move z)
+    case 'F'
+        writeByte(console, 'f') else fail
+    case else
+    end
+    var w = new nodes(3, none)
+    var i as u8
+    for i = 1 to eat(move w)
+        writeByte(console, '0' + i) else fail
+    end
+    writeByte(console, '0' + total()) else fail
+    writeText(console, "\r\n") else fail
+end
