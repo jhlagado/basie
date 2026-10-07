@@ -179,7 +179,7 @@ PL_NCAP EQU  PL_CNT+1          ; Word: the capacity of the pool being declared.
 PL_NREC EQU  PL_NCAP+2         ; Byte: its record type.
 PL_ROWN EQU  PL_NREC+1         ; Byte: nonzero once a field of the record being declared owns.
 PL_OWNB EQU  PL_ROWN+1         ; AG_TCAP/8 bytes: a bit for each owning table type.
-PL_TAB EQU  PL_OWNB+3          ; PL_CAP entries:
+PL_TAB EQU  PL_OWNB+AG_TCAP/8  ; PL_CAP entries:
 PL_EORD EQU  0                 ;   word: the pool's ordinal, its information blob's;
 PL_EREC EQU  2                 ;   byte: its record type, zero while only forward;
 PL_EPRIV EQU  3                ;   byte: nonzero when it is private;

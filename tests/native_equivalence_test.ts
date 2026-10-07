@@ -377,7 +377,13 @@ const CLAIMED: Record<string, string[]> = {
     "COLWIDE",
     "PARSEINT",
   ],
-  "67h: the capacity tables": ["BIGMAIN", "MANYSYMS", "LIFTCON", "TYPESCOP"],
+  "67h: the capacity tables": [
+    "BIGMAIN",
+    "MANYSYMS",
+    "LIFTCON",
+    "TYPESCOP",
+    "TYPES48",
+  ],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */

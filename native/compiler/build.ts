@@ -157,7 +157,7 @@ async function build(): Promise<BasieImage> {
   if (at("SH_WEND") > at("MM_BLOB")) {
     throw new Error("the shell's workspace runs into the blob writer's");
   }
-  if (at("SH_WEND") > at("FL_WBEG") || at("FL_WEND") > at("MM_BLOB")) {
+  if (at("PL_WEND") > at("FL_WBEG") || at("FL_WEND") > at("LL_DEPTH")) {
     throw new Error("the FLOAT overlay's workspace overlaps its neighbours");
   }
   if (at("BL_WEND") > at("MM_SRC")) {

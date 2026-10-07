@@ -309,6 +309,8 @@ AC_ARRAY:
     LD   (HL),0                    ; Yes, this once:
     CALL AC_ITEM                   ; the element type,
     CALL PL_LATER                  ; neither a handle nor owning,
+    CP   AG_OLIM-AG_OPEN           ; one an open array's ID can hold
+    JP   NC,AG_EMETA               ; (DG_META, types, beyond),
     ADD  A,AG_OPEN                 ; makes the open array's ID,
     LD   (AG_CTYPE),A              ; the current type.
     RET                            ; Back to the engine.

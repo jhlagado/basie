@@ -253,7 +253,7 @@ AG_STEND EQU  AG_DSTK+2*AG_DCAP ; End of the aggregate scalars.
 ; shape and compared or copied as a block.
 AG_TTAB EQU  AG_STEND          ; First type descriptor.
 AG_TLEN EQU  4                 ; Bytes in one descriptor.
-AG_TCAP EQU  24                ; Descriptors; DG_META when exceeded.
+AG_TCAP EQU  48                ; Descriptors, IDs below AG_OPEN; DG_META when exceeded.
 AG_TLIM EQU  AG_TTAB+AG_TLEN*AG_TCAP ; Exclusive end of the type table.
 AG_TKIND EQU  0                ; Descriptor field: AG_KREC, KSTR or KARR.
 AG_TAUX EQU  1                 ; Descriptor field: element type or capacity.
@@ -267,7 +267,7 @@ AG_XLIM EQU  AG_XTAB+2*AG_TCAP ; Exclusive end of the extents.
 ; The record table: where each record type's fields lie in the field table.
 AG_RTAB EQU  AG_XLIM           ; First record entry.
 AG_RLEN EQU  2                 ; Bytes in one record entry.
-AG_RCAP EQU  16                ; Record types; DG_META when exceeded.
+AG_RCAP EQU  48                ; Record types; DG_META when exceeded.
 AG_RLIM EQU  AG_RTAB+AG_RLEN*AG_RCAP ; Exclusive end of the record table.
 AG_RFIDX EQU  0                ; Record field: index of its first field.
 AG_RFCNT EQU  1                ; Record field: number of fields.

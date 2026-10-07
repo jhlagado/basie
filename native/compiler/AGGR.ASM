@@ -23,7 +23,8 @@
 ;
 ;  Type IDs are one byte. IDs 1..8 are the scalars, the SY_ type codes
 ;  (STATE.ASM): u8, u16, Boolean, i8, i16, u32, i32 and f32; IDs from AG_FIRST
-;  index the type table AG_TTAB, 24 four-byte descriptors (AG_TCAP):
+;  index the type table AG_TTAB, 48 four-byte descriptors (AG_TCAP),
+;  IDs below the open arrays' (AG_OPEN):
 ;
 ;    +0  byte  kind: AG_KREC, AG_KSTR or AG_KARR
 ;    +1  byte  record ordinal, string capacity or array element type
