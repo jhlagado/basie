@@ -104,6 +104,9 @@ These terms are provisional, but the documents use them consistently.
   minimum capacities the toolchain guarantees.
 - [Test report](docs/test-report.md): what the test suite proves, the large
   programs and stress tests, and the limits they found.
+- [Version 2 plan](docs/version-2.md): enumerations and variants, typed
+  failure codes, expression blocks and routine values, and the room they
+  need.
 - [Implementation plan](docs/implementation-plan.md): how Basie will be built:
   a reference toolchain in TypeScript on Deno, then the native Z80 toolchain.
 - [Build pipeline](docs/build-pipeline.md): why Basie compiles to machine-code
