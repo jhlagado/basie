@@ -172,6 +172,7 @@ PR_PARSE:
     LD   HL,PL_DESC                ; the owner descriptors'
     LD   B,2*AG_TCAP               ; ordinals,
     CALL .WIPE                     ; none yet;
+    CALL NH_INIT                   ; The name heap starts;
     LD   HL,RO_BASE                ; and the routine state:
     LD   B,RO_STEND-RO_BASE        ; its counts and fields.
     LD   DE,LL_PARSE               ; Then parse the program

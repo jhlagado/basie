@@ -146,12 +146,32 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   A,3                       ; Entry 3,
     JP   OV_CCALL                  ; run; return.
 
+;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Start the name heap (TK_KEEP) at the part table's bottom, growing down,
+; and the waiting constants at the source's end, growing up, before the
+; program is parsed. BC is kept.
+
+NH_INIT:                       ; The parts are loaded.
+    CALL RG_SPANP                  ; The source's end and the table's bottom:
+    LD   (RG_PEND),HL              ; the constants grow from one,
+    LD   (NH_PTR),DE               ; the heap from the other.
+    RET                            ; Done.
+
 ;@ROUTINE OUT HL,DE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Return in HL the end of the source's last part and in DE the part
-; table's bottom: the memory between them is free while the program is
+; Return in HL the end of the source's last part and in DE the name heap's
+; bottom (NH_PTR): the memory between them is free while the program is
 ; compiled. BC is kept.
 
 RG_SPAN:                       ; The parts are loaded.
+    CALL RG_SPANP                  ; The source's end,
+    LD   DE,(NH_PTR)               ; and the heap's bottom.
+    RET                            ; Done.
+
+;@ROUTINE OUT HL,DE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Return in HL the end of the source's last part and in DE the part
+; table's bottom. BC is kept.
+
+RG_SPANP:                      ; The parts are loaded.
     LD   A,(SRC_PCNT)              ; The last
     DEC  A                         ; part's
     CALL SRC_PART                  ; entry is the table's bottom.

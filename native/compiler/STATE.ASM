@@ -100,7 +100,8 @@ RG_NAME EQU  RG_PATCH+2        ; Word: the routine's name, for the name stream.
 RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
 RG_FWD EQU  RG_NLEN+1          ; Byte: nonzero once a routine is declared forward.
 RG_PEND EQU  RG_FWD+1          ; Word: the end of the routine's waiting constants.
-GX_IMMV EQU  RG_PEND+2         ; Byte: the immediate of a frame byte's store (GX_DSTN).
+NH_PTR EQU  RG_PEND+2          ; Word: the name heap's bottom, which grows down.
+GX_IMMV EQU  NH_PTR+2         ; Byte: the immediate of a frame byte's store (GX_DSTN).
 TK_NBEG EQU  GX_IMMV+1         ; Word: the first digit of a decimal number (TOKEN.ASM).
 GX_PTO EQU  TK_NBEG+2          ; Byte: a narrowing's target's properties (GX_TRIM).
 EM_WEND EQU  GX_PTO+1          ; End of the emitter's state.

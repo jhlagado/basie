@@ -172,19 +172,54 @@ TK_SAME:                       ; HL: the name record to compare.
     RET                            ; The flags from TK_MATCH survive the pops.
 
 ;@ROUTINE IN HL OUT A,BC,HL
-; Retain the current name in the three-byte record at HL: its source
-; address, then its length. HL returns at the length byte, so that callers
-; step on to the fields that follow. The flags are preserved.
+; Retain the current name in the three-byte record at HL: its spelling's
+; address in the name heap, then its length. A spelling not yet in the
+; heap is copied below its bottom (NH_PTR), which must stay above the
+; waiting constants (RG_PEND; DG_ROOM otherwise); TK_PTR stays the
+; source's. HL returns at the length byte, so that callers step on to the
+; fields that follow. DE and the flags are preserved.
 
 TK_KEEP:                       ; HL: the record to fill.
-    LD   BC,(TK_PTR)               ; The name stays in the resident source.
+    PUSH DE                        ; DE,
+    PUSH AF                        ; the flags,
+    PUSH HL                        ; and the record, kept.
+    LD   HL,(TK_PTR)               ; The spelling:
+    LD   DE,(NH_PTR)               ; at or above
+    OR   A                         ; the heap's
+    SBC  HL,DE                     ; bottom,
+    ADD  HL,DE                     ; it is in it
+    JR   NC,.HEAP                  ; already.
+    LD   A,(TK_LEN)                ; Otherwise
+    LD   C,A                       ; its
+    LD   B,0                       ; length
+    EX   DE,HL                     ; below
+    SBC  HL,BC                     ; the bottom
+    PUSH HL                        ; (the new one)
+    LD   DE,(RG_PEND)              ; must stay
+    SBC  HL,DE                     ; above the
+    JR   C,.FULL                   ; waiting constants.
+    POP  DE                        ; DE is the copy:
+    LD   (NH_PTR),DE               ; the new bottom,
+    LD   HL,(TK_PTR)               ; the spelling
+    PUSH DE                        ; copied
+    LDIR                           ; there
+    POP  HL                        ; and kept.
+.HEAP:                         ; HL is the spelling in the heap.
+    LD   B,H                       ; BC
+    LD   C,L                       ; is it.
+    POP  HL                        ; The record:
+    POP  AF                        ; (the flags)
     LD   (HL),C                    ; Address, low byte.
     INC  HL                        ; Step to the high byte.
     LD   (HL),B                    ; Address, high byte.
     INC  HL                        ; Step to the length byte.
     LD   A,(TK_LEN)                ; Length of the name.
     LD   (HL),A                    ; Completes the record.
+    POP  DE                        ; DE again.
     RET                            ; A is the length and BC the address.
+.FULL:                         ; No room for the name:
+    CALL DG_RAISE                  ; the source's
+    DB   DG_ROOM                   ; memory.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS BC,DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a name whose first byte, a letter, is current, then look it up in
@@ -200,7 +235,7 @@ TK_WORD:                       ; The current byte is a letter.
     JR   NC,.DONE                  ; Any other byte ends the name, unconsumed.
     CALL SRC_TAKE                  ; Consume it; B survives.
     INC  B                         ; One more byte in the name.
-    JR   Z,TK_BAD                  ; 256 bytes: too long for TK_LEN.
+    JP   Z,TK_BAD                  ; 256 bytes: too long for TK_LEN.
     JR   .NAMELOOP                 ; Scan the next byte.
 .DONE:                         ; B is the name's length.
     LD   A,B                       ; Publish the length for the parser.
