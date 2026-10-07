@@ -108,12 +108,15 @@ SH_BEGIN:                      ; At OV_AREA.
     LD   A,(SH_LCNT)               ; The parts loaded
     LD   (SRC_PCNT),A              ; are the stream's.
     LD   A,(SH_PCNT)               ; One part named:
-    SUB  1                         ; its bytes, part 0's,
-    LD   (SRC_RES),A               ; are still at MM_SRC;
-    RET  Z                         ; carry clear: loaded.
-    XOR  A                         ; Otherwise part 0
+    DEC  A                         ; its bytes, part 0's,
+    JR   NZ,.AGAIN                 ; are still at MM_SRC,
+    LD   (SRC_RES),A               ; the ones loaded;
+    RET                            ; carry clear.
+.AGAIN:                        ; Otherwise part 0
     LD   HL,(SH_LIMIT)             ; is loaded again
-    JP   SH_AGAIN                  ; below the table; it fits.
+    CALL SH_AGAIN                  ; below the table,
+    RET  NC                        ; unless the entries made
+    JP   SH_LARGE                  ; since leave it no room.
 
 ;@ROUTINE IN HL OUT CARRY,HL CLOBBERS A,BC,DE,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry if a part loaded already has the drive and name at HL: HL then
@@ -423,8 +426,9 @@ SH_INAME:                      ; HL is the quote, A the length.
 ; Load part table entry A again, at MM_SRC, its whole records below the
 ; limit HL, and make it the one loaded (SRC_RES): its length is its end
 ; less its start, which become MM_SRC and MM_SRC plus the length. Carry if
-; its records would cross the limit, the bytes there kept. A part no
-; longer on the disk, or one CP/M can't read, does not return.
+; its records would cross the limit: nothing is read, SRC_RES and the bytes
+; at MM_SRC are kept, but the entry names MM_SRC. A part no longer on the
+; disk, or one CP/M can't read, does not return.
 
 SH_AGAIN:                      ; A is the entry, HL the limit.
     PUSH AF                        ; Keep the entry
@@ -470,13 +474,12 @@ SH_AGAIN:                      ; A is the entry, HL the limit.
     SBC  HL,DE                     ; the limit,
     POP  DE                        ; (the entry, D)
     RET  C                         ; or there is no room.
+    PUSH DE                        ; The entry, kept.
     LD   A,C                       ; The records
     RLA                            ; are their
     LD   A,B                       ; bytes over
     RLA                            ; 128,
     PUSH AF                        ; kept.
-    LD   A,D                       ; The entry
-    LD   (SRC_RES),A               ; is the one loaded.
     LD   DE,SH_FCB                 ; Open
     LD   C,SH_OPEN                 ; the
     CALL SH_BDOS                   ; part;
@@ -486,9 +489,9 @@ SH_AGAIN:                      ; A is the entry, HL the limit.
     POP  BC                        ; B records
     LD   HL,MM_SRC                 ; to the base.
 .READ:                         ; HL is the next record's place.
-    LD   A,B                       ; None left:
-    OR   A                         ; carry clear,
-    RET  Z                         ; loaded.
+    LD   A,B                       ; None
+    OR   A                         ; left:
+    JR   Z,.READ0                  ; loaded.
     PUSH BC                        ; Keep the count
     PUSH HL                        ; and the place.
     EX   DE,HL                     ; The record
@@ -505,6 +508,11 @@ SH_AGAIN:                      ; A is the entry, HL the limit.
     ADD  HL,DE                     ; place,
     DEC  B                         ; one fewer
     JR   .READ                     ; to read.
+.READ0:                        ; The part is loaded:
+    POP  AF                        ; the entry (D)
+    LD   (SRC_RES),A               ; is the one loaded.
+    OR   A                         ; Carry clear.
+    RET                            ; Done.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open the part SH_FCB names: on its drive if it names one; otherwise on
@@ -565,7 +573,8 @@ SH_RERR:                       ; SH_LOAD had a read status other than 0 or 1.
 
 ;@ROUTINE IN DE,HL NORETURN
 ; Report diagnostic HL with the part whose drive and name are at DE as its
-; argument, and fail.
+; argument, and fail; once the parts are loaded (SRC_RES not $FF), the
+; streams are open, and are deleted first (SH_SCRUB).
 
 SH_NAMED:                      ; HL is the message number.
     PUSH HL                        ; Keep it across the spelling.
@@ -573,6 +582,9 @@ SH_NAMED:                      ; HL is the message number.
     LD   DE,DG_ABUF                ; D:NAME.TYP,
     CALL SH_SPELL                  ; spelled there,
     LD   (DG_ARG1),HL              ; is argument 1.
+    LD   A,(SRC_RES)               ; Once the parts
+    INC  A                         ; are loaded,
+    CALL NZ,SH_SCRUB               ; the streams go.
     POP  HL                        ; The number.
     JP   MS_FAIL                   ; Print it and fail.
 

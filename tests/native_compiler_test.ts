@@ -34,7 +34,7 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
       ["NAMES", 947],
       ["CHAIN", 448],
       ["DIAG", 1047],
-      ["PARTS", 1074],
+      ["PARTS", 1089],
       ["FLOAT", 1460],
       ["OWNERS", 1645],
       ["CLOSE", 802],
@@ -55,4 +55,4 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
 const DIGEST =
   "5249f2372f1ca37a74cc13c34e6a46a64312d40f4462630c627ebbd84e19ae7d";
 const OVL_DIGEST =
-  "446d1116559e883f6b105e41e662c726e8cec592d0312b269384ecda9aacfff6";
+  "a84c9f393f7d3023eecb6d1153a7b73d61407fd19e77575240366f29694e32af";
