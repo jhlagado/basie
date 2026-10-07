@@ -832,9 +832,9 @@ HN_ISID:                       ; The NAME is current.
     RET                            ; Back.
 
 ;@ROUTINE IN A OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A parameter's type (CommitParameter): an owning handle, not var, is a
-; value in the frame; a var one an optional owner (a slot-holder,
-; var-parameter otherwise); an identifier waits (DG_NYI). An aggregate is
+; A parameter's type (CommitParameter): a handle, not var, is a value in
+; the frame, an identifier's four bytes; a var one an optional owner (a
+; slot-holder, var-parameter otherwise). An aggregate is
 ; accepted, but a var owning one that is no record, whose owner word is
 ; not yet passed, waits. A is kept; HL is not.
 
@@ -873,10 +873,8 @@ HN_PTYPE:                      ; A is the type.
 .EVAR:                         ; var on another handle:
     LD   A,DG_VARP                 ; var-parameter,
     JP   DG_KEPT                   ; at its name.
-.VALUE:                        ; A value:
-    BIT  1,A                       ; an identifier
-    JP   NZ,TR_OPER                ; waits.
-    RET                            ; Accepted.
+.VALUE:                        ; A value, an owner's
+    RET                            ; or an identifier's.
 
 ;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A result's type (SaveSubResult): an owning handle is returned in HL; an
@@ -915,10 +913,17 @@ HN_ARG:                        ; A is the parameter's type.
     OR   A                         ; A slot-holder
     JP   M,HN_SLARG                ; takes a location.
     LD   E,A                       ; Kept.
+    BIT  1,A                       ; An identifier's
+    JR   NZ,.ID                    ; value, or
     CALL HN_OWNV                   ; The value, in HL,
     CALL EM_HELP                   ; CALL
     DW   HP_LINK0                  ; LINK0.
     RET                            ; Pushed by the caller.
+.ID:                           ; an identifier's (toRegisters),
+    LD   HL,0                      ; reported at
+    LD   (HN_AT),HL                ; the value,
+    CALL HN_IDV                    ; in DEHL: PUSH DE, counted;
+    JP   HN_PSHDE                  ; the caller pushes HL.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; BeginReturnValue of a routine whose result is an owning handle of type

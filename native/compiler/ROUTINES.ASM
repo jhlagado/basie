@@ -311,8 +311,10 @@ RO_WORDS:
     JR   C,.WORD                   ; an i32
     CP   SY_F32+1                  ; or an f32,
     JR   C,.DONE                   ; or
-    CALL PL_ISHND                  ; a var owning handle,
-    JR   NC,.NOTH                  ; a slot-holder,
+    CALL PL_ISHND                  ; an identifier,
+    JR   NC,.NOTH                  ; or
+    BIT  1,A                       ; a var
+    JR   NZ,.DONE                  ; owning handle, a slot-holder,
     POP  AF                        ; whose
     PUSH AF                        ; owner
     OR   A                         ; word

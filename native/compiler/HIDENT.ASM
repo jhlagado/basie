@@ -329,20 +329,28 @@ HN_SLARG:                      ; A is the parameter's type.
     CALL GA_ADDR                   ; Its address, HL;
     LD   A,(RO_PPUSH)              ; its owner word:
     AND  8                         ; none after
-    JR   NZ,.ZERO                  ; a run-time index,
+    JR   NZ,HN_DEZ                 ; a run-time index,
     LD   HL,(RO_POWN)              ; else the place's
     LD   A,H                       ; slot word,
     OR   L                         ; if
-    JR   Z,.ZERO                   ; it has one:
+    JR   Z,HN_DEZ                  ; it has one:
     LD   DE,GX_DLDDE               ; LD E,(IX+n),
     CALL GX_FACC                   ; LD D,(IX+n+1);
-    JR   .PUSH                     ; or
-.ZERO:                         ; none:
-    CALL EM_SEQ                    ; LD DE,0.
-    DB   3,$11,0,0                 ; Then
-.PUSH:                         ; PUSH DE,
-    LD   A,$D5                     ; two bytes
-    JP   GX_PUSHA                  ; pushed; return.
+    JR   HN_PSHDE                  ; or none; then PUSH DE.
+
+;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD DE,0, then PUSH DE, counted as two bytes pushed (HN_PSHDE).
+
+HN_DEZ:                        ; No word:
+    CALL EM_SEQ                    ; LD DE,0;
+    DB   3,$11,0,0                 ; fall into HN_PSHDE.
+
+;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append PUSH DE, counted as two bytes pushed. BC is kept.
+
+HN_PSHDE:                      ; DE is set:
+    LD   A,$D5                     ; PUSH DE,
+    JP   GX_PUSHA                  ; two bytes; return.
 
 ;@ROUTINE CLOBBERS HL,ZERO,SIGN,PARITY,HALFCARRY
 ; `and` or `or` is next: a statement with a move inside an expression

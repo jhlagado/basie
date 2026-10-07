@@ -140,6 +140,9 @@ const CONFORMANCE: Record<string, string> = {
   REBIND: "tests/conformance/storage/rebind-links.bsi",
   IDNEST: "tests/conformance/storage/id-of-nested-at-start.bsi",
   IDNESTL: "tests/conformance/storage/id-of-nested-lease.bsi",
+  DLINKED: "tests/conformance/storage/doubly-linked.bsi",
+  FREEREU2: "tests/conformance/storage/free-several-then-reuse.bsi",
+  LRUCACHE: "tests/conformance/storage/lru-cache.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -354,6 +357,10 @@ const CLAIMED: Record<string, string[]> = {
     "IDNESTL",
     "MOVEXPR",
     "NEWEXPR",
+    "IDPARM",
+    "DLINKED",
+    "FREEREU2",
+    "LRUCACHE",
   ],
 };
 
@@ -1679,6 +1686,18 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "an owner for an identifier parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub look(i as id nodes?)\n    select i\n    case some(n)\n        g = n.value\n    case none\n    end\nend\nsub must(i as id nodes)\n    g = i.value\nend\nsub main()\n    var a = new nodes(1, none)\n    look(a)\nend\n",
+  "none for a non-optional identifier parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub look(i as id nodes?)\n    select i\n    case some(n)\n        g = n.value\n    case none\n    end\nend\nsub must(i as id nodes)\n    g = i.value\nend\nsub main()\n    must(none)\nend\n",
+  "an optional identifier for a non-optional parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub look(i as id nodes?)\n    select i\n    case some(n)\n        g = n.value\n    case none\n    end\nend\nsub must(i as id nodes)\n    g = i.value\nend\nsub main()\n    must(keep)\nend\n",
+  "another pool's identifier passed":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub look(i as id nodes?)\n    select i\n    case some(n)\n        g = n.value\n    case none\n    end\nend\nsub must(i as id nodes)\n    g = i.value\nend\nsub main()\n    var a = new leaves(1)\n    look(id(a))\nend\n",
+  "a number for an identifier parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub look(i as id nodes?)\n    select i\n    case some(n)\n        g = n.value\n    case none\n    end\nend\nsub must(i as id nodes)\n    g = i.value\nend\nsub main()\n    look(5)\nend\n",
+  "id of a moved owner passed":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub look(i as id nodes?)\n    select i\n    case some(n)\n        g = n.value\n    case none\n    end\nend\nsub must(i as id nodes)\n    g = i.value\nend\nsub main()\n    var a = new nodes(1, none)\n    var b = move a\n    look(id(a))\nend\n",
   "an owner moved twice in one expression":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar g as u8\nvar b as boolean\nsub eat(n as nodes) as u8\n    return n.value\nend\nsub maybe(n as nodes?) as u8\n    return 1\nend\nsub take(n as nodes) as nodes\n    return move n\nend\nsub main()\n    var x = new nodes(1, none)\n    g = eat(move x) + eat(move x)\nend\n",
   "an owner used after its move in one expression":

@@ -667,9 +667,9 @@ RO_ARGS:
     LD   DE,GX_DLDDE               ; HL kept
     CALL GX_FACC                   ; (ixWord),
     JR   .OWNER                    ; or
-.NOOWN:                        ; none:
-    CALL EM_SEQ                    ; LD DE,0;
-    DB   3,$11,0,0                 ; then
+.NOOWN:                        ; none: LD DE,0
+    CALL HN_DEZ                    ; and PUSH DE;
+    JR   .PUSH                     ; then
 .OWNER:                        ; PUSH DE,
     LD   A,$D5                     ; two bytes
     CALL GX_PUSHA                  ; pushed.
