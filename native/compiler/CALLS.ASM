@@ -138,7 +138,18 @@ RO_NAMED:
     CP   AG_FILE                   ; is a value
     JR   Z,.LOCAL                  ; in the frame too,
     CALL PL_ISHND                  ; as is
-    JR   C,.LOCAL                  ; a handle.
+    JR   NC,.NOTH                  ; a handle,
+    BIT  1,D                       ; but for a slot-holder (var),
+    JR   Z,.LOCAL                  ; an alias whose owner word
+    PUSH HL                        ; is
+    LD   H,B                       ; two
+    LD   L,C                       ; bytes
+    INC  HL                        ; above
+    INC  HL                        ; its
+    LD   (RO_POWN),HL              ; word.
+    POP  HL                        ; (H is RO_ESC.)
+    JR   .ALIAS                    ; Writable.
+.NOTH:                         ; Not a handle.
     BIT  0,D                       ; SY_PFROM: named in from,
     JR   Z,.OWNED                  ; its root
     DEC  H                         ; may be returned.
@@ -585,9 +596,11 @@ RO_ARGS:
     CALL GX_ZEXT                   ; and a byte widens, LD L,A, LD H,0.
     JR   .PUSH                     ; Push the word.
 .AGGR:                         ; A is the parameter's type, AG_VAR for var.
-    CALL PL_ISHND                  ; An owning handle's
-    JR   C,.HANDLE                 ; value.
     LD   B,A                       ; Keep it.
+    AND  $7F                       ; A handle's
+    CALL PL_ISHND                  ; value or
+    LD   A,B                       ; slot-holder's
+    JR   C,.HANDLE                 ; location.
     AND  $7F                       ; Without AG_VAR:
     CP   AG_FILE                   ; a File?
     JR   Z,.FILE                   ; Its value is passed.

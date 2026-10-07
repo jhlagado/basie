@@ -1,0 +1,34 @@
+// A slot-holder through an identifier after a run-time index.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+    kids as nodes?[2]
+end
+pool nodes as Node[8]
+var keep as id nodes?
+var root as nodes?
+var i as u8
+sub push(var l as nodes?, v as u8)
+    l = new nodes(v, none)
+end
+sub main() fails
+    root = new nodes('R', none)
+    keep = id(root)
+    i = 1
+    select keep
+    case some(k)
+        push(k.kids[i], 'K')
+    case none
+    end
+    select root
+    case some(r)
+        select r.kids[1]
+        case some(c)
+            writeByte(console, c.value) else fail
+        case none
+        end
+    case none
+    end
+    writeText(console, "\r\n") else fail
+end

@@ -280,3 +280,63 @@ HN_INPTH:                      ; A is the handle's type.
     LD   A,AC_LHND                 ; bound
     LD   (EX_RMETA),A              ; to it.
     RET                            ; Back to the engine.
+
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; An argument for slot-holder parameter A, var (argument): a path to an
+; owning location of the parameter's own type, optional (type-mismatch),
+; writable (not-writable) and not reached through an identifier
+; (slot-holder), each at the argument; used directly (noteDirect); its
+; address in HL and its owner word, the place's slot word or zero, LD DE
+; and PUSH DE; the caller pushes HL.
+
+HN_SLARG:                      ; A is the parameter's type.
+    AND  $7F                       ; Without var,
+    LD   C,A                       ; kept.
+    PUSH BC                        ; (on the stack)
+    CALL PR_SPOT                   ; The argument's
+    POP  BC                        ; start,
+    PUSH HL                        ; kept.
+    PUSH BC                        ; (the type)
+    LD   E,TK_NAME                 ; A path:
+    CALL PR_NEED                   ; its root, a symbol;
+    CALL SY_FIND                   ; a
+    JR   C,.PATH                   ; routine's
+    CALL RO_FIND                   ; name
+    LD   A,DG_CLASS                ; is
+    JP   Z,DG_NAMED                ; wrong-class.
+.PATH:                         ; Then
+    CALL RO_NAMED                  ; the rest, A its type.
+    POP  BC                        ; The parameter's:
+    POP  HL                        ; (at the argument)
+    CP   C                         ; the same
+    LD   A,DG_CLASH                ; (type-mismatch
+    JP   NZ,DG_HERE                ; otherwise),
+    LD   A,(RO_PRO)                ; writable
+    OR   A                         ; (not-writable
+    LD   A,DG_CONST                ; otherwise),
+    JP   NZ,DG_HERE                ; and
+    LD   A,(RO_PPUSH)              ; not through an identifier,
+    AND  $18                       ; unless a run-time index
+    CP   $10                       ; followed it
+    LD   A,DG_HOLDR                ; (slot-holder
+    JP   Z,DG_HERE                 ; otherwise).
+    LD   HL,(EX_START)             ; Used
+    LD   (FW_PLACE),HL             ; directly
+    CALL FW_SEEN                   ; (noteDirect).
+    CALL GA_ADDR                   ; Its address, HL;
+    LD   A,(RO_PPUSH)              ; its owner word:
+    AND  8                         ; none after
+    JR   NZ,.ZERO                  ; a run-time index,
+    LD   HL,(RO_POWN)              ; else the place's
+    LD   A,H                       ; slot word,
+    OR   L                         ; if
+    JR   Z,.ZERO                   ; it has one:
+    LD   DE,GX_DLDDE               ; LD E,(IX+n),
+    CALL GX_FACC                   ; LD D,(IX+n+1);
+    JR   .PUSH                     ; or
+.ZERO:                         ; none:
+    CALL EM_SEQ                    ; LD DE,0.
+    DB   3,$11,0,0                 ; Then
+.PUSH:                         ; PUSH DE,
+    LD   A,$D5                     ; two bytes
+    JP   GX_PUSHA                  ; pushed; return.

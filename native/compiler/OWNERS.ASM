@@ -728,8 +728,11 @@ OW_SEL:                        ; AC_BOUND is the handle's type.
     CALL Z,FW_SEEN               ; (noteDirect),
     CALL FW_USE                    ; then checkUsable.
     LD   C,8                       ; A handle select,
-    CALL FW_ALONE                  ; a lease
-    JR   NZ,.LOAD                  ; for the root alone,
+    LD   A,(RO_PKIND)              ; a lease for a local or
+    CP   GA_FRAME                  ; parameter in the frame (not
+    JR   NZ,.LOAD                  ; a slot-holder's location),
+    CALL FW_ALONE                  ; for the root alone,
+    JR   NZ,.LOAD                  ; and
     CALL FW_ROOT                   ; the routine's own owning local
     JR   NC,.LOAD                  ; (a tracked owner):
     LD   C,8+64                    ; bit 6.

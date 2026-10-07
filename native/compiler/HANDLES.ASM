@@ -839,12 +839,20 @@ HN_ISID:                       ; The NAME is current.
 HN_PTYPE:                      ; A is the type.
     CALL PL_ISHND                  ; Not a handle:
     JP   NC,PL_LATER               ; no owning aggregate yet; return.
-    BIT  1,A                       ; An identifier
-    JP   NZ,TR_OPER                ; waits,
-    LD   HL,RO_VARP                ; as
-    INC  (HL)                      ; does
-    DEC  (HL)                      ; a var
-    JP   NZ,TR_OPER                ; handle.
+    LD   HL,RO_VARP                ; A var handle,
+    INC  (HL)                      ; a slot-holder,
+    DEC  (HL)                      ; must be
+    JR   Z,.VALUE                  ; an optional
+    BIT  1,A                       ; owner
+    JR   NZ,.EVAR                  ; (var-parameter,
+    BIT  0,A                       ; at the
+    RET  NZ                        ; name).
+.EVAR:                         ; var on another handle:
+    LD   A,DG_VARP                 ; var-parameter,
+    JP   DG_KEPT                   ; at its name.
+.VALUE:                        ; A value:
+    BIT  1,A                       ; an identifier
+    JP   NZ,TR_OPER                ; waits.
     RET                            ; Accepted.
 
 ;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -881,6 +889,8 @@ HN_PEND:                       ; The body has ended.
 ; where the reference's rules for move in expressions apply (DG_NYI).
 
 HN_ARG:                        ; A is the parameter's type.
+    OR   A                         ; A slot-holder
+    JP   M,HN_SLARG                ; takes a location.
     LD   E,A                       ; Kept.
     LD   A,(HN_SCALL)              ; A statement's
     OR   A                         ; call,
@@ -990,7 +1000,9 @@ HN_SEG:                        ; B the first, C past the last.
     INC  HL                        ; byte,
     LD   A,(HL)                    ; an aggregate
     OR   SY_PARAM-SY_LOCAL         ; local's or
-    CP   SY_AGGR+SY_PARAM          ; parameter's?
+    LD   C,A                       ; parameter's,
+    AND  $FF-SY_PVAR               ; a slot-holder's
+    CP   SY_AGGR+SY_PARAM          ; too?
     JR   NZ,.NEXT                  ; No.
     INC  HL                        ; Its
     LD   E,(HL)                    ; offset,
@@ -1002,6 +1014,8 @@ HN_SEG:                        ; B the first, C past the last.
     JR   NC,.NEXT                  ; that
     AND  AG_HID                    ; owns?
     JR   NZ,.NEXT                  ; Not an identifier.
+    BIT  1,C                       ; A slot-holder (SY_PVAR)
+    JR   NZ,.HOLDER                ; is counted, never freed.
     LD   HL,HN_SEEN                ; One
     LD   (HL),H                    ; is seen (H nonzero).
     LD   A,(HN_MODE)               ; Only
@@ -1017,6 +1031,10 @@ HN_SEG:                        ; B the first, C past the last.
     POP  HL                        ; the slot
     LD   A,SY_U16                  ; is
     CALL GX_FPUT                   ; none.
+    JR   .NEXT                     ; Done.
+.HOLDER:                       ; A slot-holder: an owner a return
+    LD   A,(HN_MODE)               ; counts (hasOwners) when
+    LD   (HN_SEEN),A               ; looking; none to free.
 .NEXT:                         ; Symbol B is done.
     POP  BC                        ; The run:
     INC  B                         ; the next.

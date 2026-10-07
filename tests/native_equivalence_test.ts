@@ -133,6 +133,8 @@ const CONFORMANCE: Record<string, string> = {
   STALEHAN: "tests/conformance/storage/stale-handle-traps.bsi",
   STALEIDE: "tests/conformance/storage/stale-identifier-selects-none.bsi",
   OWNCYCLE: "tests/conformance/storage/ownership-cycle-traps.bsi",
+  SLOTHOLD: "tests/conformance/storage/slot-holder.bsi",
+  SELSLOT: "tests/conformance/storage/select-slot-holder.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -332,6 +334,11 @@ const CLAIMED: Record<string, string[]> = {
     "STALEIDE",
     "OWNCYCLE",
     "IDVAR",
+    "SLOTHOLD",
+    "SELSLOT",
+    "SLOTS",
+    "SLOTRET",
+    "SLOTIDX",
   ],
 };
 
@@ -1657,6 +1664,28 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "a var non-optional owning parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub f(var l as nodes)\nend\nsub main()\nend\n",
+  "a var identifier parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub f(var l as id nodes?)\nend\nsub main()\nend\n",
+  "a scalar for a slot-holder":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(g, 1)\nend\n",
+  "another pool's owner for a slot-holder":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(o, 1)\nend\n",
+  "a slot-holder through an identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    select keep\n    case some(k)\n        push(k.next, 1)\n    case none\n    end\nend\n",
+  "a slot-holder through a lease":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    select list\n    case some(k)\n        push(k.next, 1)\n    case none\n    end\nend\n",
+  "none for a slot-holder":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(none, 1)\nend\n",
+  "a move for a slot-holder":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(move list, 1)\nend\n",
+  "a non-optional owner for a slot-holder":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    var a as nodes = new nodes(1, none)\n    push(a, 1)\nend\n",
+  "a routine for a slot-holder":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(main, 1)\nend\n",
+  "a slot-holder copied":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar list as nodes?\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub f(var l as nodes?)\n    var a = l\nend\nsub main()\nend\n",
 };
 
 /** The code of a message number, from the message table. */

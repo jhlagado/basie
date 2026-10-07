@@ -58,8 +58,9 @@ FW_TRK:                        ; HL is a record.
     INC  HL                        ; On
     INC  HL                        ; to
     INC  HL                        ; its type,
-    OR   SY_PARAM-SY_LOCAL         ; an aggregate local's
-    CP   SY_AGGR+SY_PARAM          ; or parameter's?
+    AND  $FF-SY_PVAR               ; an aggregate local's
+    OR   SY_PARAM-SY_LOCAL         ; or parameter's,
+    CP   SY_AGGR+SY_PARAM          ; a slot-holder's too?
     LD   A,(HL)                    ; (the type)
     INC  HL                        ; (FW_STATE)
     JR   NZ,.NOT                   ; No.

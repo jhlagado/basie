@@ -1,0 +1,42 @@
+// Slot-holders: a moved-out place refilled, a returned owner, a fail.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var list as nodes?
+
+sub pop(var l as nodes?) as u8
+    select l
+    case some(n)
+        var v = n.value
+        var rest = move n.next
+        l = move rest
+        return v
+    case none
+    end
+    return 0
+end
+
+sub take(var l as nodes?) as nodes?
+    var t = move l
+    return move t
+end
+
+sub check(var l as nodes?) fails
+    var keep = new nodes(9, none)
+    select l
+    case none
+        fail 7
+    case some(x)
+    end
+end
+
+sub main() fails
+    list = new nodes('A', new nodes('B', none))
+    writeByte(console, pop(list)) else fail
+    var t = take(list)
+    check(list) else fail
+    writeText(console, "\r\n") else fail
+end

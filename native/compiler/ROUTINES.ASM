@@ -311,6 +311,14 @@ RO_WORDS:
     JR   C,.WORD                   ; an i32
     CP   SY_F32+1                  ; or an f32,
     JR   C,.DONE                   ; or
+    CALL PL_ISHND                  ; a var owning handle,
+    JR   NC,.NOTH                  ; a slot-holder,
+    POP  AF                        ; whose
+    PUSH AF                        ; owner
+    OR   A                         ; word
+    JP   P,.WORD                   ; follows
+    JR   .DONE                     ; its address; or
+.NOTH:                         ; not a handle:
     CP   AG_OLIM                   ; (past the open arrays
     JR   NC,.WORD                  ; one word)
     CP   AG_OPEN                   ; an open
