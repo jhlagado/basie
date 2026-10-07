@@ -5,9 +5,13 @@
 ;  Hold the program's ordinary names: constants, program variables, locals
 ;  and parameters, scalar and aggregate. Routine names live in the routine
 ;  table (ROUTINES.ASM) and record fields in the aggregate field table
-;  (AGGR.ASM); declarations check all three for collisions. The table is a
-;  bounded array searched linearly by exact spelling, with no hashing, and
-;  it lives for the whole compilation. Scopes are its prefixes: a routine's
+;  (AGGR.ASM); declarations check all three for collisions. The table is
+;  an array searched linearly by exact spelling, with no hashing, that
+;  lives for the whole compilation. It starts above the largest part, in
+;  whole records (SY_BTM, SRC_OPEN), and grows up as names are declared:
+;  the routine's waiting constants above it move up a record when it
+;  reaches them (RG_LIFT), and the name heap above them is the limit
+;  (DG_ROOM, `source size`). Scopes are its prefixes: a routine's
 ;  parameters and locals follow the program's names, each block's follow
 ;  its enclosing block's, and a block's end cuts the table back to where
 ;  it began (CT_BLOCK, AC_END). A scope is marked by the address of its
@@ -23,9 +27,9 @@
 ;    SY_CMT    commit the provisional symbol
 ;    SY_GET    return the current NAME's class/type and payload, or fail
 ;
-;  A record is ten bytes (SY_RECB), and the table holds SY_CAP (96):
+;  A record is ten bytes (SY_RECB):
 ;
-;    +0  word  address of the name's spelling in the resident source
+;    +0  word  address of the name's spelling in the name heap (TK_KEEP)
 ;    +2  byte  length of the spelling
 ;    +3  byte  class and type: SY_TMASK type, SY_CMASK storage class,
 ;              SY_TYPE for a type name, SY_AGGR for an aggregate
@@ -37,8 +41,7 @@
 ;              payload its low word
 ;    +9  byte  flags (SY_FLAGS): SY_FPRIV for a private declaration
 ;
-;  The source stays resident through compilation, so a record points at the
-;  spelling instead of copying it. A declaration is written in two steps:
+;  A declaration is written in two steps:
 ;  SY_NEW fills the record at SY_TOP, which SY_FIND does not see, and
 ;  SY_CMT (or SY_TAG) makes it visible only once the declaration's
 ;  initializer has been accepted. A failed declaration therefore never
@@ -105,7 +108,7 @@ SY_BITAT:                      ; A is the bit's index, HL the table.
 ; symbol. The provisional record at SY_TOP is not searched. B is preserved.
 
 SY_FIND:
-    LD   HL,SY_BASE                ; From the first record:
+    LD   HL,(SY_BTM)               ; From the first record:
 .LOOP:                         ; HL is the next to compare.
     LD   DE,(SY_TOP)               ; is it the provisional one?
     OR   A                         ; Then none matched,
@@ -122,7 +125,7 @@ SY_FIND:
 ; Write a provisional record for the current NAME token with class/type D
 ; and payload word BC. A name already a symbol raises DG_DUP when that
 ; symbol is in the current block (SY_HERE), or DG_HIDE when the new one
-; would hide it, and a full table raises DG_SYMS; none returns. The
+; would hide it; neither returns. The
 ; record stays invisible until SY_CMT.
 
 SY_NEW:
@@ -132,15 +135,9 @@ SY_NEW:
     POP  DE                        ; Restore the class/type in D.
     POP  BC                        ; Restore the payload.
     JR   C,.TAKEN                  ; Then it is a duplicate or hidden.
-    PUSH DE                        ; (the class/type)
-    LD   HL,(SY_TOP)               ; The provisional record
-    LD   DE,SY_LIM                 ; must be
-    OR   A                         ; inside
-    SBC  HL,DE                     ; the table:
-    ADD  HL,DE                     ; carry if so.
-    POP  DE                        ; The class/type again.
-    JR   NC,.FULL                  ; No: the table is full.
-    PUSH BC                        ; TK_KEEP takes BC for the spelling.
+    LD   HL,(SY_TOP)               ; The provisional record, below the
+    PUSH BC                        ; waiting constants (SY_CMT); TK_KEEP
+                                   ; takes BC for the spelling.
     CALL TK_KEEP                   ; Record the spelling; HL at the length.
     POP  BC                        ; Restore the payload.
     INC  HL                        ; Step to the class/type byte.
@@ -151,9 +148,6 @@ SY_NEW:
     LD   (HL),B                    ; Record its high byte.
     OR   A                         ; Report success with carry clear.
     RET                            ; The record awaits SY_CMT.
-.FULL:                         ; Every slot is in use.
-    LD   A,DG_SYMS                 ; Diagnostic: too many symbols.
-    JR   DG_ISSUE                  ; Report it; no return.
 .TAKEN:                        ; HL is the symbol of that name.
     CALL SY_HERE                   ; Is it in the current block?
     LD   A,DG_DUP                  ; Then the new one repeats it;
@@ -178,10 +172,13 @@ SY_TAG:
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; Commit the provisional symbol so that SY_FIND sees it; a private
 ; declaration's (AC_PRIV) is marked SY_FPRIV, to be hidden when its part
-; ends (AC_ENDP). Returns A zero with carry clear. BC and DE are kept.
+; ends (AC_ENDP). The next provisional record must end at or below the
+; routine's waiting constants, which otherwise move up a record (RG_LIFT,
+; DG_ROOM beyond). Returns A zero with carry clear. BC and DE are kept.
 
 SY_CMT:
-    PUSH DE                        ; Keep DE.
+    PUSH BC                        ; Keep BC
+    PUSH DE                        ; and DE.
     LD   HL,(SY_TOP)               ; The provisional record's
     LD   DE,SY_FLAGS               ; flags:
     ADD  HL,DE                     ; is the
@@ -193,8 +190,18 @@ SY_CMT:
     LD   (HL),A                    ; Recorded.
     LD   DE,SY_RECB-SY_FLAGS       ; The record
     ADD  HL,DE                     ; joins the table: the next
-    LD   (SY_TOP),HL               ; is the provisional one.
-    POP  DE                        ; DE again.
+    LD   (SY_TOP),HL               ; is the provisional one;
+    LD   DE,SY_RECB                ; its record
+    ADD  HL,DE                     ; must end
+    LD   DE,(RG_CBEG)              ; at or below
+    OR   A                         ; the waiting
+    SBC  HL,DE                     ; constants,
+    JR   C,.ROOM                   ; which
+    JR   Z,.ROOM                   ; otherwise
+    CALL RG_LIFT                   ; move up.
+.ROOM:                         ; The next record fits.
+    POP  DE                        ; DE
+    POP  BC                        ; and BC again.
     XOR  A                         ; Report success with carry clear.
     RET                            ; Return to the declaration.
 

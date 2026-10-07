@@ -377,7 +377,7 @@ const CLAIMED: Record<string, string[]> = {
     "COLWIDE",
     "PARSEINT",
   ],
-  "67h: a source larger than its area": ["BIGMAIN"],
+  "67h: the capacity tables": ["BIGMAIN", "MANYSYMS", "LIFTCON"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -924,7 +924,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67d: select on integers"],
     ...CLAIMED["67f: f32, and the programs of the library inside the subset"],
     ...CLAIMED["67g: pools and handle types"],
-    ...CLAIMED["67h: a source larger than its area"],
+    ...CLAIMED["67h: the capacity tables"],
   ];
   for (const name of run) {
     const disk = native(name);

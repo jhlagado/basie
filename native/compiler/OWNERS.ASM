@@ -652,7 +652,7 @@ OW_TNAME:                      ; A is the type.
     LD   C,A                       ; Kept.
     LD   HL,(SY_TOP)               ; The symbols, each, from the last:
 .LOOK:                         ; HL is past the next.
-    LD   DE,SY_BASE                ; Before
+    LD   DE,(SY_BTM)               ; Before
     OR   A                         ; the
     SBC  HL,DE                     ; first?
     ADD  HL,DE                     ; Then

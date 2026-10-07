@@ -96,14 +96,64 @@ SRC_FIND:                      ; A is the number.
     JR   .LOOP                     ; Try it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Begin a compilation at the stream's first part, owing no line end, the
-; name heap starting below the part table.
+; Begin a compilation at the stream's first part, owing no line end: the
+; name heap starts below the part table, the symbol table above the
+; largest part in whole records, where each part is loaded (SY_BTM), and
+; no constant waits above that (RG_CBEG, RG_PEND). DG_ROOM if they meet.
 
 SRC_OPEN:
     LD   A,(SRC_PCNT)              ; The part table's
     DEC  A                         ; last entry,
     CALL SRC_PART                  ; its bottom,
     LD   (NH_PTR),HL               ; begins the name heap (TK_KEEP).
+    LD   BC,0                      ; The largest part's length, BC,
+    LD   A,(SRC_PCNT)              ; of every part:
+.LARGE:                        ; A entries remain.
+    DEC  A                         ; Entry A,
+    PUSH AF                        ; (kept)
+    CALL SRC_PART                  ; HL; BC is kept:
+    LD   DE,PT_START               ; its
+    ADD  HL,DE                     ; start,
+    LD   E,(HL)                    ; DE,
+    INC  HL                        ; and
+    LD   D,(HL)                    ; its
+    INC  HL                        ; end,
+    LD   A,(HL)                    ; HL,
+    INC  HL                        ; give
+    LD   H,(HL)                    ; its
+    LD   L,A                       ; length,
+    OR   A                         ; HL;
+    SBC  HL,DE                     ; is it
+    PUSH HL                        ; longer
+    SBC  HL,BC                     ; than
+    POP  HL                        ; BC?
+    JR   C,.SHORT                  ; No.
+    LD   B,H                       ; Then it is
+    LD   C,L                       ; the longest yet.
+.SHORT:                        ; The next.
+    POP  AF                        ; Until
+    JR   NZ,.LARGE                 ; entry zero.
+    LD   HL,127                    ; Its whole
+    ADD  HL,BC                     ; records'
+    LD   A,L                       ; bytes
+    AND  $80                       ; above
+    LD   L,A                       ; the
+    LD   DE,MM_SRC                 ; base
+    ADD  HL,DE                     ; are where
+    LD   (SY_BTM),HL               ; the symbol table
+    LD   (SY_TOP),HL               ; begins;
+    LD   DE,SY_RECB                ; past its
+    ADD  HL,DE                     ; provisional record
+    LD   (RG_CBEG),HL              ; no constant
+    LD   (RG_PEND),HL              ; waits,
+    EX   DE,HL                     ; all below
+    LD   HL,(NH_PTR)               ; the name
+    OR   A                         ; heap,
+    SBC  HL,DE                     ; else
+    JR   NC,.FITS                  ; DG_ROOM.
+    CALL DG_RAISE                  ; The memory
+    DB   DG_ROOM                   ; is full.
+.FITS:                         ; The tables are ready.
     XOR  A                         ; No boundary line end
     LD   (SRC_OWE),A               ; is owed; part zero of the stream
                                    ; is current; fall into SRC_BODY.
@@ -111,9 +161,8 @@ SRC_OPEN:
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the stream's part A current at its body: the bytes after its
 ; include lines, at the offset and line where they begin, in column one,
-; its bytes loaded first unless they are (SRC_LOAD); no constant waits
-; after them yet (RG_PEND). The tokenizer's line state starts afresh: no
-; token yet on the line and no open brackets.
+; its bytes loaded first unless they are (SRC_LOAD). The tokenizer's line
+; state starts afresh: no token yet on the line and no open brackets.
 
 SRC_BODY:                      ; A is the part's number.
     LD   (SRC_NUM),A               ; It is current.
@@ -137,8 +186,6 @@ SRC_BODY:                      ; A is the part's number.
     LD   DE,(SRC_POS)              ; and the body's offset
     ADD  HL,DE                     ; give
     LD   (SRC_PTR),HL              ; the body's first byte.
-    LD   HL,(SRC_END)              ; Nothing waits
-    LD   (RG_PEND),HL              ; after its end.
     LD   HL,1                      ; The body
     LD   (SRC_COL),HL              ; begins in column one,
     DEC  HL                        ; with no token on its line (TK_LIVE)
@@ -147,13 +194,14 @@ SRC_BODY:                      ; A is the part's number.
     RET                            ; carry clear.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load part table entry A again, at MM_SRC below the name heap
-; (SH_AGAIN). DG_ROOM if its records do not fit. IX and IY are kept.
+; Load part table entry A again, at MM_SRC below the symbol table
+; (SH_AGAIN), which starts above the largest part. DG_ROOM if its records
+; do not fit. IX and IY are kept.
 
 SRC_LOAD:                      ; A is the entry.
     PUSH IX                        ; Keep IX
     PUSH IY                        ; and IY.
-    LD   HL,(NH_PTR)               ; Below the heap
+    LD   HL,(SY_BTM)               ; Below the symbol table
     CALL SH_AGAIN                  ; it is read.
     POP  IY                        ; IY
     POP  IX                        ; and IX again.

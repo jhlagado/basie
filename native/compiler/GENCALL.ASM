@@ -79,8 +79,11 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     LD   A,B                       ; And its length.
     LD   (RG_NLEN),A               ; Keep it.
     PUSH DE                        ; (the ordinal kept)
-    CALL RG_SPAN                   ; No constant
-    LD   (RG_PEND),HL              ; waits yet.
+    LD   HL,(SY_TOP)               ; No constant waits yet: they would
+    LD   DE,SY_RECB                ; follow the provisional
+    ADD  HL,DE                     ; symbol record.
+    LD   (RG_CBEG),HL              ; Their start
+    LD   (RG_PEND),HL              ; and end.
     POP  HL                        ; HL is the routine's ordinal.
     XOR  A                         ; Kind code, no root flag, no alignment.
     CALL BL_BEGIN                  ; Start the blob.
@@ -123,14 +126,55 @@ RG_RET:                        ; Control leaves the routine successfully.
     JP   EM_JUMP                   ; return.
 
 ;@ROUTINE OUT HL,DE
-; Return in HL the current part's end and in DE the name heap's bottom
-; (NH_PTR): the memory between them is free while the part is compiled.
-; The flags and the other registers are kept.
+; Return in HL the start of the routine's waiting constants (RG_CBEG),
+; above the symbol table, and in DE the name heap's bottom (NH_PTR): the
+; memory between them holds the constants and then is free. The flags and
+; the other registers are kept.
 
-RG_SPAN:                       ; A part is current.
-    LD   HL,(SRC_END)              ; Its end,
+RG_SPAN:                       ; A routine is open.
+    LD   HL,(RG_CBEG)              ; The constants' start,
     LD   DE,(NH_PTR)               ; and the heap's bottom.
     RET                            ; Done.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Move the routine's waiting constants, RG_CBEG to RG_PEND, up by a symbol
+; record, for the symbol table below them, which has reached them
+; (SY_CMT); DG_ROOM if they would reach the name heap.
+
+RG_LIFT:                       ; A record more is needed below them.
+    LD   HL,(RG_PEND)              ; Their end,
+    PUSH HL                        ; (kept)
+    LD   DE,SY_RECB                ; a record
+    ADD  HL,DE                     ; higher,
+    LD   (RG_PEND),HL              ; is theirs,
+    EX   DE,HL                     ; DE:
+    LD   HL,(NH_PTR)               ; it must stay
+    OR   A                         ; below the
+    SBC  HL,DE                     ; name heap,
+    POP  HL                        ; (the old end)
+    JR   C,.FULL                   ; else DG_ROOM.
+    LD   BC,(RG_CBEG)              ; Their bytes,
+    PUSH HL                        ; from their
+    OR   A                         ; start
+    SBC  HL,BC                     ; to the old
+    LD   B,H                       ; end,
+    LD   C,L                       ; BC,
+    POP  HL                        ; are
+    DEC  HL                        ; moved
+    DEC  DE                        ; from the
+    LD   A,B                       ; last
+    OR   C                         ; down
+    JR   Z,.MOVED                  ; (none:
+    LDDR                           ; none moved).
+.MOVED:                        ; They start
+    LD   HL,(RG_CBEG)              ; a record
+    LD   DE,SY_RECB                ; higher
+    ADD  HL,DE                     ; too.
+    LD   (RG_CBEG),HL              ; Done.
+    RET                            ; The record fits below them.
+.FULL:                         ; No room:
+    CALL DG_RAISE                  ; the memory
+    DB   DG_ROOM                   ; is full.
 
 ;@ROUTINE OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Keep the aggregate constant staged in AG_IBUF, AG_OSIZE bytes, named by

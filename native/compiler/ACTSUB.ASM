@@ -104,7 +104,7 @@ AC_ENDP:
     JR   .ROUTINE                  ; Until all are.
 .SYMBOLS:                      ; The symbols, all the program's.
     CALL PL_ENDP                   ; Forward pools must be complete.
-    LD   HL,SY_BASE                ; Each symbol:
+    LD   HL,(SY_BTM)               ; Each symbol:
 .SYMBOL:                       ; HL is the next record.
     LD   DE,(SY_TOP)               ; past
     OR   A                         ; the

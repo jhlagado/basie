@@ -1,0 +1,207 @@
+// More names than the native compiler's old fixed table held (96): 120
+// constants, 30 program variables and a routine with 40 locals, all
+// visible at once in it (67h.3: the symbol table grows above the
+// largest part).
+const c000 = 0
+const c001 = 1
+const c002 = 2
+const c003 = 3
+const c004 = 4
+const c005 = 5
+const c006 = 6
+const c007 = 7
+const c008 = 8
+const c009 = 9
+const c010 = 10
+const c011 = 11
+const c012 = 12
+const c013 = 13
+const c014 = 14
+const c015 = 15
+const c016 = 16
+const c017 = 17
+const c018 = 18
+const c019 = 19
+const c020 = 20
+const c021 = 21
+const c022 = 22
+const c023 = 23
+const c024 = 24
+const c025 = 25
+const c026 = 26
+const c027 = 27
+const c028 = 28
+const c029 = 29
+const c030 = 30
+const c031 = 31
+const c032 = 32
+const c033 = 33
+const c034 = 34
+const c035 = 35
+const c036 = 36
+const c037 = 37
+const c038 = 38
+const c039 = 39
+const c040 = 40
+const c041 = 41
+const c042 = 42
+const c043 = 43
+const c044 = 44
+const c045 = 45
+const c046 = 46
+const c047 = 47
+const c048 = 48
+const c049 = 49
+const c050 = 50
+const c051 = 51
+const c052 = 52
+const c053 = 53
+const c054 = 54
+const c055 = 55
+const c056 = 56
+const c057 = 57
+const c058 = 58
+const c059 = 59
+const c060 = 60
+const c061 = 61
+const c062 = 62
+const c063 = 63
+const c064 = 64
+const c065 = 65
+const c066 = 66
+const c067 = 67
+const c068 = 68
+const c069 = 69
+const c070 = 70
+const c071 = 71
+const c072 = 72
+const c073 = 73
+const c074 = 74
+const c075 = 75
+const c076 = 76
+const c077 = 77
+const c078 = 78
+const c079 = 79
+const c080 = 80
+const c081 = 81
+const c082 = 82
+const c083 = 83
+const c084 = 84
+const c085 = 85
+const c086 = 86
+const c087 = 87
+const c088 = 88
+const c089 = 89
+const c090 = 90
+const c091 = 91
+const c092 = 92
+const c093 = 93
+const c094 = 94
+const c095 = 95
+const c096 = 96
+const c097 = 97
+const c098 = 98
+const c099 = 99
+const c100 = 100
+const c101 = 101
+const c102 = 102
+const c103 = 103
+const c104 = 104
+const c105 = 105
+const c106 = 106
+const c107 = 107
+const c108 = 108
+const c109 = 109
+const c110 = 110
+const c111 = 111
+const c112 = 112
+const c113 = 113
+const c114 = 114
+const c115 = 115
+const c116 = 116
+const c117 = 117
+const c118 = 118
+const c119 = 119
+var g00 as u16
+var g01 as u16
+var g02 as u16
+var g03 as u16
+var g04 as u16
+var g05 as u16
+var g06 as u16
+var g07 as u16
+var g08 as u16
+var g09 as u16
+var g10 as u16
+var g11 as u16
+var g12 as u16
+var g13 as u16
+var g14 as u16
+var g15 as u16
+var g16 as u16
+var g17 as u16
+var g18 as u16
+var g19 as u16
+var g20 as u16
+var g21 as u16
+var g22 as u16
+var g23 as u16
+var g24 as u16
+var g25 as u16
+var g26 as u16
+var g27 as u16
+var g28 as u16
+var g29 as u16
+sub total() as u16
+    var l00 as u16 = c000
+    var l01 as u16 = c003
+    var l02 as u16 = c006
+    var l03 as u16 = c009
+    var l04 as u16 = c012
+    var l05 as u16 = c015
+    var l06 as u16 = c018
+    var l07 as u16 = c021
+    var l08 as u16 = c024
+    var l09 as u16 = c027
+    var l10 as u16 = c030
+    var l11 as u16 = c033
+    var l12 as u16 = c036
+    var l13 as u16 = c039
+    var l14 as u16 = c042
+    var l15 as u16 = c045
+    var l16 as u16 = c048
+    var l17 as u16 = c051
+    var l18 as u16 = c054
+    var l19 as u16 = c057
+    var l20 as u16 = c060
+    var l21 as u16 = c063
+    var l22 as u16 = c066
+    var l23 as u16 = c069
+    var l24 as u16 = c072
+    var l25 as u16 = c075
+    var l26 as u16 = c078
+    var l27 as u16 = c081
+    var l28 as u16 = c084
+    var l29 as u16 = c087
+    var l30 as u16 = c090
+    var l31 as u16 = c093
+    var l32 as u16 = c096
+    var l33 as u16 = c099
+    var l34 as u16 = c102
+    var l35 as u16 = c105
+    var l36 as u16 = c108
+    var l37 as u16 = c111
+    var l38 as u16 = c114
+    var l39 as u16 = c117
+    return l00 + l04 + l08 + l12 + l16 + l20 + l24 + l28 + l32 + l36 + c119
+end
+sub main() fails
+    g00 = c090
+    g06 = c096
+    g12 = c102
+    g18 = c108
+    g24 = c114
+    if total() + g00 + g24 = 863
+        writeText(console, "many names\r\n") else fail
+    end
+end

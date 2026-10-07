@@ -20,14 +20,15 @@
 ;                  routine's labels, ordinals, its waiting constants and
 ;                  the program's limits
 ;    +$0BB      3  parser lookahead
-;    +$0BE    966  symbol table: three marks, 96 records of ten bytes
-;    +$484    330  expression state, the folding scratch and the operand
+;    +$0BE      8  symbol table: its base and three marks (the records
+;                  are above the largest part, SYMBOLS.ASM)
+;    +$0C6    330  expression state, the folding scratch and the operand
 ;                  stack
-;    +$5CE    162  control: depth, fallthrough, eight frames of twenty
+;    +$210    162  control: depth, fallthrough, eight frames of twenty
 ;                  bytes
-;    +$670   1530  aggregate types, records, fields, array bounds, the
+;    +$2B2   1530  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$C6A         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$8AC         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -101,7 +102,8 @@ RG_NLEN EQU  RG_NAME+2         ; Byte: its length.
 RG_FWD EQU  RG_NLEN+1          ; Byte: nonzero once a routine is declared forward.
 RG_PEND EQU  RG_FWD+1          ; Word: the end of the routine's waiting constants.
 NH_PTR EQU  RG_PEND+2          ; Word: the name heap's bottom, which grows down.
-GX_IMMV EQU  NH_PTR+2         ; Byte: the immediate of a frame byte's store (GX_DSTN).
+RG_CBEG EQU  NH_PTR+2          ; Word: the start of the routine's waiting constants.
+GX_IMMV EQU  RG_CBEG+2         ; Byte: the immediate of a frame byte's store (GX_DSTN).
 TK_NBEG EQU  GX_IMMV+1         ; Word: the first digit of a decimal number (TOKEN.ASM).
 GX_PTO EQU  TK_NBEG+2          ; Byte: a narrowing's target's properties (GX_TRIM).
 EM_WEND EQU  GX_PTO+1          ; End of the emitter's state.
@@ -121,14 +123,13 @@ PR_LVAL EQU  EM_WEND+$01       ; Word: the buffered token's payload.
 SY_TOP EQU  EM_WEND+$03        ; Word: the provisional record, past the committed.
 SY_GTOP EQU  EM_WEND+$05       ; Word: SY_TOP as a body opens; AC_END drops locals to it.
 SY_BODY EQU  EM_WEND+$07       ; Word: the body's first record, zero outside one.
-SY_BASE EQU  EM_WEND+$09       ; First symbol record.
+SY_BTM EQU  EM_WEND+$09        ; Word: the first record, above the largest part.
 SY_RECB EQU  10                ; Bytes in one symbol record.
 SY_FLAGS EQU  9                ; Record offset of its flags.
 SY_FPRIV EQU  1                ; Flag: declared private (AC_PRIV).
 SY_AGT EQU  6                  ; Record offset of an aggregate's type ordinal.
 SY_VHI EQU  6                  ; Record offset of a constant's value's high bytes.
-SY_CAP EQU  96                 ; Symbol records in the table; DG_SYMS beyond.
-SY_LIM EQU  SY_BASE+SY_RECB*SY_CAP ; Exclusive end of the symbol table.
+SY_LIM EQU  SY_BTM+2           ; End of the symbol table's marks.
 
 ; Expression state (EXPR.ASM). An expression returns metadata in A (type
 ; in SY_TMASK, SY_KNOWN when the value is exact) and, when it is known,
