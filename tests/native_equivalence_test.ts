@@ -146,6 +146,7 @@ const CONFORMANCE: Record<string, string> = {
   IDFCOPY: "tests/conformance/storage/identifier-field-passed-as-copy.bsi",
   BOOLXOR: "tests/conformance/expressions/boolean-xor.bsi",
   IDFEQ: "tests/conformance/expressions/identifier-and-file-equality.bsi",
+  PARSEINT: "tests/conformance/library/parse-integers.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -374,6 +375,7 @@ const CLAIMED: Record<string, string[]> = {
     "OWNLOC",
     "OPSHORT",
     "COLWIDE",
+    "PARSEINT",
   ],
 };
 

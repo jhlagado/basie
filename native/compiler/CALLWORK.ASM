@@ -96,8 +96,8 @@ RO_BODY EQU  RO_BASE+$11       ; Byte: the body's first symbol plus one, zero ou
 AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
 AC_PRIV EQU  RO_BASE+$13       ; Byte: nonzero while a private declaration is parsed.
 SY_PRIV EQU  RO_BASE+$14       ; SY_CAP/8 bytes: a bit for each private symbol.
-RO_FROM EQU  SY_PRIV+SY_CAP/8  ; 8 bytes: a bit for each of RO_PCAP parameters, in from.
-RO_VARP EQU  RO_FROM+8         ; Byte: nonzero for a var parameter being parsed.
+RO_FROM EQU  SY_PRIV+SY_CAP/8  ; 20 bytes, RO_PCAP/8: a bit for each parameter, in from.
+RO_VARP EQU  RO_FROM+20         ; Byte: nonzero for a var parameter being parsed.
 RO_CRO EQU  RO_VARP+1          ; Byte: nonzero when the last call's result is read-only.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's
 ; Designator holds them, and the position of the index being parsed. The
@@ -122,7 +122,7 @@ GA_HELD EQU  3                 ; Place: computed, in HL.
 
 RO_RTAB EQU  RO_STEND          ; Routine table: RO_RCAP records.
 RO_RLEN EQU  12                ; Bytes in one routine record.
-RO_RCAP EQU  32                ; Routines besides main; DG_PROCS beyond.
+RO_RCAP EQU  64                ; Routines besides main; DG_PROCS beyond.
 RO_RLIM EQU  RO_RTAB+RO_RLEN*RO_RCAP ; Exclusive end of the routine table.
 RO_RNAME EQU  0                ; Word: address of the routine's name.
 RO_RNLEN EQU  2                ; Byte: length of the name.
@@ -136,7 +136,7 @@ RO_RARGS EQU  11               ; Byte: its arguments' bytes.
 
 RO_PTAB EQU  RO_RLIM           ; Parameter table: RO_PCAP records.
 RO_PLEN EQU  4                 ; Bytes in one parameter record.
-RO_PCAP EQU  64                ; Parameters of all routines; DG_PARAM beyond.
+RO_PCAP EQU  160               ; Parameters of all routines; DG_PARAM beyond.
 RO_PLIM EQU  RO_PTAB+RO_PLEN*RO_PCAP ; Exclusive end of the parameter table.
 RO_PNAME EQU  0                ; Word: address of the parameter's name.
 RO_PNLEN EQU  2                ; Byte: length of the name.
