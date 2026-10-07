@@ -595,8 +595,8 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 
 ### 3.25 Routines
 
-- **Compiler:** part of the 1,000 top-level names; native at 65.4 (e), 32
-  routines besides main (`RO_RCAP`).
+- **Compiler:** part of the 1,000 top-level names; native at 65.4 (e), 64
+  routines besides main (`RO_RCAP`, 32 until 67h).
 - **Format:** program ordinals, 64,480 (§3.27).
 - **Linker:** 2,000 program blobs minimum ([limits](limits.md) §5.2).
 - **Status:** compiler maximum TBD.
@@ -606,7 +606,7 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 - One combined minimum (1,000 names) covers variables, constants, routines,
   records and pools. **Check** that the native compiler has no smaller
   per-category table hiding inside it. Today it has two: 16 records
-  (`AG_RCAP`) and 32 routines (`RO_RCAP`).
+  (`AG_RCAP`) and 64 routines (`RO_RCAP`).
 - **Status:** TBD.
 
 ### 3.27 Object-format ordinals and counts
@@ -689,8 +689,8 @@ constant, a capacity diagnostic and a budget to argue.
 | Table | Native today | Basie target |
 | --- | --- | --- |
 | Symbol records | 96 (`SY_CAP`), nine bytes each, shared by the program's names and the current routine's parameters, locals and local constants, released at each block's end; the aggregate type and a scalar constant's five-byte value held in the record | §3.1, §3.2: at least 1,000 names and 128 locals; a hashed table with a name heap replaces it in step 67's capacity stage |
-| Routine records | 32 besides main (`RO_RCAP`), twelve bytes each, holding each routine's ordinal, need and argument bytes | §3.25 |
-| Parameters | 64 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine | §3.3: at least 32 per routine |
+| Routine records | 64 besides main (`RO_RCAP`), twelve bytes each, holding each routine's ordinal, need and argument bytes | §3.25 |
+| Parameters | 160 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine | §3.3: at least 32 per routine |
 | Calls nested in arguments | 8 (`RO_NCAP`); a call being parsed keeps its state on the machine stack | §3.21: call nesting |
 | Record types | 16 (`AG_RCAP`) | §3.7, §3.26 |
 | Fields | 48 in all records together (`AG_FCAP`) | §3.12: at least 64 per record |

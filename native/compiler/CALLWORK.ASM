@@ -9,22 +9,26 @@
 ;  from MM_WBASE ($6300).
 ;
 ;    Offset  Size  Block
-;    +$BF5     56  routine state: counts, the signature being parsed, the
+;    +$BF4     68  routine state: counts, the signature being parsed, the
 ;                  body's block, the declaration's part and visibility,
-;                  the private symbols, the from parameters, the call
-;                  being checked and the path in hand (RO_BASE)
-;    +$C2D    384  routine table: 32 records of twelve bytes (RO_RTAB)
-;    +$DAD    256  parameter table: 64 records of four bytes (RO_PTAB)
-;    +$EAD    288  the routine's string literals: 48 of six bytes (RO_LTAB)
-;    +$FCD      5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;                  the private symbols, the from parameters (a bit for
+;                  each of RO_PCAP), the call being checked and the path
+;                  in hand (RO_BASE)
+;    +$C38    768  routine table: 64 records of twelve bytes (RO_RTAB)
+;    +$F38    640  parameter table: 160 records of four bytes (RO_PTAB)
+;    +$11B8   288  the routine's string literals: 48 of six bytes (RO_LTAB)
+;    +$12D8     5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE)
-;    +$FD2      2  PR_SP, the stack DG_ISSUE restores
-;    +$FD4     43  unused, so that the LL(1) stack starts a page
-;    +$FFF     65  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1000, a page
+;    +$12DD     2  PR_SP, the stack DG_ISSUE restores
+;    +$12DF   119  the pools' table and the handles' and flows' state
+;                  (PL_CNT to PL_WEND)
+;    +$1356   169  unused, so that the LL(1) stack starts a page
+;    +$13FF    65  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1400, a page
 ;                  start, so a slot's address is the page and the depth)
-;    +$1040   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
+;    +$1440   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
 ;                  ranges of eight bytes (CT_RTAB)
-;    +$1232        LL_WEND, the end of the compiler workspace, 4,658 bytes
+;    +$163A    48  each table type's owner descriptor (PL_DESC)
+;    +$166A        LL_WEND, the end of the compiler workspace, 5,738 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and

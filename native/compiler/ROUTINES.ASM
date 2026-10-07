@@ -22,14 +22,14 @@
 ;    RO_DISP   give a parameter's argument displacement in the frame
 ;    RO_BIND   make a parameter a symbol at its argument's offset
 ;
-;  The routine table (RO_RTAB) holds 32 routines of twelve bytes, laid out
+;  The routine table (RO_RTAB) holds 64 routines of twelve bytes, laid out
 ;  in CALLWORK.ASM: the name, the parameters, the result type, the flags
 ;  (RO_FFAIL, RO_FOPEN while a forward awaits its body, RO_FFWD for one
 ;  declared forward, RO_FVRES for a var result, RO_FPRIV), the blob's
 ;  ordinal, the need once the body is complete and the bytes of the
 ;  arguments.
 ;
-;  The parameter table (RO_PTAB) holds 64 parameters of four bytes: the
+;  The parameter table (RO_PTAB) holds 160 parameters of four bytes: the
 ;  spelling's address and length, then the type, AG_VIEW for an open
 ;  string, AG_OPEN plus the element's for an open array, with AG_VAR for
 ;  a var parameter. A routine's parameters are consecutive entries;
