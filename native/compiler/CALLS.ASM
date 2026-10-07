@@ -1200,7 +1200,15 @@ RO_ASGN:                       ; A is the path's type.
     JP   EM_BYTE                   ; Append it; AC_ROUTE.
 .VALUE:                        ; A value of type A is wanted:
     CALL RO_KEEP                   ; the place kept across it,
-    CALL EX_RUN                    ; the value parsed,
+    LD   HL,RO_DEPTH               ; the value parsed, nested
+    INC  (HL)                      ; in the enclosing expression
+    DEC  (HL)                      ; inside a call's arguments
+    JR   Z,.TOP                    ; (a field of new there),
+    CALL EX_SUB                    ; or
+    JR   .GOT                      ; on
+.TOP:                          ; its
+    CALL EX_RUN                    ; own,
+.GOT:                          ; then
     CALL EX_STASH                  ; kept,
     CALL RO_BACK                   ; and the place back.
     RET                            ; D, E and HL describe the value.

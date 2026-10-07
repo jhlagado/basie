@@ -353,6 +353,7 @@ const CLAIMED: Record<string, string[]> = {
     "IDNEST",
     "IDNESTL",
     "MOVEXPR",
+    "NEWEXPR",
   ],
 };
 

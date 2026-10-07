@@ -1,0 +1,34 @@
+// new inside an expression: the enclosing expression's state survives
+// its fields, and an elseif after a move is a condition of its own.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var g as u8
+var w as u16
+var b as boolean
+sub eat(n as nodes) as u8
+    return n.value
+end
+sub big(n as nodes) as u16
+    return n.value
+end
+sub maybe(n as nodes?) as u8
+    return 1
+end
+sub main() fails
+    w = big(new nodes(1, none)) and not 0
+    g = g + eat(new nodes(1, none))
+    b = false and maybe(new nodes(1, none)) = 1
+    g = eat(new nodes(eat(new nodes(7, none)) + 1, none)) * 2
+    var x = new nodes(5, none)
+    if b
+        g = eat(move x)
+    elseif b and g = 1
+        g = 2
+    end
+    writeByte(console, '0' + g) else fail
+    writeText(console, "\r\n") else fail
+end

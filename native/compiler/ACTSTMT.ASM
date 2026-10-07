@@ -617,6 +617,8 @@ AC_IF:
 ; A new false-branch label for the next condition, which is expected.
 
 AC_ARMS:
+    XOR  A                         ; No move, `and` or `or`
+    LD   (HN_MVLG),A               ; in the condition yet.
     LD   B,CT_FDEST                ; The next arm's label.
     CALL CT_NEW                    ; Allocate it; fall into AC_COND.
 
