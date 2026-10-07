@@ -99,7 +99,7 @@ HN_TAIL:                       ; The value is read.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; `id(PATH)`, `id` taken (idExpression): the path an owning handle
-; location (not-owner at `id`; a record's identifier waits, DG_NYI), usable
+; location (not-owner at `id`; a record's is OW_IDREC's), usable
 ; (checkUsable); its handle loaded and CALL ID_MAKE, the identifier in
 ; DEHL. A returns its type, an identifier of the same pool, optional as
 ; the handle is.
@@ -144,9 +144,12 @@ HN_IDEX:                       ; `id` was the token.
 .NOT:                          ; Not an owner:
     CP   AG_FIRST                  ; a record's
     JR   C,.OWNER                  ; identifier
-    CP   AG_OPEN                   ; waits;
-    JP   C,TR_OPER                 ; anything else
-.OWNER:                        ; is not-owner,
+    CP   AG_OPEN                   ; (OW_IDREC,
+    JR   NC,.OWNER                 ; `id` staged
+    LD   (AC_BOUND),HL             ; in AC_BOUND,
+    LD   A,27                      ; entry 27);
+    JP   OV_PCALL                  ; return.
+.OWNER:                        ; Anything else is not-owner,
     LD   A,DG_OWNER                ; at
     JP   DG_HERE                   ; `id`.
 
@@ -159,7 +162,7 @@ HN_IDEX:                       ; `id` was the token.
 
 HN_IDV:                        ; E is the location's type.
     CALL HN_IDV0                   ; The value,
-    JP   HN_TAIL                   ; ending there; return.
+    JR   HN_TAIL                   ; ending there; return.
 
 HN_IDV0:                       ; E is the location's type.
     PUSH DE                        ; Kept.

@@ -833,12 +833,35 @@ HN_ISID:                       ; The NAME is current.
 
 ;@ROUTINE IN A OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A parameter's type (CommitParameter): an owning handle, not var, is a
-; value in the frame; a var handle (a slot-holder) or an identifier waits,
-; as does an owning aggregate (DG_NYI). A is kept; HL is not.
+; value in the frame; a var one an optional owner (a slot-holder,
+; var-parameter otherwise); an identifier waits (DG_NYI). An aggregate is
+; accepted, but a var owning one that is no record, whose owner word is
+; not yet passed, waits. A is kept; HL is not.
 
 HN_PTYPE:                      ; A is the type.
-    CALL PL_ISHND                  ; Not a handle:
-    JP   NC,PL_LATER               ; no owning aggregate yet; return.
+    CALL PL_ISHND                  ; A handle?
+    JR   C,.HANDLE                 ; Not:
+    LD   HL,RO_VARP                ; a value
+    INC  (HL)                      ; aggregate
+    DEC  (HL)                      ; is
+    RET  Z                         ; accepted;
+    PUSH AF                        ; (the type
+    PUSH DE                        ; and DE kept)
+    CALL PL_OWNS                   ; a var one, if owning,
+    JR   NC,.KEEP                  ; must be
+    POP  DE                        ; a record
+    POP  AF                        ; (an owning
+    PUSH AF                        ; array
+    PUSH DE                        ; waits).
+    CALL AG_DESC                   ; Its
+    LD   A,(HL)                    ; kind:
+    CP   AG_KREC                   ; a record?
+    JP   NZ,TR_OPER                ; If not, it waits.
+.KEEP:                         ; Accepted.
+    POP  DE                        ; DE
+    POP  AF                        ; and the type.
+    RET                            ; Back.
+.HANDLE:                       ; A handle:
     LD   HL,RO_VARP                ; A var handle,
     INC  (HL)                      ; a slot-holder,
     DEC  (HL)                      ; must be
@@ -1000,9 +1023,9 @@ HN_SEG:                        ; B the first, C past the last.
     INC  HL                        ; byte,
     LD   A,(HL)                    ; an aggregate
     OR   SY_PARAM-SY_LOCAL         ; local's or
-    LD   C,A                       ; parameter's,
-    AND  $FF-SY_PVAR               ; a slot-holder's
-    CP   SY_AGGR+SY_PARAM          ; too?
+    LD   C,A                       ; parameter's, var
+    AND  $FF-SY_PVAR-SY_PFROM      ; or from too,
+    CP   SY_AGGR+SY_PARAM          ; but no lease's?
     JR   NZ,.NEXT                  ; No.
     INC  HL                        ; Its
     LD   E,(HL)                    ; offset,
@@ -1011,7 +1034,7 @@ HN_SEG:                        ; B the first, C past the last.
     INC  HL                        ; its
     LD   A,(HL)                    ; type:
     CALL PL_ISHND                  ; a handle
-    JR   NC,.NEXT                  ; that
+    JR   NC,.AGGR                  ; that
     AND  AG_HID                    ; owns?
     JR   NZ,.NEXT                  ; Not an identifier.
     BIT  1,C                       ; A slot-holder (SY_PVAR)
@@ -1032,6 +1055,9 @@ HN_SEG:                        ; B the first, C past the last.
     LD   A,SY_U16                  ; is
     CALL GX_FPUT                   ; none.
     JR   .NEXT                     ; Done.
+.AGGR:                         ; An aggregate: if owning, a
+    CALL PL_OWNS                   ; parameter (owning locals wait)
+    JR   NC,.NEXT                  ; counted, never freed.
 .HOLDER:                       ; A slot-holder: an owner a return
     LD   A,(HN_MODE)               ; counts (hasOwners) when
     LD   (HN_SEEN),A               ; looking; none to free.

@@ -591,10 +591,10 @@ RO_ARGS:
     CALL GX_TOREG                  ; The value in the registers at type E.
     LD   A,E                       ; A word
     CALL GX_SIZE                   ; is pushed as it is;
-    JR   Z,.PUSH                   ; a long's high word first,
-    JR   NC,.OWNER                 ; PUSH DE, then the low word,
+    JP   Z,.PUSH                   ; a long's high word first,
+    JP   NC,.OWNER                 ; PUSH DE, then the low word,
     CALL GX_ZEXT                   ; and a byte widens, LD L,A, LD H,0.
-    JR   .PUSH                     ; Push the word.
+    JP   .PUSH                     ; Push the word.
 .AGGR:                         ; A is the parameter's type, AG_VAR for var.
     LD   B,A                       ; Keep it.
     AND  $7F                       ; A handle's
@@ -617,7 +617,34 @@ RO_ARGS:
     JR   .OWNER                    ; PUSH DE, the high word, then the low.
 .ADDRESS:                      ; An aggregate of type A, B with AG_VAR.
     PUSH BC                        ; Keep the parameter's type.
-    CALL RO_AGGR                   ; A is the argument's type, HL its address.
+    CALL PR_SPOT                   ; The argument's start, HL:
+    CP   TK_LPAR                   ; parenthesized,
+    JP   Z,TR_OPER                 ; it waits;
+    CP   TK_NAME                   ; a path begins with
+    JR   NZ,.VALUE                 ; a name
+    PUSH HL                        ; (the start
+    LD   HL,KW_ID                  ; kept)
+    LD   B,2                       ; other than
+    CALL TK_MATCH                  ; `id`;
+    POP  HL                        ; any other
+    JR   NC,.PATH                  ; value
+.VALUE:                        ; is parsed
+    PUSH HL                        ; whole
+    XOR  A                         ; and is
+    CALL EX_RUN                    ; no
+    POP  HL                        ; aggregate
+    LD   (EX_START),HL             ; (type-mismatch
+    JP   EX_EFIT                   ; at its start).
+.PATH:                         ; A path:
+    CALL RO_PART                   ; A is the argument's type:
+    POP  BC                        ; an owning
+    CALL PL_ISHND                  ; handle
+    JR   NC,.RECORD                ; lends
+    CALL HN_LEASA                  ; its record (a lease),
+    JR   .PUSH                     ; HL, pushed.
+.RECORD:                       ; Otherwise an aggregate:
+    PUSH BC                        ; (B kept)
+    CALL RO_AGGT                   ; HL its address.
     POP  BC                        ; B is the parameter's,
     CALL HN_ARGCK                  ; (not through an identifier)
     LD   C,A                       ; C the argument's:
@@ -950,6 +977,11 @@ RO_AGGR:
     CALL RO_PART                   ; Parse it; A is its type:
     CALL PL_ISHND                  ; a handle's value
     JP   C,TR_OPER                 ; waits (DG_NYI).
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; RO_AGGR after its path, of type A, is parsed and is no handle.
+
+RO_AGGT:                       ; A is the path's type.
     CP   AG_FIRST                  ; It must be an aggregate:
     JR   C,RO_EFIT                 ; `.length` and elements are not.
     CALL GA_ADDR                   ; Its address into HL;

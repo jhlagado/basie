@@ -1,0 +1,42 @@
+// id() of a record: a var record parameter lent a whole node, a lease,
+// and a record outside any pool.
+forward pool nodes
+
+record Node
+    value as u8
+    next as nodes?
+end
+
+pool nodes as Node[4]
+
+var keep as id nodes?
+var loose as Node
+
+sub mark(var n as Node)
+    keep = id(n)
+end
+
+sub show() fails
+    select keep
+    case some(k)
+        writeByte(console, k.value) else fail
+    case none
+        writeByte(console, '-') else fail
+    end
+end
+
+sub main() fails
+    var h = new nodes('A', none)
+    mark(h)
+    show() else fail
+    var list as nodes? = new nodes('B', none)
+    select list
+    case some(k)
+        keep = id(k)
+    case none
+    end
+    show() else fail
+    mark(loose)
+    show() else fail
+    writeText(console, "\r\n") else fail
+end

@@ -24,6 +24,8 @@
 ;    OW_ENDP   a part's or the program's end: forward pools completed
 ;    OW_SEL, OW_ARM, OW_ELSE, OW_TAKEN  a handle select's actions
 ;              (HSELECT.ASM's stubs), which load no other overlay
+;    OW_LEASA  a lease passed to a record parameter
+;    OW_IDREC  id(...) of a record (a lease or a var record parameter)
 
 ; Entries, a jump each at the overlay's start (OV_PCALL, OVERLAY.ASM).
 
@@ -35,7 +37,9 @@ OW_TAB:                        ; Entry 0:
     JP   OW_SEL                    ; 12: a handle select's subject;
     JP   OW_ARM                    ; 15: its arm's some or none;
     JP   OW_ELSE                   ; 18: its case else;
-    JP   OW_TAKEN                  ; 21: a some arm's binding.
+    JP   OW_TAKEN                  ; 21: a some arm's binding;
+    JP   OW_LEASA                  ; 24: a lease passed;
+    JP   OW_IDREC                  ; 27: id(...) of a record.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; ForwardPool: `forward pool NAME`, its line ended. The pool takes its
@@ -961,3 +965,156 @@ OW_TAKEN:                      ; The arm's body begins.
     LD   A,(AC_BOUND)              ; not
     AND  $FE                       ; optional.
     JR   .TAG                      ; Committed.
+
+;@ROUTINE OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; An argument for record parameter AC_BOUND (AG_VAR for var) whose path,
+; in hand, is handle type RO_OTYPE, a local's or parameter's usable
+; (checkUsable): a lease (7.14), an owner neither optional nor an
+; identifier of a pool of that record (type-mismatch otherwise), a local
+; or parameter (a call's result or an element waits, DG_NYI), the
+; routine's own owning local or parameter alone (lease otherwise), each
+; at the argument; used directly (noteDirect); its value in HL, and for a
+; var parameter PUSH HL first, the owner word being the record itself.
+
+OW_LEASA:                      ; The path is parsed:
+    LD   A,(RO_PKIND)              ; a local's or
+    CP   GA_FRAME                  ; parameter's
+    CALL Z,FW_USE                  ; usable (checkUsable);
+    LD   A,(AC_BOUND)              ; the parameter's
+    LD   B,A                       ; type, B;
+    LD   A,(RO_OTYPE)              ; the path's,
+    LD   C,A                       ; C:
+    AND  3                         ; An owner, not optional
+    JP   NZ,EX_EFIT                ; (type-mismatch otherwise),
+    LD   A,C                       ; of a pool
+    PUSH BC                        ; whose
+    CALL HN_REC                    ; record
+    POP  BC                        ; is the
+    LD   C,A                       ; parameter's
+    LD   A,B                       ; type
+    AND  $7F                       ; (type-mismatch
+    CP   C                         ; otherwise),
+    JP   NZ,EX_EFIT                ; at the argument;
+    LD   A,(RO_PKIND)              ; a local or parameter
+    CP   GA_FRAME                  ; (a call's result or an
+    JP   NZ,TR_OPER                ; element waits),
+    PUSH BC                        ; (kept)
+    CALL FW_ALONE                  ; the root alone
+    JR   NZ,.LEASE                 ; (lease otherwise);
+    CALL FW_SEEN                   ; used directly (noteDirect);
+    LD   HL,(RO_PBASE)             ; its value,
+    LD   A,SY_U16                  ; LD L,(IX+d),
+    CALL GX_FLOAD                  ; LD H,(IX+d+1).
+    POP  BC                        ; A var parameter
+    BIT  7,B                       ; takes it
+    RET  Z                         ; as its owner word too:
+    LD   A,$E5                     ; PUSH HL,
+    JP   GX_PUSHA                  ; two bytes pushed; return.
+.LEASE:                        ; Not the routine's own:
+    LD   A,DG_LEASE                ; lease, at
+    JP   EX_EVAL                   ; the argument.
+
+;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; `id(PATH)` of a record, the path in hand and `id` at AC_BOUND
+; (idExpression): a record alone, a lease or a var record parameter (an
+; owner word), else not-owner at `id`; of one pool (two or none wait,
+; DG_NYI). Its identifier when the owner word is its address and the
+; slot before it is the pool's, else none: LD HL,owner, LD DE,alias, OR
+; A, SBC HL,DE, JP NZ,none, EX DE,HL, PUSH HL, DEC HL, LD D,(HL), DEC
+; HL, LD E,(HL), LD HL,info, OR A, SBC HL,DE, POP HL, JP NZ,none, CALL
+; ID_MAKE, JP done; none: LD HL,0, LD DE,0; done:. A returns its type,
+; an optional identifier of that pool.
+
+OW_IDREC:                      ; The path is parsed.
+    LD   A,(RO_OTYPE)              ; A record's
+    CALL AG_DESC                   ; descriptor
+    LD   A,(HL)                    ; (its
+    CP   AG_KREC                   ; kind),
+    JP   NZ,.OWNER                 ; alone,
+    CALL FW_ALONE                  ; with
+    JP   NZ,.OWNER                 ; an owner
+    LD   HL,(RO_POWN)              ; word (a lease
+    LD   A,H                       ; or a var
+    OR   L                         ; record
+    JP   Z,.OWNER                  ; parameter):
+    LD   HL,PL_CNT                 ; its pool,
+    LD   B,(HL)                    ; from the last
+    LD   C,$FF                     ; declared, none yet:
+.EACH:                         ; B pools are left.
+    LD   A,B                       ; The
+    SUB  1                         ; next
+    JR   C,.DONE                   ; (none left),
+    LD   B,A                       ; B,
+    CALL PL_AT                     ; its
+    INC  HL                        ; record
+    INC  HL                        ; (PL_EREC):
+    LD   A,(RO_OTYPE)              ; this
+    CP   (HL)                      ; one?
+    JR   NZ,.EACH                  ; No.
+    INC  C                         ; A second
+    JP   NZ,TR_OPER                ; waits;
+    LD   C,B                       ; the first is kept.
+    JR   .EACH                     ; On.
+.DONE:                         ; C is the pool, $FF none.
+    LD   A,C                       ; None
+    INC  A                         ; waits
+    JP   Z,TR_OPER                 ; too.
+    LD   A,C                       ; The pool's
+    PUSH AF                        ; index kept,
+    CALL PL_AT                     ; and its
+    LD   E,(HL)                    ; information's
+    INC  HL                        ; ordinal
+    LD   D,(HL)                    ; (PL_EORD)
+    PUSH DE                        ; too.
+    LD   HL,(RO_POWN)              ; LD L,(IX+owner),
+    LD   A,SY_U16                  ; LD H,(IX+owner+1);
+    CALL GX_FLOAD                  ; then
+    LD   HL,(RO_PBASE)             ; LD E,(IX+alias),
+    LD   DE,GX_DLDDE               ; LD D,(IX+alias+1);
+    CALL GX_FACC                   ; OR A,
+    CALL EM_SEQ                    ; SBC HL,DE,
+    DB   3,$B7,$ED,$52             ; then
+    LD   C,$C2                     ; JP NZ,none,
+    CALL EM_FWD                    ; its label
+    PUSH AF                        ; kept;
+    CALL EM_OP                     ; EX DE,HL,
+    DB   $EB                       ; then
+    CALL GX_PUSHW                  ; PUSH HL, counted;
+    CALL EM_SEQ                    ; DEC HL, LD D,(HL),
+    DB   4,$2B,$56,$2B,$5E         ; DEC HL, LD E,(HL);
+    CALL EM_OP                     ; LD HL,
+    DB   $21                       ; the
+    POP  BC                        ; pool's
+    POP  HL                        ; information
+    PUSH BC                        ; (the label
+    LD   DE,0                      ; kept);
+    CALL EM_REF                    ; OR A,
+    CALL EM_SEQ                    ; SBC HL,DE,
+    DB   3,$B7,$ED,$52             ; then
+    LD   A,SY_U16                  ; POP HL,
+    CALL GX_POPV                   ; popped;
+    POP  AF                        ; JP NZ
+    PUSH AF                        ; to
+    LD   C,$C2                     ; none
+    CALL EM_JUMP                   ; again;
+    CALL EM_HELP                   ; CALL
+    DW   HP_IDMK                   ; ID_MAKE;
+    LD   C,$C3                     ; JP
+    CALL EM_FWD                    ; done.
+    POP  BC                        ; none's label,
+    PUSH AF                        ; done's kept:
+    LD   A,B                       ; none:
+    CALL EM_LDONE                  ; LD HL,0,
+    CALL EM_SEQ                    ; LD DE,0;
+    DB   6,$21,0,0,$11,0,0         ; then
+    POP  AF                        ; done:
+    CALL EM_LDONE                  ; here.
+    POP  AF                        ; The pool's
+    ADD  A,A                       ; optional
+    ADD  A,A                       ; identifier's
+    ADD  A,AG_HND+AG_HID+AG_HOPT   ; type.
+    RET                            ; DEHL holds it.
+.OWNER:                        ; Not an owner's:
+    LD   HL,(AC_BOUND)             ; not-owner,
+    LD   A,DG_OWNER                ; at
+    JP   DG_HERE                   ; `id`.

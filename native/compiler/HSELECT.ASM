@@ -17,6 +17,16 @@
 ;    HN_MOVE   `move PATH` (HN_EMOV generates the move)
 
 
+;@ROUTINE IN B OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A lease passed to record parameter B (OW_LEASA, staged in AC_BOUND).
+
+HN_LEASA:                      ; B is the parameter's type,
+    LD   A,B                       ; staged;
+    LD   (AC_BOUND),A              ; the handle
+    CALL HN_TAIL                   ; alone (DG_NYI otherwise):
+    LD   A,24                      ; 24.
+    JR   HN_OVL                    ; Run.
+
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A handle select's actions, in the OWNERS overlay (OWNERS.ASM), each
 ; loaded and run through its jump table (OV_PCALL): the subject of type A

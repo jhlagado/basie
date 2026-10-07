@@ -135,6 +135,11 @@ const CONFORMANCE: Record<string, string> = {
   OWNCYCLE: "tests/conformance/storage/ownership-cycle-traps.bsi",
   SLOTHOLD: "tests/conformance/storage/slot-holder.bsi",
   SELSLOT: "tests/conformance/storage/select-slot-holder.bsi",
+  LEASE: "tests/conformance/storage/lease.bsi",
+  LEASECYC: "tests/conformance/storage/lease-link-cycle-traps.bsi",
+  REBIND: "tests/conformance/storage/rebind-links.bsi",
+  IDNEST: "tests/conformance/storage/id-of-nested-at-start.bsi",
+  IDNESTL: "tests/conformance/storage/id-of-nested-lease.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -339,6 +344,14 @@ const CLAIMED: Record<string, string[]> = {
     "SLOTS",
     "SLOTRET",
     "SLOTIDX",
+    "LEASE",
+    "LEASECYC",
+    "REBIND",
+    "LEASPARM",
+    "LEASFLD",
+    "IDREC",
+    "IDNEST",
+    "IDNESTL",
   ],
 };
 
@@ -1664,6 +1677,42 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "a maybe-moved owner of another pool lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new leaves(1)\n    if g = 1\n        var b = move a\n    end\n    bump(a)\nend\n",
+  "id of a value record parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub f(n as Node)\n    var i = id(n)\nend\nsub main()\nend\n",
+  "id of a local record":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub f()\n    var r as Leaf\n    var i = id(r)\nend\nsub main()\nend\n",
+  "id of a var record parameter's field":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nrecord Box\n    l as Leaf\nend\nsub f(var b as Box)\n    var i = id(b.l)\nend\nsub main()\nend\n",
+  "id of a program variable record":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nvar r as Leaf\nsub main()\n    var i = id(r)\nend\n",
+  "id of a record for another pool's identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub f(var x as Node)\n    var i as id leaves? = id(x)\nend\nsub main()\nend\n",
+  "id of a var array parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub f(var a as u8[2])\n    var i = id(a)\nend\nsub main()\nend\n",
+  "an optional owner lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a as nodes? = new nodes(1, none)\n    bump(a)\nend\n",
+  "an identifier lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = id(list)\n    bump(a)\nend\n",
+  "another pool's owner lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new leaves(1)\n    bump(a)\nend\n",
+  "a program variable lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    bump(list)\nend\n",
+  "a moved owner lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    var b = move a\n    bump(a)\nend\n",
+  "a maybe-moved owner lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    if g = 1\n        var b = move a\n    end\n    bump(a)\nend\n",
+  "a lease passed to a var record parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    select list\n    case some(k)\n        bump(k)\n    case none\n    end\nend\n",
+  "an owning field lent":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    bump(a.next)\nend\n",
+  "a value record parameter's owner moved":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub f(n as Node)\n    var x = move n.next\nend\nsub main()\nend\n",
+  "a number for an owning record parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub main()\n    bump(5)\nend\n",
+  "a number for a record parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Leaf\n    v as u8\nend\npool nodes as Node[8]\npool leaves as Leaf[2]\nvar list as nodes?\nvar keep as id nodes?\nvar g as u8\nsub bump(var n as Node)\n    n.value = n.value + 1\nend\nsub look(n as Node)\n    g = n.value\nend\nsub make() as nodes\n    return new nodes(1, none)\nend\nsub l(x as Leaf)\nend\nsub main()\n    l(5)\nend\n",
   "a var non-optional owning parameter":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub f(var l as nodes)\nend\nsub main()\nend\n",
   "a var identifier parameter":

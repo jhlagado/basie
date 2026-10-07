@@ -1,0 +1,29 @@
+// Leases of an owning parameter, to var and value record parameters.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+record Leaf
+    v as u8
+end
+pool nodes as Node[8]
+pool leaves as Leaf[2]
+var list as nodes?
+var keep as id nodes?
+var g as u8
+sub bump(var n as Node)
+    n.value = n.value + 1
+end
+sub look(n as Node)
+    g = n.value
+end
+sub make() as nodes
+    return new nodes(1, none)
+end
+sub f(h as nodes)
+    bump(h)
+    look(h)
+end
+sub main()
+end
