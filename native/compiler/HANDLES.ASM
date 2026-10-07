@@ -795,17 +795,22 @@ HN_RECK:                       ; The value is in the registers.
 
 ;@ROUTINE IN A NORETURN
 ; No primary begins with token kind A, consumed: new, none and move
-; begin handle values, which wait in an expression (DG_NYI); anything
-; else is syntax, a value expected (PR_ETERM).
+; begin handle values, which wait in an expression (DG_NYI), but a move
+; where none may be is move-position at it (HN_NOMV), as the reference's
+; primary has it; anything else is syntax, a value expected (PR_ETERM).
 
 HN_ETERM:                      ; A is the token's kind.
-    CP   TK_NEW                    ; new,
-    JP   Z,TR_OPER                 ; none
-    CP   TK_NONE                   ; and
-    JP   Z,TR_OPER                 ; move
-    CP   TK_MOVE                   ; wait;
-    JP   Z,TR_OPER                 ; anything
-    JP   PR_ETERM                  ; else is syntax.
+    CP   TK_NEW                    ; new
+    JP   Z,TR_OPER                 ; and
+    CP   TK_NONE                   ; none
+    JP   Z,TR_OPER                 ; wait;
+    CP   TK_MOVE                   ; anything
+    JP   NZ,PR_ETERM               ; else is syntax.
+    LD   A,(HN_NOMV)               ; A move
+    OR   A                         ; may be here:
+    JP   Z,TR_OPER                 ; it waits;
+    LD   HL,(TK_POS)               ; otherwise, at it,
+    JP   HN_MPOS                   ; move-position.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The current NAME is a primary: `id(...)` is an identifier made and

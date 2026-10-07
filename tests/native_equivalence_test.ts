@@ -1987,6 +1987,12 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    assert eat(move x) = 1\nend\n",
   "a move in an operand of and inside an operand of or":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    var b as boolean\n    if b or b and eat(move x) = 2\n    end\nend\n",
+  "a bare move in an assert condition":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var h = new nodes(1, none)\n    var b as boolean\n    assert move h == none\nend\n",
+  "a bare move in an operand of and":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var h = new nodes(1, none)\n    var b as boolean\n    b = b and move h == none\nend\n",
+  "a bare move in a while condition":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var h = new nodes(1, none)\n    var b as boolean\n    while move h == none\n    end\nend\n",
   "a fresh owner for an identifier parameter":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub look(i as id nodes?)\nend\nsub main()\n    look(new nodes(1, none))\nend\n",
   "a moved owner for an identifier parameter":
