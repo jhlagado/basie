@@ -32,10 +32,10 @@
 ;  library's name as the argument (MS_FAIL): L-MISSING (`Error 225:
 ;  CPM22.BRL not found`), L-FORMAT for bad magic or version, L-TRUNCATED
 ;  for a library that ends too soon, L-COMPAT, which names nothing, and
-;  L-IO for a read error. A record is read into the blob writer's
-;  buffer, which is not in use until the streams open.
+;  L-IO for a read error. A record is read into the emitter's label
+;  table, which is not in use until the compilation begins.
 
-LB_BUF EQU  BL_CODE            ; A record read from the library or an old directory.
+LB_BUF EQU  EM_LTAB            ; A record read from the library or an old directory.
 LB_RAND EQU  33                ; BDOS read random: the record number is in the FCB.
 LB_NFORM EQU  200              ; L-FORMAT: bad magic or version.
 LB_NCOMP EQU  201              ; L-COMPAT: another helper table.

@@ -175,8 +175,8 @@ TK_SAME:                       ; HL: the name record to compare.
 ; Retain the current name in the three-byte record at HL: its spelling's
 ; address in the name heap, then its length. A spelling not yet in the
 ; heap is copied below its bottom (NH_PTR), which must stay above the
-; waiting constants (RG_PEND; DG_ROOM otherwise); TK_PTR stays the
-; source's. HL returns at the length byte, so that callers step on to the
+; free memory's start (BL_SPAN; DG_ROOM otherwise), the log of the blob
+; being built moving down with it; TK_PTR stays the source's. HL returns at the length byte, so that callers step on to the
 ; fields that follow. DE and the flags are preserved.
 
 TK_KEEP:                       ; HL: the record to fill.
@@ -191,17 +191,37 @@ TK_KEEP:                       ; HL: the record to fill.
     JR   NC,.HEAP                  ; already.
     LD   A,(TK_LEN)                ; Otherwise
     LD   C,A                       ; its
-    LD   B,0                       ; length
+    LD   B,0                       ; length, BC,
+    CALL BL_SPAN                   ; is taken from the free memory's
+    PUSH DE                        ; end (kept),
     EX   DE,HL                     ; below
-    OR   A                         ; (carry clear)
-    SBC  HL,BC                     ; the bottom
-    PUSH HL                        ; (the new one)
-    LD   DE,(RG_PEND)              ; must stay
-    SBC  HL,DE                     ; above the
-    JR   C,.FULL                   ; waiting constants.
-    POP  DE                        ; DE is the copy:
-    LD   (NH_PTR),DE               ; the new bottom,
-    LD   HL,(TK_PTR)               ; the spelling
+    OR   A                         ; which
+    SBC  HL,BC                     ; the new end
+    PUSH HL                        ; (kept)
+    SBC  HL,DE                     ; must stay
+    POP  HL                        ; above its
+    JP   C,MM_FULL                 ; start.
+    LD   (BL_LBOT),HL              ; A blob's log ends there,
+    EX   DE,HL                     ; moved down
+    POP  HL                        ; from
+    PUSH BC                        ; (the length kept)
+    PUSH HL                        ; the old end
+    LD   HL,(NH_PTR)               ; to the
+    POP  BC                        ; heap's
+    OR   A                         ; bottom;
+    SBC  HL,BC                     ; HL is
+    PUSH HL                        ; its bytes,
+    LD   H,B                       ; none
+    LD   L,C                       ; without
+    POP  BC                        ; a blob.
+    LD   A,B                       ; Any
+    OR   C                         ; are
+    JR   Z,.MOVED                  ; moved
+    LDIR                           ; down.
+.MOVED:                        ; DE is the heap's new bottom:
+    POP  BC                        ; the length
+    LD   (NH_PTR),DE               ; below the old.
+    LD   HL,(TK_PTR)               ; The spelling
     PUSH DE                        ; copied
     LDIR                           ; there
     POP  HL                        ; and kept.
@@ -218,9 +238,6 @@ TK_KEEP:                       ; HL: the record to fill.
     LD   (HL),A                    ; Completes the record.
     POP  DE                        ; DE again.
     RET                            ; A is the length and BC the address.
-.FULL:                         ; No room for the name:
-    CALL DG_RAISE                  ; the source's
-    DB   DG_ROOM                   ; memory.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS BC,DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a name whose first byte, a letter, is current, then look it up in

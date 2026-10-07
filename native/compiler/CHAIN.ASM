@@ -29,7 +29,7 @@
 ;  error warm boots: BLINK is not whole.
 
 CH_RLINK EQU  $12              ; Return code's low byte: a link error, $FF12.
-CH_TAIL EQU  BL_CODE           ; The new tail is built here before it moves.
+CH_TAIL EQU  EM_LTAB           ; The new tail is built here before it moves.
 
 ;@ROUTINE NORETURN
 ; The overlay's entries: OV_AREA, CH_RUN, when option X links alone, and

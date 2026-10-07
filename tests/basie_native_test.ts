@@ -295,6 +295,25 @@ Deno.test("expressions nest 32 deep, the stack's bound, and deeper is a capacity
   );
 });
 
+Deno.test("statements nest 32 deep, and deeper is a capacity", () => {
+  // The spec's minimum is 32 (limits §5.1): the control frames, the
+  // grammar stack and the labels hold 32 nested whiles (16 until 68).
+  const nested = (n: number) => {
+    let body = "        n = n + 1\n";
+    for (let i = n; i > 0; i--) {
+      body = `${"    ".repeat(i)}while n < ${i}\n${body}${
+        "    ".repeat(i)
+      }end\n`;
+    }
+    return `var n as u8\nsub main()\n${body}end\n`;
+  };
+  assertEquals(run("MAIN [C]", { "MAIN.BSI": nested(32) }), "");
+  assertEquals(
+    run("MAIN", { "MAIN.BSI": nested(33) }),
+    "MAIN.BSI 35:133: 190: A compiler capacity was exceeded: nesting\r\n",
+  );
+});
+
 Deno.test("the source and the part table may fill memory to 1K below the BDOS entry", () => {
   // The harness's BDOS entry is $E406, so the source runs up from MM_SRC
   // and the part table down from $E006, 21 bytes a part; each record must

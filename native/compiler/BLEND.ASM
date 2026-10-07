@@ -89,9 +89,19 @@ BL_CTRL:                       ; HL is the offset, E the escape, B the flags.
 ; reference) or 127 (for a line entry) escaping to an absolute word; a
 ; reference's control has bit 6 when an addend follows and bit 7 when a
 ; form does, then the form, the target and the addend; a line entry's
-; has bit 7 when its part changes, then the part, then the line.
+; has bit 7 when its part changes, then the part, then the line. No blob
+; is built after it (BL_CBASE), until BL_BEGIN.
 
 BL_END:                        ; The blob is complete in memory.
+    CALL BL_WRITE                  ; Write it;
+    XOR  A                         ; none is
+    LD   (BL_CBASE+1),A            ; built
+    RET                            ; now.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the blob, as BL_END says, and leave it built.
+
+BL_WRITE:                      ; The blob is complete in memory.
     LD   HL,(BL_LEN)               ; The size once the jumps shrink
     LD   D,H                       ; is the end's
     LD   E,L                       ; new
@@ -107,13 +117,12 @@ BL_END:                        ; The blob is complete in memory.
     CALL BL_REC                    ; Write the header, ordinal, size and count.
     LD   HL,0                      ; The first reference's delta
     LD   (BL_LAST),HL              ; is its offset.
-    LD   HL,BL_REFS                ; From the first reference.
-.REF:                          ; HL is a kept reference.
-    LD   DE,(BL_RPTR)              ; Is it past the last?
-    OR   A                         ; Zero
-    SBC  HL,DE                     ; when
-    ADD  HL,DE                     ; it is.
-    JR   Z,.BYTES                  ; Then the bytes follow.
+    LD   HL,(NH_PTR)               ; From the log's first entry.
+.REF:                          ; HL is an entry, or the heap.
+    CALL BL_NEXT                   ; The next:
+    JR   C,.BYTES                  ; none, and the bytes follow;
+    JR   Z,.REF                    ; a line entry, passed over.
+    PUSH HL                        ; A reference: kept.
     LD   C,(HL)                    ; C is its form.
     INC  HL                        ; DE
     LD   E,(HL)                    ; is
@@ -132,7 +141,7 @@ BL_END:                        ; The blob is complete in memory.
     EX   DE,HL                     ; HL is the new offset.
     POP  BC                        ; C is the form.
     POP  DE                        ; DE is the target.
-    JR   Z,.DROP                   ; A short jump's: dropped.
+    JR   Z,.RNEXT                  ; A short jump's: dropped.
     PUSH DE                        ; Keep the target.
     LD   A,C                       ; Bit 7 when the form
     ADD  A,$FF                     ; is not ABS16, so that
@@ -168,8 +177,7 @@ BL_END:                        ; The blob is complete in memory.
     POP  HL                        ; The addend
     LD   E,(HL)                    ; is
     INC  HL                        ; DE,
-    LD   D,(HL)                    ; and HL the
-    INC  HL                        ; next reference.
+    LD   D,(HL)                    ; its word.
     JR   NZ,.ADDEND                ; Another blob's addend is kept;
     EX   DE,HL                     ; the blob's own,
     PUSH BC                        ; (the flags kept)
@@ -178,15 +186,12 @@ BL_END:                        ; The blob is complete in memory.
     EX   DE,HL                     ; the code does.
 .ADDEND:                       ; DE is the addend.
     BIT  6,B                       ; Is there one?
-    JR   Z,.REF                    ; No: the next reference.
+    JR   Z,.RNEXT                  ; No: the next reference.
     EX   DE,HL                     ; Yes:
     CALL OUT_WORD                  ; its word.
-    EX   DE,HL                     ; HL is the next reference.
-    JR   .REF                      ; Encode it.
-.DROP:                         ; DE is a short jump's reference's target.
-    LD   HL,4                      ; Its target and addend
-    ADD  HL,DE                     ; are passed over.
-    JR   .REF                      ; The next reference.
+.RNEXT:                        ; The reference is written, or dropped.
+    POP  HL                        ; The entry;
+    JR   .REF                      ; the next.
 .BYTES:                        ; The bytes go to the byte stream.
     LD   IX,BL_BY                  ; The byte stream.
     LD   HL,(BL_JUMPS)             ; The first short jump
@@ -207,8 +212,8 @@ BL_END:                        ; The blob is complete in memory.
     CP   D                         ; byte.
     JR   Z,.SHORT                  ; It is.
 .COPY:                         ; The byte is written as it is.
-    LD   HL,BL_CODE                ; Its address
-    ADD  HL,DE                     ; in the buffer.
+    LD   HL,(BL_CBASE)             ; Its address
+    ADD  HL,DE                     ; in the blob.
     LD   A,(HL)                    ; Append
     CALL OUT_BYTE                  ; it.
     INC  DE                        ; The next.
@@ -220,7 +225,7 @@ BL_END:                        ; The blob is complete in memory.
     LD   B,(HL)                    ; target.
     INC  HL                        ; HL is the next entry,
     EX   (SP),HL                   ; the next to be met.
-    LD   HL,BL_CODE                ; The JP's
+    LD   HL,(BL_CBASE)             ; The JP's
     ADD  HL,DE                     ; opcode:
     LD   A,(HL)                    ; JP, $C3, has bit 0
     RRCA                           ; set, and
@@ -266,13 +271,13 @@ BL_END:                        ; The blob is complete in memory.
     LD   (BL_LAST),HL              ; is its offset, and it
     LD   A,$FF                     ; names its part: none
     LD   (BL_LPART),A              ; is $FF.
-    LD   HL,BL_LINES               ; From the first entry.
-.LINE:                         ; HL is a kept entry.
-    LD   DE,(BL_LPTR)              ; Is it past the last?
-    OR   A                         ; Zero
-    SBC  HL,DE                     ; when
-    ADD  HL,DE                     ; it is.
-    RET  Z                         ; Then the blob is written.
+    LD   HL,(NH_PTR)               ; From the log's first entry.
+.LINE:                         ; HL is an entry, or the heap.
+    CALL BL_NEXT                   ; The next:
+    RET  C                         ; none, and the blob is written;
+    JR   NZ,.LINE                  ; a reference, passed over.
+    PUSH HL                        ; A line entry: kept.
+    INC  HL                        ; Past its tag,
     LD   E,(HL)                    ; DE
     INC  HL                        ; is
     LD   D,(HL)                    ; its
@@ -305,9 +310,7 @@ BL_END:                        ; The blob is complete in memory.
     EX   DE,HL                     ; Append
     CALL OUT_WORD                  ; the line.
     EX   DE,HL                     ; HL is its column,
-    LD   A,(HL)                    ; appended;
-    INC  HL                        ; HL is
-    PUSH HL                        ; the next
-    CALL OUT_BYTE                  ; entry.
-    POP  HL                        ; Encode
-    JR   .LINE                     ; it.
+    LD   A,(HL)                    ; appended.
+    CALL OUT_BYTE                  ; The entry
+    POP  HL                        ; is written;
+    JR   .LINE                     ; the next.

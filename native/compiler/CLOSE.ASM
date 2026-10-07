@@ -54,7 +54,7 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   D,A                       ; DE is the prologue's operand.
     PUSH HL                        ; Keep the frame for its word.
     LD   HL,(RG_PATCH)             ; Its offset in the blob,
-    LD   BC,BL_CODE                ; plus the buffer's address,
+    LD   BC,(BL_CBASE)             ; plus the blob's address,
     ADD  HL,BC                     ; is where it goes.
     LD   (HL),E                    ; Low byte,
     INC  HL                        ; then
@@ -74,16 +74,14 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     PUSH HL                        ; Keep it to return.
     CALL EM_WORD                   ; The need word.
     CALL GA_LITS                   ; The string literals follow it.
-    CALL RG_SPAN                   ; DE is the free memory's end,
-    LD   HL,(RG_PEND)              ; after the waiting constants:
-    CALL BL_SHORT                  ; room to shrink its jumps.
+    CALL BL_SHORT                  ; Its jumps shrink.
     CALL BL_END                    ; Write the blob.
     LD   HL,(BL_ORD)               ; Its ordinal.
     LD   DE,(RG_NAME)              ; Its name,
     LD   A,(RG_NLEN)               ; of this
     LD   B,A                       ; length.
     CALL BL_NAME                   ; Record it.
-    CALL RG_SPAN                   ; Then the waiting constants,
+    LD   HL,(RG_CBEG)              ; Then the waiting constants,
 .NEXT:                         ; from HL:
     LD   DE,(RG_PEND)              ; any
     OR   A                         ; left

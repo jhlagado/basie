@@ -95,7 +95,8 @@ BT_START:                      ; Entered from the jump at $0100.
 OUT_FAIL:                      ; The disk or directory is full.
     LD   E,'F'                     ; Report it.
     JR   BT_STOP                   ; And stop.
-BL_OVER:                       ; A blob overflowed a buffer.
+BL_OVER:                       ; A blob reached 16K,
+MM_FULL:                       ; or the free memory is full.
     LD   E,'O'                     ; Report it.
 BT_STOP:                       ; E is the report.
     LD   C,2                       ; Console output.

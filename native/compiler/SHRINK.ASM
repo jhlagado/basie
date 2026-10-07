@@ -23,32 +23,29 @@
 ;  Principal entry:
 ;    BL_SHORT  choose the routine's short jumps
 ;
-;  The short jumps are a table in the free memory the caller names (its
-;  start BL_JUMPS, its end BL_JPEND, in the blob writer's workspace): four
+;  The short jumps are a table in the free memory between the blob's bytes
+;  and its log (its start BL_JUMPS, its end BL_JPEND, in the blob writer's
+;  workspace): four
 ;  bytes each, the jump's offset and its target's, in offset order, then
 ;  a sentinel whose offset, BL_PAST, is past every routine's and has bit
 ;  14 set, which no jump's offset has.
 
-;@ROUTINE IN DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Choose the short jumps of the routine in the blob writer's buffers,
-; building their table in the free memory from HL up to DE (DG_ROOM when
-; it does not fit there).
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Choose the short jumps of the routine the blob writer is building,
+; building their table in the free memory between its bytes and its log
+; (BL_SPAN; DG_ROOM when it does not fit there).
 
-BL_SHORT:                      ; HL is free memory, DE its end.
+BL_SHORT:                      ; The routine is complete.
+    CALL BL_SPAN                   ; HL is free memory, DE its end.
     LD   (BL_JUMPS),HL             ; The table starts there; until it
     LD   (BL_JPEND),DE             ; is built, its end is the memory's.
     PUSH HL                        ; Its next entry.
-    LD   HL,BL_REFS                ; From the first reference.
-.SCAN:                         ; HL is a kept reference.
-    LD   DE,(BL_RPTR)              ; Is it past the last?
-    OR   A                         ; Zero
-    SBC  HL,DE                     ; when
-    ADD  HL,DE                     ; it is.
-    JR   Z,.SCANNED                ; Then the table is complete.
-    LD   BC,BL_RLEN                ; The next reference
-    PUSH HL                        ; follows
-    ADD  HL,BC                     ; this one:
-    EX   (SP),HL                   ; kept.
+    LD   HL,(NH_PTR)               ; From the log's first entry.
+.SCAN:                         ; HL is an entry, or the heap.
+    CALL BL_NEXT                   ; The next:
+    JR   C,.SCANNED                ; none, and the table is complete;
+    JR   Z,.SCAN                   ; a line entry, passed over.
+    PUSH HL                        ; A reference: kept.
     INC  HL                        ; Past its form,
     LD   E,(HL)                    ; DE
     INC  HL                        ; is
@@ -65,7 +62,8 @@ BL_SHORT:                      ; HL is free memory, DE its end.
     LD   C,(HL)                    ; is its
     INC  HL                        ; addend:
     LD   B,(HL)                    ; the label's offset.
-    LD   HL,BL_CODE-1              ; The byte before
+    LD   HL,(BL_CBASE)             ; The byte
+    DEC  HL                        ; before
     ADD  HL,DE                     ; the operand
     LD   A,(HL)                    ; is the opcode:
     CP   $C3                       ; JP,
@@ -75,17 +73,17 @@ BL_SHORT:                      ; HL is free memory, DE its end.
     JR   NZ,.NEXT                  ; Any other: not a jump.
 .JUMP:                         ; DE is the operand's offset, BC the target's.
     DEC  DE                        ; The jump's own offset.
-    POP  HL                        ; The next reference,
+    POP  HL                        ; The reference,
     EX   (SP),HL                   ; kept; HL is the table's next entry.
     CALL .ENTER                    ; The jump's offset,
     LD   D,B                       ; then
     LD   E,C                       ; its target's.
     CALL .ENTER                    ; The entry is made.
     EX   (SP),HL                   ; The table's next kept,
-    JR   .SCAN                     ; the next reference.
+    JR   .SCAN                     ; the next entry.
 .NEXT:                         ; Not a jump of the routine.
-    POP  HL                        ; The next reference.
-    JR   .SCAN                     ; Look at it.
+    POP  HL                        ; The reference;
+    JR   .SCAN                     ; the next entry.
 .SCANNED:                      ; Every candidate is in the table.
     POP  HL                        ; The table's next entry
     LD   DE,BL_PAST                ; is the sentinel:
@@ -162,12 +160,9 @@ BL_SHORT:                      ; HL is free memory, DE its end.
     SBC  HL,DE                     ; carry if it is.
     POP  DE                        ; The word.
     POP  HL                        ; The place.
-    JR   NC,.FULL                  ; No room for the table.
+    JP   NC,MM_FULL                ; No room for the table.
     LD   (HL),E                    ; Low byte,
     INC  HL                        ; then
     LD   (HL),D                    ; high byte.
     INC  HL                        ; HL is past it.
     RET                            ; Done.
-.FULL:                         ; The table would reach the part table:
-    CALL DG_RAISE                  ; the source's
-    DB   DG_ROOM                   ; memory.

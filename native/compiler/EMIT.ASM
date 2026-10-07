@@ -23,9 +23,10 @@
 ;  to the routine's own ordinal with the label's offset as the addend. An
 ;  operand naming a label not yet defined is written the same way with a
 ;  placeholder addend, $FFFF, which is nonzero so that the encoded
-;  reference has room for its addend word; the label keeps a chain of the
-;  addresses of those addend words in BL_REFS, each word holding the next
-;  link until EM_LDEF writes the label's offset into all of them. So the
+;  reference has room for its addend word; the label keeps a chain of
+;  those addend words in the blob writer's log, each named by its form
+;  (BL_FLIP), which the log's moves keep, each word holding the next link
+;  until EM_LDEF writes the label's offset into all of them. So the
 ;  references come out in offset order, as the reference compiler sorts
 ;  them, and pending operands cost no table space.
 ;
@@ -334,28 +335,35 @@ EM_LREF:                       ; A is the label.
     PUSH HL                        ; Keep the chain head's address.
     CALL EM_SELF                   ; DE, a nonzero placeholder, the addend.
     POP  HL                        ; HL is the chain head.
-    LD   A,(HL)                    ; The old head's low byte
-    LD   (DE),A                    ; becomes the link,
-    LD   (HL),E                    ; and the addend word the head.
-    INC  HL                        ; Then
-    INC  DE                        ; the high bytes:
-    LD   A,(HL)                    ; the old head's
-    LD   (DE),A                    ; into the link,
-    DEC  DE                        ; and the word's address
-    LD   (HL),D                    ; into the head.
-    RET                            ; The operand waits for EM_LDEF.
+    LD   A,(HL)                    ; The old head
+    LD   (DE),A                    ; becomes
+    INC  HL                        ; the
+    INC  DE                        ; link,
+    LD   A,(HL)                    ; both
+    LD   (DE),A                    ; bytes;
+    DEC  DE                        ; the addend word's
+    PUSH HL                        ; form
+    CALL BL_FLIP                   ; the
+    EX   DE,HL                     ; head,
+    POP  HL                        ; both
+    LD   (HL),D                    ; bytes.
+    DEC  HL                        ; The operand
+    LD   (HL),E                    ; waits for
+    RET                            ; EM_LDEF.
 
 ;@ROUTINE IN DE OUT DE CLOBBERS A,BC,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append an ABS16 reference to the routine itself (BL_ORD) with addend DE.
 ; Unless the code is discarded, DE returns the address of the addend word,
-; the last two bytes of the encoded references, for the caller to fill in.
+; the last two bytes of the log's newest entry, for the caller to fill in
+; or to keep by its form (BL_FLIP).
 
 EM_SELF:                       ; DE is the addend.
     LD   HL,(BL_ORD)               ; The routine being written.
     CALL EM_REF                    ; The reference, with its addend word.
-    LD   DE,(BL_RPTR)              ; The addend word is the last two bytes
-    DEC  DE                        ; of the encoded references:
-    DEC  DE                        ; DE addresses it.
+    LD   HL,(BL_LBOT)              ; The addend word ends
+    LD   DE,BL_ELEN-2              ; the log's bottom,
+    ADD  HL,DE                     ; its last entry:
+    EX   DE,HL                     ; DE addresses it.
     RET                            ; Done.
 
 ;@ROUTINE IN A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -373,12 +381,15 @@ EM_LDEF:                       ; A is the label.
     LD   C,(HL)                    ; BC is the first
     INC  HL                        ; waiting addend word,
     LD   B,(HL)                    ; zero when none waits.
-.WALK:                         ; BC is the next word, or zero.
-    INC  B                         ; A link is in BL_REFS, far above
+.WALK:                         ; BC is the next word's form, or zero.
+    INC  B                         ; A form is above
     DEC  B                         ; $00FF: a zero high byte ends it.
     RET  Z                         ; Every operand has its offset.
-    LD   L,C                       ; HL is
-    LD   H,B                       ; the addend word.
+    PUSH DE                        ; The offset kept,
+    LD   D,B                       ; HL is
+    LD   E,C                       ; the addend
+    CALL BL_FLIP                   ; word;
+    POP  DE                        ; DE the offset.
     LD   C,(HL)                    ; BC is the next link,
     LD   (HL),E                    ; and the word becomes
     INC  HL                        ; the label's

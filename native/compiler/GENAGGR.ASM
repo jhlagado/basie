@@ -546,7 +546,9 @@ GA_LIT:                        ; B is the literal's size.
     PUSH BC                        ; Keep the size
     PUSH HL                        ; and the entry.
     LD   DE,EM_NONE                ; The routine itself, a placeholder
-    CALL EM_SELF                   ; addend: DE addresses its word.
+    CALL EM_SELF                   ; addend: DE addresses its word,
+    CALL BL_FLIP                   ; kept by
+    EX   DE,HL                     ; its form.
     POP  HL                        ; The entry.
     LD   (HL),E                    ; It is the
     INC  HL                        ; entry's
@@ -583,8 +585,12 @@ GA_LITS:                       ; The need word is written.
     PUSH BC                        ; Keep the count.
     LD   E,(HL)                    ; DE is
     INC  HL                        ; its addend
-    LD   D,(HL)                    ; word,
-    INC  HL                        ; which takes
+    LD   D,(HL)                    ; word's
+    INC  HL                        ; form;
+    PUSH HL                        ; the
+    CALL BL_FLIP                   ; word,
+    EX   DE,HL                     ; DE,
+    POP  HL                        ; which takes
     LD   BC,(BL_LEN)               ; the offset
     EX   DE,HL                     ; where the
     LD   (HL),C                    ; literal

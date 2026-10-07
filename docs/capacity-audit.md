@@ -392,6 +392,17 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   above the source while the routine is written (`source size` when it
   does not fit). The source area shrank by 384 bytes for the larger
   reference and line buffers, to about 26.4K on a 62K system.
+- **Native compiler at 68:** no buffer. A blob is built in the free memory
+  of the source area: its bytes after the symbol table and the routine's
+  waiting constants, moving up as they grow (`MM_LIFT`), and its
+  references and line entries, seven bytes each in the order given, in a
+  log below the name heap, moving down as it grows (`TK_KEEP`); a word
+  that finds an entry again (a label's chain, a string literal's operand,
+  the last line entry) keeps its distance from the heap (`BL_FLIP`). The
+  bound is memory, shared with the current part's source (`source size`),
+  and 16K of bytes (`routine size`, the short jumps' sentinel); a
+  statement takes about 10 bytes of code and 20 of log. The 3.8K the
+  buffers held went to the source area, now 22,198 bytes (about 21.7K).
 
 ### 3.6 Compiler workspace budget
 
@@ -560,7 +571,11 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   workspace and the shell's; each label is checked against the earlier
   ones of its select (`duplicate-case`), so a select with n labels costs
   n²/2 comparisons, at compile time only.
-- **Status:** TBD.
+- **Native compiler at 68:** 32 (`CT_FCAP`, twenty bytes a frame; 16 from
+  67h.5), within a grammar stack of 254 symbols (`LL_CAP`, a page) and 128
+  labels in use (`EM_LCAP`), 640 bytes of workspace more than 16; `NEST32`
+  nests `if`, `while`, `for` and `select` 32 deep, and 33 is `nesting`.
+- **Status:** the minimum is met.
 
 ### 3.21 Expression nesting
 

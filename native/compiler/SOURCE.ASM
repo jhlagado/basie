@@ -152,9 +152,8 @@ SRC_OPEN:
     SBC  HL,DE                     ; else
     JR   NC,.FITS                  ; DG_ROOM,
     XOR  A                         ; naming
-    LD   (SRC_ID),A                ; no part.
-    CALL DG_RAISE                  ; The memory
-    DB   DG_ROOM                   ; is full.
+    LD   (SRC_ID),A                ; no part:
+    JP   MM_FULL                   ; the memory is full.
 .FITS:                         ; The tables are ready.
     XOR  A                         ; No boundary line end
     LD   (SRC_OWE),A               ; is owed; part zero of the stream
@@ -207,9 +206,8 @@ SRC_LOAD:                      ; A is the entry.
     CALL SH_AGAIN                  ; it is read.
     POP  IY                        ; IY
     POP  IX                        ; and IX again.
-    RET  NC                        ; The part is loaded,
-    CALL DG_RAISE                  ; or too large
-    DB   DG_ROOM                   ; for the memory.
+    JP   C,MM_FULL                 ; Too large for the memory,
+    RET                            ; or the part is loaded.
 
 ;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load part table entry A again, at MM_SRC, its whole records below the

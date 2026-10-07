@@ -44,7 +44,7 @@
 ;  here, or the capacity of the parts or the includes, returns from
 ;  SH_BEGIN with carry set (DG_ISSUE unwinds to PR_SP), and the shell
 ;  prints it as it prints the compilation's. Each record is read into the
-;  blob writer's buffer (BL_CODE), not yet in use, and copied below the
+;  emitter's label table (EM_LTAB), not yet in use, and copied below the
 ;  table, so the read that finds a part's end needs no room.
 
 SH_STATE EQU  14               ; Bytes of the tokenizer's state, SRC_ID to TK_NEST.
@@ -206,8 +206,8 @@ SH_LOAD:                       ; HL is the part's name.
     INC  (HL)                      ; counted.
     LD   HL,(SH_LOADP)             ; The part starts at the load point.
     LD   (SH_PBEG),HL              ; Keep its start for the trim and the entry.
-    LD   DE,BL_CODE                ; Each record is read into a buffer,
-    LD   C,SH_DMA                  ; the blob writer's, not yet in use,
+    LD   DE,EM_LTAB                ; Each record is read into a buffer,
+    LD   C,SH_DMA                  ; the label table, not yet in use,
     CALL SH_BDOS                   ; so the read that finds the end needs no room.
 .RECORD:                       ; SH_LOADP is where the next record goes.
     LD   DE,SH_FCB                 ; DE is the open part's FCB.
@@ -225,7 +225,7 @@ SH_LOAD:                       ; HL is the part's name.
     EX   DE,HL                     ; at the load point,
     CALL .ROOM                     ; else
     JP   C,SH_LARGE                ; the source is too large.
-    LD   HL,BL_CODE                ; It is
+    LD   HL,EM_LTAB                ; It is
     LD   DE,(SH_LOADP)             ; copied
     LD   BC,128                    ; there,
     LDIR                           ; and the next

@@ -48,7 +48,7 @@ FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
 FL_B EQU  FL_A+5               ; b unpacked.
 FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
 FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
-LL_CAP EQU  128                ; Grammar stack capacity in symbols.
+LL_CAP EQU  254                ; Grammar stack capacity in symbols.
 LL_STACK EQU  (FL_WEND+$100)&$FF00 ; The stack, from a page's start past FLOAT's bytes.
 LL_DEPTH EQU  LL_STACK-1       ; Symbols on the stack (byte), just below it.
 ; The select statements' labels follow the stack (ACTSEL.ASM): CT_RTOP,

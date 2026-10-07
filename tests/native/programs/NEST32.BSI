@@ -1,0 +1,126 @@
+// Control statements nested 32 deep (16 before 68): if, while, for and
+// select in turn.
+var n as u16
+var m as u8
+var go as boolean
+sub main() fails
+    var i2 as u8
+    var i6 as u8
+    var i10 as u8
+    var i14 as u8
+    var i18 as u8
+    var i22 as u8
+    var i26 as u8
+    var i30 as u8
+    go = true
+    if n < 200
+        while go
+            for i2 = 1 to 2
+                select m
+                case 0
+                        if n < 204
+                            while go
+                                for i6 = 1 to 2
+                                    select m
+                                    case 0
+                                            if n < 208
+                                                while go
+                                                    for i10 = 1 to 2
+                                                        select m
+                                                        case 0
+                                                                if n < 212
+                                                                    while go
+                                                                        for i14 = 1 to 2
+                                                                            select m
+                                                                            case 0
+                                                                                    if n < 216
+                                                                                        while go
+                                                                                            for i18 = 1 to 2
+                                                                                                select m
+                                                                                                case 0
+                                                                                                        if n < 220
+                                                                                                            while go
+                                                                                                                for i22 = 1 to 2
+                                                                                                                    select m
+                                                                                                                    case 0
+                                                                                                                            if n < 224
+                                                                                                                                while go
+                                                                                                                                    for i26 = 1 to 2
+                                                                                                                                        select m
+                                                                                                                                        case 0
+                                                                                                                                                if n < 228
+                                                                                                                                                    while go
+                                                                                                                                                        for i30 = 1 to 2
+                                                                                                                                                            select m
+                                                                                                                                                            case 0
+                                                                                                                                                                    n = n + 1
+                                                                                                                                                                    m = m + 1
+                                                                                                                                                                    go = false
+                                                                                                                                                            case else
+                                                                                                                                                                n = n + 0
+                                                                                                                                                            end
+                                                                                                                                                        end
+                                                                                                                                                    end
+                                                                                                                                                else
+                                                                                                                                                    m = 9
+                                                                                                                                                end
+                                                                                                                                        case else
+                                                                                                                                            n = n + 0
+                                                                                                                                        end
+                                                                                                                                    end
+                                                                                                                                end
+                                                                                                                            else
+                                                                                                                                m = 9
+                                                                                                                            end
+                                                                                                                    case else
+                                                                                                                        n = n + 0
+                                                                                                                    end
+                                                                                                                end
+                                                                                                            end
+                                                                                                        else
+                                                                                                            m = 9
+                                                                                                        end
+                                                                                                case else
+                                                                                                    n = n + 0
+                                                                                                end
+                                                                                            end
+                                                                                        end
+                                                                                    else
+                                                                                        m = 9
+                                                                                    end
+                                                                            case else
+                                                                                n = n + 0
+                                                                            end
+                                                                        end
+                                                                    end
+                                                                else
+                                                                    m = 9
+                                                                end
+                                                        case else
+                                                            n = n + 0
+                                                        end
+                                                    end
+                                                end
+                                            else
+                                                m = 9
+                                            end
+                                    case else
+                                        n = n + 0
+                                    end
+                                end
+                            end
+                        else
+                            m = 9
+                        end
+                case else
+                    n = n + 0
+                end
+            end
+        end
+    else
+        m = 9
+    end
+    if n > 0
+        writeText(console, "nested 32\r\n") else fail
+    end
+end

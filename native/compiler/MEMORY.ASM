@@ -8,12 +8,13 @@
 ;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
 ;           OV_AREA   the overlay area, from MM_END, as large as the largest
 ;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
-;    $6B80  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
+;    $6BD0  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
 ;           FL_WBEG   the FLOAT overlay's workspace, FL_WEND, after the
 ;                     pools' bytes, below the LL(1) stack's page (LL1.ASM)
-;    $81E0  SH_WBEG   the shell's workspace, SH_WEND
-;    $8300  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $94E0  MM_SRC    the source parts, the symbol table and the name heap
+;    $8560  SH_WBEG   the shell's workspace, SH_WEND
+;    $8680  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
+;    $8950  MM_SRC    the source parts, the symbol table, the blob being
+;                     written and the name heap
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
 ;  Nothing in the workspace is initialised by the image, so the image and
@@ -24,11 +25,11 @@
 ;  tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $6B80             ; Exclusive end of room for the image.
-MM_WBASE EQU  $6B80            ; Compiler workspace: the image ends below.
-MM_WLIM EQU  $8300             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $81E0             ; The shell's workspace, above the compiler's.
-MM_BLOB EQU  $8300             ; The blob writer's workspace, BL_FLAGS on.
+MM_RLIM EQU  $6BD0             ; Exclusive end of room for the image.
+MM_WBASE EQU  $6BD0            ; Compiler workspace: the image ends below.
+MM_WLIM EQU  $8680             ; Exclusive end of both workspaces.
+SH_WBEG EQU  $8560             ; The shell's workspace, above the compiler's.
+MM_BLOB EQU  $8680             ; The blob writer's workspace, BL_FLAGS on.
 
-MM_SRC EQU  $94E0              ; Resident source parts, up to the stack.
+MM_SRC EQU  $8950              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

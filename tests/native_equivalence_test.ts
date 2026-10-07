@@ -387,6 +387,10 @@ const CLAIMED: Record<string, string[]> = {
     "FIELDS64",
     "NEST16",
   ],
+  "68: routines in shared memory, 32 nested statements": [
+    "BIGROUT",
+    "NEST32",
+  ],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -995,6 +999,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67f: f32, and the programs of the library inside the subset"],
     ...CLAIMED["67g: pools and handle types"],
     ...CLAIMED["67h: the capacity tables"],
+    ...CLAIMED["68: routines in shared memory, 32 nested statements"],
   ];
   for (const name of run) {
     const disk = native(name);

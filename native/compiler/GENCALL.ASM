@@ -32,7 +32,7 @@
 ;  where it is declared, after the routine's, and its blob follows the
 ;  routine's, as the reference's list has them; the blob writer builds one
 ;  blob at a time, so the constant waits, staged in the free memory
-;  between the current part and the name heap (RG_SPAN), until the
+;  after the symbol table, below the routine's blob (BL_SPAN), until the
 ;  routine's blob is written (RG_DEFER, RG_CLOSE). Each waiting constant
 ;  is its ordinal, its size, its bytes, then its name's address and length.
 ;
@@ -50,7 +50,7 @@
 ;    RG_DEFER  keep a routine's aggregate constant until its blob is written
 ;    RG_BSS    write a bss blob of the staged object's size
 ;    RG_END    write the entry and limits records
-;    BL_OVER   the blob writer's overflow: refuse the routine or object
+;    BL_OVER   the blob writer's overflow: refuse a routine or object of 16K
 
 RG_EXIT EQU  0                 ; Label of a routine's exit sequence.
 RG_PAIR EQU  1                 ; Label of its need word, after the frame word.
@@ -125,54 +125,76 @@ RG_RET:                        ; Control leaves the routine successfully.
     LD   A,RG_EXIT                 ; to the exit;
     JP   EM_JUMP                   ; return.
 
-;@ROUTINE OUT HL,DE
-; Return in HL the start of the routine's waiting constants (RG_CBEG),
-; above the symbol table, and in DE the name heap's bottom (NH_PTR): the
-; memory between them holds the constants and then is free. The flags and
-; the other registers are kept.
-
-RG_SPAN:                       ; A routine is open.
-    LD   HL,(RG_CBEG)              ; The constants' start,
-    LD   DE,(NH_PTR)               ; and the heap's bottom.
-    RET                            ; Done.
-
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Move the routine's waiting constants, RG_CBEG to RG_PEND, up by a symbol
-; record, for the symbol table below them, which has reached them
-; (SY_CMT); DG_ROOM if they would reach the name heap.
+; Move the routine's waiting constants, RG_CBEG to RG_PEND, and the blob
+; being built after them up by a symbol record, for the symbol table below
+; them, which has reached them (SY_CMT); DG_ROOM if they would reach the
+; blob's log or the name heap.
 
 RG_LIFT:                       ; A record more is needed below them.
+    LD   HL,(RG_CBEG)              ; From their start,
+    LD   BC,SY_RECB                ; a record
+    CALL MM_LIFT                   ; up;
+    LD   HL,(RG_CBEG)              ; they
+    ADD  HL,BC                     ; start
+    LD   (RG_CBEG),HL              ; higher,
+
+;@ROUTINE IN BC OUT HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The waiting constants end BC bytes higher (RG_PEND); HL returns their
+; old end. BC and DE are kept.
+
+RG_PUP:                        ; BC more bytes are theirs.
     LD   HL,(RG_PEND)              ; Their end,
-    PUSH HL                        ; (kept)
-    LD   DE,SY_RECB                ; a record
-    ADD  HL,DE                     ; higher,
-    LD   (RG_PEND),HL              ; is theirs,
-    EX   DE,HL                     ; DE:
-    LD   HL,(NH_PTR)               ; it must stay
-    OR   A                         ; below the
-    SBC  HL,DE                     ; name heap,
-    POP  HL                        ; (the old end)
-    JR   C,.FULL                   ; else DG_ROOM.
-    LD   BC,(RG_CBEG)              ; Their bytes,
-    PUSH HL                        ; from their
-    OR   A                         ; start
-    SBC  HL,BC                     ; to the old
-    LD   B,H                       ; end,
-    LD   C,L                       ; BC,
-    POP  HL                        ; are
-    DEC  HL                        ; moved
-    DEC  DE                        ; from the
-    LD   A,B                       ; last
-    OR   C                         ; down
-    JR   Z,.MOVED                  ; (none:
-    LDDR                           ; none moved).
-.MOVED:                        ; They start
-    LD   HL,(RG_CBEG)              ; a record
-    LD   DE,SY_RECB                ; higher
-    ADD  HL,DE                     ; too.
-    LD   (RG_CBEG),HL              ; Done.
-    RET                            ; The record fits below them.
-.FULL:                         ; No room:
+    PUSH HL                        ; (the old kept)
+    ADD  HL,BC                     ; higher,
+    LD   (RG_PEND),HL              ; is theirs.
+    POP  HL                        ; The old.
+    RET                            ; Done.
+
+;@ROUTINE IN BC,HL OUT BC CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Open BC bytes at HL, in the waiting constants or at their end: move the
+; memory from HL to the free memory's start (BL_SPAN), the constants after
+; HL and the blob being built, up by BC, its bytes' address with it
+; (BL_CBASE); DG_ROOM if they would pass the free memory's end. BC is
+; kept.
+
+MM_LIFT:                       ; HL is the place, BC the bytes.
+    PUSH BC                        ; Keep the bytes
+    PUSH HL                        ; and the place.
+    CALL BL_SPAN                   ; HL is the free memory, DE its end.
+    PUSH HL                        ; The moved bytes' end,
+    ADD  HL,BC                     ; higher,
+    JR   C,MM_FULL                 ; within memory
+    EX   DE,HL                     ; and at or below
+    SBC  HL,DE                     ; the free memory's
+    JR   C,MM_FULL                 ; end, else DG_ROOM.
+    POP  HL                        ; Their end,
+    POP  BC                        ; less the place,
+    PUSH HL                        ; is
+    SBC  HL,BC                     ; their
+    LD   B,H                       ; count,
+    LD   C,L                       ; BC.
+    POP  HL                        ; They are moved
+    DEC  HL                        ; from the last
+    DEC  DE                        ; down
+    LD   A,B                       ; (none:
+    OR   C                         ; none
+    JR   Z,.MOVED                  ; moved).
+    LDDR                           ; Moved.
+.MOVED:                        ; The blob's bytes, if one is built,
+    POP  BC                        ; are BC
+    LD   A,(BL_CBASE+1)            ; bytes
+    OR   A                         ; higher
+    RET  Z                         ; too.
+    LD   HL,(BL_CBASE)             ; Its
+    ADD  HL,BC                     ; address
+    LD   (BL_CBASE),HL             ; follows.
+    RET                            ; Done.
+
+;@ROUTINE NORETURN
+; The memory is full: DG_ROOM, at the current token.
+
+MM_FULL:                       ; No room:
     CALL DG_RAISE                  ; the memory
     DB   DG_ROOM                   ; is full.
 
@@ -185,20 +207,14 @@ RG_LIFT:                       ; A record more is needed below them.
 RG_DEFER:                      ; Declared in a routine's body.
     CALL RG_ADD                    ; HL is the ordinal.
     PUSH HL                        ; Keep it.
-    CALL RG_SPAN                   ; DE is the free memory's end.
     LD   HL,(AG_OSIZE)             ; Its bytes
     LD   BC,7                      ; and seven more:
     ADD  HL,BC                     ; the entry's size,
     LD   B,H                       ; in
-    LD   C,L                       ; BC.
-    LD   HL,(RG_PEND)              ; After the others
-    ADD  HL,BC                     ; it ends here,
-    JR   C,.FULL                   ; within memory
-    EX   DE,HL                     ; and below
-    SBC  HL,DE                     ; the part table,
-    JR   C,.FULL                   ; else DG_ROOM.
-    LD   HL,(RG_PEND)              ; It begins where they end,
-    LD   (RG_PEND),DE              ; and ends there.
+    LD   C,L                       ; BC,
+    LD   HL,(RG_PEND)              ; are opened
+    CALL MM_LIFT                   ; after the others,
+    CALL RG_PUP                    ; which end after it: HL is its place.
     POP  BC                        ; The ordinal:
     LD   (HL),C                    ; its
     INC  HL                        ; two
@@ -217,9 +233,6 @@ RG_DEFER:                      ; Declared in a routine's body.
     LDIR                           ; (AC_DLEN after it).
     POP  BC                        ; BC is the ordinal.
     RET                            ; Done.
-.FULL:                         ; No room for it:
-    CALL DG_RAISE                  ; the source's
-    DB   DG_ROOM                   ; memory.
 
 ;@ROUTINE IN A OUT BC CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the object staged in AG_IBUF, AG_OSIZE bytes, as a blob of kind A
@@ -297,9 +310,9 @@ RG_END:                        ; The whole program is written.
     JP   BL_LIMIT                  ; Record them and return.
 
 ;@ROUTINE NORETURN
-; The blob writer's overflow (BLOB.ASM): a routine or object larger than
-; its buffers is refused with DG_BLOB at the current token.
+; The blob writer's overflow (BLOB.ASM): a routine or object of 16K is
+; refused with DG_BLOB at the current token.
 
-BL_OVER:                       ; A buffer of the blob writer is full.
+BL_OVER:                       ; A blob has reached 16K.
     CALL DG_RAISE                  ; Report it; parsing ends.
-    DB   DG_BLOB                   ; Too large for the blob buffers.
+    DB   DG_BLOB                   ; Too large for one blob.
