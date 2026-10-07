@@ -406,6 +406,15 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   and 16K of bytes (`routine size`, the short jumps' sentinel); a
   statement takes about 10 bytes of code and 20 of log. The 3.8K the
   buffers held went to the source area, now 22,198 bytes (about 21.7K).
+- **Native compiler at 68.4:** when the free memory is full, the blob's
+  bytes spill to `NAME.$CD`, whole records, and are read back in order as
+  the blob is written (`BL_FLUSH`, `BL_RDB`); the first record is kept in
+  memory too, for the prologue's patch, and a jump that may shrink is
+  marked in its reference as it is made, so shrinking reads no bytes. The
+  log alone then bounds a routine: the reference's spill of references to
+  `NAME.$RF` is not needed while the log fits. The spill costs 468 bytes
+  of code and 168 of workspace; a program that never fills memory never
+  touches the disk for it.
 
 ### 3.6 Compiler workspace budget
 

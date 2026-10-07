@@ -213,12 +213,14 @@ TK_KEEP:                       ; HL: the record to fill.
 
 ;@ROUTINE IN BC OUT DE CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Take BC bytes below the name heap's bottom, which becomes theirs (NH_PTR),
-; from the end of the free memory (BL_SPAN; DG_ROOM when it would pass the
-; start), the log of the blob being built moving down with it: DE returns
-; their address. What is above the bottom never moves. BC is kept.
+; from the end of the free memory (BL_SPAN; when it would pass the start,
+; a blob's bytes spill, BL_SPILL, then DG_ROOM), the log of the blob being
+; built moving down with it: DE returns their address. What is above the
+; bottom never moves. BC is kept.
 
 NH_ALLOC:                      ; BC is the bytes.
     PUSH BC                        ; (the bytes kept)
+.AGAIN:                        ; Is there room?
     CALL BL_SPAN                   ; They are taken from the free memory's
     PUSH DE                        ; end (kept),
     EX   DE,HL                     ; below
@@ -227,7 +229,12 @@ NH_ALLOC:                      ; BC is the bytes.
     PUSH HL                        ; (kept)
     SBC  HL,DE                     ; must stay
     POP  HL                        ; above its
-    JP   C,MM_FULL                 ; start.
+    JR   NC,.ROOM                  ; start;
+    POP  DE                        ; if not, a blob's
+    CALL BL_FLUSH                  ; bytes spill,
+    JP   C,MM_FULL                 ; if any (DG_ROOM),
+    JR   .AGAIN                    ; and it is tried again.
+.ROOM:                         ; HL is the new end.
     LD   (BL_LBOT),HL              ; A blob's log ends there,
     EX   DE,HL                     ; moved down
     POP  BC                        ; from the old end

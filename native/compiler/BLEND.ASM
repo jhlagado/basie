@@ -89,14 +89,25 @@ BL_CTRL:                       ; HL is the offset, E the escape, B the flags.
 ; reference) or 127 (for a line entry) escaping to an absolute word; a
 ; reference's control has bit 6 when an addend follows and bit 7 when a
 ; form does, then the form, the target and the addend; a line entry's
-; has bit 7 when its part changes, then the part, then the line. No blob
-; is built after it (BL_CBASE), until BL_BEGIN.
+; has bit 7 when its part changes, then the part, then the line. Bytes
+; spilled to NAME.$CD are read back (BL_RDB), and the file deleted. No
+; blob is built after it (BL_CBASE), until BL_BEGIN.
 
 BL_END:                        ; The blob is complete in memory.
+    LD   HL,(BL_SPILL)             ; Were
+    LD   A,H                       ; any of its bytes
+    OR   L                         ; spilled?
+    CALL NZ,BL_RBACK               ; Then they are read back.
     CALL BL_WRITE                  ; Write it;
     XOR  A                         ; none is
     LD   (BL_CBASE+1),A            ; built
-    RET                            ; now.
+    LD   HL,(BL_SPILL)             ; now;
+    LD   A,H                       ; NAME.$CD,
+    OR   L                         ; if it was made,
+    RET  Z                         ; is
+    LD   DE,BL_SFCB                ; deleted.
+    LD   C,BD_DEL                  ; Its
+    JP   BL_BDOS                   ; status is not wanted.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the blob, as BL_END says, and leave it built.
@@ -124,7 +135,8 @@ BL_WRITE:                      ; The blob is complete in memory.
     CP   BL_TREFS                  ; any but a reference
     JR   NC,.REF                   ; passed over.
     PUSH HL                        ; A reference: kept.
-    LD   C,(HL)                    ; C is its form.
+    AND  BL_TJUMP-1                ; C is its form,
+    LD   C,A                       ; without BL_TJUMP.
     INC  HL                        ; DE
     LD   E,(HL)                    ; is
     INC  HL                        ; its
@@ -213,9 +225,7 @@ BL_WRITE:                      ; The blob is complete in memory.
     CP   D                         ; byte.
     JR   Z,.SHORT                  ; It is.
 .COPY:                         ; The byte is written as it is.
-    LD   HL,(BL_CBASE)             ; Its address
-    ADD  HL,DE                     ; in the blob.
-    LD   A,(HL)                    ; Append
+    CALL BL_RDB                    ; Append
     CALL OUT_BYTE                  ; it.
     INC  DE                        ; The next.
     JR   .BYTE                     ; Go on.
@@ -226,13 +236,11 @@ BL_WRITE:                      ; The blob is complete in memory.
     LD   B,(HL)                    ; target.
     INC  HL                        ; HL is the next entry,
     EX   (SP),HL                   ; the next to be met.
-    LD   HL,(BL_CBASE)             ; The JP's
-    ADD  HL,DE                     ; opcode:
-    LD   A,(HL)                    ; JP, $C3, has bit 0
-    RRCA                           ; set, and
-    LD   A,$18                     ; becomes JR, $18;
+    CALL BL_RDB                    ; The JP's opcode:
+    RRCA                           ; JP, $C3, has bit 0 set,
+    LD   A,$18                     ; and becomes JR, $18;
     JR   C,.OPCODE                 ; JP cc becomes
-    LD   A,(HL)                    ; JR cc, $20
+    CALL BL_RDB                    ; JR cc, $20
     AND  $18                       ; with the same
     OR   $20                       ; condition bits.
 .OPCODE:                       ; A is the JR's opcode.

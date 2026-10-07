@@ -22,7 +22,11 @@
 ;  them: the bytes up as the symbol table and the constants grow (RG_LIFT),
 ;  the log down as the name heap does (TK_KEEP), so a word that must find
 ;  an entry again keeps its distance from the heap (BL_FLIP), not its
-;  address. A blob is as large as the free memory, below 16K. BL_BEGIN
+;  address. When the free memory is full, the blob's bytes are spilled,
+;  whole records of them, to NAME.$CD on the streams' drive (BL_SPILL), and
+;  read back as the blob is written (BL_RDB); its first record is kept in
+;  memory too (BL_REC0), for the prologue's patch (RG_CLOSE). So the log
+;  alone bounds a blob, with its 16K. BL_BEGIN
 ;  starts one; BL_BYTE, BL_REF and BL_LINE add its bytes, references and
 ;  line entries; BL_END writes them.
 ;  References and line entries are kept as they are given and encoded in
@@ -79,7 +83,8 @@ BL_BYOUT EQU  $80              ; Set by BL_OPEN: the byte stream is always writt
 
 BL_ELEN EQU  7                 ; Bytes of one entry of the log.
 BL_EBACK EQU  -BL_ELEN         ; From an entry to the next, lower.
-BL_TREFS EQU  4                ; First bytes below are references' forms.
+BL_TJUMP EQU  4                ; A reference's form 0 after JP or JP cc (BL_SHORT).
+BL_TREFS EQU  8                ; First bytes below are references': the form, plus BL_TJUMP.
 BL_TLINE EQU  $FF              ; A line entry's first byte.
 BL_TLIT EQU  $FE               ; A string literal's (GENAGGR.ASM, GA_LIT).
 BL_TLOW EQU  $FD               ; A select label's low value (ACTSEL.ASM).
@@ -105,7 +110,12 @@ BL_JPEND EQU  BL_JUMPS+2       ; Word: the table's sentinel; its limit while bui
 BL_PREV EQU  BL_JPEND+2        ; Word: the ordinal of the last blob record.
 BL_COUNT EQU  BL_PREV+2        ; Word: blob records written.
 BL_HIGH EQU  BL_COUNT+2        ; Word: the highest ordinal written.
-BL_DR EQU  BL_HIGH+2           ; The directory stream's record.
+BL_SPILL EQU  BL_HIGH+2        ; Word: the blob's bytes spilled to NAME.$CD, whole records.
+BL_RREC EQU  BL_SPILL+2        ; Byte: the record read back into EM_LTAB (BL_RDB).
+BL_LASTB EQU  BL_RREC+1        ; Byte: the byte last appended.
+BL_SFCB EQU  BL_LASTB+1        ; 36 bytes: NAME.$CD's FCB.
+BL_REC0 EQU  BL_SFCB+36        ; 128 bytes: the first record, once spilled.
+BL_DR EQU  BL_REC0+128         ; The directory stream's record.
 BL_BY EQU  BL_DR+OUT_SIZE      ; The byte stream's record.
 BL_LN EQU  BL_BY+OUT_SIZE      ; The line stream's record.
 BL_NM EQU  BL_LN+OUT_SIZE      ; The name stream's record.
@@ -126,6 +136,7 @@ BL_BEGIN:                      ; HL is the ordinal, A the header.
     LD   (BL_LBOT),HL              ; below the name heap.
     LD   HL,0                      ; Nothing is in the blob yet:
     LD   (BL_LEN),HL               ; no bytes,
+    LD   (BL_SPILL),HL             ; none spilled,
     LD   (BL_LLAST),HL             ; no line entry,
     LD   (BL_RCNT),HL              ; no references,
     LD   (BL_LCNT),HL              ; no line entries.
@@ -135,41 +146,64 @@ BL_BEGIN:                      ; HL is the ordinal, A the header.
     RET                            ; The blob is ready for its bytes.
 
 ;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Append A to the blob's bytes, below its log (MM_FULL) and its 16K
-; (BL_OVER). Every register but F is kept.
+; Append A to the blob's bytes, below its log (spilling them, BL_SPILL,
+; then MM_FULL) and its 16K (BL_OVER). Every register but F is kept.
 
 BL_BYTE:                       ; A is the byte.
     PUSH HL                        ; Keep the caller's HL
     PUSH DE                        ; and DE.
+.AGAIN:                        ; Is there room?
     LD   HL,(BL_LEN)               ; One byte
     INC  HL                        ; more,
     BIT  6,H                       ; below 16K
     JP   NZ,BL_OVER                ; (BL_PAST's bit),
-    LD   (BL_LEN),HL               ; is counted;
-    LD   DE,(BL_CBASE)             ; its end
-    ADD  HL,DE                     ; must not
-    EX   DE,HL                     ; pass
+    LD   DE,(BL_CBASE)             ; ends
+    ADD  HL,DE                     ; at or
+    EX   DE,HL                     ; below
     LD   HL,(BL_LBOT)              ; the log's
     SBC  HL,DE                     ; bottom (carry is clear),
-    JP   C,MM_FULL                 ; else DG_ROOM.
+    JR   C,.FULL                   ; else the bytes spill.
     DEC  DE                        ; Its address:
-    LD   (DE),A                    ; stored.
+    LD   (DE),A                    ; stored,
+    LD   (BL_LASTB),A              ; the last;
+    LD   HL,(BL_LEN)               ; it is
+    INC  HL                        ; counted.
+    LD   (BL_LEN),HL               ; Done.
     POP  DE                        ; Restore DE
     POP  HL                        ; and HL.
     RET                            ; The byte is in the blob.
+.FULL:                         ; No room:
+    PUSH AF                        ; (the byte kept)
+    CALL BL_FLUSH                  ; spill the bytes,
+    JP   C,MM_FULL                 ; if any (DG_ROOM),
+    POP  AF                        ; and try
+    JR   .AGAIN                    ; again.
 
 ;@ROUTINE IN A,DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append a reference of form A to target HL with addend DE at the blob's
 ; current offset, then its zero placeholder: a word, or a byte for LO8 and
 ; HI8. It is kept as given until BL_END encodes it, an entry of the log:
-; the form, the offset, the target, then the addend, whose word is
-; therefore the log's bottom's last until another entry is added (EM_SELF).
+; the form, plus BL_TJUMP for a word after JP or JP cc, the offset, the
+; target, then the addend, whose word is therefore the log's bottom's last
+; until another entry is added (EM_SELF).
 
 BL_REF:                        ; A is the form, HL the target, DE the addend.
     LD   C,A                       ; C is the form.
     PUSH DE                        ; The addend
     PUSH HL                        ; and target kept.
-    CALL BL_LOG                    ; The form,
+    OR   A                         ; A word's address
+    JR   NZ,.LOG                   ; after
+    LD   A,(BL_LASTB)              ; JP,
+    CP   $C3                       ; or
+    JR   Z,.JUMP                   ; JP NZ,
+    AND  $E7                       ; Z, NC
+    CP   $C2                       ; or C,
+    LD   A,0                       ; is
+    JR   NZ,.LOG                   ; a jump
+.JUMP:                         ; that may
+    LD   A,BL_TJUMP                ; shrink (BL_SHORT).
+.LOG:                          ; A is the entry's first byte:
+    CALL BL_LOG                    ; the form,
     LD   DE,(BL_LEN)               ; the offset,
     CALL BL_PUTD                   ; this one;
     POP  DE                        ; the target
@@ -261,27 +295,32 @@ BL_LINE:                       ; A is the part, HL the position's line.
 
 ;@ROUTINE IN A OUT HL CLOBBERS DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Add an entry to the blob's log, below its bottom and above the blob's
-; bytes (MM_FULL), its first byte A: HL returns past that byte. A and BC
-; are kept.
+; bytes (spilling them, then MM_FULL), its first byte A: HL returns past
+; that byte. A and BC are kept.
 
 BL_LOG:                        ; A is the entry's first byte.
     PUSH BC                        ; Keep BC
     PUSH AF                        ; and A.
+.AGAIN:                        ; Is there room?
     CALL BL_SPAN                   ; HL is the bytes' end, DE the log's bottom.
     EX   DE,HL                     ; An entry
     LD   BC,BL_EBACK               ; lower
     ADD  HL,BC                     ; is
-    LD   (BL_LBOT),HL              ; the bottom,
     PUSH HL                        ; (kept)
     OR   A                         ; at or above
     SBC  HL,DE                     ; the bytes'
     POP  HL                        ; end,
-    JP   C,MM_FULL                 ; else DG_ROOM.
+    JR   C,.FULL                   ; else they spill.
+    LD   (BL_LBOT),HL              ; It is the bottom.
     POP  AF                        ; The first
     LD   (HL),A                    ; byte;
     INC  HL                        ; HL is past it.
     POP  BC                        ; Restore BC.
     RET                            ; Done.
+.FULL:                         ; No room:
+    CALL BL_FLUSH                  ; spill the bytes,
+    JP   C,MM_FULL                 ; if any (DG_ROOM),
+    JR   .AGAIN                    ; and try again.
 ;@ROUTINE IN DE,HL OUT HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the word DE at HL, low byte first; HL returns past it.
 
@@ -339,6 +378,219 @@ BL_NEXT:                       ; HL is an entry.
     RET  C                         ; None: done.
     LD   A,(HL)                    ; Its first byte.
     RET                            ; Done.
+
+;@ROUTINE OUT CARRY CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY
+; Spill the blob's bytes held in memory, all their whole records, to
+; NAME.$CD (made at the first, its first record kept in BL_REC0 too), and
+; move the rest to where they began: BL_CBASE moves down by the bytes
+; spilled. Carry when no blob is built or none of its records is whole;
+; a full disk is OUT_FAIL. BC, DE, HL, IX and IY are kept.
+
+BL_FLUSH:                      ; The free memory is full.
+    PUSH BC                        ; Keep
+    PUSH DE                        ; the
+    PUSH HL                        ; registers
+    PUSH IX                        ; but A.
+    LD   A,(BL_CBASE+1)            ; Is a blob
+    OR   A                         ; built?
+    SCF                            ; If not,
+    JP   Z,.DONE                   ; nothing spills.
+    LD   HL,(BL_LEN)               ; Its bytes
+    LD   DE,(BL_SPILL)             ; in
+    OR   A                         ; memory,
+    SBC  HL,DE                     ; in whole
+    ADD  HL,HL                     ; records,
+    LD   A,H                       ; A;
+    CP   1                         ; carry
+    JP   C,.DONE                   ; when none.
+    LD   B,A                       ; B is their count.
+    LD   A,D                       ; Are some
+    OR   E                         ; on the disk
+    JR   NZ,.MADE                  ; already?
+    PUSH BC                        ; If not,
+    LD   HL,(BL_CBASE)             ; the first
+    LD   DE,BL_REC0                ; record
+    LD   BC,128                    ; is kept
+    LDIR                           ; in memory,
+    LD   HL,(BL_NAMEP)             ; and NAME.$CD
+    LD   DE,BL_SFCB                ; is made:
+    LD   BC,9                      ; the drive
+    LDIR                           ; and name,
+    LD   HL,.TYPE                  ; the
+    LD   C,3                       ; type,
+    LDIR                           ; then
+    LD   B,24                      ; zeros.
+.ZERO:                         ; B remain.
+    LD   (DE),A                    ; A is zero.
+    INC  DE                        ; The next.
+    DJNZ .ZERO                     ; Until all are.
+    LD   DE,BL_SFCB                ; An old
+    LD   C,BD_DEL                  ; one
+    CALL BL_BDOS                   ; goes;
+    LD   DE,BL_SFCB                ; a new
+    LD   C,BD_MAKE                 ; one
+    CALL BL_BDOS                   ; is made,
+    INC  A                         ; or the directory
+    JP   Z,OUT_FAIL                ; is full.
+    POP  BC                        ; B is the count.
+.MADE:                         ; The file is open for writing.
+    LD   HL,(BL_CBASE)             ; The bytes
+    LD   DE,(BL_SPILL)             ; in memory
+    ADD  HL,DE                     ; begin here.
+    PUSH HL                        ; Kept.
+.RECORD:                       ; HL is a record, B remain.
+    PUSH BC                        ; Keep the count
+    PUSH HL                        ; and the record.
+    EX   DE,HL                     ; It is
+    LD   C,BD_DMA                  ; written
+    CALL BL_BDOS                   ; from
+    LD   DE,BL_SFCB                ; where
+    LD   C,BD_WRITE                ; it is,
+    CALL BL_BDOS                   ; or the disk
+    OR   A                         ; is
+    JP   NZ,OUT_FAIL               ; full.
+    POP  HL                        ; The next
+    LD   DE,128                    ; record
+    ADD  HL,DE                     ; on;
+    POP  BC                        ; one fewer.
+    DJNZ .RECORD                   ; Until all are written.
+    LD   DE,(BL_CBASE)             ; HL is the first not spilled.
+    PUSH HL                        ; The bytes spilled,
+    OR   A                         ; past
+    SBC  HL,DE                     ; the base,
+    LD   DE,(BL_SPILL)             ; less those spilled before,
+    SBC  HL,DE                     ; are BC;
+    LD   B,H                       ; the base
+    LD   C,L                       ; moves down
+    LD   HL,(BL_CBASE)             ; by them,
+    SBC  HL,BC                     ; and those spilled
+    LD   (BL_CBASE),HL             ; grow
+    EX   DE,HL                     ; by
+    ADD  HL,BC                     ; them.
+    LD   (BL_SPILL),HL             ; HL is the bytes spilled.
+    LD   DE,(BL_LEN)               ; The rest,
+    EX   DE,HL                     ; from their
+    SBC  HL,DE                     ; length,
+    LD   B,H                       ; BC of
+    LD   C,L                       ; them,
+    POP  HL                        ; move from the first not spilled
+    POP  DE                        ; to where the bytes began.
+    LD   A,B                       ; (none:
+    OR   C                         ; none
+    JR   Z,.DONE                   ; moved; carry is clear)
+    LDIR                           ; Moved: carry is clear.
+.DONE:                         ; Carry says whether any spilled.
+    POP  IX                        ; Restore
+    POP  HL                        ; the
+    POP  DE                        ; registers
+    POP  BC                        ; but A.
+    RET                            ; Done.
+.TYPE:                         ; The spill file's type.
+    DB   "$CD"                     ; NAME.$CD.
+
+;@ROUTINE IN DE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A is the blob's byte at offset DE, read in order as BL_END writes it:
+; from memory, or from the record of NAME.$CD read back into EM_LTAB
+; (BL_RBACK opened it), the first from BL_REC0. BC, DE, HL and IX are
+; kept.
+
+BL_RDB:                        ; DE is the offset.
+    PUSH HL                        ; Keep HL.
+    LD   HL,(BL_SPILL)             ; Is it
+    SCF                            ; below
+    SBC  HL,DE                     ; those spilled?
+    JR   NC,.DISK                  ; Then it is on the disk.
+    LD   HL,(BL_CBASE)             ; In memory:
+    ADD  HL,DE                     ; its
+    LD   A,(HL)                    ; byte.
+    POP  HL                        ; HL again.
+    RET                            ; Done.
+.DISK:                         ; Its record,
+    LD   A,E                       ; DE
+    RLA                            ; over
+    LD   A,D                       ; 128,
+    RLA                            ; A:
+    OR   A                         ; the first
+    LD   HL,BL_REC0                ; is kept
+    JR   Z,.AT                     ; in memory.
+    PUSH BC                        ; Keep BC.
+    LD   C,A                       ; C is the record.
+.READ:                         ; Is it the one read?
+    LD   A,(BL_RREC)               ; The record read
+    CP   C                         ; is it,
+    JR   NC,.HELD                  ; or the next is read:
+    INC  A                         ; the next
+    LD   (BL_RREC),A               ; record
+    CALL BL_RNEXT                  ; into EM_LTAB.
+    JR   .READ                     ; Until it is.
+.HELD:                         ; EM_LTAB holds it.
+    POP  BC                        ; BC again.
+    LD   HL,EM_LTAB                ; Its bytes.
+.AT:                           ; HL is the record.
+    LD   A,E                       ; The byte
+    AND  $7F                       ; in it,
+    ADD  A,L                       ; at
+    LD   L,A                       ; HL
+    JR   NC,.BYTE                  ; (a carry
+    INC  H                         ; is the page's).
+.BYTE:                         ; HL is the byte.
+    LD   A,(HL)                    ; A is it.
+    POP  HL                        ; HL again.
+    RET                            ; Done.
+
+;@ROUTINE CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Read NAME.$CD's next record into EM_LTAB (BL_RDB); the end of the file
+; is OUT_FAIL. BC, DE, HL, IX and IY are kept.
+
+BL_RNEXT:                      ; The next record is wanted.
+    PUSH BC                        ; Keep
+    PUSH DE                        ; the
+    PUSH HL                        ; registers.
+    LD   DE,EM_LTAB                ; Into
+    LD   C,BD_DMA                  ; the label
+    CALL BL_BDOS                   ; table,
+    LD   DE,BL_SFCB                ; the
+    LD   C,BD_READ                 ; next
+    CALL BL_BDOS                   ; record,
+    OR   A                         ; or
+    JP   NZ,OUT_FAIL               ; the file is short.
+    POP  HL                        ; Restore
+    POP  DE                        ; the
+    POP  BC                        ; registers.
+    RET                            ; Done.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; NAME.$CD, written, is read back from its start (BL_RDB): closed, opened
+; again, its first record read, which BL_REC0 replaces.
+
+BL_RBACK:                      ; The blob's bytes spilled.
+    LD   DE,BL_SFCB                ; Close
+    LD   C,BD_CLOSE                ; the
+    CALL BL_BDOS                   ; file,
+    CALL .RESET                    ; open it
+    LD   C,BD_OPEN                 ; again,
+    CALL BL_BDOS                   ; from
+    CALL .RESET                    ; its start,
+    XOR  A                         ; and read
+    LD   (BL_RREC),A               ; its first
+    JR   BL_RNEXT                  ; record; return.
+.RESET:                        ; The extent and record are zero.
+    XOR  A                         ; Zero:
+    LD   (BL_SFCB+12),A            ; the extent,
+    LD   (BL_SFCB+14),A            ; its high byte,
+    LD   (BL_SFCB+32),A            ; the current record.
+    LD   DE,BL_SFCB                ; DE is the FCB.
+    RET                            ; Done.
+
+;@ROUTINE IN C,DE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Call BDOS function C with DE (OUT_BDOS), keeping IX and IY, which an
+; owner descriptor's walk (OW_ROOT) holds while its bytes are appended.
+
+BL_BDOS:                       ; C is the function, DE its argument.
+    PUSH IY                        ; Keep IY;
+    CALL OUT_BDOS                  ; IX is kept there.
+    POP  IY                        ; IY again.
+    RET                            ; A is the status.
 
 BL_NONE:                       ; The table of a blob with no short jump:
     DW   BL_PAST                   ; its sentinel alone.

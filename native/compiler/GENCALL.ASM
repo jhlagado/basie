@@ -152,19 +152,26 @@ RG_PUP:                        ; BC more bytes are theirs.
 ; Open BC bytes at HL, in the waiting constants or at their end: move the
 ; memory from HL to the free memory's start (BL_SPAN), the constants after
 ; HL and the blob being built, up by BC, its bytes' address with it
-; (BL_CBASE); DG_ROOM if they would pass the free memory's end. BC is
-; kept.
+; (BL_CBASE); when they would pass the free memory's end, the blob's
+; bytes spill (BL_SPILL), then DG_ROOM. BC is kept.
 
 MM_LIFT:                       ; HL is the place, BC the bytes.
     PUSH BC                        ; Keep the bytes
     PUSH HL                        ; and the place.
+.AGAIN:                        ; Is there room?
     CALL BL_SPAN                   ; HL is the free memory, DE its end.
     PUSH HL                        ; The moved bytes' end,
     ADD  HL,BC                     ; higher,
-    JR   C,MM_FULL                 ; within memory
+    JR   C,.FULL                   ; within memory
     EX   DE,HL                     ; and at or below
     SBC  HL,DE                     ; the free memory's
-    JR   C,MM_FULL                 ; end, else DG_ROOM.
+    JR   NC,.ROOM                  ; end;
+.FULL:                         ; if not, a blob's
+    POP  HL                        ; bytes
+    CALL BL_FLUSH                  ; spill,
+    JR   C,MM_FULL                 ; if any (DG_ROOM),
+    JR   .AGAIN                    ; and it is tried again.
+.ROOM:                         ; DE is the new end.
     POP  HL                        ; Their end,
     POP  BC                        ; less the place,
     PUSH HL                        ; is

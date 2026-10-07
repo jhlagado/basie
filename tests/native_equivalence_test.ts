@@ -392,6 +392,8 @@ const CLAIMED: Record<string, string[]> = {
     "NEST32",
     "MANYRTN",
     "MANYCASE",
+    "CASE256",
+    "BIGSPILL",
   ],
 };
 

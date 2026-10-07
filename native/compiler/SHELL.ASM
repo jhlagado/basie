@@ -331,15 +331,16 @@ OUT_FAIL:                      ; A stream could not be written or made.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Delete the four streams, NAME.$DR, $BY, $LN and $NM on the spool drive,
-; after a failure, unless option K keeps them (toolchain §6.2). A stream
-; never made is only a status from BDOS.
+; and a blob's spilled bytes, NAME.$CD (BL_SPILL), after a failure, unless
+; option K keeps them (toolchain §6.2). A stream never made is only a
+; status from BDOS.
 
 SH_SCRUB:                      ; The streams were opened by BL_OPEN.
     LD   A,(BL_FLAGS)              ; Did option K
     AND  SH_KEEP                   ; ask to keep them?
     RET  NZ                        ; Then they stay.
     LD   HL,SH_STYPE               ; The streams' types, two letters each.
-    LD   B,4                       ; Four streams.
+    LD   B,5                       ; Four streams and the spill.
 .LOOP:                         ; HL is the next type.
     PUSH BC                        ; Keep the count.
     CALL SH_BLANK                  ; A clear FCB; HL is kept.
@@ -360,7 +361,7 @@ SH_SCRUB:                      ; The streams were opened by BL_OPEN.
     CALL SH_BDOS                   ; an absent one is only a status.
     POP  HL                        ; The next type.
     POP  BC                        ; The count.
-    DJNZ .LOOP                     ; Until all four are deleted.
+    DJNZ .LOOP                     ; Until all five are deleted.
     RET                            ; The streams are gone.
 
 ; ---- data -------------------------------------------------------------------
@@ -372,7 +373,7 @@ SH_HEAD:                       ; The program directory's header (object format �
     DW   0,$0400                   ; the profile (LIBRARY.ASM), the ordinal base.
     DB   0,0                       ; No flags; padding.
 SH_STYPE:                      ; The streams' types after their dollar.
-    DB   "DRBYLNNM"                ; $DR, $BY, $LN and $NM.
+    DB   "DRBYLNNMCD"              ; $DR, $BY, $LN, $NM and $CD.
 SH_JOB:                        ; The SUBMIT job file a failed build deletes.
     DB   1,"$$$     SUB"           ; Drive A:, then name and type as an FCB holds them.
 SH_DMSG:                       ; A stream could not be written.

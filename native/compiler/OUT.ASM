@@ -39,8 +39,10 @@ OUT_SIZE EQU  171              ; Bytes in one stream record.
 OUT_FCBN EQU  36               ; Bytes of FCB that OUT_OPEN clears.
 
 BD_ENTRY EQU  $0005            ; BDOS entry.
+BD_OPEN EQU  15                ; BDOS open file: A is $FF when it is absent.
 BD_CLOSE EQU  16               ; BDOS close file.
 BD_DEL EQU  19                 ; BDOS delete file.
+BD_READ EQU  20                ; BDOS read sequential: A is nonzero at the end.
 BD_WRITE EQU  21               ; BDOS write sequential: A is nonzero when full.
 BD_MAKE EQU  22                ; BDOS make file: A is $FF when the directory is full.
 BD_DMA EQU  26                 ; BDOS set DMA address.

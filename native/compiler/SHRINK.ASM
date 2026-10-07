@@ -11,8 +11,9 @@
 ;  NC or C to a label of the routine. Every such operand is a reference
 ;  to the routine itself (EM_LREF), its addend the label's offset, and no
 ;  other self-reference follows one of those five opcodes (the others are
-;  LD HL,(need) and LD HL,literal), so the candidates are found among the
-;  kept references rather than recorded as they are written.
+;  LD HL,(need) and LD HL,literal), so the candidates are the kept
+;  references to the routine that BL_REF marked as after one of them
+;  (BL_TJUMP), whose bytes may be on the disk (BL_SPILL).
 ;
 ;  The rule is the reference's: every candidate starts short, and each
 ;  pass drops those whose JR would not reach, until a pass drops none.
@@ -36,6 +37,18 @@
 ; (BL_SPAN; DG_ROOM when it does not fit there).
 
 BL_SHORT:                      ; The routine is complete.
+    LD   HL,(BL_RCNT)              ; Four bytes
+    INC  HL                        ; for each
+    ADD  HL,HL                     ; reference
+    ADD  HL,HL                     ; and the sentinel
+    PUSH HL                        ; at most:
+    CALL BL_SPAN                   ; if the free
+    EX   DE,HL                     ; memory
+    OR   A                         ; has
+    SBC  HL,DE                     ; less,
+    POP  DE                        ; the bytes
+    SBC  HL,DE                     ; spill
+    CALL C,BL_FLUSH                ; first.
     CALL BL_SPAN                   ; HL is free memory, DE its end.
     LD   (BL_JUMPS),HL             ; The table starts there; until it
     LD   (BL_JPEND),DE             ; is built, its end is the memory's.
@@ -44,8 +57,8 @@ BL_SHORT:                      ; The routine is complete.
 .SCAN:                         ; HL is an entry, or the heap.
     CALL BL_NEXT                   ; The next:
     JR   C,.SCANNED                ; none, and the table is complete;
-    CP   BL_TREFS                  ; any but a reference
-    JR   NC,.SCAN                  ; passed over.
+    CP   BL_TJUMP                  ; any but a jump's word
+    JR   NZ,.SCAN                  ; passed over.
     PUSH HL                        ; A reference: kept.
     INC  HL                        ; Past its form,
     LD   E,(HL)                    ; DE
@@ -63,15 +76,6 @@ BL_SHORT:                      ; The routine is complete.
     LD   C,(HL)                    ; is its
     INC  HL                        ; addend:
     LD   B,(HL)                    ; the label's offset.
-    LD   HL,(BL_CBASE)             ; The byte
-    DEC  HL                        ; before
-    ADD  HL,DE                     ; the operand
-    LD   A,(HL)                    ; is the opcode:
-    CP   $C3                       ; JP,
-    JR   Z,.JUMP                   ; or
-    AND  $E7                       ; JP NZ, Z, NC or C, $C2 with
-    CP   $C2                       ; the condition in bits 3 and 4?
-    JR   NZ,.NEXT                  ; Any other: not a jump.
 .JUMP:                         ; DE is the operand's offset, BC the target's.
     DEC  DE                        ; The jump's own offset.
     POP  HL                        ; The reference,

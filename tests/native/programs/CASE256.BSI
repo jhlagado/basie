@@ -1,0 +1,530 @@
+// A select of 256 cases, the spec's minimum (limits 5.1), beside a 7K
+// part: the routine's bytes spill to SEL.$CD as memory fills (68.4) and are
+// read back as its blob is written, its jumps shrunk as the reference's.
+var g as u8
+var h as u16
+sub pick() as u8
+    select h
+    case 0
+        g = 0
+    case 1
+        g = 1
+    case 2
+        g = 2
+    case 3
+        g = 3
+    case 4
+        g = 4
+    case 5
+        g = 5
+    case 6
+        g = 6
+    case 7
+        g = 7
+    case 8
+        g = 8
+    case 9
+        g = 9
+    case 10
+        g = 10
+    case 11
+        g = 11
+    case 12
+        g = 12
+    case 13
+        g = 13
+    case 14
+        g = 14
+    case 15
+        g = 15
+    case 16
+        g = 16
+    case 17
+        g = 17
+    case 18
+        g = 18
+    case 19
+        g = 19
+    case 20
+        g = 20
+    case 21
+        g = 21
+    case 22
+        g = 22
+    case 23
+        g = 23
+    case 24
+        g = 24
+    case 25
+        g = 25
+    case 26
+        g = 26
+    case 27
+        g = 27
+    case 28
+        g = 28
+    case 29
+        g = 29
+    case 30
+        g = 30
+    case 31
+        g = 31
+    case 32
+        g = 32
+    case 33
+        g = 33
+    case 34
+        g = 34
+    case 35
+        g = 35
+    case 36
+        g = 36
+    case 37
+        g = 37
+    case 38
+        g = 38
+    case 39
+        g = 39
+    case 40
+        g = 40
+    case 41
+        g = 41
+    case 42
+        g = 42
+    case 43
+        g = 43
+    case 44
+        g = 44
+    case 45
+        g = 45
+    case 46
+        g = 46
+    case 47
+        g = 47
+    case 48
+        g = 48
+    case 49
+        g = 49
+    case 50
+        g = 50
+    case 51
+        g = 51
+    case 52
+        g = 52
+    case 53
+        g = 53
+    case 54
+        g = 54
+    case 55
+        g = 55
+    case 56
+        g = 56
+    case 57
+        g = 57
+    case 58
+        g = 58
+    case 59
+        g = 59
+    case 60
+        g = 60
+    case 61
+        g = 61
+    case 62
+        g = 62
+    case 63
+        g = 63
+    case 64
+        g = 64
+    case 65
+        g = 65
+    case 66
+        g = 66
+    case 67
+        g = 67
+    case 68
+        g = 68
+    case 69
+        g = 69
+    case 70
+        g = 70
+    case 71
+        g = 71
+    case 72
+        g = 72
+    case 73
+        g = 73
+    case 74
+        g = 74
+    case 75
+        g = 75
+    case 76
+        g = 76
+    case 77
+        g = 77
+    case 78
+        g = 78
+    case 79
+        g = 79
+    case 80
+        g = 80
+    case 81
+        g = 81
+    case 82
+        g = 82
+    case 83
+        g = 83
+    case 84
+        g = 84
+    case 85
+        g = 85
+    case 86
+        g = 86
+    case 87
+        g = 87
+    case 88
+        g = 88
+    case 89
+        g = 89
+    case 90
+        g = 90
+    case 91
+        g = 91
+    case 92
+        g = 92
+    case 93
+        g = 93
+    case 94
+        g = 94
+    case 95
+        g = 95
+    case 96
+        g = 96
+    case 97
+        g = 97
+    case 98
+        g = 98
+    case 99
+        g = 99
+    case 100
+        g = 100
+    case 101
+        g = 101
+    case 102
+        g = 102
+    case 103
+        g = 103
+    case 104
+        g = 104
+    case 105
+        g = 105
+    case 106
+        g = 106
+    case 107
+        g = 107
+    case 108
+        g = 108
+    case 109
+        g = 109
+    case 110
+        g = 110
+    case 111
+        g = 111
+    case 112
+        g = 112
+    case 113
+        g = 113
+    case 114
+        g = 114
+    case 115
+        g = 115
+    case 116
+        g = 116
+    case 117
+        g = 117
+    case 118
+        g = 118
+    case 119
+        g = 119
+    case 120
+        g = 120
+    case 121
+        g = 121
+    case 122
+        g = 122
+    case 123
+        g = 123
+    case 124
+        g = 124
+    case 125
+        g = 125
+    case 126
+        g = 126
+    case 127
+        g = 127
+    case 128
+        g = 128
+    case 129
+        g = 129
+    case 130
+        g = 130
+    case 131
+        g = 131
+    case 132
+        g = 132
+    case 133
+        g = 133
+    case 134
+        g = 134
+    case 135
+        g = 135
+    case 136
+        g = 136
+    case 137
+        g = 137
+    case 138
+        g = 138
+    case 139
+        g = 139
+    case 140
+        g = 140
+    case 141
+        g = 141
+    case 142
+        g = 142
+    case 143
+        g = 143
+    case 144
+        g = 144
+    case 145
+        g = 145
+    case 146
+        g = 146
+    case 147
+        g = 147
+    case 148
+        g = 148
+    case 149
+        g = 149
+    case 150
+        g = 150
+    case 151
+        g = 151
+    case 152
+        g = 152
+    case 153
+        g = 153
+    case 154
+        g = 154
+    case 155
+        g = 155
+    case 156
+        g = 156
+    case 157
+        g = 157
+    case 158
+        g = 158
+    case 159
+        g = 159
+    case 160
+        g = 160
+    case 161
+        g = 161
+    case 162
+        g = 162
+    case 163
+        g = 163
+    case 164
+        g = 164
+    case 165
+        g = 165
+    case 166
+        g = 166
+    case 167
+        g = 167
+    case 168
+        g = 168
+    case 169
+        g = 169
+    case 170
+        g = 170
+    case 171
+        g = 171
+    case 172
+        g = 172
+    case 173
+        g = 173
+    case 174
+        g = 174
+    case 175
+        g = 175
+    case 176
+        g = 176
+    case 177
+        g = 177
+    case 178
+        g = 178
+    case 179
+        g = 179
+    case 180
+        g = 180
+    case 181
+        g = 181
+    case 182
+        g = 182
+    case 183
+        g = 183
+    case 184
+        g = 184
+    case 185
+        g = 185
+    case 186
+        g = 186
+    case 187
+        g = 187
+    case 188
+        g = 188
+    case 189
+        g = 189
+    case 190
+        g = 190
+    case 191
+        g = 191
+    case 192
+        g = 192
+    case 193
+        g = 193
+    case 194
+        g = 194
+    case 195
+        g = 195
+    case 196
+        g = 196
+    case 197
+        g = 197
+    case 198
+        g = 198
+    case 199
+        g = 199
+    case 200
+        g = 200
+    case 201
+        g = 201
+    case 202
+        g = 202
+    case 203
+        g = 203
+    case 204
+        g = 204
+    case 205
+        g = 205
+    case 206
+        g = 206
+    case 207
+        g = 207
+    case 208
+        g = 208
+    case 209
+        g = 209
+    case 210
+        g = 210
+    case 211
+        g = 211
+    case 212
+        g = 212
+    case 213
+        g = 213
+    case 214
+        g = 214
+    case 215
+        g = 215
+    case 216
+        g = 216
+    case 217
+        g = 217
+    case 218
+        g = 218
+    case 219
+        g = 219
+    case 220
+        g = 220
+    case 221
+        g = 221
+    case 222
+        g = 222
+    case 223
+        g = 223
+    case 224
+        g = 224
+    case 225
+        g = 225
+    case 226
+        g = 226
+    case 227
+        g = 227
+    case 228
+        g = 228
+    case 229
+        g = 229
+    case 230
+        g = 230
+    case 231
+        g = 231
+    case 232
+        g = 232
+    case 233
+        g = 233
+    case 234
+        g = 234
+    case 235
+        g = 235
+    case 236
+        g = 236
+    case 237
+        g = 237
+    case 238
+        g = 238
+    case 239
+        g = 239
+    case 240
+        g = 240
+    case 241
+        g = 241
+    case 242
+        g = 242
+    case 243
+        g = 243
+    case 244
+        g = 244
+    case 245
+        g = 245
+    case 246
+        g = 246
+    case 247
+        g = 247
+    case 248
+        g = 248
+    case 249
+        g = 249
+    case 250
+        g = 250
+    case 251
+        g = 251
+    case 252
+        g = 252
+    case 253
+        g = 253
+    case 254
+        g = 254
+    case 255
+        g = 255
+    case else
+        g = 0
+    end
+    return g
+end
+sub main() fails
+    h = 255
+    if pick() = 255
+        writeText(console, "256 cases\r\n") else fail
+    end
+end

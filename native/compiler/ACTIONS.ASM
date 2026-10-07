@@ -51,7 +51,9 @@ AC_MODE EQU  AG_IBUF           ; Byte: the for loop's mode (CT_MINC...).
 AC_INDEX EQU  AC_MODE+1        ; Word: the counter's offset from IX.
 AC_BOUND EQU  AC_INDEX+2       ; Word: the bound's offset from IX.
 AC_DELTA EQU  AC_BOUND+2       ; Four bytes: the step's magnitude.
-AC_WEND EQU  AC_DELTA+4        ; End of the action scratch (marker).
+AC_WEND EQU  AC_DELTA+4        ; End of the for loop's scratch, which its frame copies.
+AC_RVAL EQU  AC_WEND           ; Eight bytes: a select label's low and high values.
+AC_RWID EQU  AC_RVAL+8         ; Byte: their width in the log, two or four.
 
 ; --------------------------------------------------------------- islands
 

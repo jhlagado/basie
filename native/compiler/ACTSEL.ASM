@@ -38,10 +38,12 @@
 ;  with labels; CT_FVAR the subject's offset from IX, CT_FBND its type,
 ;  CT_FSTEP where its labels begin in the blob writer's log (BL_FLIP's
 ;  form of its bottom then), CT_FSTEP+2 the offset of `select`. A label is
-;  a range of two entries of the log, its low value and its high value,
-;  four bytes each at the subject's type (BL_TLOW with the select's depth,
-;  BL_THIGH after it), so that a label is checked against those after its
-;  select's beginning at its depth, its own select's (duplicate-case).
+;  a range, parsed into AC_RVAL (low, then high), checked against those
+;  after its select's beginning at its depth, its own select's
+;  (duplicate-case), then kept in the log: an entry (BL_TLOW) of the
+;  select's depth and the values, two bytes each for a byte or a word
+;  subject (AC_RWID), or the low value's four bytes and an entry
+;  (BL_THIGH) of the high's for a long.
 ;
 ;  Principal entries (actions and islands):
 ;    AC_PICK   SelectSubject: the subject, stored; the frame opens
@@ -299,82 +301,105 @@ AC_LABEL:
     CALL CT_MODE                   ; A handle select's
     BIT  3,A                       ; arm is read
     RET  NZ                        ; (AC_CASE).
+    CALL .PROPS                    ; A long's values
+    AND  4                         ; are four bytes,
+    JR   NZ,.WIDE                  ; another's
+    LD   A,2                       ; two.
+.WIDE:                         ; A is their width,
+    LD   (AC_RWID),A               ; kept.
     CALL PR_SPOT                   ; The label's first token: its offset
     LD   (AC_SPOS),HL              ; is kept.
-    LD   A,BL_TLOW                 ; Its range: its low value's entry,
-    CALL BL_LOG                    ; then
-    LD   A,(CT_DEPTH)              ; the select's
-    LD   (HL),A                    ; depth
-    INC  HL                        ; and the value;
-    PUSH HL                        ; (kept)
-    LD   A,BL_THIGH                ; its high value's
-    CALL BL_LOG                    ; entry after it.
-    POP  HL                        ; HL is the range, its low value,
-    PUSH HL                        ; kept.
-    EX   DE,HL                     ; Its low value
+    LD   DE,AC_RVAL                ; Its low value
     CALL .VALUE                    ; comes first.
     CALL PR_PEEK                   ; A range
     CP   TK_TO                     ; has `to`
     JR   NZ,.SINGLE                ; and a high value.
     CALL PR_TAKE                   ; Past `to`,
-    CALL .HIGH                     ; the high value's place:
-    CALL .VALUE                    ; the high value.
-    CALL .HIGH                     ; HL is the low, DE the high:
-    CALL .LESS                     ; is high below low?
+    LD   DE,AC_RVAL+4              ; the high value,
+    CALL .VALUE                    ; after the low.
+    LD   HL,AC_RVAL                ; HL is the low, DE the high:
+    CALL .PAST                     ; is high
+    CALL .LESS                     ; below low?
     LD   A,DG_STMT                 ; Then syntax
     JR   C,.AT                     ; at the label.
     JR   .RANGED                   ; It is a range.
 .SINGLE:                       ; One value:
-    CALL .HIGH                     ; the high value
-    LD   BC,4                      ; is
-    LDIR                           ; the low.
+    LD   HL,AC_RVAL                ; the high value
+    LD   DE,AC_RVAL+4              ; is
+    LD   BC,4                      ; the
+    LDIR                           ; low.
 .RANGED:                       ; The range is complete.
     LD   B,CT_FSTEP                ; The select's
-    CALL CT_FWORD                  ; beginning,
-    EX   DE,HL                     ; where its
-    CALL BL_FLIP                   ; first range's
-    INC  HL                        ; value would
-    INC  HL                        ; be.
-.STEP:                         ; HL is a range's value, or that place.
-    LD   DE,BL_EBACK               ; The next
-    ADD  HL,DE                     ; entry's.
-    POP  DE                        ; The new range,
-    PUSH DE                        ; kept.
-    OR   A                         ; Is HL
-    SBC  HL,DE                     ; the new
-    ADD  HL,DE                     ; one?
-    JR   Z,.KEEP                   ; Then none overlaps it.
-    DEC  HL                        ; A label's
-    DEC  HL                        ; low value
-    LD   A,(HL)                    ; (BL_TLOW)
-    INC  HL                        ; of this
-    CP   BL_TLOW                   ; select,
-    JR   NZ,.OTHER                 ; at its
-    LD   A,(CT_DEPTH)              ; depth?
-    CP   (HL)                      ; Any other entry
-.OTHER:                        ; is passed over;
-    INC  HL                        ; HL is its value.
-    JR   NZ,.STEP                  ; (INC keeps zero)
-    PUSH HL                        ; Keep the earlier range,
-    PUSH DE                        ; and the new one:
-    CALL .PAST                     ; DE is the earlier's high;
-    EX   (SP),HL                   ; HL the new one's low (the earlier kept),
-    CALL .LESS                     ; below it?
-    JR   C,.BEYOND                 ; Then they are apart.
-    CALL .PAST                     ; DE is the new one's high,
-    POP  HL                        ; HL the earlier's low:
-    CALL .LESS                     ; below it?
+    CALL CT_FWORD                  ; beginning
+    EX   DE,HL                     ; in
+    CALL BL_FLIP                   ; the log.
+.STEP:                         ; HL is an entry, or that place.
+    LD   DE,BL_EBACK               ; The
+    ADD  HL,DE                     ; next,
+    LD   DE,(BL_LBOT)              ; if
+    OR   A                         ; it is
+    SBC  HL,DE                     ; at or
+    ADD  HL,DE                     ; above
+    JR   C,.KEEP                   ; the bottom.
+    LD   A,(HL)                    ; A label's
+    CP   BL_TLOW                   ; low value
+    JR   NZ,.STEP                  ; of this
+    INC  HL                        ; select,
+    LD   A,(CT_DEPTH)              ; at
+    CP   (HL)                      ; its
+    DEC  HL                        ; depth?
+    JR   NZ,.STEP                  ; Any other is passed over.
+    PUSH HL                        ; The entry, kept;
+    INC  HL                        ; HL
+    INC  HL                        ; its low,
+    LD   DE,2                      ; DE
+    LD   A,(AC_RWID)               ; its
+    CP   E                         ; high:
+    JR   Z,.NEAR                   ; two on, or
+    LD   DE,BL_EBACK               ; in the entry after.
+.NEAR:                         ; DE is the step.
+    EX   DE,HL                     ; DE
+    ADD  HL,DE                     ; the high,
+    EX   DE,HL                     ; HL the low.
+    PUSH HL                        ; (kept)
+    LD   HL,AC_RVAL                ; Is the new one's low
+    CALL .LESS                     ; above it?
+    POP  HL                        ; (the earlier's low)
+    JR   C,.APART                  ; Then they are apart.
+    LD   DE,AC_RVAL+4              ; Is the new one's high
+    CALL .LESS                     ; below the earlier's low?
     JR   C,.APART                  ; Then they are apart.
     LD   A,DG_OVERL                ; They overlap: duplicate-case
 .AT:                           ; A is the diagnostic,
     JP   DG_KEPT                   ; at the label. No return.
-.BEYOND:                       ; The earlier range is kept twice.
-    POP  HL                        ; Once is enough.
 .APART:                        ; The earlier range does not overlap.
     POP  HL                        ; The next
     JR   .STEP                     ; is compared.
-.KEEP:                         ; HL is the new range: it is kept.
-    POP  HL                        ; The range
+.KEEP:                         ; None overlaps the new one.
+    LD   A,BL_TLOW                 ; It is kept:
+    CALL BL_LOG                    ; its entry,
+    LD   A,(CT_DEPTH)              ; the select's
+    LD   (HL),A                    ; depth,
+    INC  HL                        ; its
+    EX   DE,HL                     ; low
+    LD   HL,AC_RWID                ; value,
+    LD   C,(HL)                    ; its
+    LD   B,0                       ; width's
+    LD   HL,AC_RVAL                ; bytes;
+    LDIR                           ; then
+    LD   A,(AC_RWID)               ; a long's
+    CP   4                         ; high value
+    JR   NZ,.HIGH                  ; is
+    LD   A,BL_THIGH                ; in
+    CALL BL_LOG                    ; the entry
+    INC  HL                        ; after,
+    EX   DE,HL                     ; DE.
+.HIGH:                         ; DE is its place.
+    LD   HL,AC_RVAL+4              ; Its
+    LD   A,(AC_RWID)               ; width's
+    LD   C,A                       ; bytes
+    LDIR                           ; follow.
+    LD   HL,AC_RVAL                ; The range
     CALL .TEST                     ; is tested.
     CALL PR_PEEK                   ; Another label
     CP   TK_COMMA                  ; after a comma?
@@ -382,26 +407,16 @@ AC_LABEL:
     CALL PR_TAKE                   ; Past the comma.
     JP   AC_LABEL                  ; The next label.
 
-;@ROUTINE OUT DE,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; HL is the range being made, kept on the stack beneath the caller's
-; return address, and DE its high value's place.
-
-.HIGH:                         ; The range is on the stack.
-    POP  DE                        ; The return address;
-    POP  HL                        ; the range,
-    PUSH HL                        ; kept,
-    PUSH DE                        ; beneath it.
-
-;@ROUTINE IN HL OUT DE CLOBBERS CARRY,HALFCARRY
-; DE is a range's high value from its low at HL, in the log's entry after
-; it, BL_ELEN bytes lower. HL is kept.
+;@ROUTINE IN HL OUT DE CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; DE is HL plus four: a range's high value from its low. HL is kept.
 
 .PAST:                         ; HL is a low value.
-    PUSH HL                        ; Kept.
-    LD   DE,BL_EBACK               ; The entry
-    ADD  HL,DE                     ; after
-    EX   DE,HL                     ; its.
-    POP  HL                        ; HL again.
+    LD   D,H                       ; DE
+    LD   E,L                       ; is
+    INC  DE                        ; four
+    INC  DE                        ; bytes
+    INC  DE                        ; on.
+    INC  DE                        ; Done.
     RET                            ; DE is the high value.
 
 ;@ROUTINE IN DE OUT DE CLOBBERS A,BC,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -463,19 +478,21 @@ AC_LABEL:
     CALL .PAST                     ; and high, compared: fall into .LESS.
 
 ;@ROUTINE IN DE,HL OUT CARRY,ZERO CLOBBERS A,B,SIGN,PARITY,HALFCARRY
-; Compare the four-byte values at DE and HL, unsigned: carry if DE's is
-; below HL's, zero if they are equal. DE and HL are kept.
+; Compare the values at DE and HL, AC_RWID bytes, unsigned: carry if
+; DE's is below HL's, zero if they are equal. DE and HL are kept.
 
 .LESS:                         ; DE and HL address the values.
     PUSH HL                        ; Keep
     PUSH DE                        ; both.
-    INC  HL                        ; From
-    INC  HL                        ; the
-    INC  HL                        ; top
-    INC  DE                        ; bytes
-    INC  DE                        ; of
-    INC  DE                        ; both
-    LD   B,4                       ; down.
+    LD   A,(AC_RWID)               ; From
+    LD   B,A                       ; the top
+.TOP:                          ; bytes
+    INC  HL                        ; of
+    INC  DE                        ; both,
+    DJNZ .TOP                      ; past them,
+    DEC  HL                        ; then
+    DEC  DE                        ; down,
+    LD   B,A                       ; the width's bytes.
 .DIGIT:                        ; HL and DE address a byte of each.
     LD   A,(DE)                    ; DE's less HL's:
     CP   (HL)                      ; a difference

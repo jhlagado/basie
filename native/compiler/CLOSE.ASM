@@ -53,9 +53,15 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     SUB  H                         ; less the high byte:
     LD   D,A                       ; DE is the prologue's operand.
     PUSH HL                        ; Keep the frame for its word.
-    LD   HL,(RG_PATCH)             ; Its offset in the blob,
-    LD   BC,(BL_CBASE)             ; plus the blob's address,
-    ADD  HL,BC                     ; is where it goes.
+    LD   BC,(BL_SPILL)             ; Its offset
+    LD   A,B                       ; in the blob,
+    OR   C                         ; plus the blob's address,
+    LD   BC,(BL_CBASE)             ; or the first record's
+    JR   Z,.PLACE                  ; when the bytes spilled,
+    LD   BC,BL_REC0                ; is where
+.PLACE:                        ; it goes.
+    LD   HL,(RG_PATCH)             ; HL
+    ADD  HL,BC                     ; addresses it.
     LD   (HL),E                    ; Low byte,
     INC  HL                        ; then
     LD   (HL),D                    ; high byte.
