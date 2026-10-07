@@ -295,10 +295,11 @@ Deno.test("a line table is written in address order", () => {
       parts: ["A:MAIN.BSI"],
       blobs: [{
         ordinal: 0x400,
-        entries: [{ offset: 0, part: 0, source: 10 }, {
+        entries: [{ offset: 0, part: 0, source: 10, column: 5 }, {
           offset: 5,
           part: 0,
           source: 30,
+          column: 9,
         }],
       }],
     },

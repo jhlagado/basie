@@ -241,7 +241,7 @@ about 1K in the first estimate.
 ### 6.5 Line entries during shrinking
 
 Statement offsets for the line stream move when branches shrink. For a buffered
-routine, the compiler holds the routine's line entries, 5 bytes each, and
+routine, the compiler holds the routine's line entries, 6 bytes each, and
 adjusts them in step 4 of Section 6.3 along with the references. An unbuffered
 routine writes its line entries as it generates them, since nothing moves.
 

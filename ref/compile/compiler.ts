@@ -1046,6 +1046,8 @@ export class Compiler {
 
   private routineDefinition(isPrivate: boolean): void {
     const sub = this.expectKeyword("sub");
+    // The routine's name, where its line entry points (object format §8).
+    const nameAt = this.token;
     let sym: Symbol & { kind: "routine" };
     let wasForward = false;
     if (this.peek().kind === "newline") {
@@ -1126,7 +1128,7 @@ export class Compiler {
       }
       this.mainOrdinal = sym.ordinal;
     }
-    this.compileBody(sym, blob, wasForward, sub);
+    this.compileBody(sym, blob, wasForward, sub, nameAt);
   }
 
   private compileBody(
@@ -1134,6 +1136,7 @@ export class Compiler {
     blob: Blob,
     checked: boolean,
     at: Token,
+    nameAt: Token,
   ): void {
     const state: RoutineState = {
       symbol: sym,
@@ -1163,7 +1166,7 @@ export class Compiler {
         ownerOffset: p.ownerOffset,
       }, p.at ?? at);
     }
-    blob.line(at.part, at.line);
+    blob.line(nameAt.part, nameAt.line, nameAt.column);
     // Prologue.
     if (checked) {
       blob.u8(0x2a); // LD HL,(need): the pair label marks need(R)
@@ -1317,7 +1320,7 @@ export class Compiler {
   private statement(): void {
     const t = this.token;
     const r = this.routine!;
-    r.blob.line(t.part, t.line);
+    r.blob.line(t.part, t.line, t.column);
     this.stmtDirect.clear();
     this.stmtMoved.clear();
     if (!r.fallsThrough) {

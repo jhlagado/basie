@@ -111,9 +111,9 @@ Deno.test("the blob writer's escapes, forms, kinds and line rules", async () => 
     "EDGE.$LN": writeLineStream(stamp, ["A.BSI", "B.BSI"], [{
       ordinal: 0x400,
       entries: [
-        { offset: 0, part: 0, source: 1 },
-        { offset: 0, part: 1, source: 3 },
-        { offset: 140, part: 1, source: 9 },
+        { offset: 0, part: 0, source: 1, column: 1 },
+        { offset: 0, part: 1, source: 3, column: 3 },
+        { offset: 140, part: 1, source: 9, column: 255 },
       ],
     }]),
     "EDGE.$NM": writeNameStream(stamp, [{ ordinal: 0x405, name }]),

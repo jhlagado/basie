@@ -782,7 +782,7 @@ function buildLineTable(
   sectionBlobs: (s: string) => Entry[],
 ): Uint8Array {
   const byOrdinal = new Map(lines.blobs.map((b) => [b.ordinal, b]));
-  const entries: [number, number, number][] = [];
+  const entries: [number, number, number, number][] = [];
   for (const section of ["START", "TEXT", "DATA"]) {
     for (const e of sectionBlobs(section)) {
       const own = e.owner === "program" && e.kind === Kind.code
@@ -790,13 +790,13 @@ function buildLineTable(
         : undefined;
       if (own && own.entries.length > 0 && own.entries[0].offset === 0) {
         for (const l of own.entries) {
-          entries.push([e.address + l.offset, l.part, l.source]);
+          entries.push([e.address + l.offset, l.part, l.source, l.column]);
         }
       } else {
-        entries.push([e.address, 0xff, e.ordinal]);
+        entries.push([e.address, 0xff, e.ordinal, 0]);
         if (own) {
           for (const l of own.entries) {
-            entries.push([e.address + l.offset, l.part, l.source]);
+            entries.push([e.address + l.offset, l.part, l.source, l.column]);
           }
         }
       }
@@ -807,15 +807,22 @@ function buildLineTable(
   const ascii = (t: string) =>
     bytes.push(...[...t].map((c) => c.charCodeAt(0)));
   ascii("BSIT");
-  bytes.push(1, 0, lines.parts.length, 0, 0);
+  bytes.push(2, 0, lines.parts.length, 0, 0);
   for (const p of lines.parts) {
     bytes.push(p.length);
     ascii(p);
   }
-  for (const [address, part, source] of entries) {
-    bytes.push(address & 0xff, address >> 8, part, source & 0xff, source >> 8);
+  for (const [address, part, source, column] of entries) {
+    bytes.push(
+      address & 0xff,
+      address >> 8,
+      part,
+      source & 0xff,
+      source >> 8,
+      column,
+    );
   }
-  bytes.push(0xff, 0xff, 0xff, 0xff, 0xff);
+  bytes.push(0xff, 0xff, 0xff, 0xff, 0xff, 0xff);
   bytes.push(entries.length & 0xff, entries.length >> 8);
   const imageCrc = crc16(output);
   bytes.push(imageCrc & 0xff, imageCrc >> 8);

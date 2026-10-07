@@ -69,7 +69,7 @@ BL_BYOUT EQU  $80              ; Set by BL_OPEN: the byte stream is always writt
 BL_CCAP EQU  2048              ; Bytes one blob may hold.
 BL_RLEN EQU  7                 ; Bytes of one reference as it is kept.
 BL_RCAP EQU  BL_RLEN*146       ; Bytes of references: 146 for one blob.
-BL_LLEN EQU  5                 ; Bytes of one line entry as it is kept.
+BL_LLEN EQU  6                 ; Bytes of one line entry as it is kept.
 BL_LCAP EQU  BL_LLEN*128       ; Bytes of line entries: 128 for one blob.
 BL_PAST EQU  $7FFF             ; An offset past every blob's: the jumps' sentinel.
 
@@ -176,20 +176,36 @@ BL_REF:                        ; A is the form, HL the target, DE the addend.
     JR   BL_BYTE                   ; the second byte, and return.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Record that the code from the blob's current offset belongs to line HL of
-; part A (object format §8), A below 255. An entry at the same offset and
-; part as the last one replaces its line, as a statement that produced no
-; code gives way to the next. An entry is kept as given, BL_LLEN bytes,
-; until BL_END encodes it: the offset, the part and the line. The entry
-; before the first, BL_GUARD, has the part $FF (BL_OPEN), which none has.
+; Record that the code from the blob's current offset belongs to the
+; statement at the position whose line word HL addresses, its column word
+; after it, in part A (object format §8), A below 255. An entry at the
+; same offset and part as the last one replaces its line and column, as a
+; statement that produced no code gives way to the next. An entry is kept
+; as given, BL_LLEN bytes, until BL_END encodes it: the offset, the part,
+; the line and the column, at most 255. The entry before the first,
+; BL_GUARD, has the part $FF (BL_OPEN), which none has.
 
-BL_LINE:                       ; A is the part, HL the line.
-    PUSH HL                        ; Keep the line.
+BL_LINE:                       ; A is the part, HL the position's line.
     LD   C,A                       ; C is the part.
+    LD   E,(HL)                    ; DE
+    INC  HL                        ; is
+    LD   D,(HL)                    ; the line,
+    INC  HL                        ; A the
+    LD   A,(HL)                    ; column,
+    INC  HL                        ; or 255
+    INC  (HL)                      ; when
+    DEC  (HL)                      ; it is
+    JR   Z,.COLUMN                 ; any
+    LD   A,255                     ; more.
+.COLUMN:                       ; A is the column's byte.
+    LD   B,A                       ; B is it.
+    PUSH BC                        ; Keep the column
+    PUSH DE                        ; and the line.
     LD   HL,(BL_LPTR)              ; Past the last entry:
-    DEC  HL                        ; its line's
-    DEC  HL                        ; word,
+    DEC  HL                        ; its column,
     PUSH HL                        ; kept in case it gives way;
+    DEC  HL                        ; its
+    DEC  HL                        ; line;
     DEC  HL                        ; its
     LD   A,(HL)                    ; part;
     DEC  HL                        ; its
@@ -201,14 +217,17 @@ BL_LINE:                       ; A is the part, HL the line.
     LD   HL,(BL_LEN)               ; the same
     SBC  HL,DE                     ; offset?
     JR   NZ,.NEW                   ; No: a new entry.
-    POP  HL                        ; Yes: the last entry's line
-    POP  DE                        ; gives way
-    LD   (HL),E                    ; to this
-    INC  HL                        ; one,
-    LD   (HL),D                    ; both bytes.
-    RET                            ; No entry is added.
+    POP  HL                        ; Yes: the last entry's column
+    POP  DE                        ; and line
+    POP  BC                        ; give way
+    LD   (HL),B                    ; to this
+    DEC  HL                        ; one's,
+    LD   (HL),D                    ; every
+    DEC  HL                        ; byte.
+    LD   (HL),E                    ; No entry
+    RET                            ; is added.
 .NEW:                          ; The entry is new.
-    POP  HL                        ; (the last entry's line is kept)
+    POP  HL                        ; (the last entry is kept)
     LD   HL,BL_LPTR                ; BL_PUT appends
     LD   (BL_CUR),HL               ; to the line entries:
     LD   HL,(BL_LEN)               ; this offset,
@@ -216,7 +235,10 @@ BL_LINE:                       ; A is the part, HL the line.
     LD   A,C                       ; the part,
     CALL BL_PUT                    ; its byte;
     POP  HL                        ; the line,
-    CALL BL_PUTW                   ; its word.
+    CALL BL_PUTW                   ; its word;
+    POP  BC                        ; the column,
+    LD   A,B                       ; its
+    CALL BL_PUT                    ; byte.
     LD   HL,(BL_LCNT)              ; Count the entry.
     INC  HL                        ; One more.
     LD   (BL_LCNT),HL              ; Keep the count for the line record.

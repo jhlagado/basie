@@ -201,10 +201,10 @@ Deno.test("line and name streams round-trip", () => {
   const blobs = [{
     ordinal: 0x402,
     entries: [
-      { offset: 0, part: 0, source: 120 },
-      { offset: 7, part: 0, source: 140 },
-      { offset: 200, part: 1, source: 3 },
-      { offset: 200, part: 0, source: 160 },
+      { offset: 0, part: 0, source: 120, column: 5 },
+      { offset: 7, part: 0, source: 140, column: 9 },
+      { offset: 200, part: 1, source: 3, column: 255 },
+      { offset: 200, part: 0, source: 160, column: 1 },
     ],
   }];
   const lines = readLineStream(

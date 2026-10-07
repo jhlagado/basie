@@ -12,7 +12,7 @@
 ;    $7680  SH_WBEG   the shell's workspace, SH_WEND
 ;    $77A0  FL_WBEG   the FLOAT overlay's workspace, FL_WEND
 ;    $7840  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $89C0  MM_SRC    resident source parts, loaded upward by the shell
+;    $8A20  MM_SRC    resident source parts, loaded upward by the shell
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
 ;  Nothing in the workspace is initialised by the image, so the image and
@@ -46,5 +46,5 @@ FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
 FL_B EQU  FL_A+5               ; b unpacked.
 FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
 FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
-MM_SRC EQU  $89C0              ; Resident source parts, up to the stack.
+MM_SRC EQU  $8A20              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

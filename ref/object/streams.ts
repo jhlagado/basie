@@ -3,7 +3,13 @@ import { ByteReader, ByteWriter } from "./directory.ts";
 import { crc16 } from "./crc.ts";
 import { ObjectError } from "./types.ts";
 
-export type LineEntry = { offset: number; part: number; source: number };
+/** A statement's code offset, part, line (`source`) and first column. */
+export type LineEntry = {
+  offset: number;
+  part: number;
+  source: number;
+  column: number;
+};
 export type BlobLines = { ordinal: number; entries: LineEntry[] };
 
 export function writeLineStream(
@@ -13,7 +19,7 @@ export function writeLineStream(
 ): Uint8Array {
   const out = new ByteWriter();
   out.ascii("BSIL");
-  out.u8(1);
+  out.u8(2);
   out.u8(0);
   out.u16(stamp);
   parts.forEach((name, i) => {
@@ -40,6 +46,7 @@ export function writeLineStream(
       if (escape) out.u16(e.offset);
       if (changes) out.u8(e.part);
       out.u16(e.source);
+      out.u8(Math.min(e.column, 255));
       last = e.offset;
       part = e.part;
     }
@@ -52,7 +59,7 @@ export function writeLineStream(
 export function readLineStream(bytes: Uint8Array) {
   const r = new ByteReader(bytes, "line stream");
   if (r.ascii(4) !== "BSIL") throw new ObjectError("L-FORMAT", "bad magic");
-  if (r.u8() !== 1 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
+  if (r.u8() !== 2 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
   const stamp = r.u16();
   const parts: string[] = [];
   const blobs: BlobLines[] = [];
@@ -86,7 +93,8 @@ export function readLineStream(bytes: Uint8Array) {
         if (parts[part] === undefined) {
           throw new ObjectError("L-FORMAT", `part ${part} is not yet named`);
         }
-        entries.push({ offset, part, source: r.u16() });
+        const source = r.u16();
+        entries.push({ offset, part, source, column: r.u8() });
         last = offset;
       }
       blobs.push({ ordinal, entries });

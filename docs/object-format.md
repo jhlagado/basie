@@ -465,7 +465,7 @@ line-stream = line-header part-record* blob-lines* line-trailer
 
 | Record | Layout |
 | --- | --- |
-| Line header | magic `BSIL` (4 bytes), major `u8` = 1, minor `u8` = 0, compilation stamp `u16` |
+| Line header | magic `BSIL` (4 bytes), major `u8` = 2, minor `u8` = 0, compilation stamp `u16` |
 | Part record | tag `$01`, part `u8` (0–254), name length `u8`, name bytes |
 | Blob lines | tag `$02`, ordinal `u16`, entry count `u16`, entries |
 | Line trailer | tag `$FF`, CRC `u16` over every preceding byte |
@@ -491,7 +491,8 @@ Each entry marks the start of a statement:
 | control | `u8` | Bits 0–6: code offset delta 0–126, or 127 to escape. Bit 7: a part number follows |
 | absolute offset | `u16`, optional | Present when the delta field is 127 |
 | part | `u8`, optional | Present when bit 7 is set; otherwise the previous entry's part |
-| source offset | `u16` | Byte offset of the statement in its source part |
+| line | `u16` | The line of the statement's first token, from 1 |
+| column | `u8` | Its column, from 1; 255 for 255 or beyond |
 
 The first entry of every blob-lines record carries a part number. The first
 entry's delta is its offset from the blob start; each later entry's delta is
@@ -563,24 +564,28 @@ Section 7.7). Its entries are in increasing address order as written.
 
 | Record | Layout |
 | --- | --- |
-| Header | magic `BSIT` (4 bytes), major `u8` = 1, minor `u8` = 0, part count `u8`, output name length `u8`, output name, library name length `u8`, library name |
+| Header | magic `BSIT` (4 bytes), major `u8` = 2, minor `u8` = 0, part count `u8`, output name length `u8`, output name, library name length `u8`, library name |
 | Part names | for each part in order: name length `u8`, name bytes |
-| Entries | 5 bytes each, in increasing address order |
-| Trailer | marker `$FF $FF $FF $FF $FF`, entry count `u16`, image CRC `u16`, CRC `u16` over every preceding byte |
+| Entries | 6 bytes each, in increasing address order |
+| Trailer | marker of six `$FF` bytes, entry count `u16`, image CRC `u16`, CRC `u16` over every preceding byte |
 
-Each entry is: address `u16`, part `u8`, source offset `u16`.
+Each entry is: address `u16`, part `u8`, line `u16`, column `u8`.
 
 - Each statement of a live program `code` blob contributes one entry. Its first
   entry is at the blob's start (Section 8).
 - Each other live blob in a stored section (runtime blobs, `rodata`, `data` and
   `startup`) contributes one entry at its start address, with part `$FF` and
-  the blob's ordinal in the source-offset field.
+  the blob's ordinal in the line field and column 0.
 - `bss` blobs and the `COPY` section contribute nothing. An address beyond the
   last entry's blob, or in `BSS`, is reported as outside the stored code.
 
-Five `$FF` bytes can never form an entry: that would be a start entry for
+Six `$FF` bytes can never form an entry: that would be a start entry for
 ordinal `$FFFF`, which is a reserved pseudo-object, never a blob. They mark the
 trailer unambiguously.
+
+Version 2.0 of the line stream and the line table added each statement's
+column (design decision D47), so that a trap can name `PART:LINE:COLUMN`; a
+routine's first entry is its name's position.
 
 The source position of an address is that of the entry with the greatest
 address not above it. Part `$FF` means the address lies in a blob without

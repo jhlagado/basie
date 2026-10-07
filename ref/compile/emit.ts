@@ -266,13 +266,14 @@ export class Blob {
     this.abs16(target);
   }
 
-  line(part: number, source: number): void {
+  line(part: number, source: number, column: number): void {
     const last = this.lines.at(-1);
     if (last && last.offset === this.offset && last.part === part) {
       last.source = source;
+      last.column = column;
       return;
     }
-    this.lines.push({ offset: this.offset, part, source });
+    this.lines.push({ offset: this.offset, part, source, column });
   }
 }
 

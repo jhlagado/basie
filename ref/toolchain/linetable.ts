@@ -8,14 +8,14 @@ export type LineTable = {
   outputName: string;
   libraryName: string;
   /** Statement entries in address order; part 255 marks a blob start. */
-  entries: { address: number; part: number; source: number }[];
+  entries: { address: number; part: number; source: number; column: number }[];
   imageCrc: number;
 };
 
 export function readLineTable(bytes: Uint8Array): LineTable {
   const r = new ByteReader(bytes, "line table");
   if (r.ascii(4) !== "BSIT") throw new ObjectError("L-FORMAT", "bad magic");
-  if (r.u8() !== 1 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
+  if (r.u8() !== 2 || r.u8() > 0) throw new ObjectError("L-FORMAT", "version");
   const partCount = r.u8();
   const outputName = r.ascii(r.u8());
   const libraryName = r.ascii(r.u8());
@@ -26,8 +26,12 @@ export function readLineTable(bytes: Uint8Array): LineTable {
     const address = r.u16();
     const part = r.u8();
     const source = r.u16();
-    if (address === 0xffff && part === 0xff && source === 0xffff) break;
-    entries.push({ address, part, source });
+    const column = r.u8();
+    if (
+      address === 0xffff && part === 0xff && source === 0xffff &&
+      column === 0xff
+    ) break;
+    entries.push({ address, part, source, column });
   }
   const count = r.u16();
   if (count !== entries.length) {
@@ -41,11 +45,11 @@ export function readLineTable(bytes: Uint8Array): LineTable {
   return { parts, outputName, libraryName, entries, imageCrc };
 }
 
-/** The statement containing an address: its part and source line, if any. */
+/** The statement containing an address: its part, line and column. */
 export function lookup(
   table: LineTable,
   address: number,
-): { part: string; line: number } | undefined {
+): { part: string; line: number; column: number } | undefined {
   let best: LineTable["entries"][number] | undefined;
   for (const e of table.entries) {
     if (e.address > address) break;
@@ -53,5 +57,9 @@ export function lookup(
     else best = undefined; // a blob without lines
   }
   if (!best) return undefined;
-  return { part: table.parts[best.part], line: best.source };
+  return {
+    part: table.parts[best.part],
+    line: best.source,
+    column: best.column,
+  };
 }

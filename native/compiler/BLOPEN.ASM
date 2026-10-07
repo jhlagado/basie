@@ -75,8 +75,14 @@ BL_OPEN:                       ; HL is the header, DE the name, A the flags.
     LD   B,4                       ; Four bytes of magic.
     CALL .COPY                     ; Copy them.
     PUSH HL                        ; Keep the table's place.
-    LD   HL,1                      ; Version 1.0: major 1,
-    CALL OUT_WORD                  ; then minor 0.
+    DEC  HL                        ; The magic's
+    LD   A,(HL)                    ; last letter:
+    LD   HL,1                      ; version 1.0, major 1
+    CP   'L'                       ; (the line stream's,
+    JR   NZ,.VERSION               ; BSIL, is 2.0, its entries
+    INC  L                         ; with columns),
+.VERSION:                      ; then
+    CALL OUT_WORD                  ; minor 0.
     LD   HL,(BL_STAMP)             ; The compilation stamp ties
     CALL OUT_WORD                  ; the streams together.
     POP  HL                        ; HL is the next entry.

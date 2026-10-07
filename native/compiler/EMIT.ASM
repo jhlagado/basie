@@ -458,7 +458,7 @@ EM_LINE:                       ; A statement is about to be parsed.
     PUSH AF                        ; Keep the caller's A.
     CALL PR_PEEK                   ; The statement's first token is read:
     LD   A,(SRC_NUM)               ; its part's number in the stream
-    LD   HL,(TK_LINE)              ; and its line.
+    LD   HL,TK_LINE                ; and its line and column.
     CALL BL_LINE                   ; Mark it.
     CALL FW_STMT                   ; No owner is used or moved in it yet.
     POP  AF                        ; Restore A.

@@ -33,14 +33,14 @@ BT_START:                      ; Entered from the jump at $0100.
     XOR  A                         ; a code blob, not a root.
     CALL BL_BEGIN                  ; Start it.
     XOR  A                         ; Part 0,
-    LD   HL,6                      ; line 6: the routine's entry.
+    LD   HL,BT_L6                  ; 6:5: the routine's name.
     CALL BL_LINE                   ; Mark it.
     LD   HL,BT_CODE                ; The bytes,
     LD   B,13                      ; up to the first statement.
     CALL .BYTES                    ; Append them.
     PUSH HL                        ; Keep the place across the line entry.
     XOR  A                         ; Part 0,
-    LD   HL,7                      ; line 7: writeText.
+    LD   HL,BT_L7                  ; 7:5: writeText.
     CALL BL_LINE                   ; Mark it.
     POP  HL                        ; The bytes again,
     LD   B,13                      ; up to the self-reference.
@@ -118,3 +118,7 @@ BT_CODE:                       ; Main's bytes, with zero placeholders.
     DB   $00,$00,$E5,$CD,$00,$00,$38,$03,$B7,$18,$00,$DD,$F9
     DB   $DD,$E1,$C9,$08,$00,$2A,$00,$07,$48,$65,$6C,$6C,$6F
     DB   $0D,$0A,$00
+BT_L6:                         ; Line 6, column 5: main's name.
+    DW   6,5                       ; As a position's line and column.
+BT_L7:                         ; Line 7, column 5: writeText.
+    DW   7,5                       ; As a position's line and column.

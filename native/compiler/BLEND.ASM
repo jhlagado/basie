@@ -304,5 +304,10 @@ BL_END:                        ; The blob is complete in memory.
     INC  HL                        ; and HL the next entry.
     EX   DE,HL                     ; Append
     CALL OUT_WORD                  ; the line.
-    EX   DE,HL                     ; HL is the next entry.
-    JR   .LINE                     ; Encode it.
+    EX   DE,HL                     ; HL is its column,
+    LD   A,(HL)                    ; appended;
+    INC  HL                        ; HL is
+    PUSH HL                        ; the next
+    CALL OUT_BYTE                  ; entry.
+    POP  HL                        ; Encode
+    JR   .LINE                     ; it.

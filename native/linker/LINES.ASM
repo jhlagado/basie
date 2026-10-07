@@ -15,12 +15,13 @@
 ;  length, name) and blob-lines records (tag 2: ordinal, count, entries);
 ;  then tag $FF and a CRC. Each entry is a control byte (bit 7: a part byte
 ;  follows; bits 0-6 the offset's delta from the last, or 127 for an
-;  absolute offset word), the part if given, and the source offset.
+;  absolute offset word), the part if given, the line and the column.
 ;
 ;  Line table: BSIT, version, part count, an output name and a library name
-;  (both empty here), the part names, then 5-byte entries in address order
-;  (address, part, source; or address, $FF, ordinal for a blob's start),
-;  then $FF x 5, the entry count, the image's CRC and the table's CRC.
+;  (both empty here), the part names, then 6-byte entries in address order
+;  (address, part, line, column; or address, $FF, ordinal, 0 for a blob's
+;  start), then $FF x 6, the entry count, the image's CRC and the table's
+;  CRC. Both are version 2.0, whose entries have columns (D47).
 ;
 ;  The stream is read once, forward, in step with the directory: Phase D's
 ;  TEXT passes meet the program's code blobs in directory order, and the
@@ -55,6 +56,8 @@ LN_POS:                        ; An entry's offset in its blob.
     DW   0                         ; Deltas add to it; 0 at each blob.
 LN_PART:                       ; And its part.
     DB   0                         ; Kept until an entry names another.
+LN_COL:                        ; And its column.
+    DB   0                         ; Read with its line.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read the next byte of the line stream into A, adding it to LN_CRC and
@@ -182,8 +185,8 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     CALL LT_BYTE                   ; written.
     INC  HL                        ; The next.
     DJNZ .PUTMAGIC                 ; Until all four are written.
-    LD   A,1                       ; Version 1.0:
-    CALL LT_BYTE                   ; major 1,
+    LD   A,2                       ; Version 2.0:
+    CALL LT_BYTE                   ; major 2,
     XOR  A                         ; minor
     CALL LT_BYTE                   ; 0.
     POP  BC                        ; BC is the part count.
@@ -260,7 +263,7 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     INC  HL                        ; The next.
     DJNZ .GETMAGIC                 ; Until all four match.
     CALL LN_BYTE                   ; The major version
-    CP   1                         ; must be 1.
+    CP   2                         ; must be 2.
     JR   NZ,.BAD                   ; Unknown.
     CALL LN_BYTE                   ; The minor version
     OR   A                         ; must be 0.
@@ -294,8 +297,8 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     JR   .NEXT                     ; Go on.
 
 ;@ROUTINE OUT A,HL CLOBBERS B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Read one entry of a blob-lines record into LN_POS and LN_PART, returning
-; HL = its source offset.
+; Read one entry of a blob-lines record into LN_POS, LN_PART and LN_COL,
+; returning HL = its line.
 
 LN_ENTRY:                      ; LN_FD is at an entry's control byte.
     CALL LN_BYTE                   ; Control.
@@ -316,8 +319,13 @@ LN_ENTRY:                      ; LN_FD is at an entry's control byte.
     JR   Z,.SRC                    ; No: the part is unchanged.
     CALL LN_BYTE                   ; The part.
     LD   (LN_PART),A               ; Keep it.
-.SRC:                          ; The source offset follows.
-    JP   LN_WORD                   ; HL is it; return.
+.SRC:                          ; The line follows,
+    CALL LN_WORD                   ; HL,
+    PUSH HL                        ; kept,
+    CALL LN_BYTE                   ; then the column,
+    LD   (LN_COL),A                ; kept.
+    POP  HL                        ; HL is the line.
+    RET                            ; Done.
 
 ;@ROUTINE IN A,DE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the line-table entries for the blob being emitted, at address DE:
@@ -392,7 +400,7 @@ LN_BLOB:                       ; RD_PREV, WK_OWN and WK_KIND are the blob's.
     RET  Z                         ; No: nothing.
 
 ;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write a start entry: the blob's address, $FF, its ordinal.
+; Write a start entry: the blob's address, $FF, its ordinal, column 0.
 
 .STARTER:                      ; .ADDR and RD_PREV are the blob's.
     LD   HL,(.ADDR)                ; The address,
@@ -400,11 +408,12 @@ LN_BLOB:                       ; RD_PREV, WK_OWN and WK_KIND are the blob's.
     LD   A,$FF                     ; $FF marks a start entry,
     CALL LT_BYTE                   ; in place of the part.
     LD   HL,(RD_PREV)              ; The blob's ordinal,
-    CALL LT_WORD                   ; in place of the source.
-    JR   .COUNT                    ; Count the entry.
+    CALL LT_WORD                   ; in place of the line,
+    XOR  A                         ; and no
+    JR   .COLUMN                   ; column.
 
 ;@ROUTINE IN HL CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write an entry: address = the blob's + LN_POS, part, source HL.
+; Write an entry: address = the blob's + LN_POS, part, line HL, column.
 
 .ENTRY:                        ; HL is the source offset.
     PUSH HL                        ; Keep it.
@@ -414,9 +423,11 @@ LN_BLOB:                       ; RD_PREV, WK_OWN and WK_KIND are the blob's.
     CALL LT_WORD                   ; written.
     LD   A,(LN_PART)               ; The part,
     CALL LT_BYTE                   ; written.
-    POP  HL                        ; The source offset,
-    CALL LT_WORD                   ; written.
-.COUNT:                        ; An entry is written.
+    POP  HL                        ; The line,
+    CALL LT_WORD                   ; written,
+    LD   A,(LN_COL)                ; then the column.
+.COLUMN:                       ; A is the column.
+    CALL LT_BYTE                   ; Written.
     LD   HL,(LT_CNT)               ; One more
     INC  HL                        ; entry
     LD   (LT_CNT),HL               ; in the table.
@@ -504,11 +515,11 @@ LN_CLOSE:                      ; Called at the end of Phase D.
     OR   A                         ; Clear carry for the subtraction.
     SBC  HL,DE                     ; Equal?
     JR   NZ,LN_FAIL                ; The stream is damaged.
-    LD   B,5                       ; The table's trailer: $FF x 5,
+    LD   B,6                       ; The table's trailer: $FF x 6,
 .MARK:                         ; B counts them.
     LD   A,$FF                     ; One $FF,
     CALL LT_BYTE                   ; written.
-    DJNZ .MARK                     ; Until five are written.
+    DJNZ .MARK                     ; Until six are written.
     LD   HL,(LT_CNT)               ; The entry count,
     CALL LT_WORD                   ; written.
     LD   HL,(IMG_CRC)              ; The image's CRC,

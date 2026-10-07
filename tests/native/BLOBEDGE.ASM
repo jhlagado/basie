@@ -37,13 +37,13 @@ BT_START:                      ; Entered from the jump at $0100.
     XOR  A                         ; Kind 0, no root, no alignment.
     CALL BL_BEGIN                  ; Start it.
     XOR  A                         ; Part 0, line 1, at offset 0.
-    LD   HL,1                      ; The first entry.
+    LD   HL,BE_L1                  ; The first entry (1:1).
     CALL BL_LINE                   ; Mark it.
     LD   A,1                       ; Part 1, line 2, also at offset 0.
-    LD   HL,2                      ; A second entry: another part.
+    LD   HL,BE_L2                  ; A second entry: another part (2:2).
     CALL BL_LINE                   ; Mark it.
     LD   A,1                       ; Part 1, line 3, at offset 0 again.
-    LD   HL,3                      ; It replaces line 2.
+    LD   HL,BE_L3                  ; It replaces line 2 (3:3).
     CALL BL_LINE                   ; Mark it.
     LD   A,BL_LO8                  ; LO8 at offset 0
     LD   HL,$0401                  ; of $0401.
@@ -62,7 +62,7 @@ BT_START:                      ; Entered from the jump at $0100.
     LD   B,67                      ; Then 67 zeros: offset 140.
     CALL BE_ZEROS                  ; Append them.
     LD   A,1                       ; Part 1, line 9, at offset 140:
-    LD   HL,9                      ; a delta of 140 escapes.
+    LD   HL,BE_L9                  ; a delta of 140 escapes (9:300).
     CALL BL_LINE                   ; Mark it.
     LD   B,10                      ; Ten more zeros: 150 bytes.
     CALL BE_ZEROS                  ; Append them.
@@ -118,3 +118,11 @@ BE_PARTB:                      ; Part 1's name.
     DB   "B.BSI"                   ; Five characters.
 BE_LONG:                       ; A name longer than the stream keeps.
     DB   "a_name_of_forty_characters_exactly_here_"
+BE_L1:                         ; Positions, each a line and a column.
+    DW   1,1                       ; 1:1.
+BE_L2:                         ; 2:2.
+    DW   2,2                       ; Replaced.
+BE_L3:                         ; 3:3.
+    DW   3,3                       ; Its replacement.
+BE_L9:                         ; 9:300, a column past 255,
+    DW   9,300                     ; kept as 255.
