@@ -1696,6 +1696,17 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "an owning record assigned to a field":
+    "forward pool nodes\nrecord Node\n    next as nodes?\nend\nrecord Box\n    n as Node\n    v as u8\nend\npool nodes as Node[4]\nvar a as Node\nvar b as Box\nvar c as Box\nsub main()\n    b.n = a\nend\n",
+  "a record holding an owning record assigned":
+    "forward pool nodes\nrecord Node\n    next as nodes?\nend\nrecord Box\n    n as Node\n    v as u8\nend\npool nodes as Node[4]\nvar a as Node\nvar b as Box\nvar c as Box\nsub main()\n    b = c\nend\n",
+  "an owning record parameter assigned":
+    "forward pool nodes\nrecord Node\n    next as nodes?\nend\nrecord Box\n    n as Node\n    v as u8\nend\npool nodes as Node[4]\nvar a as Node\nvar b as Box\nvar c as Box\nsub f(x as Node)\n    a = x\nend\nsub main()\nend\n",
+  "a record through an owner assigned":
+    "forward pool nodes\nrecord Node\n    next as nodes?\nend\nrecord Box\n    n as Node\n    v as u8\nend\npool nodes as Node[4]\nvar a as Node\nvar b as Box\nvar c as Box\nsub main()\n    var h = new nodes(none)\n    a = h\nend\n",
+  "owning records copied": Deno.readTextFileSync(
+    "tests/conformance/types/owning-records-dont-copy.bsi",
+  ),
   "identifiers of two pools compared":
     "forward pool nodes\nrecord Node\n    value as u8\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar keep as id nodes?\nvar lk as id leaves?\nvar f as File\nvar b as boolean\nvar n as u8\nsub main()\n    b = keep = lk\nend\n",
   "an identifier compared with a number":

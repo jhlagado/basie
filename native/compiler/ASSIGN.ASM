@@ -62,7 +62,8 @@ RO_ASGN:                       ; A is the path's type.
 .COPY:                         ; is copied whole, of type A.
     PUSH AF                        ; Keep the type.
     CALL PL_OWNS                   ; An owning one
-    JP   C,TR_OPER                 ; is not copied (DG_NYI).
+    LD   A,DG_OCOPY                ; is not copied (owning-copy,
+    JP   C,EX_EVAL                 ; at the target).
     POP  AF                        ; The type,
     PUSH AF                        ; kept.
     CALL GA_ADDR                   ; The target's address,

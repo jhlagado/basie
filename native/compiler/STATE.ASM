@@ -151,6 +151,7 @@ AC_DLEN EQU  SY_LIM+$1A        ; Byte: length of the spelling.
 AC_DPOS EQU  SY_LIM+$1B        ; Six bytes: the declared name's position.
 EX_LAT EQU  SY_LIM+$21         ; Word: the left operand's first offset (leftAt).
 EX_RAT EQU  SY_LIM+$23         ; Word: the right operand's first offset (rightAt).
+EX_MINB EQU  SY_LIM+$25        ; Byte: the innermost EX_CLIMB's minimum precedence.
 EX_START EQU  SY_LIM+$29       ; Word: the offset of the last expression's first token.
 TK_ENDP EQU  SY_LIM+$2B        ; Word: the offset of the last `end` (TOKEN.ASM).
 AC_SPOS EQU  SY_LIM+$2D        ; Word: the offset of the name statement's first token.

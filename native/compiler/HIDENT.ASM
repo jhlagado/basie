@@ -455,6 +455,9 @@ HN_EQ:                         ; A is the type.
     JP   NZ,TR_OPER                ; no scalar
     JP   EX_EFIT                   ; (type-mismatch).
 .CMP:                          ; B is the operator, C the type.
+    LD   A,(EX_MINB)               ; Only a comparison's
+    OR   A                         ; left operand compares
+    JP   NZ,TR_OPER                ; (another waits).
     PUSH BC                        ; Both kept.
     CALL PR_TAKE                   ; It is taken.
     LD   A,$D5                     ; PUSH DE,
@@ -464,7 +467,10 @@ HN_EQ:                         ; A is the type.
     PUSH BC                        ; a File's
     LD   A,C                       ; right operand
     CP   AG_FILE                   ; is a File's
-    JR   NZ,.ID                    ; value,
+    JR   NZ,.ID                    ; value (in
+    CALL PR_PEEK                   ; parentheses
+    CP   TK_LPAR                   ; it
+    JP   Z,TR_OPER                 ; waits),
     CALL RO_FVAL                   ; or
     JR   .GOT                      ; an
 .ID:                           ; identifier's
@@ -495,7 +501,21 @@ HN_EQ:                         ; A is the type.
     JR   NZ,.BOOL                  ; it
     CALL EM_SEQ                    ; true
     DB   2,$EE,1                   ; when not.
-.BOOL:                         ; A computed
-    LD   A,SY_BOOL                 ; Boolean,
+.BOOL:                         ; A computed Boolean,
+    CALL HN_NOCMP                  ; compared no further,
+    LD   A,SY_BOOL                 ; its metadata,
     OR   A                         ; carry clear.
     RET                            ; The value.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The next token is no comparison operator: one after a comparison of
+; identifiers or Files, or after a File local's value, waits (DG_NYI).
+
+HN_NOCMP:                      ; What follows?
+    CALL PR_PEEK                   ; `=`
+    CP   TK_EQ                     ; waits,
+    JP   Z,TR_OPER                 ; as does
+    SUB  TK_LT                     ; any of
+    CP   TK_NE-TK_LT+1             ; `<` to `<>`;
+    JP   C,TR_OPER                 ; anything
+    RET                            ; else ends it.

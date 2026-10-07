@@ -1059,6 +1059,8 @@ RO_FUNC:
 RO_VALUE:                      ; A call's result type is A, never zero.
     CP   AG_FIRST                  ; Is the result an aggregate?
     RET  C                         ; No: A is the scalar result type.
+    CP   AG_FILE                   ; A File, in DEHL,
+    JP   Z,HN_EQ                   ; is compared.
     CALL RO_START                  ; Parse the selections.
     JR   RO_LOAD                   ; Load the scalar they select.
 

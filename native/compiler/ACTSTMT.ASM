@@ -176,7 +176,8 @@ AC_INFER:
     LD   A,AC_LCOPY                ; copied into the local
     JR   .COPIED                   ; when it is committed.
 .FILE:                         ; A File value.
-    CALL RO_FVAL                   ; It is generated into DEHL,
+    CALL RO_FVAL                   ; It is generated into DEHL
+    CALL HN_NOCMP                  ; (a comparison waits),
     LD   A,AG_FILE                 ; the local a File,
     PUSH AF                        ; (kept)
     LD   A,AC_LFILE                ; stored when it is committed.

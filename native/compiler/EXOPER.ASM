@@ -43,6 +43,8 @@ EX_CMP:
 ; B with its right operand, reducing left to right.
 
 EX_CLIMB:
+    LD   A,B                       ; The minimum, for a primary
+    LD   (EX_MINB),A               ; that compares itself (HN_EQ).
     PUSH BC                        ; Keep the minimum precedence.
     LD   A,(EX_PRIME)              ; Unless the first primary is parsed,
     OR   A                         ; the left operand's
@@ -625,7 +627,8 @@ EX_INIT:
     LD   (RO_PEND),A               ; No failable call is pending yet.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
-    LD   (EX_CHR),A                ; No primary yet.
+    LD   (EX_CHR),A                ; No primary yet,
+    LD   (EX_MINB),A               ; at the lowest level.
     RET                            ; A is zero.
 
 ;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
@@ -821,7 +824,9 @@ EX_LHS:                        ; The next token
 ; operator's operand offsets (EX_LAT, EX_RAT) across it.
 
 EX_INNER:                      ; A nested expression.
-    LD   HL,(EX_RAT)               ; The enclosing
+    LD   A,(EX_MINB)               ; The enclosing level,
+    PUSH AF                        ; and
+    LD   HL,(EX_RAT)               ; the enclosing
     PUSH HL                        ; operator's
     LD   HL,(EX_LAT)               ; offsets
     PUSH HL                        ; wait.
@@ -830,6 +835,11 @@ EX_INNER:                      ; A nested expression.
     POP  HL                        ; The offsets
     LD   (EX_LAT),HL               ; are
     POP  HL                        ; restored.
-    LD   (EX_RAT),HL               ; Both.
+    LD   (EX_RAT),HL               ; Both,
+    POP  HL                        ; and the
+    LD   B,A                       ; level
+    LD   A,H                       ; (A and
+    LD   (EX_MINB),A               ; the flags
+    LD   A,B                       ; kept).
     EX   DE,HL                     ; HL is the value.
     RET                            ; A and flags are the expression's.
