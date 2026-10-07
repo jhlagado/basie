@@ -30,7 +30,7 @@
 ;    CT_PAST   leave a for loop when the last comparison says so
 ;
 ;  Frames (STATE.ASM). CT_DEPTH counts the open frames, at most CT_FCAP
-;  (8); frame n is the CT_FLEN (18) bytes at CT_FTAB+18n. The fields are:
+;  (8); frame n is the CT_FLEN (20) bytes at CT_FTAB+20n. The fields are:
 ;    CT_FKIND  +0  CT_KIF, CT_KLOOP (while), CT_KFOR or CT_KTRAP (handle)
 ;    CT_FDEST  +1  label: an if's next arm, a for's body, a handler's
 ;                  failure entry
@@ -51,24 +51,26 @@
 ;    CT_FVAR   +8  for: word, the counter's offset from IX
 ;    CT_FBND   +10 for: word, the bound's offset from IX
 ;    CT_FSTEP  +12 for: four bytes, the step's magnitude
-;    CT_FSYMS  +16 SY_CNT as the frame opened: the first symbol of each of
-;                  its blocks, whose symbols go out of scope as it ends
+;    CT_FSYMS  +16 word: SY_TOP as the frame opened, the first record of
+;                  each of its blocks, whose symbols go out of scope as it
+;                  ends
+;    CT_FSUBJ  +18 word: a handle select's subject's symbol record
 ;  The for fields from CT_FMODE are copied from the actions' scratch
 ;  AC_MODE..AC_DELTA, laid out alike.
 
 ;@ROUTINE IN A OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
-; Return in HL the address of frame A, CT_FTAB+18A. A is unchanged.
+; Return in HL the address of frame A, CT_FTAB+20A. A is unchanged.
 
 CT_FRAME:
     LD   L,A                       ; Widen the frame index
     LD   H,0                       ; into HL.
     ADD  HL,HL                     ; Times two,
+    ADD  HL,HL                     ; four,
     LD   D,H                       ; kept
     LD   E,L                       ; in DE;
-    ADD  HL,HL                     ; four,
     ADD  HL,HL                     ; eight,
     ADD  HL,HL                     ; sixteen,
-    ADD  HL,DE                     ; eighteen: the frame's offset.
+    ADD  HL,DE                     ; twenty: the frame's offset.
     LD   DE,CT_FTAB                ; The frame table.
     ADD  HL,DE                     ; HL addresses frame A.
     RET                            ; A is still the index; carry clear.
@@ -101,8 +103,10 @@ CT_PUSH:
     LD   (HL),0                    ; the mode, clear;
     LD   DE,CT_FSYMS-CT_FMODE      ; then
     ADD  HL,DE                     ; the symbols
-    LD   A,(SY_CNT)                ; in scope,
-    LD   (HL),A                    ; kept.
+    LD   DE,(SY_TOP)               ; in scope,
+    LD   (HL),E                    ; the provisional
+    INC  HL                        ; record's
+    LD   (HL),D                    ; address, kept.
     CALL FW_OPEN                   ; Its flows are empty.
     POP  HL                        ; HL is the frame.
     RET                            ; The construct may fill it.
@@ -139,9 +143,12 @@ CT_POP:
 CT_BLOCK:
     CALL HN_ENDB                   ; Its owners freed.
     LD   B,CT_FSYMS                ; The symbols in scope
-    CALL CT_FBYTE                  ; when the frame opened are
-    LD   (SY_CNT),A                ; again;
-    LD   DE,CT_FSIZE-CT_FSYMS      ; and so is
+    CALL CT_FIELD                  ; when the frame opened
+    LD   E,(HL)                    ; are
+    INC  HL                        ; again
+    LD   D,(HL)                    ; (the provisional
+    LD   (SY_TOP),DE               ; record then);
+    LD   DE,CT_FSIZE-CT_FSYMS-1    ; and so is
     ADD  HL,DE                     ; the size
     LD   E,(HL)                    ; of the
     INC  HL                        ; frame,

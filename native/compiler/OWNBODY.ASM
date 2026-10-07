@@ -75,18 +75,20 @@ OW_SEL:                        ; AC_BOUND is the handle's type.
     LD   (AC_INDEX),HL             ; for the frame,
     POP  AF                        ; which
     CALL GX_FPUT                   ; takes it.
-    CALL HN_SIDX                   ; The subject's symbol,
-    PUSH AF                        ; kept
+    LD   HL,(RO_PROOT)             ; The subject's symbol,
+    PUSH HL                        ; kept
     CALL AC_SOPEN                  ; as the select's frame opens.
     CALL CT_FLAGS                  ; Its mode
-    POP  DE                        ; (D the subject)
+    POP  DE                        ; (DE the subject)
     POP  BC                        ; takes
     LD   A,C                       ; the
     OR   (HL)                      ; subject's
     LD   (HL),A                    ; kind;
-    LD   BC,17-CT_FMODE            ; its byte 17
+    LD   BC,CT_FSUBJ-CT_FMODE      ; its CT_FSUBJ
     ADD  HL,BC                     ; the subject's
-    LD   (HL),D                    ; index.
+    LD   (HL),E                    ; record,
+    INC  HL                        ; both
+    LD   (HL),D                    ; bytes.
     RET                            ; Back to the engine.
 .MOVE:                         ; `select move`: an optional owner,
     LD   A,(AC_BOUND)              ; writable,

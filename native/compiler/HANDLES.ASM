@@ -16,9 +16,9 @@
 ;  they were declared (the reference's scopesFrom and emitFrees).
 ;
 ;  Scopes. A block's symbols follow its enclosing block's in the symbol
-;  table: each control frame keeps the count when it opened (CT_FSYMS),
-;  the body's start is RO_BODY less one, and the routine's parameters
-;  start at RO_GLOBS. So a scope is a run of symbols, and the scopes from
+;  table: each control frame keeps its first record (CT_FSYMS), the
+;  body's start is SY_BODY, and the routine's parameters start at
+;  SY_GTOP. So a scope is a run of records, and the scopes from
 ;  a frame outward are the runs between those marks.
 ;
 ;  Principal entries:
@@ -509,9 +509,8 @@ HN_BIND:                       ; HL is the slot's offset.
 HN_PAYL:                       ; HL is the local's offset.
     LD   (AC_DVAL),HL              ; Its payload,
     PUSH HL                        ; kept,
-    LD   A,(SY_CNT)                ; the provisional
-    CALL SY_AT                     ; symbol's,
-    LD   DE,4                      ; after its spelling
+    LD   HL,(SY_TOP)               ; the provisional
+    LD   DE,4                      ; symbol's, after its spelling
     ADD  HL,DE                     ; and class:
     POP  DE                        ; the
     LD   (HL),E                    ; offset,
@@ -526,8 +525,7 @@ HN_PAYL:                       ; HL is the local's offset.
 HN_STAT:                       ; A is the state.
     PUSH HL                        ; Kept.
     PUSH AF                        ; (the state)
-    LD   A,(SY_CNT)                ; The provisional
-    CALL SY_AT                     ; symbol's
+    LD   HL,(SY_TOP)               ; The provisional symbol's
     LD   DE,FW_STATE               ; state
     ADD  HL,DE                     ; byte
     POP  AF                        ; takes
@@ -583,15 +581,14 @@ HN_ARGCK:                      ; The path is parsed.
 ; reference's counting subject is.
 
 HN_LEASD:                      ; The root is RO_PROOT.
-    CALL HN_SIDX                   ; Its symbol's index,
-    LD   C,A                       ; C,
+    LD   BC,(RO_PROOT)             ; Its symbol's record, BC,
     LD   A,(CT_DEPTH)              ; from the innermost frame; fall into HN_SCAN.
 
-;@ROUTINE IN A,C OUT A,HL,CARRY CLOBBERS DE,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A,BC OUT A,HL,CARRY CLOBBERS DE,ZERO,SIGN,PARITY,HALFCARRY
 ; Find the next frame below frame A, inward to outward, whose some arm
-; leases symbol C (mode bits 7, 6 and 3, its subject's index in byte 17):
-; carry, A its index and HL its mode's address; no carry if none. BC is
-; kept.
+; leases the symbol whose record is BC (mode bits 7, 6 and 3, its
+; subject's record in CT_FSUBJ): carry, A its index and HL its mode's
+; address; no carry if none. BC is kept.
 
 HN_SCAN:                       ; A frames to look below.
     OR   A                         ; None
@@ -605,11 +602,17 @@ HN_SCAN:                       ; A frames to look below.
     AND  $C8                       ; (bits 7, 6
     CP   $C8                       ; and 3)
     JR   NZ,.NEXT                  ; No.
-    LD   DE,17-CT_FMODE            ; Its subject's
-    ADD  HL,DE                     ; index:
+    LD   DE,CT_FSUBJ-CT_FMODE      ; Its subject's
+    ADD  HL,DE                     ; record:
     LD   A,(HL)                    ; this
-    CP   C                         ; symbol?
-    LD   DE,CT_FMODE-17            ; (back to
+    CP   C                         ; symbol's?
+    JR   NZ,.DIFF                  ; (low byte
+    INC  HL                        ; then
+    LD   A,(HL)                    ; high,
+    CP   B                         ; the flags
+    DEC  HL                        ; kept)
+.DIFF:                         ; Zero if it is.
+    LD   DE,CT_FMODE-CT_FSUBJ      ; (back to
     ADD  HL,DE                     ; its mode)
     JR   NZ,.NEXT                  ; No.
     POP  AF                        ; A is its index.
@@ -637,21 +640,6 @@ HN_NOTE:                       ; A is the target's type.
 .DONE:                         ; Noted.
     POP  AF                        ; A.
     RET                            ; Back.
-
-;@ROUTINE OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The index of the path's root symbol (RO_PROOT).
-
-HN_SIDX:                       ; RO_PROOT is a record.
-    LD   HL,(RO_PROOT)             ; Its
-    LD   DE,-SY_BASE               ; offset
-    ADD  HL,DE                     ; in the table,
-    LD   DE,-SY_RECB               ; over the
-    LD   A,$FF                     ; records'
-.COUNT:                        ; size:
-    INC  A                         ; one more
-    ADD  HL,DE                     ; while
-    JR   C,.COUNT                  ; it lasts.
-    RET                            ; A is the index.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A is the next token's kind in a path (RO_PATH). A field selected
@@ -900,11 +888,8 @@ HN_PEND:                       ; The body has ended.
     LD   A,(CT_FALLS)              ; Unreachable:
     OR   A                         ; nothing
     RET  Z                         ; to free.
-    LD   A,(RO_BODY)               ; The parameters,
-    DEC  A                         ; before
-    LD   C,A                       ; the body,
-    LD   A,(RO_GLOBS)              ; from
-    LD   B,A                       ; the first.
+    LD   DE,(SY_BODY)              ; The parameters, before
+    LD   HL,(SY_GTOP)              ; the body, from the first.
     JR   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -1009,18 +994,20 @@ HN_PLACE:                      ; A value is next.
 
 ; ---------------------------------------------------------------- frees
 
-;@ROUTINE IN B,C CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The frees of symbols B to C-1, a scope's, in order: each owning handle
+;@ROUTINE IN HL,DE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The frees of the symbol records from HL to DE, a scope's, in order:
+; each owning handle
 ; local, LD L,(IX+d), LD H,(IX+d+1), LD A,H, OR L, CALL NZ,POOL_DEL, LD
 ; HL,0, LD (IX+d),L, LD (IX+d+1),H; or, while HN_MODE is set, nothing
 ; written, HN_SEEN set if there is one.
 
-HN_SEG:                        ; B the first, C past the last.
-    LD   A,B                       ; Any
-    CP   C                         ; left?
+HN_SEG:                        ; HL the first record, DE past the last.
+    OR   A                         ; Any
+    SBC  HL,DE                     ; left?
+    ADD  HL,DE                     ; (HL kept; carry if so)
     RET  NC                        ; No.
-    PUSH BC                        ; The run, kept.
-    CALL SY_AT                     ; Symbol B's record:
+    PUSH HL                        ; The record
+    PUSH DE                        ; and the end, kept.
     INC  HL                        ; its
     INC  HL                        ; class
     INC  HL                        ; byte,
@@ -1077,32 +1064,29 @@ HN_SEG:                        ; B the first, C past the last.
 .HOLDER:                       ; A slot-holder: an owner a return
     LD   A,(HN_MODE)               ; counts (hasOwners) when
     LD   (HN_SEEN),A               ; looking; none to free.
-.NEXT:                         ; Symbol B is done.
-    POP  BC                        ; The run:
-    INC  B                         ; the next.
+.NEXT:                         ; The record is done.
+    POP  DE                        ; The end
+    POP  HL                        ; and the record:
+    LD   BC,SY_RECB                ; the
+    ADD  HL,BC                     ; next.
     JR   HN_SEG                    ; Until its end.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A block ends: the frees of the innermost frame's scope, from the count
-; when it opened (CT_FSYMS) to SY_CNT.
+; A block ends: the frees of the innermost frame's scope, from its first
+; record when it opened (CT_FSYMS) to SY_TOP.
 
 HN_ENDB:                       ; The innermost frame's block ends.
     LD   B,CT_FSYMS                ; Its first
-    CALL CT_FBYTE                  ; symbol,
-    LD   B,A                       ; B,
-    LD   A,(SY_CNT)                ; to the
-    LD   C,A                       ; last.
+    CALL CT_FWORD                  ; record, HL,
+    LD   DE,(SY_TOP)               ; to the last.
     JR   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The body ends: the frees of its scope, from RO_BODY less one to SY_CNT.
+; The body ends: the frees of its scope, from SY_BODY to SY_TOP.
 
 HN_ENDR:                       ; The body's block ends.
-    LD   A,(RO_BODY)               ; Its first symbol
-    DEC  A                         ; is
-    LD   B,A                       ; B,
-    LD   A,(SY_CNT)                ; to the
-    LD   C,A                       ; last.
+    LD   HL,(SY_BODY)              ; Its first record
+    LD   DE,(SY_TOP)               ; to the last.
     JP   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -1120,8 +1104,7 @@ HN_EXIT:                       ; A is the loop's frame.
 HN_FROM:                       ; A the outermost frame, C the routine's too.
     PUSH BC                        ; C kept.
     LD   B,A                       ; B is the outermost.
-    LD   A,(SY_CNT)                ; The run's end,
-    LD   C,A                       ; C.
+    LD   DE,(SY_TOP)               ; The run's end, DE.
     LD   A,(CT_DEPTH)              ; From the innermost frame.
 .FRAME:                        ; Frame A-1 next, if not below B.
     CP   B                         ; Below
@@ -1129,31 +1112,31 @@ HN_FROM:                       ; A the outermost frame, C the routine's too.
     DEC  A                         ; Frame A:
     PUSH AF                        ; (kept)
     PUSH BC                        ; (with the outermost)
+    PUSH DE                        ; (and the run's end)
     CALL CT_FRAME                  ; its
     LD   DE,CT_FSYMS               ; first
-    ADD  HL,DE                     ; symbol,
-    LD   B,(HL)                    ; B.
-    PUSH BC                        ; (kept)
-    CALL HN_SEG                    ; Its scope freed.
-    POP  DE                        ; Its first symbol
-    POP  BC                        ; is the next
-    LD   C,D                       ; run's end.
-    POP  AF                        ; The frame.
+    ADD  HL,DE                     ; record,
+    LD   E,(HL)                    ; DE,
+    INC  HL                        ; then
+    LD   D,(HL)                    ; HL,
+    EX   DE,HL                     ; to
+    POP  DE                        ; the run's end:
+    PUSH HL                        ; (the next run's end)
+    CALL HN_SEG                    ; its scope freed.
+    POP  DE                        ; Its first record ends the next run.
+    POP  BC                        ; The outermost,
+    POP  AF                        ; the frame.
     JR   .FRAME                    ; The one outside.
-.FRAMES:                       ; C is the end of the next run out.
-    POP  DE                        ; The routine's
-    LD   A,E                       ; too?
+.FRAMES:                       ; DE is the end of the next run out.
+    POP  BC                        ; The routine's
+    LD   A,C                       ; too?
     OR   A                         ; If not,
     RET  Z                         ; done.
-    LD   A,(RO_BODY)               ; The body's
-    DEC  A                         ; first
-    LD   B,A                       ; symbol,
-    PUSH BC                        ; (kept)
+    LD   HL,(SY_BODY)              ; The body's first record,
+    PUSH HL                        ; (kept)
     CALL HN_SEG                    ; its scope freed;
-    POP  BC                        ; then
-    LD   C,B                       ; before it
-    LD   A,(RO_GLOBS)              ; the
-    LD   B,A                       ; parameters'.
+    POP  DE                        ; then before it
+    LD   HL,(SY_GTOP)              ; the parameters'.
     JP   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY

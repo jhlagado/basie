@@ -138,7 +138,7 @@ EX_PREP:
     LD   HL,AC_DPOS                ; A collision is reported where the...
     LD   DE,TK_POS                 ; ...name was declared.
     CALL PR_COPY                   ; Copy the six-byte position.
-    LD   A,(RO_BODY)               ; In a body
+    LD   A,(SY_BODY+1)             ; In a body
     OR   A                         ; a declaration
     LD   A,DG_HIDE                 ; would hide
     JR   NZ,.CHECK                 ; a routine's or a service's name;

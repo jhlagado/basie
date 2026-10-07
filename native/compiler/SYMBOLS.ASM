@@ -10,9 +10,11 @@
 ;  it lives for the whole compilation. Scopes are its prefixes: a routine's
 ;  parameters and locals follow the program's names, each block's follow
 ;  its enclosing block's, and a block's end cuts the table back to where
-;  it began (CT_BLOCK, AC_END). No name may hide a visible one (spec 5.6),
-;  so a lookup needs no scope order: the one visible symbol of a name is
-;  the one found.
+;  it began (CT_BLOCK, AC_END). A scope is marked by the address of its
+;  first record (SY_GTOP, SY_BODY, a frame's CT_FSYMS), and SY_TOP is the
+;  provisional record past the committed ones. No name may hide a visible
+;  one (spec 5.6), so a lookup needs no scope order: the one visible
+;  symbol of a name is the one found.
 ;
 ;  Principal entries:
 ;    SY_FIND   find the current NAME token among the committed symbols
@@ -21,7 +23,7 @@
 ;    SY_CMT    commit the provisional symbol
 ;    SY_GET    return the current NAME's class/type and payload, or fail
 ;
-;  A record is nine bytes (SY_RECB), and the table holds SY_CAP (96):
+;  A record is ten bytes (SY_RECB), and the table holds SY_CAP (96):
 ;
 ;    +0  word  address of the name's spelling in the resident source
 ;    +2  byte  length of the spelling
@@ -33,10 +35,11 @@
 ;    +6  byte  an aggregate's type ordinal (SY_TAG); for a scalar constant,
 ;              +6..+8 are its value's three high bytes (SY_VHI), the
 ;              payload its low word
+;    +9  byte  flags (SY_FLAGS): SY_FPRIV for a private declaration
 ;
 ;  The source stays resident through compilation, so a record points at the
 ;  spelling instead of copying it. A declaration is written in two steps:
-;  SY_NEW fills the record at index SY_CNT, which SY_FIND does not see, and
+;  SY_NEW fills the record at SY_TOP, which SY_FIND does not see, and
 ;  SY_CMT (or SY_TAG) makes it visible only once the declaration's
 ;  initializer has been accepted. A failed declaration therefore never
 ;  leaves a half-made symbol behind.
@@ -45,35 +48,27 @@
 ; Carry if the symbol record HL is in the current block: at top level the
 ; program's names are one block (the reference's program and part scopes),
 ; in a body the block of the innermost control frame (CT_FSYMS) or else
-; the body's own (RO_BODY). A parameter is in neither of a body's blocks.
+; the body's own (SY_BODY). A parameter is in neither of a body's blocks.
 
 SY_HERE:                       ; HL is a record found.
-    LD   A,(RO_BODY)               ; The body's first symbol plus one,
-    SUB  1                         ; or zero outside a body, which
-    RET  C                         ; borrows: every name is the block's.
-    PUSH HL                        ; Keep the record.
-    LD   B,A                       ; The body's first symbol, unless
-    LD   A,(CT_DEPTH)              ; a control frame
+    LD   DE,(SY_BODY)              ; The body's first record,
+    LD   A,D                       ; zero
+    OR   E                         ; outside a body,
+    SCF                            ; where every name
+    RET  Z                         ; is the block's.
+    LD   A,(CT_DEPTH)              ; Unless a control frame
     OR   A                         ; is open,
-    LD   A,B                       ; whose block's
-    JR   Z,.BASE                   ; first symbol
-    LD   B,CT_FSYMS                ; it
-    CALL CT_FBYTE                  ; kept then.
-.BASE:                         ; A is the block's first symbol.
-    CALL SY_AT                     ; HL is its record.
-    EX   DE,HL                     ; DE is,
-    POP  HL                        ; HL the record found.
+    JR   Z,.BASE                   ; the body's block's;
+    PUSH HL                        ; else the
+    LD   B,CT_FSYMS                ; innermost frame's
+    CALL CT_FWORD                  ; first record,
+    EX   DE,HL                     ; DE,
+    POP  HL                        ; kept then.
+.BASE:                         ; DE is the block's first record.
     OR   A                         ; Clear carry.
     SBC  HL,DE                     ; No borrow if it is the block's:
     CCF                            ; carry then.
     RET                            ; Carry if in the block.
-
-;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Address in HL the byte of SY_PRIV that holds symbol A's private bit, and
-; return the bit's mask in A. BC and DE are kept.
-
-SY_BIT:                        ; A is the symbol's index.
-    LD   HL,SY_PRIV                ; The private bits; fall into SY_BITAT.
 
 ;@ROUTINE IN A,HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Address in HL the byte of the bit table at HL that holds bit A, and
@@ -107,42 +102,21 @@ SY_BITAT:                      ; A is the bit's index, HL the table.
 ;@ROUTINE OUT CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,C,DE
 ; Compare the current NAME token with each committed record. Carry returns
 ; the matching record in HL; carry clear means the name is not an ordinary
-; symbol. The provisional record at SY_CNT is not searched. B is preserved.
+; symbol. The provisional record at SY_TOP is not searched. B is preserved.
 
 SY_FIND:
-    LD   A,(SY_CNT)                ; Fetch the number of committed records.
-    OR   A                         ; An empty table matches nothing.
-    RET  Z                         ; Return carry clear from the OR.
-    LD   C,A                       ; C counts the records left to compare.
-    LD   HL,SY_BASE                ; Begin with the first record.
-.LOOP:                         ; Compare one record per iteration.
+    LD   HL,SY_BASE                ; From the first record:
+.LOOP:                         ; HL is the next to compare.
+    LD   DE,(SY_TOP)               ; is it the provisional one?
+    OR   A                         ; Then none matched,
+    SBC  HL,DE                     ; and the add
+    ADD  HL,DE                     ; leaves carry clear.
+    RET  Z                         ; Not an ordinary symbol.
     CALL TK_SAME                   ; Does its spelling equal the token's?
     RET  C                         ; Return the matching record in HL.
     LD   DE,SY_RECB                ; Fetch the record stride.
     ADD  HL,DE                     ; Step to the next record.
-    DEC  C                         ; One fewer record to compare.
-    JR   NZ,.LOOP                  ; Continue through the committed prefix.
-    OR   A                         ; Report no match with carry clear.
-    RET                            ; Return to the declaration or lookup.
-
-;@ROUTINE IN A OUT HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Address record A in HL: SY_BASE plus nine times A. A, BC and DE are
-; kept.
-
-SY_AT:
-    PUSH DE                        ; Keep the caller's DE.
-    LD   L,A                       ; HL is the index
-    LD   H,0                       ; as a word,
-    LD   D,H                       ; and so
-    LD   E,L                       ; is DE.
-    ADD  HL,HL                     ; Times two,
-    ADD  HL,HL                     ; four,
-    ADD  HL,HL                     ; eight,
-    ADD  HL,DE                     ; plus one: times nine, the record size.
-    LD   DE,SY_BASE                ; The table's base
-    ADD  HL,DE                     ; plus the offset.
-    POP  DE                        ; Restore DE.
-    RET                            ; HL is the record.
+    JR   .LOOP                     ; Continue through the committed records.
 
 ;@ROUTINE IN D,BC OUT A,CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Write a provisional record for the current NAME token with class/type D
@@ -158,10 +132,14 @@ SY_NEW:
     POP  DE                        ; Restore the class/type in D.
     POP  BC                        ; Restore the payload.
     JR   C,.TAKEN                  ; Then it is a duplicate or hidden.
-    LD   A,(SY_CNT)                ; The provisional slot follows the committed.
-    CP   SY_CAP                    ; Is there a free slot for it?
+    PUSH DE                        ; (the class/type)
+    LD   HL,(SY_TOP)               ; The provisional record
+    LD   DE,SY_LIM                 ; must be
+    OR   A                         ; inside
+    SBC  HL,DE                     ; the table:
+    ADD  HL,DE                     ; carry if so.
+    POP  DE                        ; The class/type again.
     JR   NC,.FULL                  ; No: the table is full.
-    CALL SY_AT                     ; HL addresses the provisional record.
     PUSH BC                        ; TK_KEEP takes BC for the spelling.
     CALL TK_KEEP                   ; Record the spelling; HL at the length.
     POP  BC                        ; Restore the payload.
@@ -191,8 +169,7 @@ SY_NEW:
 
 SY_TAG:
     LD   E,A                       ; Keep the type ordinal.
-    LD   A,(SY_CNT)                ; The provisional symbol's index.
-    CALL SY_AT                     ; HL addresses its record.
+    LD   HL,(SY_TOP)               ; HL addresses the provisional record.
     LD   A,E                       ; The type ordinal
     LD   DE,SY_AGT                 ; goes in the record's last byte.
     ADD  HL,DE                     ; HL addresses it.
@@ -200,20 +177,24 @@ SY_TAG:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; Commit the provisional symbol so that SY_FIND sees it; a private
-; declaration's (AC_PRIV) is marked in SY_PRIV, to be hidden when its part
+; declaration's (AC_PRIV) is marked SY_FPRIV, to be hidden when its part
 ; ends (AC_ENDP). Returns A zero with carry clear. BC and DE are kept.
 
 SY_CMT:
-    LD   A,(AC_PRIV)               ; Is the declaration private?
-    OR   A                         ; If not,
-    JR   Z,.COUNT                  ; it is only counted.
-    LD   A,(SY_CNT)                ; Its symbol's
-    CALL SY_BIT                    ; bit
-    OR   (HL)                      ; is
-    LD   (HL),A                    ; set.
-.COUNT:                        ; The symbol is complete.
-    LD   HL,SY_CNT                 ; Address the committed count.
-    INC  (HL)                      ; The provisional record joins the table.
+    PUSH DE                        ; Keep DE.
+    LD   HL,(SY_TOP)               ; The provisional record's
+    LD   DE,SY_FLAGS               ; flags:
+    ADD  HL,DE                     ; is the
+    LD   A,(AC_PRIV)               ; declaration
+    OR   A                         ; private?
+    JR   Z,.FLAG                   ; Not:
+    LD   A,SY_FPRIV                ; zero; else SY_FPRIV.
+.FLAG:                         ; A is the flags.
+    LD   (HL),A                    ; Recorded.
+    LD   DE,SY_RECB-SY_FLAGS       ; The record
+    ADD  HL,DE                     ; joins the table: the next
+    LD   (SY_TOP),HL               ; is the provisional one.
+    POP  DE                        ; DE again.
     XOR  A                         ; Report success with carry clear.
     RET                            ; Return to the declaration.
 

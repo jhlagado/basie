@@ -80,15 +80,15 @@ FW_TRK:                        ; HL is a record.
 ; The callee may change A, DE and HL.
 
 FW_EACH:                       ; FW_CB is the callee.
-    LD   A,(RO_GLOBS)              ; The routine's first symbol
-    LD   C,A                       ; is C,
+    LD   HL,(SY_GTOP)              ; The routine's first record,
     LD   B,0                       ; the position none yet.
-.NEXT:                         ; Symbol C next.
-    LD   A,(SY_CNT)                ; Past
-    CP   C                         ; the last?
+.NEXT:                         ; HL is the next record.
+    LD   DE,(SY_TOP)               ; Past
+    OR   A                         ; the
+    SBC  HL,DE                     ; last?
+    ADD  HL,DE                     ; (HL kept)
     RET  Z                         ; Done.
-    LD   A,C                       ; Its
-    CALL SY_AT                     ; record:
+    PUSH HL                        ; (the record)
     CALL FW_TRK                    ; tracked?
     JR   NC,.SKIP                  ; No.
     LD   A,B                       ; One more
@@ -100,7 +100,9 @@ FW_EACH:                       ; FW_CB is the callee.
     POP  BC                        ; back.
     INC  B                         ; The next position.
 .SKIP:                         ; The next
-    INC  C                         ; symbol.
+    POP  HL                        ; record
+    LD   DE,SY_RECB                ; after
+    ADD  HL,DE                     ; it.
     JR   .NEXT                     ; Until the last.
 .CALL:                         ; HL is the state:
     PUSH HL                        ; the callee's
@@ -416,26 +418,28 @@ FW_BACK:                       ; A the frame, HL the place.
 ; A statement begins (EM_LINE): no owner is used or moved in it yet.
 
 FW_STMT:                       ; Each symbol in scope:
-    LD   A,(RO_BODY)               ; only
-    OR   A                         ; in a body.
-    RET  Z                         ; (Not.)
+    LD   A,(SY_BODY+1)             ; only in a body
+    OR   A                         ; (a record's address is above
+    RET  Z                         ; the first page).
     XOR  A                         ; No move, `and`
     LD   (HN_MVLG),A               ; or `or` yet.
-    LD   A,(RO_GLOBS)              ; From the routine's first
-    LD   C,A                       ; symbol, C,
+    LD   HL,(SY_GTOP)              ; From the routine's first record
 .NEXT:                         ; to
-    LD   A,(SY_CNT)                ; the
-    CP   C                         ; last:
-    RET  Z                         ; (done)
-    LD   A,C                       ; its
-    CALL SY_AT                     ; record:
-    CALL FW_TRK                    ; a tracked owner's
+    LD   DE,(SY_TOP)               ; the
+    OR   A                         ; last:
+    SBC  HL,DE                     ; (done
+    ADD  HL,DE                     ; at
+    RET  Z                         ; it)
+    PUSH HL                        ; its
+    CALL FW_TRK                    ; record: a tracked owner's
     JR   NC,.SKIP                  ; (another's byte 7 may be a value's)
     LD   A,(HL)                    ; rule bits
     AND  $F3                       ; are
     LD   (HL),A                    ; cleared.
 .SKIP:                         ; Done with it.
-    INC  C                         ; The next.
+    POP  HL                        ; The
+    LD   DE,SY_RECB                ; next
+    ADD  HL,DE                     ; record.
     JR   .NEXT                     ; Until the last.
 
 ;@ROUTINE OUT CARRY,HL CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY

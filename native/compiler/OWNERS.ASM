@@ -650,12 +650,15 @@ OW_ENT:                        ; A is the flag.
 
 OW_TNAME:                      ; A is the type.
     LD   C,A                       ; Kept.
-    LD   A,(SY_CNT)                ; The symbols:
-    LD   B,A                       ; each,
-.LOOK:                         ; from the last.
-    LD   A,B                       ; Symbol
-    DEC  A                         ; B-1:
-    CALL SY_AT                     ; its record.
+    LD   HL,(SY_TOP)               ; The symbols, each, from the last:
+.LOOK:                         ; HL is past the next.
+    LD   DE,SY_BASE                ; Before
+    OR   A                         ; the
+    SBC  HL,DE                     ; first?
+    ADD  HL,DE                     ; Then
+    JR   Z,.NONE                   ; none is.
+    LD   DE,-SY_RECB               ; The
+    ADD  HL,DE                     ; record before.
     PUSH HL                        ; Kept.
     INC  HL                        ; Its
     INC  HL                        ; class
@@ -676,9 +679,10 @@ OW_TNAME:                      ; A is the type.
     EX   DE,HL                     ; HL is the spelling.
     RET                            ; Done.
 .NEXT:                         ; Not it.
-    POP  HL                        ; Dropped.
-    DJNZ .LOOK                     ; The one before.
-    LD   B,0                       ; None: no name.
+    POP  HL                        ; The one
+    JR   .LOOK                     ; before.
+.NONE:                         ; None:
+    LD   B,0                       ; no name.
     RET                            ; HL is anything.
 
 OW_SUFX: DB  ".owners",0       ; An owner descriptor's name suffix.

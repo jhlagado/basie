@@ -284,7 +284,9 @@ PR_RESET:
     LD   L,A                       ; for the word fields.
     LD   (DG_CODE),HL              ; No diagnostic yet, and no failing part (DG_PART).
     LD   (RG_LARGE),HL             ; No frame yet: the largest is zero.
-    LD   (SY_CNT),A                ; No symbols.
+    LD   (SY_BODY),HL              ; No body is open,
+    LD   HL,SY_BASE                ; and no symbols:
+    LD   (SY_TOP),HL               ; the first record is provisional.
     LD   (RG_FWD),A                ; No forward routines.
     LD   (EX_PRIME),A              ; No primary parsed ahead.
     LD   HL,AG_DCNT                ; The aggregate counters, AG_DCNT..AG_OPENF.

@@ -76,8 +76,8 @@
 ;  TK_ATEND steps to the next part.
 ;
 ;  Visibility (ACTSUB.ASM, D33): AC_DPART is the part of the declaration
-;  being parsed, AC_PRIV nonzero while a private one is, and SY_PRIV a bit
-;  for each private symbol, whose name its part's end hides.
+;  being parsed, AC_PRIV nonzero while a private one is, and a symbol's
+;  SY_FPRIV flag marks it private, its name hidden at its part's end.
 
 RO_BASE EQU  AG_WEND           ; First byte of the routine state.
 RO_RCNT EQU  RO_BASE+$00       ; Byte: routine records completed (AC_PUB).
@@ -86,7 +86,7 @@ RO_CUR EQU  RO_BASE+$02        ; Byte: index of the routine being compiled, $FF 
 RO_CTYPE EQU  RO_BASE+$03      ; Byte: its result type ordinal, zero for none.
 RO_CPIDX EQU  RO_BASE+$04      ; Byte: its first parameter record.
 RO_CPCNT EQU  RO_BASE+$05      ; Byte: its parameters so far.
-RO_GLOBS EQU  RO_BASE+$06      ; Byte: SY_CNT as a body opens; AC_END drops locals to it.
+; RO_BASE+$06: free.
 RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.
 RO_CFLAG EQU  RO_BASE+$08      ; Byte: flags of the routine being compiled.
 RO_PEND EQU  RO_BASE+$09       ; Byte: $80 and a failure's label while it is unconsumed.
@@ -96,11 +96,10 @@ RO_CARGS EQU  RO_BASE+$0C      ; Byte: the routine's argument bytes, removed by 
 RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
 RO_LCNT EQU  RO_BASE+$0E       ; Byte: string literals of the routine (RO_LTAB).
 RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FAILS).
-RO_BODY EQU  RO_BASE+$11       ; Byte: the body's first symbol plus one, zero outside one.
+; RO_BASE+$11: free.
 AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
 AC_PRIV EQU  RO_BASE+$13       ; Byte: nonzero while a private declaration is parsed.
-SY_PRIV EQU  RO_BASE+$14       ; SY_CAP/8 bytes: a bit for each private symbol.
-RO_FROM EQU  SY_PRIV+SY_CAP/8  ; 20 bytes, RO_PCAP/8: a bit for each parameter, in from.
+RO_FROM EQU  RO_BASE+$14       ; 20 bytes, RO_PCAP/8: a bit for each parameter, in from.
 RO_VARP EQU  RO_FROM+20         ; Byte: nonzero for a var parameter being parsed.
 RO_CRO EQU  RO_VARP+1          ; Byte: nonzero when the last call's result is read-only.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's

@@ -104,29 +104,30 @@ AC_ENDP:
     JR   .ROUTINE                  ; Until all are.
 .SYMBOLS:                      ; The symbols, all the program's.
     CALL PL_ENDP                   ; Forward pools must be complete.
-    LD   A,(SY_CNT)                ; How many?
-    OR   A                         ; None:
-    RET  Z                         ; none is private.
-    LD   B,A                       ; B of them, from the last back.
-.SYMBOL:                       ; Symbol B-1 is next.
-    LD   A,B                       ; Its
-    DEC  A                         ; bit
-    CALL SY_BIT                    ; in SY_PRIV:
-    LD   C,A                       ; kept,
-    AND  (HL)                      ; is it set?
-    JR   Z,.SHOWN                  ; A public one stays.
-    LD   A,C                       ; A private one's bit
-    XOR  (HL)                      ; is cleared,
-    LD   (HL),A                    ; for a later part's symbols,
-    LD   A,B                       ; and
-    DEC  A                         ; its
-    CALL SY_AT                     ; record's
-    INC  HL                        ; name
-    INC  HL                        ; is
-    LD   (HL),0                    ; cut.
-.SHOWN:                        ; Symbol B-1 is done.
-    DJNZ .SYMBOL                   ; Until all are.
-    RET                            ; The part's private names are gone.
+    LD   HL,SY_BASE                ; Each symbol:
+.SYMBOL:                       ; HL is the next record.
+    LD   DE,(SY_TOP)               ; past
+    OR   A                         ; the
+    SBC  HL,DE                     ; last,
+    ADD  HL,DE                     ; the part's
+    RET  Z                         ; private names are gone.
+    PUSH HL                        ; (the record)
+    LD   DE,SY_FLAGS               ; Its flags:
+    ADD  HL,DE                     ; private?
+    LD   A,(HL)                    ; (cleared, for
+    LD   (HL),0                    ; a later part's)
+    POP  HL                        ; The record.
+    RRA                            ; SY_FPRIV:
+    JR   NC,.SHOWN                 ; a public one stays;
+    INC  HL                        ; a private
+    INC  HL                        ; one's name
+    LD   (HL),0                    ; is cut.
+    DEC  HL                        ; The
+    DEC  HL                        ; record.
+.SHOWN:                        ; HL is done.
+    LD   DE,SY_RECB                ; The
+    ADD  HL,DE                     ; next.
+    JR   .SYMBOL                   ; Until all are.
 .OPEN:                         ; HL is the record.
     LD   DE,RO_RPART               ; Its part
     ADD  HL,DE                     ; and the offset
@@ -630,8 +631,10 @@ AC_SEAL EQU  AC_PUB            ; CommitForward: publish, taking the ordinal.
 ; every control frame. Returns A zero.
 
 AC_SCOPE:
-    LD   A,(SY_CNT)                ; Symbols so far are all global.
-    LD   (RO_GLOBS),A              ; AC_END discards the rest.
+    PUSH HL                        ; Keep HL.
+    LD   HL,(SY_TOP)               ; Symbols so far are all global.
+    LD   (SY_GTOP),HL              ; AC_END discards the rest.
+    POP  HL                        ; HL again.
     XOR  A                         ; No control
     LD   (CT_DEPTH),A              ; frames are open.
     RET                            ; A is zero.
@@ -700,14 +703,15 @@ AC_ENTRY:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; The body's block opens after the parameters (the reference's block in
-; the routine's scope): its symbols are those from SY_CNT on, and
-; RO_BODY holds that index plus one until the body ends (SY_HERE). Its
+; the routine's scope): its symbols are those from SY_TOP on, and
+; SY_BODY holds that record's address until the body ends (SY_HERE). Its
 ; start is reachable.
 
 AC_BLOCK:
-    LD   A,(SY_CNT)                ; The first symbol of the block
-    INC  A                         ; plus one, never zero,
-    LD   (RO_BODY),A               ; marks a body as open; fall into AC_LIVE.
+    PUSH HL                        ; Keep HL.
+    LD   HL,(SY_TOP)               ; The first record of the block,
+    LD   (SY_BODY),HL              ; never zero, marks a body as open;
+    POP  HL                        ; fall into AC_LIVE.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Control can reach this point.
@@ -754,10 +758,11 @@ AC_END:
     INC  HL                        ; both
     LD   (HL),B                    ; bytes.
 .SCOPE:                        ; Leave the routine's scope.
-    LD   A,(RO_GLOBS)              ; Keep only the global symbols.
-    LD   (SY_CNT),A                ; Parameters and locals go out of scope.
-    XOR  A                         ; No body
-    LD   (RO_BODY),A               ; is open.
+    LD   HL,(SY_GTOP)              ; Keep only the global symbols.
+    LD   (SY_TOP),HL               ; Parameters and locals go out of scope.
+    LD   HL,0                      ; No body
+    LD   (SY_BODY),HL              ; is open.
+    XOR  A                         ; A is zero.
     RET                            ; Back to the engine.
 .FLOW:                         ; missing-return, at the routine's end
     LD   A,(RO_CUR)                ; naming

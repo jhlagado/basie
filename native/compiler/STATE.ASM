@@ -20,14 +20,14 @@
 ;                  routine's labels, ordinals, its waiting constants and
 ;                  the program's limits
 ;    +$0BB      3  parser lookahead
-;    +$0BE    865  symbol table: count, 96 records of nine bytes
-;    +$41F    330  expression state, the folding scratch and the operand
+;    +$0BE    966  symbol table: three marks, 96 records of ten bytes
+;    +$484    330  expression state, the folding scratch and the operand
 ;                  stack
-;    +$569    146  control: depth, fallthrough, eight frames of eighteen
+;    +$5CE    162  control: depth, fallthrough, eight frames of twenty
 ;                  bytes
-;    +$5FB   1530  aggregate types, records, fields, array bounds, the
+;    +$670   1530  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$BF5         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$C6A         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -113,13 +113,18 @@ PR_LVAL EQU  EM_WEND+$01       ; Word: the buffered token's payload.
 
 ; Source bytes remain resident through compilation, so a scalar symbol keeps
 ; the exact spelling as a pointer and length instead of copying name bytes.
-; The entry at SY_CNT is provisional until the declaration initializer
-; succeeds; lookup sees only the committed prefix. Records are laid out in
-; SYMBOLS.ASM. Globals, and the parameters and locals of the routine being
-; compiled, share the table.
-SY_CNT EQU  EM_WEND+$03        ; Byte: committed symbols.
-SY_BASE EQU  EM_WEND+$04       ; First symbol record.
-SY_RECB EQU  9                 ; Bytes in one symbol record.
+; The record at SY_TOP is provisional until the declaration initializer
+; succeeds; lookup sees only the committed records below it. Records are
+; laid out in SYMBOLS.ASM. Globals, and the parameters and locals of the
+; routine being compiled, share the table. A scope is marked by the
+; address of its first record, never by a count.
+SY_TOP EQU  EM_WEND+$03        ; Word: the provisional record, past the committed.
+SY_GTOP EQU  EM_WEND+$05       ; Word: SY_TOP as a body opens; AC_END drops locals to it.
+SY_BODY EQU  EM_WEND+$07       ; Word: the body's first record, zero outside one.
+SY_BASE EQU  EM_WEND+$09       ; First symbol record.
+SY_RECB EQU  10                ; Bytes in one symbol record.
+SY_FLAGS EQU  9                ; Record offset of its flags.
+SY_FPRIV EQU  1                ; Flag: declared private (AC_PRIV).
 SY_AGT EQU  6                  ; Record offset of an aggregate's type ordinal.
 SY_VHI EQU  6                  ; Record offset of a constant's value's high bytes.
 SY_CAP EQU  96                 ; Symbol records in the table; DG_SYMS beyond.
@@ -178,7 +183,7 @@ CT_BASE EQU  EX_STLIM          ; First byte of the control block.
 CT_DEPTH EQU  CT_BASE+$00      ; Byte: open control frames.
 CT_FALLS EQU  CT_BASE+$01      ; Byte: nonzero while control can reach this point.
 CT_FTAB EQU  CT_BASE+$02       ; First control frame.
-CT_FLEN EQU  18                ; Bytes in one frame.
+CT_FLEN EQU  20                ; Bytes in one frame.
 CT_FCAP EQU  8                 ; Frames; DG_NEST when exceeded.
 CT_FLIM EQU  CT_FTAB+CT_FLEN*CT_FCAP ; Exclusive end of the frames.
 
@@ -197,7 +202,8 @@ CT_FMODE EQU  7                ; Frame field: if flags, for mode, kept bytes.
 CT_FVAR EQU  8                 ; Frame field: the counter's offset (word).
 CT_FBND EQU  10                ; Frame field: the bound's offset (word).
 CT_FSTEP EQU  12               ; Frame field: the step's magnitude (four bytes).
-CT_FSYMS EQU  16               ; Frame field: SY_CNT as it opened, its blocks' first symbol.
+CT_FSYMS EQU  16               ; Frame field: SY_TOP as it opened, its blocks' first record (word).
+CT_FSUBJ EQU  18               ; Frame field: a handle select's subject's record (word).
 CT_MINC EQU  1                 ; For mode: to, the bound is inclusive.
 CT_MDOWN EQU  2                ; For mode: the step is negative.
 CT_MWORD EQU  4                ; For mode: the counter is a word.

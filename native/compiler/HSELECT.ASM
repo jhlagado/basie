@@ -192,9 +192,10 @@ HN_ENDA:                       ; The innermost frame's arm ends.
     AND  $C8                       ; arm
     CP   $C8                       ; (bits 7, 6 and 3)?
     RET  NZ                        ; No.
-    LD   B,17                      ; Its subject's
-    CALL CT_FBYTE                  ; index,
-    LD   C,A                       ; C.
+    LD   B,CT_FSUBJ                ; Its subject's
+    CALL CT_FWORD                  ; record,
+    LD   B,H                       ; BC.
+    LD   C,L                       ; (its low byte)
     LD   A,(CT_DEPTH)              ; Each frame
     DEC  A                         ; outside it
 .FRAME:                        ; that leases it

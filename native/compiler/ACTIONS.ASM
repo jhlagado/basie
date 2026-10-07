@@ -406,7 +406,7 @@ AC_ROCMT:
     CALL VL_WRAP                   ; the type's number.
     JR   AC_CONST                  ; Declare it.
 .BLOB:                         ; An aggregate constant:
-    LD   A,(RO_BODY)               ; in a routine's body
+    LD   A,(SY_BODY+1)             ; in a routine's body
     OR   A                         ; it waits
     JR   Z,.TOP                    ; for the routine's blob,
     CALL RG_DEFER                  ; BC its ordinal;
