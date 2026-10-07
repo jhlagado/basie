@@ -122,8 +122,10 @@ EX_NAME:
     JP   RO_VALUE                  ; its result is the value.
 .PREDEF:                       ; A is SY_KNOWN and the constant's type.
     LD   B,A                       ; Its metadata:
-    CP   SY_KNOWN+SY_EXACT         ; a File
-    JP   NZ,EX_ETYPE               ; is no scalar value (DG_CLASH).
+    CP   SY_KNOWN+AG_FILE          ; a File is
+    JP   Z,HN_FCON                 ; compared (HN_FCON);
+    CP   SY_KNOWN+SY_EXACT         ; no other
+    JP   NZ,EX_ETYPE               ; is a scalar value (DG_CLASH).
     INC  HL                        ; Its value,
     LD   L,(HL)                    ; a byte,
     LD   H,0                       ; widened.

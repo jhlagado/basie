@@ -1,0 +1,35 @@
+// Identifiers and Files compared: id(...) and paths on the left, none and
+// non-optional identifiers on the right, inside and, or and not.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+    peer as id nodes?
+end
+pool nodes as Node[4]
+var keep as id nodes?
+var out as File
+sub flag(b as boolean) fails
+    if b
+        writeByte(console, 'T') else fail
+    else
+        writeByte(console, 'F') else fail
+    end
+end
+sub main() fails
+    var a = new nodes(1, none, none)
+    var b = new nodes(2, none, none)
+    var ia = id(a)
+    keep = id(b)
+    a.peer = id(b)
+    flag(id(a) = ia) else fail
+    flag(a.peer = keep) else fail
+    flag(keep <> none) else fail
+    flag(ia = keep or ia = none) else fail
+    flag(not (ia = keep)) else fail
+    flag(ia <> keep and keep = a.peer) else fail
+    out = printer
+    flag(out = printer) else fail
+    flag(console <> out) else fail
+    writeText(console, "\r\n") else fail
+end

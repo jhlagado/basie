@@ -398,3 +398,104 @@ HN_COPY:                       ; The address is made.
     DB   3,$ED,$B0,$E1             ; POP HL: the copy,
     POP  BC                        ; (BC)
     JP   EM_POP2                   ; popped; return.
+
+;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; RO_LOAD's handle path, of type A, in an expression: an identifier's four
+; bytes loaded into DEHL and compared (HN_EQ); an owner's waits (DG_NYI).
+
+HN_IDLD:                       ; A is the handle's type.
+    BIT  1,A                       ; An owner
+    JP   Z,TR_OPER                 ; waits;
+    PUSH AF                        ; an identifier
+    LD   A,SY_U32                  ; has its
+    LD   (RO_OTYPE),A              ; four bytes
+    CALL GA_LOAD                   ; loaded,
+    POP  AF                        ; then
+    JR   HN_EQ                     ; compared.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; console or printer in an expression, its predeclared entry at HL: its
+; value in DEHL (RO_FCON), compared (HN_EQ).
+
+HN_FCON:                       ; HL is the entry.
+    LD   DE,(TK_POS)               ; The value
+    LD   (EX_START),DE             ; is here;
+    CALL RO_FCON                   ; its value in DEHL,
+    LD   A,AG_FILE                 ; a File's,
+    JR   HN_EQ                     ; compared.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; RO_LOAD's File path in an expression: loaded into DEHL (GA_LDF) and
+; compared (HN_EQ).
+
+HN_FLD:                        ; The path is a File's.
+    CALL GA_LDF                    ; Its value in DEHL;
+    LD   A,AG_FILE                 ; fall into HN_EQ.
+
+;@ROUTINE IN A OUT A,CARRY CLOBBERS BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
+; An identifier or File value of type A, in DEHL, compares with `=` or
+; `<>` only (9.11, 16.3): PUSH DE, PUSH HL, the right operand of the same
+; type (an identifier's widened to optional) in DEHL, EXX, POP HL, POP
+; DE, CALL CMP32U, LD A,0, JP NZ,skip, INC A, skip: and XOR 1 for `<>`.
+; Without either, an identifier waits (DG_NYI) and a File is no scalar
+; (type-mismatch at the value). A returns a computed Boolean.
+
+HN_EQ:                         ; A is the type.
+    LD   C,A                       ; Kept.
+    PUSH BC                        ; (on the stack)
+    CALL PR_PEEK                   ; `=`
+    POP  BC                        ; or
+    LD   B,A                       ; `<>`
+    CP   TK_EQ                     ; next?
+    JR   Z,.CMP                    ; Then compared;
+    CP   TK_NE                     ; otherwise
+    JR   Z,.CMP                    ; an identifier
+    LD   A,C                       ; waits, and
+    CP   AG_FILE                   ; a File is
+    JP   NZ,TR_OPER                ; no scalar
+    JP   EX_EFIT                   ; (type-mismatch).
+.CMP:                          ; B is the operator, C the type.
+    PUSH BC                        ; Both kept.
+    CALL PR_TAKE                   ; It is taken.
+    LD   A,$D5                     ; PUSH DE,
+    CALL GX_PUSHA                  ; PUSH HL,
+    CALL GX_PUSHW                  ; four bytes.
+    POP  BC                        ; The type:
+    PUSH BC                        ; a File's
+    LD   A,C                       ; right operand
+    CP   AG_FILE                   ; is a File's
+    JR   NZ,.ID                    ; value,
+    CALL RO_FVAL                   ; or
+    JR   .GOT                      ; an
+.ID:                           ; identifier's
+    OR   AG_HOPT                   ; of the type
+    LD   E,A                       ; made optional,
+    LD   HL,0                      ; reported at
+    LD   (HN_AT),HL                ; the value;
+    CALL HN_IDV0                   ; in DEHL.
+.GOT:                          ; Then EXX,
+    CALL EM_SEQ                    ; POP HL,
+    DB   3,$D9,$E1,$D1             ; POP DE,
+    LD   A,4                       ; four bytes
+    CALL EM_POP                    ; popped;
+    CALL EM_HELP                   ; CALL
+    DW   HP_LCMPU                  ; CMP32U;
+    CALL EM_SEQ                    ; LD A,0,
+    DB   2,$3E,0                   ; then
+    LD   C,$C2                     ; JP NZ
+    CALL EM_FWD                    ; past
+    PUSH AF                        ; INC A
+    CALL EM_OP                     ; (true when
+    DB   $3C                       ; equal).
+    POP  AF                        ; The label
+    CALL EM_LDONE                  ; is here.
+    POP  BC                        ; For `<>`,
+    LD   A,B                       ; XOR 1
+    CP   TK_NE                     ; makes
+    JR   NZ,.BOOL                  ; it
+    CALL EM_SEQ                    ; true
+    DB   2,$EE,1                   ; when not.
+.BOOL:                         ; A computed
+    LD   A,SY_BOOL                 ; Boolean,
+    OR   A                         ; carry clear.
+    RET                            ; The value.

@@ -145,6 +145,7 @@ const CONFORMANCE: Record<string, string> = {
   LRUCACHE: "tests/conformance/storage/lru-cache.bsi",
   IDFCOPY: "tests/conformance/storage/identifier-field-passed-as-copy.bsi",
   BOOLXOR: "tests/conformance/expressions/boolean-xor.bsi",
+  IDFEQ: "tests/conformance/expressions/identifier-and-file-equality.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -368,6 +369,8 @@ const CLAIMED: Record<string, string[]> = {
     "IDCALL",
     "BXOR",
     "BOOLXOR",
+    "IDEQ",
+    "IDFEQ",
   ],
 };
 
@@ -1693,6 +1696,18 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "identifiers of two pools compared":
+    "forward pool nodes\nrecord Node\n    value as u8\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar keep as id nodes?\nvar lk as id leaves?\nvar f as File\nvar b as boolean\nvar n as u8\nsub main()\n    b = keep = lk\nend\n",
+  "an identifier compared with a number":
+    "forward pool nodes\nrecord Node\n    value as u8\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar keep as id nodes?\nvar lk as id leaves?\nvar f as File\nvar b as boolean\nvar n as u8\nsub main()\n    b = keep = 3\nend\n",
+  "Files ordered":
+    "forward pool nodes\nrecord Node\n    value as u8\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar keep as id nodes?\nvar lk as id leaves?\nvar f as File\nvar b as boolean\nvar n as u8\nsub main()\n    b = f < console\nend\n",
+  "a File compared with a number":
+    "forward pool nodes\nrecord Node\n    value as u8\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar keep as id nodes?\nvar lk as id leaves?\nvar f as File\nvar b as boolean\nvar n as u8\nsub main()\n    b = f = 1\nend\n",
+  "a File as an operand of +":
+    "forward pool nodes\nrecord Node\n    value as u8\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar keep as id nodes?\nvar lk as id leaves?\nvar f as File\nvar b as boolean\nvar n as u8\nsub main()\n    n = f + 1\nend\n",
+  "an identifier compared with an owner":
+    "forward pool nodes\nrecord Node\n    value as u8\nend\npool nodes as Node[4]\nrecord Leaf\n    v as u8\nend\npool leaves as Leaf[2]\nvar keep as id nodes?\nvar lk as id leaves?\nvar f as File\nvar b as boolean\nvar n as u8\nsub main()\n    var a = new nodes(1)\n    b = keep = a\nend\n",
   "a record of another type through an identifier":
     "forward pool boxes\nforward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord A\n    w as u16\nend\nrecord B\n    q as u8\nend\nrecord Holder\n    h as nodes?\nend\nrecord Box\n    a as A\n    b as B\n    hold as Holder\n    name as string[4]\n    own as nodes?\nend\npool boxes as Box[2]\npool nodes as Node[2]\nvar keep as id boxes?\nvar gl as A\nsub mk() as A\n    return gl\nend\nsub two(x as A, y as A)\nend\nsub pb(x as B)\nend\nsub vb(var x as B)\nend\nsub ph(x as Holder)\nend\nsub vs(var s as string[])\nend\nsub ps(s as string[])\nend\nsub main()\n    select keep\n    case some(i)\n        pb(i.a)\n    case none\n    end\nend\n",
   "a record of another type through an identifier to a var parameter":

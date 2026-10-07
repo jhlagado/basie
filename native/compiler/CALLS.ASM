@@ -936,6 +936,20 @@ RO_EROOT:
     CALL DG_SETN                   ; argument 1;
     JP   EX_EVAL                   ; at the path's start.
 
+;@ROUTINE IN HL CLOBBERS A,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; console or printer, its predeclared entry at HL (RO_LIB), into DEHL:
+; LD HL,n, LD DE,0.
+
+RO_FCON:                       ; HL is the entry.
+    INC  HL                        ; Its value,
+    LD   L,(HL)                    ; the runtime's
+    LD   H,0                       ; fixed File:
+    CALL EM_OP                     ; LD HL,n,
+    DB   $21                       ; the opcode,
+    CALL EM_WORD                   ; and n;
+    CALL EM_SEQX                   ; then LD DE,0, the high word,
+    DB   3,$11,0,0                 ; and return: DEHL is the File.
+
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse a File value and generate it into DEHL (the reference's expression
 ; and toRegisters for a File): console or printer, LD HL,n and LD DE,0; a
@@ -951,15 +965,8 @@ RO_FVAL:
     JR   NC,.VARIABLE              ; No: a variable.
     JP   P,.SERVICE                ; Not a constant: a service.
     CP   SY_KNOWN+AG_FILE          ; The constant must be a File,
-    JR   NZ,.ETYPE                 ; else DG_CLASH.
-    INC  HL                        ; Its value,
-    LD   L,(HL)                    ; the runtime's
-    LD   H,0                       ; fixed File:
-    CALL EM_OP                     ; LD HL,n,
-    DB   $21                       ; the opcode,
-    CALL EM_WORD                   ; and n;
-    CALL EM_SEQX                   ; then LD DE,0, the high word,
-    DB   3,$11,0,0                 ; and return: DEHL is the File.
+    JR   NZ,.ETYPE                 ; else DG_CLASH:
+    JR   RO_FCON                   ; DEHL; return.
 .SERVICE:                      ; HL is the service's payload.
     CALL RO_SVC                    ; A is its result type,
 .FILE:                         ; or the variable's.
@@ -1016,8 +1023,10 @@ RO_PART:
 ; aggregate is no value here (DG_CLASH). A returns its type.
 
 RO_LOAD:
-    CALL PL_ISHND                  ; A handle's value
-    JP   C,TR_OPER                 ; waits (DG_NYI).
+    CALL PL_ISHND                  ; A handle's value is compared
+    JP   C,HN_IDLD                 ; (HN_IDLD), as is a File's
+    CP   AG_FILE                   ; (HN_FLD);
+    JP   Z,HN_FLD                  ; neither is a scalar.
     CP   AG_FIRST                  ; An aggregate is not a scalar value:
     JP   NC,RO_EFIT                ; DG_CLASH at the path.
     CALL GA_LOAD                   ; Load it into A or HL.

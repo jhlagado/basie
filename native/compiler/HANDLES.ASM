@@ -820,8 +820,9 @@ HN_ETERM:                      ; A is the token's kind.
     JP   PR_ETERM                  ; else is syntax.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The current NAME is a primary: `id(`, an identifier made, waits (DG_NYI).
-; The NAME is kept.
+; The current NAME is a primary: `id(...)` is an identifier made and
+; compared (HN_IDEX, HN_EQ), the primary's value, returned to EX_NAME's
+; caller. Any other NAME is kept.
 
 HN_ISID:                       ; The NAME is current.
     LD   HL,KW_ID                  ; `id`
@@ -829,8 +830,10 @@ HN_ISID:                       ; The NAME is current.
     CALL TK_MATCH                  ; If not,
     RET  NC                        ; an ordinary name;
     CALL HN_PAREN                  ; with `(`
-    JP   Z,TR_OPER                 ; it waits.
-    RET                            ; Back.
+    RET  NZ                        ; it is id(...),
+    POP  HL                        ; EX_NAME's value:
+    CALL HN_IDEX                   ; made, A its type,
+    JP   HN_EQ                     ; compared; return.
 
 ;@ROUTINE IN A OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A parameter's type (CommitParameter): a handle, not var, is a value in
