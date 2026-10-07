@@ -4,8 +4,8 @@
 ;
 ;  The blob writer's end (BL_END, with BL_CTRL and BL_MAP) and the end of
 ;  a routine (RG_CLOSE), with branch shrinking (SHRINK.ASM), loaded above
-;  NAMES in FLOAT's and OWNERS' place when a blob is written. They read no
-;  source and load no other overlay. The resident BL_END and RG_CLOSE
+;  NAMES in FLOAT's and OWNERS' place when a blob is written. They load no
+;  other overlay. The resident BL_END and RG_CLOSE
 ;  reach them through the jump table at its start (OV_CCALL); OWNERS, which
 ;  this overlay replaces, writes its blobs through BL_ENDO, which loads
 ;  OWNERS again before returning to it. Split from BLOB.ASM and GENCALL.ASM.

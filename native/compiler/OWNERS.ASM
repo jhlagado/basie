@@ -15,7 +15,8 @@
 ;  inside an array, the array's stride and element count. An array inside
 ;  an array takes one entry per outer element, after the entries of its
 ;  element: only the innermost array strides. Its scratch is POOLS.ASM's,
-;  in AG_IBUF. Nothing here may load another overlay while it runs.
+;  in AG_IBUF. Nothing here may load another overlay while it runs, but
+;  for its blobs' writing (BL_ENDO), which loads OWNERS again after.
 ;
 ;  Entries, a jump table at the overlay's start (OW_TAB):
 ;    OW_FWD    ForwardPool: `forward pool NAME`
@@ -129,7 +130,7 @@ OW_REC:                        ; After `as`.
     CALL DG_RAISE                  ; pool-needs-record,
     DB   DG_PNREC                  ; at the token.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; CommitPool: declare the pool, or complete its forward declaration
 ; (forward-mismatch if their visibilities differ; forward-incomplete if a
 ; private one is completed in another part); the pool may not exceed
@@ -415,7 +416,7 @@ OW_ASTOK:                      ; HL is the spelling.
     LD   (TK_LEN),A                ; is the token's.
     RET                            ; Done.
 
-;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the owner descriptor of table type A, whose ordinal HL is, as a
 ; rodata blob named TYPE.owners: its entries' count (capacity, "types",
 ; beyond 255), then the entries (OW_WALK).
