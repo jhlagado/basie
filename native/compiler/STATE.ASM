@@ -168,6 +168,7 @@ TK_WIDE EQU  SY_LIM+$49        ; Byte: nonzero once a decimal number passes 32
                                ; bits; then SY_F32 for a floating-point literal.
 EX_STACK EQU  SY_LIM+$4A       ; First operand-stack entry.
 EX_STCAP EQU  16               ; Entries; DG_DEEP when exceeded.
+EX_SPARE EQU  192              ; Stack kept below a nested expression's start (EX_INNER).
 EX_STLEN EQU  16               ; Bytes in one entry.
 EX_STLIM EQU  EX_STACK+EX_STCAP*EX_STLEN ; Exclusive end of the stack.
 
