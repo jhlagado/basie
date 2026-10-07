@@ -391,6 +391,7 @@ const CLAIMED: Record<string, string[]> = {
     "BIGROUT",
     "NEST32",
     "MANYRTN",
+    "MANYCASE",
   ],
 };
 

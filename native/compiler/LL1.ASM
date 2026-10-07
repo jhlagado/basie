@@ -51,14 +51,7 @@ FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
 LL_CAP EQU  254                ; Grammar stack capacity in symbols.
 LL_STACK EQU  (FL_WEND+$100)&$FF00 ; The stack, from a page's start past FLOAT's bytes.
 LL_DEPTH EQU  LL_STACK-1       ; Symbols on the stack (byte), just below it.
-; The select statements' labels follow the stack (ACTSEL.ASM): CT_RTOP,
-; the next free entry, then CT_RCAP ranges of eight bytes, the low and the
-; high value of a label at the subject's type, its sign bit flipped.
-CT_RTOP EQU  LL_STACK+LL_CAP   ; Word: the next free label range.
-CT_RTAB EQU  CT_RTOP+2         ; The label ranges of the open selects.
-CT_RCAP EQU  63                ; Ranges; DG_LABEL beyond.
-CT_RLIM EQU  CT_RTAB+8*CT_RCAP ; Exclusive end of the ranges.
-PL_DESC EQU  CT_RLIM           ; AG_TCAP words: a type's owner descriptor, 0 until written.
+PL_DESC EQU  LL_STACK+LL_CAP   ; AG_TCAP words: a type's owner descriptor, 0 until written.
 LL_WEND EQU  PL_DESC+2*AG_TCAP ; End of compiler workspace (marker).
 
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY

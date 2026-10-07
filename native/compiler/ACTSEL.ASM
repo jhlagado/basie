@@ -36,10 +36,12 @@
 ;  CT_FCONT the current arm's body and next arm, CT_FEXIT the end; CT_FMODE
 ;  bit 0 an arm falls through (CT_NOTE), bit 1 case else, bit 2 an arm
 ;  with labels; CT_FVAR the subject's offset from IX, CT_FBND its type,
-;  CT_FSTEP the first of its label ranges, CT_FSTEP+2 the offset of
-;  `select`. The ranges (CT_RTAB, LL1.ASM) are every label of the open
-;  selects, each select's after its enclosing one's, so that a label is
-;  checked against those before it in the same select (duplicate-case).
+;  CT_FSTEP where its labels begin in the blob writer's log (BL_FLIP's
+;  form of its bottom then), CT_FSTEP+2 the offset of `select`. A label is
+;  a range of two entries of the log, its low value and its high value,
+;  four bytes each at the subject's type (BL_TLOW with the select's depth,
+;  BL_THIGH after it), so that a label is checked against those after its
+;  select's beginning at its depth, its own select's (duplicate-case).
 ;
 ;  Principal entries (actions and islands):
 ;    AC_PICK   SelectSubject: the subject, stored; the frame opens
@@ -154,12 +156,14 @@ AC_PICK:
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open the select's frame, its subject staged: AC_INDEX its slot, AC_BOUND
-; its type, AC_DELTA+2 the offset of `select`; the first range is the
-; ranges' top. Its end label is allocated. HN_SEL opens a handle's so.
+; its type, AC_DELTA+2 the offset of `select`; its labels begin at the
+; log's bottom, kept by its form (BL_FLIP). Its end label is allocated.
+; HN_SEL opens a handle's so.
 
 AC_SOPEN:                      ; The subject is in its slot.
-    LD   HL,(CT_RTOP)              ; The select's labels start
-    LD   (AC_DELTA),HL             ; at the ranges' top.
+    LD   DE,(BL_LBOT)              ; The select's labels start
+    CALL BL_FLIP                   ; at the log's bottom,
+    LD   (AC_DELTA),HL             ; kept by its form.
     LD   B,CT_KSEL                 ; The select's frame
     CALL CT_PUSH                   ; opens: HL is it.
     LD   DE,CT_FVAR                ; Its fields from CT_FVAR
@@ -277,9 +281,6 @@ AC_FINAL:
     LD   (CT_FALLS),A              ; Record it.
     LD   B,CT_FEXIT                ; The end
     CALL CT_DEF                    ; is here.
-    LD   B,CT_FSTEP                ; Its ranges
-    CALL CT_FWORD                  ; are
-    LD   (CT_RTOP),HL              ; free.
     CALL FW_JOIN                   ; The arms' states met.
     JP   CT_POP                    ; Close the frame; return.
 .EMPTY:                        ; No arm with labels:
@@ -292,7 +293,7 @@ AC_FINAL:
 ; Island CaseLabels: each label, a constant or a range of two, at the
 ; subject's type, low not above high (syntax at the label), overlapping
 ; none before it in the select (duplicate-case at the label), kept in
-; the ranges and tested in turn (emitLabelTest); commas between them.
+; the log and tested in turn (emitLabelTest); commas between them.
 
 AC_LABEL:
     CALL CT_MODE                   ; A handle select's
@@ -300,16 +301,16 @@ AC_LABEL:
     RET  NZ                        ; (AC_CASE).
     CALL PR_SPOT                   ; The label's first token: its offset
     LD   (AC_SPOS),HL              ; is kept.
-    LD   HL,(CT_RTOP)              ; Its range goes here,
-    LD   DE,CT_RLIM                ; if there
-    OR   A                         ; is
-    SBC  HL,DE                     ; room
-    ADD  HL,DE                     ; (HL restored).
-    JR   C,.ROOM                   ; There is.
-    CALL DG_RAISE                  ; The ranges are full:
-    DB   DG_LABEL                  ; labels.
-.ROOM:                         ; HL is the range.
-    PUSH HL                        ; Kept.
+    LD   A,BL_TLOW                 ; Its range: its low value's entry,
+    CALL BL_LOG                    ; then
+    LD   A,(CT_DEPTH)              ; the select's
+    LD   (HL),A                    ; depth
+    INC  HL                        ; and the value;
+    PUSH HL                        ; (kept)
+    LD   A,BL_THIGH                ; its high value's
+    CALL BL_LOG                    ; entry after it.
+    POP  HL                        ; HL is the range, its low value,
+    PUSH HL                        ; kept.
     EX   DE,HL                     ; Its low value
     CALL .VALUE                    ; comes first.
     CALL PR_PEEK                   ; A range
@@ -329,14 +330,31 @@ AC_LABEL:
     LDIR                           ; the low.
 .RANGED:                       ; The range is complete.
     LD   B,CT_FSTEP                ; The select's
-    CALL CT_FWORD                  ; first range.
-.OVER:                         ; HL is a range before it, or it.
+    CALL CT_FWORD                  ; beginning,
+    EX   DE,HL                     ; where its
+    CALL BL_FLIP                   ; first range's
+    INC  HL                        ; value would
+    INC  HL                        ; be.
+.STEP:                         ; HL is a range's value, or that place.
+    LD   DE,BL_EBACK               ; The next
+    ADD  HL,DE                     ; entry's.
     POP  DE                        ; The new range,
     PUSH DE                        ; kept.
     OR   A                         ; Is HL
     SBC  HL,DE                     ; the new
     ADD  HL,DE                     ; one?
     JR   Z,.KEEP                   ; Then none overlaps it.
+    DEC  HL                        ; A label's
+    DEC  HL                        ; low value
+    LD   A,(HL)                    ; (BL_TLOW)
+    INC  HL                        ; of this
+    CP   BL_TLOW                   ; select,
+    JR   NZ,.OTHER                 ; at its
+    LD   A,(CT_DEPTH)              ; depth?
+    CP   (HL)                      ; Any other entry
+.OTHER:                        ; is passed over;
+    INC  HL                        ; HL is its value.
+    JR   NZ,.STEP                  ; (INC keeps zero)
     PUSH HL                        ; Keep the earlier range,
     PUSH DE                        ; and the new one:
     CALL .PAST                     ; DE is the earlier's high;
@@ -353,14 +371,9 @@ AC_LABEL:
 .BEYOND:                       ; The earlier range is kept twice.
     POP  HL                        ; Once is enough.
 .APART:                        ; The earlier range does not overlap.
-    POP  HL                        ; The
-    LD   DE,8                      ; next
-    ADD  HL,DE                     ; range.
-    JR   .OVER                     ; Compare it.
+    POP  HL                        ; The next
+    JR   .STEP                     ; is compared.
 .KEEP:                         ; HL is the new range: it is kept.
-    LD   DE,8                      ; The next
-    ADD  HL,DE                     ; is
-    LD   (CT_RTOP),HL              ; after it.
     POP  HL                        ; The range
     CALL .TEST                     ; is tested.
     CALL PR_PEEK                   ; Another label
@@ -379,16 +392,16 @@ AC_LABEL:
     PUSH HL                        ; kept,
     PUSH DE                        ; beneath it.
 
-;@ROUTINE IN HL OUT DE CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; DE is HL plus four: a range's high value from its low. HL is kept.
+;@ROUTINE IN HL OUT DE CLOBBERS CARRY,HALFCARRY
+; DE is a range's high value from its low at HL, in the log's entry after
+; it, BL_ELEN bytes lower. HL is kept.
 
 .PAST:                         ; HL is a low value.
-    LD   D,H                       ; DE
-    LD   E,L                       ; is
-    INC  DE                        ; four
-    INC  DE                        ; bytes
-    INC  DE                        ; on.
-    INC  DE                        ; Done.
+    PUSH HL                        ; Kept.
+    LD   DE,BL_EBACK               ; The entry
+    ADD  HL,DE                     ; after
+    EX   DE,HL                     ; its.
+    POP  HL                        ; HL again.
     RET                            ; DE is the high value.
 
 ;@ROUTINE IN DE OUT DE CLOBBERS A,BC,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY

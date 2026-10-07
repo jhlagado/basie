@@ -573,7 +573,9 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   190, `labels`, beyond), in what had been the gap between the compiler's
   workspace and the shell's; each label is checked against the earlier
   ones of its select (`duplicate-case`), so a select with n labels costs
-  n²/2 comparisons, at compile time only.
+  n²/2 comparisons, at compile time only. At 68.3 a label is two entries
+  of the routine's log (`BL_TLOW` with its select's depth, `BL_THIGH`), so
+  the ranges have no table of their own: memory bounds them.
 - **Native compiler at 68:** 32 (`CT_FCAP`, twenty bytes a frame; 16 from
   67h.5), within a grammar stack of 254 symbols (`LL_CAP`, a page) and 128
   labels in use (`EM_LCAP`), 640 bytes of workspace more than 16; `NEST32`

@@ -501,7 +501,7 @@ DG_CAP EQU  200                ; The first.
 DG_SYMS EQU  DG_CAP+0          ; The symbol table (SY_CAP).
 DG_PROCS EQU  DG_CAP+1         ; The routine records (RO_RCAP).
 DG_PARAM EQU  DG_CAP+2         ; One routine's parameters (RO_SCAP).
-DG_LITS EQU  DG_CAP+3          ; One routine's string literals (RO_LCAP).
+DG_LITS EQU  DG_CAP+3          ; Unused since 68: string literals are the log's.
 DG_META EQU  DG_CAP+4          ; Types, records and fields.
 DG_NEST EQU  DG_CAP+5          ; Control statements open at once (CT_FCAP).
 DG_DEEP EQU  DG_CAP+6          ; The operand stack, or calls inside calls.

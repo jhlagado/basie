@@ -87,10 +87,7 @@ RG_OPEN:                       ; HL is the name, B its length, DE the ordinal.
     POP  HL                        ; HL is the routine's ordinal.
     XOR  A                         ; Kind code, no root flag, no alignment.
     CALL BL_BEGIN                  ; Start the blob.
-    LD   HL,CT_RTAB                ; No select's labels
-    LD   (CT_RTOP),HL              ; are kept yet.
-    CALL EM_OPEN                   ; No frame, temporaries or labels yet;
-    LD   (RO_LCNT),A               ; A is zero: no string literals either.
+    CALL EM_OPEN                   ; No frame, temporaries or labels yet.
     LD   A,(SRC_NUM)               ; The part's number in the stream
     LD   HL,AC_DPOS+2              ; and the routine's name's line.
     CALL BL_LINE                   ; The blob starts on it.

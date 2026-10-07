@@ -26,11 +26,11 @@
 ;
 ;  Literals. A string literal is an object of its own that follows the
 ;  routine's need word, in the order the literals were made. Each has an
-;  entry of six bytes in RO_LTAB (CALLWORK.ASM): the address of the addend
-;  word of its operand's reference, which is written when the literal is
-;  placed, the source address of its opening quote, its decoded length and
-;  the bytes it occupies: its length byte, its characters, then zeros, as
-;  many as its string's capacity and terminator need.
+;  entry in the blob writer's log (BL_TLIT, BLOB.ASM), after its operand's
+;  reference, whose addend word is written when the literal is placed: the
+;  source address of its opening quote, its decoded length and the bytes
+;  it occupies: its length byte, its characters, then zeros, as many as
+;  its string's capacity and terminator need.
 ;
 ;  Principal entries:
 ;    GA_ADDR   leave the place's address in HL (emitAddress)
@@ -522,52 +522,28 @@ GA_LDIR:                       ; HL is the count.
 ; which occupies B bytes after the routine's need word: an operand naming
 ; the routine itself, its addend written when the literal is placed
 ; (GA_LITS). In discarded code nothing is written and no literal is made,
-; as the reference discards it. DG_LITS when the routine has RO_LCAP.
+; as the reference discards it. The literal is an entry of the blob's log
+; (BL_TLIT) after its operand's reference: its quote, its length and its
+; size.
 
 GA_LIT:                        ; B is the literal's size.
     CALL EM_OP                     ; LD HL,nn.
     DB   $21                       ; The opcode.
     CALL EM_QUIET                  ; Is the code discarded?
     RET  NZ                        ; Then so is the literal.
-    LD   HL,RO_LCNT                ; The literals so far.
-    LD   A,(HL)                    ; Is there room
-    CP   RO_LCAP                   ; for another?
-    JR   NC,.FULL                  ; No: refuse the routine.
-    INC  (HL)                      ; Count it.
-    LD   L,A                       ; HL is its index
-    LD   H,0                       ; as a word,
-    ADD  HL,HL                     ; times two,
-    LD   D,H                       ; kept;
-    LD   E,L                       ; times
-    ADD  HL,HL                     ; four,
-    ADD  HL,DE                     ; six, the entry's size.
-    LD   DE,RO_LTAB                ; Plus the table's
-    ADD  HL,DE                     ; address.
-    PUSH BC                        ; Keep the size
-    PUSH HL                        ; and the entry.
+    PUSH BC                        ; Keep the size.
     LD   DE,EM_NONE                ; The routine itself, a placeholder
-    CALL EM_SELF                   ; addend: DE addresses its word,
-    CALL BL_FLIP                   ; kept by
-    EX   DE,HL                     ; its form.
-    POP  HL                        ; The entry.
-    LD   (HL),E                    ; It is the
-    INC  HL                        ; entry's
-    LD   (HL),D                    ; first word.
-    INC  HL                        ; Then
+    CALL EM_SELF                   ; addend, the log's last entry;
+    LD   A,BL_TLIT                 ; then the literal's,
+    CALL BL_LOG                    ; after it:
     LD   DE,(TK_PTR)               ; the opening quote's
-    LD   (HL),E                    ; address,
-    INC  HL                        ; low
-    LD   (HL),D                    ; and high.
-    INC  HL                        ; Then
+    CALL BL_PUTD                   ; address,
     LD   A,(TK_LEN)                ; the decoded
     LD   (HL),A                    ; length,
     INC  HL                        ; then
     POP  BC                        ; the size
     LD   (HL),B                    ; it occupies.
     RET                            ; Placed when the routine closes.
-.FULL:                         ; Every entry is in use.
-    CALL DG_RAISE                  ; Refuse the routine.
-    DB   DG_LITS                   ; Too many literals.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Place the routine's literals after its need word, in the order they were
@@ -576,36 +552,29 @@ GA_LIT:                        ; B is the literal's size.
 ; to its size.
 
 GA_LITS:                       ; The need word is written.
-    LD   A,(RO_LCNT)               ; The literals: how many?
-    OR   A                         ; None:
-    RET  Z                         ; nothing to place.
-    LD   B,A                       ; B remain.
-    LD   HL,RO_LTAB                ; The first entry.
-.NEXT:                         ; HL is an entry.
-    PUSH BC                        ; Keep the count.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; its addend
-    LD   D,(HL)                    ; word's
-    INC  HL                        ; form;
-    PUSH HL                        ; the
-    CALL BL_FLIP                   ; word,
-    EX   DE,HL                     ; DE,
-    POP  HL                        ; which takes
-    LD   BC,(BL_LEN)               ; the offset
-    EX   DE,HL                     ; where the
-    LD   (HL),C                    ; literal
-    INC  HL                        ; begins.
-    LD   (HL),B                    ; Both bytes.
-    EX   DE,HL                     ; HL is the entry again.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; the opening
-    LD   D,(HL)                    ; quote.
-    INC  HL                        ; Then
+    LD   HL,(NH_PTR)               ; From the log's first entry,
+.NEXT:                         ; HL is an entry, or the heap.
+    CALL BL_NEXT                   ; the next:
+    RET  C                         ; none, and every literal is placed;
+    CP   BL_TLIT                   ; any but a literal's
+    JR   NZ,.NEXT                  ; passed over.
+    PUSH HL                        ; A literal's, kept.
+    LD   DE,BL_ELEN+5              ; Its operand's addend word,
+    ADD  HL,DE                     ; in the entry before,
+    LD   DE,(BL_LEN)               ; takes the offset
+    LD   (HL),E                    ; where the
+    INC  HL                        ; literal
+    LD   (HL),D                    ; begins.
+    POP  HL                        ; The entry:
+    PUSH HL                        ; (kept)
+    INC  HL                        ; DE is
+    LD   E,(HL)                    ; the
+    INC  HL                        ; opening
+    LD   D,(HL)                    ; quote,
+    INC  HL                        ; C
     LD   C,(HL)                    ; the length,
-    INC  HL                        ; and
+    INC  HL                        ; B
     LD   B,(HL)                    ; the size.
-    INC  HL                        ; The next entry
-    PUSH HL                        ; is kept.
     LD   A,C                       ; The length byte
     CALL EM_BYTE                   ; first.
     DEC  B                         ; One fewer to come.
@@ -624,7 +593,5 @@ GA_LITS:                       ; The need word is written.
     XOR  A                         ; Zero.
     CALL EM_BYTE                   ; Append it.
     DJNZ .ZERO                     ; At least the terminator.
-    POP  HL                        ; The next entry.
-    POP  BC                        ; The count.
-    DJNZ .NEXT                     ; Until every literal is placed.
-    RET                            ; The literals follow the need word.
+    POP  HL                        ; The entry;
+    JR   .NEXT                     ; the next literal.

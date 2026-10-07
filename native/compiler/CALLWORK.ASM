@@ -6,7 +6,7 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($6C10).
+;  from MM_WBASE ($6BF0).
 ;
 ;    Offset  Size  Block
 ;    +$C59     38  routine state: counts, the signature being parsed, the
@@ -16,27 +16,23 @@
 ;    +$C7F    510  each routine's record's address: 255 words (RO_RPTR)
 ;    +$E7D     16  the record of the signature being parsed (RO_CREC)
 ;    +$E8D    320  its parameters: 64 records of five bytes (RO_SPAR)
-;    +$FCD    288  the routine's string literals: 48 of six bytes (RO_LTAB)
-;    +$10ED     6  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;    +$FCD      6  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE, SRC_RES)
-;    +$10F3     2  PR_SP, the stack DG_ISSUE restores
-;    +$10F5   329  the pools' table and the handles' and flows' state, 32
+;    +$FD3      2  PR_SP, the stack DG_ISSUE restores
+;    +$FD5    329  the pools' table and the handles' and flows' state, 32
 ;                  frames' flows (PL_CNT to PL_WEND)
-;    +$123E   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM)
-;    +$12D8    23  unused, so that the LL(1) stack starts a page
-;    +$12EF   255  the LL(1) stack (LL_DEPTH, then LL_STACK at +$12F0, a page
+;    +$111E   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM)
+;    +$11B8    87  unused, so that the LL(1) stack starts a page
+;    +$120F   255  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1210, a page
 ;                  start, so a slot's address is the page and the depth)
-;    +$13EE   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
-;                  ranges of eight bytes (CT_RTAB)
-;    +$15E8    96  each table type's owner descriptor (PL_DESC)
-;    +$1648        LL_WEND, the end of the compiler workspace, 5,704 bytes
+;    +$130E    96  each table type's owner descriptor (PL_DESC)
+;    +$136E        LL_WEND, the end of the compiler workspace, 4,974 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
 ;  failure-routing fields as the grammar's actions run; ROUTINES.ASM writes
 ;  the tables; CALLS.ASM the path in hand (RO_PLACE), which GENAGGR.ASM
-;  moves on, and RO_ESC, which EXTERM.ASM's names set too; GENAGGR.ASM the
-;  literals, which RG_OPEN clears for each routine; EXPR.ASM clears RO_PEND
+;  moves on, and RO_ESC, which EXTERM.ASM's names set too; EXPR.ASM clears RO_PEND
 ;  for each expression and RO_FAILS (CALLS.ASM) sets it and RO_KEPT. Source
 ;  names stay resident, so a record keeps a name as its address and length.
 ;
@@ -101,7 +97,7 @@ RO_KEPT EQU  RO_BASE+$0A       ; Byte: temporaries' bytes beneath a handled call
 RO_MFLAG EQU  RO_BASE+$0B      ; Byte: main's flags, as main has no routine record.
 RO_CARGS EQU  RO_BASE+$0C      ; Byte: the routine's argument bytes, removed by RETN.
 RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
-RO_LCNT EQU  RO_BASE+$0E       ; Byte: string literals of the routine (RO_LTAB).
+; RO_BASE+$0E: free.
 RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FAILS).
 ; RO_BASE+$11: free.
 AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
@@ -156,15 +152,7 @@ RO_PFROM EQU  4                ; Byte: nonzero when the from clause names it.
 
 RO_NCAP EQU  8                 ; Calls nested in arguments; DG_DEEP beyond.
 
-; The string literals of the routine being compiled (GENAGGR.ASM), placed
-; after its need word when it closes. An entry is six bytes: the address of
-; its operand's addend word among the references, the source address of
-; its opening quote, its decoded length and the bytes it occupies.
-RO_LTAB EQU  RO_PLIM           ; Literal table: RO_LCAP entries.
-RO_LLEN EQU  6                 ; Bytes in one literal entry.
-RO_LCAP EQU  48                ; Literals in one routine; DG_LITS beyond.
-RO_LLIM EQU  RO_LTAB+RO_LLEN*RO_LCAP ; Exclusive end of the literal table.
-RO_WEND EQU  RO_LLIM           ; End of the routine workspace.
+RO_WEND EQU  RO_PLIM           ; End of the routine workspace.
 
 ; The part table and the source bytes stay outside the compiler workspace,
 ; at the top and the base of the source area, so the cursor keeps only

@@ -8,12 +8,12 @@
 ;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
 ;           OV_AREA   the overlay area, from MM_END, as large as the largest
 ;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
-;    $6C10  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
+;    $6BF0  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
 ;           FL_WBEG   the FLOAT overlay's workspace, FL_WEND, after the
 ;                     pools' bytes, below the LL(1) stack's page (LL1.ASM)
-;    $8260  SH_WBEG   the shell's workspace, SH_WEND
-;    $8380  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $8650  MM_SRC    the source parts, the symbol table, the blob being
+;    $7F60  SH_WBEG   the shell's workspace, SH_WEND
+;    $8080  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
+;    $8350  MM_SRC    the source parts, the symbol table, the blob being
 ;                     written and the name heap
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
@@ -25,11 +25,11 @@
 ;  tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $6C10             ; Exclusive end of room for the image.
-MM_WBASE EQU  $6C10            ; Compiler workspace: the image ends below.
-MM_WLIM EQU  $8380             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $8260             ; The shell's workspace, above the compiler's.
-MM_BLOB EQU  $8380             ; The blob writer's workspace, BL_FLAGS on.
+MM_RLIM EQU  $6BF0             ; Exclusive end of room for the image.
+MM_WBASE EQU  $6BF0            ; Compiler workspace: the image ends below.
+MM_WLIM EQU  $8080             ; Exclusive end of both workspaces.
+SH_WBEG EQU  $7F60             ; The shell's workspace, above the compiler's.
+MM_BLOB EQU  $8080             ; The blob writer's workspace, BL_FLAGS on.
 
-MM_SRC EQU  $8650              ; Resident source parts, up to the stack.
+MM_SRC EQU  $8350              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

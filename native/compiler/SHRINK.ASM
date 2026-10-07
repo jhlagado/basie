@@ -44,7 +44,8 @@ BL_SHORT:                      ; The routine is complete.
 .SCAN:                         ; HL is an entry, or the heap.
     CALL BL_NEXT                   ; The next:
     JR   C,.SCANNED                ; none, and the table is complete;
-    JR   Z,.SCAN                   ; a line entry, passed over.
+    CP   BL_TREFS                  ; any but a reference
+    JR   NC,.SCAN                  ; passed over.
     PUSH HL                        ; A reference: kept.
     INC  HL                        ; Past its form,
     LD   E,(HL)                    ; DE

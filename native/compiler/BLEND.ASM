@@ -121,7 +121,8 @@ BL_WRITE:                      ; The blob is complete in memory.
 .REF:                          ; HL is an entry, or the heap.
     CALL BL_NEXT                   ; The next:
     JR   C,.BYTES                  ; none, and the bytes follow;
-    JR   Z,.REF                    ; a line entry, passed over.
+    CP   BL_TREFS                  ; any but a reference
+    JR   NC,.REF                   ; passed over.
     PUSH HL                        ; A reference: kept.
     LD   C,(HL)                    ; C is its form.
     INC  HL                        ; DE
@@ -275,7 +276,8 @@ BL_WRITE:                      ; The blob is complete in memory.
 .LINE:                         ; HL is an entry, or the heap.
     CALL BL_NEXT                   ; The next:
     RET  C                         ; none, and the blob is written;
-    JR   NZ,.LINE                  ; a reference, passed over.
+    INC  A                         ; any but a line entry
+    JR   NZ,.LINE                  ; passed over.
     PUSH HL                        ; A line entry: kept.
     INC  HL                        ; Past its tag,
     LD   E,(HL)                    ; DE

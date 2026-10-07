@@ -78,7 +78,12 @@ BL_NMOUT EQU  $02              ; BL_OPEN flag: write the name stream.
 BL_BYOUT EQU  $80              ; Set by BL_OPEN: the byte stream is always written.
 
 BL_ELEN EQU  7                 ; Bytes of one entry of the log.
-BL_TLINE EQU  $FF              ; A line entry's first byte; a reference's is its form.
+BL_EBACK EQU  -BL_ELEN         ; From an entry to the next, lower.
+BL_TREFS EQU  4                ; First bytes below are references' forms.
+BL_TLINE EQU  $FF              ; A line entry's first byte.
+BL_TLIT EQU  $FE               ; A string literal's (GENAGGR.ASM, GA_LIT).
+BL_TLOW EQU  $FD               ; A select label's low value (ACTSEL.ASM).
+BL_THIGH EQU  $FC              ; Its high value, the entry after.
 BL_PAST EQU  $7FFF             ; An offset past every blob's: the jumps' sentinel.
 
 ; The workspace, from MM_BLOB.
@@ -264,7 +269,7 @@ BL_LOG:                        ; A is the entry's first byte.
     PUSH AF                        ; and A.
     CALL BL_SPAN                   ; HL is the bytes' end, DE the log's bottom.
     EX   DE,HL                     ; An entry
-    LD   BC,-BL_ELEN               ; lower
+    LD   BC,BL_EBACK               ; lower
     ADD  HL,BC                     ; is
     LD   (BL_LBOT),HL              ; the bottom,
     PUSH HL                        ; (kept)
@@ -316,22 +321,24 @@ BL_SPAN:                       ; Where is the free memory?
     LD   DE,(BL_LBOT)              ; below its log.
     RET                            ; Done.
 
-;@ROUTINE IN HL OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
+;@ROUTINE IN HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,DE
 ; Step from the log's entry HL, or from the name heap's bottom, to the
 ; next entry in the order given, the one below it: carry when there is
-; none, else A its first byte plus one, zero for a line entry.
+; none, else A its first byte: a reference's form, below BL_TREFS, or
+; BL_TLINE, BL_TLIT, BL_TLOW or BL_THIGH. The compiler adds the last
+; three for a routine's string literals and its selects' labels; BL_END
+; passes over them.
 
 BL_NEXT:                       ; HL is an entry.
-    LD   DE,-BL_ELEN               ; The one
+    LD   DE,BL_EBACK               ; The one
     ADD  HL,DE                     ; below it,
     LD   DE,(BL_LBOT)              ; at or above
     OR   A                         ; the bottom:
     SBC  HL,DE                     ; carry
     ADD  HL,DE                     ; when it is not.
     RET  C                         ; None: done.
-    LD   A,(HL)                    ; Its first byte,
-    INC  A                         ; plus one:
-    RET                            ; zero for a line entry.
+    LD   A,(HL)                    ; Its first byte.
+    RET                            ; Done.
 
 BL_NONE:                       ; The table of a blob with no short jump:
     DW   BL_PAST                   ; its sentinel alone.
