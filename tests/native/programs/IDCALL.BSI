@@ -1,0 +1,49 @@
+// A call's result passed after a path through an identifier is no copy.
+forward pool boxes
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+record A
+    w as u16
+end
+record B
+    q as u8
+end
+record Holder
+    h as nodes?
+end
+record Box
+    a as A
+    b as B
+    hold as Holder
+    name as string[4]
+    own as nodes?
+end
+pool boxes as Box[2]
+pool nodes as Node[2]
+var keep as id boxes?
+var gl as A
+sub mk() as A
+    return gl
+end
+sub two(x as A, y as A)
+end
+sub pb(x as B)
+end
+sub vb(var x as B)
+end
+sub ph(x as Holder)
+end
+sub vs(var s as string[])
+end
+sub ps(s as string[])
+end
+sub main()
+    select keep
+    case some(i)
+        two(i.a, mk())
+    case none
+    end
+end

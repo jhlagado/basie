@@ -554,8 +554,8 @@ HN_KEEPF:                      ; The condition is parsed.
 ;@ROUTINE IN A,B OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An aggregate argument for parameter type B (AG_VAR for var), its path
 ; in hand, of type A: through an identifier (RO_PPUSH bit 4) it is
-; not-writable for a var parameter, and owning-copy if it owns, at the
-; path; any other is copied once its address is made (HN_COPY). Through
+; not-writable for a var parameter, at the path; any other is copied
+; once its address is made (HN_COPY). Through
 ; an owner (bit 5) it passes no owner word. A and BC are kept.
 
 HN_ARGCK:                      ; The path is parsed.
@@ -574,13 +574,8 @@ HN_ARGCK:                      ; The path is parsed.
     BIT  7,B                       ; a var parameter's
     LD   A,DG_CONST                ; is
     JP   NZ,EX_EVAL                ; not-writable;
-    POP  AF                        ; a value's
-    PUSH AF                        ; is a copy,
-    CALL PL_OWNS                   ; not of
-    LD   A,DG_OCOPY                ; an owning
-    JP   C,EX_EVAL                 ; object.
-    POP  AF                        ; A.
-    RET                            ; Back.
+    POP  AF                        ; a value's is
+    RET                            ; a copy (HN_COPY).
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry if the path in hand's root, the routine's own owning local, is the

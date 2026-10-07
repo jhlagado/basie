@@ -367,7 +367,8 @@ HN_LOGIC:                      ; The operator is next.
 ;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An aggregate argument for a value parameter reached through an
 ; identifier (RO_PPUSH bit 4), its address in HL at run time, is passed
-; as a copy in a frame temporary of its type's size (passCopy): PUSH HL,
+; as a copy (passCopy), unless it owns (owning-copy, at the argument), in
+; a frame temporary of its type's size: PUSH HL,
 ; HL = IX+temp, EX DE,HL, POP HL, PUSH DE, LD BC,size, LDIR, POP HL.
 ; BC is kept.
 
@@ -376,7 +377,11 @@ HN_COPY:                       ; The address is made.
     AND  $10                       ; an identifier?
     RET  Z                         ; If not, itself.
     PUSH BC                        ; (kept)
-    LD   A,(RO_OTYPE)              ; Its type's
+    LD   A,(RO_OTYPE)              ; Not
+    CALL PL_OWNS                   ; an owning
+    LD   A,DG_OCOPY                ; object
+    JP   C,EX_EVAL                 ; (owning-copy);
+    LD   A,(RO_OTYPE)              ; its type's
     CALL AG_SIZE                   ; size,
     PUSH HL                        ; kept,
     EX   DE,HL                     ; in the frame

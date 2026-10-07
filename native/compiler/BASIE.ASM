@@ -47,6 +47,7 @@
 %INCLUDE "AGGR.ASM"                ; Records, arrays, strings and constants.
 %INCLUDE "ROUTINES.ASM"            ; Routine names, parameters, compile entry.
 %INCLUDE "CALLS.ASM"               ; Calls, services and aggregate paths.
+%INCLUDE "ASSIGN.ASM"              ; Assignments to aggregate paths.
 %INCLUDE "LL1.ASM"                 ; The LL(1) engine.
 %INCLUDE "GRAMMAR.ASM"             ; The generated grammar tables.
 %INCLUDE "ACTIONS.ASM"             ; Actions: islands, types and declarations.
