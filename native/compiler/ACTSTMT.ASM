@@ -562,7 +562,8 @@ AC_GOTO:
 AC_ASSRT:
     LD   HL,(TK_POS)               ; The offset of `assert`,
     LD   (AC_SPOS),HL              ; kept.
-    JR   AC_NOMOV                  ; Expect a Boolean.
+    LD   A,4                       ; An assert condition:
+    JR   AC_NOMOV                  ; expect a Boolean.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; CommitStatementAssert (assertStatement): a known condition must be the
@@ -622,8 +623,8 @@ AC_IF:
 ; A new false-branch label for the next condition, which is expected.
 
 AC_ARMS:
-    XOR  A                         ; No move, `and` or `or`
-    LD   (HN_MVLG),A               ; in the condition yet.
+    XOR  A                         ; A move may be
+    LD   (HN_NOMV),A               ; in the condition.
     LD   B,CT_FDEST                ; The next arm's label.
     CALL CT_NEW                    ; Allocate it; fall into AC_COND.
 
@@ -634,13 +635,12 @@ AC_COND:
     LD   A,SY_BOOL                 ; A condition is a Boolean.
     JP   AC_WANT                   ; Expect it.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
-; A while's or an assert's condition, where no move may appear (10.8):
-; one waits (HN_MVLG bit 1, DG_NYI). Expect a Boolean.
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
+; A while's (A 3) or an assert's (A 4) condition, where no move may
+; appear (10.8, HN_NOMV's phrase). Expect a Boolean.
 
 AC_NOMOV:                      ; The condition is next.
-    LD   HL,HN_MVLG                ; No move
-    SET  1,(HL)                    ; in it;
+    LD   (HN_NOMV),A               ; No move in it;
     JR   AC_COND                   ; expect it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
@@ -744,7 +744,8 @@ AC_WHILE:
     CALL EM_LDEF                   ; is here.
     LD   B,CT_FEXIT                ; The exit.
     CALL CT_NEW                    ; Allocate it.
-    JP   AC_NOMOV                  ; Expect a Boolean condition.
+    LD   A,3                       ; A while condition:
+    JP   AC_NOMOV                  ; expect a Boolean.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginWhileBody: check the condition and leave the loop when it is false.

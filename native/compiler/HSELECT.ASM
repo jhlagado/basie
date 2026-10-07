@@ -76,10 +76,13 @@ HN_WIDA:                       ; A is a handle's type:
 ; then none if optional, else maybe. A returns the handle's type.
 
 HN_MOVE:                       ; `move` is next:
-    LD   HL,HN_MVLG                ; none in a statement
-    BIT  1,(HL)                    ; with `and` or `or`, a while's
-    JP   NZ,TR_OPER                ; or an assert's condition
-    SET  0,(HL)                    ; yet (DG_NYI).
+    CALL PR_SPOT                   ; its offset.
+    LD   A,(HN_NOMV)               ; Where no move may be
+    OR   A                         ; (an operand of and or or,
+    JP   NZ,HN_MPOS                ; a condition): move-position.
+    LD   A,(HN_MOVES)              ; Otherwise
+    INC  A                         ; one more
+    LD   (HN_MOVES),A              ; is parsed.
     CALL PR_SPOT                   ; Its offset,
     PUSH HL                        ; kept,
     CALL PR_TAKE                   ; taken;

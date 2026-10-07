@@ -421,8 +421,8 @@ FW_STMT:                       ; Each symbol in scope:
     LD   A,(SY_BODY+1)             ; only in a body
     OR   A                         ; (a record's address is above
     RET  Z                         ; the first page).
-    XOR  A                         ; No move, `and`
-    LD   (HN_MVLG),A               ; or `or` yet.
+    XOR  A                         ; A move may be
+    LD   (HN_NOMV),A               ; in it.
     LD   HL,(SY_GTOP)              ; From the routine's first record
 .NEXT:                         ; to
     LD   DE,(SY_TOP)               ; the

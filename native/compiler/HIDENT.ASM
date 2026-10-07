@@ -174,7 +174,11 @@ HN_IDV0:                       ; E is the location's type.
     JR   Z,.NONE                   ; LD HL,0, LD DE,0.
     CP   TK_NAME                   ; A name?
     JR   Z,.NAME                   ; Its value.
-    XOR  A                         ; Anything else
+    CP   TK_NEW                    ; A fresh owner
+    JR   Z,.CLASH                  ; is no identifier (7.9),
+    CP   TK_MOVE                   ; nor is a moved
+    JR   Z,.CLASH                  ; one;
+    XOR  A                         ; anything else
     CALL EX_RUN                    ; is an expression,
     JR   .CLASH                    ; no identifier.
 .NONE:                         ; none:
@@ -351,17 +355,74 @@ HN_PSHDE:                      ; DE is set:
     LD   A,$D5                     ; PUSH DE,
     JP   GX_PUSHA                  ; two bytes; return.
 
-;@ROUTINE CLOBBERS HL,ZERO,SIGN,PARITY,HALFCARRY
-; `and` or `or` is next: a statement with a move inside an expression
-; waits (DG_NYI), for the reference's move-position rules (10.8) are not
-; yet followed; marked (HN_MVLG bit 1). A and the carry are kept.
+;@ROUTINE IN A,HL CLOBBERS C,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; `and` or `or`, A, is next: a move since its chain or its expression
+; began (the baseline at HL, EX_ANDB or EX_ORB) is move-position at it,
+; in an operand of it (10.8). A is kept.
 
-HN_LOGIC:                      ; The operator is next.
-    LD   HL,HN_MVLG                ; A move
-    BIT  0,(HL)                    ; in its statement
-    JP   NZ,TR_OPER                ; waits;
-    SET  1,(HL)                    ; else marked.
-    RET                            ; Back.
+HN_LOGIC:                      ; A is the operator.
+    LD   C,A                       ; (kept)
+    LD   A,(HN_MOVES)              ; The moves
+    CP   (HL)                      ; since the baseline:
+    LD   A,C                       ; none,
+    RET  Z                         ; as it should be.
+    CP   TK_OR                     ; Otherwise
+    LD   A,1                       ; `or` is phrase 1,
+    JR   Z,.PHRASE                 ; an operand of or,
+    INC  A                         ; and `and` 2.
+.PHRASE:                       ; A is the phrase:
+    PUSH AF                        ; (kept)
+    CALL PR_SPOT                   ; at the operator,
+    POP  AF                        ; move-position.
+
+;@ROUTINE IN A,HL NORETURN
+; move-position (DG_MPOS) at offset HL, naming phrase A: 1 an operand of
+; or, 2 of and, 3 a while condition, 4 an assert condition (HN_NOMV).
+
+HN_MPOS:                       ; A the phrase, HL the offset.
+    PUSH HL                        ; The offset kept;
+    LD   E,A                       ; phrase E
+    LD   HL,HN_PHRS                ; of the list,
+.SKIP:                         ; past E-1
+    DEC  E                         ; terminators.
+    JR   Z,.FOUND                  ; There.
+    XOR  A                         ; Past the
+    LD   B,A                       ; next
+    LD   C,A                       ; zero
+    CPIR                           ; byte.
+    JR   .SKIP                     ; The next.
+.FOUND:                        ; HL is the phrase:
+    LD   (DG_ARG1),HL              ; argument 1.
+    POP  HL                        ; At the offset,
+    LD   A,DG_MPOS                 ; move-position;
+    JP   DG_HERE                   ; no return.
+
+;@ROUTINE IN C,DE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; Run the parse at DE where no move may be, phrase C (HN_NOMV), as the
+; reference's withoutMove; the enclosing phrase is restored after it. A,
+; HL and the flags are the parse's.
+
+HN_NOMOV:                      ; C the phrase, DE the parse.
+    LD   HL,HN_NOMV                ; The phrase
+    LD   B,(HL)                    ; replaces
+    LD   (HL),C                    ; the enclosing one,
+    PUSH BC                        ; which is kept,
+    CALL .RUN                      ; while the parse runs.
+    POP  BC                        ; The enclosing
+    LD   C,A                       ; (A kept)
+    LD   A,B                       ; phrase
+    LD   (HN_NOMV),A               ; again.
+    LD   A,C                       ; (The flags are the parse's.)
+    RET                            ; Done.
+.RUN:                          ; DE is the parse.
+    PUSH DE                        ; Jumped to;
+    RET                            ; it returns above.
+
+HN_PHRS:                       ; HN_NOMV's phrases, by code from one.
+    DB   "an operand of or",0      ; 1: or's right operand;
+    DB   "an operand of and",0     ; 2: and's;
+    DB   "a while condition",0     ; 3: a while's condition;
+    DB   "an assert condition",0   ; 4: an assert's.
 
 ;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An aggregate argument for a value parameter reached through an

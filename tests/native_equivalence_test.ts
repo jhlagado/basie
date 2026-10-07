@@ -376,6 +376,7 @@ const CLAIMED: Record<string, string[]> = {
     "OPSHORT",
     "COLWIDE",
     "PARSEINT",
+    "MOVEOK",
   ],
   "67h: the capacity tables": [
     "BIGMAIN",
@@ -1911,6 +1912,26 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\nrecord Box\n    head as nodes?\nend\npool nodes as Node[8]\npool other as Node[2]\nvar list as nodes?\nvar keep as id nodes?\nvar o as other?\nvar g as u8\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(main, 1)\nend\n",
   "a slot-holder copied":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[8]\nvar list as nodes?\nsub push(var l as nodes?, v as u8)\n    l = new nodes(v, none)\nend\nsub f(var l as nodes?)\n    var a = l\nend\nsub main()\nend\n",
+  "a move in an operand of and":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    var b as boolean\n    if b and eat(move x) = 2\n    end\nend\n",
+  "a move before an and":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    var b as boolean\n    if eat(move x) = 2 and b\n    end\nend\n",
+  "a move in an operand of or":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    var b as boolean\n    if b or eat(move x) = 2\n    end\nend\n",
+  "a move before an or":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    var b as boolean\n    if eat(move x) = 2 or b\n    end\nend\n",
+  "a move in a while condition":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    while eat(move x) = 2\n    end\nend\n",
+  "a move in an assert condition":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    assert eat(move x) = 1\nend\n",
+  "a move in an operand of and inside an operand of or":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    var b as boolean\n    if b or b and eat(move x) = 2\n    end\nend\n",
+  "a fresh owner for an identifier parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub look(i as id nodes?)\nend\nsub main()\n    look(new nodes(1, none))\nend\n",
+  "a moved owner for an identifier parameter":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub look(i as id nodes?)\nend\nsub main()\n    var x = new nodes(1, none)\n    look(move x)\nend\n",
+  "a fresh owner assigned to an identifier":
+    "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as id nodes?\nsub main()\n    g = new nodes(1, none)\nend\n",
 };
 
 /** The code of a message number, from the message table. */

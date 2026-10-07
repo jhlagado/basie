@@ -280,18 +280,18 @@ Deno.test("without BASIE.MSG a diagnostic is its number and arguments", () => {
   );
 });
 
-Deno.test("expressions nest 36 deep, the stack's bound, and deeper is a capacity", () => {
-  // Each level of parentheses takes about 22 bytes of the 1K stack; the
+Deno.test("expressions nest 32 deep, the stack's bound, and deeper is a capacity", () => {
+  // Each level of parentheses takes about 24 bytes of the 1K stack; the
   // spec's minimum is 32 (limits §5.1). Unchecked, 48 levels ran into the
   // part table below the stack.
   const nested = (n: number) =>
     `sub main()\n    var x as u16\n    x = ${"(".repeat(n)}x${
       " + 1)".repeat(n)
     }\nend\n`;
-  assertEquals(run("MAIN [C]", { "MAIN.BSI": nested(36) }), "");
+  assertEquals(run("MAIN [C]", { "MAIN.BSI": nested(32) }), "");
   assertEquals(
     run("MAIN", { "MAIN.BSI": nested(100) }),
-    "MAIN.BSI 3:46: 190: A compiler capacity was exceeded: expression depth\r\n",
+    "MAIN.BSI 3:43: 190: A compiler capacity was exceeded: expression depth\r\n",
   );
 });
 

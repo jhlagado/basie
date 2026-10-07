@@ -300,7 +300,11 @@ EX_NOT:
 ; `xor` are reduced like the other integer operators.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Parse a chain of `and` operands, reducing left to right.
+; Parse a chain of `and` operands, reducing left to right: no move may
+; precede an `and` in its chain (EX_ANDB, the moves as the chain began:
+; at the expression's start or its last `or` or `xor`), nor be in its
+; right operand, an operand of and (HN_NOMV), as the reference's
+; andExpression and withoutMove have it (10.8).
 
 EX_AND:
     CALL EX_NOT                    ; Parse the first operand.
@@ -309,14 +313,17 @@ EX_AND:
     PUSH HL                        ; Keep its value.
     CALL PR_PEEK                   ; Look at the next token.
     CP   TK_AND                    ; Another `and`?
-    JR   NZ,EX_DONE                ; No: return the result.
-    CALL HN_LOGIC                  ; (No move in its statement.)
+    JP   NZ,EX_DONE                ; No: return the result.
+    LD   HL,EX_ANDB                ; No move before it
+    CALL HN_LOGIC                  ; in the chain.
     LD   (EX_OPER),A               ; `and` is the pending operator.
     CALL PR_TAKE                   ; Consume it.
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
     CALL EX_OPEN                   ; Keep the left operand.
-    CALL EX_NOT                    ; Parse the right operand.
+    LD   C,2                       ; The right operand, an operand
+    LD   DE,EX_NOT                 ; of and, where no move
+    CALL HN_NOMOV                  ; may be: parsed.
     CALL EX_POP                    ; Pop the left operand beneath it.
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,.INTEGER               ; No: reduce integer `and`.
@@ -350,7 +357,10 @@ EX_PFROM:
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a chain of `and` operands joined by `or` and `xor`, reducing left
-; to right; `xor` takes integers only.
+; to right; `xor` takes integers only. No move may precede an `or` in the
+; expression (EX_ORB, the moves as it began, EX_INNER and EX_INIT), nor
+; be in its right operand, an operand of or (orExpression); the `and`
+; chain after an `or` or `xor` begins there (EX_ANDB).
 
 EX_LOR:
     CALL EX_AND                    ; Parse the first operand.
@@ -362,9 +372,12 @@ EX_ORS:                        ; A/HL is the result so far.
     JR   Z,.OPER                   ; Reduce it.
     CP   TK_OR                     ; An `or`?
     JR   NZ,EX_DONE                ; No: return the result.
-    CALL HN_LOGIC                  ; (No move in its statement.)
+    LD   HL,EX_ORB                 ; No move before it
+    CALL HN_LOGIC                  ; in the expression.
 .OPER:                         ; A is `or` or `xor`.
-    LD   (EX_OPER),A               ; It is the pending operator.
+    LD   (EX_OPER),A               ; It is the pending operator,
+    LD   A,(HN_MOVES)              ; and the `and` chain
+    LD   (EX_ANDB),A               ; after it begins here.
     CALL PR_TAKE                   ; Consume it.
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
@@ -377,7 +390,16 @@ EX_ORS:                        ; A/HL is the result so far.
 .OPEN:                         ; D is the left's metadata.
     LD   A,D                       ; Keep the left operand.
     CALL EX_OPEN                   ; Push it or open the short circuit.
-    CALL EX_AND                    ; Parse the right operand.
+    LD   A,(EX_OPER)               ; `or`'s right operand
+    CP   TK_OR                     ; is an operand of or,
+    JR   NZ,.XOR                   ; where no move may be:
+    LD   C,1                       ; parsed
+    LD   DE,EX_AND                 ; so;
+    CALL HN_NOMOV                  ; `xor`'s
+    JR   .RIGHT                    ; may have one.
+.XOR:                          ; `xor`'s right operand:
+    CALL EX_AND                    ; parsed.
+.RIGHT:                        ; The right operand is parsed.
     CALL EX_POP                    ; Pop the left operand beneath it.
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,EX_ORINT               ; No: reduce the integer operator.
@@ -428,7 +450,7 @@ EX_BXOR:                       ; D/HL is the left.
 .REG:                          ; A computed Boolean.
     LD   A,SY_BOOL                 ; Its metadata,
     OR   A                         ; carry clear.
-    JR   EX_ORS                    ; Look for another operator.
+    JP   EX_ORS                    ; Look for another operator.
 .KNOWN:                        ; A known left, BC its value:
     POP  BC                        ; (C)
     BIT  7,D                       ; the right known
@@ -667,6 +689,7 @@ EX_RUN:
 ; parsed (EX_CHR). Returns A zero.
 
 EX_INIT:
+    CALL EX_MBASE                  ; The moves' baselines;
     LD   (EX_WANT),A               ; Record the expected type.
     XOR  A                         ; Form zero.
     LD   (RO_PEND),A               ; No failable call is pending yet.
@@ -682,6 +705,7 @@ EX_INIT:
 ; result to be known.
 
 EX_CONST:
+    CALL EX_MBASE                  ; The moves' baselines;
     LD   (EX_WANT),A               ; Record the expected type.
     XOR  A                         ; Form zero.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
@@ -882,10 +906,13 @@ PR_ROOM:                       ; Another level is to open.
 ; EX_PARSE an expression nested in another, a parenthesized one, an
 ; index, an argument or a conversion's operand, keeping the enclosing
 ; operator's operand offsets (EX_LAT, EX_RAT) across it. Each level takes
-; about 22 bytes of the machine stack, at most about 36 levels (PR_ROOM).
+; about 24 bytes of the machine stack, at most about 34 levels (PR_ROOM).
 
 EX_INNER:                      ; A nested expression.
     CALL PR_ROOM                   ; The stack must have room.
+    LD   HL,(EX_ORB)               ; The enclosing baselines
+    PUSH HL                        ; wait,
+    CALL EX_MBASE                  ; the moves so far this one's.
     LD   A,(EX_MINB)               ; The enclosing level,
     PUSH AF                        ; and
     LD   HL,(EX_RAT)               ; the enclosing
@@ -903,5 +930,22 @@ EX_INNER:                      ; A nested expression.
     LD   A,H                       ; (A and
     LD   (EX_MINB),A               ; the flags
     LD   A,B                       ; kept).
+    POP  HL                        ; The baselines
+    LD   (EX_ORB),HL               ; again (the flags kept).
     EX   DE,HL                     ; HL is the value.
     RET                            ; A and flags are the expression's.
+
+;@ROUTINE
+; An expression begins: the moves so far are its and its first `and`
+; chain's baselines (EX_ORB, EX_ANDB). Every register and flag is kept.
+
+EX_MBASE:                      ; At an expression's start.
+    PUSH HL                        ; (HL,
+    PUSH AF                        ; A and the flags)
+    LD   A,(HN_MOVES)              ; The moves so far
+    LD   H,A                       ; are
+    LD   L,A                       ; both
+    LD   (EX_ORB),HL               ; baselines.
+    POP  AF                        ; (again)
+    POP  HL                        ; (both)
+    RET                            ; Done.

@@ -1,0 +1,22 @@
+// Moves the reference accepts beside `and` and `xor` (10.8): one in a
+// call's argument before another argument's `and`, which begins its own
+// chain, and one in the right operand of `xor`, which no rule restricts.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+sub two(n as nodes, c as boolean) as u8
+    return 1
+end
+sub eat(n as nodes) as boolean
+    return true
+end
+sub main()
+    var x = new nodes(1, none)
+    var y = new nodes(2, none)
+    var b as boolean
+    var r as u8 = two(move x, b and b)
+    b = b xor eat(move y)
+end

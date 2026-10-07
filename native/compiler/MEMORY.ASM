@@ -8,7 +8,7 @@
 ;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
 ;           OV_AREA   the overlay area, from MM_END, as large as the largest
 ;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
-;    $6B00  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
+;    $6B30  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
 ;           FL_WBEG   the FLOAT overlay's workspace, FL_WEND, after the
 ;                     pools' bytes, below the LL(1) stack's page (LL1.ASM)
 ;    $81E0  SH_WBEG   the shell's workspace, SH_WEND
@@ -24,8 +24,8 @@
 ;  tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $6B00             ; Exclusive end of room for the image.
-MM_WBASE EQU  $6B00            ; Compiler workspace: the image ends below.
+MM_RLIM EQU  $6B30             ; Exclusive end of room for the image.
+MM_WBASE EQU  $6B30            ; Compiler workspace: the image ends below.
 MM_WLIM EQU  $82F0             ; Exclusive end of both workspaces.
 SH_WBEG EQU  $81E0             ; The shell's workspace, above the compiler's.
 MM_BLOB EQU  $82F0             ; The blob writer's workspace, BL_FLAGS on.

@@ -424,6 +424,7 @@ DG_OPTH EQU  105               ; optional-handle: tested with select before use.
 DG_MOVED EQU  102              ; use-after-move.
 DG_SRULE EQU  103              ; statement-rule.
 DG_OWNER EQU  106              ; not-owner.
+DG_MPOS EQU  115               ; move-position: a move where none may be.
 DG_LEASE EQU  107              ; lease: not the routine's own owner.
 DG_HOLDR EQU  108              ; slot-holder: a location that can't be one.
 DG_LMOVE EQU  109              ; loop-moves-owner.
