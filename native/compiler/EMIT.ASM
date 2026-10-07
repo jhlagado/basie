@@ -445,7 +445,8 @@ EM_ALLOC:                      ; A is the size.
     LD   D,0                       ; the size.
 EM_ALLOW:                      ; DE is the size.
     LD   HL,(EM_FRAME)             ; The locals' bytes
-    ADD  HL,DE                     ; grow by it.
+    ADD  HL,DE                     ; grow by it, within 64K
+    JP   C,AG_EDATA                ; (object size).
     LD   (EM_FRAME),HL             ; The frame holds the slot.
     PUSH HL                        ; Keep the size.
     XOR  A                         ; Nothing is pushed, but the frame

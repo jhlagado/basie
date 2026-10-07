@@ -182,7 +182,8 @@ OW_CMT:                        ; The declaration is parsed.
     LD   (HL),A                    ; complete.
     CALL AG_SIZE                   ; The record's size,
     LD   DE,PL_SLOT                ; plus a slot's header,
-    ADD  HL,DE                     ; is the slot size.
+    ADD  HL,DE                     ; is the slot size,
+    JP   C,.WIDE                   ; within 65,535.
     LD   (PL_NSLOT),HL             ; Kept.
     LD   B,H                       ; BC is
     LD   C,L                       ; it.

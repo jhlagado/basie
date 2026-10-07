@@ -147,7 +147,7 @@ Each stage keeps a working compiler, and the census runs on every commit.
 
 | # | Track | Step | Produces | Checked by |
 | ---: | --- | --- | --- | --- |
-| 69 | All | Large-program tests and stress tests | Test reports | Pass |
+| 69 | All | Large-program tests and stress tests | Test reports (done: the [test report](test-report.md); `tests/stress_test.ts` compiles a program at each of the specification's capacity minimums, random whole programs and a large program in sixteen parts, linked and run, as the reference does; objects larger than 1K compile, only an initializer held to the staging's 1K; `BASIE.COM` 25,394 bytes with a 2,560-byte overlay area) | Pass |
 | 70 | All | Release image: `BASIE.COM`, `BASIE.MSG`, `BASIE.OVL`, `BLINK.COM`, `CPM22.BRL`, the library | Disk image | Boots and builds the examples |
 | 71 | Design | The Basie book in debug80-docs | Book | A script that verifies the book's examples |
 | 72 | All | Version 2 planning: enumerations and variants, expression blocks, routine values | Plan | — |

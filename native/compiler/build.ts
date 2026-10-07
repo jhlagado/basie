@@ -142,7 +142,9 @@ const hex = (n: number) => "$" + n.toString(16).toUpperCase().padStart(4, "0");
 async function build(): Promise<BasieImage> {
   const image = await assembleFile(ENTRY);
   const symbols: Record<string, number> = {};
-  for (const [name, value] of image.symbols) symbols[name.toUpperCase()] = value;
+  for (const [name, value] of image.symbols) {
+    symbols[name.toUpperCase()] = value;
+  }
   const at = (name: string) => {
     const value = symbols[name];
     if (value === undefined) throw new Error(`no symbol ${name}`);
@@ -150,6 +152,14 @@ async function build(): Promise<BasieImage> {
   };
   if (at("LL_CAP") > 255 || (at("LL_STACK") & 0xff) !== 0) {
     throw new Error("the LL(1) stack is not within one page");
+  }
+  if (
+    at("FL_WEND") - at("FL_WBEG") !== at("FL_SIZE") ||
+    (at("FL_WBEG") < at("LL_STACK") && at("FL_WEND") > at("LL_DEPTH")) ||
+    (at("FL_WBEG") >= at("LL_STACK") &&
+      at("FL_WBEG") < at("LL_STACK") + at("LL_CAP"))
+  ) {
+    throw new Error("the FLOAT overlay's workspace overlaps the LL(1) stack");
   }
   if (at("KW_IDX") - at("KW_TAB") > 256) {
     throw new Error("the keywords pass the index's byte offsets");
@@ -247,7 +257,10 @@ async function overlay(
   );
   const image = await assembleFile(join(dir, "OVERLAY.ASM"));
   const from = address - image.base;
-  const bytes = Uint8Array.from(image.bytes).slice(from, image.end - image.base);
+  const bytes = Uint8Array.from(image.bytes).slice(
+    from,
+    image.end - image.base,
+  );
   return {
     name: o.name,
     address,
@@ -283,11 +296,15 @@ if (import.meta.main) {
     `BASIE.COM ${image.com.length} bytes: compiler core ${image.core} (code ${image.code}, immutable ${image.immutable}), shell ${image.shell}`,
   );
   console.log(
-    `BASIE.OVL ${image.ovl.length} bytes; overlay area ${hex(image.area)}, ${image.areaSize} bytes:`,
+    `BASIE.OVL ${image.ovl.length} bytes; overlay area ${
+      hex(image.area)
+    }, ${image.areaSize} bytes:`,
   );
   for (const o of image.overlays) {
     console.log(
-      `  ${o.name.padEnd(8)} ${String(o.bytes.length).padStart(5)} bytes at ${hex(o.address)}, ${o.records} records`,
+      `  ${o.name.padEnd(8)} ${String(o.bytes.length).padStart(5)} bytes at ${
+        hex(o.address)
+      }, ${o.records} records`,
     );
   }
   if (Deno.args.includes("--write")) {

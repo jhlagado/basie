@@ -51,7 +51,8 @@ AC_LOCAL:
     LD   A,(AG_CTYPE)              ; The type's
     CALL AG_SIZE                   ; size, HL,
     LD   BC,(EM_FRAME)             ; with the frame's size
-    ADD  HL,BC                     ; added,
+    ADD  HL,BC                     ; added, within 64K
+    JP   C,AG_EDATA                ; (object size),
     XOR  A                         ; negated:
     SUB  L                         ; the low byte,
     LD   C,A                       ; then

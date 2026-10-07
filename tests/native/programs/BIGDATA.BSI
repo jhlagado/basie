@@ -1,0 +1,47 @@
+// Objects larger than the 1K initializer staging (69): a 4K buffer, a
+// record with a 2K array field before its other fields, an array of 100
+// records, and a local array of 1,500 words, each written and read at its
+// far end; only an initializer is staged, so only it is held to 1K.
+record Big
+    head as u8
+    data as u8[2048]
+    tail as u16
+end
+record Cell
+    a as u16
+    b as u8[30]
+    c as u16
+end
+var buf as u8[4096]
+var big as Big
+var cells as Cell[100]
+var sum as u16
+
+sub fill() as u16
+    var words as u16[1500]
+    var i as u16
+    for i = 0 to 1499
+        words[i] = i * 3
+    end
+    return words[1499] + words[750]
+end
+
+sub main() fails
+    var i as u16
+    for i = 0 to 4095
+        buf[i] = u8(i and 255)
+    end
+    big.head = 7
+    big.data[2047] = 9
+    big.tail = 1234
+    for i = 0 to 99
+        cells[i].a = i
+        cells[i].b[29] = u8(i)
+        cells[i].c = i * 2
+    end
+    sum = u16(buf[4095]) + u16(big.data[2047]) + big.tail + cells[99].c
+    sum = sum + u16(cells[99].b[29]) + fill()
+    if sum = 255 + 9 + 1234 + 198 + 99 + 4497 + 2250
+        writeText(console, "big data\r\n") else fail
+    end
+end

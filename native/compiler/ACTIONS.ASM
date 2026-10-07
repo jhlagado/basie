@@ -91,14 +91,16 @@ AC_BY:
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Island StaticInitializer: parse the initializer of the object being
-; declared, whose type is in AC_DINFO, into the staging buffer (AG_PARSE).
-; AC_DINFO is preserved across the parse. A File's initializer is not yet
-; compiled (DG_NYI).
+; declared, whose type is in AC_DINFO, into the staging buffer (AG_PARSE),
+; zeroed first and at most 1K (AG_ZERO, DG_DATA). AC_DINFO is preserved
+; across the parse. A File's initializer is not yet compiled (DG_NYI).
 
 AC_IMAGE:
     LD   A,(AC_DINFO)              ; The object's type ID.
     CP   AG_FILE                   ; A File's
     JP   Z,TR_OPER                 ; is refused for now.
+    CALL AG_ZERO                   ; The staging, zeroed;
+    LD   A,(AC_DINFO)              ; the type again.
     PUSH AF                        ; Keep it: AG_PARSE may reuse AC_DINFO.
     CALL AG_PARSE                  ; Stage the initializer for type A.
     POP  AF                        ; Restore the type ID...
@@ -264,7 +266,7 @@ AC_DIM:
 ; from the innermost, the last bound kept, out (parseType): each an array
 ; of its bound's elements of the current type, interned and made current.
 ; The element may not be a view (DG_CLASH), nor here a File (DG_NYI); the
-; extent must fit the 1 KiB data image (DG_DATA). Then an open outermost
+; extent must fit 64K (out-of-range). Then an open outermost
 ; dimension makes the type an open array of them, AG_OPEN plus the
 ; element's ID. Nothing is done without dimensions.
 
@@ -293,7 +295,6 @@ AC_ARRAY:
 .SIZELOOP:                     ; Add one element per iteration.
     ADD  HL,DE                     ; One more element.
     JP   C,AG_EWIDE                ; Past 64K: out of range.
-    CALL AG_FITRW                  ; Past 1 KiB: raise DG_DATA.
     DEC  BC                        ; One element fewer to add.
     LD   A,B                       ; Any left?
     OR   C                         ; Test both bytes.
@@ -457,8 +458,8 @@ AC_VAR:
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Begin an object of type A: not a view (DG_BOUND). Its type goes to
-; AC_DINFO; the staging buffer is sized to it and zeroed, ready for an
-; optional initializer.
+; AC_DINFO and its size to AG_OSIZE, ready for an optional initializer,
+; which stages it (AC_IMAGE).
 
 AC_OBJ:
     CALL AG_NOVW                   ; Not a view.
@@ -466,7 +467,7 @@ AC_OBJ:
     CALL AG_SIZE                   ; HL is its extent.
     LD   (AG_OSIZE),HL             ; The object's size...
     LD   (AG_OEND),HL              ; ...and where its initializer must end.
-    CALL AG_ZERO                   ; Stage from its first byte, zeroed; A is zero:
+    XOR  A                         ; A is zero:
     LD   (AG_LEVEL),A              ; no initializer nesting...
     LD   (AG_GIVEN),A              ; ...and no initializer yet.
     RET                            ; Back to the engine.
@@ -571,7 +572,7 @@ AC_FIELD:
 ; CommitRecordField: give the field its type (not a view, DG_BOUND, nor
 ; here a File, DG_NYI; a handle optional, DG_HOPT; then its name new,
 ; DG_DUP, in the reference's order) and its offset, the record's size so
-; far, then grow the record by the field's extent within 1 KiB (DG_DATA).
+; far, then grow the record by the field's extent within 64K.
 
 AC_PLACE:
     CALL AC_ITEM                   ; The field's type: not a view, nor a File.
@@ -601,7 +602,6 @@ AC_PLACE:
     POP  DE                        ; Recover the offset.
     ADD  HL,DE                     ; The record's new size.
     JP   C,AG_EWIDE                ; Past 64K: out of range.
-    CALL AG_FITRW                  ; Past 1 KiB: raise DG_DATA.
     LD   (AG_CSIZE),HL             ; Commit it.
     LD   HL,AG_CFCNT               ; Count...
     INC  (HL)                      ; ...the field,

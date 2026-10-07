@@ -87,6 +87,8 @@ These terms are provisional, but the documents use them consistently.
   and milestones.
 - [Limits register](docs/limits.md): every limit in Basie, its reason, and the
   minimum capacities the toolchain guarantees.
+- [Test report](docs/test-report.md): what the test suite proves, the large
+  programs and stress tests, and the limits they found.
 - [Implementation plan](docs/implementation-plan.md): how Basie will be built:
   a reference toolchain in TypeScript on Deno, then the native Z80 toolchain.
 - [Build pipeline](docs/build-pipeline.md): why Basie compiles to machine-code

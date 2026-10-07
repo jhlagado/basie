@@ -30,17 +30,22 @@
 ;  stack, then LL_STACK, LL_CAP bytes with the top of stack at
 ;  LL_STACK+LL_DEPTH-1. LL_STACK starts the first page after them, so a
 ;  slot's address is the page and the depth; the FLOAT overlay's bytes
-;  follow it. LL_WEND marks the end of the whole compiler workspace for
-;  the build's boundary check.
+;  fill the gap below that page when they fit, else follow the stack.
+;  LL_WEND marks the end of the whole compiler workspace for the build's
+;  boundary check.
 
 LL_CAP EQU  254                ; Grammar stack capacity in symbols.
 PL_DESC EQU  PL_WEND           ; AG_TCAP words: a type's owner descriptor, 0 until written.
-LL_STACK EQU  (PL_DESC+2*AG_TCAP+$100)&$FF00 ; The stack, from a page's start past them.
+LL_DLIM EQU  PL_DESC+2*AG_TCAP ; The descriptors' end.
+LL_STACK EQU  (LL_DLIM+$100)&$FF00 ; The stack, from a page's start past them.
 LL_DEPTH EQU  LL_STACK-1       ; Symbols on the stack (byte), just below it.
-; The FLOAT overlay's workspace, after the stack, resident so that it takes
-; no records of the overlay area.
+; The FLOAT overlay's workspace, resident so that it takes no records of
+; the overlay area: in the bytes the stack's page leaves below it when
+; they hold it (FL_BELOW one), else after the stack.
 FL_NB EQU  64                  ; Bytes of FL_N and FL_D.
-FL_WBEG EQU  LL_STACK+LL_CAP   ; The workspace's start.
+FL_SIZE EQU  2*FL_NB+26        ; The workspace's bytes, FL_WBEG to FL_WEND.
+FL_BELOW EQU  (LL_DEPTH-LL_DLIM+256-FL_SIZE)>>8 ; One when they fit below the stack.
+FL_WBEG EQU  LL_DLIM+(1-FL_BELOW)*(LL_STACK+LL_CAP-LL_DLIM) ; The workspace's start.
 FL_N EQU  FL_WBEG              ; N, the dividend, FL_NB bytes.
 FL_D EQU  FL_N+FL_NB           ; D, the divisor, FL_NB bytes.
 FL_Q EQU  FL_D+FL_NB           ; q, the quotient, then the f32's bits: 5 bytes.
@@ -54,7 +59,7 @@ FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
 FL_B EQU  FL_A+5               ; b unpacked.
 FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
 FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
-LL_WEND EQU  FL_WEND           ; End of compiler workspace (marker).
+LL_WEND EQU  FL_WEND+FL_BELOW*(LL_STACK+LL_CAP-FL_WEND) ; End of compiler workspace (marker).
 
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY
 ; Parse the program: push GR_START and expand, match and act until the

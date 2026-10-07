@@ -248,10 +248,15 @@ AG_FITRW:
     CP   1                         ; borrows
     LD   A,H                       ; exactly when
     SBC  A,4                       ; HL is at most $0400.
-    JR   NC,.FULL                  ; No borrow: it exceeds the staging.
+    JR   NC,AG_EDATA               ; No borrow: it exceeds the staging.
     CCF                            ; Clear carry for success.
     RET                            ; Return the extent unchanged.
-.FULL:                         ; The extent exceeds the staging.
+
+;@ROUTINE NORETURN
+; The initializer staging, or a routine's frame, is too large: DG_DATA
+; (Error 190, object size).
+
+AG_EDATA:                      ; Too large.
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_DATA                   ; Diagnostic: program data too large.
 
@@ -697,12 +702,14 @@ AG_LEAVE:
     RET                            ; Return to the initializer parser.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,HL
-; Begin staging an object: the cursor AG_OPOS at the buffer's start, and
-; the AG_OSIZE bytes from there zeroed before an explicit initializer is
-; applied. This also makes every byte of an object with no initializer
-; defined. Returns A zero with carry clear.
+; Begin staging an object's initializer: the cursor AG_OPOS at the
+; buffer's start, and the AG_OSIZE bytes from there, at most the
+; buffer's (AG_FITRW, DG_DATA), zeroed before the initializer is applied.
+; Returns A zero with carry clear.
 
 AG_ZERO:
+    LD   HL,(AG_OSIZE)             ; The object
+    CALL AG_FITRW                  ; must fit the staging.
     LD   HL,0                      ; Stage from
     LD   (AG_OPOS),HL              ; the first byte,
     LD   HL,AG_IBUF                ; the buffer's start.

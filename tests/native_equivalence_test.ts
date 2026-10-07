@@ -395,6 +395,7 @@ const CLAIMED: Record<string, string[]> = {
     "CASE256",
     "BIGSPILL",
   ],
+  "69: large programs": ["BIGDATA"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1004,6 +1005,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67g: pools and handle types"],
     ...CLAIMED["67h: the capacity tables"],
     ...CLAIMED["68: routines in shared memory, 32 nested statements"],
+    ...CLAIMED["69: large programs"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1996,6 +1998,8 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    assert eat(move x) = 1\nend\n",
   "a move in an operand of and inside an operand of or":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub eat(n as nodes) as u8\n    return 1\nend\nsub main()\n    var x = new nodes(1, none)\n    var b as boolean\n    if b or b and eat(move x) = 2\n    end\nend\n",
+  "a pool whose record is near 64K":
+    "record Big\n    data as u8[65530]\nend\npool bigs as Big[1]\nsub main()\nend\n",
   "a bare move in an assert condition":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub main()\n    var h = new nodes(1, none)\n    var b as boolean\n    assert move h == none\nend\n",
   "a bare move in an operand of and":
