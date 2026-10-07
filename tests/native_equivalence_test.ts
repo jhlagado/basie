@@ -383,6 +383,7 @@ const CLAIMED: Record<string, string[]> = {
     "LIFTCON",
     "TYPESCOP",
     "TYPES48",
+    "FIELDS64",
   ],
 };
 

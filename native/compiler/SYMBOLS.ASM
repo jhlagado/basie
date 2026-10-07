@@ -286,6 +286,7 @@ SY_CMT:
     LD   (HL),C                    ; record
     INC  HL                        ; is the
     LD   (SY_TOP),HL               ; provisional one;
+SY_FIT:                        ; HL is SY_TOP; BC and DE are pushed.
     LD   DE,SY_RECB                ; its record
     ADD  HL,DE                     ; must end
     LD   DE,(RG_CBEG)              ; at or below
@@ -299,6 +300,23 @@ SY_CMT:
     POP  BC                        ; and BC again.
     XOR  A                         ; Report success with carry clear.
     RET                            ; Return to the declaration.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
+; Keep the provisional record, which is no name (a record's field,
+; AC_PLACE): in no chain, its flags zero, the next provisional, as SY_CMT
+; makes it. Returns A zero with carry clear. BC and DE are kept.
+
+SY_SKIP:                       ; The provisional record is complete.
+    PUSH BC                        ; Keep BC
+    PUSH DE                        ; and DE.
+    LD   HL,(SY_TOP)               ; Its
+    LD   DE,SY_FLAGS               ; flags
+    ADD  HL,DE                     ; are
+    LD   (HL),0                    ; zero;
+    LD   DE,SY_RECB-SY_FLAGS       ; the next
+    ADD  HL,DE                     ; record is
+    LD   (SY_TOP),HL               ; provisional,
+    JR   SY_FIT                    ; below the waiting constants.
 
 ;@ROUTINE OUT A,BC,CARRY,ZERO,HL CLOBBERS SIGN,PARITY,HALFCARRY,DE
 ; Return the current NAME's class/type in A and payload word in BC, with

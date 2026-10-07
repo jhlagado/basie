@@ -1,0 +1,90 @@
+// A record of 64 fields, the specification's minimum, and another of ten:
+// 74 fields where the native compiler held 48 in all (67h.4c: fields are
+// records of the symbol table, above the largest part).
+record Wide
+    x00 as u8
+    x01 as u8
+    x02 as u8
+    x03 as u8
+    x04 as u8
+    x05 as u8
+    x06 as u8
+    x07 as u8
+    x08 as u8
+    x09 as u8
+    x10 as u8
+    x11 as u8
+    x12 as u8
+    x13 as u8
+    x14 as u8
+    x15 as u8
+    x16 as u8
+    x17 as u8
+    x18 as u8
+    x19 as u8
+    x20 as u8
+    x21 as u8
+    x22 as u8
+    x23 as u8
+    x24 as u8
+    x25 as u8
+    x26 as u8
+    x27 as u8
+    x28 as u8
+    x29 as u8
+    x30 as u8
+    x31 as u8
+    x32 as u8
+    x33 as u8
+    x34 as u8
+    x35 as u8
+    x36 as u8
+    x37 as u8
+    x38 as u8
+    x39 as u8
+    x40 as u8
+    x41 as u8
+    x42 as u8
+    x43 as u8
+    x44 as u8
+    x45 as u8
+    x46 as u8
+    x47 as u8
+    x48 as u8
+    x49 as u8
+    x50 as u8
+    x51 as u8
+    x52 as u8
+    x53 as u8
+    x54 as u8
+    x55 as u8
+    x56 as u8
+    x57 as u8
+    x58 as u8
+    x59 as u8
+    x60 as u8
+    x61 as u8
+    x62 as u8
+    x63 as u8
+end
+record Small
+    s0 as u16
+    s1 as u16
+    s2 as u16
+    s3 as u16
+    s4 as u16
+    s5 as u16
+    s6 as u16
+    s7 as u16
+    s8 as u16
+    s9 as u16
+end
+var w as Wide
+const k as Small = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90)
+sub main() fails
+    w.x63 = 7
+    w.x00 = 1
+    if u16(w.x63) + u16(w.x00) + k.s9 = 98
+        writeText(console, "many fields\r\n") else fail
+    end
+end

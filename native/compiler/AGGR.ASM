@@ -33,8 +33,9 @@
 ;  A parallel table AG_XTAB holds each type's extent as a word. A string of
 ;  capacity N occupies N+2 bytes: its length, N payload bytes and a zero
 ;  terminator. AG_RTAB gives each record its first field index and field
-;  count; AG_FTAB holds six-byte field entries: the name's source address
-;  and length, the field type and the field's byte offset in the record.
+;  count and where its fields lie: each field is a record of the symbol
+;  table, in no chain, whose first six bytes are the name's address and
+;  length, the field type and the field's byte offset in the record.
 ;
 ;  Initializer bytes are staged in AG_IBUF at the cursor AG_OPOS. The object
 ;  is zeroed first, so an initializer writes only what it supplies and a
@@ -79,10 +80,11 @@ AG_SCOPE:                      ; The body has ended.
 
 ;@ROUTINE IN A OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Address in HL the AG_RTAB entry of record ordinal A: its first field's
-; index, then its field count. BC is kept.
+; index, then its field count, then its first field's record. BC is kept.
 
 AG_RENT:                       ; A is the record's ordinal.
-    ADD  A,A                       ; AG_RTAB entries are two bytes:
+    ADD  A,A                       ; AG_RTAB entries are
+    ADD  A,A                       ; four bytes:
     LD   E,A                       ; DE is
     LD   D,0                       ; the offset,
     LD   HL,AG_RTAB                ; from
@@ -274,19 +276,57 @@ AG_EVAL:                       ; or A,
     JP   EX_EVAL                   ; at the bound's first token.
 
 ;@ROUTINE IN A OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE
-; Address the six-byte entry of record field index A in HL. A is preserved.
+; Address the entry of record field index A in HL: in the record whose
+; fields' indices hold it (AG_RTAB), or, past the fields of the records
+; declared (AG_FCNT), in the record being declared, from AG_CFIDX at
+; AG_CFADR; a record's fields are consecutive symbol-table records. A
+; and BC are preserved.
 
-AG_FIELD:
-    LD   E,A                       ; Widen the field index in DE.
-    LD   D,0                       ; Clear the high byte.
-    LD   H,D                       ; Copy the index into HL as well.
-    LD   L,E                       ; HL = index.
-    ADD  HL,HL                     ; HL = index times two.
-    ADD  HL,DE                     ; HL = index times three.
-    ADD  HL,HL                     ; HL = index times six, the entry stride.
-    LD   DE,AG_FTAB                ; Fetch the field table base.
-    ADD  HL,DE                     ; Address the entry.
-    RET                            ; Return it in HL.
+AG_FIELD:                      ; A is a field's index.
+    PUSH BC                        ; Keep BC.
+    LD   C,A                       ; C is the index.
+    LD   HL,AG_FCNT                ; A declared
+    CP   (HL)                      ; record's?
+    JR   C,.DECL                   ; Yes.
+    LD   HL,AG_CFIDX               ; The current one's:
+    SUB  (HL)                      ; from its first,
+    LD   HL,(AG_CFADR)             ; at its first record.
+    JR   .AT                       ; There.
+.DECL:                         ; Find the record holding it:
+    LD   HL,AG_RTAB                ; from the first.
+.SCAN:                         ; HL is a record's entry.
+    LD   A,C                       ; The index
+    SUB  (HL)                      ; less its first field's,
+    INC  HL                        ; if not below it,
+    JR   C,.NEXT                   ; and
+    CP   (HL)                      ; below its count,
+    JR   C,.FOUND                  ; is the field's place in it.
+.NEXT:                         ; Not this record's:
+    INC  HL                        ; the
+    INC  HL                        ; next
+    INC  HL                        ; entry.
+    JR   .SCAN                     ; It is there.
+.FOUND:                        ; A is the place, HL at the count.
+    INC  HL                        ; Its first
+    LD   E,(HL)                    ; field's
+    INC  HL                        ; record,
+    LD   H,(HL)                    ; HL.
+    LD   L,E                       ; (low byte)
+.AT:                           ; HL is the first field, A the place.
+    PUSH HL                        ; (kept)
+    LD   L,A                       ; The place
+    LD   H,0                       ; times
+    ADD  HL,HL                     ; four,
+    ADD  HL,HL                     ; (DE)
+    LD   D,H                       ; then
+    LD   E,L                       ; eight,
+    ADD  HL,HL                     ; then twelve:
+    ADD  HL,DE                     ; SY_RECB
+    POP  DE                        ; from the first
+    ADD  HL,DE                     ; field.
+    LD   A,C                       ; A again,
+    POP  BC                        ; and BC.
+    RET                            ; HL is the entry.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Compare the name of the field entry at HL, made the current NAME, with

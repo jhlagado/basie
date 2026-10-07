@@ -529,8 +529,10 @@ AC_REC:
     LD   A,(AG_RCNT)               ; Records so far.
     CP   AG_RCAP                   ; Room for another?
     JP   NC,AG_EMETA               ; No: raise DG_META.
-    LD   A,(AG_FCNT)               ; The next free field entry...
-    LD   (AG_CFIDX),A              ; ...is the record's first.
+    LD   A,(AG_FCNT)               ; The next free field index...
+    LD   (AG_CFIDX),A              ; ...is the record's first,
+    LD   HL,(SY_TOP)               ; ...its entry the provisional
+    LD   (AG_CFADR),HL             ; ...symbol record.
     XOR  A                         ; No fields yet...
     LD   (AG_CFCNT),A              ; ...counted...
     LD   H,A                       ; ...and no...
@@ -549,12 +551,14 @@ AC_FIDX:                       ; The fields in use.
     RET                            ; A is it.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; BeginRecordField: the field table must have room (DG_META). The name
-; goes into the field's entry; AC_PLACE checks that it is new.
+; BeginRecordField: the field indices must have room (DG_META). The name
+; goes into the field's entry, the provisional symbol record; AC_PLACE
+; checks that it is new.
 
 AC_FIELD:
-    CALL AC_FIDX                   ; The new field's index.
-    CP   AG_FCAP                   ; Is there an entry for it?
+    CALL AC_FIDX                   ; The new field's index,
+    JP   C,AG_EMETA                ; past 255 (DG_META),
+    CP   AG_FCAP                   ; or 255 itself?
     JP   NC,AG_EMETA               ; No: raise DG_META.
     CALL AG_FIELD                  ; HL addresses the entry.
     LD   DE,(TK_POS)               ; Its position,
@@ -598,8 +602,8 @@ AC_PLACE:
     CALL AG_FITRW                  ; Past 1 KiB: raise DG_DATA.
     LD   (AG_CSIZE),HL             ; Commit it.
     LD   HL,AG_CFCNT               ; Count...
-    INC  (HL)                      ; ...the field.
-    RET                            ; Back to the engine.
+    INC  (HL)                      ; ...the field,
+    JP   SY_SKIP                   ; ...its record kept; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; CommitRecord: a record needs a field (DG_EMPTY). Append its descriptor
@@ -627,7 +631,12 @@ AC_RECOK:
     LD   DE,(AG_CFIDX)             ; Its first field, then AG_CFCNT, its count,
     LD   (HL),E                    ; into AG_RFIDX
     INC  HL                        ; and
-    LD   (HL),D                    ; AG_RFCNT.
+    LD   (HL),D                    ; AG_RFCNT,
+    INC  HL                        ; then
+    LD   DE,(AG_CFADR)             ; where they
+    LD   (HL),E                    ; lie,
+    INC  HL                        ; AG_RFADR.
+    LD   (HL),D                    ; (High byte.)
     LD   D,SY_RTYPE                ; The name is a record type
     LD   B,0                       ; whose payload, C, is its type ID.
     CALL EX_PREP                   ; Write the provisional symbol.

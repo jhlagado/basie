@@ -31,8 +31,25 @@
 ;  so a slot's address is the page and the depth. LL_WEND marks the end of
 ;  the whole compiler workspace for the build's boundary check.
 
+; The FLOAT overlay's workspace, after the pools' bytes and below the
+; stack's page, resident so that it takes no records of the overlay area.
+FL_NB EQU  64                  ; Bytes of FL_N and FL_D.
+FL_WBEG EQU  PL_WEND           ; The workspace's start.
+FL_N EQU  FL_WBEG              ; N, the dividend, FL_NB bytes.
+FL_D EQU  FL_N+FL_NB           ; D, the divisor, FL_NB bytes.
+FL_Q EQU  FL_D+FL_NB           ; q, the quotient, then the f32's bits: 5 bytes.
+FL_E EQU  FL_Q+5               ; E, q's lowest bit's exponent: a word.
+FL_SIGN EQU  FL_E+2            ; The result's sign, bit 7.
+FL_LOST EQU  FL_SIGN+1         ; Nonzero when bits were lost in rounding.
+FL_MODE EQU  FL_LOST+1         ; Nonzero for a literal's rounding.
+FL_TEN EQU  FL_MODE+1          ; A literal's power of ten: a word.
+FL_SIG EQU  FL_TEN+2           ; Its significant digits: a word.
+FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
+FL_B EQU  FL_A+5               ; b unpacked.
+FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
+FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
 LL_CAP EQU  64                 ; Grammar stack capacity in symbols.
-LL_STACK EQU  (PL_WEND+$100)&$FF00 ; The stack, from a page's start past the pools' bytes.
+LL_STACK EQU  (FL_WEND+$100)&$FF00 ; The stack, from a page's start past FLOAT's bytes.
 LL_DEPTH EQU  LL_STACK-1       ; Symbols on the stack (byte), just below it.
 ; The select statements' labels follow the stack (ACTSEL.ASM): CT_RTOP,
 ; the next free entry, then CT_RCAP ranges of eight bytes, the low and the

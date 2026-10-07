@@ -9,9 +9,8 @@
 ;           OV_AREA   the overlay area, from MM_END, as large as the largest
 ;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
 ;    $6B00  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
-;    $7D30  FL_WBEG   the FLOAT overlay's workspace, FL_WEND, in the
-;                     compiler workspace's bytes below the LL(1) stack's
-;                     page (LL1.ASM), between PL_WEND and LL_STACK
+;           FL_WBEG   the FLOAT overlay's workspace, FL_WEND, after the
+;                     pools' bytes, below the LL(1) stack's page (LL1.ASM)
 ;    $80A0  SH_WBEG   the shell's workspace, SH_WEND
 ;    $81B0  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
 ;    $9390  MM_SRC    the source parts, the symbol table and the name heap
@@ -27,27 +26,9 @@
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
 MM_RLIM EQU  $6B00             ; Exclusive end of room for the image.
 MM_WBASE EQU  $6B00            ; Compiler workspace: the image ends below.
-MM_WLIM EQU  $81B0             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $80A0             ; The shell's workspace, above the compiler's.
-MM_BLOB EQU  $81B0             ; The blob writer's workspace, BL_FLAGS on.
+MM_WLIM EQU  $80B0             ; Exclusive end of both workspaces.
+SH_WBEG EQU  $7FA0             ; The shell's workspace, above the compiler's.
+MM_BLOB EQU  $80B0             ; The blob writer's workspace, BL_FLAGS on.
 
-; The FLOAT overlay's workspace, between the shell's and the blob writer's,
-; resident so that it takes no records of the overlay area (build.ts checks
-; that SH_WEND is at or below FL_WBEG and FL_WEND at or below MM_BLOB).
-FL_NB EQU  64                  ; Bytes of FL_N and FL_D.
-FL_WBEG EQU  $7D30             ; The workspace's start.
-FL_N EQU  FL_WBEG              ; N, the dividend, FL_NB bytes.
-FL_D EQU  FL_N+FL_NB           ; D, the divisor, FL_NB bytes.
-FL_Q EQU  FL_D+FL_NB           ; q, the quotient, then the f32's bits: 5 bytes.
-FL_E EQU  FL_Q+5               ; E, q's lowest bit's exponent: a word.
-FL_SIGN EQU  FL_E+2            ; The result's sign, bit 7.
-FL_LOST EQU  FL_SIGN+1         ; Nonzero when bits were lost in rounding.
-FL_MODE EQU  FL_LOST+1         ; Nonzero for a literal's rounding.
-FL_TEN EQU  FL_MODE+1          ; A literal's power of ten: a word.
-FL_SIG EQU  FL_TEN+2           ; Its significant digits: a word.
-FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
-FL_B EQU  FL_A+5               ; b unpacked.
-FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
-FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
-MM_SRC EQU  $9390              ; Resident source parts, up to the stack.
+MM_SRC EQU  $9290              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

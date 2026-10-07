@@ -246,7 +246,8 @@ AG_TPOS EQU  AG_BASE+$18       ; Word: the offset of the type's first token.
 ; type is complete and built from the innermost (AC_DIM, AC_ARRAY).
 AG_DSTK EQU  AG_BASE+$1A       ; AG_DCAP words: the bounds.
 AG_DCAP EQU  8                 ; Dimensions of one array type; DG_BOUND beyond.
-AG_STEND EQU  AG_DSTK+2*AG_DCAP ; End of the aggregate scalars.
+AG_CFADR EQU  AG_DSTK+2*AG_DCAP ; Word: the record being declared's first field (AC_REC).
+AG_STEND EQU  AG_CFADR+2       ; End of the aggregate scalars.
 
 ; The type table: one four-byte descriptor per aggregate type, interned so
 ; that equal types share an ID. AG_NKIND..AG_NDIM is built in the same
@@ -264,26 +265,28 @@ AG_TDIM EQU  2                 ; Descriptor field: length, a word.
 AG_XTAB EQU  AG_TLIM           ; Words: each type's extent in bytes.
 AG_XLIM EQU  AG_XTAB+2*AG_TCAP ; Exclusive end of the extents.
 
-; The record table: where each record type's fields lie in the field table.
+; The record table: each record type's fields, their indices in the
+; program's numbering and where they lie. A field is a record of the
+; symbol table (SY_RECB bytes), in no hash chain, its flags zero, made as
+; it is declared above the symbols before it (AC_FIELD, SY_SKIP): a
+; record's fields are consecutive there.
 AG_RTAB EQU  AG_XLIM           ; First record entry.
-AG_RLEN EQU  2                 ; Bytes in one record entry.
-AG_RCAP EQU  48                ; Record types; DG_META when exceeded.
+AG_RLEN EQU  4                 ; Bytes in one record entry.
+AG_RCAP EQU  46                ; Record types; DG_META when exceeded.
 AG_RLIM EQU  AG_RTAB+AG_RLEN*AG_RCAP ; Exclusive end of the record table.
 AG_RFIDX EQU  0                ; Record field: index of its first field.
 AG_RFCNT EQU  1                ; Record field: number of fields.
+AG_RFADR EQU  2                ; Record field: its first field's record (word).
 
-; The field table: every record's fields, in declaration order.
-AG_FTAB EQU  AG_RLIM           ; First field entry.
-AG_FLEN EQU  6                 ; Bytes in one field entry.
-AG_FCAP EQU  48                ; Fields in all; DG_META when exceeded.
-AG_FLIM EQU  AG_FTAB+AG_FLEN*AG_FCAP ; Exclusive end of the field table.
+; A field's entry, at the start of its symbol-table record.
+AG_FCAP EQU  255               ; Fields in all, indices in a byte; DG_META beyond.
 AG_FNAME EQU  0                ; Field entry: spelling, a word.
 AG_FNLEN EQU  2                ; Field entry: spelling length.
 AG_FTYPE EQU  3                ; Field entry: type ID.
 AG_FPOS EQU  4                 ; Field entry: byte offset, a word.
 
 ; One object's initializer is staged here, then written as its blob.
-AG_IBUF EQU  AG_FLIM           ; One object's initializer, built here.
+AG_IBUF EQU  AG_RLIM           ; One object's initializer, built here.
 AG_ICAP EQU  1024              ; Bytes of initializer staging; DG_DATA beyond.
 AG_WEND EQU  AG_IBUF+AG_ICAP   ; End of the aggregate block.
 PR_WEND EQU  AG_WEND           ; End of this file's workspace.
