@@ -89,7 +89,7 @@ LK_START:                      ; Entered from the jump at $0100.
     CALL PC_RUN                    ; Phase C: place.
     CALL PD_RUN                    ; Phase D: write the image and line table.
     CALL PUB_RUN                   ; Publish them.
-    CALL PE_RUN                    ; Phase E: the map and the symbol file.
+    CALL PE_RUN                    ; Phase E: the map, symbols and debug file.
     CALL PUB_TIDY                  ; Delete the intermediates, unless K.
     LD   DE,RC_OK                  ; Success.
     JP   CPM_EXIT                  ; End the run.

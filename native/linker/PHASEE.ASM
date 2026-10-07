@@ -1,5 +1,5 @@
 ;==========================================================================
-;  Phase E: the map and the symbol file
+;  Phase E: the map, the symbol file and the debug file
 ;==========================================================================
 ;
 ;  Phase E (linker §8): the map (option M), the symbol file (option Y)
@@ -469,7 +469,7 @@ DB_ROW:                        ; HL is the address.
     INC  HL                        ; the
     JR   .NAME                     ; next.
 
-;@ROUTINE CLOBBERS A,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; End the debug file: $FF after the rows, no frames and no types (both
 ; counts zero, object format §14), its CRC, then close it (L-IO if it
 ; can't be written).

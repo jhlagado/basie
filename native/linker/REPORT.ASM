@@ -43,7 +43,7 @@ NM_TYPE:                       ; Its type.
     DB   "$NM"                     ; Three characters.
 NM_LIB EQU  LT_FD              ; The library again, for its name section.
 NM_TEXT EQU  LN_TEXT           ; NAME.$NM as text, in Phase A only.
-REP_FD:                        ; The report being written: MAP_FD or SY_FD.
+REP_FD:                        ; The report being written: MAP_FD, SY_FD or DB_FD.
     DW   0                         ; Set before each piece of output.
 MAP_ON:                        ; Nonzero when the map is written (option M).
     DB   0                         ; OF_M's bit.
@@ -364,15 +364,19 @@ REP_TEXT:                      ; A report's name as text.
 ; ---- names -------------------------------------------------------------------
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; With option M or Y, check in Phase A, while RD_BYTE keeps the CRC, the
+; With option M, Y or D, check in Phase A, while RD_BYTE keeps the CRC, the
 ; names the reports will read (object format §9): the library's name
 ; section, if it has one, and NAME.$NM, if it exists, whose stamp must be
 ; the directory's. L-FORMAT, L-STAMP or L-TRUNCATED otherwise.
 
 NM_CHECK:                      ; Both directories are read.
-    LD   A,(OP_FLAGS)              ; Options M and Y
-    AND  OF_M+OF_Y                 ; read the names.
-    RET  Z                         ; Neither: nothing reads them.
+    LD   A,(OP_SEEN)               ; Option D
+    AND  OX_D                      ; reads the names,
+    LD   B,A                       ; as do
+    LD   A,(OP_FLAGS)              ; options M
+    AND  OF_M+OF_Y                 ; and Y.
+    OR   B                         ; None:
+    RET  Z                         ; nothing reads them.
     LD   HL,LIB_TEXT               ; The library's name section first,
     LD   (RD_NAME),HL              ; named as the library.
     LD   HL,(LIB_HEAD+24)          ; Its offset, 24 bits,

@@ -36,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 11_625);
+  assertEquals(blink.length, 11_632);
 });
 
 const BLINK_DIGEST =
-  "3535221fc6777b5df68272ea04c20a077d5ff2b3d07aacd597dd51c0154c9e6e";
+  "b4ed9b6d1846fd24a21b9a0e3e7c889b60d3a0b2e0143363276affe3a29beb57";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
@@ -905,7 +905,7 @@ Deno.test("BLINK checks count escapes and trailers as the reference does", () =>
   assertEquals(runObjects(high, "PROG", lib), error(214, ["CPM22.BRL"]));
 });
 
-Deno.test("BLINK checks the name stream when it writes a map or symbol file", () => {
+Deno.test("BLINK checks the name stream when it writes a map, symbol file or debug file", () => {
   const objects = extendHello([]);
   const names = objects.names;
   const encode = (name: string) => {
@@ -933,6 +933,7 @@ Deno.test("BLINK checks the name stream when it writes a map or symbol file", ()
     const bad = { ...objects, names: stream };
     assertEquals(runObjects(bad, "PROG [M]"), want);
     assertEquals(runObjects(bad, "PROG [Y]"), want);
+    assertEquals(runObjects(bad, "PROG [D]"), want);
     // Without a report the names are not read.
     assertEquals(runObjects(bad, "PROG"), "");
   }
