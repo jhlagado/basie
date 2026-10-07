@@ -12,39 +12,80 @@
 ; Map offset HL of the blob to its offset once its short jumps have
 ; shrunk (BL_SHORT): one byte less for each short jump whose third byte,
 ; the one dropped, comes before it. BC returns the offset of that third
-; byte of the first short jump whose third byte does not come before it,
-; plus one (BL_PAST plus two when there is none): HL plus one exactly
-; when the jump's operand starts at HL. Carry returns clear. DE is kept.
+; byte of the first short jump whose third byte does not come before it
+; (BL_PAST plus two when there is none): HL plus one exactly when the
+; jump's operand starts at HL. Carry returns clear. DE is kept. The table
+; is in offset order, so that jump is found by halving the entries from
+; BL_JUMPS to the sentinel at BL_JPEND, whose third byte comes last.
 
 BL_MAP:                        ; HL is an offset.
     PUSH DE                        ; Keep the caller's DE.
     EX   DE,HL                     ; DE is the offset.
-    LD   HL,(BL_JUMPS)             ; From the first short jump,
-.WALK:                         ; HL is an entry.
-    LD   C,(HL)                    ; BC is
-    INC  HL                        ; its
-    LD   B,(HL)                    ; offset;
-    INC  HL                        ; HL is past
-    INC  HL                        ; the entry
-    INC  HL                        ; when the
-    INC  BC                        ; dropped byte,
-    INC  BC                        ; two on,
-    LD   A,C                       ; is before
-    SUB  E                         ; the offset:
-    LD   A,B                       ; carry
-    SBC  A,D                       ; then.
-    JR   C,.WALK                   ; Count it, and go on.
-    PUSH BC                        ; Keep the first not counted.
-    LD   BC,(BL_JUMPS)             ; Four bytes an entry, and
-    SBC  HL,BC                     ; four more for the one that
-    SRL  H                         ; ended the walk:
-    RR   L                         ; the count
-    SRL  H                         ; plus
-    RR   L                         ; one.
-    EX   DE,HL                     ; The offset,
-    INC  HL                        ; plus one,
-    SBC  HL,DE                     ; less it (carry is clear),
-    POP  BC                        ; is the new offset.
+    LD   HL,(BL_JUMPS)             ; HL is the first entry it may be,
+    LD   BC,(BL_JPEND)             ; BC the last.
+.HALVE:                        ; Is it found?
+    LD   A,L                       ; When
+    CP   C                         ; the
+    JR   NZ,.SPLIT                 ; two
+    LD   A,H                       ; are
+    CP   B                         ; one,
+    JR   Z,.FOUND                  ; it is.
+.SPLIT:                        ; Between them:
+    PUSH HL                        ; (the first kept)
+    PUSH BC                        ; (the last kept)
+    LD   A,C                       ; half
+    SUB  L                         ; the
+    LD   C,A                       ; entries
+    LD   A,B                       ; between,
+    SBC  A,H                       ; four
+    LD   B,A                       ; bytes
+    SRL  B                         ; each,
+    RR   C                         ; on
+    LD   A,C                       ; from
+    AND  $FC                       ; the
+    LD   C,A                       ; first,
+    ADD  HL,BC                     ; is the middle,
+    LD   C,(HL)                    ; whose
+    INC  HL                        ; offset,
+    LD   B,(HL)                    ; plus two,
+    DEC  HL                        ; its third
+    INC  BC                        ; byte's,
+    INC  BC                        ; is it
+    LD   A,C                       ; before
+    SUB  E                         ; the
+    LD   A,B                       ; offset?
+    SBC  A,D                       ; Carry if so.
+    POP  BC                        ; The last again.
+    JR   NC,.LAST                  ; If not, the middle is the last it may be.
+    POP  AF                        ; If so, the one
+    INC  HL                        ; after
+    INC  HL                        ; it
+    INC  HL                        ; is the
+    INC  HL                        ; first.
+    JR   .HALVE                    ; Halve again.
+.LAST:                         ; The middle is the last it may be.
+    LD   B,H                       ; BC
+    LD   C,L                       ; is it,
+    POP  HL                        ; and HL the first.
+    JR   .HALVE                    ; Halve again.
+.FOUND:                        ; HL is the first short jump not before it.
+    LD   C,(HL)                    ; BC
+    INC  HL                        ; is
+    LD   B,(HL)                    ; its
+    DEC  HL                        ; third
+    INC  BC                        ; byte's
+    INC  BC                        ; offset,
+    PUSH BC                        ; kept.
+    LD   BC,(BL_JUMPS)             ; The entries
+    OR   A                         ; before it,
+    SBC  HL,BC                     ; four bytes
+    SRL  H                         ; each,
+    RR   L                         ; are
+    SRL  H                         ; the
+    RR   L                         ; count:
+    EX   DE,HL                     ; the offset
+    SBC  HL,DE                     ; less them (carry is clear)
+    POP  BC                        ; is the new one.
     POP  DE                        ; Restore DE.
     RET                            ; HL is it.
 

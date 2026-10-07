@@ -80,24 +80,29 @@ RO_PARAM:                      ; A is the parameter.
     RET                            ; A still holds the index.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Find the current NAME among the routines. Z returns the table index in
-; A, or RO_MAIN once main has been declared and the name is main. NZ, with
+; Find the current NAME among the routines, through its hash chain
+; (RO_HTAB). Z returns its number in A, or RO_MAIN once main has been
+; declared and the name is main. NZ, with
 ; A = $FF, means the name is not a routine; that is not itself an error.
 
 RO_FIND:
-    LD   A,(RO_RCNT)               ; Count the routines in the table.
-    OR   A                         ; Is the table empty?
-    JR   Z,.MISSING                ; Then only main can match.
-    LD   C,A                       ; C counts the entries left.
-    LD   B,0                       ; B is the index being compared.
-.LOOP:                         ; Compare one routine's name.
-    LD   A,B                       ; Select entry B.
-    CALL RO_SUBAT                  ; HL addresses it; the name comes first.
+    LD   HL,(TK_PTR)               ; The token's
+    LD   A,(TK_LEN)                ; spelling
+    LD   B,A                       ; and length:
+    LD   DE,RO_HTAB                ; its chain's head
+    CALL SY_HASHD                  ; among the routines'.
+.LOOP:                         ; HL addresses a link: the next record.
+    LD   A,(HL)                    ; The
+    INC  HL                        ; record,
+    LD   H,(HL)                    ; or
+    LD   L,A                       ; zero:
+    OR   H                         ; none
+    JR   Z,.MISSING                ; left.
     CALL TK_SAME                   ; Does its spelling match the token?
-    JR   C,.FOUND                  ; Return its index.
-    INC  B                         ; Try the next entry.
-    DEC  C                         ; One entry fewer.
-    JR   NZ,.LOOP                  ; Continue through the table.
+    JR   C,.FOUND                  ; Return its number.
+    LD   DE,RO_RLINK               ; Its link
+    ADD  HL,DE                     ; to the next.
+    JR   .LOOP                     ; Continue along the chain.
 .MISSING:                      ; The name is not in the table.
     LD   A,(RO_MFLAG)              ; Has main been declared?
     AND  RO_FMAIN                  ; Its flags carry RO_FMAIN once it has.
@@ -112,8 +117,10 @@ RO_FIND:
     OR   A                         ; NZ with carry clear.
     RET                            ; The caller tries other kinds of name.
 .FOUND:                        ; Report the matching routine.
-    LD   A,B                       ; Its table index.
-    CP   A                         ; Set Z with carry clear.
+    LD   DE,RO_RIDX                ; Its
+    ADD  HL,DE                     ; number.
+    LD   A,(HL)                    ; A is it,
+    CP   A                         ; Z with carry clear.
     RET                            ; A identifies the routine.
 
 ;@ROUTINE OUT A,HL,CARRY,SIGN CLOBBERS PARITY,HALFCARRY,ZERO,BC,DE
@@ -190,7 +197,7 @@ PR_PARSE:
     LD   B,2*AG_TCAP               ; ordinals,
     CALL .WIPE                     ; none yet;
     LD   HL,RO_BASE                ; and the routine state:
-    LD   B,RO_STEND-RO_BASE        ; its counts and fields.
+    LD   B,RO_HEND-RO_BASE         ; its counts, fields and hash chains.
     LD   DE,LL_PARSE               ; Then parse the program
     PUSH DE                        ; and return.
 .WIPE:                         ; Clear B bytes at HL:

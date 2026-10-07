@@ -251,7 +251,8 @@ NH_ALLOC:                      ; BC is the bytes.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS BC,DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a name whose first byte, a letter, is current, then look it up in
-; KW_TAB. A returns the keyword's kind, or TK_NAME; TK_PTR and TK_LEN
+; KW_TAB, among the entries of its first letter (KW_IDX). A returns the
+; keyword's kind, or TK_NAME; TK_PTR and TK_LEN
 ; locate the name either way. Reached by a jump from TK_NEXT.
 
 TK_WORD:                       ; The current byte is a letter.
@@ -269,9 +270,23 @@ TK_WORD:                       ; The current byte is a letter.
     LD   A,B                       ; Publish the length for the parser.
     LD   (TK_LEN),A                ; TK_PTR already holds its address.
     LD   C,B                       ; C keeps the length.
-    LD   HL,KW_TAB                 ; Entries: bytes, the last with bit 7, kind.
+    LD   HL,(TK_PTR)               ; Its first
+    LD   A,(HL)                    ; byte,
+    SUB  'a'                       ; a letter
+    CP   26                        ; a to z,
+    JR   NC,.NAME                  ; or no keyword begins so;
+    LD   E,A                       ; its
+    LD   D,0                       ; entries
+    LD   HL,KW_IDX                 ; begin
+    ADD  HL,DE                     ; at
+    LD   E,(HL)                    ; KW_TAB
+    LD   HL,KW_TAB                 ; plus
+    ADD  HL,DE                     ; its offset.
 .KEYLOOP:                      ; HL is at an entry's first byte.
     LD   DE,(TK_PTR)               ; DE walks the name.
+    LD   A,(DE)                    ; An entry
+    CP   (HL)                      ; of another letter
+    JR   NZ,.NAME                  ; ends them.
     LD   B,C                       ; B counts its bytes.
 .CHAR:                         ; HL and DE step together.
     LD   A,(DE)                    ; The name's byte
@@ -289,10 +304,9 @@ TK_WORD:                       ; The current byte is a letter.
     INC  HL                        ; to its kind,
     JR   Z,.SKIP                   ; and past
     INC  HL                        ; the kind to the next entry.
-    LD   A,(HL)                    ; Is there one?
-    OR   A                         ; The table ends with zero.
-    JR   NZ,.KEYLOOP               ; Try the next keyword.
-    LD   A,TK_NAME                 ; No keyword matched: an ordinary name.
+    JR   .KEYLOOP                  ; Try the next keyword.
+.NAME:                         ; No keyword matched:
+    LD   A,TK_NAME                 ; an ordinary name.
     JP   TK_DONE                   ; Return the name.
 .LAST:                         ; HL is at the kind; the name must end too.
     DJNZ .MISS                     ; The name is longer than the keyword.

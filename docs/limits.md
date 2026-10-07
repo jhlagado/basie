@@ -104,19 +104,19 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | --- | --- | --- |
 | Source parts on the command line | 8 (`CL_PCAP`), each with the parts it includes | — |
 | Source parts in one compilation | 255, the line stream's part number, while memory lasts: each part's bytes and a 21-byte entry in the part table; Error 190 (`source parts`) beyond 255 | — |
-| Source text: the largest part, with the parts that include it while it loads, and the retained names | from `$8600` (after the blob writer's 885-byte workspace) up to the part table, which grows down from 1K below the BDOS entry (`$E006` with the BDOS entry at `$E406`): 23,046 bytes, about 22.5K, less 21 bytes a part, on a 62K system, shared from 67h.3 with the symbol table, which takes twelve bytes a name above the largest part, and from 68 with the blob being written. While the parts load, a part's bytes stay until its include lines are read, each 128-byte record fitting below the table before it is copied there; as each part is compiled its bytes are read again at the base, in whole records below the name heap, which grows down from the table. Error 190 (`source size`) beyond | the streaming source adapter (step 67, capacity tables) |
+| Source text: the largest part, with the parts that include it while it loads, and the retained names | from `$8740` (after the blob writer's 885-byte workspace) up to the part table, which grows down from the stack, 1.125K below the BDOS entry (`$DF86` with the BDOS entry at `$E406`): 22,598 bytes, about 22K, less 21 bytes a part, on a 62K system, shared from 67h.3 with the symbol table, which takes twelve bytes a name above the largest part, and from 68 with the blob being written. While the parts load, a part's bytes stay until its include lines are read, each 128-byte record fitting below the table before it is copied there; as each part is compiled its bytes are read again at the base, in whole records below the name heap, which grows down from the table. Error 190 (`source size`) beyond | the streaming source adapter (step 67, capacity tables) |
 | Includes open at once | 16 (`SH_ICAP`): the parts whose include lines are being read, each holding about 20 bytes of the stack; Error 190 (`include depth`) beyond | measured against the stack at step 68 |
 | Include names | a CP/M name with its type, `[d:]name.type`, of the characters CP/M names may hold (services §4.1), at most 14 bytes once decoded; anything else is `include-syntax` (Error 24), where the reference, which allows any byte but a dot, a colon or a wildcard, finds no such file (`include-missing`) | — |
 | Diagnostic order across parts | a program with errors in several parts may be reported at another of them first: the reference tokenizes each part whole before it loads the parts the part includes, so a lexical error or a misplaced `include` anywhere in a part comes before any error of its includes, where the native compiler reads only a part's include lines as it loads it and finds the rest as it compiles, part by part in stream order | — |
-| Compiler stack | 1K below the BDOS entry | measured at step 68 |
+| Compiler stack | 1.125K below the BDOS entry (`MM_STACK`, from 1K at 68, for 32 nested expressions) | — |
 | One blob: its bytes, references and line entries | below 16K of bytes (`BL_OVER`, Error 190, `routine size`), and its log while memory lasts: from 68 a blob is built in the free memory of the source area, its bytes after the symbol table and the routine's waiting aggregate constants, moving up as they grow, and its log, seven bytes for each reference, statement, string literal and `select` label (fourteen for a label of a 32-bit subject), below the name heap, moving down as it grows. When they meet, the bytes' whole records spill to `NAME.$CD` (68.4), read back as the blob is written, so the log alone fills memory: Error 190 (`source size`) then. A statement takes about 10 bytes of code and 20 of log; a routine of about 5.4K beside its 9.6K part compiles (`BIGSPILL.BSI`); before 68 the buffers held 2,048 bytes, 146 references and 128 statements | — |
 | A routine's short jumps | four bytes each, and four for the table's end, in the free memory between the blob's bytes and its log, while the routine is written; Error 190 (`source size`) when they do not fit | — |
 | Labels in use at once in one routine | 128 (`EM_LCAP`, 64 before 68), two of them the exit and the need word; an `if`, `while`, `for`, `select` or handler frees its labels when it ends (a `select` each arm's at the arm's end), and `and` and `or` theirs when they join, so the count is bounded by nesting (about 3 per level); `DG_LABEL` beyond | — |
 | Open `if`, `while`, `for`, `select` and `handle` statements | 32 nested (`CT_FCAP`, 16 before 68, so the spec's minimum, §5.1), within a grammar stack of 254 symbols (`LL_CAP`, `grammar stack` beyond); `DG_NEST` (Error 190, `nesting`) beyond | — |
 | Routines | 255 besides main (`RO_RCAP`, a byte's numbers, `$FF` being main; 64 before 68), while memory lasts: each record, 16 bytes, and its parameters' are kept below the name heap once its signature is complete; `DG_PROCS` (Error 190, `routines`) beyond | the routine's number widened to a word |
 | Parameters | 64 for one routine (`RO_SCAP`, the signature being parsed), and 255 bytes of arguments to one routine, five bytes each below the name heap with the routine's record, while memory lasts (160 in the whole program before 68); `DG_PARAM` (Error 190, `parameters`) beyond | — |
-| Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 190, `expression depth`) beyond | measured against the stack at step 68 |
-| Nested expressions: parentheses, indexes, arguments, conversions | about 34 levels: each takes about 24 bytes of the 1K stack, and one that would leave less than `EX_SPARE` (192) bytes of it is `DG_DEEP` (Error 190, `expression depth`); unchecked before, 48 levels overran the stack into the part table | 32 (§5.1) |
+| Calls nested in arguments | 8 (`RO_NCAP`); `DG_DEEP` (Error 190, `expression depth`) beyond | — |
+| Nested expressions: parentheses, indexes, arguments, conversions | 32 with an operator pending at each level, as `x + (x + (...))` (the operand stack, `EX_STCAP`, 32 entries from 16 at 68), and about 39 parentheses without: each level takes about 24 bytes of the stack, and one that would leave less than `EX_SPARE` (192) bytes of it is `DG_DEEP` (Error 190, `expression depth`) | — |
 | Names visible at once | while memory lasts: the program's constants, variables and record types with the current routine's parameters and the locals and local constants of its open blocks (a block's names are released at its end), twelve bytes each in a table above the largest part (`SY_BTM`), found through 32 hash chains, growing towards the name heap; Error 190 (`source size`) when they meet | — |
 | One `f32` literal | about 150 significant digits before the point and 100 after (`FL_NB`, 64-byte exact arithmetic), counted from the first digit that is not zero to the last that is not: trailing zeros take no room; `capacity` (Error 190, `f32 digits`) beyond | — |
 | One object's initializer | 1,024 bytes staged (`AG_ICAP`); `DG_DATA` (Error 190, `object size`) beyond | writing initializers to the blob as they are parsed |
@@ -136,6 +136,33 @@ following limits of its CP/M shell (step 65.2, [native compiler](native-compiler
 | Owner descriptors | one per owning record, at most 255 entries (Error 190, `types`, beyond); an array inside an array takes one entry per outer element | — |
 | Handles | owning handle locals, parameters and results, program variables and fields, `new`, `new?` and `none`, their frees, fields through a handle local and `select` on a handle (leases and identifiers) are compiled (67g.1b), as are var owning handle parameters (slot-holders), parameters of owning record and array types, leases passed to record parameters and `id()` of a lease or a var record parameter, owning arguments to calls inside expressions, `id` parameters, and records, strings and arrays reached through an identifier passed to value parameters as copies (67g.1c); an `id` local's initializer, a handle or owning parameter or result, an owning record or array local whose descriptor no pool has written, an owner's value in an expression or as a source, an identifier or File in an expression but compared with `=` or `<>`, a `move` in a statement that also has `and` or `or`, or in a while's or an assert's condition, `id` results, a var parameter of an owning array type, `id()` of a record that belongs to two pools or to none, a lease from a call's result or an element, a handle followed by an operator where a record is passed, and a parenthesized argument for an aggregate parameter are refused (`DG_NYI`, Error 191) | stage 67g |
 | A name in a diagnostic | its first 32 characters (`DG_ALEN`) | — |
+
+**Measured (step 68).** On the CP/M harness with the BDOS entry at
+`$E406`, `tools/capacity.ts` finds by bisection the largest program of
+each shape that `BASIE.COM` compiles, and times builds at 4 MHz,
+excluding disk time:
+
+| Capacity | Guaranteed minimum | Measured | Bound |
+| --- | ---: | ---: | --- |
+| One part of small routines (`sub rN(a as u8) as u8`, a local, a return) | — | 234 routines, 15.1K of source | memory: the part's bytes, the symbols and the routines' records |
+| Program variables in one part | 1,000 top-level names | 708 in 11K of source | memory; spread over parts, more fit (below) |
+| Locals of one routine | 128 | 476 | memory |
+| Statements in one routine, an assignment each | no limit | 413, 7.6K of source | the routine's log (references and statements) in memory beside its part |
+| A program in parts of 12 routines and 20 variables | — | 21 parts, 24.3K of source, 252 routines, 420 variables | 255 routines (`RO_RCAP`) |
+| `select` cases | 256 | 256 (`CASE256.BSI`) | memory |
+| Statement nesting | 32 | 32 (`NEST32.BSI`) | `CT_FCAP` |
+| Expression nesting | 32 | 32 with an operator pending at each level | `EX_STCAP` and the stack |
+
+Build times at 4 MHz: 0.6 s for `hello`; 6.3 s for `BIGMAIN.BSI` (four
+parts, 21K); 11.7 s for `ADVENT.BSI` with the library parts it includes;
+14.9 s for `MANYRTN.BSI` (200 routines, 11K); 13.7 s for `BIGSPILL.BSI` (a
+5.4K routine, its bytes spilled); 24.2 s for `CASE256.BSI` (a select of
+256 cases). Most of a build is the tokenizer and the name lookups: the
+keywords are found through an index by first letter, the symbols and the
+routines through 32 hash chains each, and the predeclared names by a
+linear search. The routine limit, 255, is a byte's numbers; the 1,000
+top-level names of the specification are met only with fewer than 255
+routines among them.
 
 ### 5.2 Linker (`BLINK.COM`, 10.6K, about 45.4K for tables)
 

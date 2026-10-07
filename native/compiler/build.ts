@@ -148,17 +148,17 @@ async function build(): Promise<BasieImage> {
     if (value === undefined) throw new Error(`no symbol ${name}`);
     return value;
   };
-  if (at("PL_WEND") > at("LL_DEPTH")) {
-    throw new Error("the pools' table runs into the LL(1) stack");
+  if (at("LL_CAP") > 255 || (at("LL_STACK") & 0xff) !== 0) {
+    throw new Error("the LL(1) stack is not within one page");
+  }
+  if (at("KW_IDX") - at("KW_TAB") > 256) {
+    throw new Error("the keywords pass the index's byte offsets");
   }
   if (at("LL_WEND") > at("SH_WBEG")) {
     throw new Error("the compiler's workspace runs into the shell's");
   }
   if (at("SH_WEND") > at("MM_BLOB")) {
     throw new Error("the shell's workspace runs into the blob writer's");
-  }
-  if (at("PL_WEND") > at("FL_WBEG") || at("FL_WEND") > at("LL_DEPTH")) {
-    throw new Error("the FLOAT overlay's workspace overlaps its neighbours");
   }
   if (at("BL_WEND") > at("MM_SRC")) {
     throw new Error("the blob writer's workspace runs into the source");

@@ -6,29 +6,30 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($6BF0).
+;  from MM_WBASE ($6E30).
 ;
 ;    Offset  Size  Block
-;    +$C59     38  routine state: counts, the signature being parsed, the
+;    +$D59     38  routine state: counts, the signature being parsed, the
 ;                  types the body found, the declaration's part and
 ;                  visibility, the call being checked and the path in hand
 ;                  (RO_BASE)
-;    +$C7F    510  each routine's record's address: 255 words (RO_RPTR)
-;    +$E7D     16  the record of the signature being parsed (RO_CREC)
-;    +$E8D    320  its parameters: 64 records of five bytes (RO_SPAR)
-;    +$FCD      6  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;    +$D7F     64  the routines' hash chains' heads (RO_HTAB)
+;    +$DBF    510  each routine's record's address: 255 words (RO_RPTR)
+;    +$FBD     19  the record of the signature being parsed (RO_CREC)
+;    +$FD0    320  its parameters: 64 records of five bytes (RO_SPAR)
+;    +$1110     6  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE, SRC_RES)
-;    +$FD3      2  PR_SP, the stack DG_ISSUE restores
-;    +$FD5    329  the pools' table and the handles' and flows' state, 32
+;    +$1116     2  PR_SP, the stack DG_ISSUE restores
+;    +$1118   329  the pools' table and the handles' and flows' state, 32
 ;                  frames' flows (PL_CNT to PL_WEND)
-;    +$111E   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM)
-;    +$11B8    87  unused, so that the LL(1) stack starts a page
-;    +$120F   255  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1210, a page
+;    +$1261    96  each table type's owner descriptor (PL_DESC, LL1.ASM)
+;    +$12C1    14  unused, so that the LL(1) stack starts a page
+;    +$12CF   255  the LL(1) stack (LL_DEPTH, then LL_STACK at +$12D0, a page
 ;                  start, so a slot's address is the page and the depth)
-;    +$130E    96  each table type's owner descriptor (PL_DESC)
-;    +$136E        LL_WEND, the end of the compiler workspace, 4,974 bytes
+;    +$13CE   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM)
+;    +$1468        LL_WEND, the end of the compiler workspace, 5,224 bytes
 ;
-;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
+;  PR_PARSE clears RO_BASE..RO_HEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
 ;  failure-routing fields as the grammar's actions run; ROUTINES.ASM writes
 ;  the tables; CALLS.ASM the path in hand (RO_PLACE), which GENAGGR.ASM
@@ -49,11 +50,14 @@
 ;    +12 byte  RO_RARGS  the bytes of its arguments, which RETN removes
 ;    +13 byte  RO_RPART  the part its name is in
 ;    +14 word  RO_RPOS   its name's offset there
+;    +16 word  RO_RLINK  the next record of its name's hash chain
+;    +18 byte  RO_RIDX   its number
 ;  The signature being parsed is built in RO_CREC, its parameters in
 ;  RO_SPAR after it: AC_SIG writes the name and the first parameter; AC_PUB
 ;  writes the rest, taking the routine's ordinal, then copies the record and
 ;  its parameters, one block, below the name heap (NH_ALLOC), which never
-;  moves, and counts the record in RO_RCNT. RO_RPTR holds each record's
+;  moves, links it into its name's hash chain (RO_HTAB, as the symbol
+;  table's, SY_HASHD) and counts it in RO_RCNT. RO_RPTR holds each record's
 ;  address, RO_CREC's while its signature is parsed. A forward is published
 ;  with RO_FOPEN and RO_FFWD set, so it takes its ordinal where it is
 ;  declared, and AC_IMPL clears RO_FOPEN when the body comes; AC_END writes
@@ -127,9 +131,11 @@ GA_FRAME EQU  1                ; Place: the frame, at IX+offset.
 GA_ALIAS EQU  2                ; Place: through an address word in the frame.
 GA_HELD EQU  3                 ; Place: computed, in HL.
 
-RO_RPTR EQU  RO_STEND          ; RO_RCAP words: each routine record's address.
+RO_HTAB EQU  RO_STEND          ; SY_HCAP words: the routines' hash chains' heads.
+RO_HEND EQU  RO_HTAB+2*SY_HCAP ; Their end; PR_PARSE clears from RO_BASE to it.
+RO_RPTR EQU  RO_HEND           ; RO_RCAP words: each routine record's address.
 RO_RCAP EQU  255               ; Routines besides main, $FF being main; DG_PROCS beyond.
-RO_RLEN EQU  16                ; Bytes in one routine record.
+RO_RLEN EQU  19                ; Bytes in one routine record.
 RO_RNAME EQU  0                ; Word: address of the routine's name.
 RO_RNLEN EQU  2                ; Byte: length of the name.
 RO_RPIDX EQU  3                ; Word: its first parameter's record.
@@ -141,6 +147,8 @@ RO_RNEED EQU  10               ; Word: its need once its body is complete.
 RO_RARGS EQU  12               ; Byte: its arguments' bytes.
 RO_RPART EQU  13               ; Byte: the part its name is in (SRC_ID).
 RO_RPOS EQU  14                ; Word: its name's offset in that part.
+RO_RLINK EQU  16               ; Word: the next record of its hash chain (RO_HTAB).
+RO_RIDX EQU  18                ; Byte: its number.
 RO_CREC EQU  RO_RPTR+2*RO_RCAP ; The record of the signature being parsed,
 RO_SPAR EQU  RO_CREC+RO_RLEN   ; then its parameters' records, RO_SCAP.
 RO_PLEN EQU  5                 ; Bytes in one parameter record.

@@ -58,7 +58,7 @@
 ;  first token, the reference's leftAt or rightAt (EX_LAT, EX_RAT).
 ;
 ;  A binary operator keeps its left operand on EX_STACK while the right is
-;  parsed: sixteen entries (EX_STCAP) of sixteen bytes (EX_STLEN):
+;  parsed: 32 entries (EX_STCAP) of sixteen bytes (EX_STLEN):
 ;
 ;    +0  byte  left operand's metadata
 ;    +1  five  left operand's value; for a computed Boolean left of `and`
@@ -192,7 +192,7 @@ EX_PUSH:
     OR   A                         ; Clear carry for success.
     RET                            ; Pushed.
 
-.FULL:                         ; Sixteen operators are already pending.
+.FULL:                         ; EX_STCAP operators are already pending.
     CALL DG_RAISE                  ; Report it; no return.
     DB   DG_DEEP                   ; Diagnostic: expression too deep.
 

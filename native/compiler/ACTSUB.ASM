@@ -319,6 +319,8 @@ AC_SIG:
     INC  HL                        ; in the
     LD   (HL),D                    ; record
     LD   (RO_CPIDX),DE             ; and the signature.
+    LD   A,(RO_CUR)                ; Its number
+    LD   (RO_CREC+RO_RIDX),A       ; is kept in it.
     CALL AC_CLEAR                  ; No parameters or result yet.
     CALL AC_VIS                    ; The routine's flags: private, or none,
     LD   (RO_CFLAG),A              ; yet.
@@ -641,7 +643,25 @@ AC_PUB:
     POP  DE                        ; the
     LD   (HL),E                    ; block,
     INC  HL                        ; both
-    LD   (HL),D                    ; bytes.
+    LD   (HL),D                    ; bytes;
+    PUSH DE                        ; (kept)
+    EX   DE,HL                     ; its name's
+    CALL WD_GET                    ; spelling,
+    LD   B,(HL)                    ; of B bytes,
+    EX   DE,HL                     ; finds
+    LD   DE,RO_HTAB                ; its
+    CALL SY_HASHD                  ; chain's head:
+    POP  DE                        ; the record
+    LD   A,(HL)                    ; goes
+    LD   (HL),E                    ; first,
+    INC  HL                        ; the
+    LD   C,(HL)                    ; old
+    LD   (HL),D                    ; head
+    LD   HL,RO_RLINK               ; in
+    ADD  HL,DE                     ; its
+    LD   (HL),A                    ; link,
+    INC  HL                        ; both
+    LD   (HL),C                    ; bytes.
     LD   HL,RO_RCNT                ; Count the routine...
     INC  (HL)                      ; ...so that RO_FIND sees it.
     RET                            ; The routine is published.

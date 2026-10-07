@@ -906,7 +906,7 @@ PR_ROOM:                       ; Another level is to open.
 ; EX_PARSE an expression nested in another, a parenthesized one, an
 ; index, an argument or a conversion's operand, keeping the enclosing
 ; operator's operand offsets (EX_LAT, EX_RAT) across it. Each level takes
-; about 24 bytes of the machine stack, at most about 34 levels (PR_ROOM).
+; about 24 bytes of the machine stack, at most about 39 levels (PR_ROOM).
 
 EX_INNER:                      ; A nested expression.
     CALL PR_ROOM                   ; The stack must have room.

@@ -725,23 +725,24 @@ computed exactly from frames and helper figures.
 
 `native/compiler/STATE.ASM`, `CALLWORK.ASM` and the modules named. Each is a
 defect if it stays below the Basie minimum it serves; each has a named
-constant, a capacity diagnostic and a budget to argue.
+constant, a capacity diagnostic and a budget to argue. Figures as at step
+68; the measured capacities are in the [limits register](limits.md) §5.1.
 
 | Table | Native today | Basie target |
 | --- | --- | --- |
-| Symbol records | 96 (`SY_CAP`), nine bytes each, shared by the program's names and the current routine's parameters, locals and local constants, released at each block's end; the aggregate type and a scalar constant's five-byte value held in the record | §3.1, §3.2: at least 1,000 names and 128 locals; a hashed table with a name heap replaces it in step 67's capacity stage |
-| Routine records | 64 besides main (`RO_RCAP`), twelve bytes each, holding each routine's ordinal, need and argument bytes | §3.25 |
-| Parameters | 160 program-wide (`RO_PCAP`), and 255 bytes of arguments per routine | §3.3: at least 32 per routine |
+| Symbol records | while memory lasts, twelve bytes each in a table above the largest part (`SY_BTM`), found through 32 hash chains, a block's released at its end (from 67h.3; 96 of nine bytes in a fixed table before) | §3.1, §3.2: at least 1,000 names and 128 locals; measured 708 program variables in one part and 476 locals (limits §5.1) |
+| Routine records | 255 besides main (`RO_RCAP`, a byte's numbers), each 19 bytes below the name heap with its parameters' once its signature is complete, found through 32 hash chains (`RO_HTAB`) and by number (`RO_RPTR`), from 68 | §3.25 |
+| Parameters | 64 for one routine (`RO_SCAP`, the signature's staging, five bytes each), and 255 bytes of arguments per routine; memory for the program (160 program-wide before 68) | §3.3: at least 32 per routine |
 | Calls nested in arguments | 8 (`RO_NCAP`); a call being parsed keeps its state on the machine stack | §3.21: call nesting |
-| Record types | 16 (`AG_RCAP`) | §3.7, §3.26 |
-| Fields | 48 in all records together (`AG_FCAP`) | §3.12: at least 64 per record |
-| Aggregate types | 24 (`AG_TCAP`) | §3.7 |
-| Initializer nesting | 4 (`AG_LCAP`) | §3.22: at least 32 |
+| Record types | 46 (`AG_RCAP`) | §3.7, §3.26 |
+| Fields | 255 in all records together (`AG_FCAP`), symbol-table records | §3.12: at least 64 per record |
+| Aggregate types | 48 (`AG_TCAP`), a routine body's released at its end | §3.7 |
+| Initializer nesting | 32 (`AG_LCAP`), and the stack (`PR_ROOM`) | §3.22: at least 32 |
 | Initializer staging | one object's initializer in 1,024 bytes (`AG_ICAP`); each declaration is otherwise written as its blob at once | §3.22: no compiler limit, to be streamed |
-| Control frames | 8 (`CT_FCAP`), eighteen bytes each, holding the frame's labels, the label count and frame size to restore, and a for loop's counter, bound and step | §3.20: at least 32 |
-| Operand stack | 16 entries (`EX_STCAP`), sixteen bytes each: the left operand's five-byte value and the two operands' first offsets | §3.21: at least 32 |
-| Grammar stack | 64 symbols (`LL_CAP`) | parser stack, TBD |
-| Labels | 32 in use at once per routine (`EM_LCAP`), released by nesting; pending operands are chained through their references' addend words (`EMIT.ASM`, no limit) | §3.4 |
+| Control frames | 32 (`CT_FCAP`), twenty bytes each, holding the frame's labels, the label count and frame size to restore, a for loop's counter, bound and step, and its scope's first symbol | §3.20: at least 32 |
+| Operand stack | 32 entries (`EX_STCAP`), sixteen bytes each: the left operand's five-byte value and the two operands' first offsets | §3.21: at least 32 |
+| Grammar stack | 254 symbols (`LL_CAP`, a page) | parser stack, TBD |
+| Labels | 128 in use at once per routine (`EM_LCAP`), released by nesting; pending operands are chained through their references' addend words in the blob's log (`EMIT.ASM`, no limit) | §3.4 |
 | Source parts | 255 while memory lasts, in a part table that grows down from the top of the source area (`SOURCE.ASM`); 8 on the command line (`CL_PCAP`) | §3.17: 255 |
 | Predeclared names | the reference's 58, generated from its helper table into `PREDEF.ASM`; the services' records are read in place, so they have no capacity of their own | — |
 | Pools | 4 (`PL_CAP`), seven bytes each (`PL_TAB`), with a bit for each aggregate type marking it owning (`PL_OWNB`) and a word for each holding its owner descriptor's ordinal (`PL_DESC`); handle type IDs are `$68` to `$77`, four forms for each pool; an owner descriptor takes 255 entries | §3.7 |

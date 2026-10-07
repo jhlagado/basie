@@ -281,17 +281,24 @@ Deno.test("without BASIE.MSG a diagnostic is its number and arguments", () => {
 });
 
 Deno.test("expressions nest 32 deep, the stack's bound, and deeper is a capacity", () => {
-  // Each level of parentheses takes about 24 bytes of the 1K stack; the
-  // spec's minimum is 32 (limits §5.1). Unchecked, 48 levels ran into the
-  // part table below the stack.
+  // Each level of parentheses takes about 24 bytes of the stack (1.125K
+  // since 68); the spec's minimum is 32 (limits §5.1). Unchecked, 48
+  // levels ran into the part table below the stack.
   const nested = (n: number) =>
     `sub main()\n    var x as u16\n    x = ${"(".repeat(n)}x${
       " + 1)".repeat(n)
     }\nend\n`;
   assertEquals(run("MAIN [C]", { "MAIN.BSI": nested(32) }), "");
+  // Nested to the right, each level keeps its left operand on the operand
+  // stack (32 entries since 68) as well as the machine stack.
+  const right = (n: number) =>
+    `sub main()\n    var x as u16\n    x = ${"x + (".repeat(n)}x${
+      ")".repeat(n)
+    }\nend\n`;
+  assertEquals(run("MAIN [C]", { "MAIN.BSI": right(32) }), "");
   assertEquals(
     run("MAIN", { "MAIN.BSI": nested(100) }),
-    "MAIN.BSI 3:43: 190: A compiler capacity was exceeded: expression depth\r\n",
+    "MAIN.BSI 3:48: 190: A compiler capacity was exceeded: expression depth\r\n",
   );
 });
 
@@ -314,14 +321,16 @@ Deno.test("statements nest 32 deep, and deeper is a capacity", () => {
   );
 });
 
-Deno.test("the source and the part table may fill memory to 1K below the BDOS entry", () => {
+Deno.test("the source and the part table may fill memory to the stack below the BDOS entry", () => {
   // The harness's BDOS entry is $E406, so the source runs up from MM_SRC
-  // and the part table down from $E006, 21 bytes a part; each record must
+  // and the part table down from MM_STACK bytes below it, 21 bytes a part
+  // (1.125K since 68, for 32 nested expressions); each record must
   // fit below the table before it is read, which bounds the loader. The
   // symbol table and the name heap share the memory above the largest part
   // (67h.3), so a part a record smaller than the loader's bound leaves them
   // room; one byte past the bound is the loader's capacity.
-  const bound = Math.floor((0xe006 - 21 - built.symbols.MM_SRC) / 128) * 128;
+  const top = 0xe406 - built.symbols.MM_STACK;
+  const bound = Math.floor((top - 21 - built.symbols.MM_SRC) / 128) * 128;
   const room = bound - 128;
   const fill = (size: number) => {
     let text = PROGRAM;

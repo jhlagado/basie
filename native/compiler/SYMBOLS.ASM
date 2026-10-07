@@ -136,9 +136,12 @@ SY_FIND:
 
 ;@ROUTINE IN B,HL OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Address in HL the head of the hash chain of the spelling of B bytes, at
-; least one, at HL: their sum with B, modulo SY_HCAP. C is kept.
+; least one, at HL: their sum with B, modulo SY_HCAP, in SY_HTAB, or in
+; the table at DE (SY_HASHD: the routines', RO_HTAB). C is kept.
 
 SY_HASH:                       ; HL the spelling, B its length.
+    LD   DE,SY_HTAB                ; The symbols' chains.
+SY_HASHD:                      ; DE is the table.
     LD   A,B                       ; The length,
 .SUM:                          ; plus
     ADD  A,(HL)                    ; each
@@ -148,8 +151,7 @@ SY_HASH:                       ; HL the spelling, B its length.
     ADD  A,A                       ; is the
     LD   L,A                       ; chain:
     LD   H,0                       ; its head's
-    LD   DE,SY_HTAB                ; address.
-    ADD  HL,DE                     ; HL.
+    ADD  HL,DE                     ; address, HL.
     RET                            ; Done.
 
 ;@ROUTINE IN HL CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
