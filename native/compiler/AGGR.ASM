@@ -296,8 +296,7 @@ AG_FRESH:                      ; HL is the new field's entry.
     LD   HL,TK_PTR                 ; It
     LD   A,DG_DUP                  ; is named
     CALL DG_SETN                   ; by duplicate-name,
-    LD   HL,(TK_PTR)               ; at its
-    JP   DG_SRC                    ; spelling; no return.
+    JP   DG_KEPT                   ; at it (AC_FIELD); no return.
 
 ; A further failure exit. It does not return.
 

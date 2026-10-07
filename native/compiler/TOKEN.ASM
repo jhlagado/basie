@@ -193,6 +193,7 @@ TK_KEEP:                       ; HL: the record to fill.
     LD   C,A                       ; its
     LD   B,0                       ; length
     EX   DE,HL                     ; below
+    OR   A                         ; (carry clear)
     SBC  HL,BC                     ; the bottom
     PUSH HL                        ; (the new one)
     LD   DE,(RG_PEND)              ; must stay

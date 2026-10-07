@@ -555,7 +555,9 @@ AC_FIELD:
     CP   AG_FCAP                   ; Is there an entry for it?
     JP   NC,AG_EMETA               ; No: raise DG_META.
     CALL AG_FIELD                  ; HL addresses the entry.
-    JP   TK_KEEP                   ; Record the name's spelling there; return.
+    LD   DE,(TK_POS)               ; Its position,
+    LD   (AC_SPOS),DE              ; for a repeat (AG_FRESH);
+    JP   TK_KEEP                   ; its spelling recorded there; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; CommitRecordField: give the field its type (not a view, DG_BOUND, nor
