@@ -252,7 +252,8 @@ compression pass after 67g.1c moved a handle select's actions into the
 (about 21.4K); slot-holders (67g.1c, third part) fitted below it, and
 leases and `id()` of records (the fourth) took them to `$6300`
 (about 21.1K), and `OWNERS` grew past `FLOAT` to thirteen records, the
-overlay area with it (2,611 bytes).
+overlay area with it (2,611 bytes). The copies of fields reached
+through an identifier took the workspaces to `$6400` (about 20.9K).
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each
 scope from the control frames' counts.

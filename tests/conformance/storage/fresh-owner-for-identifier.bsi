@@ -1,0 +1,15 @@
+// A fresh owner is no identifier: nothing would own the new node.
+// spec: 7.9
+// expect error: type-mismatch at 14:10
+
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[4]
+sub look(i as id nodes?)
+end
+sub main()
+    look(new nodes(1, none))
+end

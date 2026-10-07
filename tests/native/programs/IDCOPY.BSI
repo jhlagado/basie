@@ -1,0 +1,38 @@
+// Fields reached through an identifier pass to value parameters as copies:
+// a record, a string to an open string and an array to an open array.
+forward pool boxes
+
+record Inner
+    w as u16
+    c as u8
+end
+
+record Box
+    inner as Inner
+    name as string[8]
+    bytes as u8[3]
+end
+
+pool boxes as Box[2]
+
+var keep as id boxes?
+
+sub look(x as Inner, s as string[], b as u8[]) fails
+    writeByte(console, x.c) else fail
+    writeByte(console, s[0]) else fail
+    writeByte(console, b[2]) else fail
+end
+
+sub main() fails
+    var h = new boxes()
+    keep = id(h)
+    select keep
+    case some(j)
+        j.inner.c = 'I'
+        j.name = "Name"
+        j.bytes[2] = 'Z'
+        look(j.inner, j.name, j.bytes) else fail
+    case none
+    end
+    writeText(console, "\r\n") else fail
+end

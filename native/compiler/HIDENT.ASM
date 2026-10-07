@@ -363,3 +363,33 @@ HN_LOGIC:                      ; The operator is next.
     JP   NZ,TR_OPER                ; waits;
     SET  1,(HL)                    ; else marked.
     RET                            ; Back.
+
+;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; An aggregate argument for a value parameter reached through an
+; identifier (RO_PPUSH bit 4), its address in HL at run time, is passed
+; as a copy in a frame temporary of its type's size (passCopy): PUSH HL,
+; HL = IX+temp, EX DE,HL, POP HL, PUSH DE, LD BC,size, LDIR, POP HL.
+; BC is kept.
+
+HN_COPY:                       ; The address is made.
+    LD   A,(RO_PPUSH)              ; Through
+    AND  $10                       ; an identifier?
+    RET  Z                         ; If not, itself.
+    PUSH BC                        ; (kept)
+    LD   A,(RO_OTYPE)              ; Its type's
+    CALL AG_SIZE                   ; size,
+    PUSH HL                        ; kept,
+    EX   DE,HL                     ; in the frame
+    CALL EM_ALLOW                  ; (allocLocal);
+    PUSH HL                        ; the slot kept;
+    CALL GX_PUSHW                  ; PUSH HL, counted,
+    POP  HL                        ; HL = IX+slot,
+    CALL GA_SLOT                   ; then
+    CALL EM_SEQ                    ; EX DE,HL, POP HL,
+    DB   4,$EB,$E1,$D5,$01         ; PUSH DE, LD BC,
+    POP  HL                        ; the size,
+    CALL EM_WORD                   ; then
+    CALL EM_SEQ                    ; LDIR,
+    DB   3,$ED,$B0,$E1             ; POP HL: the copy,
+    POP  BC                        ; (BC)
+    JP   EM_POP2                   ; popped; return.

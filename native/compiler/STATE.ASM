@@ -412,6 +412,7 @@ DG_LEASE EQU  107              ; lease: not the routine's own owner.
 DG_HOLDR EQU  108              ; slot-holder: a location that can't be one.
 DG_LMOVE EQU  109              ; loop-moves-owner.
 DG_NMOVE EQU  100              ; needs-move: an owning handle is moved, not copied.
+DG_OCOPY EQU  101              ; owning-copy: an owning object copied.
 DG_KNOWN EQU  51               ; not-constant.
 DG_NOCVT EQU  53               ; conversion-unavailable.
 DG_VARP EQU  54                ; var-parameter: var on a scalar or File.

@@ -2384,7 +2384,10 @@ export class Compiler {
     }
     if (v.kind === "fresh") {
       const f = v.type as Type & { kind: "handle" };
-      if (f.pool !== to.pool || f.id || (f.optional && !to.optional)) {
+      // An identifier location takes no fresh owner: nothing would own it.
+      if (
+        f.pool !== to.pool || f.id || to.id || (f.optional && !to.optional)
+      ) {
         fail(
           "type-mismatch",
           at,

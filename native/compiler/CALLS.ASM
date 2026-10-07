@@ -651,7 +651,8 @@ RO_ARGS:
     LD   A,B                       ; the types,
     AND  $7F                       ; less AG_VAR,
     CP   C                         ; must be the same,
-    JP   NZ,EX_EFIT                ; else DG_CLASH at the argument.
+    JP   NZ,EX_EFIT                ; else DG_CLASH at the argument;
+    CALL HN_COPY                   ; a copy through an identifier.
     BIT  7,B                       ; A var parameter
     JR   Z,.PUSH                   ; takes
     CALL RO_WRITE                  ; only a writable argument;
@@ -888,7 +889,8 @@ RO_VIEW:
     EX   DE,HL                     ; HL.
 .WORD:                         ; HL is the view's word.
     PUSH HL                        ; Keep it.
-    CALL GA_ADDR                   ; The address first.
+    CALL GA_ADDR                   ; The address first,
+    CALL HN_COPY                   ; a copy through an identifier.
     POP  HL                        ; The word:
     CALL GA_LDDE                   ; LD DE,word,
     JR   .PUSHDE                   ; pushed; return.
@@ -901,9 +903,8 @@ RO_VIEW:
     POP  HL                        ; The capacity word
     LD   DE,GX_DLDDE               ; into DE, HL kept (ixWord).
     CALL GX_FACC                   ; Append it.
-.PUSHDE:                       ; The view's word is in DE.
-    LD   A,$D5                     ; PUSH DE,
-    JP   GX_PUSHA                  ; two bytes pushed; return.
+.PUSHDE:                       ; The view's word is in DE:
+    JP   HN_PSHDE                  ; PUSH DE, counted; return.
 .CLASS:                        ; A routine's name where a variable is due.
     CALL DG_RNAME                  ; Raise the diagnostic below, named:
     DB   DG_CLASS                  ; wrong-class.

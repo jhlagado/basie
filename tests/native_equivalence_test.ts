@@ -143,6 +143,7 @@ const CONFORMANCE: Record<string, string> = {
   DLINKED: "tests/conformance/storage/doubly-linked.bsi",
   FREEREU2: "tests/conformance/storage/free-several-then-reuse.bsi",
   LRUCACHE: "tests/conformance/storage/lru-cache.bsi",
+  IDFCOPY: "tests/conformance/storage/identifier-field-passed-as-copy.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -361,6 +362,8 @@ const CLAIMED: Record<string, string[]> = {
     "DLINKED",
     "FREEREU2",
     "LRUCACHE",
+    "IDCOPY",
+    "IDFCOPY",
   ],
 };
 

@@ -554,9 +554,9 @@ HN_KEEPF:                      ; The condition is parsed.
 ;@ROUTINE IN A,B OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An aggregate argument for parameter type B (AG_VAR for var), its path
 ; in hand, of type A: through an identifier (RO_PPUSH bit 4) it is
-; not-writable for a var parameter, at the path, and its copy for any
-; other waits (DG_NYI); through an owner (bit 5) it passes no owner word.
-; A and BC are kept.
+; not-writable for a var parameter, and owning-copy if it owns, at the
+; path; any other is copied once its address is made (HN_COPY). Through
+; an owner (bit 5) it passes no owner word. A and BC are kept.
 
 HN_ARGCK:                      ; The path is parsed.
     PUSH AF                        ; Kept.
@@ -571,10 +571,16 @@ HN_ARGCK:                      ; The path is parsed.
     POP  AF                        ; A.
     RET                            ; Back.
 .ID:                           ; Through an identifier:
-    BIT  7,B                       ; a value's copy
-    JP   Z,TR_OPER                 ; waits;
-    LD   A,DG_CONST                ; a var parameter's
-    JP   EX_EVAL                   ; is not-writable, at the path.
+    BIT  7,B                       ; a var parameter's
+    LD   A,DG_CONST                ; is
+    JP   NZ,EX_EVAL                ; not-writable;
+    POP  AF                        ; a value's
+    PUSH AF                        ; is a copy,
+    CALL PL_OWNS                   ; not of
+    LD   A,DG_OCOPY                ; an owning
+    JP   C,EX_EVAL                 ; object.
+    POP  AF                        ; A.
+    RET                            ; Back.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; Carry if the path in hand's root, the routine's own owning local, is the
@@ -904,10 +910,10 @@ HN_PEND:                       ; The body has ended.
     JR   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; An argument for an owning handle parameter of type A (argument): an
-; owning value (HN_OWNV), then CALL LINK0; the caller pushes HL. Only a
-; statement's call takes one, and not a call nested in its arguments,
-; where the reference's rules for move in expressions apply (DG_NYI).
+; An argument for a handle parameter of type A (argument): for an owner
+; an owning value (HN_OWNV), then CALL LINK0; for an identifier its value
+; in DEHL and PUSH DE; for a slot-holder a location (HN_SLARG). The caller
+; pushes HL.
 
 HN_ARG:                        ; A is the parameter's type.
     OR   A                         ; A slot-holder
