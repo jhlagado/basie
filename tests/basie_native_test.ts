@@ -17,6 +17,9 @@ import { assembleFile, comBytes, runCom } from "./harness/cpm.ts";
 import { messageFile } from "../ref/compile/messages.ts";
 import { buildRuntime } from "../tools/helpertable.ts";
 import { HELPER_KEY, HELPER_VERSION } from "../ref/compile/helpers.ts";
+import { compile } from "../ref/compile/index.ts";
+import { readLineTable } from "../ref/toolchain/linetable.ts";
+import { trapLookup } from "../ref/toolchain/traplookup.ts";
 
 const built = await buildBasie();
 const basie = built.com;
@@ -359,10 +362,77 @@ Deno.test("BASIE refuses a bad, repeated or misplaced option as BLINK does", () 
   }
 });
 
-Deno.test("BASIE takes option T only with L, and has no trap lookup yet", () => {
-  const not = "Trap lookup is not yet available\r\n";
-  assertEquals(run("MAIN [T=1A3F]", MAIN), not);
-  assertEquals(run("MAIN [L=B, T=0]", MAIN), not);
+/** A program that traps, compiled and linked by the reference. */
+const TRAPPING = "var cells as u8[4]\nvar i as u8\nsub main()\n" +
+  "    i = 9\n  cells[i] = 1\nend\n";
+const linked = await compile("MAIN.BSI", {
+  mainSource: new TextEncoder().encode(TRAPPING),
+});
+if (!linked.ok) throw new Error("the trapping program didn't compile");
+const LOOKUP: Record<string, Uint8Array> = {
+  "MAIN.BSI": new TextEncoder().encode(TRAPPING),
+  "MAIN.COM": linked.com,
+  "MAIN.LIN": linked.lineTable!,
+};
+
+/** BASIE's lookup of an address, and the reference's, for the files. */
+function lookedUp(address: number, files: Record<string, Uint8Array>) {
+  const hex = address.toString(16).toUpperCase();
+  const native = build(`MAIN [T=${hex}]`, files);
+  const want = trapLookup("MAIN", address, (f) => files[f]);
+  return { native, want };
+}
+
+Deno.test("BASIE [T=hhhh] looks an address up as the reference does", () => {
+  const table = readLineTable(linked.lineTable!);
+  const addresses = new Set<number>([0, 0xffff]);
+  for (const e of table.entries) {
+    addresses.add(e.address);
+    addresses.add(e.address + 1);
+  }
+  for (const address of addresses) {
+    const { native, want } = lookedUp(address, LOOKUP);
+    assertEquals(native.output, want.text, address.toString(16));
+    assertEquals(native.returnCode === 0xff01, want.failed);
+  }
+  // A statement's own line, from its column on.
+  const at = table.entries.find((e) => e.part === 0 && e.source === 5)!;
+  assertEquals(
+    lookedUp(at.address, LOOKUP).native.output,
+    "MAIN.BSI 5:3  cells[i] = 1\r\n",
+  );
+  // Without the source the position alone.
+  const { "MAIN.BSI": _, ...noSource } = LOOKUP;
+  assertEquals(
+    lookedUp(at.address, noSource).native.output,
+    "MAIN.BSI 5:3\r\n",
+  );
+});
+
+Deno.test("BASIE [T=hhhh] refuses a missing, damaged or stale line table", () => {
+  const damaged = LOOKUP["MAIN.LIN"].slice();
+  damaged[damaged.length - 1] ^= 1;
+  const stale = LOOKUP["MAIN.COM"].slice();
+  stale[3] ^= 1;
+  const { "MAIN.COM": _c, ...noProgram } = LOOKUP;
+  const { "MAIN.LIN": _l, ...noTable } = LOOKUP;
+  const cases: [Record<string, Uint8Array>, string][] = [
+    [noTable, "MAIN.LIN not found"],
+    [{ ...LOOKUP, "MAIN.LIN": damaged }, "MAIN.LIN is damaged"],
+    [{ ...LOOKUP, "MAIN.COM": stale }, "MAIN.LIN doesn't match the program"],
+    [noProgram, "MAIN.COM not found"],
+  ];
+  for (const [files, text] of cases) {
+    const { native, want } = lookedUp(0x0100, files);
+    assertEquals(want.text, text + "\r\n");
+    assertEquals(native.output, want.text, text);
+    assertNotEquals(native.returnCode, 0);
+  }
+  // T joins only L.
+  assertEquals(
+    run("MAIN [L=B, T=100]", LOOKUP),
+    lookedUp(0x100, LOOKUP).want.text,
+  );
 });
 
 /** The library with its bytes at offset changed. */

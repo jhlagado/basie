@@ -32,7 +32,7 @@ export const OVERLAYS = [
   {
     name: "COMMAND",
     equate: "OV_CMD",
-    files: ["COMMAND.ASM", "FILENAME.ASM", "PARTNAME.ASM"],
+    files: ["COMMAND.ASM", "FILENAME.ASM", "PARTNAME.ASM", "LOOKUP.ASM"],
     offset: 0,
   },
   {

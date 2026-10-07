@@ -111,15 +111,9 @@ CL_READ:                       ; The tail is at SH_TAIL.
     LD   (SH_SNAME),A              ; then they go there.
 .SPOOL:                        ; The streams are named.
     LD   A,(CL_SEEN+CL_IT)         ; Option T, trap lookup,
-    OR   A                         ; is not yet
-    RET  Z                         ; available.
-
-;@ROUTINE NORETURN
-; Report option T, trap lookup (toolchain §8), as not yet available.
-
-CL_TRAP:                       ; CL_READ accepted it.
-    LD   HL,CL_TMSG                ; Not yet available.
-    JP   SH_FAIL                   ; Print it and fail.
+    OR   A                         ; looks the address up
+    RET  Z                         ; instead of a build
+    JP   LK_RUN                    ; (LOOKUP.ASM).
 
 ;@ROUTINE NORETURN
 ; Report a malformed command line with the usage line.
@@ -545,5 +539,3 @@ CL_TBSI:                       ; The type of a part that names none.
     DB   "BSI"                     ; Copied into the FCB's type field.
 CL_UMSG:                       ; Any malformed command line.
     DB   "Usage: BASIE PART[,PART...] [OPTIONS]",0 ; The command's grammar.
-CL_TMSG:                       ; Option T.
-    DB   "Trap lookup is not yet available",0 ; Toolchain §8, still to come.

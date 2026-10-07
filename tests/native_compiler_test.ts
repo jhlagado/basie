@@ -25,11 +25,11 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
   assertEquals(await sha256(image.ovl), OVL_DIGEST);
   assertEquals(image.core, 21_591);
   assertEquals(image.com.length, 22_277);
-  assertEquals(image.ovl.length, 9_856);
+  assertEquals(image.ovl.length, 10_752);
   assertEquals(
     image.overlays.map((o) => [o.name, o.bytes.length]),
     [
-      ["COMMAND", 978],
+      ["COMMAND", 1857],
       ["START", 819],
       ["NAMES", 947],
       ["CHAIN", 448],
@@ -55,4 +55,4 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
 const DIGEST =
   "d1a0ec54abc3ba54a6bd26497d97e6c33b4a66f864e3fb87945879f28947fd88";
 const OVL_DIGEST =
-  "cd7a475cd1bf3b51545c554427ee72fd522ceecded5e59114c3e8916780d7648";
+  "4be8e3ed49d080c66a0e0e8d94772049e3f54bd0e7b7b40a02aceb2dff8f05ce";

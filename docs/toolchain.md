@@ -349,19 +349,26 @@ read: on the current drive, then on `A:`, the drives from which the CCP loads
 A>BASIE MAIN [T=1A3F]
 ```
 
-With option `T`, `BASIE` neither compiles nor links. It reads `MAIN.LIN`, checks
-its image CRC against the output file named in its header, finds the entry with
-the greatest address not above the given one, opens that source part, and
-prints the part, line and column and the source line:
+With option `T`, `BASIE` neither compiles nor links. It reads `MAIN.LIN`, which
+must be whole (version 2.0, its entry count and CRC right), and finds a program
+file, `MAIN.COM`, `MAIN.BIN` or `MAIN.HEX`, whose CRC is the table's image CRC.
+Then the entry with the greatest address not above the given one names the
+statement: `BASIE` opens its source part and prints the part, the line and the
+column, and the line's text from that column on:
 
 ```text
 MAIN.BSI 57:9  total = items[index]
 ```
 
-An address in a blob without source is reported with the blob's ordinal, and
-its name from the library's name section when there is one. If `MAIN.LIN` is
-missing, or the output file no longer matches its image CRC, `BASIE` says so
-rather than report a wrong line.
+When the part can't be read, the position alone is printed. An address below
+the first entry is `1A3F is outside the stored code`; one in a blob without
+source (the runtime's, or data) is `1A3F is in blob 0005, which has no source`,
+the blob's ordinal. If `MAIN.LIN` is missing or damaged, or no program file
+matches it, `BASIE` fails, saying so (`MAIN.LIN not found`, `MAIN.LIN is
+damaged`, `MAIN.LIN doesn't match the program`, `MAIN.COM not found`) rather
+than report a wrong line. The reference is `trapLookup`
+(`ref/toolchain/traplookup.ts`); the native lookup is in the `COMMAND` overlay
+(`LOOKUP.ASM`), so it costs the resident image nothing.
 
 The address a trap prints is that of a call instruction inside the statement
 that trapped ([CP/M target](cpm-target.md), Section 10), so the lookup finds that
