@@ -36,18 +36,16 @@
 ;  RO_FROM marks those a result's from clause names.
 
 ;@ROUTINE IN A OUT HL CLOBBERS CARRY,HALFCARRY,DE
-; Return in HL the address of routine-table entry A, RO_RTAB plus twelve
+; Return in HL the address of routine-table entry A, RO_RTAB plus sixteen
 ; times A. A, BC and the zero flag are preserved.
 
 RO_SUBAT:
     LD   L,A                       ; Form the routine index as a word.
     LD   H,0                       ; At most RO_RCAP entries.
-    ADD  HL,HL                     ; Times two.
-    LD   D,H                       ; Keep
-    LD   E,L                       ; twice the index.
-    ADD  HL,HL                     ; Times four,
-    ADD  HL,DE                     ; six,
-    ADD  HL,HL                     ; twelve, the entry size.
+    ADD  HL,HL                     ; Times two,
+    ADD  HL,HL                     ; four,
+    ADD  HL,HL                     ; eight,
+    ADD  HL,HL                     ; sixteen, the entry size.
     LD   DE,RO_RTAB                ; The table's base.
     ADD  HL,DE                     ; HL addresses the entry.
     RET                            ; A still holds the index.

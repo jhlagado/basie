@@ -95,10 +95,18 @@ OW_NEW:                        ; The name is retained.
     LD   A,(SRC_ID)                ; the one
     LD   (HL),A                    ; it is in;
     INC  HL                        ; its name's
-    LD   DE,(AC_DNAME)             ; address in
-    LD   (HL),E                    ; the source,
+    LD   DE,(AC_DNAME)             ; spelling,
+    LD   (HL),E                    ; its
+    INC  HL                        ; address
+    LD   (HL),D                    ; and
+    INC  HL                        ; length,
+    LD   A,(AC_DLEN)               ; and its
+    LD   (HL),A                    ; offset,
     INC  HL                        ; for
-    LD   (HL),D                    ; diagnostics.
+    LD   DE,(AC_DPOS)              ; diagnostics
+    LD   (HL),E                    ; when its
+    INC  HL                        ; part may
+    LD   (HL),D                    ; be gone.
     LD   HL,PL_CNT                 ; One
     INC  (HL)                      ; more pool.
     POP  AF                        ; A is its index.
@@ -379,42 +387,26 @@ OW_ENDP:                       ; A part or the program has ended.
     DEC  HL                        ; (back to the record byte)
 .OPEN:                         ; The pool is incomplete.
     INC  HL                        ; Past
-    INC  HL                        ; its visibility
-    INC  HL                        ; and part,
-    LD   E,(HL)                    ; its
-    INC  HL                        ; name's
-    LD   D,(HL)                    ; address.
-    PUSH DE                        ; Kept.
-    EX   DE,HL                     ; The name
-    CALL OW_ASTOK                  ; is the current token.
-    LD   HL,TK_PTR                 ; Its record:
+    INC  HL                        ; its visibility,
+    LD   A,(HL)                    ; its part
+    PUSH AF                        ; (kept);
+    INC  HL                        ; its name's
+    PUSH HL                        ; spelling,
     LD   A,DG_UNMET                ; forward-incomplete,
-    CALL DG_SETN                   ; naming it,
-    POP  HL                        ; at it.
-    LD   A,DG_UNMET                ; forward-incomplete.
-    JP   DG_SRC                    ; No return.
+    CALL DG_SETN                   ; naming it;
+    POP  HL                        ; then
+    LD   DE,PL_EOFF-PL_ENAME       ; its
+    ADD  HL,DE                     ; offset
+    LD   A,(HL)                    ; in
+    INC  HL                        ; its
+    LD   H,(HL)                    ; part,
+    LD   L,A                       ; HL,
+    POP  DE                        ; D the part:
+    LD   E,DG_UNMET                ; forward-incomplete.
+    JP   DG_PLACE                  ; No return.
 .NEXT:                         ; The pool is done.
     DJNZ .POOL                     ; The one after.
     RET                            ; Every pool is complete.
-
-;@ROUTINE IN HL CLOBBERS A,B,C,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Make the name whose spelling starts at HL the current NAME token: its
-; length is counted over name characters.
-
-OW_ASTOK:                      ; HL is the spelling.
-    LD   (TK_PTR),HL               ; Its address.
-    LD   B,0                       ; Its length so far.
-.LEN:                          ; The next character:
-    LD   A,(HL)                    ; a name's?
-    CALL TK_ALNUM                  ; Carry if so.
-    JR   NC,.DONE                  ; No: the name ends.
-    INC  HL                        ; The next
-    INC  B                         ; one.
-    JR   .LEN                      ; Until the name ends.
-.DONE:                         ; B is the length.
-    LD   A,B                       ; It
-    LD   (TK_LEN),A                ; is the token's.
-    RET                            ; Done.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the owner descriptor of table type A, whose ordinal HL is, as a

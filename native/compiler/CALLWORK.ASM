@@ -125,7 +125,7 @@ GA_ALIAS EQU  2                ; Place: through an address word in the frame.
 GA_HELD EQU  3                 ; Place: computed, in HL.
 
 RO_RTAB EQU  RO_STEND          ; Routine table: RO_RCAP records.
-RO_RLEN EQU  12                ; Bytes in one routine record.
+RO_RLEN EQU  16                ; Bytes in one routine record.
 RO_RCAP EQU  64                ; Routines besides main; DG_PROCS beyond.
 RO_RLIM EQU  RO_RTAB+RO_RLEN*RO_RCAP ; Exclusive end of the routine table.
 RO_RNAME EQU  0                ; Word: address of the routine's name.
@@ -137,6 +137,8 @@ RO_RFLAG EQU  6                ; Byte: its flags.
 RO_RORD EQU  7                 ; Word: its blob's ordinal.
 RO_RNEED EQU  9                ; Word: its need once its body is complete.
 RO_RARGS EQU  11               ; Byte: its arguments' bytes.
+RO_RPART EQU  12               ; Byte: the part its name is in (SRC_ID).
+RO_RPOS EQU  13                ; Word: its name's offset in that part.
 
 RO_PTAB EQU  RO_RLIM           ; Parameter table: RO_PCAP records.
 RO_PLEN EQU  4                 ; Bytes in one parameter record.
@@ -182,8 +184,10 @@ PL_EORD EQU  0                 ;   word: the pool's ordinal, its information blo
 PL_EREC EQU  2                 ;   byte: its record type, zero while only forward;
 PL_EPRIV EQU  3                ;   byte: nonzero when it is private;
 PL_EPART EQU  4                ;   byte: the part (SRC_ID) it was declared in;
-PL_ENAME EQU  5                ;   word: its name's address in the source.
-PL_LEN EQU  7                  ; Bytes of one entry.
+PL_ENAME EQU  5                ;   word: its name's address in the source;
+PL_ENLEN EQU  7                ;   byte: its length;
+PL_EOFF EQU  8                 ;   word: its offset in its part.
+PL_LEN EQU  10                 ; Bytes of one entry.
 HN_MODE EQU  PL_TAB+PL_LEN*PL_CAP ; Byte: nonzero while HN_SEG only looks.
 HN_SEEN EQU  HN_MODE+1         ; Byte: nonzero once HN_SEG sees an owner.
 HN_AT EQU  HN_SEEN+1           ; Word: where HN_OWNV reports, or zero for the value.

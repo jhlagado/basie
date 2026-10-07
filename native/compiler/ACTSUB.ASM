@@ -127,11 +127,25 @@ AC_ENDP:
 .SHOWN:                        ; Symbol B-1 is done.
     DJNZ .SYMBOL                   ; Until all are.
     RET                            ; The part's private names are gone.
-.OPEN:                         ; HL is the record, its name first.
-    LD   E,(HL)                    ; The name's
-    INC  HL                        ; address,
-    LD   D,(HL)                    ; DE,
-    EX   DE,HL                     ; HL;
+.OPEN:                         ; HL is the record.
+    LD   DE,RO_RPART               ; The name's
+    ADD  HL,DE                     ; part,
+    LD   A,(HL)                    ; still here,
+    INC  HL                        ; and
+    LD   E,(HL)                    ; its
+    INC  HL                        ; offset
+    LD   D,(HL)                    ; in it,
+    PUSH DE                        ; kept:
+    DEC  A                         ; the part's
+    CALL SRC_PART                  ; entry,
+    LD   DE,PT_START               ; its
+    ADD  HL,DE                     ; first
+    LD   A,(HL)                    ; byte,
+    INC  HL                        ; plus
+    LD   H,(HL)                    ; the
+    LD   L,A                       ; offset,
+    POP  DE                        ; is the
+    ADD  HL,DE                     ; name's address;
     CALL .BACK                     ; back over the spaces to `sub`'s b,
     DEC  HL                        ; back
     DEC  HL                        ; to its s,
@@ -225,12 +239,16 @@ AC_MAIN:
     CALL DG_SETN                   ; naming it,
     LD   A,C                       ; at
     CALL RO_SUBAT                  ; its
-    LD   E,(HL)                    ; name,
+    LD   DE,RO_RPART               ; name,
+    ADD  HL,DE                     ; in
+    LD   D,(HL)                    ; its part,
     INC  HL                        ; which
-    LD   D,(HL)                    ; may be
-    EX   DE,HL                     ; in another part.
-    LD   A,DG_UNMET                ; forward-incomplete.
-    JP   DG_SRC                    ; No return.
+    LD   A,(HL)                    ; may be
+    INC  HL                        ; another,
+    LD   H,(HL)                    ; at its
+    LD   L,A                       ; offset:
+    LD   E,DG_UNMET                ; forward-incomplete.
+    JP   DG_PLACE                  ; No return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the retained name the current token again, at its own position, so
@@ -285,6 +303,17 @@ AC_SIG:
     CALL AC_CLEAR                  ; No parameters or result yet.
     CALL AC_VIS                    ; The routine's flags: private, or none,
     LD   (RO_CFLAG),A              ; yet.
+    LD   A,(RO_CUR)                ; Its record:
+    CALL RO_SUBAT                  ; the part
+    LD   DE,RO_RPART               ; and offset
+    ADD  HL,DE                     ; of its name,
+    LD   A,(SRC_ID)                ; where a forward
+    LD   (HL),A                    ; left open
+    INC  HL                        ; is reported
+    LD   DE,(AC_DPOS)              ; when its part
+    LD   (HL),E                    ; may be
+    INC  HL                        ; gone
+    LD   (HL),D                    ; (AC_ENDP).
     RET                            ; Back to the engine.
 .MAIN:                         ; Open main's signature.
     LD   A,(AC_PRIV)               ; Main can't be private:

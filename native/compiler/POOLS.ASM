@@ -56,18 +56,18 @@ PL_TEXT EQU  PL_WLEN+2         ; 48 bytes: a blob's name being made.
 PL_SLOT EQU  6                 ; Bytes of a slot's header, and of a pool's.
 
 ;@ROUTINE IN A OUT HL CLOBBERS DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Address pool A's entry in PL_TAB in HL. A and BC are kept.
+; Address pool A's entry in PL_TAB, ten bytes each, in HL. A and BC are
+; kept.
 
 PL_AT:                         ; A is the pool's index.
     LD   L,A                       ; Its index,
-    LD   H,0                       ; as a word:
-    LD   D,H                       ; seven
-    LD   E,L                       ; times
-    ADD  HL,HL                     ; it:
+    LD   H,0                       ; as a word,
+    ADD  HL,HL                     ; twice,
+    LD   D,H                       ; kept;
+    LD   E,L                       ; then
     ADD  HL,HL                     ; four,
     ADD  HL,HL                     ; eight,
-    OR   A                         ; less
-    SBC  HL,DE                     ; one, seven.
+    ADD  HL,DE                     ; ten times.
     LD   DE,PL_TAB                 ; From
     ADD  HL,DE                     ; the table.
     RET                            ; HL is the entry.
