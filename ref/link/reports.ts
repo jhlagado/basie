@@ -1,6 +1,7 @@
 /** Linker Phase E reports: the map and the debugger symbol file (linker §8). */
 import type { Profile } from "../object/library.ts";
 import { Kind, Pseudo } from "../object/types.ts";
+import { crc16 } from "../object/crc.ts";
 import type { LinkResult } from "./link.ts";
 
 const KIND_NAMES: Record<number, string> = {
@@ -135,4 +136,35 @@ export function writeSymbols(
     rows.push(`${h4(a)} ${names.get(o)!.slice(0, 16)}`);
   }
   return new TextEncoder().encode(rows.join("\r\n") + "\r\n\x1a");
+}
+
+/**
+ * The debug file written with option D (object format §14): the header
+ * `BSID` 1.0 and the image's CRC; a row for each live named blob with bytes,
+ * in address order (its kind, address, size and name); `$FF`; no frames and
+ * no types (two zero counts); the CRC of every byte before it.
+ */
+export function writeDebug(
+  result: LinkResult,
+  names: Map<number, string>,
+): Uint8Array {
+  const out: number[] = [];
+  const word = (n: number) => out.push(n & 0xff, (n >> 8) & 0xff);
+  out.push(...new TextEncoder().encode("BSID"), 1, 0);
+  word(crc16(result.output));
+  const rows = result.blobs
+    .filter((b) => b.live && b.size > 0 && names.has(b.ordinal))
+    .sort((a, b) => a.address! - b.address!);
+  for (const b of rows) {
+    const name = new TextEncoder().encode(names.get(b.ordinal)!);
+    out.push(b.kind);
+    word(b.address!);
+    word(b.size);
+    out.push(name.length, ...name);
+  }
+  out.push(0xff);
+  word(0);
+  word(0);
+  word(crc16(Uint8Array.from(out)));
+  return Uint8Array.from(out);
 }

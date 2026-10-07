@@ -2,8 +2,9 @@
 ;  Phase E: the map and the symbol file
 ;==========================================================================
 ;
-;  Phase E (linker §8): the map (option M) and the symbol file (option
-;  Y), written after publication. A report that can't be written is
+;  Phase E (linker §8): the map (option M), the symbol file (option Y)
+;  and the debug file (option D, object format §14), written after
+;  publication. A report that can't be written is
 ;  deleted and reported; the published program stands. REPORT.ASM holds
 ;  the workspace, the text output and the name readers.
 ;
@@ -30,11 +31,17 @@ PE_RUN:                        ; Called after publication.
     LD   A,(OP_FLAGS)              ; Option Y:
     AND  OF_Y                      ; the symbol file.
     LD   (SY_ON),A                 ; Nonzero when it is written.
-    LD   A,(MAP_ON)                ; Is either written?
+    LD   A,(OP_SEEN)               ; Option D:
+    AND  OX_D                      ; the debug file.
+    LD   (DB_ON),A                 ; Nonzero when it is written.
+    LD   A,(MAP_ON)                ; Is any written?
     LD   B,A                       ; The map's bit,
-    LD   A,(SY_ON)                 ; with the symbol file's,
-    OR   B                         ; together.
-    RET  Z                         ; Neither: Phase E has nothing to do.
+    LD   A,(SY_ON)                 ; with the symbol file's
+    OR   B                         ; and
+    LD   B,A                       ; the
+    LD   A,(DB_ON)                 ; debug
+    OR   B                         ; file's.
+    RET  Z                         ; None: Phase E has nothing to do.
     LD   (WK_NAMES),A              ; Walks reset the name readers.
     LD   IX,NM_FD                  ; The names: NAME.$NM if it exists,
     LD   A,(DIR_FD+FD_FCB)         ; on the directory's drive,
@@ -66,7 +73,15 @@ PE_RUN:                        ; Called after publication.
     LD   IX,SY_FD                  ; Its FD.
     LD   DE,SY_TYPE                ; Its type.
     CALL .CREATE                   ; Create it.
-.NOSYM:                        ; The map starts with its summary.
+.NOSYM:                        ; The debug file,
+    LD   A,(DB_ON)                 ; if asked for,
+    OR   A                         ; is NAME.DBG.
+    JR   Z,.NODBG                  ; Not asked for.
+    LD   IX,DB_FD                  ; Its FD.
+    LD   DE,DB_TYPE                ; Its type.
+    CALL .CREATE                   ; Create it,
+    CALL DB_HEAD                   ; and begin it.
+.NODBG:                        ; The map starts with its summary.
     LD   A,(MAP_ON)                ; Is the map written?
     OR   A                         ; Nonzero if so.
     CALL NZ,.SUMMARY               ; Write the summary.
@@ -96,6 +111,9 @@ PE_RUN:                        ; Called after publication.
     LD   A,(MAP_ON)                ; The map's removed blobs and totals,
     OR   A                         ; if it is written.
     CALL NZ,MAP_DEAD               ; Write them.
+    LD   A,(DB_ON)                 ; The debug file's end,
+    OR   A                         ; if it is written.
+    CALL NZ,DB_CLOSE               ; Written and closed.
     LD   A,(SY_ON)                 ; The symbol file's aliases,
     OR   A                         ; if it is written.
     JR   Z,.CLOSE                  ; Not written.
@@ -134,7 +152,7 @@ PE_RUN:                        ; Called after publication.
 ; as text in REP_TEXT, which RD_NAME then names. L-IO if the directory is
 ; full.
 
-.CREATE:                       ; IX is MAP_FD or SY_FD, DE its type.
+.CREATE:                       ; IX is a report's FD, DE its type.
     CALL OUT_PICK                  ; HL is the output's name, A its drive.
     LD   BC,REP_TEXT               ; Its name as text, replacing the last
     CALL FIL_NAME                  ; report's; set up the FCB.
@@ -344,16 +362,26 @@ PE_RUN:                        ; Called after publication.
     LD   DE,(RD_SIZE)              ; plus its size
     ADD  HL,DE                     ; is its end,
     LD   (MAP_PREV),HL             ; kept.
+    LD   A,(NM_BUF)                ; Is the blob named?
+    OR   A                         ; An empty name means not:
+    JP   Z,REF_SKIP                ; no row, and skip the references.
     LD   A,(SY_ON)                 ; Is the symbol file written?
     OR   A                         ; Nonzero if so.
-    JP   Z,REF_SKIP                ; No: skip the references.
-    LD   A,(NM_BUF)                ; Is the blob named?
-    OR   A                         ; An empty name means not.
-    JP   Z,REF_SKIP                ; Unnamed: no row.
+    JR   Z,.DBG                    ; No: the debug file, perhaps.
     LD   HL,SY_FD                  ; Write to the symbol file.
     LD   (REP_FD),HL               ; The report.
     LD   HL,(.BLOBADDR)            ; Its address,
     CALL SY_ROW                    ; and its name.
+.DBG:                          ; The debug file's row,
+    LD   A,(DB_ON)                 ; if it is written
+    OR   A                         ; and the blob
+    JP   Z,REF_SKIP                ; has bytes;
+    LD   HL,(RD_SIZE)              ; then
+    LD   A,H                       ; its
+    OR   L                         ; kind,
+    JP   Z,REF_SKIP                ; address,
+    LD   HL,(.BLOBADDR)            ; size
+    CALL DB_ROW                    ; and name.
     JP   REF_SKIP                  ; Skip the references.
 
 .BLOBADDR:                     ; The listed blob's address.
@@ -382,6 +410,107 @@ SY_ROW:                        ; HL is the address.
     INC  HL                        ; row
     LD   (SY_COUNT),HL             ; written.
     RET                            ; Done.
+
+;@ROUTINE CLOBBERS A,B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Begin the debug file, NAME.DBG, just made: its header (object format
+; §14), BSID, the version 1.0 and the image's CRC (IMG_CRC), the line
+; table's; its CRC starts.
+
+DB_HEAD:                       ; Option D.
+    LD   HL,DB_FD                  ; Write to
+    LD   (REP_FD),HL               ; the debug file.
+    LD   HL,$FFFF                  ; Its CRC
+    LD   (DB_CRC),HL               ; starts.
+    LD   HL,.HEAD                  ; The magic
+    LD   B,6                       ; and the version,
+.HB:                           ; B bytes at HL:
+    LD   A,(HL)                    ; each
+    CALL DB_BYTE                   ; written;
+    INC  HL                        ; the
+    DJNZ .HB                       ; next.
+    LD   HL,(IMG_CRC)              ; The image's CRC.
+    JP   DB_WORD                   ; Written; return.
+.HEAD:                         ; BSID 1.0.
+    DB   "BSID",1,0                ; Magic and version.
+
+;@ROUTINE IN HL CLOBBERS A,B,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A debug file row for the live named blob at address HL, of RD_SIZE
+; bytes and kind WK_KIND, named in NM_BUF: the kind, the address, the size,
+; the name's length and the name.
+
+DB_ROW:                        ; HL is the address.
+    PUSH HL                        ; Kept.
+    LD   HL,DB_FD                  ; Write to
+    LD   (REP_FD),HL               ; the debug file:
+    LD   A,(WK_KIND)               ; the kind,
+    CALL DB_BYTE                   ; written;
+    POP  HL                        ; the address
+    CALL DB_WORD                   ; and
+    LD   HL,(RD_SIZE)              ; the size;
+    CALL DB_WORD                   ; then
+    LD   HL,NM_BUF                 ; the name's
+    LD   B,0                       ; length,
+.LEN:                          ; counted
+    LD   A,(HL)                    ; to
+    OR   A                         ; its
+    JR   Z,.COUNTED                ; zero;
+    INC  HL                        ; the
+    INC  B                         ; next.
+    JR   .LEN                      ; Until the end.
+.COUNTED:                      ; B is its length:
+    LD   A,B                       ; written,
+    CALL DB_BYTE                   ; then
+    LD   HL,NM_BUF                 ; its
+.NAME:                         ; bytes.
+    LD   A,(HL)                    ; The next,
+    OR   A                         ; until
+    RET  Z                         ; the zero,
+    CALL DB_BYTE                   ; written;
+    INC  HL                        ; the
+    JR   .NAME                     ; next.
+
+;@ROUTINE CLOBBERS A,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; End the debug file: $FF after the rows, no frames and no types (both
+; counts zero, object format §14), its CRC, then close it (L-IO if it
+; can't be written).
+
+DB_CLOSE:                      ; Every row is written.
+    LD   HL,DB_FD                  ; Write to
+    LD   (REP_FD),HL               ; the debug file:
+    LD   A,$FF                     ; the rows'
+    CALL DB_BYTE                   ; end,
+    LD   HL,0                      ; no
+    CALL DB_WORD                   ; frames,
+    LD   HL,0                      ; no
+    CALL DB_WORD                   ; types;
+    LD   HL,(DB_CRC)               ; then the CRC,
+    LD   A,L                       ; low
+    CALL REP_BYTE                  ; byte
+    LD   A,H                       ; and high,
+    CALL REP_BYTE                  ; not folded.
+    LD   IX,DB_FD                  ; Close it,
+    CALL FIL_SHUT                  ; padded;
+    JP   C,REP_FAIL                ; L-IO.
+    RET                            ; Done.
+
+;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the word HL to the debug file, low byte first (DB_BYTE).
+
+DB_WORD:                       ; HL is the word.
+    LD   A,L                       ; The low byte,
+    CALL DB_BYTE                   ; then
+    LD   A,H                       ; the high; fall into DB_BYTE.
+
+;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write A to the debug file (REP_BYTE), folding it into its CRC. Every
+; register but F is kept.
+
+DB_BYTE:                       ; A is the byte.
+    PUSH HL                        ; Keep HL.
+    LD   HL,DB_CRC                 ; The CRC
+    CALL CRC_FOLD                  ; takes it.
+    POP  HL                        ; HL again.
+    JP   REP_BYTE                  ; Written; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write the symbol file's alias rows: each live named alias, in address

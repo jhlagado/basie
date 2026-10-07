@@ -709,3 +709,45 @@ Implicit numbering resumes from there.
 
 The byte stream, after its header, receives the 17 bytes of `bump` and then the
 7 bytes of `reset`, with zeros at every referenced offset.
+
+## 14. Debug file
+
+Linked with option `D`, the linker also writes `NAME.DBG` (roadmap step 73,
+design decision O7) beside the line table: what a debugger needs beyond the
+line table's statements, readable from CP/M in 128-byte records without a
+parser. The line table (Section 11) gives an address's statement; the debug
+file gives the named blob it lies in, and has room for the frames and types
+a later compiler may record.
+
+| Record | Layout |
+| --- | --- |
+| Header | magic `BSID` (4 bytes), major `u8` = 1, minor `u8` = 0, image CRC `u16` |
+| Blobs | for each live named blob with bytes, in increasing address order: kind `u8`, address `u16`, size `u16`, name length `u8`, name |
+| End of the blobs | `$FF` |
+| Frames | count `u16`, then the frames |
+| Types | count `u16`, then the types |
+| Trailer | CRC `u16` over every preceding byte |
+
+- **Image CRC** is the line table's (Section 11): the CRC of the output file
+  as stored, so that a tool can check that both describe one program.
+- **Blobs** are named from the name stream and the library's name section
+  (Section 9, 7.5): a program compiled without option `M` or `Y` has no name
+  stream, and its blobs are left out. A blob of no bytes is left out, so no
+  two rows share an address. The kind is the blob's (Section 3.1); no kind
+  is `$FF`, which ends the rows.
+- **Frames and types** are zero in version 1.0: neither compiler records a
+  routine's frame layout or its locals' types yet. A frame, when one is
+  recorded, will be the routine's blob's address `u16`, its frame size
+  `u16`, a count `u8` of locals and parameters, and for each its IX
+  displacement `i16`, its type's index `u16` in the types, its name length
+  `u8` and name; a type its kind `u8` (scalar, record, array, string,
+  handle), its size `u16` and a kind's fields (a record's fields as names,
+  offsets and type indices; an array's element and count; a handle's pool's
+  name). A version 1.0 reader skips both by their counts only when they are
+  zero, and refuses a later major version.
+
+The file ends with its CRC; CP/M stores it in whole records, and a reader
+ignores the padding after the CRC. `tools/where.ts` (`deno task where NAME
+ADDRESS`) reads the line table and the debug file and lists the source line
+for an address, with the blob and the offset in it.
+

@@ -35,6 +35,9 @@ MAP_TYPE:                      ; Its type.
 SY_FD EQU  SRC_PROG            ; The symbol file, NAME.SYM.
 SY_TYPE:                       ; Its type.
     DB   "SYM"                     ; Three characters.
+DB_FD EQU  PUB_FD              ; The debug file, NAME.DBG (option D).
+DB_TYPE:                       ; Its type.
+    DB   "DBG"                     ; Three characters.
 NM_FD EQU  LN_FD               ; The program's name stream, NAME.$NM.
 NM_TYPE:                       ; Its type.
     DB   "$NM"                     ; Three characters.
@@ -48,6 +51,10 @@ SY_ON:                         ; Nonzero when the symbol file is written (Y).
     DB   0                         ; OF_Y's bit.
 SY_COUNT:                      ; The symbol file's rows.
     DW   0                         ; None: one empty line instead.
+DB_ON:                         ; Nonzero when the debug file is written (D).
+    DB   0                         ; OX_D's bit.
+DB_CRC:                        ; The debug file's CRC so far.
+    DW   0                         ; From $FFFF.
 MAP_PREV:                      ; The end of the last live blob listed.
     DW   0                         ; The next blob's padding is counted from it.
 NM_HAVE:                       ; Per owner: 1 while names remain.

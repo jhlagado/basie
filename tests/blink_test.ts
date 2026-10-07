@@ -36,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 11_411);
+  assertEquals(blink.length, 11_625);
 });
 
 const BLINK_DIGEST =
-  "d0366f02c8deeb6a05920e10145286ba8c72f56139bb96fd71c47eb0073a8377";
+  "3535221fc6777b5df68272ea04c20a077d5ff2b3d07aacd597dd51c0154c9e6e";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));
@@ -395,6 +395,37 @@ for (const path of PROGRAMS) {
       run.disk.get("PROG.SYM")!.subarray(0, symbols.length),
       symbols,
     );
+  });
+}
+
+for (const path of PROGRAMS) {
+  Deno.test(`BLINK writes the reference's debug file for ${path}`, async () => {
+    const { readLibrary } = await import("../ref/object/library.ts");
+    const { readNameStream } = await import("../ref/object/streams.ts");
+    const { writeDebug } = await import("../ref/link/reports.ts");
+    const result = await compile(path, { positions: true });
+    if (!result.ok) throw new Error(JSON.stringify(result));
+    const lib = readLibrary(library);
+    const names = new Map([
+      ...readNameStream(lib.names!).names,
+      ...readNameStream(result.objects.names).names,
+    ]);
+    const debug = writeDebug(result.link, names);
+    const run = runCom(blink, {
+      tail: "PROG [D]",
+      files: {
+        "BASIE.MSG": MSG,
+        "CPM22.BRL": library,
+        "PROG.$DR": result.objects.directory,
+        "PROG.$BY": result.objects.bytes,
+        "PROG.$LN": result.objects.lines,
+        "PROG.$NM": result.objects.names,
+      },
+      maxSteps: 300_000_000,
+    });
+    assertEquals(run.output, "");
+    assertEquals(run.disk.get("PROG.COM"), result.link.output);
+    assertEquals(run.disk.get("PROG.DBG")!.subarray(0, debug.length), debug);
   });
 }
 
