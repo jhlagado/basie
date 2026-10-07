@@ -372,6 +372,7 @@ const CLAIMED: Record<string, string[]> = {
     "IDEQ",
     "IDFEQ",
     "OWNLOC",
+    "OPSHORT",
   ],
 };
 
@@ -1697,6 +1698,22 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "operands: bool less int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a < n\nend\n",
+  "operands: bool plus nested":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = a + (n + a)\nend\n",
+  "operands: bool less nested":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a < (n + a)\nend\n",
+  "operands: plus bool to int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = +a\nend\n",
+  "operands: neg plus bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = -+a\nend\n",
+  "operands: true and int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = true and n\nend\n",
+  "operands: neg neg bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = - -a\nend\n",
+  "operands: neg paren":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = -(a)\nend\n",
   "operands: int plus bool":
     "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n + a\nend\n",
   "operands: int plus bool expr":

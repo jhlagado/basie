@@ -254,7 +254,8 @@ leases and `id()` of records (the fourth) took them to `$6300`
 (about 21.1K), and `OWNERS` grew past `FLOAT` to thirteen records, the
 overlay area with it (2,611 bytes). The copies of fields reached
 through an identifier took the workspaces to `$6400` (about 20.9K), and identifier and
-File equality to `$6500` (about 20.6K); a compression pass is due
+File equality to `$6500` (about 20.6K), and the operand
+diagnostics to `$6600` (about 20.4K); a compression pass is due
 before 67t.
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each

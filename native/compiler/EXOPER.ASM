@@ -91,6 +91,7 @@ EX_LOOK:                       ; Is the next token a binary operator?
     POP  DE                        ; D is the minimum, E the right level.
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
+    CALL EX_LBOK                   ; A Boolean takes = and <> only.
     PUSH DE                        ; Keep the levels across the push.
     CALL EX_SHAPE                  ; A shift's left takes a type or loads.
     CALL EX_SAVE                   ; Push the left operand and operator.
@@ -184,11 +185,7 @@ EX_LOOK:                       ; Is the next token a binary operator?
     JP   NZ,EX_ELOP                ; a computed one
     LD   A,DG_CONV                 ; needs a
     JP   EX_ELOP                   ; conversion.
-.BOOLS:                        ; Two Booleans:
-    LD   A,(EX_OPER)               ; Booleans have no order...
-    CP   EX_NE+1                   ; ...so only = and <> apply.
-    LD   A,DG_CLASH                ; An ordering comparison
-    JP   NC,EX_ELOP                ; is a mismatch, at the left.
+.BOOLS:                        ; Two Booleans, = or <> (EX_LBOK).
     CALL EX_KNOWN                  ; Are both known?
     JR   NZ,.FOLD                  ; Then fold them.
     LD   A,(EX_OPER)               ; = or <>.
@@ -449,6 +446,24 @@ EX_BXOR:                       ; D/HL is the left.
     CALL EX_LIT                    ; and Boolean.
     JP   EX_ORS                    ; Look for another operator.
 
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Left operand metadata A before binary operator EX_OPER is taken: a
+; Boolean has no arithmetic, shift or order (type-mismatch at it, as the
+; reference's numericType reports before the right is parsed). A is kept.
+
+EX_LBOK:                       ; A is the left's metadata.
+    PUSH AF                        ; Kept.
+    AND  SY_TMASK                  ; A Boolean
+    CP   SY_BOOL                   ; left
+    JR   NZ,.OK                    ; takes
+    LD   A,(EX_OPER)               ; = and <>
+    CP   EX_NE+1                   ; only.
+    LD   A,DG_CLASH                ; Anything else
+    JP   NC,EX_ELOP                ; is a mismatch at it.
+.OK:                           ; Accepted.
+    POP  AF                        ; A.
+    RET                            ; Back.
+
 ;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
 ; Keep the left operand A/HL of `and`, `or` or `xor` (EX_OPER) on the
 ; operand stack while the right is parsed. An integer is pushed if it was
@@ -518,6 +533,10 @@ EX_MUTE:
 EX_LOGIC:
     LD   A,(EX_RMETA)              ; Fetch the right metadata.
     LD   D,A                       ; Keep it.
+    LD   A,(EX_LMETA)              ; A known left that decides
+    RLCA                           ; returns, its right
+    CALL C,.DECIDE                 ; unchecked (short circuit).
+    LD   A,D                       ; The right:
     CALL EX_TBOOL                  ; Is its type Boolean?
     JR   Z,.RBOOL                  ; If not:
     LD   A,(EX_LMETA)              ; a mismatch or a conversion
@@ -527,7 +546,7 @@ EX_LOGIC:
     LD   E,A                       ; E is Boolean, for GX_TOREG.
     LD   A,(EX_LMETA)              ; Is the left known?
     RLCA                           ; SY_KNOWN into carry.
-    JR   C,.KNOWN                  ; Yes: it decided, or the right does.
+    JR   C,.RIGHT                  ; Yes: the right is the result.
     LD   HL,(EX_RVAL)              ; The right's value, if known,
     CALL GX_TOREG                  ; comes into A (a byte: EX_KVAL unread).
     LD   A,(EX_LVAL)               ; The short circuit's label is here, and nothing
@@ -535,20 +554,23 @@ EX_LOGIC:
     LD   A,SY_BOOL                 ; A run-time Boolean.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
-.KNOWN:                        ; A known left.
-    LD   HL,(EX_LVAL)              ; Its value, 0 or 1.
-    LD   A,(EX_OPER)               ; `and` is decided by false,
-    CP   TK_AND                    ; `or` by true.
-    LD   A,L                       ; The value.
-    JR   Z,.DECIDE                 ; `and`: zero decides.
-    XOR  1                         ; `or`: one decides.
-.DECIDE:                       ; A is zero when the left decides.
-    OR   A                         ; Did it?
-    LD   B,SY_KNOWN+SY_BOOL        ; Then the result is the known left,
-    JP   Z,EX_LIT                  ; HL; return it.
-    LD   B,D                       ; Otherwise the right,
+.RIGHT:                        ; A known left that did not decide:
+    LD   B,D                       ; the right is the result,
     LD   HL,(EX_RVAL)              ; known or computed.
     JP   EX_LIT                    ; Return it.
+.DECIDE:                       ; A known left: if it decides,
+    LD   HL,(EX_LVAL)              ; its value, 0 or 1,
+    LD   A,(EX_OPER)               ; `and` deciding by false,
+    CP   TK_AND                    ; `or` by true,
+    LD   A,L                       ; is
+    JR   Z,.ZERO                   ; the
+    XOR  1                         ; result:
+.ZERO:                         ; A is zero when the left decides.
+    OR   A                         ; Not?
+    RET  NZ                        ; Then the right is checked.
+    POP  BC                        ; It did (EX_LOGIC's return dropped):
+    LD   B,SY_KNOWN+SY_BOOL        ; the result is the known left,
+    JP   EX_LIT                    ; HL; return it.
 
 ;@ROUTINE IN A,E,HL OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC
 ; Check result A/HL, the expression just parsed, against destination type

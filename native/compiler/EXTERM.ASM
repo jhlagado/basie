@@ -309,7 +309,7 @@ EX_UNARY:
     JP   EX_TERM                   ; Otherwise parse a primary.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; Consume a sign and parse its integer operand, which unary plus returns
+; Consume a sign and parse its operand, which unary plus returns
 ; unchanged. EX_MINUS uses it to parse its own operand.
 
 EX_PLUS:
@@ -317,8 +317,8 @@ EX_PLUS:
     LD   HL,(TK_POS)               ; Its offset,
     PUSH HL                        ; kept.
     CALL EX_UNARY                  ; Parse its operand, signs included.
-    POP  BC                        ; The sign's offset.
-    JR   EX_INT                    ; It must be an integer; return it.
+    POP  BC                        ; The sign's offset, BC.
+    RET                            ; Unary plus takes any operand.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse unary minus (negate): an exact operand is negated exactly, and
@@ -327,7 +327,8 @@ EX_PLUS:
 ; negated in the registers (GX_NEG).
 
 EX_MINUS:
-    CALL EX_PLUS                   ; Consume '-' and parse the operand.
+    CALL EX_PLUS                   ; Consume '-' and parse the operand,
+    CALL EX_INT                    ; an integer (type-mismatch at '-').
     BIT  7,A                       ; SY_KNOWN: is it known?
     JR   NZ,.FOLD                  ; Yes: fold it.
     LD   D,A                       ; Its type

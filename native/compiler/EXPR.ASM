@@ -417,15 +417,13 @@ EX_UNIFY:
 ; EX_UNIFY's resolution of the type, before an f32's operands convert.
 
 .PAIR:                         ; The operands are popped.
-    CALL EX_LBOOL                  ; Fetch the left type.
-    LD   D,A                       ; D is the left type.
-    LD   A,DG_CLASH                ; Booleans have no arithmetic:
-    JR   Z,EX_ELOP                 ; type-mismatch at the left,
+    CALL EX_LBOOL                  ; Fetch the left type (no
+    LD   D,A                       ; Boolean: EX_LBOK); D is it.
     LD   A,(EX_RMETA)              ; Fetch the right metadata.
     CALL EX_TBOOL                  ; Is its type Boolean?
     LD   C,A                       ; C is the right type.
-    LD   A,DG_CLASH                ; or at
-    JP   Z,EX_EROP                 ; the right.
+    LD   A,DG_CLASH                ; Booleans have no arithmetic:
+    JP   Z,EX_EROP                 ; type-mismatch at the right.
     LD   A,D                       ; Is the left operand typed?
     OR   A                         ; Test for SY_EXACT.
     JR   NZ,.LTYPE                 ; Yes: resolve from the left type.
