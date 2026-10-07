@@ -6,8 +6,11 @@
 ;  and parameters, scalar and aggregate. Routine names live in the routine
 ;  table (ROUTINES.ASM) and record fields in the aggregate field table
 ;  (AGGR.ASM); declarations check all three for collisions. The table is
-;  an array searched linearly by exact spelling, with no hashing, that
-;  lives for the whole compilation. It starts above the largest part, in
+;  an array that lives for the whole compilation, searched through SY_HCAP
+;  hash chains (SY_HTAB): a name's chain is the sum of its length and its
+;  bytes, modulo SY_HCAP (SY_HASH), each chain links its records newest
+;  first (SY_LINK), and a scope's end unlinks its records from the chains'
+;  heads, where they are (SY_CUT). It starts above the largest part, in
 ;  whole records (SY_BTM, SRC_OPEN), and grows up as names are declared:
 ;  the routine's waiting constants above it move up a record when it
 ;  reaches them (RG_LIFT), and the name heap above them is the limit
@@ -26,8 +29,9 @@
 ;    SY_TAG    record an aggregate type for the provisional symbol, commit it
 ;    SY_CMT    commit the provisional symbol
 ;    SY_GET    return the current NAME's class/type and payload, or fail
+;    SY_CUT    end a scope: its records leave the table and their chains
 ;
-;  A record is ten bytes (SY_RECB):
+;  A record is twelve bytes (SY_RECB):
 ;
 ;    +0  word  address of the name's spelling in the name heap (TK_KEEP)
 ;    +2  byte  length of the spelling
@@ -40,6 +44,8 @@
 ;              +6..+8 are its value's three high bytes (SY_VHI), the
 ;              payload its low word
 ;    +9  byte  flags (SY_FLAGS): SY_FPRIV for a private declaration
+;    +10 word  the next older record in its hash chain, zero for none
+;              (SY_LINK)
 ;
 ;  A declaration is written in two steps:
 ;  SY_NEW fills the record at SY_TOP, which SY_FIND does not see, and
@@ -103,23 +109,92 @@ SY_BITAT:                      ; A is the bit's index, HL the table.
     RET                            ; HL and A locate the bit.
 
 ;@ROUTINE OUT CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,A,C,DE
-; Compare the current NAME token with each committed record. Carry returns
-; the matching record in HL; carry clear means the name is not an ordinary
-; symbol. The provisional record at SY_TOP is not searched. B is preserved.
+; Compare the current NAME token with the committed records of its hash
+; chain, newest first. Carry returns the matching record in HL; carry
+; clear means the name is not an ordinary symbol. The provisional record
+; at SY_TOP is in no chain. B is preserved.
 
 SY_FIND:
-    LD   HL,(SY_BTM)               ; From the first record:
-.LOOP:                         ; HL is the next to compare.
-    LD   DE,(SY_TOP)               ; is it the provisional one?
-    OR   A                         ; Then none matched,
-    SBC  HL,DE                     ; and the add
-    ADD  HL,DE                     ; leaves carry clear.
-    RET  Z                         ; Not an ordinary symbol.
+    PUSH BC                        ; Keep B.
+    LD   HL,(TK_PTR)               ; The token's
+    LD   A,(TK_LEN)                ; spelling
+    LD   B,A                       ; and length:
+    CALL SY_HASH                   ; its chain's head.
+    POP  BC                        ; B again.
+.LOOP:                         ; HL addresses a link: the next record.
+    LD   A,(HL)                    ; The
+    INC  HL                        ; record,
+    LD   H,(HL)                    ; or
+    LD   L,A                       ; zero:
+    OR   H                         ; none left,
+    RET  Z                         ; carry clear (OR).
     CALL TK_SAME                   ; Does its spelling equal the token's?
     RET  C                         ; Return the matching record in HL.
-    LD   DE,SY_RECB                ; Fetch the record stride.
-    ADD  HL,DE                     ; Step to the next record.
-    JR   .LOOP                     ; Continue through the committed records.
+    LD   DE,SY_LINK                ; Its link
+    ADD  HL,DE                     ; to the next.
+    JR   .LOOP                     ; Continue along the chain.
+
+;@ROUTINE IN B,HL OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Address in HL the head of the hash chain of the spelling of B bytes, at
+; least one, at HL: their sum with B, modulo SY_HCAP. C is kept.
+
+SY_HASH:                       ; HL the spelling, B its length.
+    LD   A,B                       ; The length,
+.SUM:                          ; plus
+    ADD  A,(HL)                    ; each
+    INC  HL                        ; byte,
+    DJNZ .SUM                      ; modulo
+    AND  SY_HCAP-1                 ; SY_HCAP,
+    ADD  A,A                       ; is the
+    LD   L,A                       ; chain:
+    LD   H,0                       ; its head's
+    LD   DE,SY_HTAB                ; address.
+    ADD  HL,DE                     ; HL.
+    RET                            ; Done.
+
+;@ROUTINE IN HL CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; End a scope: the records from HL on leave the table (SY_TOP becomes HL)
+; and their chains, at whose heads they are, being newer than every
+; record before HL. BC is kept.
+
+SY_CUT:                        ; HL is the scope's first record.
+    LD   (SY_TOP),HL               ; The table ends there.
+    PUSH BC                        ; Keep BC.
+    EX   DE,HL                     ; DE is the mark.
+    LD   HL,SY_HTAB                ; Each chain's
+    LD   B,SY_HCAP                 ; head:
+.HEAD:                         ; HL addresses it.
+    LD   C,(HL)                    ; Its record,
+    INC  HL                        ; A and C,
+    LD   A,(HL)                    ; (zero
+    DEC  HL                        ; for none)
+    PUSH HL                        ; (the head kept)
+    LD   H,A                       ; below
+    LD   L,C                       ; the
+    OR   A                         ; mark,
+    SBC  HL,DE                     ; stays,
+    ADD  HL,DE                     ; and so
+    JR   C,.KEEP                   ; does the chain.
+    PUSH DE                        ; (the mark)
+    LD   DE,SY_LINK                ; Otherwise
+    ADD  HL,DE                     ; the record's
+    LD   C,(HL)                    ; next
+    INC  HL                        ; is
+    LD   A,(HL)                    ; the head:
+    POP  DE                        ; (the mark)
+    POP  HL                        ; (the head)
+    LD   (HL),C                    ; both
+    INC  HL                        ; of its
+    LD   (HL),A                    ; bytes;
+    DEC  HL                        ; then the same
+    JR   .HEAD                     ; head again.
+.KEEP:                         ; The chain is in scope.
+    POP  HL                        ; The head,
+    INC  HL                        ; and
+    INC  HL                        ; the next
+    DJNZ .HEAD                     ; chain's.
+    POP  BC                        ; BC again.
+    RET                            ; The scope has ended.
 
 ;@ROUTINE IN D,BC OUT A,CARRY,HL CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Write a provisional record for the current NAME token with class/type D
@@ -170,7 +245,8 @@ SY_TAG:
     LD   (HL),A                    ; Record it, then commit below.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
-; Commit the provisional symbol so that SY_FIND sees it; a private
+; Commit the provisional symbol to its hash chain so that SY_FIND sees
+; it; a private
 ; declaration's (AC_PRIV) is marked SY_FPRIV, to be hidden when its part
 ; ends (AC_ENDP). The next provisional record must end at or below the
 ; routine's waiting constants, which otherwise move up a record (RG_LIFT,
@@ -188,9 +264,28 @@ SY_CMT:
     LD   A,SY_FPRIV                ; zero; else SY_FPRIV.
 .FLAG:                         ; A is the flags.
     LD   (HL),A                    ; Recorded.
-    LD   DE,SY_RECB-SY_FLAGS       ; The record
-    ADD  HL,DE                     ; joins the table: the next
-    LD   (SY_TOP),HL               ; is the provisional one;
+    LD   HL,(SY_TOP)               ; Its spelling
+    PUSH HL                        ; (the record kept)
+    LD   E,(HL)                    ; and
+    INC  HL                        ; its
+    LD   D,(HL)                    ; length
+    INC  HL                        ; name
+    LD   B,(HL)                    ; its
+    EX   DE,HL                     ; hash
+    CALL SY_HASH                   ; chain,
+    POP  DE                        ; which the record
+    LD   A,(HL)                    ; heads,
+    LD   (HL),E                    ; linked
+    INC  HL                        ; before
+    LD   C,(HL)                    ; the
+    LD   (HL),D                    ; old head,
+    LD   HL,SY_LINK                ; A and C,
+    ADD  HL,DE                     ; in its
+    LD   (HL),A                    ; link.
+    INC  HL                        ; The next
+    LD   (HL),C                    ; record
+    INC  HL                        ; is the
+    LD   (SY_TOP),HL               ; provisional one;
     LD   DE,SY_RECB                ; its record
     ADD  HL,DE                     ; must end
     LD   DE,(RG_CBEG)              ; at or below

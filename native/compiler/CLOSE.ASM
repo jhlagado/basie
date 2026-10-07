@@ -115,6 +115,8 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     CALL BL_NAME                   ; The name is recorded.
     POP  HL                        ; The next.
     JR   .NEXT                     ; Write it.
-.DONE:                         ; Every constant is written.
-    POP  HL                        ; HL is the need.
+.DONE:                         ; Every constant is written:
+    LD   HL,(RG_CBEG)              ; none waits now, so that
+    LD   (RG_PEND),HL              ; nothing is moved up for them
+    POP  HL                        ; (RG_LIFT). HL is the need.
     RET                            ; The routine is written.

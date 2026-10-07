@@ -109,7 +109,7 @@ OUT_BYTE:                      ; A is the byte.
 ; the buffer's last byte.
 
 .WRITE:                        ; The buffer holds a whole record.
-    PUSH IY                        ; The BIOS may change IY; the compiler keeps state in it.
+    PUSH IY                        ; The BIOS may change IY; the caller's is kept.
     LD   DE,-127                   ; The buffer starts
     ADD  HL,DE                     ; 127 bytes before its last.
     EX   DE,HL                     ; DE is the buffer.

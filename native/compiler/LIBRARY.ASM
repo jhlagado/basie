@@ -13,10 +13,10 @@
 ;  compiler takes them from its library. Then, before the streams are
 ;  made, the compilation stamp is chosen (object format §4.1).
 ;
-;  The START overlay (OVERLAY.ASM), with PARTNAME.ASM. The shell enters it
-;  twice: before the parts are loaded (PARTS.ASM), at OV_AREA, to check the
+;  Part of the BEGIN overlay (OVERLAY.ASM). The shell enters it twice:
+;  before the parts are loaded (PARTS.ASM), at OV_AREA+3, to check the
 ;  library and set the streams' flags (LB_FIRST), and after, at
-;  OV_AREA+3, to choose the stamp, open the streams NAME.$DR, $BY, $LN and
+;  OV_AREA+9, to choose the stamp, open the streams NAME.$DR, $BY, $LN and
 ;  $NM on the spool drive with the first part's name (toolchain §3.2) and
 ;  name each part in the line stream in stream order (LB_OPEN).
 ;

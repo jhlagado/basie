@@ -147,8 +147,11 @@ CT_BLOCK:
     LD   E,(HL)                    ; are
     INC  HL                        ; again
     LD   D,(HL)                    ; (the provisional
-    LD   (SY_TOP),DE               ; record then);
-    LD   DE,CT_FSIZE-CT_FSYMS-1    ; and so is
+    PUSH HL                        ; record then,
+    EX   DE,HL                     ; out of their
+    CALL SY_CUT                    ; chains);
+    POP  HL                        ; and
+    LD   DE,CT_FSIZE-CT_FSYMS-1    ; so is
     ADD  HL,DE                     ; the size
     LD   E,(HL)                    ; of the
     INC  HL                        ; frame,
@@ -167,7 +170,7 @@ CT_TOP:
     OR   A                         ; None?
     JR   Z,CT_ELOOP                ; Raise DG_LOOP.
     DEC  A                         ; The innermost is at depth minus one.
-    JR   CT_FRAME                  ; Return its address.
+    JP   CT_FRAME                  ; Return its address.
 
 ;@ROUTINE OUT A,B,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return in HL the address of the innermost frame's mode (CT_FMODE). C is

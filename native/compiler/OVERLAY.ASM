@@ -23,9 +23,8 @@
 ;                           OV_AREA, MS_SHOWD at OV_AREA+3)
 ;    OV_LOOK   LOOKUP.ASM   option T: a trap's address looked up (LK_RUN at
 ;                           OV_AREA), which the command line's reading runs
-;  PARTNAME.ASM, the parts' names, is assembled into COMMAND, START, DIAG
-;  and PARTS, which each need it, and FILENAME.ASM, CP/M names, into
-;  COMMAND and PARTS.
+;  PARTNAME.ASM, the parts' names, is assembled into BEGIN and DIAG, which
+;  each need it, and FILENAME.ASM, CP/M names, into BEGIN and LOOKUP.
 ;
 ;    OV_FLOAT  FLOAT.ASM    f32 constants: decimal literals converted and
 ;                           f32 operations folded (OV_FSCAN, OV_ITOF,

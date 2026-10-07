@@ -285,7 +285,13 @@ PR_RESET:
     LD   (DG_CODE),HL              ; No diagnostic yet, and no failing part (DG_PART).
     LD   (RG_LARGE),HL             ; No frame yet: the largest is zero.
     LD   (SY_BODY),HL              ; No body is open (SRC_OPEN places
-                                   ; the symbol table).
+                                   ; the symbol table), and no chain
+    LD   HL,SY_HTAB                ; has a record:
+    LD   B,2*SY_HCAP               ; each head's
+.CHAINS:                       ; two bytes
+    LD   (HL),A                    ; are
+    INC  HL                        ; zero.
+    DJNZ .CHAINS                   ; All of them.
     LD   (RG_FWD),A                ; No forward routines.
     LD   (EX_PRIME),A              ; No primary parsed ahead.
     LD   HL,AG_DCNT                ; The aggregate counters, AG_DCNT..AG_OPENF.

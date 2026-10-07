@@ -20,15 +20,15 @@
 ;                  routine's labels, ordinals, its waiting constants and
 ;                  the program's limits
 ;    +$0BB      3  parser lookahead
-;    +$0BE      8  symbol table: its base and three marks (the records
-;                  are above the largest part, SYMBOLS.ASM)
-;    +$0C6    330  expression state, the folding scratch and the operand
+;    +$0BE     72  symbol table: its base, three marks and 32 hash chains
+;                  (the records are above the largest part, SYMBOLS.ASM)
+;    +$106    330  expression state, the folding scratch and the operand
 ;                  stack
-;    +$210    162  control: depth, fallthrough, eight frames of twenty
+;    +$250    162  control: depth, fallthrough, eight frames of twenty
 ;                  bytes
-;    +$2B2   1530  aggregate types, records, fields, array bounds, the
+;    +$2F2   1530  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
-;    +$8AC         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$8EC         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);
@@ -124,12 +124,15 @@ SY_TOP EQU  EM_WEND+$03        ; Word: the provisional record, past the committe
 SY_GTOP EQU  EM_WEND+$05       ; Word: SY_TOP as a body opens; AC_END drops locals to it.
 SY_BODY EQU  EM_WEND+$07       ; Word: the body's first record, zero outside one.
 SY_BTM EQU  EM_WEND+$09        ; Word: the first record, above the largest part.
-SY_RECB EQU  10                ; Bytes in one symbol record.
+SY_RECB EQU  12                ; Bytes in one symbol record.
 SY_FLAGS EQU  9                ; Record offset of its flags.
+SY_LINK EQU  10                ; Record offset of the next record in its chain.
 SY_FPRIV EQU  1                ; Flag: declared private (AC_PRIV).
 SY_AGT EQU  6                  ; Record offset of an aggregate's type ordinal.
 SY_VHI EQU  6                  ; Record offset of a constant's value's high bytes.
-SY_LIM EQU  SY_BTM+2           ; End of the symbol table's marks.
+SY_HTAB EQU  SY_BTM+2          ; SY_HCAP words: each hash chain's newest record.
+SY_HCAP EQU  32                ; Hash chains, a power of two.
+SY_LIM EQU  SY_HTAB+2*SY_HCAP  ; End of the symbol table's marks and chains.
 
 ; Expression state (EXPR.ASM). An expression returns metadata in A (type
 ; in SY_TMASK, SY_KNOWN when the value is exact) and, when it is known,

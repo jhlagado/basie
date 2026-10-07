@@ -758,8 +758,8 @@ AC_END:
     INC  HL                        ; both
     LD   (HL),B                    ; bytes.
 .SCOPE:                        ; Leave the routine's scope.
-    LD   HL,(SY_GTOP)              ; Keep only the global symbols.
-    LD   (SY_TOP),HL               ; Parameters and locals go out of scope.
+    LD   HL,(SY_GTOP)              ; Keep only the global symbols:
+    CALL SY_CUT                    ; parameters and locals go out of scope.
     LD   HL,0                      ; No body
     LD   (SY_BODY),HL              ; is open.
     XOR  A                         ; A is zero.

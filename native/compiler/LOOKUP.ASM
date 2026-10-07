@@ -5,7 +5,7 @@
 ;  BASIE NAME [T=hhhh] (toolchain §8, design decision D47): the statement
 ;  whose code holds address hhhh, from NAME.LIN, the line table, and its
 ;  source part, as the reference's trapLookup (ref/toolchain/traplookup.ts)
-;  prints it. Part of the COMMAND overlay, which reads the command line;
+;  prints it. The LOOKUP overlay, which the command line's reading runs;
 ;  nothing is compiled. The table must be version 2.0, whole and its own
 ;  CRC's; a program file NAME.COM, NAME.BIN or NAME.HEX must be the one it
 ;  describes (its image CRC). Then the entry with the greatest address not

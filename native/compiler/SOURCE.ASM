@@ -150,7 +150,9 @@ SRC_OPEN:
     LD   HL,(NH_PTR)               ; the name
     OR   A                         ; heap,
     SBC  HL,DE                     ; else
-    JR   NC,.FITS                  ; DG_ROOM.
+    JR   NC,.FITS                  ; DG_ROOM,
+    XOR  A                         ; naming
+    LD   (SRC_ID),A                ; no part.
     CALL DG_RAISE                  ; The memory
     DB   DG_ROOM                   ; is full.
 .FITS:                         ; The tables are ready.
