@@ -576,8 +576,10 @@ Each entry is: address `u16`, part `u8`, line `u16`, column `u8`.
 - Each other live blob in a stored section (runtime blobs, `rodata`, `data` and
   `startup`) contributes one entry at its start address, with part `$FF` and
   the blob's ordinal in the line field and column 0.
-- `bss` blobs and the `COPY` section contribute nothing. An address beyond the
-  last entry's blob, or in `BSS`, is reported as outside the stored code.
+- `bss` blobs and the `COPY` section contribute nothing. The table doesn't
+  record where a blob ends, so an address past the last stored blob, or in
+  `BSS`, is taken for the last entry's; only one below the first entry is
+  outside the stored code.
 
 Six `$FF` bytes can never form an entry: that would be a start entry for
 ordinal `$FFFF`, which is a reserved pseudo-object, never a blob. They mark the
@@ -590,6 +592,9 @@ routine's first entry is its name's position.
 The source position of an address is that of the entry with the greatest
 address not above it. Part `$FF` means the address lies in a blob without
 source; the ordinal identifies it.
+
+The table's CRC ends it; CP/M stores the file in whole records, and a reader
+ignores the padding after the CRC.
 
 The **image CRC** is the CRC of the output file as stored, including whatever
 padding the output kind uses, so a tool can check that a line table belongs to

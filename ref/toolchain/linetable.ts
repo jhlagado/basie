@@ -38,8 +38,10 @@ export function readLineTable(bytes: Uint8Array): LineTable {
     throw new ObjectError("L-TRUNCATED", "entry count");
   }
   const imageCrc = r.u16();
+  // The CRC ends the table; what follows is a record's padding (CP/M).
+  const end = r.position;
   const stored = r.u16();
-  if (stored !== crc16(bytes.subarray(0, bytes.length - 2))) {
+  if (stored !== crc16(bytes.subarray(0, end))) {
     throw new ObjectError("L-TRUNCATED", "line table CRC");
   }
   return { parts, outputName, libraryName, entries, imageCrc };

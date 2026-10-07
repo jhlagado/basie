@@ -32,8 +32,9 @@ LK_CNT EQU  LK_ICRC+2          ; Word: the table's entries read.
 LK_PCNT EQU  LK_CNT+2          ; Byte: its parts.
 LK_SEEN EQU  LK_PCNT+1         ; Byte: nonzero once a program file is found.
 LK_ENT EQU  LK_SEEN+1          ; 6 bytes: the entry being read.
-LK_BEST EQU  LK_ENT+6          ; 6 bytes: the best entry; part $FE if none.
-LK_TEXT EQU  LK_BEST+6         ; 256 bytes: the part's name, zero-terminated.
+LK_BEST EQU  LK_ENT+6          ; 6 bytes: the best entry.
+LK_HAVE EQU  LK_BEST+6         ; Byte: nonzero once there is a best entry.
+LK_TEXT EQU  LK_HAVE+1         ; 256 bytes: the part's name, zero-terminated.
 
 ;@ROUTINE NORETURN
 ; Look the address of option T up (toolchain §8) and print what it finds,
@@ -55,8 +56,8 @@ LK_RUN:                        ; Option T was given.
     CALL LK_NAMES                  ; them all.
     LD   HL,0                      ; No entries
     LD   (LK_CNT),HL               ; yet,
-    LD   A,$FE                     ; and no
-    LD   (LK_BEST+2),A             ; best one.
+    XOR  A                         ; and no
+    LD   (LK_HAVE),A               ; best one.
 .ENTRY:                        ; The next entry, or the trailer.
     LD   HL,LK_ENT                 ; Its
     LD   B,6                       ; six
@@ -85,7 +86,9 @@ LK_RUN:                        ; Option T was given.
     LD   HL,LK_ENT                 ; the best
     LD   DE,LK_BEST                ; so far,
     LD   BC,6                      ; in
-    LDIR                           ; order.
+    LDIR                           ; order:
+    LD   A,1                       ; there
+    LD   (LK_HAVE),A               ; is one.
     JR   .ENTRY                    ; The next.
 .TRAIL:                        ; The trailer:
     CALL LK_TWORD                  ; the entry count,
@@ -142,9 +145,10 @@ LK_RUN:                        ; Option T was given.
     JP   LK_NOCOM                  ; or there is none.
 .MATCH:                        ; The program is the table's.
     POP  HL                        ; (dropped)
-    LD   A,(LK_BEST+2)             ; The best entry's part:
-    CP   $FE                       ; none
+    LD   A,(LK_HAVE)               ; No entry
+    OR   A                         ; at or below it
     JP   Z,LK_OUT                  ; (outside),
+    LD   A,(LK_BEST+2)             ; or the best entry's part:
     INC  A                         ; $FF
     JP   Z,LK_BLOB                 ; (a blob without source),
     JP   LK_PART                   ; or a part.
@@ -231,7 +235,13 @@ LK_PART:                       ; LK_BEST is the entry.
     CALL LK_DEC                    ; Then the text:
     LD   HL,LK_TEXT                ; the part,
     CALL CL_NAME                   ; named,
-    JR   C,LK_DONE                 ; and
+    JR   C,LK_DONE                 ; on the program's
+    LD   A,(SH_FCB)                ; drive
+    OR   A                         ; unless
+    JR   NZ,.DRIVE                 ; it names
+    LD   A,(SH_NAMES)              ; one,
+    LD   (SH_FCB),A                ; and
+.DRIVE:                        ; then
     LD   DE,SH_FCB                 ; opened
     LD   C,SH_OPEN                 ; (else
     CALL SH_BDOS                   ; the

@@ -395,6 +395,18 @@ Deno.test("BASIE [T=hhhh] looks an address up as the reference does", () => {
     assertEquals(native.output, want.text, address.toString(16));
     assertEquals(native.returnCode === 0xff01, want.failed);
   }
+  // The table as CP/M stores it, padded to a whole record, reads the same.
+  const lin = LOOKUP["MAIN.LIN"];
+  const padded = new Uint8Array(Math.ceil(lin.length / 128) * 128).fill(0x1a);
+  padded.set(lin);
+  for (const address of [...addresses].slice(0, 6)) {
+    const { native, want } = lookedUp(address, {
+      ...LOOKUP,
+      "MAIN.LIN": padded,
+    });
+    assertEquals(want.failed, false);
+    assertEquals(native.output, want.text, address.toString(16));
+  }
   // A statement's own line, from its column on.
   const at = table.entries.find((e) => e.part === 0 && e.source === 5)!;
   assertEquals(

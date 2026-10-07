@@ -349,11 +349,13 @@ read: on the current drive, then on `A:`, the drives from which the CCP loads
 A>BASIE MAIN [T=1A3F]
 ```
 
-With option `T`, `BASIE` neither compiles nor links. It reads `MAIN.LIN`, which
+With option `T`, `BASIE` neither compiles nor links. The first part named is the
+program's name and gives its drive. It reads `MAIN.LIN`, which
 must be whole (version 2.0, its entry count and CRC right), and finds a program
 file, `MAIN.COM`, `MAIN.BIN` or `MAIN.HEX`, whose CRC is the table's image CRC.
 Then the entry with the greatest address not above the given one names the
-statement: `BASIE` opens its source part and prints the part, the line and the
+statement: `BASIE` opens its source part, on the program's drive unless the part
+names one, and prints the part, the line and the
 column, and the line's text from that column on:
 
 ```text
