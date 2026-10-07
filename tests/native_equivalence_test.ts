@@ -373,6 +373,7 @@ const CLAIMED: Record<string, string[]> = {
     "IDFEQ",
     "OWNLOC",
     "OPSHORT",
+    "COLWIDE",
   ],
 };
 

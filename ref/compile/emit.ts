@@ -267,6 +267,7 @@ export class Blob {
   }
 
   line(part: number, source: number, column: number): void {
+    column = Math.min(column, 255); // a byte in the line stream (§8)
     const last = this.lines.at(-1);
     if (last && last.offset === this.offset && last.part === part) {
       last.source = source;
