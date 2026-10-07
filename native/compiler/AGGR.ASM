@@ -19,6 +19,7 @@
 ;    AG_FITRW  check one extent against the 1 KiB initializer staging
 ;    AG_ZERO   zero the object being initialized
 ;    AG_PARSE  parse one initializer for a type at the staging cursor
+;    AG_SCOPE  release the types a routine's body made, at its end
 ;
 ;  Type IDs are one byte. IDs 1..8 are the scalars, the SY_ type codes
 ;  (STATE.ASM): u8, u16, Boolean, i8, i16, u32, i32 and f32; IDs from AG_FIRST
@@ -39,6 +40,41 @@
 ;  string's padding and terminator need no writes. Nested initializers are
 ;  bounded at four levels (AG_LCAP). Every extent is bounded at 1024 bytes,
 ;  the size of the staging buffer.
+
+;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A routine's body has ended, its blob written: the types its body made
+; (from RO_TBASE to AG_TCNT), which only its locals and constants could
+; have, are released, their IDs free for the types made next, and their
+; owner descriptors' ordinals (PL_DESC) and owning bits (PL_OWNB) cleared
+; for those. Records, the types that last, are declared only at top level.
+
+AG_SCOPE:                      ; The body has ended.
+    LD   A,(AG_TCNT)               ; The types so far,
+    LD   B,A                       ; B of them;
+    LD   A,(RO_TBASE)              ; those before the body's
+    LD   (AG_TCNT),A               ; stay.
+.TYPE:                         ; A is the next index released.
+    CP   B                         ; Any
+    RET  NC                        ; left?
+    PUSH AF                        ; (the index)
+    CALL PL_OWNAT                  ; Its owning bit,
+    CPL                            ; A, in byte HL,
+    AND  (HL)                      ; is
+    LD   (HL),A                    ; cleared;
+    POP  AF                        ; its
+    PUSH AF                        ; descriptor's
+    ADD  A,A                       ; ordinal,
+    LD   E,A                       ; a
+    LD   D,0                       ; word
+    LD   HL,PL_DESC                ; of the
+    ADD  HL,DE                     ; cache,
+    XOR  A                         ; is
+    LD   (HL),A                    ; zero
+    INC  HL                        ; again.
+    LD   (HL),A                    ; (Both bytes.)
+    POP  AF                        ; The
+    INC  A                         ; next.
+    JR   .TYPE                     ; Until all are.
 
 ;@ROUTINE IN A OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Address in HL the AG_RTAB entry of record ordinal A: its first field's

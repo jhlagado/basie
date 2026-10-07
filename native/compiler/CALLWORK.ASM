@@ -86,7 +86,7 @@ RO_CUR EQU  RO_BASE+$02        ; Byte: index of the routine being compiled, $FF 
 RO_CTYPE EQU  RO_BASE+$03      ; Byte: its result type ordinal, zero for none.
 RO_CPIDX EQU  RO_BASE+$04      ; Byte: its first parameter record.
 RO_CPCNT EQU  RO_BASE+$05      ; Byte: its parameters so far.
-; RO_BASE+$06: free.
+RO_TBASE EQU  RO_BASE+$06      ; Byte: AG_TCNT as the body opened (AG_SCOPE).
 RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.
 RO_CFLAG EQU  RO_BASE+$08      ; Byte: flags of the routine being compiled.
 RO_PEND EQU  RO_BASE+$09       ; Byte: $80 and a failure's label while it is unconsumed.

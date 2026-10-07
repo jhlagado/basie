@@ -704,14 +704,16 @@ AC_ENTRY:
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; The body's block opens after the parameters (the reference's block in
 ; the routine's scope): its symbols are those from SY_TOP on, and
-; SY_BODY holds that record's address until the body ends (SY_HERE). Its
-; start is reachable.
+; SY_BODY holds that record's address until the body ends (SY_HERE), and
+; RO_TBASE the types so far, which outlive it. Its start is reachable.
 
 AC_BLOCK:
     PUSH HL                        ; Keep HL.
     LD   HL,(SY_TOP)               ; The first record of the block,
     LD   (SY_BODY),HL              ; never zero, marks a body as open;
-    POP  HL                        ; fall into AC_LIVE.
+    POP  HL                        ; and the types
+    LD   A,(AG_TCNT)               ; so far outlive it, those it makes
+    LD   (RO_TBASE),A              ; not (AG_SCOPE); fall into AC_LIVE.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Control can reach this point.
@@ -759,7 +761,8 @@ AC_END:
     LD   (HL),B                    ; bytes.
 .SCOPE:                        ; Leave the routine's scope.
     LD   HL,(SY_GTOP)              ; Keep only the global symbols:
-    CALL SY_CUT                    ; parameters and locals go out of scope.
+    CALL SY_CUT                    ; parameters and locals go out of scope,
+    CALL AG_SCOPE                  ; and the types the body made.
     LD   HL,0                      ; No body
     LD   (SY_BODY),HL              ; is open.
     XOR  A                         ; A is zero.
