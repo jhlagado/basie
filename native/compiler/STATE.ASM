@@ -16,19 +16,19 @@
 ;
 ;    Offset  Size  Block
 ;    +$000     27  source cursor, current token, diagnostic (PR_BASE)
-;    +$01B    160  emitter and routine generation: frame accounting, the
-;                  routine's labels, ordinals, its waiting constants and
-;                  the program's limits
-;    +$0BB      3  parser lookahead
-;    +$0BE     72  symbol table: its base, three marks and 32 hash chains
+;    +$01B    291  emitter and routine generation: frame accounting, the
+;                  routine's 64 labels, ordinals, its waiting constants
+;                  and the program's limits
+;    +$13E      3  parser lookahead
+;    +$141     72  symbol table: its base, three marks and 32 hash chains
 ;                  (the records are above the largest part, SYMBOLS.ASM)
-;    +$106    330  expression state, the folding scratch and the operand
+;    +$189    330  expression state, the folding scratch and the operand
 ;                  stack
-;    +$250    322  control: depth, fallthrough, 16 frames of twenty
+;    +$2D3    322  control: depth, fallthrough, 16 frames of twenty
 ;                  bytes
-;    +$2F2   1530  aggregate types, records, fields, array bounds, the
+;    +$415   1540  aggregate types, records, array bounds, the
 ;                  initializer staging
-;    +$8EC         AG_WEND = PR_WEND, where CALLWORK.ASM begins
+;    +$A19         AG_WEND = PR_WEND, where CALLWORK.ASM begins
 ;
 ;  Writers: SOURCE.ASM owns SRC_*; TOKEN.ASM the TK_ fields (the parser
 ;  restores TK_PTR, TK_LEN and TK_POS when it revisits a retained name);

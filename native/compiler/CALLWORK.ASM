@@ -6,29 +6,30 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($6300).
+;  from MM_WBASE ($6B00).
 ;
 ;    Offset  Size  Block
-;    +$BF4     68  routine state: counts, the signature being parsed, the
-;                  body's block, the declaration's part and visibility,
-;                  the private symbols, the from parameters (a bit for
-;                  each of RO_PCAP), the call being checked and the path
-;                  in hand (RO_BASE)
-;    +$C38    768  routine table: 64 records of twelve bytes (RO_RTAB)
-;    +$F38    640  parameter table: 160 records of four bytes (RO_PTAB)
-;    +$11B8   288  the routine's string literals: 48 of six bytes (RO_LTAB)
-;    +$12D8     5  the source cursor's part state (SRC_PTAB, SRC_PCNT,
-;                  SRC_NUM, SRC_OWE)
-;    +$12DD     2  PR_SP, the stack DG_ISSUE restores
-;    +$12DF   119  the pools' table and the handles' and flows' state
-;                  (PL_CNT to PL_WEND)
-;    +$1356   169  unused, so that the LL(1) stack starts a page
-;    +$13FF    65  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1400, a page
+;    +$A19     56  routine state: counts, the signature being parsed, the
+;                  types the body found, the declaration's part and
+;                  visibility, the from parameters (a bit for each of
+;                  RO_PCAP), the call being checked and the path in hand
+;                  (RO_BASE)
+;    +$A51   1024  routine table: 64 records of sixteen bytes (RO_RTAB)
+;    +$E51    640  parameter table: 160 records of four bytes (RO_PTAB)
+;    +$10D1   288  the routine's string literals: 48 of six bytes (RO_LTAB)
+;    +$11F1     6  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;                  SRC_NUM, SRC_OWE, SRC_RES)
+;    +$11F7     2  PR_SP, the stack DG_ISSUE restores
+;    +$11F9   198  the pools' table and the handles' and flows' state, 16
+;                  frames' flows (PL_CNT to PL_WEND)
+;    +$12BF   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM)
+;    +$1359   166  unused, so that the LL(1) stack starts a page
+;    +$13FF   129  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1400, a page
 ;                  start, so a slot's address is the page and the depth)
-;    +$1440   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
+;    +$1480   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
 ;                  ranges of eight bytes (CT_RTAB)
-;    +$163A    48  each table type's owner descriptor (PL_DESC)
-;    +$166A        LL_WEND, the end of the compiler workspace, 5,738 bytes
+;    +$167A    96  each table type's owner descriptor (PL_DESC)
+;    +$16DA        LL_WEND, the end of the compiler workspace, 5,850 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and

@@ -11,9 +11,9 @@
 ;    $6B00  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
 ;           FL_WBEG   the FLOAT overlay's workspace, FL_WEND, after the
 ;                     pools' bytes, below the LL(1) stack's page (LL1.ASM)
-;    $80A0  SH_WBEG   the shell's workspace, SH_WEND
-;    $81B0  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $9390  MM_SRC    the source parts, the symbol table and the name heap
+;    $81E0  SH_WBEG   the shell's workspace, SH_WEND
+;    $82F0  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
+;    $94D0  MM_SRC    the source parts, the symbol table and the name heap
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
 ;  Nothing in the workspace is initialised by the image, so the image and

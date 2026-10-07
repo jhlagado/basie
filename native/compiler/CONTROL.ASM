@@ -78,7 +78,7 @@ CT_FRAME:
 ;@ROUTINE IN B OUT A,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Open a frame of kind B and return its address in HL: it keeps the label
 ; count, the frame's size and the symbol count to restore when it or its
-; blocks end, and its mode is clear. A ninth frame raises DG_NEST.
+; blocks end, and its mode is clear. A frame past CT_FCAP raises DG_NEST.
 
 CT_PUSH:
     LD   A,(CT_DEPTH)              ; The new frame's index is the depth.
