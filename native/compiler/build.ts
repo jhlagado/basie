@@ -77,15 +77,6 @@ export const OVERLAYS = [
     offset: 0,
     after: "NAMES",
   },
-  // Above NAMES too: a blob written and a routine ended, with branch
-  // shrinking; OWNERS writes its blobs through BL_ENDO, which loads it again.
-  {
-    name: "CLOSE",
-    equate: "OV_CLOSE",
-    files: ["CLOSE.ASM", "BLEND.ASM", "SHRINK.ASM"],
-    offset: 0,
-    after: "NAMES",
-  },
 ];
 
 export type Overlay = {

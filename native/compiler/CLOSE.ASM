@@ -1,22 +1,15 @@
 ;==========================================================================
-;  The CLOSE overlay: a blob written, a routine ended
+;  A routine ended
 ;==========================================================================
 ;
-;  The blob writer's end (BL_END, with BL_CTRL and BL_MAP) and the end of
-;  a routine (RG_CLOSE), with branch shrinking (SHRINK.ASM), loaded above
-;  NAMES in FLOAT's and OWNERS' place when a blob is written. They load no
-;  other overlay. The resident BL_END and RG_CLOSE
-;  reach them through the jump table at its start (OV_CCALL); OWNERS, which
-;  this overlay replaces, writes its blobs through BL_ENDO, which loads
-;  OWNERS again before returning to it. Split from BLOB.ASM and GENCALL.ASM.
+;  The end of a routine (RG_CLOSE): its exit, its frame and need, then its
+;  blob written by the blob writer's end (BLEND.ASM, BL_END), with branch
+;  shrinking (SHRINK.ASM). Resident: every routine ends here, and every
+;  blob is written by BL_END, so as an overlay it was loaded again after
+;  each use of FLOAT or OWNERS, which shared its place.
 ;
-;  Entries, a jump each at the overlay's start:
-;    BL_END    0: write the blob
-;    RG_CLOSE  3: end the routine and write it
-
-CL_TAB:                        ; Entry 0:
-    JP   BL_END                    ; a blob written;
-    JP   RG_CLOSE                  ; 3: a routine ended.
+;  Principal entry:
+;    RG_CLOSE  end the routine and write it
 
 ;@ROUTINE OUT HL CLOBBERS A,BC,DE,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; End the routine: the success return if its end is reachable (CT_FALLS),

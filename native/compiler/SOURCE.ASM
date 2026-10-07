@@ -147,36 +147,123 @@ SRC_BODY:                      ; A is the part's number.
     RET                            ; carry clear.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load part table entry A again, at MM_SRC below the name heap (the PARTS
-; overlay's SH_AGAIN), then the overlays it displaced: NAMES, and the one
-; loaded last, which may be above it. DG_ROOM if its records do not fit.
-; IX and IY are kept.
+; Load part table entry A again, at MM_SRC below the name heap
+; (SH_AGAIN). DG_ROOM if its records do not fit. IX and IY are kept.
 
 SRC_LOAD:                      ; A is the entry.
     PUSH IX                        ; Keep IX
     PUSH IY                        ; and IY.
-    LD   B,A                       ; The entry;
-    LD   A,(OV_CUR)                ; the overlay
-    PUSH AF                        ; loaded last, kept.
-    PUSH BC                        ; (the entry)
-    LD   A,OV_PARTS                ; The parts'
-    CALL OV_LOAD                   ; overlay
-    POP  AF                        ; loads entry A
-    LD   HL,(NH_PTR)               ; below the heap
-    CALL OV_AREA+3                 ; (SH_AGAIN).
-    POP  DE                        ; The overlay, D;
-    PUSH AF                        ; carry kept.
-    PUSH DE                        ; The names
-    LD   A,OV_NAMES                ; are
-    CALL OV_LOAD                   ; loaded again,
-    POP  AF                        ; and the one
-    CALL OV_LOAD                   ; before.
-    POP  AF                        ; Carry:
+    LD   HL,(NH_PTR)               ; Below the heap
+    CALL SH_AGAIN                  ; it is read.
     POP  IY                        ; IY
     POP  IX                        ; and IX again.
     RET  NC                        ; The part is loaded,
     CALL DG_RAISE                  ; or too large
     DB   DG_ROOM                   ; for the memory.
+
+;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
+; Load part table entry A again, at MM_SRC, its whole records below the
+; limit HL, and make it the one loaded (SRC_RES): its length is its end
+; less its start, which become MM_SRC and MM_SRC plus the length. Carry if
+; its records would cross the limit: nothing is read, SRC_RES and the bytes
+; at MM_SRC are kept, but the entry names MM_SRC. A part no longer on the
+; disk, or one CP/M can't read, does not return (SH_AGERR). Resident, so
+; that a part is loaded again without displacing an overlay.
+
+SH_AGAIN:                      ; A is the entry, HL the limit.
+    PUSH AF                        ; Keep the entry
+    PUSH HL                        ; and the limit.
+    CALL SRC_PART                  ; HL is the entry,
+    LD   (SH_CUR),HL               ; named if it can't be read.
+    CALL SH_BLANK                  ; A clear FCB
+    LD   DE,SH_FCB                 ; takes
+    LD   BC,SH_SLOT                ; its drive
+    LDIR                           ; and name; HL is at its PT_START.
+    LD   DE,MM_SRC                 ; It loads at the base:
+    LD   C,(HL)                    ; its start,
+    LD   (HL),E                    ; BC,
+    INC  HL                        ; becomes
+    LD   B,(HL)                    ; the
+    LD   (HL),D                    ; base;
+    INC  HL                        ; its end
+    LD   A,(HL)                    ; less
+    SUB  C                         ; its
+    LD   C,A                       ; start
+    INC  HL                        ; is
+    LD   A,(HL)                    ; its
+    SBC  A,B                       ; length,
+    LD   B,A                       ; BC,
+    EX   DE,HL                     ; and the
+    ADD  HL,BC                     ; base plus it
+    EX   DE,HL                     ; its
+    LD   (HL),D                    ; new
+    DEC  HL                        ; end,
+    LD   (HL),E                    ; DE.
+    LD   HL,127                    ; Its whole
+    ADD  HL,BC                     ; records'
+    LD   A,L                       ; bytes,
+    AND  $80                       ; rounded
+    LD   L,A                       ; up,
+    LD   B,H                       ; are
+    LD   C,L                       ; BC;
+    LD   DE,MM_SRC                 ; from
+    ADD  HL,DE                     ; the base
+    EX   DE,HL                     ; they end
+    POP  HL                        ; at or
+    OR   A                         ; below
+    SBC  HL,DE                     ; the limit,
+    POP  DE                        ; (the entry, D)
+    RET  C                         ; or there is no room.
+    PUSH DE                        ; The entry, kept.
+    LD   A,C                       ; The records
+    RLA                            ; are their
+    LD   A,B                       ; bytes over
+    RLA                            ; 128,
+    PUSH AF                        ; kept.
+    LD   DE,SH_FCB                 ; Open
+    LD   C,SH_OPEN                 ; the
+    CALL SH_BDOS                   ; part;
+    INC  A                         ; Not on the disk ($FF):
+    JR   Z,SH_AGERR                ; L-MISSING.
+    POP  BC                        ; B records
+    LD   HL,MM_SRC                 ; to the base.
+.READ:                         ; HL is the next record's place.
+    LD   A,B                       ; None
+    OR   A                         ; left:
+    JR   Z,.READ0                  ; loaded.
+    PUSH BC                        ; Keep the count
+    PUSH HL                        ; and the place.
+    EX   DE,HL                     ; The record
+    LD   C,SH_DMA                  ; is read
+    CALL SH_BDOS                   ; there,
+    LD   DE,SH_FCB                 ; the
+    LD   C,SH_READ                 ; next
+    CALL SH_BDOS                   ; of the part.
+    POP  HL                        ; The place
+    POP  BC                        ; and the count.
+    OR   A                         ; Unread, or the file shorter:
+    JR   NZ,SH_AGERR               ; L-IO.
+    LD   DE,128                    ; The next
+    ADD  HL,DE                     ; place,
+    DEC  B                         ; one fewer
+    JR   .READ                     ; to read.
+.READ0:                        ; The part is loaded:
+    POP  AF                        ; the entry (D)
+    LD   (SRC_RES),A               ; is the one loaded.
+    OR   A                         ; Carry clear.
+    RET                            ; Done.
+
+;@ROUTINE IN A NORETURN
+; Report the part SH_AGAIN could not load again (SH_CUR): A zero, not on
+; the disk (L-MISSING), else unreadable (L-IO). The PARTS overlay, loaded
+; for it, names the part (SH_GONE).
+
+SH_AGERR:                      ; A is zero if the part is missing.
+    PUSH AF                        ; Keep it.
+    LD   A,OV_PARTS                ; The parts'
+    CALL OV_LOAD                   ; overlay
+    POP  AF                        ; reports
+    JP   OV_AREA+3                 ; it (SH_GONE).
 
 ;@ROUTINE OUT A,CARRY,ZERO,DE,HL CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the current byte in A without consuming it, with carry clear and

@@ -164,7 +164,7 @@ CH_RUN:                        ; The streams are closed, or X was given.
     LD   (DE),A                    ; closes.
     INC  DE                        ; DE is past the new tail.
 .ENDED:                        ; DE is past the new tail.
-    LD   HL,-CH_TAIL-1             ; Its length
+    LD   HL,$FFFF-CH_TAIL          ; Its length
     ADD  HL,DE                     ; is DE less the text's start,
     LD   A,L                       ; at most 127:
     LD   (CH_TAIL),A               ; its length byte.

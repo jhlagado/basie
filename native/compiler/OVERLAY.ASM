@@ -34,15 +34,12 @@
 ;    OV_OWNS   OWNERS.ASM   pool declarations and owners' descriptors
 ;                           (OV_PCALL, for POOLS.ASM, reaches its entries),
 ;                           loaded above NAMES in FLOAT's place
-;    OV_CLOSE  CLOSE.ASM    a blob written and a routine ended, with
-;              BLEND.ASM    branch shrinking (OV_CCALL, for BL_END and
-;              SHRINK.ASM   RG_CLOSE), loaded above NAMES too
 ;  A later overlay may load above another in the area, so that both are
-;  there at once: FLOAT, OWNERS and CLOSE load after the predeclared names,
-;  which stay loaded while they are used, so the area is as large as
-;  NAMES' records and the largest of them together. They replace each
-;  other, each loaded again when next needed; OWNERS writes its blobs
-;  through BL_ENDO, which loads it again after CLOSE has run.
+;  there at once: FLOAT and OWNERS load after the predeclared names, which
+;  stay loaded while they are used, so the area is as large as NAMES'
+;  records and the larger of them together. They replace each other, each
+;  loaded again when next needed. The end of a routine and the writing of
+;  a blob, used by every routine, are resident (CLOSE.ASM, BLEND.ASM).
 ;
 ;  BASIE.OVL is magic BSIO, version 1.0, the 16-bit sum of the resident
 ;  image's bytes from $0100 to OV_AREA, which ties the file to this
@@ -70,7 +67,6 @@ OV_DIAG EQU  4                 ; Diagnostics from BASIE.MSG.
 OV_PARTS EQU  5                ; The source parts, loaded.
 OV_FLOAT EQU  6                ; f32 constants: literals and folding.
 OV_OWNS EQU  7                 ; Owner descriptors.
-OV_CLOSE EQU  8                ; A blob written, a routine ended.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 
@@ -161,14 +157,11 @@ OV_FCALL:                      ; A is the offset, HL the argument.
     RET                            ; is jumped to; it returns above.
 
 ;@ROUTINE IN A OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the CLOSE overlay (OV_CCALL) or the OWNERS overlay (OV_PCALL)
-; unless it is the one loaded last, and run its entry at offset A; A, HL
+; Load the OWNERS overlay (OV_PCALL) unless it is the one loaded last,
+; and run its entry at offset A; A, HL
 ; and the flags return as the entry leaves them. IX and IY, which loading
 ; may change, are kept.
 
-OV_CCALL:                      ; A is the entry's offset.
-    LD   B,OV_CLOSE                ; CLOSE's.
-    JR   OV_XCALL                  ; Run it.
 OV_PCALL:                      ; A is the entry's offset.
     LD   B,OV_OWNS                 ; OWNERS'; fall into OV_XCALL.
 OV_XCALL:                      ; B is the overlay.

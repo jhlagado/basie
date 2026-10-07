@@ -116,7 +116,7 @@ MS_REC EQU  DG_ARG2+2          ; Byte: the record of BASIE.MSG in MS_BUF.
 OV_CUR EQU  MS_REC+1           ; Byte: the overlay loaded last, $FF for none (OVERLAY.ASM).
 OV_FCB EQU  OV_CUR+1           ; SH_FLEN bytes: BASIE.OVL's FCB, open once loaded.
 OV_DIR EQU  OV_FCB+SH_FLEN     ; OV_DCAP entries of four: each overlay's address, records.
-OV_DCAP EQU  9                 ; Overlays BASIE.OVL may describe.
+OV_DCAP EQU  8                 ; Overlays BASIE.OVL may describe.
 SH_WEND EQU  OV_DIR+4*OV_DCAP  ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN
@@ -234,14 +234,12 @@ SH_TELL:                       ; DG_CODE, DG_PART and DG_POS are set.
     LD   A,(HL)                    ; or the parts
     INC  A                         ; are still loading ($FF),
     JR   Z,.SHOW                   ; their bytes all there.
-    LD   A,OV_PARTS                ; Otherwise
-    CALL OV_LOAD                   ; its bytes
-    LD   A,(SRC_PCNT)              ; are loaded
-    DEC  A                         ; again,
-    CALL SRC_PART                  ; below the part table
-    LD   A,(DG_PART)               ; (the heap is no longer
-    DEC  A                         ; needed), where they fit
-    CALL OV_AREA+3                 ; (SH_AGAIN).
+    LD   A,(SRC_PCNT)              ; Otherwise its
+    DEC  A                         ; bytes are loaded
+    CALL SRC_PART                  ; again, below the
+    LD   A,(DG_PART)               ; part table (the heap
+    DEC  A                         ; is no longer needed),
+    CALL SH_AGAIN                  ; where they fit.
 .SHOW:                         ; The part's bytes are loaded.
     LD   A,OV_DIAG                 ; The diagnostics' overlay,
     CALL OV_LOAD                   ; loaded,

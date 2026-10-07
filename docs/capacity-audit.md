@@ -263,10 +263,14 @@ table from 64 to 160, so that the whole standard library and a program of its
 own size fit (`parse-integers` was refused); the shell's, the `FLOAT`
 overlay's and the blob writer's workspaces moved $300 up, and the source area
 after them, from `$8D20`, shrank to about 20.2K until the source streams.
-From 67h.2 the area, from `$8E20` (about 19.9K), holds one part at a time
+From 67h.2 the area holds one part at a time
 as it is compiled, with the retained names: a program's parts together
 may exceed it, its largest part (with the parts including it, while the
-parts load) may not.
+parts load) may not. The overlay rework after it made the part reload, the
+end of a routine (`CLOSE`) and a routine body's handle actions resident,
+moving the workspaces $600 up: the source area runs from `$9420` to
+`$E006`, 19,430 bytes (the figures given for it before were about 0.5K
+low: from `$8E20` it was 20,966 bytes).
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each
 scope from the control frames' counts.

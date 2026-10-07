@@ -10,9 +10,7 @@
 ;
 ;  Principal entries:
 ;    HN_SEL    a select's handle subject: its slot, the frame opened
-;    HN_ARM    an arm's some or none, read before the engine predicts it
-;    HN_TAKEN  a some arm's binding
-;    HN_ELSE   case else
+;              (OWNBODY.ASM's OW_SEL; OW_ARM, OW_TAKEN and OW_ELSE the arms)
 ;    HN_ENDA   an arm ends: a lease of its subject ends
 ;    HN_MOVE   `move PATH` (HN_EMOV generates the move)
 
@@ -24,29 +22,15 @@ HN_LEASA:                      ; B is the parameter's type,
     LD   A,B                       ; staged;
     LD   (AC_BOUND),A              ; the handle
     CALL HN_TAIL                   ; alone (DG_NYI otherwise):
-    LD   A,24                      ; 24.
-    JR   HN_OVL                    ; Run.
+    JP   OW_LEASA                  ; Run (OWNBODY.ASM).
 
-;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A handle select's actions, in the OWNERS overlay (OWNERS.ASM), each
-; loaded and run through its jump table (OV_PCALL): the subject of type A
-; (OW_SEL, A staged in AC_BOUND), an arm's some or none (OW_ARM), its
-; binding (OW_TAKEN) and case else (OW_ELSE).
+;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A handle select's subject of type A (OW_SEL, A staged in AC_BOUND); its
+; arms' actions are OWNBODY.ASM's OW_ARM, OW_TAKEN and OW_ELSE.
 
 HN_SEL:                        ; A is the subject's type,
-    LD   (AC_BOUND),A              ; staged:
-    LD   A,12                      ; entry 12.
-    JR   HN_OVL                    ; Run.
-HN_ARM:                        ; An arm's some or none:
-    LD   A,15                      ; entry 15.
-    JR   HN_OVL                    ; Run.
-HN_ELSE:                       ; case else:
-    LD   A,18                      ; entry 18.
-    JR   HN_OVL                    ; Run.
-HN_TAKEN:                      ; A some arm's binding:
-    LD   A,21                      ; entry 21.
-HN_OVL:                        ; A is the entry's offset:
-    JP   OV_PCALL                  ; run (OVERLAY.ASM); return.
+    LD   (AC_BOUND),A              ; staged;
+    JP   OW_SEL                    ; run.
 
 ;@ROUTINE IN A OUT A,ZERO CLOBBERS DE,HL,CARRY,SIGN,PARITY,HALFCARRY
 ; The record of the pool of handle type A, zero (Z) while it is only

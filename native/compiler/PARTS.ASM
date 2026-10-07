@@ -11,7 +11,7 @@
 ;
 ;  Principal entries:
 ;    SH_BEGIN  load the parts, at OV_AREA
-;    SH_AGAIN  load one part again, at OV_AREA+3
+;    SH_GONE   report a part SH_AGAIN could not load again, at OV_AREA+3
 ;
 ;  Includes (spec 4.3.2, D33). A part's include lines are read with the
 ;  tokenizer as the part is loaded: `include "NAME.TYP"`, then the line's
@@ -50,11 +50,21 @@
 SH_STATE EQU  14               ; Bytes of the tokenizer's state, SRC_ID to TK_NEST.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The overlay's entries: OV_AREA, SH_BEGIN, and OV_AREA+3, SH_AGAIN.
+; The overlay's entries: OV_AREA, SH_BEGIN, and OV_AREA+3, SH_GONE.
 
 SH_ENTRY:                      ; At OV_AREA.
-    JP   SH_BEGIN                  ; SH_AGAIN follows at +3.
-    JP   SH_AGAIN                  ; At OV_AREA+3.
+    JP   SH_BEGIN                  ; SH_GONE follows at +3.
+
+;@ROUTINE IN A NORETURN
+; At OV_AREA+3: report the part SH_CUR names, which SH_AGAIN (SHELL.ASM)
+; could not load again: A zero, not on the disk (L-MISSING); otherwise
+; unreadable (L-IO).
+
+SH_GONE:                       ; At OV_AREA+3.
+    OR   A                         ; Unreadable:
+    JP   NZ,SH_RERR                ; L-IO;
+    LD   HL,(SH_CUR)               ; missing:
+    JP   SH_MISS                   ; L-MISSING.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Load the parts the command line names and every part they include, and
@@ -421,98 +431,6 @@ SH_INAME:                      ; HL is the quote, A the length.
     LD   A,DG_INCL                 ; include-syntax,
     LD   HL,(SH_IPOS)              ; at the name;
     JP   DG_HERE                   ; no return.
-
-;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
-; Load part table entry A again, at MM_SRC, its whole records below the
-; limit HL, and make it the one loaded (SRC_RES): its length is its end
-; less its start, which become MM_SRC and MM_SRC plus the length. Carry if
-; its records would cross the limit: nothing is read, SRC_RES and the bytes
-; at MM_SRC are kept, but the entry names MM_SRC. A part no longer on the
-; disk, or one CP/M can't read, does not return.
-
-SH_AGAIN:                      ; A is the entry, HL the limit.
-    PUSH AF                        ; Keep the entry
-    PUSH HL                        ; and the limit.
-    CALL SRC_PART                  ; HL is the entry,
-    LD   (SH_CUR),HL               ; named if it can't be read.
-    CALL SH_BLANK                  ; A clear FCB
-    LD   DE,SH_FCB                 ; takes
-    LD   BC,SH_SLOT                ; its drive
-    LDIR                           ; and name; HL is at its PT_START.
-    LD   DE,MM_SRC                 ; It loads at the base:
-    LD   C,(HL)                    ; its start,
-    LD   (HL),E                    ; BC,
-    INC  HL                        ; becomes
-    LD   B,(HL)                    ; the
-    LD   (HL),D                    ; base;
-    INC  HL                        ; its end
-    LD   A,(HL)                    ; less
-    SUB  C                         ; its
-    LD   C,A                       ; start
-    INC  HL                        ; is
-    LD   A,(HL)                    ; its
-    SBC  A,B                       ; length,
-    LD   B,A                       ; BC,
-    EX   DE,HL                     ; and the
-    ADD  HL,BC                     ; base plus it
-    EX   DE,HL                     ; its
-    LD   (HL),D                    ; new
-    DEC  HL                        ; end,
-    LD   (HL),E                    ; DE.
-    LD   HL,127                    ; Its whole
-    ADD  HL,BC                     ; records'
-    LD   A,L                       ; bytes,
-    AND  $80                       ; rounded
-    LD   L,A                       ; up,
-    LD   B,H                       ; are
-    LD   C,L                       ; BC;
-    LD   DE,MM_SRC                 ; from
-    ADD  HL,DE                     ; the base
-    EX   DE,HL                     ; they end
-    POP  HL                        ; at or
-    OR   A                         ; below
-    SBC  HL,DE                     ; the limit,
-    POP  DE                        ; (the entry, D)
-    RET  C                         ; or there is no room.
-    PUSH DE                        ; The entry, kept.
-    LD   A,C                       ; The records
-    RLA                            ; are their
-    LD   A,B                       ; bytes over
-    RLA                            ; 128,
-    PUSH AF                        ; kept.
-    LD   DE,SH_FCB                 ; Open
-    LD   C,SH_OPEN                 ; the
-    CALL SH_BDOS                   ; part;
-    INC  A                         ; not on the disk ($FF):
-    LD   HL,(SH_CUR)               ; L-MISSING,
-    JP   Z,SH_MISS                 ; naming it.
-    POP  BC                        ; B records
-    LD   HL,MM_SRC                 ; to the base.
-.READ:                         ; HL is the next record's place.
-    LD   A,B                       ; None
-    OR   A                         ; left:
-    JR   Z,.READ0                  ; loaded.
-    PUSH BC                        ; Keep the count
-    PUSH HL                        ; and the place.
-    EX   DE,HL                     ; The record
-    LD   C,SH_DMA                  ; is read
-    CALL SH_BDOS                   ; there,
-    LD   DE,SH_FCB                 ; the
-    LD   C,SH_READ                 ; next
-    CALL SH_BDOS                   ; of the part.
-    POP  HL                        ; The place
-    POP  BC                        ; and the count.
-    OR   A                         ; Unread, or the file shorter:
-    JP   NZ,SH_RERR                ; L-IO.
-    LD   DE,128                    ; The next
-    ADD  HL,DE                     ; place,
-    DEC  B                         ; one fewer
-    JR   .READ                     ; to read.
-.READ0:                        ; The part is loaded:
-    POP  AF                        ; the entry (D)
-    LD   (SRC_RES),A               ; is the one loaded.
-    OR   A                         ; Carry clear.
-    RET                            ; Done.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Open the part SH_FCB names: on its drive if it names one; otherwise on

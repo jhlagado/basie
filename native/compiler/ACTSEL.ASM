@@ -197,8 +197,8 @@ AC_CASE:
     LD   B,CT_FCONT                ; any
     CALL CT_NEW                    ; arm's;
     CALL PR_PEEK                   ; then, before the engine predicts
-    CP   TK_ELSE                   ; it, some or none (HN_ARM),
-    JP   NZ,HN_ARM                 ; which CaseLabels finds read;
+    CP   TK_ELSE                   ; it, some or none (OW_ARM),
+    JP   NZ,OW_ARM                 ; which CaseLabels finds read;
     RET                            ; case else is the grammar's.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -208,7 +208,7 @@ AC_CASE:
 AC_TAKEN:
     CALL CT_MODE                   ; A handle select's arm
     BIT  3,A                       ; binds
-    JP   NZ,HN_TAKEN               ; its name.
+    JP   NZ,OW_TAKEN               ; its name.
     LD   BC,CT_FCONT*256+$C3       ; JP
     CALL CT_GO                     ; to the next arm.
     LD   A,4                       ; Bit 2: an arm with labels.
@@ -220,7 +220,7 @@ AC_TAKEN:
 AC_OTHER:
     CALL CT_MODE                   ; A handle select's
     BIT  3,A                       ; case else
-    JP   NZ,HN_ELSE                ; tests its subject.
+    JP   NZ,OW_ELSE                ; tests its subject.
     LD   A,2                       ; Bit 1: case else; fall into AC_ARMIN.
 
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY

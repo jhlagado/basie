@@ -122,30 +122,6 @@ RG_RET:                        ; Control leaves the routine successfully.
     LD   A,RG_EXIT                 ; to the exit;
     JP   EM_JUMP                   ; return.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the blob: BLEND.ASM's BL_END, in the CLOSE overlay (OV_CCALL).
-
-BL_END:                        ; The blob is complete in memory.
-    XOR  A                         ; Entry 0,
-    JP   OV_CCALL                  ; run; return.
-
-;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; BL_END for the OWNERS overlay, which CLOSE replaces: OWNERS is loaded
-; again before it is returned to.
-
-BL_ENDO:                       ; Called from OWNERS.
-    CALL BL_END                    ; The blob written,
-    LD   A,OV_OWNS                 ; OWNERS is back
-    JP   OV_LOAD                   ; where it was; return.
-
-;@ROUTINE OUT HL CLOBBERS A,BC,DE,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; End the routine and write it: CLOSE.ASM's RG_CLOSE, in the CLOSE overlay
-; (OV_CCALL). HL returns the need.
-
-RG_CLOSE:                      ; The routine's `end` has been parsed.
-    LD   A,3                       ; Entry 3,
-    JP   OV_CCALL                  ; run; return.
-
 ;@ROUTINE OUT HL,DE
 ; Return in HL the current part's end and in DE the name heap's bottom
 ; (NH_PTR): the memory between them is free while the part is compiled.

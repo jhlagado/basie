@@ -57,6 +57,7 @@
 %INCLUDE "POOLS.ASM"               ; Pools, handle types and owner descriptors.
 %INCLUDE "HANDLES.ASM"             ; new, owning values, handle locals and frees.
 %INCLUDE "HSELECT.ASM"             ; select on handles, and move.
+%INCLUDE "OWNBODY.ASM"             ; Handle selects' actions, leases, id() of records.
 %INCLUDE "HIDENT.ASM"              ; Identifiers: id(), their values and stores.
 %INCLUDE "FLOW.ASM"                ; The flow of owning handles.
 %INCLUDE "OUT.ASM"                 ; Output streams.
@@ -66,6 +67,9 @@
 %INCLUDE "GENOPER.ASM"             ; Expression templates: operators.
 %INCLUDE "GENAGGR.ASM"             ; Paths, aggregates and string literals.
 %INCLUDE "GENCALL.ASM"             ; Routines, declarations and limits.
+%INCLUDE "CLOSE.ASM"               ; A routine ended and its blob written.
+%INCLUDE "BLEND.ASM"               ; The blob writer's end.
+%INCLUDE "SHRINK.ASM"              ; Branch shrinking.
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.
 %INCLUDE "SHELL.ASM"               ; The CP/M shell.
 %INCLUDE "OVERLAY.ASM"             ; The overlay loader.

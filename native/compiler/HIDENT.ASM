@@ -147,8 +147,7 @@ HN_IDEX:                       ; `id` was the token.
     CP   AG_OPEN                   ; (OW_IDREC,
     JR   NC,.OWNER                 ; `id` staged
     LD   (AC_BOUND),HL             ; in AC_BOUND,
-    LD   A,27                      ; entry 27);
-    JP   OV_PCALL                  ; return.
+    JP   OW_IDREC                  ; OWNBODY.ASM); return.
 .OWNER:                        ; Anything else is not-owner,
     LD   A,DG_OWNER                ; at
     JP   DG_HERE                   ; `id`.
