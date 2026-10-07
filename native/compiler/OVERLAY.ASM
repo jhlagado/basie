@@ -34,11 +34,15 @@
 ;    OV_OWNS   OWNERS.ASM   pool declarations and owners' descriptors
 ;                           (OV_PCALL, for POOLS.ASM, reaches its entries),
 ;                           loaded above NAMES in FLOAT's place
+;    OV_CLOSE  CLOSE.ASM    a blob written and a routine ended, with
+;              BLEND.ASM    branch shrinking (OV_CCALL, for BL_END and
+;              SHRINK.ASM   RG_CLOSE), loaded above NAMES too
 ;  A later overlay may load above another in the area, so that both are
-;  there at once: FLOAT and OWNERS load after the predeclared names, which
-;  stay loaded while they are used, so the area is as large as NAMES'
-;  records and FLOAT together. FLOAT and OWNERS replace each other, each
-;  loaded again when next needed.
+;  there at once: FLOAT, OWNERS and CLOSE load after the predeclared names,
+;  which stay loaded while they are used, so the area is as large as
+;  NAMES' records and the largest of them together. They replace each
+;  other, each loaded again when next needed; OWNERS writes its blobs
+;  through BL_ENDO, which loads it again after CLOSE has run.
 ;
 ;  BASIE.OVL is magic BSIO, version 1.0, the 16-bit sum of the resident
 ;  image's bytes from $0100 to OV_AREA, which ties the file to this
@@ -66,6 +70,7 @@ OV_DIAG EQU  4                 ; Diagnostics from BASIE.MSG.
 OV_PARTS EQU  5                ; The source parts, loaded.
 OV_FLOAT EQU  6                ; f32 constants: literals and folding.
 OV_OWNS EQU  7                 ; Owner descriptors.
+OV_CLOSE EQU  8                ; A blob written, a routine ended.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 
@@ -99,7 +104,7 @@ OV_LOAD:                       ; A is the overlay.
     EX   DE,HL                     ; HL is where they go.
 .NEXT:                         ; C is the next record, B those left.
     CALL OV_READ                   ; Read it to HL.
-    JR   C,OV_FAIL                 ; It can't be read.
+    JP   C,OV_FAIL                 ; It can't be read.
     INC  C                         ; The next record
     LD   DE,128                    ; follows
     ADD  HL,DE                     ; this one.
@@ -155,22 +160,38 @@ OV_FCALL:                      ; A is the offset, HL the argument.
     PUSH DE                        ; Its address
     RET                            ; is jumped to; it returns above.
 
-;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the OWNERS overlay unless it is the one loaded last, and run its
-; entry at offset A; A and the flags return as the entry leaves them. IX
-; and IY, which loading may change, are kept.
+;@ROUTINE IN A OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load the CLOSE overlay (OV_CCALL) or the OWNERS overlay (OV_PCALL)
+; unless it is the one loaded last, and run its entry at offset A; A, HL
+; and the flags return as the entry leaves them. IX and IY, which loading
+; may change, are kept.
 
+OV_CCALL:                      ; A is the entry's offset.
+    LD   B,OV_CLOSE                ; CLOSE's.
+    JR   OV_XCALL                  ; Run it.
 OV_PCALL:                      ; A is the entry's offset.
+    LD   B,OV_OWNS                 ; OWNERS'; fall into OV_XCALL.
+OV_XCALL:                      ; B is the overlay.
     PUSH IX                        ; Keep IX
     PUSH IY                        ; and IY,
     PUSH AF                        ; and the offset.
-    LD   A,OV_OWNS                 ; The overlay
+    LD   A,B                       ; The overlay
+    PUSH AF                        ; (kept)
     CALL OV_LOAD                   ; is loaded, above NAMES.
-    POP  AF                        ; The offset
-    LD   HL,(OV_DIR+4*OV_OWNS)     ; from its load address
-    ADD  A,L                       ; is
+    POP  AF                        ; Its four
+    ADD  A,A                       ; bytes in
+    ADD  A,A                       ; the directory,
+    LD   E,A                       ; DE
+    LD   D,0                       ; from
+    LD   HL,OV_DIR                 ; OV_DIR:
+    ADD  HL,DE                     ; its load
+    LD   E,(HL)                    ; address,
+    INC  HL                        ; DE.
+    LD   D,(HL)                    ; The offset
+    POP  AF                        ; from it
+    ADD  A,E                       ; is
     LD   L,A                       ; the
-    ADC  A,H                       ; entry's
+    ADC  A,D                       ; entry's
     SUB  L                         ; address,
     LD   H,A                       ; HL.
     CALL .RUN                      ; Run it.

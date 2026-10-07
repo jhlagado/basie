@@ -12,6 +12,7 @@
 %INCLUDE "BLOBMEM.ASM"
 %INCLUDE "../../native/compiler/OUT.ASM"
 %INCLUDE "../../native/compiler/BLOB.ASM"
+%INCLUDE "../../native/compiler/BLEND.ASM"
 %INCLUDE "../../native/compiler/BLOPEN.ASM"
 %INCLUDE "../../native/compiler/BLCLOSE.ASM"
 

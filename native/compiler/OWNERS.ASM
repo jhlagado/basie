@@ -234,7 +234,7 @@ OW_CMT:                        ; The declaration is parsed.
 .NONE:                         ; No descriptor:
     CALL OW_WORD                   ; a zero word.
 .ENDED:                        ; The information is complete.
-    CALL BL_END                    ; Written.
+    CALL BL_ENDO                   ; Written.
     POP  DE                        ; The descriptor's ordinal, or zero.
     POP  HL                        ; The pool's ordinal,
     PUSH DE                        ; (the descriptor's kept)
@@ -440,7 +440,7 @@ OW_DESC:                       ; A is the type, HL its ordinal.
     LD   A,1                       ; An emitting
     LD   (PL_WEMIT),A              ; walk:
     CALL OW_ROOT                   ; the entries.
-    CALL BL_END                    ; Written.
+    CALL BL_ENDO                   ; Written.
     LD   A,(PL_WTYPE)              ; Its name: the type's,
     CALL OW_TNAME                  ; at HL, B bytes,
     LD   C,B                       ; C of them,

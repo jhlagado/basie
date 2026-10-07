@@ -8,11 +8,11 @@
 ;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
 ;           OV_AREA   the overlay area, from MM_END, as large as the largest
 ;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
-;    $6600  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
-;    $7980  SH_WBEG   the shell's workspace, SH_WEND
-;    $7AA0  FL_WBEG   the FLOAT overlay's workspace, FL_WEND
-;    $7B40  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $8CC0  MM_SRC    resident source parts, loaded upward by the shell
+;    $6300  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
+;    $7680  SH_WBEG   the shell's workspace, SH_WEND
+;    $77A0  FL_WBEG   the FLOAT overlay's workspace, FL_WEND
+;    $7840  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
+;    $89C0  MM_SRC    resident source parts, loaded upward by the shell
 ;           BDOS-$400 the stack, MM_STACK bytes below the BDOS entry
 ;
 ;  Nothing in the workspace is initialised by the image, so the image and
@@ -22,17 +22,17 @@
 ;  tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $6600             ; Exclusive end of room for the image.
-MM_WBASE EQU  $6600            ; Compiler workspace: the image ends below.
-MM_WLIM EQU  $7B40             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $7980             ; The shell's workspace, above the compiler's.
-MM_BLOB EQU  $7B40             ; The blob writer's workspace, BL_FLAGS on.
+MM_RLIM EQU  $6300             ; Exclusive end of room for the image.
+MM_WBASE EQU  $6300            ; Compiler workspace: the image ends below.
+MM_WLIM EQU  $7840             ; Exclusive end of both workspaces.
+SH_WBEG EQU  $7680             ; The shell's workspace, above the compiler's.
+MM_BLOB EQU  $7840             ; The blob writer's workspace, BL_FLAGS on.
 
 ; The FLOAT overlay's workspace, between the shell's and the blob writer's,
 ; resident so that it takes no records of the overlay area (build.ts checks
 ; that SH_WEND is at or below FL_WBEG and FL_WEND at or below MM_BLOB).
 FL_NB EQU  64                  ; Bytes of FL_N and FL_D.
-FL_WBEG EQU  $7AA0             ; The workspace's start.
+FL_WBEG EQU  $77A0             ; The workspace's start.
 FL_N EQU  FL_WBEG              ; N, the dividend, FL_NB bytes.
 FL_D EQU  FL_N+FL_NB           ; D, the divisor, FL_NB bytes.
 FL_Q EQU  FL_D+FL_NB           ; q, the quotient, then the f32's bits: 5 bytes.
@@ -46,5 +46,5 @@ FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
 FL_B EQU  FL_A+5               ; b unpacked.
 FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
 FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
-MM_SRC EQU  $8CC0              ; Resident source parts, up to the stack.
+MM_SRC EQU  $89C0              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.
