@@ -644,45 +644,4 @@ OW_ENT:                        ; A is the flag.
     EX   DE,HL                     ; the
     JP   OW_WORD                   ; count; return.
 
-;@ROUTINE IN A OUT HL,B CLOBBERS A,C,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The name of table type A, a record's: the symbol of class SY_RTYPE whose
-; payload is A. HL returns its spelling and B its length.
-
-OW_TNAME:                      ; A is the type.
-    LD   C,A                       ; Kept.
-    LD   HL,(SY_TOP)               ; The symbols, each, from the last:
-.LOOK:                         ; HL is past the next.
-    LD   DE,(SY_BTM)               ; Before
-    OR   A                         ; the
-    SBC  HL,DE                     ; first?
-    ADD  HL,DE                     ; Then
-    JR   Z,.NONE                   ; none is.
-    LD   DE,-SY_RECB               ; The
-    ADD  HL,DE                     ; record before.
-    PUSH HL                        ; Kept.
-    INC  HL                        ; Its
-    INC  HL                        ; class
-    INC  HL                        ; byte:
-    LD   A,(HL)                    ; a record
-    CP   SY_RTYPE                  ; type
-    JR   NZ,.NEXT                  ; whose
-    INC  HL                        ; payload
-    LD   A,(HL)                    ; is
-    CP   C                         ; the type?
-    JR   NZ,.NEXT                  ; No.
-    POP  HL                        ; The record:
-    LD   E,(HL)                    ; its
-    INC  HL                        ; spelling's
-    LD   D,(HL)                    ; address
-    INC  HL                        ; and
-    LD   B,(HL)                    ; length.
-    EX   DE,HL                     ; HL is the spelling.
-    RET                            ; Done.
-.NEXT:                         ; Not it.
-    POP  HL                        ; The one
-    JR   .LOOK                     ; before.
-.NONE:                         ; None:
-    LD   B,0                       ; no name.
-    RET                            ; HL is anything.
-
 OW_SUFX: DB  ".owners",0       ; An owner descriptor's name suffix.

@@ -425,6 +425,7 @@ DG_MOVED EQU  102              ; use-after-move.
 DG_SRULE EQU  103              ; statement-rule.
 DG_OWNER EQU  106              ; not-owner.
 DG_MPOS EQU  115               ; move-position: a move where none may be.
+DG_IDAMB EQU  110              ; id-ambiguous: a record of no pool or several.
 DG_LEASE EQU  107              ; lease: not the routine's own owner.
 DG_HOLDR EQU  108              ; slot-holder: a location that can't be one.
 DG_LMOVE EQU  109              ; loop-moves-owner.

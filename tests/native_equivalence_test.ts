@@ -1932,6 +1932,10 @@ const REFUSED: Record<string, string> = {
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nsub look(i as id nodes?)\nend\nsub main()\n    var x = new nodes(1, none)\n    look(move x)\nend\n",
   "a fresh owner assigned to an identifier":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\nend\npool nodes as Node[4]\nvar g as id nodes?\nsub main()\n    g = new nodes(1, none)\nend\n",
+  "id() of a record of two pools":
+    "forward pool a\nforward pool b\nrecord Node\n    value as u8\n    next as a?\nend\npool a as Node[4]\npool b as Node[4]\nsub f(var n as Node) as u8\n    var i = id(n)\n    return 1\nend\nsub main()\nend\n",
+  "id() of a record of no pool":
+    "record Node\n    value as u8\nend\nforward pool a\nrecord Other\n    v as u8\n    next as a?\nend\npool a as Other[2]\nsub f(var n as Node) as u8\n    var i = id(n)\n    return 1\nend\nsub main()\nend\n",
 };
 
 /** The code of a message number, from the message table. */

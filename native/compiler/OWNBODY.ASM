@@ -339,8 +339,8 @@ OW_LEASA:                      ; The path is parsed:
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; `id(PATH)` of a record, the path in hand and `id` at AC_BOUND
 ; (idExpression): a record alone, a lease or a var record parameter (an
-; owner word), else not-owner at `id`; of one pool (two or none wait,
-; DG_NYI). Its identifier when the owner word is its address and the
+; owner word), else not-owner at `id`; of one pool (two or none are
+; id-ambiguous at `id`, naming the record). Its identifier when the owner word is its address and the
 ; slot before it is the pool's, else none: LD HL,owner, LD DE,alias, OR
 ; A, SBC HL,DE, JP NZ,none, EX DE,HL, PUSH HL, DEC HL, LD D,(HL), DEC
 ; HL, LD E,(HL), LD HL,info, OR A, SBC HL,DE, POP HL, JP NZ,none, CALL
@@ -374,13 +374,13 @@ OW_IDREC:                      ; The path is parsed.
     CP   (HL)                      ; one?
     JR   NZ,.EACH                  ; No.
     INC  C                         ; A second
-    JP   NZ,TR_OPER                ; waits;
+    JP   NZ,.AMBIG                 ; is id-ambiguous;
     LD   C,B                       ; the first is kept.
     JR   .EACH                     ; On.
 .DONE:                         ; C is the pool, $FF none.
     LD   A,C                       ; None
-    INC  A                         ; waits
-    JP   Z,TR_OPER                 ; too.
+    INC  A                         ; is
+    JP   Z,.AMBIG                  ; too.
     LD   A,C                       ; The pool's
     PUSH AF                        ; index kept,
     CALL PL_AT                     ; and its
@@ -436,7 +436,59 @@ OW_IDREC:                      ; The path is parsed.
     ADD  A,A                       ; identifier's
     ADD  A,AG_HND+AG_HID+AG_HOPT   ; type.
     RET                            ; DEHL holds it.
+.AMBIG:                        ; Not of one pool:
+    LD   A,(RO_OTYPE)              ; the record's
+    CALL OW_TNAME                  ; name,
+    LD   (TK_PTR),HL               ; at HL, B bytes,
+    LD   A,B                       ; made
+    LD   (TK_LEN),A                ; the current
+    LD   HL,TK_PTR                 ; name's,
+    LD   A,DG_IDAMB                ; names
+    CALL DG_SETN                   ; id-ambiguous,
+    JR   .AT                       ; at `id`.
 .OWNER:                        ; Not an owner's:
-    LD   HL,(AC_BOUND)             ; not-owner,
-    LD   A,DG_OWNER                ; at
+    LD   A,DG_OWNER                ; not-owner,
+.AT:                           ; A is the diagnostic,
+    LD   HL,(AC_BOUND)             ; at
     JP   DG_HERE                   ; `id`.
+
+;@ROUTINE IN A OUT HL,B CLOBBERS A,C,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The name of table type A, a record's: the symbol of class SY_RTYPE whose
+; payload is A. HL returns its spelling and B its length.
+
+OW_TNAME:                      ; A is the type.
+    LD   C,A                       ; Kept.
+    LD   HL,(SY_TOP)               ; The symbols, each, from the last:
+.LOOK:                         ; HL is past the next.
+    LD   DE,(SY_BTM)               ; Before
+    OR   A                         ; the
+    SBC  HL,DE                     ; first?
+    ADD  HL,DE                     ; Then
+    JR   Z,.NONE                   ; none is.
+    LD   DE,-SY_RECB               ; The
+    ADD  HL,DE                     ; record before.
+    PUSH HL                        ; Kept.
+    INC  HL                        ; Its
+    INC  HL                        ; class
+    INC  HL                        ; byte:
+    LD   A,(HL)                    ; a record
+    CP   SY_RTYPE                  ; type
+    JR   NZ,.NEXT                  ; whose
+    INC  HL                        ; payload
+    LD   A,(HL)                    ; is
+    CP   C                         ; the type?
+    JR   NZ,.NEXT                  ; No.
+    POP  HL                        ; The record:
+    LD   E,(HL)                    ; its
+    INC  HL                        ; spelling's
+    LD   D,(HL)                    ; address
+    INC  HL                        ; and
+    LD   B,(HL)                    ; length.
+    EX   DE,HL                     ; HL is the spelling.
+    RET                            ; Done.
+.NEXT:                         ; Not it.
+    POP  HL                        ; The one
+    JR   .LOOK                     ; before.
+.NONE:                         ; None:
+    LD   B,0                       ; no name.
+    RET                            ; HL is anything.
