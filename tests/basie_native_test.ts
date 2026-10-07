@@ -285,7 +285,9 @@ Deno.test("expressions nest 36 deep, the stack's bound, and deeper is a capacity
   // spec's minimum is 32 (limits §5.1). Unchecked, 48 levels ran into the
   // part table below the stack.
   const nested = (n: number) =>
-    `sub main()\n    var x as u16\n    x = ${"(".repeat(n)}x${" + 1)".repeat(n)}\nend\n`;
+    `sub main()\n    var x as u16\n    x = ${"(".repeat(n)}x${
+      " + 1)".repeat(n)
+    }\nend\n`;
   assertEquals(run("MAIN [C]", { "MAIN.BSI": nested(36) }), "");
   assertEquals(
     run("MAIN", { "MAIN.BSI": nested(100) }),
