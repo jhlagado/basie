@@ -262,10 +262,7 @@ RO_VET:
     CALL RO_FRESH                  ; Not a routine or a predeclared name (DG_HIDE).
     LD   A,(RO_CUR)                ; The routine being declared is not counted yet.
     CALL RO_SUBAT                  ; So address its entry and compare it directly.
-    LD   E,(HL)                    ; Read the address of its spelling.
-    INC  HL                        ; High byte.
-    LD   D,(HL)                    ; DE addresses the spelling.
-    INC  HL                        ; Then its length,
+    CALL WD_GET                    ; DE addresses its spelling; HL its length.
     LD   B,(HL)                    ; which TK_MATCH takes in B.
     EX   DE,HL                     ; And the spelling in HL.
     CALL TK_MATCH                  ; Is the parameter named as the routine?

@@ -114,10 +114,7 @@ SRC_OPEN:
     CALL SRC_PART                  ; HL; BC is kept:
     LD   DE,PT_START               ; its
     ADD  HL,DE                     ; start,
-    LD   E,(HL)                    ; DE,
-    INC  HL                        ; and
-    LD   D,(HL)                    ; its
-    INC  HL                        ; end,
+    CALL WD_GET                    ; DE, and its end,
     LD   A,(HL)                    ; HL,
     INC  HL                        ; give
     LD   H,(HL)                    ; its
@@ -321,9 +318,7 @@ SH_AGERR:                      ; A is zero if the part is missing.
 SRC_PEEK:
     LD   HL,(SRC_PTR)              ; Address the next unconsumed byte.
     LD   DE,(SRC_END)              ; Fetch the part's exclusive end.
-    OR   A                         ; Clear carry for an exact comparison.
-    SBC  HL,DE                     ; Zero when the pointer has reached the end.
-    ADD  HL,DE                     ; Restore the pointer; zero flag survives.
+    CALL CP_HLDE                   ; Zero when the pointer has reached the end; HL kept.
     SCF                            ; Carry reports the end of the part,
     RET  Z                         ; with A as the caller left it.
     LD   A,(HL)                    ; A byte remains: fetch it without advancing.

@@ -156,10 +156,7 @@ DG_WORD:
 
 DG_SETN:
     PUSH AF                        ; Keep the code.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; the
-    LD   D,(HL)                    ; spelling,
-    INC  HL                        ; A its
+    CALL WD_GET                    ; DE is the spelling, A its
     LD   A,(HL)                    ; length,
     CP   DG_ALEN                   ; if it fits the buffer
     JR   C,.FITS                   ; with its terminator;

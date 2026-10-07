@@ -40,8 +40,8 @@
 ;  Initializer bytes are staged in AG_IBUF at the cursor AG_OPOS. The object
 ;  is zeroed first, so an initializer writes only what it supplies and a
 ;  string's padding and terminator need no writes. Nested initializers are
-;  bounded at 32 levels (AG_LCAP) and by the machine stack (PR_ROOM). Every extent is bounded at 1024 bytes,
-;  the size of the staging buffer.
+;  bounded at 32 levels (AG_LCAP) and by the machine stack (PR_ROOM). Every
+;  extent is bounded at 1024 bytes, the size of the staging buffer.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A routine's body has ended, its blob written: the types its body made
@@ -340,10 +340,7 @@ AG_FRESH:                      ; HL is the new field's entry.
     PUSH DE                        ; token's
     LD   A,(TK_LEN)                ; spelling,
     PUSH AF                        ; kept.
-    LD   E,(HL)                    ; Its
-    INC  HL                        ; name's
-    LD   D,(HL)                    ; spelling
-    INC  HL                        ; and
+    CALL WD_GET                    ; Its name's spelling and
     LD   A,(HL)                    ; length
     LD   (TK_PTR),DE               ; are the
     LD   (TK_LEN),A                ; current NAME.

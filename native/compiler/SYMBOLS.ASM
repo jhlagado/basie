@@ -171,9 +171,7 @@ SY_CUT:                        ; HL is the scope's first record.
     PUSH HL                        ; (the head kept)
     LD   H,A                       ; below
     LD   L,C                       ; the
-    OR   A                         ; mark,
-    SBC  HL,DE                     ; stays,
-    ADD  HL,DE                     ; and so
+    CALL CP_HLDE                   ; mark, stays, and so
     JR   C,.KEEP                   ; does the chain.
     PUSH DE                        ; (the mark)
     LD   DE,SY_LINK                ; Otherwise
@@ -266,10 +264,7 @@ SY_CMT:
     LD   (HL),A                    ; Recorded.
     LD   HL,(SY_TOP)               ; Its spelling
     PUSH HL                        ; (the record kept)
-    LD   E,(HL)                    ; and
-    INC  HL                        ; its
-    LD   D,(HL)                    ; length
-    INC  HL                        ; name
+    CALL WD_GET                    ; its name's address, HL its length.
     LD   B,(HL)                    ; its
     EX   DE,HL                     ; hash
     CALL SY_HASH                   ; chain,
@@ -343,3 +338,4 @@ SY_GET:
 
 SY_UNDEF:
     LD   A,DG_UNDEF                ; Diagnostic: undefined name; DG_NAMED follows.
+

@@ -107,9 +107,7 @@ AC_ENDP:
     LD   HL,(SY_BTM)               ; Each symbol:
 .SYMBOL:                       ; HL is the next record.
     LD   DE,(SY_TOP)               ; past
-    OR   A                         ; the
-    SBC  HL,DE                     ; last,
-    ADD  HL,DE                     ; the part's
+    CALL CP_HLDE                   ; the last, the part's
     RET  Z                         ; private names are gone.
     PUSH HL                        ; (the record)
     LD   DE,SY_FLAGS               ; Its flags:

@@ -138,10 +138,7 @@ BL_WRITE:                      ; The blob is complete in memory.
     AND  BL_TJUMP-1                ; C is its form,
     LD   C,A                       ; without BL_TJUMP.
     INC  HL                        ; DE
-    LD   E,(HL)                    ; is
-    INC  HL                        ; its
-    LD   D,(HL)                    ; offset.
-    INC  HL                        ; HL is its target,
+    CALL WD_GET                    ; is its offset. HL is its target,
     PUSH HL                        ; kept.
     EX   DE,HL                     ; HL is the offset,
     LD   D,H                       ; DE
@@ -177,10 +174,7 @@ BL_WRITE:                      ; The blob is complete in memory.
     OR   A                         ; follows
     CALL NZ,OUT_BYTE               ; it.
     POP  HL                        ; The target:
-    LD   E,(HL)                    ; DE
-    INC  HL                        ; is
-    LD   D,(HL)                    ; the
-    INC  HL                        ; ordinal,
+    CALL WD_GET                    ; DE is the ordinal,
     EX   DE,HL                     ; HL;
     CALL OUT_WORD                  ; its word.
     PUSH DE                        ; Keep the addend's place.
@@ -288,10 +282,7 @@ BL_WRITE:                      ; The blob is complete in memory.
     JR   NZ,.LINE                  ; passed over.
     PUSH HL                        ; A line entry: kept.
     INC  HL                        ; Past its tag,
-    LD   E,(HL)                    ; DE
-    INC  HL                        ; is
-    LD   D,(HL)                    ; its
-    INC  HL                        ; offset,
+    CALL WD_GET                    ; DE is its offset,
     LD   C,(HL)                    ; C its
     INC  HL                        ; part;
     PUSH HL                        ; its line's word is kept.
@@ -313,10 +304,7 @@ BL_WRITE:                      ; The blob is complete in memory.
     BIT  7,B                       ; if it changed,
     CALL NZ,OUT_BYTE               ; follows.
     POP  HL                        ; The line's
-    LD   E,(HL)                    ; word
-    INC  HL                        ; is
-    LD   D,(HL)                    ; DE,
-    INC  HL                        ; and HL the next entry.
+    CALL WD_GET                    ; word is DE, and HL the next entry.
     EX   DE,HL                     ; Append
     CALL OUT_WORD                  ; the line.
     EX   DE,HL                     ; HL is its column,

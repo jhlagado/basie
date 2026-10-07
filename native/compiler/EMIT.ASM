@@ -324,10 +324,7 @@ EM_LREF:                       ; A is the label.
     CALL EM_QUIET                  ; Is code being discarded?
     RET  NZ                        ; Then write nothing.
     CALL EM_LAT                    ; HL is its entry.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; its offset,
-    LD   D,(HL)                    ; EM_NONE if undefined.
-    INC  HL                        ; HL is the chain head.
+    CALL WD_GET                    ; DE is its offset, EM_NONE if undefined. HL is the chain head.
     LD   A,D                       ; Is the offset EM_NONE?
     AND  E                         ; Both bytes $FF
     INC  A                         ; make zero here.

@@ -326,9 +326,7 @@ FL_SCAN:                       ; The cursor is after the integer digits.
     LD   HL,(TK_NBEG)              ; From the first digit
 .INT:                          ; up to the cursor:
     LD   DE,(SRC_PTR)              ; the integer
-    OR   A                         ; digits,
-    SBC  HL,DE                     ; consumed
-    ADD  HL,DE                     ; already,
+    CALL CP_HLDE                   ; digits, consumed already,
     JR   Z,.POINT                  ; are read again.
     LD   A,(HL)                    ; A digit:
     INC  HL                        ; the next
@@ -437,9 +435,7 @@ FL_SCAN:                       ; The cursor is after the integer digits.
 ; Carry when HL is below DE, both signed words. HL and DE are kept.
 
 .OVER:                         ; Compare HL with DE, signed:
-    OR   A                         ; HL less DE sets
-    SBC  HL,DE                     ; the sign and overflow,
-    ADD  HL,DE                     ; which adding DE back keeps.
+    CALL CP_HLDE                   ; HL less DE sets the sign and overflow; HL kept.
     JP   PE,.FLIP                  ; Overflow inverts the sign.
     JP   M,.LESS                   ; Negative: below.
     OR   A                         ; Not below:

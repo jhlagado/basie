@@ -76,10 +76,7 @@ HN_NEW:                        ; `new` is next.
     LD   C,A                       ; C.
     LD   A,B                       ; The pool's
     CALL PL_AT                     ; entry:
-    LD   E,(HL)                    ; its
-    INC  HL                        ; ordinal,
-    LD   D,(HL)                    ; DE,
-    INC  HL                        ; and its
+    CALL WD_GET                    ; its ordinal, DE, and its
     LD   A,(HL)                    ; record,
     OR   A                         ; if it has one.
     JP   Z,.FORWARD                ; Only forward: pool-incomplete.
@@ -1007,9 +1004,7 @@ HN_PLACE:                      ; A value is next.
 ; written, HN_SEEN set if there is one.
 
 HN_SEG:                        ; HL the first record, DE past the last.
-    OR   A                         ; Any
-    SBC  HL,DE                     ; left?
-    ADD  HL,DE                     ; (HL kept; carry if so)
+    CALL CP_HLDE                   ; Any left? (HL kept; carry if so)
     RET  NC                        ; No.
     PUSH HL                        ; The record
     PUSH DE                        ; and the end, kept.
@@ -1023,10 +1018,7 @@ HN_SEG:                        ; HL the first record, DE past the last.
     CP   SY_AGGR+SY_PARAM          ; but no lease's?
     JR   NZ,.NEXT                  ; No.
     INC  HL                        ; Its
-    LD   E,(HL)                    ; offset,
-    INC  HL                        ; DE,
-    LD   D,(HL)                    ; and
-    INC  HL                        ; its
+    CALL WD_GET                    ; offset, DE, and its
     LD   A,(HL)                    ; type:
     CALL PL_ISHND                  ; a handle
     JR   NC,.AGGR                  ; that

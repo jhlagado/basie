@@ -337,9 +337,7 @@ AC_LABEL:
     LD   DE,BL_EBACK               ; The
     ADD  HL,DE                     ; next,
     LD   DE,(BL_LBOT)              ; if
-    OR   A                         ; it is
-    SBC  HL,DE                     ; at or
-    ADD  HL,DE                     ; above
+    CALL CP_HLDE                   ; it is at or above
     JR   C,.KEEP                   ; the bottom.
     LD   A,(HL)                    ; A label's
     CP   BL_TLOW                   ; low value
@@ -655,10 +653,7 @@ AC_LABEL:
 .LOAD:                         ; The subject is in its slot.
     LD   B,CT_FVAR                 ; Its offset
     CALL CT_FIELD                  ; and type
-    LD   E,(HL)                    ; follow
-    INC  HL                        ; one
-    LD   D,(HL)                    ; another
-    INC  HL                        ; in
+    CALL WD_GET                    ; follow one another in
     LD   A,(HL)                    ; the frame.
     EX   DE,HL                     ; HL is the offset.
     PUSH AF                        ; (the type kept)

@@ -89,10 +89,7 @@ OV_LOAD:                       ; A is the overlay.
     LD   D,0                       ; their offset,
     LD   HL,OV_DIR                 ; HL
     ADD  HL,DE                     ; their address.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; its load
-    LD   D,(HL)                    ; address,
-    INC  HL                        ; C its
+    CALL WD_GET                    ; DE is its load address, C its
     LD   C,(HL)                    ; first record,
     INC  HL                        ; B its
     LD   B,(HL)                    ; records.

@@ -232,10 +232,7 @@ BL_REF:                        ; A is the form, HL the target, DE the addend.
 
 BL_LINE:                       ; A is the part, HL the position's line.
     LD   C,A                       ; C is the part.
-    LD   E,(HL)                    ; DE
-    INC  HL                        ; is
-    LD   D,(HL)                    ; the line,
-    INC  HL                        ; A the
+    CALL WD_GET                    ; DE is the line, A the
     LD   A,(HL)                    ; column,
     INC  HL                        ; or 255
     INC  (HL)                      ; when
@@ -251,10 +248,7 @@ BL_LINE:                       ; A is the part, HL the position's line.
     JR   Z,.NEW                    ; none, a new one.
     CALL BL_FLIP                   ; HL is it,
     INC  HL                        ; past its tag;
-    LD   E,(HL)                    ; its
-    INC  HL                        ; offset,
-    LD   D,(HL)                    ; in
-    INC  HL                        ; DE;
+    CALL WD_GET                    ; its offset, in DE;
     LD   A,(HL)                    ; its part.
     CP   C                         ; The same part (carry clear if so)
     JR   NZ,.NEW                   ; and
@@ -372,9 +366,7 @@ BL_NEXT:                       ; HL is an entry.
     LD   DE,BL_EBACK               ; The one
     ADD  HL,DE                     ; below it,
     LD   DE,(BL_LBOT)              ; at or above
-    OR   A                         ; the bottom:
-    SBC  HL,DE                     ; carry
-    ADD  HL,DE                     ; when it is not.
+    CALL CP_HLDE                   ; the bottom: carry when it is not.
     RET  C                         ; None: done.
     LD   A,(HL)                    ; Its first byte.
     RET                            ; Done.
@@ -591,6 +583,27 @@ BL_BDOS:                       ; C is the function, DE its argument.
     CALL OUT_BDOS                  ; IX is kept there.
     POP  IY                        ; IY again.
     RET                            ; A is the status.
+
+;@ROUTINE IN HL OUT DE,HL
+; DE is the word at HL, low byte first; HL returns past it. A, BC and the
+; flags are kept.
+
+WD_GET:                        ; HL addresses a word.
+    LD   E,(HL)                    ; Its low byte,
+    INC  HL                        ; then
+    LD   D,(HL)                    ; its high byte.
+    INC  HL                        ; HL is past it.
+    RET                            ; DE is the word.
+
+;@ROUTINE IN DE,HL OUT CARRY,ZERO,SIGN,PARITY CLOBBERS HALFCARRY
+; Compare HL with DE, unsigned: carry when HL is below DE, zero when they
+; are equal, the sign and overflow as HL less DE sets them. HL is kept.
+
+CP_HLDE:                       ; HL and DE are compared.
+    OR   A                         ; Carry clear,
+    SBC  HL,DE                     ; HL less DE: zero, sign and overflow;
+    ADD  HL,DE                     ; HL again, and carry the borrow.
+    RET                            ; Done.
 
 BL_NONE:                       ; The table of a blob with no short jump:
     DW   BL_PAST                   ; its sentinel alone.

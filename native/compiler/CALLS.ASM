@@ -71,10 +71,7 @@ RO_KEEP:                       ; The block is RO_PWORD words.
     LD   B,RO_PWORD                ; Its words.
     POP  IY                        ; The return address.
 .WORD:                         ; B words remain at HL.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; the next
-    LD   D,(HL)                    ; word.
-    INC  HL                        ; Step past it.
+    CALL WD_GET                    ; DE is the next word. Step past it.
     PUSH DE                        ; Keep it.
     DJNZ .WORD                     ; Until the block is kept.
     JP   (IY)                      ; Return.
@@ -443,9 +440,7 @@ RO_INDEX:
     INC  HL                        ; length,
     LD   D,(HL)                    ; DE.
     POP  HL                        ; The index
-    OR   A                         ; must be
-    SBC  HL,DE                     ; below the length
-    ADD  HL,DE                     ; (the index again, carry kept):
+    CALL CP_HLDE                   ; must be below the length (the index again, carry kept):
     JR   NC,.ERANGE                ; DG_RANGE at the index.
     LD   (RO_OTYPE),A              ; The element's type.
     PUSH HL                        ; Keep the index.
@@ -515,10 +510,7 @@ RO_CALL:
     INC  HL                        ; Skip the name's
     INC  HL                        ; address
     INC  HL                        ; and length.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; the first
-    LD   D,(HL)                    ; parameter's record,
-    INC  HL                        ; B the number
+    CALL WD_GET                    ; DE is the first parameter's record, B the number
     LD   B,(HL)                    ; of them.
     INC  HL                        ; The record from RO_RTYPE
     PUSH HL                        ; is read when the call closes.
@@ -706,10 +698,7 @@ RO_ARGS:
     XOR  RO_FVRES                  ; its result
     LD   (RO_CRO),A                ; is read-only.
     INC  HL                        ; Its ordinal.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; the ordinal,
-    LD   D,(HL)                    ; the call's target.
-    INC  HL                        ; Its need follows.
+    CALL WD_GET                    ; DE is the ordinal, the call's target. Its need follows.
     PUSH HL                        ; Keep the place.
     CALL EM_OP                     ; CALL nn,
     DB   $CD                       ; the callee.
@@ -717,10 +706,7 @@ RO_ARGS:
     LD   DE,0                      ; with no addend,
     CALL EM_REF                    ; refer to it.
     POP  HL                        ; The need,
-    LD   E,(HL)                    ; low byte
-    INC  HL                        ; and
-    LD   D,(HL)                    ; high byte.
-    INC  HL                        ; Then the argument bytes,
+    CALL WD_GET                    ; low byte and high byte. Then the argument bytes,
     LD   A,(HL)                    ; which the exit removed:
     PUSH DE                        ; keeping the need,
     CALL EM_POP                    ; they are no longer pushed.

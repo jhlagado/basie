@@ -340,12 +340,13 @@ OW_LEASA:                      ; The path is parsed:
 ; `id(PATH)` of a record, the path in hand and `id` at AC_BOUND
 ; (idExpression): a record alone, a lease or a var record parameter (an
 ; owner word), else not-owner at `id`; of one pool (two or none are
-; id-ambiguous at `id`, naming the record). Its identifier when the owner word is its address and the
-; slot before it is the pool's, else none: LD HL,owner, LD DE,alias, OR
-; A, SBC HL,DE, JP NZ,none, EX DE,HL, PUSH HL, DEC HL, LD D,(HL), DEC
-; HL, LD E,(HL), LD HL,info, OR A, SBC HL,DE, POP HL, JP NZ,none, CALL
-; ID_MAKE, JP done; none: LD HL,0, LD DE,0; done:. A returns its type,
-; an optional identifier of that pool.
+; id-ambiguous at `id`, naming the record). Its identifier when the owner
+; word is its address and the slot before it is the pool's, else none:
+; LD HL,owner, LD DE,alias, OR A, SBC HL,DE, JP NZ,none, EX DE,HL,
+; PUSH HL, DEC HL, LD D,(HL), DEC HL, LD E,(HL), LD HL,info, OR A,
+; SBC HL,DE, POP HL, JP NZ,none, CALL ID_MAKE, JP done;
+; none: LD HL,0, LD DE,0; done:. A returns its type, an optional
+; identifier of that pool.
 
 OW_IDREC:                      ; The path is parsed.
     LD   A,(RO_OTYPE)              ; A record's
@@ -461,9 +462,7 @@ OW_TNAME:                      ; A is the type.
     LD   HL,(SY_TOP)               ; The symbols, each, from the last:
 .LOOK:                         ; HL is past the next.
     LD   DE,(SY_BTM)               ; Before
-    OR   A                         ; the
-    SBC  HL,DE                     ; first?
-    ADD  HL,DE                     ; Then
+    CALL CP_HLDE                   ; the first? Then
     JR   Z,.NONE                   ; none is.
     LD   DE,-SY_RECB               ; The
     ADD  HL,DE                     ; record before.
@@ -479,10 +478,7 @@ OW_TNAME:                      ; A is the type.
     CP   C                         ; the type?
     JR   NZ,.NEXT                  ; No.
     POP  HL                        ; The record:
-    LD   E,(HL)                    ; its
-    INC  HL                        ; spelling's
-    LD   D,(HL)                    ; address
-    INC  HL                        ; and
+    CALL WD_GET                    ; its spelling's address and
     LD   B,(HL)                    ; length.
     EX   DE,HL                     ; HL is the spelling.
     RET                            ; Done.

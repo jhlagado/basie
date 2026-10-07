@@ -40,9 +40,7 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
 .EXITED:                       ; The frame and need words follow.
     LD   HL,(EM_DEEP)              ; The frame: the deepest point reached.
     LD   DE,(RG_LARGE)             ; Is it the largest of any routine?
-    OR   A                         ; Clear carry.
-    SBC  HL,DE                     ; Carry if it is not.
-    ADD  HL,DE                     ; HL is the frame again.
+    CALL CP_HLDE                   ; Carry if it is not; HL is the frame again.
     JR   C,.SMALLER                ; Keep the larger one.
     LD   (RG_LARGE),HL             ; It is the largest frame.
 .SMALLER:                      ; HL is the frame.
@@ -90,14 +88,9 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     LD   HL,(RG_CBEG)              ; Then the waiting constants,
 .NEXT:                         ; from HL:
     LD   DE,(RG_PEND)              ; any
-    OR   A                         ; left
-    SBC  HL,DE                     ; before
-    ADD  HL,DE                     ; the end?
+    CALL CP_HLDE                   ; left before the end?
     JR   Z,.DONE                   ; No: done.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; its
-    LD   D,(HL)                    ; ordinal,
-    INC  HL                        ; kept
+    CALL WD_GET                    ; DE is its ordinal, kept
     PUSH DE                        ; for its name;
     LD   C,(HL)                    ; BC is
     INC  HL                        ; its
@@ -109,10 +102,7 @@ RG_CLOSE:                      ; The routine's `end` has been parsed.
     CALL BL_BEGIN                  ; begins; BC is kept.
     POP  HL                        ; BC bytes at HL
     CALL RG_WRITE                  ; are appended and the blob written.
-    LD   E,(HL)                    ; DE is
-    INC  HL                        ; its
-    LD   D,(HL)                    ; name,
-    INC  HL                        ; B
+    CALL WD_GET                    ; DE is its name, B
     LD   B,(HL)                    ; its
     INC  HL                        ; length.
     EX   (SP),HL                   ; HL is the ordinal, the next kept.

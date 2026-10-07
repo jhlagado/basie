@@ -568,10 +568,7 @@ GA_LITS:                       ; The need word is written.
     POP  HL                        ; The entry:
     PUSH HL                        ; (kept)
     INC  HL                        ; DE is
-    LD   E,(HL)                    ; the
-    INC  HL                        ; opening
-    LD   D,(HL)                    ; quote,
-    INC  HL                        ; C
+    CALL WD_GET                    ; the opening quote, C
     LD   C,(HL)                    ; the length,
     INC  HL                        ; B
     LD   B,(HL)                    ; the size.

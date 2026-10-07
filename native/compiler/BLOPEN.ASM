@@ -56,10 +56,7 @@ BL_OPEN:                       ; HL is the header, DE the name, A the flags.
     JR   Z,.DONE                   ; Every stream wanted is open.
     LD   C,A                       ; C is the flag.
     INC  HL                        ; The stream's record follows.
-    LD   E,(HL)                    ; Its low byte,
-    INC  HL                        ; then
-    LD   D,(HL)                    ; its high byte.
-    INC  HL                        ; HL is the type, then the magic.
+    CALL WD_GET                    ; DE is the word; HL is past it.
     LD   A,(BL_FLAGS)              ; Is this stream wanted?
     AND  C                         ; Test its flag.
     JR   Z,.SKIP                   ; Options leave it out.

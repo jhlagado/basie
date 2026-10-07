@@ -61,10 +61,7 @@ BL_SHORT:                      ; The routine is complete.
     JR   NZ,.SCAN                  ; passed over.
     PUSH HL                        ; A reference: kept.
     INC  HL                        ; Past its form,
-    LD   E,(HL)                    ; DE
-    INC  HL                        ; is
-    LD   D,(HL)                    ; its
-    INC  HL                        ; offset.
+    CALL WD_GET                    ; DE is its offset.
     LD   A,(BL_ORD)                ; Is its target
     CP   (HL)                      ; the routine
     JR   NZ,.NEXT                  ; itself?
@@ -100,10 +97,7 @@ BL_SHORT:                      ; The routine is complete.
     PUSH HL                        ; The end before the pass.
     LD   HL,(BL_JUMPS)             ; From the first entry.
 .TEST:                         ; HL is an entry.
-    LD   E,(HL)                    ; DE
-    INC  HL                        ; is
-    LD   D,(HL)                    ; the jump's
-    INC  HL                        ; offset.
+    CALL WD_GET                    ; DE is the jump's offset.
     BIT  6,D                       ; The sentinel's?
     JR   NZ,.PASSED                ; Then the pass is over.
     LD   A,(HL)                    ; HL
@@ -145,9 +139,7 @@ BL_SHORT:                      ; The routine is complete.
     DEC  HL                        ; HL is
     DEC  HL                        ; the end after the pass.
     POP  DE                        ; The end before it.
-    OR   A                         ; If the pass
-    SBC  HL,DE                     ; dropped any,
-    ADD  HL,DE                     ; (HL restored)
+    CALL CP_HLDE                   ; If the pass dropped any, (HL restored)
     JR   NZ,.PASS                  ; test them all again.
     RET                            ; Every short jump reaches.
 

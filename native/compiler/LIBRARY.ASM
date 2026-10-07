@@ -288,10 +288,7 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
     CALL SRC_PART                  ; the command line names,
     LD   DE,PT_START               ; the table's first,
     ADD  HL,DE                     ; from
-    LD   E,(HL)                    ; its start,
-    INC  HL                        ; DE,
-    LD   D,(HL)                    ; to
-    INC  HL                        ; its end,
+    CALL WD_GET                    ; its start, DE, to its end,
     LD   A,(HL)                    ; kept
     INC  HL                        ; in
     LD   H,(HL)                    ; LB_END,

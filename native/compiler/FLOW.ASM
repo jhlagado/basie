@@ -84,9 +84,7 @@ FW_EACH:                       ; FW_CB is the callee.
     LD   B,0                       ; the position none yet.
 .NEXT:                         ; HL is the next record.
     LD   DE,(SY_TOP)               ; Past
-    OR   A                         ; the
-    SBC  HL,DE                     ; last?
-    ADD  HL,DE                     ; (HL kept)
+    CALL CP_HLDE                   ; the last? (HL kept)
     RET  Z                         ; Done.
     PUSH HL                        ; (the record)
     CALL FW_TRK                    ; tracked?
@@ -426,9 +424,7 @@ FW_STMT:                       ; Each symbol in scope:
     LD   HL,(SY_GTOP)              ; From the routine's first record
 .NEXT:                         ; to
     LD   DE,(SY_TOP)               ; the
-    OR   A                         ; last:
-    SBC  HL,DE                     ; (done
-    ADD  HL,DE                     ; at
+    CALL CP_HLDE                   ; last: (done at
     RET  Z                         ; it)
     PUSH HL                        ; its
     CALL FW_TRK                    ; record: a tracked owner's

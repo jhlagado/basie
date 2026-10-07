@@ -159,10 +159,7 @@ TK_MATCH:                      ; B: candidate length; HL: its bytes.
 TK_SAME:                       ; HL: the name record to compare.
     PUSH BC                        ; Callers keep a loop count in BC.
     PUSH HL                        ; And the record address in HL.
-    LD   E,(HL)                    ; Low byte of the retained name's address.
-    INC  HL                        ; Step to its high byte.
-    LD   D,(HL)                    ; DE: the retained name in the source.
-    INC  HL                        ; Step to the length byte.
+    CALL WD_GET                    ; DE is the retained name's address; HL its length.
     LD   A,(HL)                    ; Length of the retained name.
     LD   B,A                       ; TK_MATCH takes the length in B.
     EX   DE,HL                     ; And the bytes in HL.
@@ -185,9 +182,7 @@ TK_KEEP:                       ; HL: the record to fill.
     PUSH HL                        ; and the record, kept.
     LD   HL,(TK_PTR)               ; The spelling:
     LD   DE,(NH_PTR)               ; at or above
-    OR   A                         ; the heap's
-    SBC  HL,DE                     ; bottom,
-    ADD  HL,DE                     ; it is in it
+    CALL CP_HLDE                   ; the heap's bottom, it is in it
     JR   NC,.HEAP                  ; already.
     LD   A,(TK_LEN)                ; Otherwise
     LD   C,A                       ; its

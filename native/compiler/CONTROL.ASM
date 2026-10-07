@@ -381,10 +381,7 @@ CT_STEP:
     CP   SY_F32                    ; nor
     JR   Z,CT_ESTEP                ; an f32.
     INC  HL                        ; Its value's high bytes (SY_VHI):
-    LD   E,(HL)                    ; the
-    INC  HL                        ; high
-    LD   D,(HL)                    ; word,
-    INC  HL                        ; and the top byte,
+    CALL WD_GET                    ; the high word, and the top byte,
     LD   A,(HL)                    ; set when
     OR   A                         ; it is negative,
     JR   NZ,CT_ESTEP               ; no magnitude.
