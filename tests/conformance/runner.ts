@@ -103,7 +103,9 @@ function compare(
     };
   }
   if (expected.trap) {
-    const m = run.output.match(/TRAP ([a-z-]+) at ([0-9A-F]{4})\r\n$/);
+    const m = run.output.match(
+      /TRAP ([a-z-]+) at ([0-9A-F]{4}) \(BASIE name \[T=\2\]\)\r\n$/,
+    );
     if (!m) {
       return {
         status: "fail",

@@ -51,7 +51,9 @@ Deno.test({
         const output = cpm.command(`T${want.tail ? " " + want.tail : ""}`);
         ran += 1;
         if (want.trap) {
-          const m = output.match(/TRAP ([a-z-]+) at ([0-9A-F]{4})\r\n$/);
+          const m = output.match(
+            /TRAP ([a-z-]+) at ([0-9A-F]{4}) \(BASIE name \[T=\2\]\)\r\n$/,
+          );
           const line = m &&
             lookup(readLineTable(result.lineTable!), parseInt(m[2], 16))?.line;
           if (m?.[1] !== want.trap.reason || line !== want.trap.line) {

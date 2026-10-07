@@ -145,26 +145,29 @@ DMA_BUF: DS      128
 
 ; @blob $005 code TRAP
 ; cpm-target §10. DE = the reason, $-terminated; the site's return address is
-; on top of the stack. Prints "TRAP reason at XXXX" and exits with $FF02.
+; on top of the stack. Prints "TRAP reason at XXXX (BASIE name [T=XXXX])",
+; the address and the command that looks it up (D47), and exits with $FF02.
 TRAP:   PUSH    DE
         LD      DE,.HEAD
         CALL    PUTS
         POP     DE
         CALL    PUTS
-        LD      DE,.AT
-        CALL    PUTS
         POP     HL
         DEC     HL
         DEC     HL
         DEC     HL
-        LD      A,H
-        CALL    .HEX2
-        LD      A,L
-        CALL    .HEX2
+        LD      DE,.AT
+        CALL    .ADDR
+        LD      DE,.LOOK
+        CALL    .ADDR
         LD      DE,.EOL
         CALL    PUTS
         LD      DE,$FF02
         JP      EXIT
+.ADDR:  CALL    PUTS            ; the text at DE, then HL in hex
+        LD      A,H
+        CALL    .HEX2
+        LD      A,L
 .HEX2:  PUSH    AF
         RRCA
         RRCA
@@ -180,7 +183,8 @@ TRAP:   PUSH    DE
         JP      CON_OUT
 .HEAD:  DB      "TRAP $"
 .AT:    DB      " at $"
-.EOL:   DB      "\r\n$"
+.LOOK:  DB      " (BASIE name [T=$"
+.EOL:   DB      "])\r\n$"
 
 ; @blob $006 code PUTS
 ; Write the $-terminated text at DE.

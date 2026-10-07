@@ -103,7 +103,10 @@ Deno.test("the bounds reporter prints the site and returns $FF02", () => {
   const site = result.addresses.get(0x400)! + 10;
   const run = runCom(result.output);
   const hex = site.toString(16).toUpperCase().padStart(4, "0");
-  assertEquals(run.output, `HITRAP bounds at ${hex}\r\n`);
+  assertEquals(
+    run.output,
+    `HITRAP bounds at ${hex} (BASIE name [T=${hex}])\r\n`,
+  );
   assertEquals(run.returnCode, 0xff02);
 });
 

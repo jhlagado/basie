@@ -30,7 +30,7 @@ Basie 1.0 defines these trap reasons:
 
 A conforming implementation may use more detailed internal causes, but it must preserve these public reason identities. It must not report a required reason as another merely because two checks share a helper.
 
-**Reports.** A trap report names the reason and the address of the trap site, the call instruction inside the statement that trapped, as `TRAP bounds at 1A3F` (design decision D11). The line table turns the address into a source position ([toolchain](../docs/toolchain.md), Section 8). An unhandled failure is reported as `FAIL` followed by the code in decimal. The [CP/M target](../docs/cpm-target.md), Sections 5 and 10, defines the exact output and return codes.
+**Reports.** A trap report names the reason and the address of the trap site, the call instruction inside the statement that trapped, as `TRAP bounds at 1A3F (BASIE name [T=1A3F])` (design decisions D11 and D47): the reason, the address and the command that looks it up. The line table turns the address into a source position ([toolchain](../docs/toolchain.md), Section 8). An unhandled failure is reported as `FAIL` followed by the code in decimal. The [CP/M target](../docs/cpm-target.md), Sections 5 and 10, defines the exact output and return codes.
 
 ## 15.3 Checks with constant operands
 

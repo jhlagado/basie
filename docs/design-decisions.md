@@ -1043,7 +1043,8 @@ the choice John made on 2026-10-07):
 
 1. **Trap lookup, always.** A trap prints its reason, the address of the call
    that trapped, and the command that finds the statement:
-   `TRAP narrowing at 029D (BASIE MAIN [T=029D])`. `BASIE MAIN [T=029D]`
+   `TRAP narrowing at 029D (BASIE name [T=029D])`, where `name` stands for
+   the program's name, which a CP/M 2.2 program can't learn; `BASIE MAIN [T=029D]`
    reads `MAIN.LIN` and prints the part, line and column and the source line
    ([toolchain](toolchain.md) §8). The program carries nothing extra.
 2. **An embedded table, by option.** Linked with the debug option, the image
