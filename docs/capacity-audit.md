@@ -257,7 +257,12 @@ through an identifier took the workspaces to `$6400` (about 20.9K), and identifi
 File equality to `$6500` (about 20.6K), and the operand
 diagnostics to `$6600` (about 20.4K). The compression pass after
 67g moved the blob writer's end and a routine's end into a ninth overlay,
-`CLOSE`, and the workspaces came back to `$6300` (about 21.1K).
+`CLOSE`, and the workspaces came back to `$6300` (about 21.1K). At step 67h
+(first part) the routine table went from 32 records to 64 and the parameter
+table from 64 to 160, so that the whole standard library and a program of its
+own size fit (`parse-integers` was refused); the shell's, the `FLOAT`
+overlay's and the blob writer's workspaces moved $300 up, and the source area
+after them, from `$8D20`, shrank to about 20.2K until the source streams.
 A `new` takes a two-byte frame temporary until its block ends, as the
 reference's does; the frees need no table, walking the symbols of each
 scope from the control frames' counts.
