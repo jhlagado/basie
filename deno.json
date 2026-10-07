@@ -6,7 +6,7 @@
     "helpers": "deno run --config deno.runtime.json --allow-read=.,../atom,../z80-tool-services --allow-write=build,ref/compile/helper-table.ts,native/compiler/HELPERS.ASM,native/compiler/PREDEF.ASM,docs/helper-table.md --allow-env tools/helpertable.ts",
     "grammar": "deno run --allow-read=. --allow-write=native/compiler/GRAMMAR.ASM tools/llgen.ts",
     "msg": "deno run --allow-read=. --allow-write=build,docs tools/msgfile.ts build/BASIE.MSG",
-    "test": "deno test --config deno.runtime.json --allow-read=.,../atom,../triptych,../z80-tool-services --allow-write=build --allow-env tests/",
+    "test": "deno test --config deno.runtime.json --allow-read=.,../atom,../triptych,../z80-tool-services,../debug80-docs --allow-write=build --allow-env tests/",
     "fmt": "deno fmt tests tools ref",
     "lint": "deno lint tests tools ref",
     "conformance": "deno run --config deno.runtime.json --allow-read=.,../atom,../z80-tool-services --allow-write=build --allow-env tests/conformance/runner.ts",

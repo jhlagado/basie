@@ -395,7 +395,7 @@ const CLAIMED: Record<string, string[]> = {
     "CASE256",
     "BIGSPILL",
   ],
-  "69: large programs": ["BIGDATA"],
+  "69: large programs": ["BIGDATA", "OWNARR"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */

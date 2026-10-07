@@ -599,9 +599,10 @@ HN_DESC:                       ; A is a table type.
     RET                            ; Back.
 
 ;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A local's type A, not a handle: an owning one waits (DG_NYI) unless its
-; owner descriptor is written already (a pool's record), which its free
-; names (HN_OFREE). A, DE and HL are kept.
+; A local's type A, not a handle: an owning record waits (DG_NYI) unless
+; its owner descriptor is written already (a pool's record), which its
+; free names (HN_OFREE); an owning array's is made at each free. A, DE
+; and HL are kept.
 
 HN_LOCTY:                      ; A is the type.
     PUSH HL                        ; HL,
@@ -609,19 +610,45 @@ HN_LOCTY:                      ; A is the type.
     PUSH AF                        ; and A kept.
     CALL PL_OWNS                   ; Owning?
     JR   NC,.KEEP                  ; No.
-    POP  AF                        ; Then its
-    PUSH AF                        ; descriptor
-    CALL HN_DESC                   ; must be
-    JP   Z,TR_OPER                 ; written.
+    POP  AF                        ; Then
+    PUSH AF                        ; an array,
+    CALL HN_ARRAY                  ; or a record
+    JR   Z,.KEEP                   ; whose descriptor
+    POP  AF                        ; is
+    PUSH AF                        ; written
+    CALL HN_DESC                   ; (a pool's);
+    JP   Z,TR_OPER                 ; another waits.
 .KEEP:                         ; Accepted.
     POP  AF                        ; A,
     POP  DE                        ; DE
     POP  HL                        ; and HL.
     RET                            ; Back.
 
-;@ROUTINE IN A,DE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN A OUT ZERO CLOBBERS A,CARRY,SIGN,PARITY,HALFCARRY
+; Zero if type A is an array type (AG_KARR). Every other register is kept.
+
+HN_ARRAY:                      ; A is the type.
+    CP   AG_FIRST                  ; A table
+    JR   C,.NOT                    ; type,
+    CP   AG_OPEN                   ; below the
+    JR   NC,.NOT                   ; open arrays?
+    PUSH HL                        ; Keep HL
+    PUSH DE                        ; and DE.
+    CALL AG_DESC                   ; Its
+    LD   A,(HL)                    ; kind
+    POP  DE                        ; (DE
+    POP  HL                        ; and HL again)
+    CP   AG_KARR                   ; an array's?
+    RET                            ; Zero if so.
+.NOT:                          ; No table type:
+    OR   $FF                       ; not zero.
+    RET                            ; Done.
+
+;@ROUTINE IN A,DE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Free the owning local of type A at IX+DE (emitFrees): HL = IX+DE, LD
-; DE,descriptor, CALL OBJ_FREE.
+; DE,descriptor, CALL OBJ_FREE; an array's descriptor a new one, made by
+; the OWNERS overlay and written after the routine (OW_LDESC), a record's
+; its pool's.
 
 HN_OFREE:                      ; A is the type, DE the offset.
     PUSH AF                        ; (kept)
@@ -630,7 +657,18 @@ HN_OFREE:                      ; A is the type, DE the offset.
     CALL EM_OP                     ; then
     DB   $11                       ; LD DE,
     POP  AF                        ; the type's
-    CALL HN_DESC                   ; descriptor,
+    PUSH AF                        ; descriptor:
+    CALL HN_ARRAY                  ; an array's
+    JR   NZ,.RECORD                ; is made
+    POP  AF                        ; now, for
+    LD   (PL_WTYPE),A              ; its type,
+    LD   A,12                      ; by OWNERS
+    CALL OV_PCALL                  ; (OW_LDESC);
+    JR   .MADE                     ; HL is its ordinal.
+.RECORD:                       ; A record's
+    POP  AF                        ; is its pool's,
+    CALL HN_DESC                   ; HL.
+.MADE:                         ; HL is the descriptor:
     LD   DE,0                      ; an
     CALL EM_REF                    ; address;
     CALL EM_HELP                   ; CALL

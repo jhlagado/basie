@@ -23,6 +23,8 @@
 ;    OW_REC    the PoolRecord island: the record after `as`
 ;    OW_CMT    CommitPool: declare or complete the pool, write its blobs
 ;    OW_ENDP   a part's or the program's end: forward pools completed
+;    OW_LDESC  the owner descriptor of a local owning array being freed,
+;              waiting until its routine's blob is written
 ;  A routine's body's actions for handles, once here, are resident
 ;  (OWNBODY.ASM).
 
@@ -32,7 +34,8 @@ OW_TAB:                        ; Entry 0:
     JP   OW_FWD                    ; ForwardPool;
     JP   OW_REC                    ; 3: PoolRecord;
     JP   OW_CMT                    ; 6: CommitPool;
-    JP   OW_ENDP                   ; 9: a part's or the program's end.
+    JP   OW_ENDP                   ; 9: a part's or the program's end;
+    JP   OW_LDESC                  ; 12: a local owning array's descriptor.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; ForwardPool: `forward pool NAME`, its line ended. The pool takes its
@@ -139,6 +142,8 @@ OW_REC:                        ; After `as`.
 ; needs it, the record's owner descriptor (TYPE.owners).
 
 OW_CMT:                        ; The declaration is parsed.
+    XOR  A                         ; The pool's words are written,
+    LD   (PL_WEMIT),A              ; never staged (OW_OUT).
     CALL EX_RENEW                  ; The name is current again.
     CALL PL_FIND                   ; A pool of the name?
     JR   NC,.NEW                   ; No: a new pool.
@@ -259,9 +264,28 @@ OW_CMT:                        ; The declaration is parsed.
 
 OW_WORD:                       ; HL is the word.
     LD   A,L                       ; Its low byte,
-    CALL BL_BYTE                   ; then
+    CALL OW_OUT                    ; then
     LD   A,H                       ; its high
-    JP   BL_BYTE                   ; byte; return.
+    JP   OW_OUT                    ; byte; return.
+
+;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append byte A to the blob, or, in a staging walk (PL_WEMIT two), stage
+; it at the cursor (AG_PUT). Every register but F is kept. OW_LDESC's
+; walk alone stages; a pool's words and every other walk are written.
+
+OW_OUT:                        ; A is the byte.
+    PUSH AF                        ; Kept.
+    LD   A,(PL_WEMIT)              ; Only a staging
+    CP   2                         ; walk's
+    JR   Z,.STAGE                  ; is staged; any other
+    POP  AF                        ; goes to the
+    JP   BL_BYTE                   ; blob; return.
+.STAGE:                        ; A staging walk's:
+    POP  AF                        ; the byte
+    PUSH DE                        ; (DE kept)
+    CALL AG_PUT                    ; is staged.
+    POP  DE                        ; DE again.
+    RET                            ; Done.
 
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Name the blob just written, whose ordinal is PL_NSTOR, as the retained
@@ -633,7 +657,7 @@ OW_ENT:                        ; A is the flag.
     RET                            ; Done.
 .WRITE:                        ; Append it.
     POP  AF                        ; The flag,
-    CALL BL_BYTE                   ; first;
+    CALL OW_OUT                    ; first;
     PUSH AF                        ; (kept)
     CALL OW_WORD                   ; the offset;
     POP  AF                        ; strided?
@@ -645,4 +669,284 @@ OW_ENT:                        ; A is the flag.
     EX   DE,HL                     ; the
     JP   OW_WORD                   ; count; return.
 
+OW_NCAP EQU  31                ; Bytes of a name the name stream keeps.
+OW_SOFF EQU  64                ; A staged descriptor's offset in AG_IBUF, past PL_TEXT.
+OW_SCAP EQU  136               ; Entries a staged descriptor may hold, seven bytes each.
+
+;@ROUTINE OUT HL CLOBBERS A,BC,DE,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The owner descriptor of a local owning array of type PL_WTYPE, which is
+; being freed (emitFrees): as the reference's, a new one at each free, named
+; TYPE.owners. Its entries are counted (capacity, "types", beyond 255;
+; "object size" beyond what the staging holds), staged after the walk's
+; own bytes in AG_IBUF (OW_SOFF), then moved to its start and kept until
+; the routine's blob is written (RG_DEFER), named from the name heap. HL
+; returns its ordinal.
+
+OW_LDESC:                      ; PL_WTYPE is the type.
+    LD   HL,0                      ; Count
+    LD   (PL_WCNT),HL              ; the
+    XOR  A                         ; entries:
+    LD   (PL_WEMIT),A              ; a counting
+    CALL OW_ROOT                   ; walk.
+    LD   HL,(PL_WCNT)              ; At most
+    LD   A,H                       ; 255
+    OR   A                         ; (types
+    JR   NZ,.MANY                  ; beyond),
+    LD   A,L                       ; and as many
+    CP   OW_SCAP+1                 ; as the staging holds
+    JP   NC,AG_EDATA               ; (object size beyond).
+    LD   HL,OW_SOFF                ; The bytes
+    LD   (AG_OPOS),HL              ; are staged after the walk's:
+    LD   A,(PL_WCNT)               ; the count
+    CALL AG_PUT                    ; first,
+    LD   A,2                       ; then
+    LD   (PL_WEMIT),A              ; a staging
+    CALL OW_ROOT                   ; walk,
+    XOR  A                         ; after which
+    LD   (PL_WEMIT),A              ; nothing is staged.
+    LD   DE,PL_TEXT                ; The name:
+    LD   A,(PL_WTYPE)              ; the type's,
+    CALL OW_TYNAM                  ; then
+    LD   HL,OW_SUFX                ; .owners,
+.SUFFIX:                       ; DE is past the name so far.
+    LD   A,(HL)                    ; Its
+    OR   A                         ; end?
+    JR   Z,.NAMED                  ; Then it is made.
+    LD   (DE),A                    ; The
+    INC  HL                        ; next
+    INC  DE                        ; byte.
+    JR   .SUFFIX                   ; Until the end.
+.NAMED:                        ; DE is the name's end.
+    LD   A,E                       ; Its
+    SUB  LOW(PL_TEXT)              ; length,
+    LD   C,A                       ; C,
+    LD   B,0                       ; is kept
+    CALL NH_ALLOC                  ; below the heap, at DE,
+    PUSH BC                        ; (kept)
+    PUSH DE                        ; where it stays
+    LD   HL,PL_TEXT                ; while
+    LDIR                           ; the descriptor waits.
+    LD   HL,(AC_DNAME)             ; The declaration's
+    LD   A,(AC_DLEN)               ; name,
+    POP  DE                        ; kept,
+    POP  BC                        ; gives way
+    PUSH HL                        ; to the
+    PUSH AF                        ; descriptor's
+    LD   (AC_DNAME),DE             ; for
+    LD   A,C                       ; RG_DEFER.
+    LD   (AC_DLEN),A               ; The bytes
+    LD   HL,(AG_OPOS)              ; staged,
+    LD   DE,OW_SOFF                ; after
+    OR   A                         ; the walk's,
+    SBC  HL,DE                     ; HL of them,
+    LD   (AG_OSIZE),HL             ; are the object,
+    LD   B,H                       ; moved
+    LD   C,L                       ; to the
+    LD   HL,AG_IBUF+OW_SOFF        ; staging's
+    LD   DE,AG_IBUF                ; start;
+    LDIR                           ; then
+    CALL RG_DEFER                  ; kept: BC is its ordinal.
+    POP  AF                        ; The declaration's
+    LD   (AC_DLEN),A               ; name
+    POP  HL                        ; again.
+    LD   (AC_DNAME),HL             ; HL is
+    LD   H,B                       ; the
+    LD   L,C                       ; ordinal.
+    RET                            ; Done.
+.MANY:                         ; More than 255 entries:
+    CALL DG_RAISE                  ; capacity,
+    DB   DG_META                   ; types.
+
+;@ROUTINE IN A,DE OUT DE CLOBBERS A,BC,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the name of type A at DE, as the reference's typeName: a scalar's
+; keyword, a handle's pool with `id ` before and `?` after as its form
+; has them, a record's name, string[N], or an array's element's then [N];
+; DE returns past it. Bytes past OW_NCAP from PL_TEXT are not written, as
+; the name stream keeps only 31.
+
+OW_TYNAM:                      ; A is the type.
+    CP   AG_HND                    ; A handle?
+    JR   NC,.HANDLE                ; Its pool's.
+    CP   AG_FIRST                  ; A table type?
+    JR   NC,.TABLE                 ; Its descriptor says.
+    ADD  A,KW_TYPE                 ; A scalar: the keyword
+    LD   C,A                       ; whose kind it is,
+    LD   HL,KW_TAB                 ; from the first.
+.KEY:                          ; HL is an entry.
+    PUSH HL                        ; Its spelling, kept.
+.SKIP:                         ; Past
+    BIT  7,(HL)                    ; the
+    INC  HL                        ; spelling
+    JR   Z,.SKIP                   ; to its kind:
+    LD   A,(HL)                    ; is it
+    INC  HL                        ; the type's?
+    CP   C                         ; If so,
+    JR   Z,.WORD                   ; its spelling;
+    POP  AF                        ; if not,
+    JR   .KEY                      ; the next.
+.WORD:                         ; The spelling:
+    POP  HL                        ; HL.
+.SPELL:                        ; Each byte,
+    LD   A,(HL)                    ; the last
+    AND  $7F                       ; without its bit 7,
+    CALL OW_PUTC                   ; written,
+    BIT  7,(HL)                    ; until
+    INC  HL                        ; the
+    JR   Z,.SPELL                  ; last.
+    RET                            ; Done.
+.HANDLE:                       ; A handle: its form
+    SUB  AG_HND                    ; and pool,
+    LD   C,A                       ; C.
+    AND  AG_HID                    ; An identifier
+    JR   Z,.OWNER                  ; has
+    LD   HL,OW_IDS                 ; `id `
+    CALL OW_STR                    ; first.
+.OWNER:                        ; Then the pool's name:
+    PUSH DE                        ; (the cursor kept)
+    LD   A,C                       ; its
+    RRCA                           ; index,
+    RRCA                           ; times
+    AND  $3F                       ; PL_LEN,
+    LD   L,A                       ; ten,
+    LD   H,0                       ; from
+    ADD  HL,HL                     ; PL_TAB's
+    LD   D,H                       ; name
+    LD   E,L                       ; field:
+    ADD  HL,HL                     ; HL
+    ADD  HL,HL                     ; addresses
+    ADD  HL,DE                     ; its
+    LD   DE,PL_TAB+PL_ENAME        ; address,
+    ADD  HL,DE                     ; then
+    CALL WD_GET                    ; its
+    LD   B,(HL)                    ; length:
+    EX   DE,HL                     ; HL the spelling,
+    POP  DE                        ; DE the cursor.
+.PNAME:                        ; B bytes,
+    LD   A,(HL)                    ; each
+    CALL OW_PUTC                   ; written;
+    INC  HL                        ; the
+    DJNZ .PNAME                    ; next.
+    LD   A,C                       ; An optional
+    AND  AG_HOPT                   ; one
+    RET  Z                         ; has
+    LD   A,'?'                     ; `?`
+    JP   OW_PUTC                   ; after; return.
+.TABLE:                        ; A table type:
+    PUSH AF                        ; (the type kept)
+    PUSH DE                        ; (the cursor kept)
+    CALL AG_DESC                   ; its descriptor, HL.
+    POP  DE                        ; The cursor.
+    LD   A,(HL)                    ; Its kind:
+    CP   AG_KREC                   ; a record's
+    JR   Z,.RECORD                 ; name;
+    LD   B,A                       ; (kept)
+    POP  AF                        ; (the type dropped)
+    LD   A,B                       ; a
+    CP   AG_KSTR                   ; string's
+    JR   Z,.STRING                 ; capacity;
+    INC  HL                        ; an array's
+    LD   A,(HL)                    ; element,
+    INC  HL                        ; and
+    LD   C,(HL)                    ; its
+    INC  HL                        ; length,
+    LD   B,(HL)                    ; kept,
+    PUSH BC                        ; the element's
+    CALL OW_TYNAM                  ; name first.
+    POP  HL                        ; The length
+    JR   .BOUND                    ; follows.
+.STRING:                       ; A string:
+    INC  HL                        ; its
+    LD   L,(HL)                    ; capacity,
+    LD   H,0                       ; kept,
+    PUSH HL                        ; after
+    LD   HL,OW_STRS                ; `string`.
+    CALL OW_STR                    ; Written;
+    POP  HL                        ; then the capacity.
+.BOUND:                        ; HL is the bound:
+    LD   A,'['                     ; in
+    CALL OW_PUTC                   ; brackets,
+    CALL OW_DEC                    ; in
+    LD   A,']'                     ; decimal.
+    JP   OW_PUTC                   ; Return.
+.RECORD:                       ; A record:
+    POP  AF                        ; its type,
+    PUSH DE                        ; (the cursor kept)
+    CALL OW_TNAME                  ; its name, B bytes at HL.
+    POP  DE                        ; The cursor.
+    INC  B                         ; None
+    DEC  B                         ; is
+    RET  Z                         ; nothing.
+.RNAME:                        ; Each byte
+    LD   A,(HL)                    ; is
+    CALL OW_PUTC                   ; written;
+    INC  HL                        ; the
+    DJNZ .RNAME                    ; next.
+    RET                            ; Done.
+
+;@ROUTINE IN A,DE OUT DE CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write byte A at DE and step past it, unless DE has reached OW_NCAP bytes
+; from PL_TEXT. Every other register is kept.
+
+OW_PUTC:                       ; A is the byte.
+    PUSH HL                        ; Keep HL
+    PUSH AF                        ; and the byte.
+    LD   HL,PL_TEXT+OW_NCAP        ; Below
+    LD   A,E                       ; the
+    SUB  L                         ; name's
+    LD   A,D                       ; cap?
+    SBC  A,H                       ; (carry)
+    JR   NC,.FULL                  ; Not then.
+    POP  AF                        ; The byte
+    LD   (DE),A                    ; is written,
+    INC  DE                        ; DE past it.
+    POP  HL                        ; HL again.
+    RET                            ; Done.
+.FULL:                         ; Past the cap:
+    POP  AF                        ; nothing
+    POP  HL                        ; is
+    RET                            ; written.
+
+;@ROUTINE IN DE,HL OUT DE,HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the zero-terminated bytes at HL at DE (OW_PUTC). BC is kept.
+
+OW_STR:                        ; HL is the text.
+    LD   A,(HL)                    ; Its
+    OR   A                         ; end?
+    RET  Z                         ; Done.
+    CALL OW_PUTC                   ; Written;
+    INC  HL                        ; the
+    JR   OW_STR                    ; next.
+
+;@ROUTINE IN DE,HL OUT DE CLOBBERS A,BC,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write HL in decimal at DE (OW_PUTC), without leading zeros.
+
+OW_DEC:                        ; HL is the value.
+    LD   C,0                       ; Digits so far.
+.DIV:                          ; HL over ten:
+    XOR  A                         ; the remainder in A,
+    LD   B,16                      ; a bit
+.BIT:                          ; at a time,
+    ADD  HL,HL                     ; from
+    RLA                            ; the top;
+    CP   10                        ; the quotient's
+    JR   C,.LOW                    ; bit
+    SUB  10                        ; is one
+    INC  L                         ; when ten fits.
+.LOW:                          ; Then the next bit.
+    DJNZ .BIT                      ; HL is the quotient.
+    PUSH AF                        ; The digit, kept,
+    INC  C                         ; counted,
+    LD   A,H                       ; until
+    OR   L                         ; none
+    JR   NZ,.DIV                   ; is left.
+.DIGIT:                        ; The digits, from the first:
+    POP  AF                        ; each
+    ADD  A,'0'                     ; in ASCII,
+    CALL OW_PUTC                   ; written,
+    DEC  C                         ; until
+    JR   NZ,.DIGIT                 ; all are.
+    RET                            ; Done.
+
+OW_IDS: DB  "id ",0            ; An identifier's prefix.
+OW_STRS: DB  "string",0        ; A bounded string's name.
 OW_SUFX: DB  ".owners",0       ; An owner descriptor's name suffix.

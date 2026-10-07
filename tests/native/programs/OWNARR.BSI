@@ -1,0 +1,43 @@
+// Local arrays of owning handles (69): each is freed where its scope ends
+// through an owner descriptor made at that free, as the reference makes
+// one at each (jobs?[3].owners), and kept until its routine is written.
+record Job
+    number as u16
+end
+pool jobs as Job[6]
+
+sub addJob(var place as jobs?, value as u16) as boolean
+    var candidate = new? jobs(value)
+    select move candidate
+    case some(allocated)
+        place = move allocated
+        return true
+    case none
+        return false
+    end
+end
+
+sub fill() as u8
+    var queue as jobs?[3]
+    var made as u8 = 0
+    var i as u8
+    for i = 0 to 2
+        if addJob(queue[i], u16(i) * 10)
+            made = made + 1
+        end
+    end
+    return made
+end
+
+sub main() fails
+    var total as u8 = 0
+    var round as u8
+    for round = 1 to 4
+        total = total + fill()
+    end
+    var grid as jobs?[2][2]
+    assert addJob(grid[1][1], 5)
+    if total = 12
+        writeText(console, "owning arrays\r\n") else fail
+    end
+end
