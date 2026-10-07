@@ -144,6 +144,7 @@ const CONFORMANCE: Record<string, string> = {
   FREEREU2: "tests/conformance/storage/free-several-then-reuse.bsi",
   LRUCACHE: "tests/conformance/storage/lru-cache.bsi",
   IDFCOPY: "tests/conformance/storage/identifier-field-passed-as-copy.bsi",
+  BOOLXOR: "tests/conformance/expressions/boolean-xor.bsi",
 };
 
 /** The source file of a claimed program. */
@@ -365,6 +366,8 @@ const CLAIMED: Record<string, string[]> = {
     "IDCOPY",
     "IDFCOPY",
     "IDCALL",
+    "BXOR",
+    "BOOLXOR",
   ],
 };
 

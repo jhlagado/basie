@@ -362,11 +362,11 @@ EX_ORS:                        ; A/HL is the result so far.
     POP  HL                        ; Recover the left value.
     POP  AF                        ; Recover the left metadata.
     LD   D,A                       ; Keep it.
-    LD   A,(EX_OPER)               ; `xor`?
-    CP   TK_XOR                    ; It is for integers only.
-    JR   NZ,.OPEN                  ; `or` takes Booleans too.
-    CALL EX_DBOOL                  ; Is the left's type Boolean?
-    JP   Z,EX_ETYPE                ; Is a mismatch for `xor`.
+    LD   A,(EX_OPER)               ; `xor`
+    CP   TK_XOR                    ; of a Boolean
+    JR   NZ,.OPEN                  ; left
+    CALL EX_DBOOL                  ; is
+    JR   Z,EX_BXOR                 ; no short circuit.
 .OPEN:                         ; D is the left's metadata.
     LD   A,D                       ; Keep the left operand.
     CALL EX_OPEN                   ; Push it or open the short circuit.
@@ -383,6 +383,50 @@ EX_DONE:                       ; No further operator at this level.
 EX_ORINT:                      ; Integer `or` or `xor`.
     CALL EX_ARITH                  ; Reduce the bitwise operator.
     JR   EX_ORS                    ; Look for another operator.
+
+; Boolean `xor` (logicalOrBitwise), D/HL its left operand: a known left
+; folds with a known right or appends XOR n; a computed one is kept by
+; PUSH AF while the right is computed into A, then LD E,A, POP AF, XOR E.
+; The right must be Boolean (type-mismatch).
+
+EX_BXOR:                       ; D/HL is the left.
+    PUSH HL                        ; (its value)
+    PUSH DE                        ; (its metadata)
+    LD   A,D                       ; A computed one
+    CALL GX_PUSH                   ; is pushed (PUSH AF).
+    CALL EX_AND                    ; The right, A/HL:
+    LD   D,A                       ; Boolean
+    CALL EX_TBOOL                  ; (type-mismatch
+    JP   NZ,EX_ETYPE               ; otherwise).
+    LD   E,A                       ; E: Boolean.
+    POP  BC                        ; The left's metadata:
+    BIT  7,B                       ; known?
+    JR   NZ,.KNOWN                 ; Then folded or XOR n.
+    POP  BC                        ; (its value unused)
+    CALL GX_TOREG                  ; The right in A,
+    CALL EM_SEQ                    ; LD E,A, POP AF, XOR E:
+    DB   3,$5F,$F1,$AB             ; the left's popped,
+    CALL EM_POP2                   ; two bytes.
+.REG:                          ; A computed Boolean.
+    LD   A,SY_BOOL                 ; Its metadata,
+    OR   A                         ; carry clear.
+    JR   EX_ORS                    ; Look for another operator.
+.KNOWN:                        ; A known left, BC its value:
+    POP  BC                        ; (C)
+    BIT  7,D                       ; the right known
+    JR   NZ,.FOLD                  ; folds;
+    LD   A,C                       ; a computed one
+    CALL EM_OPA                    ; takes XOR n,
+    DB   $EE                       ; n the left's.
+    JR   .REG                      ; A computed Boolean.
+.FOLD:                         ; Both known:
+    LD   A,L                       ; the values
+    XOR  C                         ; differ?
+    LD   L,A                       ; HL is
+    LD   H,0                       ; the result,
+    LD   B,D                       ; known
+    CALL EX_LIT                    ; and Boolean.
+    JP   EX_ORS                    ; Look for another operator.
 
 ;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,SIGN,PARITY,HALFCARRY,ZERO
 ; Keep the left operand A/HL of `and`, `or` or `xor` (EX_OPER) on the

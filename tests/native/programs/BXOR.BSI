@@ -1,0 +1,28 @@
+// Boolean xor: known and computed operands on either side, chained,
+// mixed with or, and in a constant.
+const K as boolean = true xor false
+var a as boolean
+var b as boolean
+var r as boolean
+sub show(v as boolean) fails
+    if v
+        writeByte(console, 'T') else fail
+    else
+        writeByte(console, 'F') else fail
+    end
+end
+sub main() fails
+    a = true
+    b = false
+    r = a xor b
+    show(r) else fail
+    show(a xor true) else fail
+    show(true xor a) else fail
+    show(false xor b) else fail
+    show(a xor b xor a) else fail
+    show(a xor b or b) else fail
+    show(K) else fail
+    show(true xor true) else fail
+    show((a xor b) = true) else fail
+    writeText(console, "\r\n") else fail
+end
