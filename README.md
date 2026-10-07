@@ -42,6 +42,21 @@ Its foundations:
 - **Tree shaking.** A separate link step places only the routines, data and
   runtime helpers the program can reach.
 
+## Building and running
+
+The toolchain is built and tested with [Deno](https://deno.com):
+
+```
+deno task test       # the whole test suite
+deno task release    # build/BASIE.DSK, a bootable CP/M 2.2 disk
+```
+
+The release disk holds `BASIE.COM`, the compiler, with its overlays
+(`BASIE.OVL`) and messages (`BASIE.MSG`); `BLINK.COM`, the linker;
+`CPM22.BRL`, the runtime library; the standard library's parts; and the
+examples. On CP/M, `BASIE ADVENT` compiles `ADVENT.BSI` and links
+`ADVENT.COM`.
+
 ## The principle
 
 > What can be known before the program runs should be decided before it runs.

@@ -13,7 +13,8 @@
     "build:compiler": "deno run --config deno.runtime.json --allow-read --allow-write=build --allow-env native/compiler/build.ts",
     "census:basie": "deno run --config deno.runtime.json --allow-read=/ tools/census.ts native/compiler/BASIE.ASM --target 26624 --budget 28672 && deno run --config deno.runtime.json --allow-read --allow-write=build --allow-env native/compiler/build.ts",
     "census": "deno run --config deno.runtime.json --allow-read=/ tools/census.ts",
-    "census:blink": "deno run --config deno.runtime.json --allow-read=/ tools/census.ts native/linker/BLINK.ASM --target 12288 --budget 14336"
+    "census:blink": "deno run --config deno.runtime.json --allow-read=/ tools/census.ts native/linker/BLINK.ASM --target 12288 --budget 14336",
+    "release": "deno run --config deno.runtime.json --allow-read --allow-write=build --allow-env tools/release.ts"
   },
   "fmt": {
     "exclude": [
