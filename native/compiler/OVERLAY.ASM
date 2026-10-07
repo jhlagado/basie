@@ -9,10 +9,11 @@
 ;  its load address against the resident image's symbols and writes the
 ;  file; the area is as large as the largest overlay, in whole records.
 ;
-;    OV_CMD    COMMAND.ASM  the command line (CL_READ at OV_AREA)
-;    OV_START  LIBRARY.ASM  the library check (LB_FIRST at OV_AREA), then,
-;                           once the parts are loaded, the stamp and the
-;                           streams (LB_OPEN at OV_AREA+3), with BLOPEN.ASM
+;    OV_BEGIN  COMMAND.ASM  the start-up, loaded once, its entries run in
+;              LIBRARY.ASM  turn (BG_TAB at OV_AREA): the command line
+;              BLOPEN.ASM   (CL_READ), the library check (LB_FIRST), the
+;              PARTS.ASM    parts and their includes (SH_BEGIN), then the
+;                           stamp and the streams (LB_OPEN)
 ;    OV_NAMES  PREDEF.ASM   the predeclared names (HP_NAMES at OV_AREA),
 ;                           loaded for the whole compilation
 ;    OV_CHAIN  CHAIN.ASM    the chain to BLINK (CH_RUN at OV_AREA), or the
@@ -20,8 +21,8 @@
 ;                           at OV_AREA+3)
 ;    OV_DIAG   MESSAGE.ASM  diagnostics from BASIE.MSG (MS_SHOWE at
 ;                           OV_AREA, MS_SHOWD at OV_AREA+3)
-;    OV_PARTS  PARTS.ASM    the parts and their includes, loaded (SH_BEGIN
-;                           at OV_AREA)
+;    OV_LOOK   LOOKUP.ASM   option T: a trap's address looked up (LK_RUN at
+;                           OV_AREA), which the command line's reading runs
 ;  PARTNAME.ASM, the parts' names, is assembled into COMMAND, START, DIAG
 ;  and PARTS, which each need it, and FILENAME.ASM, CP/M names, into
 ;  COMMAND and PARTS.
@@ -59,14 +60,13 @@
 ;  argument are printed, as D39 has it without the message file, and the
 ;  build fails.
 
-OV_CMD EQU  0                  ; The command line.
-OV_START EQU  1                ; The start of a build: library, stamp, streams.
-OV_NAMES EQU  2                ; The predeclared names.
-OV_CHAIN EQU  3                ; The chain to BLINK.
-OV_DIAG EQU  4                 ; Diagnostics from BASIE.MSG.
-OV_PARTS EQU  5                ; The source parts, loaded.
-OV_FLOAT EQU  6                ; f32 constants: literals and folding.
-OV_OWNS EQU  7                 ; Owner descriptors.
+OV_BEGIN EQU  0                ; The start-up: command line, library, parts, streams.
+OV_NAMES EQU  1                ; The predeclared names.
+OV_CHAIN EQU  2                ; The chain to BLINK.
+OV_DIAG EQU  3                 ; Diagnostics from BASIE.MSG.
+OV_LOOK EQU  4                 ; Option T: a trap's address looked up.
+OV_FLOAT EQU  5                ; f32 constants: literals and folding.
+OV_OWNS EQU  6                 ; Owner descriptors.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 

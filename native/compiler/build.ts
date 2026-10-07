@@ -30,15 +30,16 @@ const STAGE = join(ROOT, "build/ovl");
  */
 export const OVERLAYS = [
   {
-    name: "COMMAND",
-    equate: "OV_CMD",
-    files: ["COMMAND.ASM", "FILENAME.ASM", "PARTNAME.ASM", "LOOKUP.ASM"],
-    offset: 0,
-  },
-  {
-    name: "START",
-    equate: "OV_START",
-    files: ["LIBRARY.ASM", "BLOPEN.ASM", "PARTNAME.ASM"],
+    name: "BEGIN",
+    equate: "OV_BEGIN",
+    files: [
+      "COMMAND.ASM",
+      "LIBRARY.ASM",
+      "BLOPEN.ASM",
+      "PARTS.ASM",
+      "FILENAME.ASM",
+      "PARTNAME.ASM",
+    ],
     offset: 0,
   },
   { name: "NAMES", equate: "OV_NAMES", files: ["PREDEF.ASM"], offset: 0 },
@@ -55,9 +56,9 @@ export const OVERLAYS = [
     offset: 0,
   },
   {
-    name: "PARTS",
-    equate: "OV_PARTS",
-    files: ["PARTS.ASM", "FILENAME.ASM", "PARTNAME.ASM"],
+    name: "LOOKUP",
+    equate: "OV_LOOK",
+    files: ["LOOKUP.ASM", "FILENAME.ASM"],
     offset: 0,
   },
   // Above NAMES, which stays loaded while FLOAT is used: FLOAT starts at

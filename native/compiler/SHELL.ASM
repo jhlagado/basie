@@ -116,7 +116,7 @@ MS_REC EQU  DG_ARG2+2          ; Byte: the record of BASIE.MSG in MS_BUF.
 OV_CUR EQU  MS_REC+1           ; Byte: the overlay loaded last, $FF for none (OVERLAY.ASM).
 OV_FCB EQU  OV_CUR+1           ; SH_FLEN bytes: BASIE.OVL's FCB, open once loaded.
 OV_DIR EQU  OV_FCB+SH_FLEN     ; OV_DCAP entries of four: each overlay's address, records.
-OV_DCAP EQU  8                 ; Overlays BASIE.OVL may describe.
+OV_DCAP EQU  7                 ; Overlays BASIE.OVL may describe.
 SH_WEND EQU  OV_DIR+4*OV_DCAP  ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN
@@ -140,23 +140,18 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   (OV_FCB+1),A              ; nor BASIE.OVL opened,
     DEC  A                         ; until
     LD   (OV_CUR),A                ; the first is needed.
-    INC  A                         ; The command line's: OV_CMD, zero.
+    INC  A                         ; The start-up's: OV_BEGIN, zero.
     CALL OV_LOAD                   ; Load it,
     CALL OV_AREA                   ; and read the parts and options (CL_READ).
     LD   HL,OV_AREA                ; CH_RUN, if
     LD   A,(CL_SEEN+CL_IC)         ; option X
     CP   'X'                       ; links only:
     JR   Z,SH_CHAIN                ; run BLINK, compiling nothing.
-    LD   A,OV_START                ; The start of a build:
-    CALL OV_LOAD                   ; check the library
-    CALL OV_AREA                   ; (LB_FIRST);
-    LD   A,OV_PARTS                ; load the parts
-    CALL OV_LOAD                   ; and their includes
-    CALL OV_AREA                   ; (SH_BEGIN),
-    JR   C,SH_DIAG                 ; a diagnostic of theirs printed;
-    LD   A,OV_START                ; then choose the stamp,
-    CALL OV_LOAD                   ; open the streams and name the parts
-    CALL OV_AREA+3                 ; (LB_OPEN).
+    CALL OV_AREA+3                 ; Check the library (LB_FIRST);
+    CALL OV_AREA+6                 ; load the parts and their includes
+    JR   C,SH_DIAG                 ; (SH_BEGIN), a diagnostic printed;
+    CALL OV_AREA+9                 ; choose the stamp, open the streams
+                                   ; and name the parts (LB_OPEN).
     LD   A,OV_NAMES                ; The predeclared names
     CALL OV_LOAD                   ; are in the overlay area for the compilation.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.

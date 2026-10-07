@@ -255,15 +255,15 @@ SH_AGAIN:                      ; A is the entry, HL the limit.
 
 ;@ROUTINE IN A NORETURN
 ; Report the part SH_AGAIN could not load again (SH_CUR): A zero, not on
-; the disk (L-MISSING), else unreadable (L-IO). The PARTS overlay, loaded
+; the disk (L-MISSING), else unreadable (L-IO). The BEGIN overlay, loaded
 ; for it, names the part (SH_GONE).
 
 SH_AGERR:                      ; A is zero if the part is missing.
     PUSH AF                        ; Keep it.
-    LD   A,OV_PARTS                ; The parts'
+    LD   A,OV_BEGIN                ; The start-up
     CALL OV_LOAD                   ; overlay
     POP  AF                        ; reports
-    JP   OV_AREA+3                 ; it (SH_GONE).
+    JP   OV_AREA+12                ; it (SH_GONE).
 
 ;@ROUTINE OUT A,CARRY,ZERO,DE,HL CLOBBERS SIGN,PARITY,HALFCARRY
 ; Return the current byte in A without consuming it, with carry clear and

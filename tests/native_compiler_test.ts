@@ -24,22 +24,21 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
   assertEquals(await sha256(image.com), DIGEST);
   assertEquals(await sha256(image.ovl), OVL_DIGEST);
   assertEquals(image.core, 23_309);
-  assertEquals(image.com.length, 24_022);
-  assertEquals(image.ovl.length, 9_216);
+  assertEquals(image.com.length, 24_007);
+  assertEquals(image.ovl.length, 9_088);
   assertEquals(
     image.overlays.map((o) => [o.name, o.bytes.length]),
     [
-      ["COMMAND", 1875],
-      ["START", 819],
+      ["BEGIN", 2465],
       ["NAMES", 947],
       ["CHAIN", 448],
       ["DIAG", 1047],
-      ["PARTS", 970],
+      ["LOOKUP", 1063],
       ["FLOAT", 1460],
       ["OWNERS", 912],
     ],
   );
-  assertEquals(image.areaSize, 2_483);
+  assertEquals(image.areaSize, 2_560);
   // The budget counts the memory the compiler's code takes: the resident
   // image and the overlay area after it.
   const memory = image.com.length + image.areaSize;
@@ -52,6 +51,6 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
 });
 
 const DIGEST =
-  "ef35902ab3e20aafb3de01752227f00582da54d542c40d95d48c9669952be073";
+  "b12cc010f37cf2af712a3b9dd8f4ef9609d28dd8b92d0fd9b651990e98694e28";
 const OVL_DIGEST =
-  "a5368cdcf6e9ce1f262507cee040da408751312d54a27794aabaddd11d980eb9";
+  "699c7863f1c6840034600eb4de3233f1994baafc1bc0f2f9df4b5fac4e4bc4dd";

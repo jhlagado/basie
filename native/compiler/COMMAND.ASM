@@ -30,6 +30,20 @@
 ;  option`. Neither returns. The option bytes' equates (CL_I...) and the kinds
 ;  (CL_K...) are with the shell's workspace, in SHELL.ASM.
 
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The BEGIN overlay's entries, at OV_AREA, which the shell runs in turn
+; from one load (SH_START): the command line (CL_READ), the library
+; (LIBRARY.ASM's LB_FIRST), the parts (PARTS.ASM's SH_BEGIN), the stamp
+; and the streams (LB_OPEN); and a part SH_AGAIN could not load again
+; (SH_GONE).
+
+BG_TAB:                        ; At OV_AREA: the command line;
+    JP   CL_READ                   ; read;
+    JP   LB_FIRST                  ; 3: the library checked;
+    JP   SH_BEGIN                  ; 6: the parts loaded;
+    JP   LB_OPEN                   ; 9: the stamp and the streams;
+    JP   SH_GONE                   ; 12: a part not loaded again.
+
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse the command tail: upper-case it, then read the parts, each
 ; [d:]name[.type], of type BSI when it names none, with spaces allowed
@@ -112,8 +126,11 @@ CL_READ:                       ; The tail is at SH_TAIL.
 .SPOOL:                        ; The streams are named.
     LD   A,(CL_SEEN+CL_IT)         ; Option T, trap lookup,
     OR   A                         ; looks the address up
-    RET  Z                         ; instead of a build
-    JP   LK_RUN                    ; (LOOKUP.ASM).
+    RET  Z                         ; instead of a build:
+    LD   HL,OV_AREA                ; LK_RUN, at the LOOKUP
+    PUSH HL                        ; overlay's start, runs
+    LD   A,OV_LOOK                 ; once it replaces this one
+    JP   OV_LOAD                   ; (LOOKUP.ASM); no return.
 
 ;@ROUTINE NORETURN
 ; Report a malformed command line with the usage line.

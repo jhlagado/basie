@@ -10,8 +10,8 @@
 ;  compiler's workspace and describes them in the part table (SOURCE.ASM).
 ;
 ;  Principal entries:
-;    SH_BEGIN  load the parts, at OV_AREA
-;    SH_GONE   report a part SH_AGAIN could not load again, at OV_AREA+3
+;    SH_BEGIN  load the parts, at OV_AREA+6
+;    SH_GONE   report a part SH_AGAIN could not load again, at OV_AREA+12
 ;
 ;  Includes (spec 4.3.2, D33). A part's include lines are read with the
 ;  tokenizer as the part is loaded: `include "NAME.TYP"`, then the line's
@@ -49,18 +49,12 @@
 
 SH_STATE EQU  14               ; Bytes of the tokenizer's state, SRC_ID to TK_NEST.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The overlay's entries: OV_AREA, SH_BEGIN, and OV_AREA+3, SH_GONE.
-
-SH_ENTRY:                      ; At OV_AREA.
-    JP   SH_BEGIN                  ; SH_GONE follows at +3.
-
 ;@ROUTINE IN A NORETURN
-; At OV_AREA+3: report the part SH_CUR names, which SH_AGAIN (SHELL.ASM)
+; At OV_AREA+12 (BG_TAB): report the part SH_CUR names, which SH_AGAIN (SHELL.ASM)
 ; could not load again: A zero, not on the disk (L-MISSING); otherwise
 ; unreadable (L-IO).
 
-SH_GONE:                       ; At OV_AREA+3.
+SH_GONE:                       ; At OV_AREA+12.
     OR   A                         ; Unreadable:
     JP   NZ,SH_RERR                ; L-IO;
     LD   HL,(SH_CUR)               ; missing:
