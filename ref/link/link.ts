@@ -45,7 +45,16 @@ export type LinkOptions = {
   byteStreamStamp?: number;
   /** Line stream, if one was written. */
   lines?: { stamp: number; parts: string[]; blobs: BlobLines[] };
+  /**
+   * Option D: embed the position table (object format §11.1) after the
+   * stored image, with the library's position reporter (ordinal
+   * POSITION_REPORTER), so that a trap names its statement.
+   */
+  positions?: boolean;
 };
+
+/** The library ordinal of the position reporter, TRAPLN (object format §11.1). */
+export const POSITION_REPORTER = 0x08f;
 
 type Owner = "library" | "program";
 
@@ -211,6 +220,18 @@ export function link(
     }
   };
   for (const e of table.values()) if (e.root && e.kind >= 0) mark(e.ordinal);
+  if (options.positions) {
+    if (!options.lines) {
+      throw new LinkError("L-OPTION", "D needs the line stream");
+    }
+    const reporter = table.get(POSITION_REPORTER);
+    if (
+      !reporter || reporter.owner !== "library" || reporter.kind !== Kind.code
+    ) {
+      throw new LinkError("L-OPTION", "the library has no position reporter");
+    }
+    mark(POSITION_REPORTER);
+  }
   let usesFiles = false;
   while (stack.length > 0) {
     const e = table.get(stack.pop()!)!;
@@ -286,9 +307,21 @@ export function link(
     const at = rom ? romCursor : data.end;
     copy = { start: at, end: at + (data.end - data.start) };
   }
-  const imageEnd = rom
+  let imageEnd = rom
     ? copy.end > copy.start ? copy.end : romCursor
     : Math.max(cursor, copy.end);
+  // The position table follows the stored image (object format §11.1).
+  let positions: Uint8Array | undefined;
+  const positionsAt = imageEnd;
+  if (options.positions) {
+    positions = buildPositionTable(
+      options.lines!,
+      table,
+      sectionBlobs,
+      table.get(POSITION_REPORTER)!.address,
+    );
+    imageEnd += positions.length;
+  }
   if (!rom) cursor = imageEnd;
   const bss = place("BSS");
   let filesAddress = cursor;
@@ -330,6 +363,10 @@ export function link(
     [Pseudo.OPTIONS, { address: optionsWord, size: 0 }],
     [Pseudo.FILES, { address: filesAddress, size: filesSize }],
     [Pseudo.FILECOUNT, { address: usesFiles ? fileCount : 0, size: 0 }],
+    [Pseudo.LINES, {
+      address: positions ? positionsAt : 0,
+      size: positions ? positions.length : 0,
+    }],
   ]);
   if (startSection.start !== profile.imageBase) {
     throw new LinkError("L-STARTUP", "startup is not at the image base");
@@ -453,6 +490,7 @@ export function link(
       data.end - profile.imageBase,
     );
   }
+  if (positions) image.set(positions, positionsAt - profile.imageBase);
 
   const addresses = new Map<number, number>();
   const live = new Set<number>();
@@ -775,12 +813,11 @@ export function intelHex(image: Uint8Array, base: number): Uint8Array {
   return padded;
 }
 
-function buildLineTable(
+/** The line table's entries in address order: address, part, line, column. */
+function lineEntries(
   lines: NonNullable<LinkOptions["lines"]>,
-  output: Uint8Array,
-  table: Map<number, Entry>,
   sectionBlobs: (s: string) => Entry[],
-): Uint8Array {
+): [number, number, number, number][] {
   const byOrdinal = new Map(lines.blobs.map((b) => [b.ordinal, b]));
   const entries: [number, number, number, number][] = [];
   for (const section of ["START", "TEXT", "DATA"]) {
@@ -802,7 +839,54 @@ function buildLineTable(
       }
     }
   }
+  return entries;
+}
+
+/**
+ * The position table (object format §11.1): the reporter's address, the
+ * parts' count and names, each zero-terminated, then the entries from
+ * address 0, part 0, line 0. An entry whose part is the last one's, whose
+ * address rises by 1 to 255 and whose line moves by -128 to 127 is three
+ * bytes, the rise, the line's change and the column; any other is 0, the
+ * address, the part, the line and the column. A last long entry at
+ * $FFFF, part $FF, ends the table.
+ */
+function buildPositionTable(
+  lines: NonNullable<LinkOptions["lines"]>,
+  table: Map<number, Entry>,
+  sectionBlobs: (s: string) => Entry[],
+  reporter: number,
+): Uint8Array {
   void table;
+  const entries = lineEntries(lines, sectionBlobs);
+  const bytes: number[] = [reporter & 0xff, reporter >> 8, lines.parts.length];
+  for (const p of lines.parts) {
+    bytes.push(...[...p].map((c) => c.charCodeAt(0)), 0);
+  }
+  let address = 0, part = 0, line = 0;
+  for (const [a, p, l, c] of entries) {
+    const rise = a - address, change = l - line;
+    if (
+      p === part && rise >= 1 && rise <= 255 && change >= -128 && change <= 127
+    ) {
+      bytes.push(rise, change & 0xff, c);
+    } else {
+      bytes.push(0, a & 0xff, a >> 8, p, l & 0xff, l >> 8, c);
+    }
+    address = a, part = p, line = l;
+  }
+  bytes.push(0, 0xff, 0xff, 0xff, 0, 0, 0);
+  return Uint8Array.from(bytes);
+}
+
+function buildLineTable(
+  lines: NonNullable<LinkOptions["lines"]>,
+  output: Uint8Array,
+  table: Map<number, Entry>,
+  sectionBlobs: (s: string) => Entry[],
+): Uint8Array {
+  void table;
+  const entries = lineEntries(lines, sectionBlobs);
   const bytes: number[] = [];
   const ascii = (t: string) =>
     bytes.push(...[...t].map((c) => c.charCodeAt(0)));

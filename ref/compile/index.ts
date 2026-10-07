@@ -70,6 +70,8 @@ export type CompileOptions = SourceOptions & {
    * compare the two compilers' streams byte for byte.
    */
   stamp?: number;
+  /** Link with option D: the position table embedded (object format §11.1). */
+  positions?: boolean;
 };
 
 let cachedLibrary: Library | undefined;
@@ -134,6 +136,7 @@ export async function compile(
     };
     const result = link(library, dir, program.bytes, {
       byteStreamStamp: stamp,
+      positions: options.positions,
       lines: {
         stamp,
         parts: stream.parts.map((p) => p.name),

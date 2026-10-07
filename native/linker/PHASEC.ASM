@@ -88,8 +88,8 @@ WK_ENTRY:                      ; The blob's entry.
     DW   0                         ; From the table.
 SRC_FD:                        ; Phase D: the byte stream being copied.
     DW   0                         ; SRC_LIB or SRC_PROG.
-PS_TAB:                        ; MAIN to FILECOUNT: address, size.
-    DS   40                        ; Ten rows of four bytes.
+PS_TAB:                        ; MAIN to LINES: address, size.
+    DS   44                        ; Eleven rows of four bytes.
 
 ; ---- walking a directory ---------------------------------------------------
 
@@ -360,7 +360,13 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     POP  DE                        ; DE is DATA's end.
     ADD  HL,DE                     ; HL is COPY's end,
     JP   C,.WRAP                   ; past $FFFF: L-FIT-IMAGE.
-    LD   (IMG_END),HL              ; The image ends there.
+    LD   (IMG_END),HL              ; The image ends there, but for
+    CALL PT_RUN                    ; the position table (option D),
+    LD   HL,(IMG_END)              ; which follows it
+    LD   DE,(PT_SIZE)              ; (zero bytes
+    ADD  HL,DE                     ; without D),
+    JP   C,.WRAP                   ; within $FFFF.
+    LD   (IMG_END),HL              ; The image ends after it.
     LD   (PC_NEXT),HL              ; BSS follows the image.
     EX   DE,HL                     ; Fit checks (linker §6.4): the image
     LD   HL,(PF_LIMIT)             ; must end at or below the image limit,
@@ -645,9 +651,14 @@ PC_RUN:                        ; Phase B has marked the live blobs.
     LD   E,B                       ; unless
     LD   A,(PB_FILES)              ; the program uses files.
     OR   A                         ; Does it?
-    JR   Z,.PUT                    ; No: 0.
+    JR   Z,.COUNT                  ; No: 0.
     LD   A,(FT_COUNT)              ; The entries,
-    LD   E,A                       ; as the value; fall into .PUT.
+    LD   E,A                       ; as the value.
+.COUNT:                        ; DE is FILECOUNT's value.
+    CALL .PUT                      ; Its row.
+    LD   DE,(PT_ADDR)              ; LINES: the position table and
+    LD   BC,(PT_SIZE)              ; its size, 0 and 0 without D; fall
+                                   ; into .PUT.
 
 ;@ROUTINE IN BC,DE CLOBBERS HL
 ; Write the next row of PS_TAB: address DE, size BC. Keeps BC and DE.

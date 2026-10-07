@@ -81,7 +81,8 @@ CL_IL EQU  11                  ; Of L: the library's drive.
 CL_IS EQU  12                  ; Of S: the spool drive.
 CL_IT EQU  15                  ; Of T: trap lookup.
 CL_ISTK EQU  16                ; Of STACK.
-CL_NOPT EQU  17                ; Bytes in CL_SEEN.
+CL_ID EQU  17                  ; Of D: the position table (BLINK's).
+CL_NOPT EQU  18                ; Bytes in CL_SEEN.
 CL_KDRV EQU  1                 ; Option kind: a drive, L= or S=.
 CL_KLIB EQU  2                 ; Option kind: a library's name, P=.
 CL_KOUT EQU  3                 ; Option kind: an output file, O=.

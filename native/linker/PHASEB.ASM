@@ -44,6 +44,19 @@ PB_RUN:                        ; The tables are complete and checked.
     JR   .ROOTS                    ; Go on.
 .WORK:                         ; The position is on the stack.
     POP  HL                        ; Drop it.
+    LD   A,(OP_SEEN)               ; Option D: the library's position
+    AND  OX_D                      ; reporter (object format §11.1)
+    JR   Z,.POP                    ; is live too,
+    LD   HL,203                    ; else L-OPTION:
+    LD   A,(OP_FLAGS)              ; it needs the line stream,
+    AND  OF_N                      ; which N
+    JP   NZ,DG_PLAIN               ; leaves out,
+    CALL PT_REP                    ; and the reporter,
+    JR   NC,.REP                   ; which the library
+    LD   HL,203                    ; must have.
+    JP   DG_PLAIN                  ; (L-OPTION.)
+.REP:                          ; HL is its entry:
+    CALL .MARK                     ; marked.
 .POP:                          ; Follow the edges of each entry pushed.
     LD   HL,(PB_STACK)             ; Pop an entry:
     LD   DE,(PRG_END)              ; is the stack

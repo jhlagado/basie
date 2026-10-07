@@ -64,6 +64,7 @@ SEEN_S EQU  $04                ; S= given.
 SEEN_O EQU  $08                ; O= given.
 SEEN_F EQU  $10                ; F= given.
 OX_W EQU  $20                  ; W: write the link tables to NAME.$TB, for testing.
+OX_D EQU  $40                  ; D: embed the position table (object format §11.1).
 SEEN_ST EQU  $80               ; STACK= given.
 
 FN_DISK:                       ; A parsed file name's drive, 1 A:, or 0.
@@ -211,7 +212,13 @@ CMD_READ:                      ; Called first, before any file is open.
     OR   A                         ; Clear carry.
     RET                            ; Parsed.
 .NOVALUE:                      ; C is a flag letter.
-    LD   A,C                       ; W has its bit in OP_SEEN.
+    LD   A,C                       ; D has its bit in OP_SEEN:
+    CP   'D'                       ; is it D?
+    JR   NZ,.NOTD                  ; No.
+    LD   A,OX_D                    ; D: the position table,
+    CALL .ONCE                     ; once.
+    RET                            ; Carry if repeated.
+.NOTD:                         ; So has W.
     CP   'W'                       ; Is it W?
     JR   NZ,.TABLE                 ; Others are in the table.
     LD   A,OX_W                    ; W: write the tables, for testing,

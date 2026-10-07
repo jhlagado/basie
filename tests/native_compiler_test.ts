@@ -29,7 +29,7 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
   assertEquals(
     image.overlays.map((o) => [o.name, o.bytes.length]),
     [
-      ["BEGIN", 2465],
+      ["BEGIN", 2469],
       ["NAMES", 947],
       ["CHAIN", 448],
       ["DIAG", 1047],
@@ -51,6 +51,6 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
 });
 
 const DIGEST =
-  "8d30ec514fc00cf38ad0b4d0f2625bff09b51b1fd3d07d8f841bf2530aa832e1";
+  "46f2c8def5cd658a83510aa45ffbd73b0d369944934f55828686d16ce78039ad";
 const OVL_DIGEST =
-  "aa600fbc279827601486d341810edce5c1051e3aeaf536fc5cb8912475ac12fb";
+  "20a112e2680a156635400769b5361e86ec3c680cf49a930ec753a2e0b9903dc6";

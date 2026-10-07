@@ -93,6 +93,18 @@ PD_RUN:                        ; Phase C has placed everything.
     LD   (PD_DELTA),HL             ; added to each blob's address.
     LD   A,S_DATA                  ; DATA's blobs again,
     CALL .SECTION                  ; written as COPY.
+    LD   HL,(PT_SIZE)              ; Then the position table (option D),
+    LD   DE,(PT_BEG)               ; made in Phase C.
+.TABLE:                        ; HL bytes remain at DE.
+    LD   A,H                       ; Any
+    OR   L                         ; left?
+    JR   Z,.TABLED                 ; No.
+    LD   A,(DE)                    ; The next,
+    CALL PD_OUTB                   ; written (DE and HL kept).
+    INC  DE                        ; One
+    DEC  HL                        ; fewer.
+    JR   .TABLE                    ; Go on.
+.TABLED:                       ; The image is written.
     LD   A,(OUT_KIND)              ; .COM and .BIN: zeros to the end of the record;
     CP   4                         ; .HEX: the last data record, the end
     LD   C,0                       ; record, then $1A. Padding is in the CRC.
@@ -204,7 +216,7 @@ PD_BLOB:                       ; A walk's callback.
     JR   Z,.SOURCE                 ; The blob starts here.
 .ZERO:                         ; A gap before the blob.
     XOR  A                         ; A zero,
-    CALL .OUTBYTE                  ; written.
+    CALL PD_OUTB                  ; written.
     INC  HL                        ; One address on.
     JR   .PAD                      ; Until the blob's address.
 .SOURCE:                       ; HL is the blob's address.
@@ -275,7 +287,7 @@ PD_BLOB:                       ; A walk's callback.
     RET  Z                         ; Copied up to HL.
 .ONE:                          ; One more byte.
     CALL .SRCBYTE                  ; A is the source's next byte.
-    CALL .OUTBYTE                  ; Write it.
+    CALL PD_OUTB                  ; Write it.
     INC  DE                        ; One more copied,
     LD   (REF_END),DE              ; recorded.
     JR   .LOOP                     ; Go on.
@@ -291,18 +303,18 @@ PD_BLOB:                       ; A walk's callback.
     JR   Z,.HI                     ; One byte, the high.
     CALL .SKIP2                    ; ABS16 and SIZE16: two bytes.
     LD   A,L                       ; The low byte,
-    CALL .OUTBYTE                  ; written,
+    CALL PD_OUTB                  ; written,
     LD   A,H                       ; then the high byte,
-    CALL .OUTBYTE                  ; written.
+    CALL PD_OUTB                  ; written.
     RET                            ; The reference is patched.
 .LO:                           ; LO8.
     CALL .SKIP1                    ; Pass the placeholder byte.
     LD   A,L                       ; The low byte,
-    JP   .OUTBYTE                  ; written; return.
+    JP   PD_OUTB                  ; written; return.
 .HI:                           ; HI8.
     CALL .SKIP1                    ; Pass the placeholder byte.
     LD   A,H                       ; The high byte,
-    JP   .OUTBYTE                  ; written; return.
+    JP   PD_OUTB                  ; written; return.
 
 ;@ROUTINE CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Pass two placeholder bytes in the source, checking each under option V.
@@ -450,7 +462,7 @@ PD_BLOB:                       ; A walk's callback.
 ; Write image byte A to the output: as itself, or into a .HEX record.
 ; Keeps BC, DE, HL and IX.
 
-.OUTBYTE:                      ; A is an image byte.
+PD_OUTB:                       ; A is an image byte.
     PUSH HL                        ; Keep HL while the kind is tested.
     LD   HL,OUT_KIND               ; .HEX is kind 4,
     BIT  2,(HL)                    ; bit 2.

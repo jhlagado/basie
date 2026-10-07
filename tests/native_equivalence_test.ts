@@ -888,6 +888,67 @@ Deno.test("67f: random f32 statements compile as the reference compiles them", a
   }
 });
 
+Deno.test("option D embeds the reference's position table and traps name their statements", async () => {
+  // The position table follows the stored image and the library's reporter
+  // (TRAPLN) is linked (object format §11.1): BLINK's image must be the
+  // reference linker's, and a trap prints PART:LINE:COLUMN as its run does.
+  const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));
+  for (const name of ["TRAP", "BOUNDS", "RECTRAP", "INCMAIN", "LRUCACHE"]) {
+    const disk = native(name, ",D");
+    const files: Record<string, Uint8Array> = {
+      "BASIE.MSG": messageFile(),
+      "CPM22.BRL": LIBRARY,
+    };
+    for (const t of ["$DR", "$BY", "$LN"]) {
+      files[`${name}.${t}`] = disk.get(`${name}.${t}`)!;
+    }
+    const linked = runCom(blink, {
+      tail: `${name} [D]`,
+      files,
+      maxSteps: 100_000_000,
+    });
+    assertEquals(linked.output, "", name);
+    const com = linked.disk.get(`${name}.COM`)!;
+    const ref = await compile(`${name}.BSI`, {
+      mainSource: Deno.readFileSync(path(name)),
+      libraryDirs: [dirname(path(name)), "lib"],
+      stamp: stampOf(disk, name),
+      positions: true,
+    });
+    if (!ref.ok) throw new Error(`${name}: the reference refuses it`);
+    assertEquals(com, ref.com, name);
+    const ours = runCom(com, { maxSteps: 5_000_000 });
+    const theirs = runCom(ref.com, { maxSteps: 5_000_000 });
+    assertEquals(ours.output, theirs.output, name);
+  }
+  // A program that traps names its statement.
+  const trapped = runCom(
+    (await compile("BOUNDS.BSI", {
+      mainSource: Deno.readFileSync(path("BOUNDS")),
+      positions: true,
+    }) as { com: Uint8Array }).com,
+    { maxSteps: 5_000_000 },
+  );
+  assertEquals(
+    /^TRAP bounds at BOUNDS\.BSI:\d+:\d+\r\n$/m.test(trapped.output),
+    true,
+    trapped.output,
+  );
+  // D needs the line stream, which N leaves out: L-OPTION.
+  const disk = native("EMPTY", ",N");
+  const files: Record<string, Uint8Array> = {
+    "BASIE.MSG": messageFile(),
+    "CPM22.BRL": LIBRARY,
+  };
+  for (const t of ["$DR", "$BY"]) files[`EMPTY.${t}`] = disk.get(`EMPTY.${t}`)!;
+  const refused = runCom(blink, {
+    tail: "EMPTY [D,N]",
+    files,
+    maxSteps: 50_000_000,
+  });
+  assertEquals(/^Error 203:/.test(refused.output), true, refused.output);
+});
+
 Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
   const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));
   const library: Record<string, Uint8Array> = {

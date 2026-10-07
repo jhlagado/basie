@@ -126,7 +126,8 @@ size. A reference to a pseudo-object marks nothing live, except `MAIN`.
 | `$FFE7` | `OPTIONS` | A 16-bit flag word, used as a value rather than an address (Section 3.5) | 0 |
 | `$FFE8` | `FILES` | First address of the file table the linker allocates in `BSS` (Section 3.6) | Its length: the file count times the profile's file-entry size |
 | `$FFE9` | `FILECOUNT` | The number of file-table entries, used as a value | 0 |
-| `$FFEA`–`$FFFF` | — | Reserved; a reference is an error | — |
+| `$FFEA` | `LINES` | The position table (Section 11.1), after the stored image; 0 without option `D` | Its length; 0 without option `D` |
+| `$FFEB`–`$FFFF` | — | Reserved; a reference is an error | — |
 
 When there are no `bss` blobs, `BSS` has the address of `FREE` and size 0.
 Likewise, when `DATA` is empty, `DATA` and `DATACOPY` have size 0. Code that
@@ -600,6 +601,40 @@ The **image CRC** is the CRC of the output file as stored, including whatever
 padding the output kind uses, so a tool can check that a line table belongs to
 a given program file. It is in the trailer because the linker knows
 it only after the image is written.
+
+### 11.1 The position table
+
+Linked with option `D` (toolchain §5.3, design decision D47), the image
+carries a position table, so that a trap prints its statement's part, line
+and column rather than an address. The linker places it directly after the
+stored image, before `BSS`, as part of the image; the `LINES` pseudo-object
+gives its address and length (both 0 without `D`). The linker also links the
+library's position reporter, the code blob at ordinal `$08F` (`TRAPLN` in
+`CPM22`), which nothing refers to; the runtime's trap routine calls it
+through the table's first word when `LINES` has a length. `D` needs the line
+stream: with option `N`, or with a library without the reporter, the link
+fails with `L-OPTION`.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| reporter | `u16` | The position reporter's address |
+| parts | `u8` | The number of parts |
+| names | | Each part's name, `NAME.TYP`, then a zero byte |
+| entries | | The line table's entries (Section 11), in address order |
+
+The entries are encoded against the one before, starting from address 0,
+part 0 and line 0. An entry whose part is the one before's, whose address is
+1 to 255 above it and whose line is within -128 to 127 of it takes three
+bytes: the address's rise, the line's change as a signed byte, and the
+column. Any other takes seven: a zero byte, then the address, the part (`$FF`
+for a blob without source, as in the line table), the line (the ordinal for
+a blob without source) and the column. A seven-byte entry at `$FFFF`, part
+`$FF`, ends the table; no address the reporter looks up is above it.
+
+The reporter finds the entry with the greatest address not above the one
+asked about, as Section 11 does, and prints `NAME.TYP:line:column`; an
+address before the first entry, or in a blob without source, has none, and
+the trap prints its address and the lookup command instead.
 
 ## 12. Limits
 

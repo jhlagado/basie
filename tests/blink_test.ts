@@ -36,11 +36,11 @@ Deno.test("BLINK.COM is the recorded image", async () => {
   // A change to the linker's code updates this digest and size in the same
   // commit, so that no byte changes by accident.
   assertEquals(hex, BLINK_DIGEST);
-  assertEquals(blink.length, 10_893);
+  assertEquals(blink.length, 11_411);
 });
 
 const BLINK_DIGEST =
-  "e2b93d57546024c35bd0b14a0b879e311b117b395c9f1ed4d7165657e3ac490a";
+  "d0366f02c8deeb6a05920e10145286ba8c72f56139bb96fd71c47eb0073a8377";
 
 Deno.test("BLINK with no name prints its usage", () => {
   assertEquals(run("", { "BASIE.MSG": MSG }), error(223));

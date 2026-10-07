@@ -545,6 +545,8 @@ CL_TAB:                        ; Each option's letter and kind; its byte is its 
     DB   'L',CL_KDRV,'S',CL_KDRV   ; its drive, the spool drive,
     DB   'O',CL_KOUT               ; the output,
     DB   'F',CL_KNUM,'T',CL_KHEX   ; the file table, trap lookup;
+    DB   $FF,0                     ; STACK='s place (CL_ISTK), read before;
+    DB   'D',0                     ; the position table, for BLINK;
     DB   0                         ; the end of the table.
 CL_STACK:                      ; The rest of STACK= after the S.
     DB   "TACK="                   ; Five characters, matched by .SPELL.

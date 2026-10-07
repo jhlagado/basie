@@ -58,6 +58,31 @@ LN_PART:                       ; And its part.
     DB   0                         ; Kept until an entry names another.
 LN_COL:                        ; And its column.
     DB   0                         ; Read with its line.
+LN_MODE:                       ; 0: the line table; 1: the position table.
+    DB   0                         ; 1 only during PT_RUN, in Phase C.
+PT_BEG:                        ; The position table, made in free memory:
+    DW   0                         ; its first byte, above the program table,
+PT_PTR:                        ; and the next.
+    DW   0                         ; It must stay below the edge lists.
+PT_ADDR:                       ; Its address in the image, after COPY.
+    DW   0                         ; LINES; 0 without D.
+PT_SIZE:                       ; Its bytes.
+    DW   0                         ; LINES's size; 0 without D.
+PT_LA:                         ; The last entry encoded: its address,
+    DW   0                         ; 0 to start;
+PT_LP:                         ; its part,
+    DB   0                         ; 0;
+PT_LL:                         ; and its line.
+    DW   0                         ; 0.
+PT_A:                          ; The entry being written: its address,
+    DW   0                         ; set by LN_BLOB,
+PT_P:                          ; its part ($FF for a blob's start),
+    DB   0                         ; its
+PT_L:                          ; line (a start's ordinal)
+    DW   0                         ; and
+PT_C:                          ; its column.
+    DB   0                         ; Then LT_ENT.
+POS_REP EQU  $08F              ; The library's position reporter, TRAPLN.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read the next byte of the line stream into A, adding it to LN_CRC and
@@ -164,6 +189,9 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     JR   .COUNT                    ; The next record.
 .COUNTED:                      ; BC is the number of parts.
     PUSH BC                        ; Keep it for the header.
+    LD   A,(LN_MODE)               ; The position table's
+    OR   A                         ; header, under PT_RUN,
+    JR   NZ,.PTHEAD                ; differs.
     LD   IX,LT_FD                  ; The line table, NAME.$LT on the output drive:
     CALL OUT_PICK                  ; HL is the output's name, A its drive.
     LD   DE,LT_TYPE                ; Type $LT,
@@ -195,6 +223,21 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     XOR  A                         ; No output name, no library name:
     CALL LT_BYTE                   ; two empty
     CALL LT_BYTE                   ; names.
+    JR   .COUNTB                   ; Then the parts.
+.PTHEAD:                       ; The position table's header:
+    CALL PT_REP                    ; the reporter's
+    LD   DE,E_ADDR                 ; address
+    ADD  HL,DE                     ; (from
+    LD   A,(HL)                    ; its
+    INC  HL                        ; entry),
+    LD   H,(HL)                    ; then
+    LD   L,A                       ; the
+    CALL PT_WORD                   ; parts'
+    POP  BC                        ; count,
+    LD   A,C                       ; one
+    CALL PT_BYTE                   ; byte.
+    XOR  A                         ; (A zero.)
+.COUNTB:                       ; A is zero.
     LD   B,C                       ; B is the count,
     LD   C,A                       ; C the part sought, from 0.
 .PARTS:                        ; A pass for each part, in part order.
@@ -224,17 +267,22 @@ LN_OPEN:                       ; Called by Phase D before the first section.
     CALL LN_SKIP                   ; Skip the name.
     JR   .FIND                     ; The next record.
 .COPY:                         ; D is the name's length.
-    LD   A,D                       ; The length,
-    CALL LT_BYTE                   ; written.
+    LD   A,(LN_MODE)               ; The length, before
+    OR   A                         ; the name in
+    LD   A,D                       ; the line table,
+    CALL Z,LT_BYTE                 ; written.
 .NAME:                         ; Copy the name.
     LD   A,D                       ; Any left?
     OR   A                         ; Zero when done.
     JR   Z,.COPIED                 ; The part is written.
     CALL LN_BYTE                   ; A character,
-    CALL LT_BYTE                   ; copied.
+    CALL LN_PUT                    ; copied.
     DEC  D                         ; One fewer.
     JR   .NAME                     ; Go on.
-.COPIED:                       ; The next part.
+.COPIED:                       ; The name is copied:
+    LD   A,(LN_MODE)               ; in the position table
+    OR   A                         ; a zero
+    CALL NZ,PT_ZERO                ; ends it.
     POP  BC                        ; The count and the part,
     INC  C                         ; the next part.
     JR   .PARTS                    ; Find it.
@@ -399,39 +447,34 @@ LN_BLOB:                       ; RD_PREV, WK_OWN and WK_KIND are the blob's.
     OR   A                         ; Emitted?
     RET  Z                         ; No: nothing.
 
-;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write a start entry: the blob's address, $FF, its ordinal, column 0.
 
 .STARTER:                      ; .ADDR and RD_PREV are the blob's.
     LD   HL,(.ADDR)                ; The address,
-    CALL LT_WORD                   ; written.
+    LD   (PT_A),HL                 ; kept;
     LD   A,$FF                     ; $FF marks a start entry,
-    CALL LT_BYTE                   ; in place of the part.
-    LD   HL,(RD_PREV)              ; The blob's ordinal,
-    CALL LT_WORD                   ; in place of the line,
+    LD   (PT_P),A                  ; in place of the part;
+    LD   HL,(RD_PREV)              ; the blob's ordinal,
+    LD   (PT_L),HL                 ; in place of the line,
     XOR  A                         ; and no
     JR   .COLUMN                   ; column.
 
-;@ROUTINE IN HL CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Write an entry: address = the blob's + LN_POS, part, line HL, column.
 
 .ENTRY:                        ; HL is the source offset.
-    PUSH HL                        ; Keep it.
-    LD   HL,(.ADDR)                ; The blob's address
+    LD   (PT_L),HL                 ; The line, kept;
+    LD   HL,(.ADDR)                ; the blob's address
     LD   DE,(LN_POS)               ; plus the entry's offset
     ADD  HL,DE                     ; is the statement's address,
-    CALL LT_WORD                   ; written.
-    LD   A,(LN_PART)               ; The part,
-    CALL LT_BYTE                   ; written.
-    POP  HL                        ; The line,
-    CALL LT_WORD                   ; written,
+    LD   (PT_A),HL                 ; kept;
+    LD   A,(LN_PART)               ; the part,
+    LD   (PT_P),A                  ; kept,
     LD   A,(LN_COL)                ; then the column.
 .COLUMN:                       ; A is the column.
-    CALL LT_BYTE                   ; Written.
-    LD   HL,(LT_CNT)               ; One more
-    INC  HL                        ; entry
-    LD   (LT_CNT),HL               ; in the table.
-    RET                            ; Done.
+    LD   (PT_C),A                  ; Kept:
+    JP   LT_ENT                    ; the entry written; return.
 
 .EMITTED:                      ; Nonzero when the blob is emitted.
     DB   0                         ; Set by LN_BLOB.
@@ -515,7 +558,20 @@ LN_CLOSE:                      ; Called at the end of Phase D.
     OR   A                         ; Clear carry for the subtraction.
     SBC  HL,DE                     ; Equal?
     JR   NZ,LN_FAIL                ; The stream is damaged.
-    LD   B,6                       ; The table's trailer: $FF x 6,
+    LD   A,(LN_MODE)               ; The position table
+    OR   A                         ; ends with
+    JR   Z,.LT                     ; a long entry
+    CALL PT_ZERO                   ; at $FFFF,
+    DEC  A                         ; part $FF,
+    CALL PT_BYTE                   ; line 0,
+    CALL PT_BYTE                   ; column 0:
+    CALL PT_BYTE                   ; 0, $FF, $FF, $FF,
+    INC  A                         ; 0, 0
+    CALL PT_BYTE                   ; and
+    CALL PT_BYTE                   ; 0.
+    JP   PT_BYTE                   ; Complete; return.
+.LT:                           ; The line table's
+    LD   B,6                       ; trailer: $FF x 6,
 .MARK:                         ; B counts them.
     LD   A,$FF                     ; One $FF,
     CALL LT_BYTE                   ; written.
@@ -532,3 +588,225 @@ LN_CLOSE:                      ; Called at the end of Phase D.
     LD   HL,LT_TEXT                ; Name the table
     LD   (RD_NAME),HL              ; in the diagnostic.
     JP   DG_DISK                   ; L-IO.
+
+; ---- the position table (option D, object format §11.1) ---------------------
+
+;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write header byte A: to the line table, or under PT_RUN to the position
+; table. Keeps every register.
+
+LN_PUT:                        ; A is the byte.
+    PUSH AF                        ; (kept)
+    LD   A,(LN_MODE)               ; Which
+    OR   A                         ; table?
+    JR   NZ,.PT                    ; The position table.
+    POP  AF                        ; The line
+    JP   LT_BYTE                   ; table's.
+.PT:                           ; The position table's.
+    POP  AF                        ; The byte;
+                                   ; fall into PT_BYTE.
+
+;@ROUTINE IN A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append A to the position table in free memory. Keeps A, BC, DE and HL;
+; L-CAP-TABLES if it reaches the edge lists.
+
+PT_BYTE:                       ; A is a byte of the table.
+    PUSH HL                        ; Keep HL
+    PUSH DE                        ; and DE.
+    LD   HL,(PT_PTR)               ; The next place
+    LD   (HL),A                    ; takes it,
+    INC  HL                        ; and the one
+    LD   (PT_PTR),HL               ; after is next;
+    LD   DE,(EDGE_PTR)             ; it must stay
+    PUSH AF                        ; (the byte)
+    OR   A                         ; below the
+    SBC  HL,DE                     ; edge lists.
+    JP   NC,DG_CAP                 ; L-CAP-TABLES.
+    POP  AF                        ; The byte,
+    POP  DE                        ; DE
+    POP  HL                        ; and HL again.
+    RET                            ; Appended.
+
+;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append a zero byte to the position table; A returns zero.
+
+PT_ZERO:                       ; A zero:
+    XOR  A                         ; it,
+    JR   PT_BYTE                   ; appended; return.
+
+;@ROUTINE IN HL CLOBBERS A,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append HL to the position table, low byte first.
+
+PT_WORD:                       ; HL is the word.
+    LD   A,L                       ; The low byte,
+    CALL PT_BYTE                   ; appended;
+    LD   A,H                       ; the high,
+    JR   PT_BYTE                   ; appended; return.
+
+;@ROUTINE OUT CARRY,HL CLOBBERS A,DE,ZERO,SIGN,PARITY,HALFCARRY
+; Return in HL the entry of the library's position reporter, POS_REP:
+; carry if the library has no code blob there.
+
+PT_REP:                        ; Phase A has read the library.
+    LD   HL,(LIB_CNT)              ; Its entries
+    LD   DE,POS_REP+1              ; must reach
+    OR   A                         ; past the
+    SBC  HL,DE                     ; reporter's:
+    RET  C                         ; not so far.
+    LD   HL,POS_REP                ; Its
+    CALL TAB_AT                    ; entry,
+    LD   A,(HL)                    ; defined, no alias,
+    AND  EF_DEF+EF_ALIAS+7         ; and code
+    CP   EF_DEF                    ; (kind 0)?
+    SCF                            ; Carry
+    RET  NZ                        ; if not.
+    OR   A                         ; Clear carry:
+    RET                            ; it is.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the entry at PT_A, PT_P, PT_L and PT_C: six bytes to the line
+; table, counted (LT_CNT), or under PT_RUN encoded in the position table
+; from the last one encoded: three bytes, the address's rise, the line's
+; change and the column, when the part is the last's, the rise 1 to 255
+; and the change -128 to 127; else 0, the address, the part, the line and
+; the column.
+
+LT_ENT:                        ; The entry is in PT_A..PT_C.
+    LD   A,(LN_MODE)               ; The position table?
+    OR   A                         ; Under PT_RUN.
+    JR   NZ,.PT                    ; Encode it.
+    LD   HL,(PT_A)                 ; The address,
+    CALL LT_WORD                   ; written;
+    LD   A,(PT_P)                  ; the part,
+    CALL LT_BYTE                   ; written;
+    LD   HL,(PT_L)                 ; the line,
+    CALL LT_WORD                   ; written;
+    LD   A,(PT_C)                  ; the column,
+    CALL LT_BYTE                   ; written.
+    LD   HL,(LT_CNT)               ; One more
+    INC  HL                        ; entry
+    LD   (LT_CNT),HL               ; in the table.
+    RET                            ; Done.
+.PT:                           ; Encode it.
+    LD   A,(PT_P)                  ; The part
+    LD   HL,PT_LP                  ; must be
+    CP   (HL)                      ; the last one's,
+    JR   NZ,.LONG                  ; for a short entry;
+    LD   HL,(PT_A)                 ; the address's
+    LD   DE,(PT_LA)                ; rise
+    OR   A                         ; from the
+    SBC  HL,DE                     ; last,
+    LD   A,H                       ; below
+    OR   A                         ; 256,
+    JR   NZ,.LONG                  ; and
+    LD   A,L                       ; above
+    OR   A                         ; 0;
+    JR   Z,.LONG                   ; the
+    LD   C,A                       ; rise, C;
+    LD   HL,(PT_L)                 ; the line's
+    LD   DE,(PT_LL)                ; change
+    OR   A                         ; from
+    SBC  HL,DE                     ; the last,
+    LD   A,L                       ; a signed
+    RLA                            ; byte: H
+    SBC  A,A                       ; is L's
+    CP   H                         ; sign
+    JR   NZ,.LONG                  ; extended.
+    LD   A,C                       ; The rise,
+    CALL PT_BYTE                   ; appended;
+    LD   A,L                       ; the change,
+    CALL PT_BYTE                   ; appended;
+    JR   .COL                      ; then the column.
+.LONG:                         ; A long entry:
+    CALL PT_ZERO                   ; 0,
+    LD   HL,(PT_A)                 ; the address,
+    CALL PT_WORD                   ; appended,
+    LD   A,(PT_P)                  ; the part,
+    CALL PT_BYTE                   ; appended,
+    LD   HL,(PT_L)                 ; the line,
+    CALL PT_WORD                   ; appended.
+.COL:                          ; The column,
+    LD   A,(PT_C)                  ; appended
+    CALL PT_BYTE                   ; last.
+    LD   HL,(PT_A)                 ; This entry
+    LD   (PT_LA),HL                ; is the
+    LD   A,(PT_P)                  ; last
+    LD   (PT_LP),A                 ; encoded:
+    LD   HL,(PT_L)                 ; its address,
+    LD   (PT_LL),HL                ; part and line.
+    RET                            ; Done.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Option D, in Phase C once START, TEXT and DATA are placed: make the
+; position table in free memory, above the program table (PT_BEG), from
+; the line stream, as Phase D will make the line table: its header, the
+; reporter's address and the parts' names, then an entry for each line
+; table entry in address order, then the end. It follows the image (its
+; address PT_ADDR, its size PT_SIZE: LINES). Nothing without D.
+
+PT_RUN:                        ; IMG_END is the image's end.
+    LD   A,(OP_SEEN)               ; Option D?
+    AND  OX_D                      ; If not,
+    RET  Z                         ; no table.
+    LD   HL,(PRG_END)              ; The table is made
+    LD   (PT_BEG),HL               ; above the
+    LD   (PT_PTR),HL               ; program table,
+    LD   HL,(IMG_END)              ; for the image's
+    LD   (PT_ADDR),HL              ; end.
+    LD   A,1                       ; The position table
+    LD   (LN_MODE),A               ; is written:
+    CALL LN_OPEN                   ; its header,
+    LD   A,S_START                 ; START's
+    CALL .PASS                     ; entries,
+    LD   A,S_TEXT                  ; TEXT's
+    CALL .PASS                     ; and
+    LD   A,S_DATA                  ; DATA's,
+    CALL .PASS                     ; as Phase D meets them,
+    CALL LN_CLOSE                  ; and its end.
+    XOR  A                         ; The line table
+    LD   (LN_MODE),A               ; again, for
+    LD   (LN_ON),A                 ; Phase D.
+    LD   HL,(PT_PTR)               ; Its size:
+    LD   DE,(PT_BEG)               ; the bytes
+    OR   A                         ; made.
+    SBC  HL,DE                     ; (HL)
+    LD   (PT_SIZE),HL              ; Kept.
+    RET                            ; Done.
+.PASS:                         ; A is the section.
+    LD   HL,PT_BLOB                ; Each blob
+    JP   WK_PASS                   ; met; return.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; PT_RUN's callback for each blob of a pass: as Phase D's (PD_BLOB), its
+; entries if it is in the pass, at its address, else a program code
+; blob's line record read past in TEXT's class-0 pass; then its
+; references skipped.
+
+PT_BLOB:                       ; A walk's callback.
+    CALL WK_MATCH                  ; Z if the blob is in the pass.
+    JR   Z,.SEL                    ; Its entries.
+    LD   A,(WK_SEC)                ; Not in the pass; a program code
+    CP   S_TEXT                    ; blob's line record is read past
+    JP   NZ,REF_SKIP               ; in TEXT's class-0 pass.
+    LD   A,(WK_CLASS)              ; Class 0?
+    OR   A                         ; If not,
+    JP   NZ,REF_SKIP               ; nothing.
+    LD   A,(WK_OWN)                ; The program's?
+    OR   A                         ; If not,
+    JP   Z,REF_SKIP                ; nothing.
+    LD   A,(WK_KIND)               ; Code?
+    CP   K_CODE                    ; If not,
+    JP   NZ,REF_SKIP               ; nothing.
+    XOR  A                         ; Not emitted:
+    CALL LN_BLOB                   ; its record read past.
+    JP   REF_SKIP                  ; Its references skipped; return.
+.SEL:                          ; In the pass:
+    LD   HL,(WK_ENTRY)             ; its
+    LD   DE,E_ADDR                 ; address,
+    ADD  HL,DE                     ; DE,
+    LD   E,(HL)                    ; from
+    INC  HL                        ; its
+    LD   D,(HL)                    ; entry;
+    LD   A,1                       ; emitted:
+    CALL LN_BLOB                   ; its entries,
+    JP   REF_SKIP                  ; its references skipped; return.

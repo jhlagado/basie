@@ -143,10 +143,13 @@ ENTRY_SP:
 ; @blob $004 bss DMA_BUF
 DMA_BUF: DS      128
 
-; @blob $005 code TRAP
+; @blob $005 code TRAP indirect=TRAPLN
 ; cpm-target §10. DE = the reason, $-terminated; the site's return address is
 ; on top of the stack. Prints "TRAP reason at XXXX (BASIE name [T=XXXX])",
 ; the address and the command that looks it up (D47), and exits with $FF02.
+; Linked with option D, the image carries a position table (LINES, object
+; format §11.1), whose reporter (TRAPLN) prints "FILE.BSI:11:4" for the
+; address instead, when the table holds a statement there.
 TRAP:   PUSH    DE
         LD      DE,.HEAD
         CALL    PUTS
@@ -157,13 +160,28 @@ TRAP:   PUSH    DE
         DEC     HL
         DEC     HL
         LD      DE,.AT
+        CALL    PUTS
+        LD      DE,LINESLEN
+        LD      A,D
+        OR      E
+        JR      Z,.HEX
+        PUSH    HL
+        EX      DE,HL
+        LD      HL,(LINES)
+        CALL    .JPHL
+        POP     HL
+        JR      NC,.END
+.HEX:   LD      DE,.NONE
         CALL    .ADDR
         LD      DE,.LOOK
         CALL    .ADDR
-        LD      DE,.EOL
+        LD      DE,.CLOSE
+        CALL    PUTS
+.END:   LD      DE,.EOL
         CALL    PUTS
         LD      DE,$FF02
         JP      EXIT
+.JPHL:  JP      (HL)
 .ADDR:  CALL    PUTS            ; the text at DE, then HL in hex
         LD      A,H
         CALL    .HEX2
@@ -183,8 +201,169 @@ TRAP:   PUSH    DE
         JP      CON_OUT
 .HEAD:  DB      "TRAP $"
 .AT:    DB      " at $"
+.NONE:  DB      "$"
 .LOOK:  DB      " (BASIE name [T=$"
-.EOL:   DB      "])\r\n$"
+.CLOSE: DB      "])$"
+.EOL:   DB      "\r\n$"
+
+; @blob $08F code TRAPLN
+; The position reporter (object format §11.1), linked only with option D:
+; DE = an address. Finds the statement holding it in the position table
+; at LINES and prints "NAME.TYP:line:column", carry clear; carry and
+; nothing printed when the address is in no statement. Every register
+; may change. The table: the reporter's address, the parts' count and
+; their names, zero-terminated, then the entries in address order from
+; address 0, part 0, line 0: a short one is three bytes, the address's
+; increase (1 to 255), the line's (-128 to 127) and the column, the part
+; unchanged; a long one is 0, then the address, the part (255 for a blob
+; without source), the line and the column. A long entry at $FFFF ends it.
+TRAPLN: PUSH    IX
+        LD      HL,0            ; twelve bytes of locals
+        PUSH    HL
+        PUSH    HL
+        PUSH    HL
+        PUSH    HL
+        PUSH    HL
+        PUSH    HL
+        LD      IX,0
+        ADD     IX,SP
+        LD      (IX+0),E        ; the target
+        LD      (IX+1),D
+        LD      (IX+7),$FF      ; the best entry's part: none yet
+        LD      HL,LINES
+        INC     HL
+        INC     HL
+        LD      B,(HL)          ; the parts' names
+        INC     HL
+        CALL    .SKIP           ; are passed
+        XOR     A
+        LD      (IX+4),A        ; part 0
+        LD      (IX+5),A        ; line 0
+        LD      (IX+6),A
+        LD      D,A             ; address 0
+        LD      E,A
+.NEXT:  LD      A,(HL)
+        INC     HL
+        OR      A
+        JR      Z,.LONG
+        ADD     A,E             ; a short one: the address's increase,
+        LD      E,A
+        JR      NC,.LINE
+        INC     D
+.LINE:  LD      C,(HL)          ; the line's, sign-extended,
+        INC     HL
+        LD      B,0
+        BIT     7,C
+        JR      Z,.ADD
+        DEC     B
+.ADD:   PUSH    HL
+        LD      L,(IX+5)
+        LD      H,(IX+6)
+        ADD     HL,BC
+        LD      (IX+5),L
+        LD      (IX+6),H
+        POP     HL
+        JR      .COL
+.LONG:  LD      E,(HL)          ; a long one: the address,
+        INC     HL
+        LD      D,(HL)
+        INC     HL
+        LD      A,(HL)          ; the part,
+        INC     HL
+        LD      (IX+4),A
+        LD      A,(HL)          ; the line
+        INC     HL
+        LD      (IX+5),A
+        LD      A,(HL)
+        INC     HL
+        LD      (IX+6),A
+.COL:   LD      C,(HL)          ; and the column
+        INC     HL
+        PUSH    HL
+        LD      L,(IX+0)        ; past the target?
+        LD      H,(IX+1)
+        OR      A
+        SBC     HL,DE
+        POP     HL
+        JR      C,.DONE
+        LD      A,(IX+4)        ; no: the best so far
+        LD      (IX+7),A
+        LD      A,(IX+5)
+        LD      (IX+8),A
+        LD      A,(IX+6)
+        LD      (IX+9),A
+        LD      (IX+10),C
+        JR      .NEXT
+.DONE:  LD      A,(IX+7)        ; the best: a statement's?
+        INC     A
+        SCF
+        JR      Z,.OUT          ; none, or a blob without source
+        LD      HL,LINES        ; its part's name:
+        LD      DE,3
+        ADD     HL,DE
+        LD      B,(IX+7)
+        CALL    .SKIP
+.NAME:  LD      A,(HL)
+        OR      A
+        JR      Z,.NUMS
+        CALL    CON_OUT
+        INC     HL
+        JR      .NAME
+.NUMS:  LD      A,':'
+        CALL    CON_OUT
+        LD      L,(IX+8)        ; the line,
+        LD      H,(IX+9)
+        CALL    .DEC16
+        LD      A,':'
+        CALL    CON_OUT
+        LD      A,(IX+10)       ; the column
+        CALL    PUT_DEC
+        OR      A               ; carry clear: printed
+.OUT:   POP     BC              ; the locals dropped,
+        POP     BC              ; the flags kept
+        POP     BC
+        POP     BC
+        POP     BC
+        POP     BC
+        POP     IX
+        RET
+.SKIP:  LD      A,B             ; pass B names at HL
+        OR      A
+        RET     Z
+.SKIP1: LD      A,(HL)
+        INC     HL
+        OR      A
+        JR      NZ,.SKIP1
+        DJNZ    .SKIP1
+        RET
+.DEC16: LD      DE,10000        ; HL in decimal, no leading zeros
+        LD      B,0             ; nothing printed yet
+        CALL    .PLACE
+        LD      DE,1000
+        CALL    .PLACE
+        LD      DE,100
+        CALL    .PLACE
+        LD      DE,10
+        CALL    .PLACE
+        LD      A,L
+        ADD     A,'0'
+        JP      CON_OUT
+.PLACE: LD      A,'0'-1
+.SUB:   INC     A
+        OR      A               ; (carry clear)
+        SBC     HL,DE
+        JR      NC,.SUB
+        ADD     HL,DE
+        CP      '0'
+        JR      NZ,.SHOW
+        INC     B
+        DEC     B
+        RET     Z               ; a leading zero
+.SHOW:  LD      B,1
+        PUSH    BC
+        CALL    CON_OUT
+        POP     BC
+        RET
 
 ; @blob $006 code PUTS
 ; Write the $-terminated text at DE.

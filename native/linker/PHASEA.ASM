@@ -734,7 +734,7 @@ PA_TGT:                        ; HL is the target ordinal.
     LD   A,L                       ; $FFE0 and above
     CP   $E0                       ; are pseudo-objects.
     JR   C,.REAL                   ; Below: an ordinary ordinal.
-    CP   $EA                       ; Ten are defined, $FFE0 to $FFE9.
+    CP   $EB                       ; Eleven are defined, $FFE0 to $FFEA.
     JR   NC,DG_REF                 ; An undefined pseudo-object.
     JR   .ADD                      ; A pseudo-object is an edge, without an entry.
 .REAL:                         ; HL is a blob or alias ordinal.

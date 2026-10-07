@@ -87,11 +87,13 @@ const PSEUDO_SYMBOLS: [string, number, number][] = [
   ["OPTIONS", Pseudo.OPTIONS, Form.ABS16],
   ["FILES", Pseudo.FILES, Form.ABS16],
   ["FILECNT", Pseudo.FILECOUNT, Form.ABS16],
+  ["LINES", Pseudo.LINES, Form.ABS16],
   ["IMAGELEN", Pseudo.IMAGE, Form.SIZE16],
   ["BSSLEN", Pseudo.BSS, Form.SIZE16],
   ["DATALEN", Pseudo.DATA, Form.SIZE16],
   ["COPYLEN", Pseudo.DATACOPY, Form.SIZE16],
   ["FILESLEN", Pseudo.FILES, Form.SIZE16],
+  ["LINESLEN", Pseudo.LINES, Form.SIZE16],
 ];
 const PSEUDO_BASE = 0x8000;
 

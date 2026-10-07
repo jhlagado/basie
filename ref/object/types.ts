@@ -37,8 +37,9 @@ export const Pseudo = {
   OPTIONS: 0xffe7,
   FILES: 0xffe8,
   FILECOUNT: 0xffe9,
+  LINES: 0xffea,
 } as const;
-export const PSEUDO_LAST_DEFINED = 0xffe9;
+export const PSEUDO_LAST_DEFINED = 0xffea;
 
 export type Reference = {
   offset: number;
