@@ -1,0 +1,42 @@
+// Owning record locals: zeroed, filled through their owning fields, and
+// freed at the end of their block, at a return and at exit.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[2]
+
+sub fill() fails
+    var head as Node
+    head.next = new nodes('A', none)
+    select head.next
+    case some(n)
+        writeByte(console, n.value) else fail
+    case none
+    end
+end
+
+sub early(stop as boolean) as u8
+    var head as Node
+    head.next = new nodes('B', none)
+    if stop
+        return 1
+    end
+    while true
+        var inner as Node
+        inner.next = new nodes('C', none)
+        exit
+    end
+    return 2
+end
+
+sub main() fails
+    fill() else fail
+    fill() else fail
+    fill() else fail
+    writeByte(console, '0' + early(true)) else fail
+    writeByte(console, '0' + early(false)) else fail
+    writeByte(console, '0' + early(false)) else fail
+    writeText(console, "\r\n") else fail
+end

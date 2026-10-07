@@ -1025,8 +1025,8 @@ HN_SEG:                        ; B the first, C past the last.
     INC  HL                        ; class
     INC  HL                        ; byte,
     LD   A,(HL)                    ; an aggregate
-    OR   SY_PARAM-SY_LOCAL         ; local's or
-    LD   C,A                       ; parameter's, var
+    LD   C,A                       ; local's or
+    OR   SY_PARAM-SY_LOCAL         ; parameter's, var
     AND  $FF-SY_PVAR-SY_PFROM      ; or from too,
     CP   SY_AGGR+SY_PARAM          ; but no lease's?
     JR   NZ,.NEXT                  ; No.
@@ -1058,9 +1058,22 @@ HN_SEG:                        ; B the first, C past the last.
     LD   A,SY_U16                  ; is
     CALL GX_FPUT                   ; none.
     JR   .NEXT                     ; Done.
-.AGGR:                         ; An aggregate: if owning, a
-    CALL PL_OWNS                   ; parameter (owning locals wait)
-    JR   NC,.NEXT                  ; counted, never freed.
+.AGGR:                         ; An aggregate, if owning:
+    LD   B,A                       ; (its type)
+    PUSH DE                        ; (its offset)
+    CALL PL_OWNS                   ; owning?
+    POP  DE                        ; (BC kept)
+    JR   NC,.NEXT                  ; No.
+    LD   HL,HN_SEEN                ; One
+    LD   (HL),H                    ; is seen;
+    BIT  4,C                       ; a parameter's
+    JR   NZ,.NEXT                  ; is never freed;
+    LD   A,(HN_MODE)               ; a local's,
+    OR   A                         ; unless
+    JR   NZ,.NEXT                  ; only looking,
+    LD   A,B                       ; is
+    CALL HN_OFREE                  ; freed.
+    JR   .NEXT                     ; Done.
 .HOLDER:                       ; A slot-holder: an owner a return
     LD   A,(HN_MODE)               ; counts (hasOwners) when
     LD   (HN_SEEN),A               ; looking; none to free.
@@ -1090,7 +1103,7 @@ HN_ENDR:                       ; The body's block ends.
     LD   B,A                       ; B,
     LD   A,(SY_CNT)                ; to the
     LD   C,A                       ; last.
-    JR   HN_SEG                    ; Freed; return.
+    JP   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; exit or continue: the frees of the scopes from the innermost frame's to

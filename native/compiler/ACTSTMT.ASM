@@ -37,8 +37,8 @@
 
 AC_LOCAL:
     LD   A,(AG_CTYPE)              ; The local's type: a handle,
-    CALL PL_ISHND                  ; or else no
-    CALL NC,PL_LATER               ; owning type yet,
+    CALL PL_ISHND                  ; or an owning one whose
+    CALL NC,HN_LOCTY               ; descriptor is written,
     CALL AG_NOVW                   ; and a view is a parameter's only.
     LD   D,SY_AGGR+SY_LOCAL        ; An aggregate local's class,
     CP   AG_FIRST                  ; unless
@@ -90,6 +90,8 @@ AC_LINIT:
     JR   Z,AC_FILE                 ; Its value.
     CALL PL_ISHND                  ; A handle?
     JP   C,HN_LINIT                ; An owning value.
+    CALL PL_OWNS                   ; An owning aggregate's
+    JP   C,TR_OPER                 ; initializer waits.
     CALL PR_PEEK                   ; How does it begin?
     CP   TK_LPAR                   ; A record's fields,
     JR   Z,.IMAGE                  ; or
@@ -171,7 +173,9 @@ AC_INFER:
     JR   C,.SELECT                 ; No: a scalar it selects.
     CALL AG_ISVW                   ; A view
     JP   C,EX_EFIT                 ; is no local's type (DG_CLASH).
-    PUSH AF                        ; Keep the type.
+    PUSH AF                        ; Keep the type:
+    CALL PL_OWNS                   ; an owning one's
+    JP   C,TR_OPER                 ; copy waits.
     CALL GA_ADDR                   ; Its address into HL,
     LD   A,AC_LCOPY                ; copied into the local
     JR   .COPIED                   ; when it is committed.

@@ -519,3 +519,60 @@ HN_NOCMP:                      ; What follows?
     CP   TK_NE-TK_LT+1             ; `<` to `<>`;
     JP   C,TR_OPER                 ; anything
     RET                            ; else ends it.
+
+;@ROUTINE IN A OUT HL,ZERO CLOBBERS A,DE,CARRY,SIGN,PARITY,HALFCARRY
+; The ordinal of table type A's owner descriptor (PL_DESC) in HL, zero
+; (Z) while none is written.
+
+HN_DESC:                       ; A is a table type.
+    SUB  AG_FIRST                  ; Its
+    ADD  A,A                       ; word
+    LD   E,A                       ; in
+    LD   D,0                       ; the
+    LD   HL,PL_DESC                ; cache:
+    ADD  HL,DE                     ; the
+    LD   A,(HL)                    ; ordinal,
+    INC  HL                        ; HL,
+    LD   H,(HL)                    ; or
+    LD   L,A                       ; zero
+    OR   H                         ; (Z).
+    RET                            ; Back.
+
+;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A local's type A, not a handle: an owning one waits (DG_NYI) unless its
+; owner descriptor is written already (a pool's record), which its free
+; names (HN_OFREE). A, DE and HL are kept.
+
+HN_LOCTY:                      ; A is the type.
+    PUSH HL                        ; HL,
+    PUSH DE                        ; DE
+    PUSH AF                        ; and A kept.
+    CALL PL_OWNS                   ; Owning?
+    JR   NC,.KEEP                  ; No.
+    POP  AF                        ; Then its
+    PUSH AF                        ; descriptor
+    CALL HN_DESC                   ; must be
+    JP   Z,TR_OPER                 ; written.
+.KEEP:                         ; Accepted.
+    POP  AF                        ; A,
+    POP  DE                        ; DE
+    POP  HL                        ; and HL.
+    RET                            ; Back.
+
+;@ROUTINE IN A,DE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Free the owning local of type A at IX+DE (emitFrees): HL = IX+DE, LD
+; DE,descriptor, CALL OBJ_FREE.
+
+HN_OFREE:                      ; A is the type, DE the offset.
+    PUSH AF                        ; (kept)
+    EX   DE,HL                     ; HL = IX+offset
+    CALL GA_SLOT                   ; (ixAddress),
+    CALL EM_OP                     ; then
+    DB   $11                       ; LD DE,
+    POP  AF                        ; the type's
+    CALL HN_DESC                   ; descriptor,
+    LD   DE,0                      ; an
+    CALL EM_REF                    ; address;
+    CALL EM_HELP                   ; CALL
+    DW   HP_OFREE                  ; OBJ_FREE.
+    RET                            ; Done.

@@ -371,6 +371,7 @@ const CLAIMED: Record<string, string[]> = {
     "BOOLXOR",
     "IDEQ",
     "IDFEQ",
+    "OWNLOC",
   ],
 };
 
