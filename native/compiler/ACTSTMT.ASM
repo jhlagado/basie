@@ -510,7 +510,7 @@ AC_BARE:
     LD   A,(HL)                    ; read already
     LD   (HL),0                    ; (HN_RETV)
     OR   A                         ; is
-    JP   NZ,AC_RETOP               ; returned.
+    JR   NZ,AC_RETOP               ; returned.
     LD   A,(RO_CTYPE)              ; The routine's result type.
     OR   A                         ; None?
     JP   NZ,EX_EFLOW               ; A value is required: raise DG_FLOW.

@@ -273,17 +273,23 @@ EX_CONV:                       ; C is the target type.
     LD   A,DG_NOCVT                ; conversion-unavailable,
     JP   DG_HERE                   ; at the parenthesis.
 
-;@ROUTINE IN A OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
-; Require result metadata A to be an integer; a Boolean raises DG_CLASH.
-; Returns the metadata in A and D with carry clear.
+;@ROUTINE IN A,BC OUT A,D,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
+; Require result metadata A to be an integer; a Boolean raises DG_CLASH
+; at offset BC, the sign's. Returns the metadata in A and D with carry
+; clear.
 
 EX_INT:
     LD   D,A                       ; Keep the metadata.
     CALL EX_TBOOL                  ; Is its type Boolean?
-    JP   Z,EX_ETYPE                ; Yes: an integer is required.
+    JR   Z,.BOOL                   ; Yes: an integer is required.
     LD   A,D                       ; Recover the metadata.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
+.BOOL:                         ; A Boolean:
+    LD   H,B                       ; type-mismatch
+    LD   L,C                       ; at
+    LD   A,DG_CLASH                ; the
+    JP   DG_HERE                   ; sign.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a unary expression: a primary preceded by any number of signs,
@@ -308,7 +314,10 @@ EX_UNARY:
 
 EX_PLUS:
     CALL PR_TAKE                   ; Consume the sign.
+    LD   HL,(TK_POS)               ; Its offset,
+    PUSH HL                        ; kept.
     CALL EX_UNARY                  ; Parse its operand, signs included.
+    POP  BC                        ; The sign's offset.
     JR   EX_INT                    ; It must be an integer; return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY

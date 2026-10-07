@@ -1697,6 +1697,58 @@ const REFUSED: Record<string, string> = {
   "id alone for a u8":
     "forward pool nodes\nrecord Node\n    value as u8\n    next as nodes?\n    peer as id nodes?\n    ps as id nodes?[2]\nend\npool nodes as Node[8]\nvar keep as id nodes?\nvar ks as id nodes?[3]\nvar g as u8\nvar head as nodes?\nsub take(x as nodes?)\nend\nsub main()\n    var n as nodes? = new nodes(1, none, none)\n    var o = new nodes(2, none, none)\n    var b as u8 = id\nend\n",
   "pool of a string": "pool p as string[4][2]\nsub main()\nend\n",
+  "operands: int plus bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n + a\nend\n",
+  "operands: int plus bool expr":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n + (a and a)\nend\n",
+  "operands: bool plus int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = a + n\nend\n",
+  "operands: bool times":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = a * a\nend\n",
+  "operands: int or bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n or a\nend\n",
+  "operands: int and bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n and a\nend\n",
+  "operands: bool and int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a and n\nend\n",
+  "operands: bool or int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a or n\nend\n",
+  "operands: bool and known int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a and 1\nend\n",
+  "operands: known bool and int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = true and n\nend\n",
+  "operands: bool xor int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a xor n\nend\n",
+  "operands: bool less":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a < a\nend\n",
+  "operands: int eq bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = n = a\nend\n",
+  "operands: bool eq int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = a = n\nend\n",
+  "operands: mixed sign":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n + s\nend\n",
+  "operands: nested right":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n + n * a\nend\n",
+  "operands: nested left":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n * a + n\nend\n",
+  "operands: chain":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = n < n < n\nend\n",
+  "operands: paren right":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n + (n * a)\nend\n",
+  "operands: int shl bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = n << a\nend\n",
+  "operands: neg bool":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    n = -a\nend\n",
+  "operands: not int":
+    "var a as boolean\nvar n as u8\nvar w as u16\nvar s as i8\nsub main()\n    a = not n\nend\n",
+  "operands: bool xor int (xor)":
+    "var a as boolean\nvar n as u8\nsub main()\n    a = a xor n\nend\n",
+  "operands: known bool xor int (xor)":
+    "var a as boolean\nvar n as u8\nsub main()\n    a = true xor n\nend\n",
+  "operands: int xor bool (xor)":
+    "var a as boolean\nvar n as u8\nsub main()\n    n = n xor a\nend\n",
+  "operands: known bool xor known int (xor)":
+    "var a as boolean\nvar n as u8\nsub main()\n    a = true xor 3\nend\n",
   "an owning record assigned to a field":
     "forward pool nodes\nrecord Node\n    next as nodes?\nend\nrecord Box\n    n as Node\n    v as u8\nend\npool nodes as Node[4]\nvar a as Node\nvar b as Box\nvar c as Box\nsub main()\n    b.n = a\nend\n",
   "a record holding an owning record assigned":

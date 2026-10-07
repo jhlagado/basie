@@ -290,6 +290,12 @@ EX_RTOK:
 ; arm of a constant short circuit is reported too, as the reference
 ; compiler reports it.
 
+EX_EBOOL:                      ; A: the operands' metadata, ORed.
+    RLA                            ; A right operand not Boolean:
+    LD   A,DG_CLASH                ; type-mismatch if either is known,
+    JR   C,EX_EROP                 ; else conversion-required (the
+    LD   A,DG_CONV                 ; reference's toRegisters), at the
+    DB   $01                       ; right: LD BC,nn passes EX_ERNG's LD.
 EX_ERNG:                       ; The right operand is out of range.
     LD   A,DG_RANGE                ; out-of-range,
 EX_EROP:                       ; Diagnostic A at the right operand.
@@ -412,12 +418,14 @@ EX_UNIFY:
 
 .PAIR:                         ; The operands are popped.
     CALL EX_LBOOL                  ; Fetch the left type.
-    JR   Z,EX_ETYPE                ; Booleans have no arithmetic.
     LD   D,A                       ; D is the left type.
+    LD   A,DG_CLASH                ; Booleans have no arithmetic:
+    JR   Z,EX_ELOP                 ; type-mismatch at the left,
     LD   A,(EX_RMETA)              ; Fetch the right metadata.
     CALL EX_TBOOL                  ; Is its type Boolean?
-    JR   Z,EX_ETYPE                ; Booleans have no arithmetic.
     LD   C,A                       ; C is the right type.
+    LD   A,DG_CLASH                ; or at
+    JP   Z,EX_EROP                 ; the right.
     LD   A,D                       ; Is the left operand typed?
     OR   A                         ; Test for SY_EXACT.
     JR   NZ,.LTYPE                 ; Yes: resolve from the left type.
@@ -577,7 +585,7 @@ EX_ARITH:
     LD   A,DG_FOVER                ; float-overflow
     JP   C,EX_ELOP                 ; at the left past f32.
     LD   C,SY_F32                  ; The type,
-    JP   EX_FOLD                   ; not wrapped; return.
+    JR   EX_FOLD                   ; not wrapped; return.
 .INTS:                         ; Integers.
     PUSH BC                        ; Keep the type.
     LD   A,(EX_OPER)               ; The operator:

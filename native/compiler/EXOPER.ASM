@@ -176,11 +176,19 @@ EX_LOOK:                       ; Is the next token a binary operator?
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,.INTEGER               ; No: compare integers.
     LD   A,(EX_RMETA)              ; Then the right must be Boolean too.
+    LD   D,A                       ; (its metadata)
     CALL EX_TBOOL                  ; Is its type Boolean?
-    JP   NZ,EX_ETYPE               ; It is not: a type mismatch.
+    JR   Z,.BOOLS                  ; If not, at the left:
+    BIT  7,D                       ; a known one
+    LD   A,DG_CLASH                ; is a mismatch,
+    JP   NZ,EX_ELOP                ; a computed one
+    LD   A,DG_CONV                 ; needs a
+    JP   EX_ELOP                   ; conversion.
+.BOOLS:                        ; Two Booleans:
     LD   A,(EX_OPER)               ; Booleans have no order...
     CP   EX_NE+1                   ; ...so only = and <> apply.
-    JP   NC,EX_ETYPE               ; An ordering comparison is a mismatch.
+    LD   A,DG_CLASH                ; An ordering comparison
+    JP   NC,EX_ELOP                ; is a mismatch, at the left.
     CALL EX_KNOWN                  ; Are both known?
     JR   NZ,.FOLD                  ; Then fold them.
     LD   A,(EX_OPER)               ; = or <>.
@@ -394,12 +402,23 @@ EX_ORINT:                      ; Integer `or` or `xor`.
 EX_BXOR:                       ; D/HL is the left.
     PUSH HL                        ; (its value)
     PUSH DE                        ; (its metadata)
-    LD   A,D                       ; A computed one
+    CALL PR_SPOT                   ; The right's
+    POP  DE                        ; first token
+    PUSH DE                        ; (rightAt)
+    PUSH HL                        ; kept.
+    LD   A,D                       ; A computed left
     CALL GX_PUSH                   ; is pushed (PUSH AF).
     CALL EX_AND                    ; The right, A/HL:
     LD   D,A                       ; Boolean
-    CALL EX_TBOOL                  ; (type-mismatch
-    JP   NZ,EX_ETYPE               ; otherwise).
+    CALL EX_TBOOL                  ; (otherwise a mismatch
+    POP  BC                        ; or a conversion
+    JR   Z,.RBOOL                  ; required,
+    LD   (EX_RAT),BC               ; at it,
+    POP  BC                        ; as
+    LD   A,B                       ; as the left
+    OR   D                         ; or right
+    JP   EX_EBOOL                  ; is known).
+.RBOOL:                        ; A Boolean right.
     LD   E,A                       ; E: Boolean.
     POP  BC                        ; The left's metadata:
     BIT  7,B                       ; known?
@@ -500,7 +519,11 @@ EX_LOGIC:
     LD   A,(EX_RMETA)              ; Fetch the right metadata.
     LD   D,A                       ; Keep it.
     CALL EX_TBOOL                  ; Is its type Boolean?
-    JP   NZ,EX_ETYPE               ; No: a mismatch with the Boolean left.
+    JR   Z,.RBOOL                  ; If not:
+    LD   A,(EX_LMETA)              ; a mismatch or a conversion
+    OR   D                         ; required, with the
+    JP   EX_EBOOL                  ; Boolean left.
+.RBOOL:                        ; A Boolean right.
     LD   E,A                       ; E is Boolean, for GX_TOREG.
     LD   A,(EX_LMETA)              ; Is the left known?
     RLCA                           ; SY_KNOWN into carry.
