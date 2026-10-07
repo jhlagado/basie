@@ -22,44 +22,60 @@
 ;    RO_DISP   give a parameter's argument displacement in the frame
 ;    RO_BIND   make a parameter a symbol at its argument's offset
 ;
-;  The routine table (RO_RTAB) holds 64 routines of twelve bytes, laid out
-;  in CALLWORK.ASM: the name, the parameters, the result type, the flags
-;  (RO_FFAIL, RO_FOPEN while a forward awaits its body, RO_FFWD for one
-;  declared forward, RO_FVRES for a var result, RO_FPRIV), the blob's
-;  ordinal, the need once the body is complete and the bytes of the
-;  arguments.
+;  A routine's record, laid out in CALLWORK.ASM, holds the name, the
+;  parameters, the result type, the flags (RO_FFAIL, RO_FOPEN while a
+;  forward awaits its body, RO_FFWD for one declared forward, RO_FVRES for
+;  a var result, RO_FPRIV), the blob's ordinal, the need once the body is
+;  complete, the bytes of the arguments and its name's place. Up to 255
+;  routines are numbered in declaration order, RO_RPTR giving each one's
+;  record, which with its parameters' is kept below the name heap once its
+;  signature is complete (AC_PUB).
 ;
-;  The parameter table (RO_PTAB) holds 160 parameters of four bytes: the
-;  spelling's address and length, then the type, AG_VIEW for an open
-;  string, AG_OPEN plus the element's for an open array, with AG_VAR for
-;  a var parameter. A routine's parameters are consecutive entries;
-;  RO_FROM marks those a result's from clause names.
+;  A parameter's record, five bytes, holds the spelling's address and
+;  length, then the type, AG_VIEW for an open string, AG_OPEN plus the
+;  element's for an open array, with AG_VAR for a var parameter, then
+;  whether the result's from clause names it. A routine's parameters are
+;  consecutive records from RO_RPIDX; the signature being parsed has up to
+;  64.
 
 ;@ROUTINE IN A OUT HL CLOBBERS CARRY,HALFCARRY,DE
-; Return in HL the address of routine-table entry A, RO_RTAB plus sixteen
-; times A. A, BC and the zero flag are preserved.
+; Return in HL the address of routine A's record (RO_RPTR). A, BC and the
+; zero flag are preserved.
 
-RO_SUBAT:
-    LD   L,A                       ; Form the routine index as a word.
-    LD   H,0                       ; At most RO_RCAP entries.
-    ADD  HL,HL                     ; Times two,
-    ADD  HL,HL                     ; four,
-    ADD  HL,HL                     ; eight,
-    ADD  HL,HL                     ; sixteen, the entry size.
-    LD   DE,RO_RTAB                ; The table's base.
-    ADD  HL,DE                     ; HL addresses the entry.
+RO_SUBAT:                      ; A is the routine.
+    CALL RO_RPAT                   ; Its word:
+    LD   E,(HL)                    ; the
+    INC  HL                        ; record's
+    LD   D,(HL)                    ; address,
+    EX   DE,HL                     ; HL.
     RET                            ; A still holds the index.
 
-;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
-; Return in HL the address of parameter-table entry A. A is preserved.
+;@ROUTINE IN A OUT HL CLOBBERS CARRY,HALFCARRY,DE
+; Return in HL the address of routine A's word in RO_RPTR. A, BC and the
+; zero flag are preserved.
 
-RO_PARAM:
-    LD   L,A                       ; Form the parameter index as a word.
-    LD   H,0                       ; At most RO_PCAP entries.
-    ADD  HL,HL                     ; Times two.
-    ADD  HL,HL                     ; Times four, the entry size.
-    LD   DE,RO_PTAB                ; The table's base.
-    ADD  HL,DE                     ; HL addresses the entry.
+RO_RPAT:                       ; A is the routine.
+    LD   L,A                       ; Form the index
+    LD   H,0                       ; as a word,
+    ADD  HL,HL                     ; times two,
+    LD   DE,RO_RPTR                ; from the
+    ADD  HL,DE                     ; table's base.
+    RET                            ; HL addresses the word.
+
+;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
+; Return in HL the address of parameter A of the routine whose first
+; parameter's record is RO_CPIDX. A is preserved.
+
+RO_PARAM:                      ; A is the parameter.
+    LD   L,A                       ; Form the index
+    LD   H,0                       ; as a word,
+    LD   D,H                       ; kept;
+    LD   E,L                       ; times
+    ADD  HL,HL                     ; four,
+    ADD  HL,HL                     ; plus one,
+    ADD  HL,DE                     ; five, the record's size,
+    LD   DE,(RO_CPIDX)             ; from the
+    ADD  HL,DE                     ; first.
     OR   A                         ; Return carry clear.
     RET                            ; A still holds the index.
 
@@ -214,7 +230,7 @@ RO_NODUP:
 
 ;@ROUTINE OUT A,B,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,C,DE
 ; Find the current name among the parameters of the signature being
-; parsed (RO_CPCNT entries from RO_CPIDX): carry returns its index in B
+; parsed (RO_CPCNT records from RO_CPIDX): carry returns its index in B
 ; and its record in HL.
 
 RO_PFIND:
@@ -222,8 +238,7 @@ RO_PFIND:
     OR   A                         ; Are there any?
     RET  Z                         ; None: not found, carry clear.
     LD   C,A                       ; C counts the entries left.
-    LD   A,(RO_CPIDX)              ; The signature's first parameter.
-    LD   B,A                       ; B is the index being compared.
+    LD   B,0                       ; B is the index being compared.
 .LOOP:                         ; Compare one parameter's name.
     LD   A,B                       ; Select entry B.
     CALL RO_PARAM                  ; HL addresses it; the name comes first.
@@ -260,11 +275,11 @@ RO_VET:
     JP   DG_NAMED                  ; Raise it, named.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Append the current NAME as a parameter of type A to the parameter table
-; and the signature, and count its argument's bytes into RO_CARGS: a word,
-; or two for an open string's view or a File (parameterWords). A full
-; table, or arguments beyond 255 bytes, raise DG_PARAM, which does not
-; return.
+; Append the current NAME as a parameter of type A to the signature, and
+; count its argument's bytes into RO_CARGS: a word, or two for an open
+; string's view or a File (parameterWords). More than RO_SCAP
+; parameters, or arguments beyond 255 bytes, raise DG_PARAM, which does
+; not return.
 
 RO_ENROL:
     PUSH AF                        ; Keep the type.
@@ -274,17 +289,17 @@ RO_ENROL:
     ADD  A,B                       ; by them,
     JR   C,.FULL                   ; within the byte LD IY,n is given;
     LD   (HL),A                    ; keep them.
-    LD   A,(RO_PCNT)               ; Parameters in the whole table.
-    CP   RO_PCAP                   ; Is it full?
+    LD   A,(RO_CPCNT)              ; Parameters in the signature.
+    CP   RO_SCAP                   ; Is it full?
     JR   NC,.FULL                  ; Raise DG_PARAM.
-    CALL RO_PARAM                  ; HL addresses the next free entry.
+    CALL RO_PARAM                  ; HL addresses the next free record.
     CALL TK_KEEP                   ; Store the name; HL is at its length.
     INC  HL                        ; The type follows.
     POP  AF                        ; Recover the type.
     LD   (HL),A                    ; Store it.
-    LD   HL,RO_PCNT                ; Count the entry in the whole table.
-    INC  (HL)                      ; One parameter more for all routines.
-    LD   HL,RO_CPCNT               ; And in the current signature.
+    INC  HL                        ; No from clause
+    LD   (HL),0                    ; names it yet.
+    LD   HL,RO_CPCNT               ; Count it in the signature.
     INC  (HL)                      ; One parameter more.
     OR   A                         ; Return the type with carry clear.
     RET                            ; The parameter is enrolled.
@@ -348,22 +363,20 @@ RO_WORDS:
 ; Make parameter A, whose argument is at displacement C from IX, a symbol
 ; whose payload is that offset: the argument is used in place (design
 ; decision D41). An aggregate's class adds SY_PVAR when it is var and
-; SY_PFROM when the result's from clause names it (RO_FROM). The current
+; SY_PFROM when the result's from clause names it (RO_PFROM). The current
 ; token is replaced by the parameter's name.
 
 RO_BIND:
     LD   B,0                       ; BC is the displacement, the payload,
     PUSH BC                        ; kept.
-    PUSH AF                        ; Keep the index.
-    CALL RO_PARAM                  ; HL addresses the parameter's entry.
+    CALL RO_PARAM                  ; HL addresses the parameter's record.
     LD   DE,TK_PTR                 ; SY_NEW names the symbol from the token,
     LD   BC,3                      ; so the spelling's address and length,
     LDIR                           ; TK_PTR and TK_LEN, become the token's.
-    LD   E,(HL)                    ; E is the type, which follows.
-    POP  AF                        ; The index:
-    LD   HL,RO_FROM                ; its bit
-    CALL SY_BITAT                  ; in RO_FROM.
-    AND  (HL)                      ; Set?
+    LD   E,(HL)                    ; E is the type, which follows,
+    INC  HL                        ; then whether
+    LD   A,(HL)                    ; the from clause
+    OR   A                         ; names it.
     LD   D,SY_AGGR+SY_PARAM        ; An aggregate parameter's class,
     JR   Z,.VAR                    ; and if so
     INC  D                         ; SY_PFROM.
@@ -390,8 +403,8 @@ RO_BIND:
     JP   SY_TAG                    ; SY_TAG also commits the symbol.
 
 ;@ROUTINE IN B,D OUT A,C,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
-; Return in A and C the IX displacement of parameter D's argument, where B
-; counts the parameters from D to the last. The last argument is at IX+4;
+; Return in A and C the IX displacement of parameter D's argument (from
+; RO_CPIDX), where B counts the parameters from D to the last. The last argument is at IX+4;
 ; each later parameter adds its argument's bytes (RO_WORDS). B, D and E
 ; are preserved.
 
@@ -419,7 +432,8 @@ RO_DISP:
     POP  BC                        ; (the count again)
     ADD  A,C                       ; the bytes above this argument
     LD   C,A                       ; grow by the rest.
-    INC  HL                        ; Step to the next four-byte entry.
+    INC  HL                        ; Step past its from byte
+    INC  HL                        ; to the next record.
     DJNZ .LOOP                     ; Look at every later parameter.
 .DONE:                         ; Return the displacement.
     LD   A,C                       ; Keep it across the restores.

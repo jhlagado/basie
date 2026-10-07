@@ -515,13 +515,14 @@ RO_CALL:
     INC  HL                        ; Skip the name's
     INC  HL                        ; address
     INC  HL                        ; and length.
-    LD   A,(HL)                    ; A is the first parameter,
+    LD   E,(HL)                    ; DE is
+    INC  HL                        ; the first
+    LD   D,(HL)                    ; parameter's record,
     INC  HL                        ; B the number
     LD   B,(HL)                    ; of them.
     INC  HL                        ; The record from RO_RTYPE
     PUSH HL                        ; is read when the call closes.
-    CALL RO_PARAM                  ; HL is the first parameter's record,
-    LD   DE,RO_PTYPE               ; and its type
+    LD   HL,RO_PTYPE               ; The first one's type
     ADD  HL,DE                     ; is at HL,
     LD   E,B                       ; E of them,
     LD   D,RO_PLEN                 ; a record apart.

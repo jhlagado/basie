@@ -337,7 +337,10 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
   ([limits](limits.md) §5.1).
 - **Maximum:** ref: memory. Native: TBD; at 65.4 (e) 64 parameters in the
   whole program (`RO_PCAP`) with at most 255 bytes of arguments per routine,
-  and calls nested eight deep in arguments (`RO_NCAP`).
+  and calls nested eight deep in arguments (`RO_NCAP`); at 67h.1, 160; at
+  68, 64 for one routine (`RO_SCAP`, the signature's staging, five bytes
+  each with the from clause's mark) and memory for the program, each kept
+  with its routine's record below the name heap.
 - **Also bounded:** per-parameter metadata (`var`, owning, lease and owner-word
   flags, `from` membership) and result metadata. Encoding widths are TBD.
 - **ABI:** the calling convention is not yet fixed (roadmap steps 37 and 56), so any
@@ -619,7 +622,11 @@ Entries follow the user's numbering. "Ref" is the reference toolchain;
 ### 3.25 Routines
 
 - **Compiler:** part of the 1,000 top-level names; native at 65.4 (e), 64
-  routines besides main (`RO_RCAP`, 32 until 67h).
+  routines besides main (`RO_RCAP`, 32 until 67h); at 68, 255, a byte's
+  numbers with `$FF` for main, each record (16 bytes) and its parameters'
+  kept below the name heap once its signature is complete, the routine's
+  number giving its record's address (`RO_RPTR`, 510 bytes); `MANYRTN`
+  declares 200.
 - **Format:** program ordinals, 64,480 (§3.27).
 - **Linker:** 2,000 program blobs minimum ([limits](limits.md) §5.2).
 - **Status:** compiler maximum TBD.

@@ -6,30 +6,30 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($6BD0).
+;  from MM_WBASE ($6C10).
 ;
 ;    Offset  Size  Block
-;    +$C59     56  routine state: counts, the signature being parsed, the
+;    +$C59     38  routine state: counts, the signature being parsed, the
 ;                  types the body found, the declaration's part and
-;                  visibility, the from parameters (a bit for each of
-;                  RO_PCAP), the call being checked and the path in hand
+;                  visibility, the call being checked and the path in hand
 ;                  (RO_BASE)
-;    +$C91   1024  routine table: 64 records of sixteen bytes (RO_RTAB)
-;    +$1091   640  parameter table: 160 records of four bytes (RO_PTAB)
-;    +$1311   288  the routine's string literals: 48 of six bytes (RO_LTAB)
-;    +$1431     6  the source cursor's part state (SRC_PTAB, SRC_PCNT,
+;    +$C7F    510  each routine's record's address: 255 words (RO_RPTR)
+;    +$E7D     16  the record of the signature being parsed (RO_CREC)
+;    +$E8D    320  its parameters: 64 records of five bytes (RO_SPAR)
+;    +$FCD    288  the routine's string literals: 48 of six bytes (RO_LTAB)
+;    +$10ED     6  the source cursor's part state (SRC_PTAB, SRC_PCNT,
 ;                  SRC_NUM, SRC_OWE, SRC_RES)
-;    +$1437     2  PR_SP, the stack DG_ISSUE restores
-;    +$1439   329  the pools' table and the handles' and flows' state, 32
+;    +$10F3     2  PR_SP, the stack DG_ISSUE restores
+;    +$10F5   329  the pools' table and the handles' and flows' state, 32
 ;                  frames' flows (PL_CNT to PL_WEND)
-;    +$1582   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM)
-;    +$161C    19  unused, so that the LL(1) stack starts a page
-;    +$162F   255  the LL(1) stack (LL_DEPTH, then LL_STACK at +$1630, a page
+;    +$123E   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM)
+;    +$12D8    23  unused, so that the LL(1) stack starts a page
+;    +$12EF   255  the LL(1) stack (LL_DEPTH, then LL_STACK at +$12F0, a page
 ;                  start, so a slot's address is the page and the depth)
-;    +$172E   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
+;    +$13EE   506  the open selects' labels (LL1.ASM): CT_RTOP, then 63
 ;                  ranges of eight bytes (CT_RTAB)
-;    +$1928    96  each table type's owner descriptor (PL_DESC)
-;    +$1988        LL_WEND, the end of the compiler workspace, 6,536 bytes
+;    +$15E8    96  each table type's owner descriptor (PL_DESC)
+;    +$1648        LL_WEND, the end of the compiler workspace, 5,704 bytes
 ;
 ;  PR_PARSE clears RO_BASE..RO_STEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
@@ -41,30 +41,36 @@
 ;  names stay resident, so a record keeps a name as its address and length.
 ;
 ;  A routine record (RO_RLEN bytes), one per declared routine other than
-;  main, in declaration order:
-;    +0  word  RO_RNAME  address of the name in the source
+;  main, numbered in declaration order:
+;    +0  word  RO_RNAME  address of the name in the name heap
 ;    +2  byte  RO_RNLEN  length of the name
-;    +3  byte  RO_RPIDX  parameter record of its first parameter
-;    +4  byte  RO_RPCNT  number of parameters
-;    +5  byte  RO_RTYPE  result type ordinal, zero for none
-;    +6  byte  RO_RFLAG  RO_FFAIL, RO_FOPEN, RO_FFWD, RO_FVRES and RO_FPRIV
-;    +7  word  RO_RORD   its blob's ordinal
-;    +9  word  RO_RNEED  its need, zero until its body is complete
-;    +11 byte  RO_RARGS  the bytes of its arguments, which RETN removes
-;  AC_SIG writes the name and the first parameter when a signature begins;
-;  AC_PUB writes the rest, taking the routine's ordinal, and counts the
-;  record in RO_RCNT. A forward is published with RO_FOPEN and RO_FFWD set,
-;  so it takes its ordinal where it is declared, and AC_IMPL clears RO_FOPEN
-;  when the body comes; AC_END writes the need. RO_FIND, RO_VET and RO_CALL
-;  read the records through RO_SUBAT.
+;    +3  word  RO_RPIDX  its first parameter's record
+;    +5  byte  RO_RPCNT  number of parameters
+;    +6  byte  RO_RTYPE  result type ordinal, zero for none
+;    +7  byte  RO_RFLAG  RO_FFAIL, RO_FOPEN, RO_FFWD, RO_FVRES and RO_FPRIV
+;    +8  word  RO_RORD   its blob's ordinal
+;    +10 word  RO_RNEED  its need, zero until its body is complete
+;    +12 byte  RO_RARGS  the bytes of its arguments, which RETN removes
+;    +13 byte  RO_RPART  the part its name is in
+;    +14 word  RO_RPOS   its name's offset there
+;  The signature being parsed is built in RO_CREC, its parameters in
+;  RO_SPAR after it: AC_SIG writes the name and the first parameter; AC_PUB
+;  writes the rest, taking the routine's ordinal, then copies the record and
+;  its parameters, one block, below the name heap (NH_ALLOC), which never
+;  moves, and counts the record in RO_RCNT. RO_RPTR holds each record's
+;  address, RO_CREC's while its signature is parsed. A forward is published
+;  with RO_FOPEN and RO_FFWD set, so it takes its ordinal where it is
+;  declared, and AC_IMPL clears RO_FOPEN when the body comes; AC_END writes
+;  the need. RO_FIND, RO_VET and RO_CALL read the records through RO_SUBAT.
 ;
-;  A parameter record (RO_PLEN bytes); every signature's parameters are
-;  appended in order, so a routine's are RO_RPCNT records from RO_RPIDX:
-;    +0 word  RO_PNAME  address of the name in the source
+;  A parameter record (RO_PLEN bytes); a routine's are RO_RPCNT records
+;  from RO_RPIDX:
+;    +0 word  RO_PNAME  address of the name in the name heap
 ;    +2 byte  RO_PNLEN  length of the name
 ;    +3 byte  RO_PTYPE  type ordinal, AG_VAR for a var parameter
-;  RO_ENROL appends one; RO_BIND, RO_DISP and RO_CALL read them through
-;  RO_PARAM.
+;    +4 byte  RO_PFROM  nonzero when the result's from clause names it
+;  RO_ENROL appends one to the signature; RO_BIND, RO_DISP and RO_CALL
+;  read them through RO_PARAM, from RO_CPIDX.
 ;
 ;  A call whose arguments are being parsed keeps its routine and its next
 ;  parameter on the machine stack, so that a call inside an argument cannot
@@ -82,10 +88,10 @@
 
 RO_BASE EQU  AG_WEND           ; First byte of the routine state.
 RO_RCNT EQU  RO_BASE+$00       ; Byte: routine records completed (AC_PUB).
-RO_PCNT EQU  RO_BASE+$01       ; Byte: parameter records used (RO_ENROL).
+; RO_BASE+$01: free.
 RO_CUR EQU  RO_BASE+$02        ; Byte: index of the routine being compiled, $FF for main.
 RO_CTYPE EQU  RO_BASE+$03      ; Byte: its result type ordinal, zero for none.
-RO_CPIDX EQU  RO_BASE+$04      ; Byte: its first parameter record.
+; RO_BASE+$04: free.
 RO_CPCNT EQU  RO_BASE+$05      ; Byte: its parameters so far.
 RO_TBASE EQU  RO_BASE+$06      ; Byte: AG_TCNT as the body opened (AG_SCOPE).
 RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.
@@ -100,8 +106,8 @@ RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FA
 ; RO_BASE+$11: free.
 AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
 AC_PRIV EQU  RO_BASE+$13       ; Byte: nonzero while a private declaration is parsed.
-RO_FROM EQU  RO_BASE+$14       ; 20 bytes, RO_PCAP/8: a bit for each parameter, in from.
-RO_VARP EQU  RO_FROM+20         ; Byte: nonzero for a var parameter being parsed.
+RO_CPIDX EQU  RO_BASE+$14      ; Word: its first parameter's record.
+RO_VARP EQU  RO_CPIDX+2        ; Byte: nonzero for a var parameter being parsed.
 RO_CRO EQU  RO_VARP+1          ; Byte: nonzero when the last call's result is read-only.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's
 ; Designator holds them, and the position of the index being parsed. The
@@ -124,29 +130,29 @@ GA_FRAME EQU  1                ; Place: the frame, at IX+offset.
 GA_ALIAS EQU  2                ; Place: through an address word in the frame.
 GA_HELD EQU  3                 ; Place: computed, in HL.
 
-RO_RTAB EQU  RO_STEND          ; Routine table: RO_RCAP records.
+RO_RPTR EQU  RO_STEND          ; RO_RCAP words: each routine record's address.
+RO_RCAP EQU  255               ; Routines besides main, $FF being main; DG_PROCS beyond.
 RO_RLEN EQU  16                ; Bytes in one routine record.
-RO_RCAP EQU  64                ; Routines besides main; DG_PROCS beyond.
-RO_RLIM EQU  RO_RTAB+RO_RLEN*RO_RCAP ; Exclusive end of the routine table.
 RO_RNAME EQU  0                ; Word: address of the routine's name.
 RO_RNLEN EQU  2                ; Byte: length of the name.
-RO_RPIDX EQU  3                ; Byte: its first parameter record.
-RO_RPCNT EQU  4                ; Byte: its number of parameters.
-RO_RTYPE EQU  5                ; Byte: its result type ordinal, zero for none.
-RO_RFLAG EQU  6                ; Byte: its flags.
-RO_RORD EQU  7                 ; Word: its blob's ordinal.
-RO_RNEED EQU  9                ; Word: its need once its body is complete.
-RO_RARGS EQU  11               ; Byte: its arguments' bytes.
-RO_RPART EQU  12               ; Byte: the part its name is in (SRC_ID).
-RO_RPOS EQU  13                ; Word: its name's offset in that part.
-
-RO_PTAB EQU  RO_RLIM           ; Parameter table: RO_PCAP records.
-RO_PLEN EQU  4                 ; Bytes in one parameter record.
-RO_PCAP EQU  160               ; Parameters of all routines; DG_PARAM beyond.
-RO_PLIM EQU  RO_PTAB+RO_PLEN*RO_PCAP ; Exclusive end of the parameter table.
+RO_RPIDX EQU  3                ; Word: its first parameter's record.
+RO_RPCNT EQU  5                ; Byte: its number of parameters.
+RO_RTYPE EQU  6                ; Byte: its result type ordinal, zero for none.
+RO_RFLAG EQU  7                ; Byte: its flags.
+RO_RORD EQU  8                 ; Word: its blob's ordinal.
+RO_RNEED EQU  10               ; Word: its need once its body is complete.
+RO_RARGS EQU  12               ; Byte: its arguments' bytes.
+RO_RPART EQU  13               ; Byte: the part its name is in (SRC_ID).
+RO_RPOS EQU  14                ; Word: its name's offset in that part.
+RO_CREC EQU  RO_RPTR+2*RO_RCAP ; The record of the signature being parsed,
+RO_SPAR EQU  RO_CREC+RO_RLEN   ; then its parameters' records, RO_SCAP.
+RO_PLEN EQU  5                 ; Bytes in one parameter record.
+RO_SCAP EQU  64                ; Parameters of one routine; DG_PARAM beyond.
+RO_PLIM EQU  RO_SPAR+RO_PLEN*RO_SCAP ; Exclusive end of the signature.
 RO_PNAME EQU  0                ; Word: address of the parameter's name.
 RO_PNLEN EQU  2                ; Byte: length of the name.
 RO_PTYPE EQU  3                ; Byte: its type ordinal.
+RO_PFROM EQU  4                ; Byte: nonzero when the from clause names it.
 
 RO_NCAP EQU  8                 ; Calls nested in arguments; DG_DEEP beyond.
 

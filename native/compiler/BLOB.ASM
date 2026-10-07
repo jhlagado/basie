@@ -22,8 +22,9 @@
 ;  them: the bytes up as the symbol table and the constants grow (RG_LIFT),
 ;  the log down as the name heap does (TK_KEEP), so a word that must find
 ;  an entry again keeps its distance from the heap (BL_FLIP), not its
-;  address. A blob is as large as the free memory, below 16K. BL_BEGIN starts one; BL_BYTE, BL_REF and
-;  BL_LINE add its bytes, references and line entries; BL_END writes them.
+;  address. A blob is as large as the free memory, below 16K. BL_BEGIN
+;  starts one; BL_BYTE, BL_REF and BL_LINE add its bytes, references and
+;  line entries; BL_END writes them.
 ;  References and line entries are kept as they are given and encoded in
 ;  the stream's delta form when the blob is written, so that a routine's
 ;  jumps can shrink first (SHRINK.ASM): BL_END moves every offset as

@@ -19,8 +19,8 @@
 ;    AC_SAFE, AC_ELEAK  reject an unhandled failure
 ;    AC_LIVE, AC_DEAD  set the fallthrough state
 ;
-;  Routines. The routine being declared is RO_CUR: an index into the
-;  routine table RO_RTAB (CALLWORK.ASM), or $FF for main. Its signature is
+;  Routines. The routine being declared is RO_CUR: its number, whose
+;  record RO_SUBAT finds (CALLWORK.ASM), or $FF for main. Its signature is
 ;  gathered in RO_CPIDX, RO_CPCNT, RO_CTYPE, RO_CFLAG and RO_CARGS, and
 ;  AC_PUB copies it into the routine's record with the routine's ordinal,
 ;  which makes the routine visible to calls, its own body included. A
@@ -308,13 +308,19 @@ AC_SIG:
     LD   A,DG_CLASS                ; raise wrong-class,
     JP   C,DG_NAMED                ; naming it.
     LD   A,(RO_RCNT)               ; The new routine's index.
-    LD   (RO_CUR),A                ; It is the routine being declared.
-    CALL RO_SUBAT                  ; HL addresses its record.
+    LD   (RO_CUR),A                ; It is the routine being declared,
+    CALL RO_RPAT                   ; whose record
+    LD   (HL),RO_CREC&$FF          ; is built
+    INC  HL                        ; in
+    LD   (HL),RO_CREC/$100         ; RO_CREC.
+    LD   HL,RO_CREC                ; HL addresses it.
     CALL TK_KEEP                   ; Record its name; HL addresses the length.
     INC  HL                        ; Step to RO_RPIDX.
-    LD   A,(RO_PCNT)               ; The next free parameter entry...
-    LD   (HL),A                    ; ...is its first parameter...
-    LD   (RO_CPIDX),A              ; ...in the record and the signature.
+    LD   DE,RO_SPAR                ; Its parameters follow it,
+    LD   (HL),E                    ; the first
+    INC  HL                        ; in the
+    LD   (HL),D                    ; record
+    LD   (RO_CPIDX),DE             ; and the signature.
     CALL AC_CLEAR                  ; No parameters or result yet.
     CALL AC_VIS                    ; The routine's flags: private, or none,
     LD   (RO_CFLAG),A              ; yet.
@@ -478,8 +484,8 @@ AC_GIVEN:
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; FromClause: after a result type, `from` and the names of aggregate
 ; parameters in which the result may be rooted (from-clause otherwise,
-; naming it), each marked in RO_FROM; a name other than `from` is the
-; line's end expected, at it.
+; naming it), each marked in its record (RO_PFROM); a name other than
+; `from` is the line's end expected, at it.
 
 AC_FROM:
     CALL PR_PEEK                   ; A name next?
@@ -494,8 +500,9 @@ AC_FROM:
     CALL RO_NAME                   ; Consume it.
     CALL RO_PFIND                  ; A parameter of the signature,
     JR   NC,.EFROM                 ; B its index, HL its record?
-    LD   DE,RO_PTYPE               ; Its type
-    ADD  HL,DE                     ; less
+    INC  HL                        ; Its
+    INC  HL                        ; type
+    INC  HL                        ; less
     LD   A,(HL)                    ; AG_VAR
     AND  $7F                       ; must be
     CALL PL_ISHND                  ; an aggregate,
@@ -504,11 +511,8 @@ AC_FROM:
     JR   C,.EFROM                  ; a scalar
     CP   AG_FILE                   ; nor
     JR   Z,.EFROM                  ; a File.
-    LD   A,B                       ; Its bit
-    LD   HL,RO_FROM                ; in RO_FROM
-    CALL SY_BITAT                  ; is
-    OR   (HL)                      ; set.
-    LD   (HL),A                    ; Kept.
+    INC  HL                        ; It is
+    LD   (HL),H                    ; named (RO_PFROM, nonzero).
     CALL PR_PEEK                   ; A comma
     CP   TK_COMMA                  ; brings
     RET  NZ                        ; another;
@@ -545,8 +549,10 @@ AC_IMPL:
     CALL RO_SUBAT                  ; HL addresses its record.
     LD   DE,RO_RPIDX               ; Skip the name...
     ADD  HL,DE                     ; ...to the signature.
-    LD   A,(HL)                    ; Its first parameter...
-    LD   (RO_CPIDX),A              ; ...for the body.
+    LD   E,(HL)                    ; Its first
+    INC  HL                        ; parameter's
+    LD   D,(HL)                    ; record,
+    LD   (RO_CPIDX),DE             ; for the body.
     INC  HL                        ; Step to RO_RPCNT.
     LD   A,(HL)                    ; Its parameter count.
     LD   (RO_CPCNT),A              ; Recover it.
@@ -570,26 +576,16 @@ AC_IMPL:
     ADD  HL,DE                     ; HL addresses them.
     LD   A,(HL)                    ; Recover
     LD   (RO_CARGS),A              ; them.
-    JR   AC_BEGIN                  ; Open the body.
+    JP   AC_BEGIN                  ; Open the body.
 .MISSING:                      ; No forward to complete.
     CALL DG_RNAME                  ; Abandon the build, naming it:
     DB   DG_FWDNO                  ; forward-mismatch.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; BeginSubBody: after a full signature, open main's body, or publish the
-; routine (making it callable from its own body) and open its body.
-
-AC_BODY:
-    LD   A,(RO_CUR)                ; The routine declared.
-    INC  A                         ; Is it main?
-    JR   Z,AC_ENTRY                ; Yes: open main's body.
-    CALL AC_PUB                    ; Publish the signature.
-    JR   AC_BEGIN                  ; Open the body.
-
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE,HL
 ; Copy the signature into the record of the routine declared, RO_CUR,
 ; with the routine's ordinal, the next (RG_ADD), and a need of zero until
-; its body is complete, and count the routine as declared.
+; its body is complete, then keep the record and its parameters' below the
+; name heap, one block (NH_ALLOC), and count the routine as declared.
 
 AC_PUB:
     LD   A,(RO_CUR)                ; The routine declared:
@@ -620,6 +616,34 @@ AC_PUB:
     INC  HL                        ; Step to RO_RARGS.
     LD   A,(RO_CARGS)              ; The argument bytes.
     LD   (HL),A                    ; Store them.
+    LD   A,(RO_CPCNT)              ; The record
+    CALL RO_PARAM                  ; and its
+    LD   DE,RO_CREC                ; parameters'
+    SBC  HL,DE                     ; records (carry is clear)
+    LD   B,H                       ; are one
+    LD   C,L                       ; block,
+    CALL NH_ALLOC                  ; kept at DE:
+    PUSH DE                        ; (its address)
+    LD   HL,RO_CREC                ; the record and
+    LDIR                           ; the parameters.
+    LD   HL,RO_RLEN                ; Its
+    POP  DE                        ; first
+    ADD  HL,DE                     ; parameter's
+    LD   (RO_CPIDX),HL             ; record,
+    PUSH HL                        ; in the
+    LD   HL,RO_RPIDX               ; signature
+    ADD  HL,DE                     ; and
+    POP  BC                        ; the
+    LD   (HL),C                    ; record
+    INC  HL                        ; it
+    LD   (HL),B                    ; follows.
+    PUSH DE                        ; The routine's
+    LD   A,(RO_CUR)                ; record
+    CALL RO_RPAT                   ; is
+    POP  DE                        ; the
+    LD   (HL),E                    ; block,
+    INC  HL                        ; both
+    LD   (HL),D                    ; bytes.
     LD   HL,RO_RCNT                ; Count the routine...
     INC  (HL)                      ; ...so that RO_FIND sees it.
     RET                            ; The routine is published.
@@ -638,6 +662,16 @@ AC_SCOPE:
     XOR  A                         ; No control
     LD   (CT_DEPTH),A              ; frames are open.
     RET                            ; A is zero.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; BeginSubBody: after a full signature, open main's body, or publish the
+; routine (making it callable from its own body) and open its body.
+
+AC_BODY:
+    LD   A,(RO_CUR)                ; The routine declared.
+    INC  A                         ; Is it main?
+    JR   Z,AC_ENTRY                ; Yes: open main's body.
+    CALL AC_PUB                    ; Publish the signature; open the body.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Open a routine's body: begin its blob, with the name and ordinal of its
@@ -664,10 +698,9 @@ AC_BEGIN:
     CALL AC_LIVE                   ; The body's start is reachable.
     LD   A,(RO_CPCNT)              ; Bind each parameter:
     LD   B,A                       ; B counts those left,
-    LD   A,(RO_CPIDX)              ; D is the parameter entry,
+    XOR  A                         ; D is the parameter,
     LD   D,A                       ; ...from the first,
-    XOR  A                         ; E is the argument index,
-    LD   E,A                       ; ...from zero.
+    LD   E,A                       ; E the argument index, from zero.
 .BINDLOOP:                     ; Bind one parameter.
     LD   A,B                       ; Any left?
     OR   A                         ; Zero means all are bound:

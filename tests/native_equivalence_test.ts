@@ -390,6 +390,7 @@ const CLAIMED: Record<string, string[]> = {
   "68: routines in shared memory, 32 nested statements": [
     "BIGROUT",
     "NEST32",
+    "MANYRTN",
   ],
 };
 
