@@ -30,7 +30,7 @@
 ;    CT_PAST   leave a for loop when the last comparison says so
 ;
 ;  Frames (STATE.ASM). CT_DEPTH counts the open frames, at most CT_FCAP
-;  (8); frame n is the CT_FLEN (20) bytes at CT_FTAB+20n. The fields are:
+;  (16); frame n is the CT_FLEN (20) bytes at CT_FTAB+20n. The fields are:
 ;    CT_FKIND  +0  CT_KIF, CT_KLOOP (while), CT_KFOR or CT_KTRAP (handle)
 ;    CT_FDEST  +1  label: an if's next arm, a for's body, a handler's
 ;                  failure entry

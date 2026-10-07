@@ -863,24 +863,29 @@ EX_LHS:                        ; The next token
     LD   (EX_LAT),HL               ; kept.
     RET                            ; HL is it.
 
-;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
-; EX_PARSE an expression nested in another, a parenthesized one, an
-; index, an argument or a conversion's operand, keeping the enclosing
-; operator's operand offsets (EX_LAT, EX_RAT) across it. Each level takes
-; about 22 bytes of the machine stack: one that would leave less than
-; EX_SPARE of the stack's MM_STACK bytes below SP is too deep (DG_DEEP),
-; at about 36 levels.
+;@ROUTINE CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Nested expressions and initializers recurse on the machine stack: one
+; that would leave less than EX_SPARE of the stack's MM_STACK bytes below
+; SP is too deep (DG_DEEP, expression depth). A and BC are kept.
 
-EX_INNER:                      ; A nested expression.
+PR_ROOM:                       ; Another level is to open.
     LD   HL,(SH_BDOS+1)            ; The stack's top,
     LD   DE,EX_SPARE-MM_STACK      ; less all but the spare,
     ADD  HL,DE                     ; is the floor:
     OR   A                         ; is SP
     SBC  HL,SP                     ; above it?
-    JR   C,.ROOM                   ; Yes.
+    RET  C                         ; Yes.
     CALL DG_RAISE                  ; No: too deep
     DB   DG_DEEP                   ; for the stack.
-.ROOM:                         ; There is room for another level.
+
+;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; EX_PARSE an expression nested in another, a parenthesized one, an
+; index, an argument or a conversion's operand, keeping the enclosing
+; operator's operand offsets (EX_LAT, EX_RAT) across it. Each level takes
+; about 22 bytes of the machine stack, at most about 36 levels (PR_ROOM).
+
+EX_INNER:                      ; A nested expression.
+    CALL PR_ROOM                   ; The stack must have room.
     LD   A,(EX_MINB)               ; The enclosing level,
     PUSH AF                        ; and
     LD   HL,(EX_RAT)               ; the enclosing

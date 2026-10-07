@@ -298,8 +298,12 @@ Deno.test("expressions nest 36 deep, the stack's bound, and deeper is a capacity
 Deno.test("the source and the part table may fill memory to 1K below the BDOS entry", () => {
   // The harness's BDOS entry is $E406, so the source runs up from MM_SRC
   // and the part table down from $E006, 21 bytes a part; each record must
-  // fit below the table before it is read.
-  const room = Math.floor((0xe006 - 21 - built.symbols.MM_SRC) / 128) * 128;
+  // fit below the table before it is read, which bounds the loader. The
+  // symbol table and the name heap share the memory above the largest part
+  // (67h.3), so a part a record smaller than the loader's bound leaves them
+  // room; one byte past the bound is the loader's capacity.
+  const bound = Math.floor((0xe006 - 21 - built.symbols.MM_SRC) / 128) * 128;
+  const room = bound - 128;
   const fill = (size: number) => {
     let text = PROGRAM;
     while (text.length < size - 70) text += "// " + "x".repeat(60) + "\n";
@@ -308,7 +312,7 @@ Deno.test("the source and the part table may fill memory to 1K below the BDOS en
   assertEquals(fill(room).length, room);
   assertEquals(run("MAIN [C]", { "MAIN.BSI": fill(room) }), "");
   assertEquals(
-    run("MAIN", { "MAIN.BSI": fill(room + 1) }),
+    run("MAIN", { "MAIN.BSI": fill(bound + 1) }),
     "Error 190: A compiler capacity was exceeded: source size\r\n",
   );
 });

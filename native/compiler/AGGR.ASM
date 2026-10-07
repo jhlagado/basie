@@ -40,7 +40,7 @@
 ;  Initializer bytes are staged in AG_IBUF at the cursor AG_OPOS. The object
 ;  is zeroed first, so an initializer writes only what it supplies and a
 ;  string's padding and terminator need no writes. Nested initializers are
-;  bounded at four levels (AG_LCAP). Every extent is bounded at 1024 bytes,
+;  bounded at 32 levels (AG_LCAP) and by the machine stack (PR_ROOM). Every extent is bounded at 1024 bytes,
 ;  the size of the staging buffer.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
@@ -597,9 +597,11 @@ AG_TEXT:
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,D,DE,HL
 ; Consume the opening bracket A of a record or array initializer and open
 ; one nesting level. Any other token is syntax, the bracket expected; a
-; fifth level raises DG_INITS. BC is preserved.
+; level past AG_LCAP raises DG_INITS, and one the stack has no room for
+; DG_DEEP (PR_ROOM). BC is preserved.
 
 AG_ENTER:
+    CALL PR_ROOM                   ; Room on the stack for it,
     CALL AG_BRACK                  ; Consume the bracket.
     LD   A,(AG_LEVEL)              ; Fetch the nesting depth.
     CP   AG_LCAP                   ; Is another level allowed?

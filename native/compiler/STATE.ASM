@@ -24,7 +24,7 @@
 ;                  (the records are above the largest part, SYMBOLS.ASM)
 ;    +$106    330  expression state, the folding scratch and the operand
 ;                  stack
-;    +$250    162  control: depth, fallthrough, eight frames of twenty
+;    +$250    322  control: depth, fallthrough, 16 frames of twenty
 ;                  bytes
 ;    +$2F2   1530  aggregate types, records, fields, array bounds, the
 ;                  initializer staging
@@ -82,7 +82,7 @@ EM_NEED EQU  EM_BASE+$08       ; Word: the largest need of a routine called.
 EM_LCNT EQU  EM_BASE+$0A       ; Byte: labels allocated in this routine.
 EM_LTAB EQU  EM_BASE+$0B       ; EM_LCAP labels of EM_LLEN bytes.
 EM_LLEN EQU  4                 ; Bytes in one label.
-EM_LCAP EQU  32                ; Labels in one routine; DG_LABEL beyond.
+EM_LCAP EQU  64                ; Labels in one routine; DG_LABEL beyond.
 EM_LLIM EQU  EM_LTAB+EM_LLEN*EM_LCAP ; Exclusive end of the labels.
 EM_NONE EQU  $FFFF             ; The offset of a label not yet defined.
 ; A diagnostic's argument text (DG_NAMED, MESSAGE.ASM), over the
@@ -188,7 +188,7 @@ CT_DEPTH EQU  CT_BASE+$00      ; Byte: open control frames.
 CT_FALLS EQU  CT_BASE+$01      ; Byte: nonzero while control can reach this point.
 CT_FTAB EQU  CT_BASE+$02       ; First control frame.
 CT_FLEN EQU  20                ; Bytes in one frame.
-CT_FCAP EQU  8                 ; Frames; DG_NEST when exceeded.
+CT_FCAP EQU  16                ; Frames; DG_NEST when exceeded.
 CT_FLIM EQU  CT_FTAB+CT_FLEN*CT_FCAP ; Exclusive end of the frames.
 
 CT_KIF EQU  1                  ; Frame kind: if, elseif, else.
@@ -291,7 +291,7 @@ AG_ICAP EQU  1024              ; Bytes of initializer staging; DG_DATA beyond.
 AG_WEND EQU  AG_IBUF+AG_ICAP   ; End of the aggregate block.
 PR_WEND EQU  AG_WEND           ; End of this file's workspace.
 
-AG_LCAP EQU  4                 ; Initializer nesting levels; DG_INITS beyond.
+AG_LCAP EQU  32                ; Initializer nesting levels; DG_INITS beyond.
 
 ; Token kinds, as TK_NEXT returns them in A. Grammar terminals use the same
 ; ordinals, so they stay below $40 (LL1.ASM), and a kind the grammar

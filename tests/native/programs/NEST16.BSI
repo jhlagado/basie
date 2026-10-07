@@ -1,0 +1,65 @@
+// Control statements nested 16 deep (the native compiler held 8) and an
+// initializer nested six levels (it held four): 67h.5.
+record A1
+    v as u8
+end
+record A2
+    a as A1
+    w as u8
+end
+record A3
+    a as A2
+    w as u8
+end
+record A4
+    a as A3
+    w as u8
+end
+record A5
+    a as A4
+    w as u8
+end
+record A6
+    a as A5
+    w as u8
+end
+const deep as A6 = ((((((7), 2), 3), 4), 5), 6)
+var n as u16
+sub main() fails
+    if n < 100
+        while n < 1
+            if n < 102
+                while n < 3
+                    if n < 104
+                        while n < 5
+                            if n < 106
+                                while n < 7
+                                    if n < 108
+                                        while n < 9
+                                            if n < 110
+                                                while n < 11
+                                                    if n < 112
+                                                        while n < 13
+                                                            if n < 114
+                                                                while n < 15
+                                                                    n = n + 1
+                                                                end
+                                                            end
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if n = 1 and deep.a.a.a.a.a.v = 7 and deep.w = 6
+        writeText(console, "nested deep\r\n") else fail
+    end
+end

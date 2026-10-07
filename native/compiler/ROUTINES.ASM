@@ -167,7 +167,8 @@ PR_BUILD:
 
 PR_PARSE:
     LD   HL,PL_CNT                 ; Clear the pools,
-    LD   B,PL_WEND-PL_CNT          ; their table,
+    LD   B,FW_TAB-PL_CNT           ; their table (a frame's flows are
+                                   ; cleared as it opens, FW_OPEN),
     CALL .WIPE                     ; zeroed;
     LD   HL,PL_DESC                ; the owner descriptors'
     LD   B,2*AG_TCAP               ; ordinals,

@@ -26,9 +26,9 @@
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
 MM_RLIM EQU  $6B00             ; Exclusive end of room for the image.
 MM_WBASE EQU  $6B00            ; Compiler workspace: the image ends below.
-MM_WLIM EQU  $80B0             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $7FA0             ; The shell's workspace, above the compiler's.
-MM_BLOB EQU  $80B0             ; The blob writer's workspace, BL_FLAGS on.
+MM_WLIM EQU  $82F0             ; Exclusive end of both workspaces.
+SH_WBEG EQU  $81E0             ; The shell's workspace, above the compiler's.
+MM_BLOB EQU  $82F0             ; The blob writer's workspace, BL_FLAGS on.
 
-MM_SRC EQU  $9290              ; Resident source parts, up to the stack.
+MM_SRC EQU  $94D0              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0400            ; Bytes kept below the BDOS entry for the stack.

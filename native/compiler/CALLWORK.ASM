@@ -173,7 +173,7 @@ SRC_WEND EQU  SRC_RES+1        ; End of the source cursor.
 ; overlay does the same while it loads the parts.
 PR_SP EQU  SRC_WEND            ; Word: SP that DG_ISSUE restores.
 ; The pools (POOLS.ASM), in the bytes before the LL(1) stack's page:
-; PR_PARSE clears PL_CNT..PL_WEND. A pool's entry is PL_LEN bytes.
+; PR_PARSE clears PL_CNT..FW_TAB; FW_OPEN each frame's flows. A pool's entry is PL_LEN bytes.
 PL_CNT EQU  PR_SP+2            ; Byte: pools declared, forward ones too.
 PL_NCAP EQU  PL_CNT+1          ; Word: the capacity of the pool being declared.
 PL_NREC EQU  PL_NCAP+2         ; Byte: its record type.
@@ -199,7 +199,7 @@ FW_PTR EQU  HN_RETF+1          ; Word: a snapshot's address (FLOW.ASM).
 FW_CB EQU  FW_PTR+2            ; Word: the routine FW_EACH runs.
 FW_PLACE EQU  FW_CB+2          ; Word: where a flow diagnostic is reported.
 FW_TMP EQU  FW_PLACE+2         ; Four bytes: a snapshot being made.
-FW_TAB EQU  FW_TMP+4           ; 64 bytes: each control frame's start and meet.
+FW_TAB EQU  FW_TMP+4           ; 8*CT_FCAP bytes: each control frame's start and meet.
 PL_WEND EQU  FW_TAB+8*CT_FCAP  ; The end of the pools' and flows' bytes.
 
 RO_MAIN EQU  $FE               ; RO_FIND's index for main, which has no record.

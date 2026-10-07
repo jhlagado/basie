@@ -384,6 +384,7 @@ const CLAIMED: Record<string, string[]> = {
     "TYPESCOP",
     "TYPES48",
     "FIELDS64",
+    "NEST16",
   ],
 };
 
