@@ -128,32 +128,46 @@ AC_ENDP:
     DJNZ .SYMBOL                   ; Until all are.
     RET                            ; The part's private names are gone.
 .OPEN:                         ; HL is the record.
-    LD   DE,RO_RPART               ; The name's
-    ADD  HL,DE                     ; part,
-    LD   A,(HL)                    ; still here,
-    INC  HL                        ; and
-    LD   E,(HL)                    ; its
-    INC  HL                        ; offset
-    LD   D,(HL)                    ; in it,
-    PUSH DE                        ; kept:
-    DEC  A                         ; the part's
-    CALL SRC_PART                  ; entry,
-    LD   DE,PT_START               ; its
-    ADD  HL,DE                     ; first
-    LD   A,(HL)                    ; byte,
+    LD   DE,RO_RPART               ; Its part
+    ADD  HL,DE                     ; and the offset
+    LD   D,(HL)                    ; of its
+    INC  HL                        ; `forward`
+    LD   A,(HL)                    ; (AC_SIG),
+    INC  HL                        ; where
+    LD   H,(HL)                    ; it is
+    LD   L,A                       ; reported:
+    LD   E,DG_UNMET                ; forward-incomplete.
+    JP   DG_PLACE                  ; No return.
+
+;@ROUTINE IN HL OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; The offset in the current part of `forward` before `sub` and the routine's
+; name, at offset HL (a declaration's tokens are on one line): back from
+; the name over the spaces and tabs to `sub`, then to `forward`. BC is
+; kept.
+
+AC_FWDAT:                      ; HL is the name's offset.
+    PUSH HL                        ; (kept)
+    LD   A,(SRC_ID)                ; The part's
+    DEC  A                         ; entry,
+    CALL SRC_PART                  ; its
+    LD   DE,PT_START               ; first
+    ADD  HL,DE                     ; byte,
+    LD   E,(HL)                    ; DE;
     INC  HL                        ; plus
-    LD   H,(HL)                    ; the
-    LD   L,A                       ; offset,
-    POP  DE                        ; is the
-    ADD  HL,DE                     ; name's address;
-    CALL .BACK                     ; back over the spaces to `sub`'s b,
+    LD   D,(HL)                    ; the
+    POP  HL                        ; offset,
+    ADD  HL,DE                     ; the name's address.
+    PUSH DE                        ; (the start kept)
+    CALL .BACK                     ; Back over the spaces to `sub`'s b,
     DEC  HL                        ; back
     DEC  HL                        ; to its s,
     CALL .BACK                     ; over the spaces to `forward`'s d,
     LD   DE,1-7                    ; back
-    ADD  HL,DE                     ; to its f.
-    LD   A,DG_UNMET                ; forward-incomplete,
-    JP   DG_SRC                    ; there; no return.
+    ADD  HL,DE                     ; to its f,
+    POP  DE                        ; less
+    OR   A                         ; the part's
+    SBC  HL,DE                     ; start.
+    RET                            ; HL is its offset.
 .BACK:                         ; HL is after spaces and tabs.
     DEC  HL                        ; The byte before:
     LD   A,(HL)                    ; a space
@@ -306,14 +320,20 @@ AC_SIG:
     LD   A,(RO_CUR)                ; Its record:
     CALL RO_SUBAT                  ; the part
     LD   DE,RO_RPART               ; and offset
-    ADD  HL,DE                     ; of its name,
-    LD   A,(SRC_ID)                ; where a forward
-    LD   (HL),A                    ; left open
-    INC  HL                        ; is reported
-    LD   DE,(AC_DPOS)              ; when its part
-    LD   (HL),E                    ; may be
-    INC  HL                        ; gone
-    LD   (HL),D                    ; (AC_ENDP).
+    ADD  HL,DE                     ; where a forward
+    LD   A,(SRC_ID)                ; left open is
+    LD   (HL),A                    ; reported when
+    INC  HL                        ; its part may
+    PUSH HL                        ; be gone (AC_ENDP):
+    LD   HL,(AC_DPOS)              ; its name,
+    LD   A,(RO_CFLAG)              ; or for
+    BIT  5,A                       ; a private one (RO_FPRIV)
+    CALL NZ,AC_FWDAT               ; its `forward`.
+    EX   DE,HL                     ; The offset,
+    POP  HL                        ; in
+    LD   (HL),E                    ; the
+    INC  HL                        ; record.
+    LD   (HL),D                    ; Kept.
     RET                            ; Back to the engine.
 .MAIN:                         ; Open main's signature.
     LD   A,(AC_PRIV)               ; Main can't be private:
