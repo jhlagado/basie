@@ -9,7 +9,7 @@
 ;  applies: the magic BSIR and version 1.0, a helper-table version no older
 ;  than the compiler's (HP_VER), and the key of that version equal to the
 ;  compiler's (HP_KEY). The library's runtime and profile identities go
-;  into the program directory's header (SH_HEAD), as the reference
+;  into the program directory's header (LB_HEAD), as the reference
 ;  compiler takes them from its library. Then, before the streams are
 ;  made, the compilation stamp is chosen (object format §4.1).
 ;
@@ -77,7 +77,7 @@ LB_FIRST:                      ; At OV_AREA+3 (BG_TAB).
 LB_OPEN:                       ; At OV_AREA+9 (BG_TAB).
     CALL LB_STAMP                  ; Choose the compilation stamp.
     LD   A,(BL_FLAGS)              ; The streams the options want.
-    LD   HL,SH_HEAD                ; The directory's header,
+    LD   HL,LB_HEAD                ; The directory's header,
     LD   DE,SH_SNAME               ; and the streams' drive and name.
     CALL BL_OPEN                   ; Open the streams.
     XOR  A                         ; Name each part in the line stream,
@@ -139,9 +139,9 @@ LB_CHECK:                      ; CL_LIB is the library's name.
     OR   (HL)                      ; else higher.
     JR   NZ,.FORMAT                ; Either is refused.
     LD   HL,(LB_BUF+6)             ; The runtime identity
-    LD   (SH_HEAD+8),HL            ; goes into the directory's header,
+    LD   (LB_HEAD+8),HL            ; goes into the directory's header,
     LD   HL,(LB_BUF+10)            ; and so does
-    LD   (SH_HEAD+14),HL           ; the profile identity.
+    LD   (LB_HEAD+14),HL           ; the profile identity.
     LD   HL,(LB_BUF+8)             ; The library's helper-table version
     LD   DE,HP_VER                 ; may not be older
     OR   A                         ; than
@@ -270,7 +270,7 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
     OR   A                         ; An empty file
     JR   NZ,.NEW                   ; has none.
     LD   HL,LB_BUF                 ; Its magic
-    LD   DE,SH_HEAD                ; must be BSIP,
+    LD   DE,LB_HEAD                ; must be BSIP,
     LD   B,4                       ; the header's own.
 .MAGIC:                        ; HL walks the old header, DE the new.
     LD   A,(DE)                    ; A magic byte.
@@ -283,7 +283,7 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
     JR   .NEXT                     ; plus one.
 .NEW:                          ; No earlier directory: a CRC.
     LD   HL,$FFFF                  ; The CRC starts at $FFFF,
-    LD   (SH_HEAD+6),HL            ; where the stamp goes.
+    LD   (LB_HEAD+6),HL            ; where the stamp goes.
     XOR  A                         ; The first part
     CALL SRC_PART                  ; the command line names,
     LD   DE,PT_START               ; the table's first,
@@ -301,13 +301,13 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
     SBC  HL,DE                     ; at it?
     JR   Z,.MIX                    ; The part is shorter than a record.
     LD   A,(DE)                    ; The byte
-    LD   HL,SH_HEAD+6              ; joins
+    LD   HL,LB_HEAD+6              ; joins
     CALL OUT_UPD                   ; the CRC.
     INC  DE                        ; The next byte.
     DEC  C                         ; One fewer.
     JR   NZ,.BYTE                  ; Until a record is done.
 .MIX:                          ; The CRC is complete.
-    LD   HL,(SH_HEAD+6)            ; Fold the R register,
+    LD   HL,(LB_HEAD+6)            ; Fold the R register,
     LD   A,R                       ; as good a source of change
     XOR  L                         ; as CP/M 2.2 has,
     LD   L,A                       ; into its low byte;
@@ -319,7 +319,7 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
     JR   NZ,.SET                   ; which no stream may carry:
     INC  HL                        ; then one.
 .SET:                          ; HL is the stamp.
-    LD   (SH_HEAD+6),HL            ; The header carries it to every stream.
+    LD   (LB_HEAD+6),HL            ; The header carries it to every stream.
     RET                            ; Chosen.
 
 ; ---- data -------------------------------------------------------------------
@@ -328,3 +328,9 @@ LB_MAGIC:                      ; A library's magic.
     DB   "BSIR"                    ; Basie runtime library.
 LB_TYPE:                       ; The library's type, after its name.
     DB   ".BRL",0                  ; Spelled with the dot; copied without it.
+LB_HEAD:                       ; The program directory's header (object format §4.1).
+    DB   "BSIP",1,0                ; Magic, version 1.0.
+    DW   0,0                       ; The stamp and the runtime (below),
+    DW   HP_VER,HP_KEY             ; the helper table compiled in,
+    DW   0,$0400                   ; the profile (LB_CHECK), the ordinal base.
+    DB   0,0                       ; No flags; padding.

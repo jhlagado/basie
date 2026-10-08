@@ -86,7 +86,7 @@ AC_PICK:
     JP   DG_ISSUE                  ; at it).
 .NAME:                         ; A name.
     CALL SY_FIND                   ; A symbol?
-    JR   NC,.VALUE                 ; No: a routine, or undeclared.
+    JR   NC,.CALL                  ; No: a routine, or undeclared.
     INC  HL                        ; Its
     INC  HL                        ; class,
     INC  HL                        ; past its spelling's
@@ -110,6 +110,31 @@ AC_PICK:
 .LOADED:                       ; A is its type.
     CALL .MOVE                     ; `move` is refused first.
     JR   .TYPED                    ; A is its type.
+.CALL:                         ; A routine's identifier result
+    LD   A,(AC_MODE)               ; (not moved)
+    OR   A                         ; is selected
+    JR   Z,.VALUE                  ; by its arms
+    CALL RO_FIND                   ; from
+    JR   NZ,.VALUE                 ; DEHL;
+    CALL AC_ROOT                   ; any
+    CALL PL_ISHND                  ; other
+    JR   NC,.VALUE                 ; value
+    AND  AG_HID                    ; is an
+    JR   Z,.VALUE                  ; expression.
+    LD   HL,(TK_POS)               ; The subject
+    LD   (EX_START),HL             ; starts here:
+    CALL PR_TAKE                   ; the name taken,
+    CALL RO_FIND                   ; the routine
+    CALL RO_CALL                   ; called, A its result,
+    CALL HN_TAIL                   ; alone (DG_NYI otherwise),
+    PUSH AF                        ; (kept)
+    CALL AC_SAFE                   ; no failure pending.
+    LD   HL,0                      ; No symbol
+    LD   (RO_PROOT),HL             ; is its root;
+    LD   A,1                       ; a value in the registers
+    LD   (AC_MODE),A               ; (AC_MODE one) is selected.
+    POP  AF                        ; The type.
+    JP   HN_SEL                    ; By its arms.
 .VALUE:                        ; An expression,
     XOR  A                         ; nothing expected of it:
     CALL EX_RUN                    ; A is its metadata, HL its value.
@@ -508,8 +533,7 @@ AC_LABEL:
 
 .TYPE:                         ; The innermost frame is the select's.
     LD   B,CT_FBND                 ; Its type
-    CALL CT_FBYTE                  ; field: A.
-    RET                            ; Done.
+    JP   CT_FBYTE                  ; field: A; return.
 
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Test the subject against the range at HL (emitLabelTest), jumping to

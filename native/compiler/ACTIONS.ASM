@@ -13,8 +13,9 @@
 ;  only on success and the engine ignores their flags.
 ;
 ;  The actions are in three files, consecutive in BASIE.ASM:
-;    ACTIONS.ASM  islands, types, constants, assertions, program variables
-;                 and records
+;    ACTIONS.ASM  islands, types, constants, assertions and program
+;                 variables; a record's declaration is in the OWNERS
+;                 overlay (OWNERS.ASM), reached through POOLS.ASM
 ;    ACTSUB.ASM   routines and main, failure and handlers
 ;    ACTSTMT.ASM  locals, statements, structured flow and the for loop
 ;
@@ -27,7 +28,6 @@
 ;    AC_ROOBJ, AC_ROCMT  aggregate constant declarations
 ;    AC_PROVE  compile-time assertions
 ;    AC_VAR, AC_EXACT, AC_ALLOC  program variable declarations
-;    AC_REC, AC_FIELD, AC_PLACE, AC_RECOK  record declarations
 ;
 ;  A declaration's name is retained (AC_NAME, EX_KEEP: spelling in AC_DNAME,
 ;  position in AC_DPOS) while the rest is parsed; its class and type build
@@ -517,134 +517,3 @@ AC_ALLOC:
     CALL EX_PREP                   ; Write the provisional symbol.
     LD   A,(AC_DINFO)              ; The type ID.
     JP   SY_TAG                    ; Record it and commit the symbol.
-
-; ------------------------------------------------------------- records
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; BeginRecord: keep the record's name, check that the type and record
-; tables have room (DG_META), and start an empty field list.
-
-AC_REC:
-    CALL EX_DECL                   ; Check and keep the record's name.
-    LD   A,(AG_TCNT)               ; Types so far.
-    CP   AG_TCAP                   ; Room for another?
-    JP   NC,AG_EMETA               ; No: raise DG_META.
-    LD   A,(AG_RCNT)               ; Records so far.
-    CP   AG_RCAP                   ; Room for another?
-    JP   NC,AG_EMETA               ; No: raise DG_META.
-    LD   A,(AG_FCNT)               ; The next free field index...
-    LD   (AG_CFIDX),A              ; ...is the record's first,
-    LD   HL,(SY_TOP)               ; ...its entry the provisional
-    LD   (AG_CFADR),HL             ; ...symbol record.
-    XOR  A                         ; No fields yet...
-    LD   (AG_CFCNT),A              ; ...counted...
-    LD   H,A                       ; ...and no...
-    LD   L,A                       ; ...bytes...
-    LD   (AG_CSIZE),HL             ; ...in the record.
-    RET                            ; Back to the engine.
-
-;@ROUTINE OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A is the index of the record's next field: its fields so far
-; (AG_CFCNT) and the earlier records', AG_FCNT, which HL addresses.
-
-AC_FIDX:                       ; The fields in use.
-    LD   A,(AG_CFCNT)              ; This record's fields so far,
-    LD   HL,AG_FCNT                ; plus those of earlier records,
-    ADD  A,(HL)                    ; are the next field's index.
-    RET                            ; A is it.
-
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; BeginRecordField: the field indices must have room (DG_META). The name
-; goes into the field's entry, the provisional symbol record; AC_PLACE
-; checks that it is new.
-
-AC_FIELD:
-    CALL AC_FIDX                   ; The new field's index,
-    JP   C,AG_EMETA                ; past 255 (DG_META),
-    CP   AG_FCAP                   ; or 255 itself?
-    JP   NC,AG_EMETA               ; No: raise DG_META.
-    CALL AG_FIELD                  ; HL addresses the entry.
-    LD   DE,(TK_POS)               ; Its position,
-    LD   (AC_SPOS),DE              ; for a repeat (AG_FRESH);
-    JP   TK_KEEP                   ; its spelling recorded there; return.
-
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; CommitRecordField: give the field its type (not a view, DG_BOUND, nor
-; here a File, DG_NYI; a handle optional, DG_HOPT; then its name new,
-; DG_DUP, in the reference's order) and its offset, the record's size so
-; far, then grow the record by the field's extent within 64K.
-
-AC_PLACE:
-    CALL AC_ITEM                   ; The field's type: not a view, nor a File.
-    LD   HL,AG_TPOS                ; A handle field
-    CALL PL_NEEDO                  ; must be optional, at its type.
-    CALL PL_FOWN                   ; An owning field makes its record owning.
-    PUSH AF                        ; Keep the type.
-    CALL AC_FIDX                   ; The field's index:
-    CALL AG_FIELD                  ; its entry,
-    CALL AG_FRESH                  ; its name not a repeat.
-    POP  AF                        ; The type,
-    LD   C,A                       ; kept.
-    CALL AC_FIDX                   ; The field's index.
-    CALL AG_FIELD                  ; HL addresses its entry.
-    INC  HL                        ; Skip the spelling's...
-    INC  HL                        ; ...address...
-    INC  HL                        ; ...and length.
-    LD   (HL),C                    ; The field's type into AG_FTYPE.
-    INC  HL                        ; Step to AG_FPOS.
-    LD   DE,(AG_CSIZE)             ; The record's size so far...
-    LD   (HL),E                    ; ...is the field's offset...
-    INC  HL                        ; ...low byte first...
-    LD   (HL),D                    ; ...then high.
-    LD   A,C                       ; The field's type.
-    PUSH DE                        ; Keep its offset.
-    CALL AG_SIZE                   ; HL is its extent.
-    POP  DE                        ; Recover the offset.
-    ADD  HL,DE                     ; The record's new size.
-    JP   C,AG_EWIDE                ; Past 64K: out of range.
-    LD   (AG_CSIZE),HL             ; Commit it.
-    LD   HL,AG_CFCNT               ; Count...
-    INC  (HL)                      ; ...the field,
-    JP   SY_SKIP                   ; ...its record kept; return.
-
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; CommitRecord: a record needs a field (DG_EMPTY). Append its descriptor
-; as a new type (records are never shared), fill its record entry and
-; declare its name as a record type whose payload is the type ID.
-
-AC_RECOK:
-    LD   A,(AG_CFCNT)              ; Any fields?
-    OR   A                         ; Zero means none.
-    JP   Z,AG_EVOID                ; Raise DG_EMPTY.
-    LD   A,(AG_RCNT)               ; The record's ordinal
-    LD   H,A                       ; is the auxiliary byte, AG_NAUX,
-    LD   L,AG_KREC                 ; after the kind, a record's,
-    LD   (AG_NKIND),HL             ; in the candidate.
-    LD   HL,0                      ; A record has no length word.
-    LD   (AG_NDIM),HL              ; Clear it.
-    LD   HL,(AG_CSIZE)             ; The record's size...
-    LD   (AG_NSIZE),HL             ; ...is the candidate's extent.
-    CALL AG_ADD                    ; A is the new type's ID.
-    CALL PL_RMARK                  ; Owning, if a field owns.
-    LD   (AG_CTYPE),A              ; Keep it,
-    LD   C,A                       ; the name's payload below.
-    LD   A,(AG_RCNT)               ; The record's ordinal...
-    CALL AG_RENT                   ; HL addresses the record's entry in AG_RTAB.
-    LD   DE,(AG_CFIDX)             ; Its first field, then AG_CFCNT, its count,
-    LD   (HL),E                    ; into AG_RFIDX
-    INC  HL                        ; and
-    LD   (HL),D                    ; AG_RFCNT,
-    INC  HL                        ; then
-    LD   DE,(AG_CFADR)             ; where they
-    LD   (HL),E                    ; lie,
-    INC  HL                        ; AG_RFADR.
-    LD   (HL),D                    ; (High byte.)
-    LD   D,SY_RTYPE                ; The name is a record type
-    LD   B,0                       ; whose payload, C, is its type ID.
-    CALL EX_PREP                   ; Write the provisional symbol.
-    CALL SY_CMT                    ; Commit it.
-    CALL AC_FIDX                   ; The record's fields join
-    LD   (HL),A                    ; the fields in use.
-    LD   HL,AG_RCNT                ; Count...
-    INC  (HL)                      ; ...the record.
-    RET                            ; Back to the engine.

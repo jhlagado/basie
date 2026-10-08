@@ -31,8 +31,9 @@
 ;                           OV_FTOI and OV_FOLD reach its entries),
 ;                           loaded above NAMES, at OV_AREA plus NAMES'
 ;                           records, when first needed and kept
-;    OV_OWNS   OWNERS.ASM   pool declarations and owners' descriptors
-;                           (OV_PCALL, for POOLS.ASM, reaches its entries),
+;    OV_OWNS   OWNERS.ASM   record and pool declarations and owners'
+;                           descriptors (OV_PCALL, for POOLS.ASM, reaches
+;                           its entries),
 ;                           loaded above NAMES in FLOAT's place
 ;  A later overlay may load above another in the area, so that both are
 ;  there at once: FLOAT and OWNERS load after the predeclared names, which

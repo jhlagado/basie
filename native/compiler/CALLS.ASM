@@ -159,12 +159,10 @@ RO_NAMED:
     CP   AG_OPEN                   ; owner word
     JR   NC,.ALIAS                 ; (no view is a record)
     PUSH HL                        ; follows
-    PUSH DE                        ; its
-    CALL AG_DESC                   ; address
-    LD   A,(HL)                    ; word.
+    PUSH DE                        ; its address
+    CALL PL_OWORD                  ; word, as an owning array's.
     POP  DE                        ; (E is kept.)
-    CP   AG_KREC                   ; A record?
-    JR   NZ,.NOOWN                 ; No.
+    JR   NZ,.NOOWN                 ; Neither.
     LD   H,B                       ; The payload
     LD   L,C                       ; plus
     BIT  2,D                       ; (a lease's,
@@ -485,20 +483,18 @@ RO_ARG:
     LD   E,D                       ; EX_FITS's destination.
     JP   EX_FITS                   ; Check it against the parameter's type.
 
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Parse a call to routine A, RO_FIND's index, whose name has been read, as
+;@ROUTINE IN HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+; Parse a call to routine HL, RO_FIND's record, whose name has been read, as
 ; the reference's call does (RO_ARGS); only a routine declared forward may
 ; call itself (DG_UNMET otherwise). A returns the result type, zero for
 ; none. A call to main is refused for now (DG_NYI).
 
 RO_CALL:
-    CP   RO_MAIN                   ; Is the callee main?
+    LD   A,H                       ; Is the callee
+    OR   L                         ; main?
     JP   Z,TR_OPER                 ; Refused for now.
-    LD   C,A                       ; C is the callee.
-    LD   A,(RO_CUR)                ; The routine being compiled.
-    CP   C                         ; Does it call itself?
-    LD   A,C                       ; The callee again.
-    CALL RO_SUBAT                  ; HL is its record; the flags survive.
+    LD   DE,(RO_CUR)               ; The routine being compiled:
+    CALL CP_HLDE                   ; does it call itself?
     JR   NZ,.OTHER                 ; Another routine: any may be called.
     PUSH HL                        ; Keep the record.
     LD   DE,RO_RFLAG               ; Its flags:
@@ -651,11 +647,9 @@ RO_ARGS:
     BIT  7,B                       ; A var parameter
     JR   Z,.PUSH                   ; takes
     CALL RO_WRITE                  ; only a writable argument;
-    LD   A,C                       ; and a record
-    CALL AG_DESC                   ; its owner
-    LD   A,(HL)                    ; word
-    CP   AG_KREC                   ; first:
-    JR   NZ,.PUSH                  ; the root's,
+    LD   A,C                       ; and a record or an owning
+    CALL PL_OWORD                  ; array its owner word
+    JR   NZ,.PUSH                  ; first: the root's,
     LD   HL,(RO_POWN)              ; a var record
     LD   A,H                       ; parameter's,
     OR   L                         ; LD E,(IX+n),
@@ -994,13 +988,15 @@ RO_PART:
     CALL RO_FIND                   ; Is it a routine?
     JR   Z,.CALL                   ; Otherwise a symbol roots it,
     JP   RO_NAMED                  ; its type A; return.
-.CALL:                         ; A routine.
-    LD   HL,(TK_POS)               ; The call's offset,
-    PUSH HL                        ; kept across it.
+.CALL:                         ; A routine, HL.
+    LD   DE,(TK_POS)               ; The call's offset,
+    PUSH DE                        ; kept across it.
     CALL RO_CALL                   ; A is the result type, HL the address.
     CP   AG_FIRST                  ; It must be an aggregate.
     JP   C,EX_ETYPE                ; Raise DG_CLASH.
-    CALL RO_START                  ; Parse the rest of the path.
+    CALL RO_START                  ; Parse the rest of the path,
+    LD   HL,RO_ESC                 ; whose root is the call's,
+    LD   (HL),0                    ; whatever path an index read.
     POP  HL                        ; The call's offset
     LD   (EX_START),HL             ; is the value's.
     RET                            ; A is the type.
@@ -1027,27 +1023,26 @@ RO_TYPE:
     OR   A                         ; Carry clear.
     RET                            ; A is the type.
 
-;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
+;@ROUTINE IN HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; The expression parser's hook for a routine name, read already: parse
-; the call to routine A and make its result, or a scalar selected from an
-; aggregate result, the expression's value of type A. RO_VALUE does the
-; same for a call already parsed, its result type A: a service's.
+; the call to routine HL and make its result, or a scalar selected from an
+; aggregate result, the expression's value of type A; a File's or an
+; identifier's, in DEHL, is compared (HN_EQ). RO_VALUE does the same for
+; a call already parsed, its result type A: a service's.
 
 RO_FUNC:
-    CP   RO_MAIN                   ; Main returns nothing.
-    JR   Z,RO_EVOID                ; Raise no-value.
-    CALL RO_SUBAT                  ; HL is its record, A kept:
-    LD   DE,RO_RTYPE               ; a routine
-    ADD  HL,DE                     ; without a result
-    INC  (HL)                      ; has no value,
-    DEC  (HL)                      ; reported
-    JR   Z,RO_EVOID                ; at its name.
-    CALL RO_CALL                   ; A is the result type.
+    CALL HN_VOIDQ                  ; A result (no-value at its name),
+    CALL RO_CALL                   ; called: A is the result type.
 RO_VALUE:                      ; A call's result type is A, never zero.
     CP   AG_FIRST                  ; Is the result an aggregate?
     RET  C                         ; No: A is the scalar result type.
     CP   AG_FILE                   ; A File, in DEHL,
-    JP   Z,HN_EQ                   ; is compared.
+    JP   Z,HN_EQ                   ; is compared,
+    CALL PL_ISHND                  ; as is
+    JR   NC,.PATH                  ; an
+    BIT  1,A                       ; identifier
+    JP   NZ,HN_EQ                  ; in DEHL.
+.PATH:                         ; An aggregate:
     CALL RO_START                  ; Parse the selections.
     JR   RO_LOAD                   ; Load the scalar they select.
 

@@ -300,7 +300,7 @@ SY_FIT:                        ; HL is SY_TOP; BC and DE are pushed.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,HL
 ; Keep the provisional record, which is no name (a record's field,
-; AC_PLACE): in no chain, its flags zero, the next provisional, as SY_CMT
+; OW_PLACE): in no chain, its flags zero, the next provisional, as SY_CMT
 ; makes it. Returns A zero with carry clear. BC and DE are kept.
 
 SY_SKIP:                       ; The provisional record is complete.

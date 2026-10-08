@@ -94,12 +94,25 @@ PL_FIND:                       ; The NAME is current.
 PL_BEGIN EQU  EX_DECL          ; BeginPool: keep the pool's name and position.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The pool declarations' actions, in the OWNERS overlay (OWNERS.ASM): each
-; loads it, unless it is the one loaded last, and runs its entry
-; (OV_PCALL).
+; The record and pool declarations' actions, in the OWNERS overlay
+; (OWNERS.ASM): each loads it, unless it is the one loaded last, and runs
+; its entry (OV_PCALL): BeginRecord, BeginRecordField, CommitRecordField
+; and CommitRecord, then
 ; ForwardPool, the PoolRecord island, CommitPool, and a part's or the
 ; program's end, which has nothing to check without pools.
 
+AC_REC:                        ; BeginRecord:
+    LD   A,15                      ; entry 15.
+    JR   PL_RUN                    ; Run.
+AC_FIELD:                      ; BeginRecordField:
+    LD   A,18                      ; entry 18.
+    JR   PL_RUN                    ; Run.
+AC_PLACE:                      ; CommitRecordField:
+    LD   A,21                      ; entry 21.
+    JR   PL_RUN                    ; Run.
+AC_RECOK:                      ; CommitRecord:
+    LD   A,24                      ; entry 24.
+    JR   PL_RUN                    ; Run.
 PL_FWD:                        ; ForwardPool:
     XOR  A                         ; entry 0.
     JR   PL_RUN                    ; Run.
@@ -137,19 +150,6 @@ PL_HOLD:                       ; The bound is parsed.
     LD   A,DG_RANGE                ; at the
     LD   HL,AC_DPOS                ; pool's name.
     JP   DG_AT                     ; No return.
-
-;@ROUTINE IN A OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A field of type A is committed: if it owns, its record will (PL_ROWN).
-
-PL_FOWN:                       ; A is the field's type.
-    PUSH AF                        ; Kept.
-    CALL PL_OWNS                   ; Owning?
-    JR   NC,.KEPT                  ; No.
-    LD   A,1                       ; Its record
-    LD   (PL_ROWN),A               ; owns.
-.KEPT:                         ; Done.
-    POP  AF                        ; The type.
-    RET                            ; Back.
 
 ;@ROUTINE IN A OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Record type A is made: owning if a field of it owns (PL_ROWN, cleared).
@@ -207,6 +207,25 @@ PL_OWNS:                       ; A is a type ID.
     RET                            ; Done.
 .NOT:                          ; Not owning.
     OR   A                         ; Carry clear.
+    RET                            ; Done.
+
+;@ROUTINE IN A OUT ZERO CLOBBERS A,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
+; Zero if a var parameter of table type A carries an owner word (the
+; reference's ownerOffset): a record's does, as does an owning array's.
+; BC is kept.
+
+PL_OWORD:                      ; A is a table type.
+    PUSH AF                        ; Kept.
+    CALL PL_OWNS                   ; Owning?
+    POP  DE                        ; (D the type)
+    JR   NC,.KIND                  ; If so,
+    XOR  A                         ; zero:
+    RET                            ; it does.
+.KIND:                         ; Not owning:
+    LD   A,D                       ; a record's
+    CALL AG_DESC                   ; kind
+    LD   A,(HL)                    ; is
+    CP   AG_KREC                   ; zero.
     RET                            ; Done.
 
 ;@ROUTINE IN A OUT A,HL CLOBBERS DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY

@@ -366,12 +366,6 @@ SH_SCRUB:                      ; The streams were opened by BL_OPEN.
 
 ; ---- data -------------------------------------------------------------------
 
-SH_HEAD:                       ; The program directory's header (object format §4.1).
-    DB   "BSIP",1,0                ; Magic, version 1.0.
-    DW   0,0                       ; The stamp and the runtime (LIBRARY.ASM),
-    DW   HP_VER,HP_KEY             ; the helper table compiled in,
-    DW   0,$0400                   ; the profile (LIBRARY.ASM), the ordinal base.
-    DB   0,0                       ; No flags; padding.
 SH_STYPE:                      ; The streams' types after their dollar.
     DB   "DRBYLNNMCD"              ; $DR, $BY, $LN, $NM and $CD.
 SH_JOB:                        ; The SUBMIT job file a failed build deletes.

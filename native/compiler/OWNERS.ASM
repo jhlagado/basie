@@ -1,11 +1,12 @@
 ;==========================================================================
-;  Pool declarations and owner descriptors
+;  Record and pool declarations and owner descriptors
 ;==========================================================================
 ;
-;  Overlay OWNERS, loaded above NAMES when a pool is declared (OV_PCALL,
-;  OVERLAY.ASM), so that it and FLOAT share the area's top: each is loaded
-;  again when it is next needed, FLOAT keeping its workspace resident. It
-;  holds the actions a pool's declaration takes, which a program meets
+;  Overlay OWNERS, loaded above NAMES when a record or a pool is declared
+;  (OV_PCALL, OVERLAY.ASM), so that it and FLOAT share the area's top: each
+;  is loaded again when it is next needed, FLOAT keeping its workspace
+;  resident. It holds the actions of declarations a program makes once, at
+;  top level: a record's, its fields', and a pool's, which a program meets
 ;  rarely: `forward pool`, the record a pool holds, the pool's commit with
 ;  its slots and information blobs, and the forward pools checked at a
 ;  part's or the program's end. The commit writes an owning record's owner
@@ -25,6 +26,9 @@
 ;    OW_ENDP   a part's or the program's end: forward pools completed
 ;    OW_LDESC  the owner descriptor of a local owning array being freed,
 ;              waiting until its routine's blob is written
+;    OW_RBEG, OW_FIELD, OW_PLACE, OW_RECOK  a record's declaration:
+;              BeginRecord, each field's begin and commit, CommitRecord
+;              (AC_REC, AC_FIELD, AC_PLACE, AC_RECOK reach them)
 ;  A routine's body's actions for handles, once here, are resident
 ;  (OWNBODY.ASM).
 
@@ -35,7 +39,11 @@ OW_TAB:                        ; Entry 0:
     JP   OW_REC                    ; 3: PoolRecord;
     JP   OW_CMT                    ; 6: CommitPool;
     JP   OW_ENDP                   ; 9: a part's or the program's end;
-    JP   OW_LDESC                  ; 12: a local owning array's descriptor.
+    JP   OW_LDESC                  ; 12: a local owning array's descriptor;
+    JP   OW_RBEG                   ; 15: BeginRecord;
+    JP   OW_FIELD                  ; 18: BeginRecordField;
+    JP   OW_PLACE                  ; 21: CommitRecordField;
+    JP   OW_RECOK                  ; 24: CommitRecord.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; ForwardPool: `forward pool NAME`, its line ended. The pool takes its
@@ -946,6 +954,201 @@ OW_DEC:                        ; HL is the value.
     DEC  C                         ; until
     JR   NZ,.DIGIT                 ; all are.
     RET                            ; Done.
+
+; ------------------------------------------------------- record declarations
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; BeginRecord: keep the record's name, check that the type and record
+; tables have room (DG_META), and start an empty field list.
+
+OW_RBEG:
+    CALL EX_DECL                   ; Check and keep the record's name.
+    LD   A,(AG_TCNT)               ; Types so far.
+    CP   AG_TCAP                   ; Room for another?
+    JP   NC,AG_EMETA               ; No: raise DG_META.
+    LD   A,(AG_RCNT)               ; Records so far.
+    CP   AG_RCAP                   ; Room for another?
+    JP   NC,AG_EMETA               ; No: raise DG_META.
+    LD   A,(AG_FCNT)               ; The next free field index...
+    LD   (AG_CFIDX),A              ; ...is the record's first,
+    LD   HL,(SY_TOP)               ; ...its entry the provisional
+    LD   (AG_CFADR),HL             ; ...symbol record.
+    XOR  A                         ; No fields yet...
+    LD   (AG_CFCNT),A              ; ...counted...
+    LD   H,A                       ; ...and no...
+    LD   L,A                       ; ...bytes...
+    LD   (AG_CSIZE),HL             ; ...in the record.
+    RET                            ; Back to the engine.
+
+;@ROUTINE OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A is the index of the record's next field: its fields so far
+; (AG_CFCNT) and the earlier records', AG_FCNT, which HL addresses.
+
+OW_FIDX:                       ; The fields in use.
+    LD   A,(AG_CFCNT)              ; This record's fields so far,
+    LD   HL,AG_FCNT                ; plus those of earlier records,
+    ADD  A,(HL)                    ; are the next field's index.
+    RET                            ; A is it.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; BeginRecordField: the field indices must have room (DG_META). The name
+; goes into the field's entry, the provisional symbol record; OW_PLACE
+; checks that it is new.
+
+OW_FIELD:
+    CALL OW_FIDX                   ; The new field's index,
+    JP   C,AG_EMETA                ; past 255 (DG_META),
+    CP   AG_FCAP                   ; or 255 itself?
+    JP   NC,AG_EMETA               ; No: raise DG_META.
+    CALL AG_FIELD                  ; HL addresses the entry.
+    LD   DE,(TK_POS)               ; Its position,
+    LD   (AC_SPOS),DE              ; for a repeat (OW_FRESH);
+    JP   TK_KEEP                   ; its spelling recorded there; return.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; CommitRecordField: give the field its type (not a view, DG_BOUND, nor
+; here a File, DG_NYI; a handle optional, DG_HOPT; then its name new,
+; DG_DUP, in the reference's order) and its offset, the record's size so
+; far, then grow the record by the field's extent within 64K.
+
+OW_PLACE:
+    CALL AC_ITEM                   ; The field's type: not a view, nor a File.
+    LD   HL,AG_TPOS                ; A handle field
+    CALL PL_NEEDO                  ; must be optional, at its type.
+    CALL OW_FOWN                   ; An owning field makes its record owning.
+    PUSH AF                        ; Keep the type.
+    CALL OW_FIDX                   ; The field's index:
+    CALL AG_FIELD                  ; its entry,
+    CALL OW_FRESH                  ; its name not a repeat.
+    POP  AF                        ; The type,
+    LD   C,A                       ; kept.
+    CALL OW_FIDX                   ; The field's index.
+    CALL AG_FIELD                  ; HL addresses its entry.
+    INC  HL                        ; Skip the spelling's...
+    INC  HL                        ; ...address...
+    INC  HL                        ; ...and length.
+    LD   (HL),C                    ; The field's type into AG_FTYPE.
+    INC  HL                        ; Step to AG_FPOS.
+    LD   DE,(AG_CSIZE)             ; The record's size so far...
+    LD   (HL),E                    ; ...is the field's offset...
+    INC  HL                        ; ...low byte first...
+    LD   (HL),D                    ; ...then high.
+    LD   A,C                       ; The field's type.
+    PUSH DE                        ; Keep its offset.
+    CALL AG_SIZE                   ; HL is its extent.
+    POP  DE                        ; Recover the offset.
+    ADD  HL,DE                     ; The record's new size.
+    JP   C,AG_EWIDE                ; Past 64K: out of range.
+    LD   (AG_CSIZE),HL             ; Commit it.
+    LD   HL,AG_CFCNT               ; Count...
+    INC  (HL)                      ; ...the field,
+    JP   SY_SKIP                   ; ...its record kept; return.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; CommitRecord: a record needs a field (DG_EMPTY). Append its descriptor
+; as a new type (records are never shared), fill its record entry and
+; declare its name as a record type whose payload is the type ID.
+
+OW_RECOK:
+    LD   A,(AG_CFCNT)              ; Any fields?
+    OR   A                         ; Zero means none.
+    JP   Z,OW_EVOID                ; Raise DG_EMPTY.
+    LD   A,(AG_RCNT)               ; The record's ordinal
+    LD   H,A                       ; is the auxiliary byte, AG_NAUX,
+    LD   L,AG_KREC                 ; after the kind, a record's,
+    LD   (AG_NKIND),HL             ; in the candidate.
+    LD   HL,0                      ; A record has no length word.
+    LD   (AG_NDIM),HL              ; Clear it.
+    LD   HL,(AG_CSIZE)             ; The record's size...
+    LD   (AG_NSIZE),HL             ; ...is the candidate's extent.
+    CALL AG_ADD                    ; A is the new type's ID.
+    CALL PL_RMARK                  ; Owning, if a field owns.
+    LD   (AG_CTYPE),A              ; Keep it,
+    LD   C,A                       ; the name's payload below.
+    LD   A,(AG_RCNT)               ; The record's ordinal...
+    CALL AG_RENT                   ; HL addresses the record's entry in AG_RTAB.
+    LD   DE,(AG_CFIDX)             ; Its first field, then AG_CFCNT, its count,
+    LD   (HL),E                    ; into AG_RFIDX
+    INC  HL                        ; and
+    LD   (HL),D                    ; AG_RFCNT,
+    INC  HL                        ; then
+    LD   DE,(AG_CFADR)             ; where they
+    LD   (HL),E                    ; lie,
+    INC  HL                        ; AG_RFADR.
+    LD   (HL),D                    ; (High byte.)
+    LD   D,SY_RTYPE                ; The name is a record type
+    LD   B,0                       ; whose payload, C, is its type ID.
+    CALL EX_PREP                   ; Write the provisional symbol.
+    CALL SY_CMT                    ; Commit it.
+    CALL OW_FIDX                   ; The record's fields join
+    LD   (HL),A                    ; the fields in use.
+    LD   HL,AG_RCNT                ; Count...
+    INC  (HL)                      ; ...the record.
+    RET                            ; Back to the engine.
+
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Compare the name of the field entry at HL, made the current NAME, with
+; the fields already declared in the record being declared (AG_CFCNT fields
+; from index AG_CFIDX). A repeated field name raises DG_DUP, naming it, at
+; it, after its type's checks as the reference makes them; otherwise
+; return carry clear, the current token's TK_PTR and TK_LEN restored.
+
+OW_FRESH:                      ; HL is the new field's entry.
+    LD   DE,(TK_PTR)               ; The current
+    PUSH DE                        ; token's
+    LD   A,(TK_LEN)                ; spelling,
+    PUSH AF                        ; kept.
+    CALL WD_GET                    ; Its name's spelling and
+    LD   A,(HL)                    ; length
+    LD   (TK_PTR),DE               ; are the
+    LD   (TK_LEN),A                ; current NAME.
+    LD   A,(AG_CFCNT)              ; Fetch this record's field count so far.
+    OR   A                         ; The first field cannot repeat.
+    JR   Z,.FRESH                  ; Carry clear from the OR.
+    LD   B,A                       ; B counts the fields left to compare.
+    LD   A,(AG_CFIDX)              ; A is the record's first field index.
+.LOOP:                         ; Compare one field per iteration.
+    PUSH AF                        ; Keep the field index.
+    PUSH BC                        ; Keep the count; TK_SAME needs no BC.
+    CALL AG_FIELD                  ; Address this field's entry.
+    CALL TK_SAME                   ; Is its name the token's spelling?
+    JR   C,.DUP                    ; Yes: report the duplicate.
+    POP  BC                        ; Restore the count.
+    POP  AF                        ; Restore the field index.
+    INC  A                         ; Step to the next field.
+    DJNZ .LOOP                     ; Continue through the record's fields.
+.FRESH:                        ; No repeat:
+    POP  AF                        ; the current
+    LD   (TK_LEN),A                ; token's
+    POP  DE                        ; spelling
+    LD   (TK_PTR),DE               ; again,
+    OR   A                         ; with carry clear.
+    RET                            ; Return to the field action.
+.DUP:                          ; The name repeats a field's.
+    LD   HL,TK_PTR                 ; It
+    LD   A,DG_DUP                  ; is named
+    CALL DG_SETN                   ; by duplicate-name,
+    JP   DG_KEPT                   ; at it (OW_FIELD); no return.
+
+; A further failure exit. It does not return.
+
+OW_EVOID:                      ; A record type with no fields.
+    CALL DG_RAISE                  ; Report it.
+    DB   DG_EMPTY                  ; Diagnostic: empty record.
+
+;@ROUTINE IN A OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A field of type A is committed: if it owns, its record will (PL_ROWN).
+
+OW_FOWN:                       ; A is the field's type.
+    PUSH AF                        ; Kept.
+    CALL PL_OWNS                   ; Owning?
+    JR   NC,.KEPT                  ; No.
+    LD   A,1                       ; Its record
+    LD   (PL_ROWN),A               ; owns.
+.KEPT:                         ; Done.
+    POP  AF                        ; The type.
+    RET                            ; Back.
 
 OW_IDS: DB  "id ",0            ; An identifier's prefix.
 OW_STRS: DB  "string",0        ; A bounded string's name.

@@ -23,8 +23,9 @@
 ;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; SelectSubject's handle, of type AC_BOUND, the path in hand (selectHandle): its
 ; pool complete (pool-incomplete) and, owning, optional (type-mismatch),
-; each at the subject; `select move` waits (DG_NYI). The handle, two bytes
-; or an identifier's four, is loaded into a frame slot of its own, which
+; each at the subject; `select move` has its own checks. The handle, two
+; bytes or an identifier's four, is loaded into a frame slot of its own
+; (a call's identifier, AC_MODE one, is in DEHL already), which
 ; the arms test, and the select's frame opens (AC_SOPEN) with mode bit 3
 ; set, and bit 6 when the subject is the routine's own owning local,
 ; whose `some` arm binds a lease.
@@ -36,7 +37,9 @@ OW_SEL:                        ; AC_BOUND is the handle's type.
     JR   Z,.FAULT                  ; without one.
     LD   A,(AC_MODE)               ; `select move`
     OR   A                         ; has its own
-    JR   Z,.MOVE                   ; checks.
+    JR   Z,.MOVE                   ; checks;
+    DEC  A                         ; a call's identifier
+    JR   Z,.VALUE                  ; is in DEHL.
     LD   A,(AC_BOUND)              ; An owning
     AND  3                         ; handle that is
     LD   A,DG_CLASH                ; not optional
@@ -66,6 +69,12 @@ OW_SEL:                        ; AC_BOUND is the handle's type.
     LD   (RO_OTYPE),A              ; the handle
     PUSH AF                        ; (the type kept)
     CALL GA_LOAD                   ; loaded.
+    JR   .SLOT                     ; Kept.
+.VALUE:                        ; A call's identifier:
+    LD   C,8                       ; a handle select,
+    PUSH BC                        ; the mode kept,
+    CALL HN_WIDE                   ; the long
+    PUSH AF                        ; (kept) in DEHL.
 .SLOT:                         ; The handle is in the registers.
     POP  AF                        ; Its
     PUSH AF                        ; size
@@ -381,7 +390,7 @@ OW_IDREC:                      ; The path is parsed.
 .DONE:                         ; C is the pool, $FF none.
     LD   A,C                       ; None
     INC  A                         ; is
-    JP   Z,.AMBIG                  ; too.
+    JR   Z,.AMBIG                  ; too.
     LD   A,C                       ; The pool's
     PUSH AF                        ; index kept,
     CALL PL_AT                     ; and its

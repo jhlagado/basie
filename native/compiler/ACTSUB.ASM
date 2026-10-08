@@ -19,8 +19,8 @@
 ;    AC_SAFE, AC_ELEAK  reject an unhandled failure
 ;    AC_LIVE, AC_DEAD  set the fallthrough state
 ;
-;  Routines. The routine being declared is RO_CUR: its number, whose
-;  record RO_SUBAT finds (CALLWORK.ASM), or $FF for main. Its signature is
+;  Routines. The routine being declared is RO_CUR: its record's address
+;  (CALLWORK.ASM), or zero for main (RO_ISMN). Its signature is
 ;  gathered in RO_CPIDX, RO_CPCNT, RO_CTYPE, RO_CFLAG and RO_CARGS, and
 ;  AC_PUB copies it into the routine's record with the routine's ordinal,
 ;  which makes the routine visible to calls, its own body included. A
@@ -77,16 +77,14 @@ AC_TOP:
 ; were complete when they ended, and are cut already.
 
 AC_ENDP:
-    LD   A,(RO_RCNT)               ; The routines,
-    LD   C,A                       ; C of them,
-    LD   B,0                       ; from the first.
-.ROUTINE:                      ; B is the next, C remain.
-    LD   A,C                       ; Any left?
-    OR   A                         ; If not,
-    JR   Z,.SYMBOLS                ; the symbols.
-    LD   A,B                       ; Its
-    CALL RO_SUBAT                  ; record, HL:
-    PUSH HL                        ; kept.
+    LD   HL,RO_RHEAD              ; The routines, from the first.
+.NEXT:                         ; HL addresses the next's link:
+    CALL WD_GET                    ; DE is it,
+    EX   DE,HL                     ; HL,
+    LD   A,H                       ; unless
+    OR   L                         ; none is left:
+    JR   Z,.SYMBOLS                ; then the symbols.
+    PUSH HL                        ; (the record)
     LD   DE,RO_RFLAG               ; Its
     ADD  HL,DE                     ; flags,
     LD   A,(HL)                    ; A.
@@ -94,14 +92,16 @@ AC_ENDP:
     BIT  5,A                       ; RO_FPRIV: a public one
     JR   Z,.PUBLIC                 ; stays;
     AND  RO_FOPEN                  ; a private one still open
-    JR   NZ,.OPEN                  ; is incomplete;
+    JR   NZ,AC_UNMET               ; is incomplete;
     INC  HL                        ; any other's
     INC  HL                        ; name
     LD   (HL),A                    ; is cut (A is zero).
-.PUBLIC:                       ; Routine B is done.
-    INC  B                         ; The next.
-    DEC  C                         ; One fewer.
-    JR   .ROUTINE                  ; Until all are.
+    DEC  HL                        ; The
+    DEC  HL                        ; record.
+.PUBLIC:                       ; HL is done.
+    LD   DE,RO_RNEXT               ; Its link
+    ADD  HL,DE                     ; to
+    JR   .NEXT                     ; the next.
 .SYMBOLS:                      ; The symbols, all the program's.
     CALL PL_ENDP                   ; Forward pools must be complete.
     LD   HL,(SY_BTM)               ; Each symbol:
@@ -126,7 +126,12 @@ AC_ENDP:
     LD   DE,SY_RECB                ; The
     ADD  HL,DE                     ; next.
     JR   .SYMBOL                   ; Until all are.
-.OPEN:                         ; HL is the record.
+
+;@ROUTINE IN HL NORETURN
+; Raise forward-incomplete for the forward routine HL, which has no body,
+; at its name or its `forward` (RO_RPART, RO_RPOS).
+
+AC_UNMET:                      ; HL is the record.
     LD   DE,RO_RPART               ; Its part
     ADD  HL,DE                     ; and the offset
     LD   D,(HL)                    ; of its
@@ -221,47 +226,34 @@ AC_SPLIT:
 
 AC_MAIN:
     CALL AC_ENDP                   ; The last part ends, and the program.
-    LD   A,(RO_RCNT)               ; The routines declared.
-    LD   B,A                       ; Count them in B.
-    XOR  A                         ; Start at index zero...
-    LD   C,A                       ; ...in C.
-.LOOP:                         ; Check routine C.
-    LD   A,B                       ; Any left?
-    OR   A                         ; Zero means all are complete.
-    JR   Z,.ENTRY                  ; Every forward has its body.
-    LD   A,C                       ; The routine's index.
-    CALL RO_SUBAT                  ; HL addresses its record.
-    LD   DE,RO_RFLAG               ; Address its flags.
-    ADD  HL,DE                     ; HL addresses RO_RFLAG.
-    LD   A,(HL)                    ; Fetch them.
-    AND  RO_FOPEN                  ; Still waiting for a body?
-    JR   NZ,.PARTIAL               ; Yes: raise DG_UNMET.
-    INC  C                         ; Next routine.
-    DEC  B                         ; One fewer to check.
-    JR   .LOOP                     ; Check it.
+    LD   HL,RO_RHEAD              ; The routines, from the first.
+.LOOP:                         ; HL addresses the next's link:
+    CALL WD_GET                    ; DE is it,
+    EX   DE,HL                     ; HL,
+    LD   A,H                       ; unless none
+    OR   L                         ; is left: every
+    JR   Z,.ENTRY                  ; forward has its body.
+    LD   DE,RO_RFLAG               ; Its flags:
+    ADD  HL,DE                     ; still
+    BIT  2,(HL)                    ; waiting for a body (RO_FOPEN)?
+    JR   NZ,.PARTIAL               ; Then forward-incomplete.
+    LD   DE,RO_RNEXT-RO_RFLAG      ; Its link
+    ADD  HL,DE                     ; to
+    JR   .LOOP                     ; the next.
 .ENTRY:                        ; Every forward is complete.
     LD   A,(RO_MFLAG)              ; Main's flags
     AND  RO_FMAIN                  ; say whether it was declared.
     RET  NZ                        ; It was.
     CALL DG_RAISE                  ; The program has no main:
     DB   DG_MAIN                   ; missing-main, at its end.
-.PARTIAL:                      ; A forward has no body.
-    LD   A,C                       ; Its record:
-    CALL RO_SUBAT                  ; HL.
+.PARTIAL:                      ; A forward has no body:
+    LD   DE,-RO_RFLAG              ; its
+    ADD  HL,DE                     ; record,
+    PUSH HL                        ; (kept)
     LD   A,DG_UNMET                ; forward-incomplete,
     CALL DG_SETN                   ; naming it,
-    LD   A,C                       ; at
-    CALL RO_SUBAT                  ; its
-    LD   DE,RO_RPART               ; name,
-    ADD  HL,DE                     ; in
-    LD   D,(HL)                    ; its part,
-    INC  HL                        ; which
-    LD   A,(HL)                    ; may be
-    INC  HL                        ; another,
-    LD   H,(HL)                    ; at its
-    LD   L,A                       ; offset:
-    LD   E,DG_UNMET                ; forward-incomplete.
-    JP   DG_PLACE                  ; No return.
+    POP  HL                        ; at its name,
+    JP   AC_UNMET                  ; in its part, which may be another.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the retained name the current token again, at its own position, so
@@ -288,30 +280,22 @@ AC_CLEAR:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; BeginSub: open a routine signature. For main, check the name is new
-; (DG_DUP) and make RO_CUR $FF. For another routine, check the table has
-; room (DG_PROCS), the name is new (DG_DUP) and not `id` (DG_CLASH), and
-; start its record: name and first parameter index.
+; (DG_DUP) and make RO_CUR zero. For another routine, check the name is
+; new (DG_DUP) and not `id` (DG_CLASH), and start its record in RO_CREC:
+; name and first parameter index.
 
 AC_SIG:
     CALL AC_RESUB                  ; The routine's name is current again.
     CALL .FRESH                    ; Reject a name already in use.
     CALL EX_MAIN                   ; Is the name `main`?
     JR   C,.MAIN                   ; Yes: open main.
-    LD   A,(RO_RCNT)               ; The routines so far.
-    CP   RO_RCAP                   ; Room for another?
-    JR   NC,.FULL                  ; No: raise DG_PROCS.
     LD   HL,KW_ID                  ; `id (` is always the conversion
     LD   B,2                       ; (spec 3.5), so no routine
     CALL TK_MATCH                  ; may be named id:
     LD   A,DG_CLASS                ; raise wrong-class,
     JP   C,DG_NAMED                ; naming it.
-    LD   A,(RO_RCNT)               ; The new routine's index.
-    LD   (RO_CUR),A                ; It is the routine being declared,
-    CALL RO_RPAT                   ; whose record
-    LD   (HL),RO_CREC&$FF          ; is built
-    INC  HL                        ; in
-    LD   (HL),RO_CREC/$100         ; RO_CREC.
-    LD   HL,RO_CREC                ; HL addresses it.
+    LD   HL,RO_CREC                ; The routine being declared,
+    LD   (RO_CUR),HL               ; its record built in RO_CREC.
     CALL TK_KEEP                   ; Record its name; HL addresses the length.
     INC  HL                        ; Step to RO_RPIDX.
     LD   DE,RO_SPAR                ; Its parameters follow it,
@@ -319,15 +303,10 @@ AC_SIG:
     INC  HL                        ; in the
     LD   (HL),D                    ; record
     LD   (RO_CPIDX),DE             ; and the signature.
-    LD   A,(RO_CUR)                ; Its number
-    LD   (RO_CREC+RO_RIDX),A       ; is kept in it.
     CALL AC_CLEAR                  ; No parameters or result yet.
     CALL AC_VIS                    ; The routine's flags: private, or none,
     LD   (RO_CFLAG),A              ; yet.
-    LD   A,(RO_CUR)                ; Its record:
-    CALL RO_SUBAT                  ; the part
-    LD   DE,RO_RPART               ; and offset
-    ADD  HL,DE                     ; where a forward
+    LD   HL,RO_CREC+RO_RPART       ; Its part and offset, where a forward
     LD   A,(SRC_ID)                ; left open is
     LD   (HL),A                    ; reported when
     INC  HL                        ; its part may
@@ -346,15 +325,12 @@ AC_SIG:
     LD   A,(AC_PRIV)               ; Main can't be private:
     OR   A                         ; bad-main,
     JP   NZ,AC_EMAIN               ; at its name.
-    LD   A,$FF                     ; Main is being declared.
-    LD   (RO_CUR),A                ; Mark it.
+    LD   HL,0                      ; Main is being declared:
+    LD   (RO_CUR),HL               ; zero.
     CALL AC_CLEAR                  ; No parameters or result.
     LD   A,RO_FMAIN                ; Main's flag...
     LD   (RO_CFLAG),A              ; ...begins its flags.
     RET                            ; Back to the engine.
-.FULL:                         ; The routine table is full.
-    CALL DG_RAISE                  ; Abandon the build.
-    DB   DG_PROCS                  ; Too many routines.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Reject the current name, a routine's being declared, if it is already
@@ -369,10 +345,10 @@ AC_SIG:
     JR   Z,.ROUTINE                ; Yes: which?
     LD   A,DG_DUP                  ; If not, a duplicate
     JP   RO_FRESH                  ; of a predeclared name, or free.
-.ROUTINE:                      ; A is the routine's index.
-    CP   RO_MAIN                   ; Main, declared already,
+.ROUTINE:                      ; HL is the routine's record:
+    LD   A,H                       ; main, declared
+    OR   L                         ; already,
     JP   Z,EX_EDUP                 ; is a duplicate.
-    CALL RO_SUBAT                  ; HL is the routine's record.
     LD   DE,RO_RFLAG               ; Its flags:
     ADD  HL,DE                     ; a forward still open
     BIT  2,(HL)                    ; (RO_FOPEN)
@@ -388,8 +364,7 @@ AC_SIG:
 
 AC_PROTO:
     CALL AC_SIG                    ; Build the signature.
-    LD   A,(RO_CUR)                ; Is it main's?
-    INC  A                         ; $FF becomes zero.
+    CALL RO_ISMN                   ; Is it main's?
     JP   Z,TR_OPER                 ; Refused.
     LD   (RG_FWD),A                ; Nonzero: a routine is forward.
     LD   A,(RO_CFLAG)              ; Its flags.
@@ -403,15 +378,13 @@ AC_PROTO:
 ; known, its offset in AC_SPOS.
 
 AC_PARAM:
-    LD   A,(RO_CUR)                ; The routine declared.
-    INC  A                         ; Is it main?
-    JR   Z,.MAIN                   ; Yes: no parameters.
+    CALL RO_ISMN                   ; The routine declared:
+    JR   Z,.MAIN                   ; main has no parameters.
     CALL RO_VET                    ; Reject a colliding parameter name.
     LD   HL,(TK_POS)               ; Its offset
     LD   (AC_SPOS),HL              ; for AC_JOIN.
-    LD   HL,AC_DNAME               ; Keep the name...
-    CALL TK_KEEP                   ; ...for AC_JOIN.
-    RET                            ; Back to the engine.
+    LD   HL,AC_DNAME               ; Keep the name
+    JP   TK_KEEP                   ; for AC_JOIN; return.
 .MAIN:                         ; Main has a parameter.
     JR   AC_EMAIN                  ; Raise bad-main.
 
@@ -431,7 +404,7 @@ AC_VARP:
 AC_JOIN:
     CALL EX_RENEW                  ; The parameter's name is current again.
     LD   A,(AG_CTYPE)              ; Its type:
-    CALL HN_PTYPE                  ; an owning handle, not var; no owning type yet.
+    CALL HN_PTYPE                  ; a handle, var only an optional owner.
     LD   HL,RO_VARP                ; Is it var?
     DEC  (HL)                      ; Zero if it was,
     LD   (HL),0                    ; (cleared)
@@ -450,8 +423,7 @@ AC_JOIN:
 ; AllowSubResult: main has no result (bad-main).
 
 AC_GIVES:
-    LD   A,(RO_CUR)                ; The routine declared.
-    INC  A                         ; Is it main?
+    CALL RO_ISMN                   ; The routine declared: not main?
     RET  NZ                        ; Another routine may return a value.
 
 ;@ROUTINE NORETURN
@@ -476,8 +448,7 @@ AC_VARR:
 ; (DG_CLASH), nor yet a File (DG_NYI).
 
 AC_GIVEN:
-    CALL AC_ITEM                   ; The result type: not a view, nor yet a File,
-    CALL HN_RTYPE                  ; an owning handle, not yet another or owning.
+    CALL AC_ITEM                   ; The result type: not a view, nor yet a File.
     LD   (RO_CTYPE),A              ; The routine's result type.
     RET                            ; Back to the engine.
 
@@ -541,12 +512,12 @@ AC_FAILS:
 
 AC_IMPL:
     CALL AC_RESUB                  ; The routine's name is current again.
-    CALL RO_FIND                   ; Z, and A its index, if declared.
+    CALL RO_FIND                   ; Z, and HL its record, if declared.
     JR   NZ,.MISSING               ; Not declared: no forward.
-    CP   RO_MAIN                   ; Main is never forward.
-    JR   Z,.MISSING                ; Raise forward-mismatch.
-    LD   (RO_CUR),A                ; It is the routine being defined.
-    CALL RO_SUBAT                  ; HL addresses its record.
+    LD   A,H                       ; Main is
+    OR   L                         ; never forward:
+    JR   Z,.MISSING                ; raise forward-mismatch.
+    LD   (RO_CUR),HL               ; It is the routine being defined.
     LD   DE,RO_RPIDX               ; Skip the name...
     ADD  HL,DE                     ; ...to the signature.
     LD   E,(HL)                    ; Its first
@@ -581,17 +552,15 @@ AC_IMPL:
     CALL DG_RNAME                  ; Abandon the build, naming it:
     DB   DG_FWDNO                  ; forward-mismatch.
 
-;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,DE,HL
-; Copy the signature into the record of the routine declared, RO_CUR,
+;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Copy the signature into the record of the routine declared, RO_CREC,
 ; with the routine's ordinal, the next (RG_ADD), and a need of zero until
 ; its body is complete, then keep the record and its parameters' below the
-; name heap, one block (NH_ALLOC), and count the routine as declared.
+; name heap, one block (NH_ALLOC), which RO_CUR then names, linked after
+; the last routine declared (RO_RLAST) and into its name's hash chain.
 
 AC_PUB:
-    LD   A,(RO_CUR)                ; The routine declared:
-    CALL RO_SUBAT                  ; HL addresses its record.
-    LD   DE,RO_RPCNT               ; Skip the name and first parameter...
-    ADD  HL,DE                     ; ...to RO_RPCNT.
+    LD   HL,RO_CREC+RO_RPCNT       ; The record built, at RO_RPCNT:
     LD   A,(RO_CPCNT)              ; The parameter count.
     LD   (HL),A                    ; Store it.
     INC  HL                        ; Step to RO_RTYPE.
@@ -637,11 +606,23 @@ AC_PUB:
     LD   (HL),C                    ; record
     INC  HL                        ; it
     LD   (HL),B                    ; follows.
-    PUSH DE                        ; The routine's
-    LD   A,(RO_CUR)                ; record
-    CALL RO_RPAT                   ; is
-    POP  DE                        ; the
-    LD   (HL),E                    ; block,
+    LD   (RO_CUR),DE               ; The routine's record is the block,
+    LD   HL,RO_RNEXT               ; the last
+    ADD  HL,DE                     ; declared,
+    XOR  A                         ; with
+    LD   (HL),A                    ; no
+    INC  HL                        ; next;
+    LD   (HL),A                    ; it is
+    LD   HL,(RO_RLAST)             ; the next of
+    LD   (RO_RLAST),DE             ; the last before it,
+    LD   A,H                       ; or,
+    OR   L                         ; with none,
+    LD   BC,RO_RNEXT               ; the
+    ADD  HL,BC                     ; first
+    JR   NZ,.LINK                  ; (RO_RHEAD,
+    LD   HL,RO_RHEAD              ; the link's place).
+.LINK:                         ; HL is the link:
+    LD   (HL),E                    ; the record,
     INC  HL                        ; both
     LD   (HL),D                    ; bytes;
     PUSH DE                        ; (kept)
@@ -661,10 +642,8 @@ AC_PUB:
     ADD  HL,DE                     ; its
     LD   (HL),A                    ; link,
     INC  HL                        ; both
-    LD   (HL),C                    ; bytes.
-    LD   HL,RO_RCNT                ; Count the routine...
-    INC  (HL)                      ; ...so that RO_FIND sees it.
-    RET                            ; The routine is published.
+    LD   (HL),C                    ; bytes,
+    RET                            ; so that RO_FIND sees it.
 
 AC_SEAL EQU  AC_PUB            ; CommitForward: publish, taking the ordinal.
 
@@ -686,8 +665,7 @@ AC_SCOPE:
 ; routine (making it callable from its own body) and open its body.
 
 AC_BODY:
-    LD   A,(RO_CUR)                ; The routine declared.
-    INC  A                         ; Is it main?
+    CALL RO_ISMN                   ; The routine declared: main?
     JR   Z,AC_ENTRY                ; Yes: open main's body.
     CALL AC_PUB                    ; Publish the signature; open the body.
 
@@ -698,8 +676,7 @@ AC_BODY:
 
 AC_BEGIN:
     CALL AC_SCOPE                  ; Enter the body's scope.
-    LD   A,(RO_CUR)                ; The routine's record
-    CALL RO_SUBAT                  ; is at HL; its name comes first:
+    LD   HL,(RO_CUR)               ; The routine's record: its name first,
     LD   C,(HL)                    ; the spelling's
     INC  HL                        ; address
     LD   B,(HL)                    ; in BC,
@@ -782,9 +759,8 @@ AC_LIVE:
 ; the routine's parameters and locals.
 
 AC_END:
-    LD   A,(RO_CUR)                ; The routine closed.
-    INC  A                         ; Is it main?
-    JR   Z,.CLOSE                  ; Main has no result.
+    CALL RO_ISMN                   ; The routine closed: main
+    JR   Z,.CLOSE                  ; has no result.
     LD   A,(RO_CTYPE)              ; Does it return a value?
     OR   A                         ; Zero means no result.
     JR   Z,.CLOSE                  ; Then falling off the end is a return.
@@ -795,17 +771,15 @@ AC_END:
     CALL HN_ENDR                   ; Its body's owners freed, its parameters'
     CALL HN_PEND                   ; when it falls off its end.
     CALL RG_CLOSE                  ; Write its blob; HL is its need.
-    LD   A,(RO_CUR)                ; Was it main?
-    INC  A                         ; $FF becomes zero.
+    EX   DE,HL                     ; DE is the need.
+    CALL RO_ISMN                   ; Was it main?
     JR   NZ,.NEED                  ; No: the need goes in its record.
-    LD   (RG_NEED),HL              ; Main's need sets the stack reserve.
+    LD   (RG_NEED),DE              ; Main's need sets the stack reserve.
     JR   .SCOPE                    ; Leave the scope.
-.NEED:                         ; A routine's need.
-    LD   B,H                       ; BC is
-    LD   C,L                       ; the need.
-    DEC  A                         ; The routine's index:
-    CALL RO_SUBAT                  ; HL addresses its record.
-    LD   DE,RO_RNEED               ; Its need
+.NEED:                         ; A routine's need, DE,
+    LD   B,D                       ; in
+    LD   C,E                       ; BC; HL is its record:
+    LD   DE,RO_RNEED               ; its need
     ADD  HL,DE                     ; is
     LD   (HL),C                    ; complete,
     INC  HL                        ; both
@@ -819,8 +793,7 @@ AC_END:
     XOR  A                         ; A is zero.
     RET                            ; Back to the engine.
 .FLOW:                         ; missing-return, at the routine's end
-    LD   A,(RO_CUR)                ; naming
-    CALL RO_SUBAT                  ; the routine,
+    LD   HL,(RO_CUR)               ; naming the routine,
     LD   A,DG_FLOW                 ; whose record's name
     CALL DG_SETN                   ; is argument 1.
     LD   HL,TK_ENDP                ; Its closing end

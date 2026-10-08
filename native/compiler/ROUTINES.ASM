@@ -26,10 +26,10 @@
 ;  parameters, the result type, the flags (RO_FFAIL, RO_FOPEN while a
 ;  forward awaits its body, RO_FFWD for one declared forward, RO_FVRES for
 ;  a var result, RO_FPRIV), the blob's ordinal, the need once the body is
-;  complete, the bytes of the arguments and its name's place. Up to 255
-;  routines are numbered in declaration order, RO_RPTR giving each one's
-;  record, which with its parameters' is kept below the name heap once its
-;  signature is complete (AC_PUB).
+;  complete, the bytes of the arguments and its name's place. A routine is
+;  named by its record's address, main by zero; the records, linked in
+;  declaration order (RO_RHEAD), are kept with their parameters' below the
+;  name heap once the signature is complete (AC_PUB), as many as fit.
 ;
 ;  A parameter's record, five bytes, holds the spelling's address and
 ;  length, then the type, AG_VIEW for an open string, AG_OPEN plus the
@@ -38,29 +38,14 @@
 ;  consecutive records from RO_RPIDX; the signature being parsed has up to
 ;  64.
 
-;@ROUTINE IN A OUT HL CLOBBERS CARRY,HALFCARRY,DE
-; Return in HL the address of routine A's record (RO_RPTR). A, BC and the
-; zero flag are preserved.
+;@ROUTINE OUT A,HL,ZERO CLOBBERS CARRY,SIGN,PARITY,HALFCARRY
+; HL is the routine being compiled (RO_CUR), zero, with Z, for main.
 
-RO_SUBAT:                      ; A is the routine.
-    CALL RO_RPAT                   ; Its word:
-    LD   E,(HL)                    ; the
-    INC  HL                        ; record's
-    LD   D,(HL)                    ; address,
-    EX   DE,HL                     ; HL.
-    RET                            ; A still holds the index.
-
-;@ROUTINE IN A OUT HL CLOBBERS CARRY,HALFCARRY,DE
-; Return in HL the address of routine A's word in RO_RPTR. A, BC and the
-; zero flag are preserved.
-
-RO_RPAT:                       ; A is the routine.
-    LD   L,A                       ; Form the index
-    LD   H,0                       ; as a word,
-    ADD  HL,HL                     ; times two,
-    LD   DE,RO_RPTR                ; from the
-    ADD  HL,DE                     ; table's base.
-    RET                            ; HL addresses the word.
+RO_ISMN:                       ; The routine being compiled:
+    LD   HL,(RO_CUR)               ; its record,
+    LD   A,H                       ; zero
+    OR   L                         ; for main.
+    RET                            ; Z if main.
 
 ;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
 ; Return in HL the address of parameter A of the routine whose first
@@ -79,11 +64,11 @@ RO_PARAM:                      ; A is the parameter.
     OR   A                         ; Return carry clear.
     RET                            ; A still holds the index.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE
 ; Find the current NAME among the routines, through its hash chain
-; (RO_HTAB). Z returns its number in A, or RO_MAIN once main has been
-; declared and the name is main. NZ, with
-; A = $FF, means the name is not a routine; that is not itself an error.
+; (RO_HTAB). Z returns its record in HL, or zero once main has been
+; declared and the name is main. NZ, with A = $FF, means the name is not
+; a routine; that is not itself an error.
 
 RO_FIND:
     LD   HL,(TK_PTR)               ; The token's
@@ -99,7 +84,7 @@ RO_FIND:
     OR   H                         ; none
     JR   Z,.MISSING                ; left.
     CALL TK_SAME                   ; Does its spelling match the token?
-    JR   C,.FOUND                  ; Return its number.
+    JR   C,.FOUND                  ; Return its record.
     LD   DE,RO_RLINK               ; Its link
     ADD  HL,DE                     ; to the next.
     JR   .LOOP                     ; Continue along the chain.
@@ -109,19 +94,16 @@ RO_FIND:
     JR   Z,.ABSENT                 ; No main to call yet.
     CALL EX_MAIN                   ; Is the name main?
     JR   NC,.ABSENT                ; It is no routine at all.
-    LD   A,RO_MAIN                 ; Report the main routine.
-    CP   A                         ; Set Z with carry clear.
-    RET                            ; A identifies main.
+    LD   HL,0                      ; Report the main routine,
+    XOR  A                         ; Z with carry clear.
+    RET                            ; HL identifies main.
 .ABSENT:                       ; Report that no routine matched.
     LD   A,$FF                     ; No routine index.
     OR   A                         ; NZ with carry clear.
     RET                            ; The caller tries other kinds of name.
-.FOUND:                        ; Report the matching routine.
-    LD   DE,RO_RIDX                ; Its
-    ADD  HL,DE                     ; number.
-    LD   A,(HL)                    ; A is it,
-    CP   A                         ; Z with carry clear.
-    RET                            ; A identifies the routine.
+.FOUND:                        ; Report the matching routine:
+    XOR  A                         ; Z with carry clear,
+    RET                            ; HL its record.
 
 ;@ROUTINE OUT A,HL,CARRY,SIGN CLOBBERS PARITY,HALFCARRY,ZERO,BC,DE
 ; Find the current NAME among the predeclared names (HP_NAMES, PREDEF.ASM),
@@ -267,8 +249,7 @@ RO_VET:
     LD   A,DG_HIDE                 ; Then the parameter would hide it,
     JR   C,.HIDE                   ; raised, named.
     CALL RO_FRESH                  ; Not a routine or a predeclared name (DG_HIDE).
-    LD   A,(RO_CUR)                ; The routine being declared is not counted yet.
-    CALL RO_SUBAT                  ; So address its entry and compare it directly.
+    LD   HL,(RO_CUR)               ; The routine being declared, unpublished:
     CALL WD_GET                    ; DE addresses its spelling; HL its length.
     LD   B,(HL)                    ; which TK_MATCH takes in B.
     EX   DE,HL                     ; And the spelling in HL.
@@ -314,8 +295,8 @@ RO_ENROL:
 ;@ROUTINE IN A OUT B CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Return in B the bytes an argument of type A, AG_VAR for var, takes
 ; (parameterWords): four for a view, a File or a long scalar, and for a
-; var record, whose owner word follows its address; two for anything
-; else. A, C, DE and HL are kept.
+; var record or owning array, whose owner word follows its address; two
+; for anything else. A, C, DE and HL are kept.
 
 RO_WORDS:
     PUSH AF                        ; Keep the type.
@@ -350,12 +331,10 @@ RO_WORDS:
     JP   P,.WORD                   ; If not, one word;
     AND  $7F                       ; if so,
     PUSH DE                        ; (DE
-    PUSH HL                        ; and HL kept) a record's
-    CALL AG_DESC                   ; descriptor:
-    LD   A,(HL)                    ; its kind,
-    POP  HL                        ; HL
-    POP  DE                        ; and DE again:
-    CP   AG_KREC                   ; a record's
+    PUSH HL                        ; and HL kept) a record's,
+    CALL PL_OWORD                  ; or an owning array's,
+    POP  HL                        ; (HL
+    POP  DE                        ; and DE again)
     JR   Z,.DONE                   ; takes its owner word too.
 .WORD:                         ; One word:
     LD   B,2                       ; two bytes.

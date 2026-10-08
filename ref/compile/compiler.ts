@@ -4690,6 +4690,9 @@ export class Compiler {
             readonly: v.readonly,
             compute: () => {},
           });
+          // The result's root is the call's, not an index's path: no
+          // owner word follows it (7.7).
+          this.lastAddressRoot = undefined;
           if (
             d.place.kind !== "computed" ||
             d.compute !== undefined && d.type !== v.type

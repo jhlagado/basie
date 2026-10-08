@@ -1,0 +1,91 @@
+// Results of owning aggregates: an alias to a record or array that owns
+// handles, rooted in program storage or in a parameter named in from, used
+// within the caller's statement: passed on, read through a suffix or
+// returned. It is never a copy, so nothing owned is duplicated.
+record Job
+    number as u16
+end
+pool jobs as Job[8]
+record Bucket
+    items as jobs?[4]
+    count as u8
+end
+var table as Bucket[4]
+
+sub bucketFor(key as u8) as var Bucket
+    return table[key mod 4]
+end
+
+sub same(var b as Bucket) as var Bucket from b
+    return b
+end
+
+sub view(b as Bucket) as Bucket from b
+    return b
+end
+
+sub row(t as Bucket[4], k as u8) as Bucket from t
+    return t[k]
+end
+
+sub slots(var b as Bucket) as var jobs?[4] from b
+    return b.items
+end
+
+sub rows() as var Bucket[4]
+    return table
+end
+
+sub add(var b as Bucket, v as u16)
+    b.items[b.count] = new jobs(v)
+    b.count = b.count + 1
+end
+
+sub addNext(var b as Bucket, v as u16)
+    // The call's result is rooted in program storage: its owner word is
+    // zero, whatever path its index reads.
+    add(rows()[b.count], v)
+end
+
+sub used(items as jobs?[4]) as u8
+    var n as u8 = 0
+    var i as u8
+    for i = 0 to 3
+        select items[i]
+        case some(j)
+            n = n + 1
+        case none
+        end
+    end
+    return n
+end
+
+sub total(b as Bucket) as u16
+    var sum as u16 = 0
+    var i as u8
+    for i = 0 to 3
+        select b.items[i]
+        case some(j)
+            sum = sum + j.number
+        case none
+        end
+    end
+    return sum
+end
+
+sub main() fails
+    add(bucketFor(1), 7)
+    add(bucketFor(5), 8)
+    add(same(table[2]), 9)
+    add(table[3], 10)
+    addNext(table[2], 0)
+    add(same(table[0]), 11)
+    add(table[0], 12)
+    var n as u8 = bucketFor(1).count + view(table[0]).count
+    var s as u16 = total(view(table[1])) + total(same(table[0]))
+    n = n + used(slots(table[2]))
+    s = s + total(table[2]) + total(row(table, 3))
+    if n = 6 and s = 57
+        writeText(console, "owning results\r\n") else fail
+    end
+end

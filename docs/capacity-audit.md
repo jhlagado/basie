@@ -731,7 +731,7 @@ constant, a capacity diagnostic and a budget to argue. Figures as at step
 | Table | Native today | Basie target |
 | --- | --- | --- |
 | Symbol records | while memory lasts, twelve bytes each in a table above the largest part (`SY_BTM`), found through 32 hash chains, a block's released at its end (from 67h.3; 96 of nine bytes in a fixed table before) | §3.1, §3.2: at least 1,000 names and 128 locals; measured 708 program variables in one part and 476 locals (limits §5.1) |
-| Routine records | 255 besides main (`RO_RCAP`, a byte's numbers), each 19 bytes below the name heap with its parameters' once its signature is complete, found through 32 hash chains (`RO_HTAB`) and by number (`RO_RPTR`), from 68 | §3.25 |
+| Routine records | while memory lasts (from 74; 255 from 68), each 20 bytes below the name heap with its parameters' once its signature is complete, named by its address, found through 32 hash chains (`RO_HTAB`) and linked in declaration order (`RO_RHEAD`, `RO_RNEXT`) | §3.25 |
 | Parameters | 64 for one routine (`RO_SCAP`, the signature's staging, five bytes each), and 255 bytes of arguments per routine; memory for the program (160 program-wide before 68) | §3.3: at least 32 per routine |
 | Calls nested in arguments | 8 (`RO_NCAP`); a call being parsed keeps its state on the machine stack | §3.21: call nesting |
 | Record types | 46 (`AG_RCAP`) | §3.7, §3.26 |

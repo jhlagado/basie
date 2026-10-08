@@ -1,0 +1,84 @@
+// Identifier results: a routine hands back an identifier, a copy that the
+// caller may keep; it is checked on each use, so a stale one tests none.
+forward pool nodes
+record Node
+    value as u16
+    next as nodes?
+end
+pool nodes as Node[8]
+var head as nodes?
+var kept as id nodes?
+
+sub push(v as u16)
+    var n = new nodes(v, move head)
+    head = move n
+end
+
+sub find(key as u16) as id nodes?
+    var p = id(head)
+    while true
+        select p
+        case some(i)
+            if i.value = key
+                return p
+            end
+            p = id(i.next)
+        case none
+            exit
+        end
+    end
+    return p
+end
+
+sub first() as id nodes?
+    return id(head)
+end
+
+sub pick(key as u16) as id nodes? fails
+    var p = find(key)
+    select p
+    case some(i)
+        return p
+    case none
+        fail 3
+    end
+end
+
+sub main() fails
+    push(10)
+    push(20)
+    push(30)
+    kept = find(20)
+    var found as u8 = 0
+    select kept
+    case some(i)
+        i.value = 21
+        found = 1
+    case none
+    end
+    select find(99)
+    case some(i)
+        fail 1
+    case none
+        found = found + 1
+    end
+    var f = first()
+    var g = pick(30) else fail
+    select f
+    case some(i)
+        if i.value = 30 and g = f
+            found = found + 1
+        end
+    case none
+    end
+    head = none
+    select kept
+    case some(i)
+        fail 1
+    case none
+        found = found + 1
+    end
+    if found = 4
+        writeText(console, "identifier results\r\n") else fail
+    end
+end

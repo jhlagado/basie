@@ -157,7 +157,8 @@ HN_IDEX:                       ; `id` was the token.
 ; (toRegisters): none, LD HL,0, LD DE,0, for an optional one; id(...); an
 ; identifier's path, loaded; each of the same pool, an optional value only
 ; for an optional location; anything else type-mismatch, at HN_AT when an
-; assignment set it, else at the value. A routine's identifier waits.
+; assignment set it, else at the value; a routine's identifier result, in
+; DEHL from its call. A path from an aggregate result waits (DG_NYI).
 
 HN_IDV:                        ; E is the location's type.
     CALL HN_IDV0                   ; The value,
@@ -200,8 +201,8 @@ HN_IDV0:                       ; E is the location's type.
     JR   C,.CLASH                  ; is none;
     CALL PR_TAKE                   ; the name taken:
 .PATH:                         ; a routine's
-    CALL RO_FIND                   ; identifier
-    JP   Z,TR_OPER                 ; waits;
+    CALL RO_FIND                   ; result,
+    JR   Z,.CALL                   ; an identifier's;
     CALL SY_FIND                   ; anything else
     JP   NC,SY_UNDEF               ; undeclared is no name;
     CALL RO_NAMED                  ; a path, A its type:
@@ -214,6 +215,14 @@ HN_IDV0:                       ; E is the location's type.
     LD   (RO_OTYPE),A              ; bytes
     CALL GA_LOAD                   ; loaded.
     POP  AF                        ; The type.
+    JR   .CHECK                    ; Checked.
+.CALL:                         ; HL is the routine:
+    CALL HN_VOIDQ                  ; it has a result (no-value),
+    CALL RO_CALL                   ; called: A its result,
+    CALL PL_ISHND                  ; an identifier's in DEHL;
+    JP   NC,TR_OPER                ; any other's path waits;
+    BIT  1,A                       ; an owner's
+    JR   Z,.CLASH                  ; is none.
 .CHECK:                        ; A is the value's type.
     POP  DE                        ; The location's,
     PUSH DE                        ; E:

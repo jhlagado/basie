@@ -396,6 +396,8 @@ const CLAIMED: Record<string, string[]> = {
     "BIGSPILL",
   ],
   "69: large programs": ["BIGDATA", "OWNARR"],
+  "74: identifier and owning aggregate results": ["IDRES", "OWNRES"],
+  "74: var owning array parameters": ["VAROWN"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1006,6 +1008,8 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["67h: the capacity tables"],
     ...CLAIMED["68: routines in shared memory, 32 nested statements"],
     ...CLAIMED["69: large programs"],
+    ...CLAIMED["74: identifier and owning aggregate results"],
+    ...CLAIMED["74: var owning array parameters"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1224,8 +1228,6 @@ const REFUSED: Record<string, string> = {
     "var c as u8[4]\nsub f(v as string[])\nend\nsub main()\nf(c)\nend\n",
   "a result rooted at a parameter's field":
     "record r\nc as u8[2]\nend\nsub f(p as r) as u8[2]\nreturn p.c\nend\nsub main()\nend\n",
-  "a result whose path a local indexes":
-    "var t as u8[2][2]\nsub g() as u8[2][2]\nreturn t\nend\nsub f() as u8[2]\nvar i as u8\nreturn g()[i]\nend\nsub main()\nend\n",
   "an aggregate result of the wrong type":
     "var s as string[8]\nsub f() as u8[4]\nreturn s\nend\nsub main()\nend\n",
   "an aggregate as a scalar value":

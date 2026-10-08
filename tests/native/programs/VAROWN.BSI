@@ -1,0 +1,86 @@
+// var parameters of owning array types: a routine changes an array of
+// owning handles, or of records that own, in place. Each store through the
+// parameter frees what it overwrites; the owner word the caller passes
+// says whether the array lies in a pool slot.
+record Job
+    number as u16
+end
+pool jobs as Job[16]
+record Bucket
+    items as jobs?[4]
+    count as u8
+end
+var table as Bucket[4]
+var spare as jobs?[3]
+
+sub fill(var slots as jobs?[3], base as u16)
+    var i as u8
+    for i = 0 to 2
+        slots[i] = new jobs(base + u16(i))
+    end
+end
+
+sub clear(var slots as jobs?[3], at as u8)
+    slots[at] = none
+end
+
+sub swap(var slots as jobs?[3])
+    var t = move slots[0]
+    slots[0] = move slots[2]
+    slots[2] = move t
+end
+
+sub add(var b as Bucket, v as u16)
+    b.items[b.count] = new jobs(v)
+    b.count = b.count + 1
+end
+
+sub addAll(var t as Bucket[4], v as u16)
+    var k as u8
+    for k = 0 to 3
+        add(t[k], v + u16(k))
+    end
+end
+
+sub row(var t as Bucket[4], k as u8) as var Bucket from t
+    return t[k]
+end
+
+sub total(slots as jobs?[3]) as u16
+    var sum as u16 = 0
+    var i as u8
+    for i = 0 to 2
+        select slots[i]
+        case some(j)
+            sum = sum + j.number
+        case none
+        end
+    end
+    return sum
+end
+
+sub main() fails
+    fill(spare, 10)
+    var before as u16 = total(spare)
+    swap(spare)
+    clear(spare, 1)
+    var after as u16 = total(spare)
+    select spare[0]
+    case some(j)
+        if j.number <> 12
+            fail 1
+        end
+    case none
+        fail 2
+    end
+    var local as jobs?[3]
+    fill(local, 20)
+    clear(local, 0)
+    var l as u16 = total(local)
+    addAll(table, 100)
+    add(row(table, 2), 7)
+    var c as u8 = table[2].count + table[0].count
+    if before = 33 and after = 22 and l = 43 and c = 3
+        writeText(console, "var owning arrays\r\n") else fail
+    end
+end

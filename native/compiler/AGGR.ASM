@@ -15,7 +15,6 @@
 ;    AG_DESC   address the descriptor of a type ID
 ;    AG_SIZE   return the extent in bytes of any type ID
 ;    AG_FIELD  address a record field's entry
-;    AG_FRESH  reject a field name already used in the record being declared
 ;    AG_FITRW  check one extent against the 1 KiB initializer staging
 ;    AG_ZERO   zero the object being initialized
 ;    AG_PARSE  parse one initializer for a type at the staging cursor
@@ -332,56 +331,6 @@ AG_FIELD:                      ; A is a field's index.
     LD   A,C                       ; A again,
     POP  BC                        ; and BC.
     RET                            ; HL is the entry.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Compare the name of the field entry at HL, made the current NAME, with
-; the fields already declared in the record being declared (AG_CFCNT fields
-; from index AG_CFIDX). A repeated field name raises DG_DUP, naming it, at
-; it, after its type's checks as the reference makes them; otherwise
-; return carry clear, the current token's TK_PTR and TK_LEN restored.
-
-AG_FRESH:                      ; HL is the new field's entry.
-    LD   DE,(TK_PTR)               ; The current
-    PUSH DE                        ; token's
-    LD   A,(TK_LEN)                ; spelling,
-    PUSH AF                        ; kept.
-    CALL WD_GET                    ; Its name's spelling and
-    LD   A,(HL)                    ; length
-    LD   (TK_PTR),DE               ; are the
-    LD   (TK_LEN),A                ; current NAME.
-    LD   A,(AG_CFCNT)              ; Fetch this record's field count so far.
-    OR   A                         ; The first field cannot repeat.
-    JR   Z,.FRESH                  ; Carry clear from the OR.
-    LD   B,A                       ; B counts the fields left to compare.
-    LD   A,(AG_CFIDX)              ; A is the record's first field index.
-.LOOP:                         ; Compare one field per iteration.
-    PUSH AF                        ; Keep the field index.
-    PUSH BC                        ; Keep the count; TK_SAME needs no BC.
-    CALL AG_FIELD                  ; Address this field's entry.
-    CALL TK_SAME                   ; Is its name the token's spelling?
-    JR   C,.DUP                    ; Yes: report the duplicate.
-    POP  BC                        ; Restore the count.
-    POP  AF                        ; Restore the field index.
-    INC  A                         ; Step to the next field.
-    DJNZ .LOOP                     ; Continue through the record's fields.
-.FRESH:                        ; No repeat:
-    POP  AF                        ; the current
-    LD   (TK_LEN),A                ; token's
-    POP  DE                        ; spelling
-    LD   (TK_PTR),DE               ; again,
-    OR   A                         ; with carry clear.
-    RET                            ; Return to the field action.
-.DUP:                          ; The name repeats a field's.
-    LD   HL,TK_PTR                 ; It
-    LD   A,DG_DUP                  ; is named
-    CALL DG_SETN                   ; by duplicate-name,
-    JP   DG_KEPT                   ; at it (AC_FIELD); no return.
-
-; A further failure exit. It does not return.
-
-AG_EVOID:                      ; A record type with no fields.
-    CALL DG_RAISE                  ; Report it.
-    DB   DG_EMPTY                  ; Diagnostic: empty record.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
 ; Store byte A at the staging cursor and advance the cursor. The object's

@@ -100,7 +100,8 @@ large routines and many routines slow.
   limit. Writing initializers to their blob as they are parsed would lift
   it.
 - 255 routines (`RO_RCAP`): the 1,000 top-level names of the
-  specification are met only with fewer routines among them.
+  specification were met only with fewer routines among them. Lifted at
+  74: routines are bounded by memory, about 24 bytes each.
 - Parts that include one another in a chain are all held while they load:
   sixteen parts of 1.5K in a chain do not fit, where the same parts
   included from the main part do.

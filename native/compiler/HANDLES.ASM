@@ -227,7 +227,7 @@ HN_OWN0:                       ; E is the handle's type.
     PUSH HL                        ; The place, kept.
     LD   A,C                       ; The kind:
     CP   TK_NONE                   ; none?
-    JR   Z,.NONE                   ; LD HL,0.
+    JP   Z,.NONE                   ; LD HL,0.
     CP   TK_NAME                   ; A routine's
     JR   Z,.CALL                   ; result?
     CP   TK_MOVE                   ; move?
@@ -261,11 +261,15 @@ HN_OWN0:                       ; E is the handle's type.
 .IDEX:                         ; id(...):
     CALL HN_IDEX                   ; an identifier,
     JR   .OTHER                    ; no owner.
-.ROUTINE:                      ; A is the routine.
+.ROUTINE:                      ; HL is the routine.
     CALL HN_VOIDQ                  ; It has a result (no-value),
     CALL RO_CALL                   ; called: A its result,
     CALL PL_ISHND                  ; an owning
-    JR   NC,.OTHER                 ; handle,
+    JR   C,.HND                    ; handle;
+    CP   AG_FIRST                  ; an aggregate's
+    JP   NC,TR_OPER                ; path waits;
+    JR   .OTHER                    ; a scalar is none.
+.HND:                          ; A handle,
     BIT  1,A                       ; fresh;
     JR   Z,.FRESH                  ; checked as new's is.
 .OTHER:                        ; Any other result
@@ -399,8 +403,8 @@ HN_LDBC:                       ; ixWord: BC = (IX+offset).
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; A handle local's initializer, its type AG_CTYPE: an owning value
-; (HN_OWNV), committed by HN_BIND (AC_LHND in EX_RMETA). An identifier's
-; waits (DG_NYI).
+; (HN_OWNV) or an identifier's (HN_IDV), committed by HN_BIND (AC_LHND in
+; EX_RMETA).
 
 HN_LINIT:                      ; The local's type is a handle.
     LD   A,(AG_CTYPE)              ; Its type:
@@ -443,7 +447,13 @@ HN_INFER:                      ; The initializer's first token:
     JR   NC,.NOT                   ; result's
     PUSH AF                        ; (or a variable's,
     LD   E,A                       ; whose value
-    CALL HN_OWNV                   ; waits):
+    BIT  1,A                       ; waits): an
+    JR   Z,.OWNER                  ; identifier's
+    CALL HN_IDV                    ; in DEHL,
+    JR   .VALUED                   ; or
+.OWNER:                        ; an owner's
+    CALL HN_OWNV                   ; in HL:
+.VALUED:                       ; read,
     POP  AF                        ; the value's type.
     JR   .TYPED                    ; The local's.
 .NOT:                          ; Anything else
@@ -828,34 +838,12 @@ HN_ISID:                       ; The NAME is current.
 ;@ROUTINE IN A OUT A CLOBBERS HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A parameter's type (CommitParameter): a handle, not var, is a value in
 ; the frame, an identifier's four bytes; a var one an optional owner (a
-; slot-holder, var-parameter otherwise). An aggregate is
-; accepted, but a var owning one that is no record, whose owner word is
-; not yet passed, waits. A is kept; HL is not.
+; slot-holder, var-parameter otherwise). An aggregate is accepted. A is
+; kept; HL is not.
 
 HN_PTYPE:                      ; A is the type.
     CALL PL_ISHND                  ; A handle?
-    JR   C,.HANDLE                 ; Not:
-    LD   HL,RO_VARP                ; a value
-    INC  (HL)                      ; aggregate
-    DEC  (HL)                      ; is
-    RET  Z                         ; accepted;
-    PUSH AF                        ; (the type
-    PUSH DE                        ; and DE kept)
-    CALL PL_OWNS                   ; a var one, if owning,
-    JR   NC,.KEEP                  ; must be
-    POP  DE                        ; a record
-    POP  AF                        ; (an owning
-    PUSH AF                        ; array
-    PUSH DE                        ; waits).
-    CALL AG_DESC                   ; Its
-    LD   A,(HL)                    ; kind:
-    CP   AG_KREC                   ; a record?
-    JP   NZ,TR_OPER                ; If not, it waits.
-.KEEP:                         ; Accepted.
-    POP  DE                        ; DE
-    POP  AF                        ; and the type.
-    RET                            ; Back.
-.HANDLE:                       ; A handle:
+    RET  NC                        ; An aggregate is accepted.
     LD   HL,RO_VARP                ; A var handle,
     INC  (HL)                      ; a slot-holder,
     DEC  (HL)                      ; must be
@@ -869,17 +857,6 @@ HN_PTYPE:                      ; A is the type.
     JP   DG_KEPT                   ; at its name.
 .VALUE:                        ; A value, an owner's
     RET                            ; or an identifier's.
-
-;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A result's type (SaveSubResult): an owning handle is returned in HL; an
-; identifier waits, as does an owning aggregate (DG_NYI). A is kept.
-
-HN_RTYPE:                      ; A is the type.
-    CALL PL_ISHND                  ; Not a handle:
-    JP   NC,PL_LATER               ; no owning aggregate yet; return.
-    BIT  1,A                       ; An identifier
-    JP   NZ,TR_OPER                ; waits.
-    RET                            ; Accepted.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The routine's end, after its body's frees: when control reaches it,
@@ -929,29 +906,35 @@ HN_RETV:                       ; A is the result's type.
     CP   TK_EOL                    ; is AC_BARE's
     POP  DE                        ; (D the type)
     RET  Z                         ; (return-form).
-    LD   E,D                       ; An owning
-    CALL HN_OWNV                   ; value, in HL,
+    LD   E,D                       ; An identifier's
+    BIT  1,D                       ; value,
+    JR   Z,.OWNER                  ; in DEHL,
+    CALL HN_IDV                    ; as an argument's is;
+    JR   .READ                     ; or an owning
+.OWNER:                        ; value, in HL,
+    CALL HN_OWNV                   ; then
     CALL EM_HELP                   ; CALL
     DW   HP_LINK0                  ; LINK0;
+.READ:                         ; The value is read:
     LD   A,1                       ; the return
     LD   (HN_RETF),A               ; has its value.
     RET                            ; Back to the engine.
 
-;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Routine A, its name current, is called for a value: one without a result
-; (or main) has none (no-value, naming it, at it). A is kept.
+;@ROUTINE IN HL OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Routine HL, its name current, is called for a value: one without a
+; result (or main) has none (no-value, naming it, at it). HL is kept.
 
-HN_VOIDQ:                      ; A is the routine.
-    CP   RO_MAIN                   ; Main
-    JP   Z,RO_EVOID                ; has none;
-    PUSH AF                        ; (kept)
-    CALL RO_SUBAT                  ; another's
-    LD   DE,RO_RTYPE               ; result
-    ADD  HL,DE                     ; type:
-    LD   A,(HL)                    ; none?
-    OR   A                         ; Then
+HN_VOIDQ:                      ; HL is the routine.
+    LD   A,H                       ; Main
+    OR   L                         ; has
+    JP   Z,RO_EVOID                ; none;
+    PUSH HL                        ; (kept)
+    LD   DE,RO_RTYPE               ; another's
+    ADD  HL,DE                     ; result
+    LD   A,(HL)                    ; type:
+    POP  HL                        ; (the routine)
+    OR   A                         ; none? Then
     JP   Z,RO_EVOID                ; no-value.
-    POP  AF                        ; The routine.
     RET                            ; Back.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
