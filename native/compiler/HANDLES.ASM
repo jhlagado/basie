@@ -956,14 +956,12 @@ HN_RETV:                       ; A is the result's type.
 
 ;@ROUTINE IN HL OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Routine HL, its name current, is called for a value: one without a
-; result (or main) has none (no-value, naming it, at it). HL is kept.
+; result, main among them, has none (no-value, naming it, at it). HL is
+; kept.
 
 HN_VOIDQ:                      ; HL is the routine.
-    LD   A,H                       ; Main
-    OR   L                         ; has
-    JP   Z,RO_EVOID                ; none;
     PUSH HL                        ; (kept)
-    LD   DE,RO_RTYPE               ; another's
+    LD   DE,RO_RTYPE               ; Its
     ADD  HL,DE                     ; result
     LD   A,(HL)                    ; type:
     POP  HL                        ; (the routine)

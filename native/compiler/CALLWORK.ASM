@@ -37,9 +37,9 @@
 ;  for each expression and RO_FAILS (CALLS.ASM) sets it and RO_KEPT. Source
 ;  names stay resident, so a record keeps a name as its address and length.
 ;
-;  A routine record (RO_RLEN bytes), one per declared routine other than
-;  main, which the compiler names by its address (main by zero), linked in
-;  declaration order from RO_RHEAD:
+;  A routine record (RO_RLEN bytes), one per declared routine, main among
+;  them, which the compiler names by its address, linked in declaration
+;  order from RO_RHEAD:
 ;    +0  word  RO_RNAME  address of the name in the name heap
 ;    +2  byte  RO_RNLEN  length of the name
 ;    +3  word  RO_RPIDX  its first parameter's record
@@ -155,7 +155,7 @@ RO_CREC EQU  RO_HEND           ; The record of the signature being parsed
 RO_SPAR EQU  RO_CREC+RO_RLEN   ; then its parameters' records, RO_SCAP.
 ; The routine being compiled is described by its fields in RO_CREC, which
 ; AC_PUB copies below the name heap and AC_IMPL copies back for a forward's
-; body; main's are there too, though it has no record.
+; body.
 RO_CPIDX EQU  RO_CREC+RO_RPIDX ; Word: its first parameter's record.
 RO_CPCNT EQU  RO_CREC+RO_RPCNT ; Byte: its parameters so far.
 RO_CTYPE EQU  RO_CREC+RO_RTYPE ; Byte: its result type ordinal, zero for none.

@@ -244,7 +244,7 @@ AC_PRIME:                      ; A is the primary's metadata.
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The type the current NAME roots, for an inferred local: a predeclared
 ; constant's (a File for console and printer), a service's result's, a
-; routine's result's, an aggregate symbol's; zero for main or a scalar
+; routine's result's, an aggregate symbol's; zero for none or a scalar
 ; symbol. An undeclared name raises DG_UNDEF, as the expression parser
 ; would.
 

@@ -247,10 +247,10 @@ AC_CLEAR:
     RET                            ; A is zero.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
-; BeginSub: open a routine signature. For main, check the name is new
-; (DG_DUP) and make RO_CUR zero. For another routine, check the name is
-; new (DG_DUP) and not `id` (DG_CLASH), and start its record in RO_CREC:
-; name and first parameter index.
+; BeginSub: open a routine signature: check the name is new (DG_DUP), not
+; `id` (DG_CLASS), and for main not private (bad-main), and start its
+; record in RO_CREC: name, first parameter index and flags, main's with
+; RO_FMAIN.
 
 AC_SIG:
     CALL AC_RESUB                  ; The routine's name is current again.
@@ -503,9 +503,10 @@ AC_IMPL:
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Copy the signature into the record of the routine declared, RO_CREC,
 ; with the routine's ordinal, the next (RG_ADD), main's the program's
-; entry too (RG_MAIN), and a need of zero until its body is complete, then keep the record and its parameters' below the
-; name heap, one block (NH_ALLOC), which RO_CUR then names, linked after
-; the last routine declared (RO_RLAST) and into its name's hash chain.
+; entry too (RG_MAIN), and a need of zero until its body is complete,
+; then keep the record and its parameters' below the name heap, one block
+; (NH_ALLOC), which RO_CUR then names, linked after the last routine
+; declared (RO_RLAST) and into its name's hash chain.
 
 AC_PUB:
     CALL RG_ADD                    ; The routine's ordinal,

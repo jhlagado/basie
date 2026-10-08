@@ -536,7 +536,8 @@ RO_SVC:
 ; parameters whose types are at HL, D bytes apart. Each argument is
 ; evaluated, left to right, and pushed: a scalar in the registers at its
 ; parameter's type (a u8 or Boolean widened to a word), a File's four
-; bytes (RO_FVAL), an aggregate as its address, a view as its word then
+; bytes (RO_FVAL), an aggregate as its address (a path in parentheses too),
+; a view as its word then
 ; its address (RO_VIEW). Then CALL the callee, whose exit removes the
 ; arguments (RETN, or the service's own), so the pushes are counted out
 ; again. The callee's need joins the largest of this routine's callees
@@ -595,18 +596,18 @@ RO_ARGS:
     JR   C,.ADDRESS                ; an aggregate's address.
     LD   A,B                       ; A view:
     CALL RO_VIEW                   ; its word is pushed.
-    JR   .PUSH                     ; Then the address.
+    JP   .PUSH                     ; Then the address.
 .HANDLE:                       ; An owning handle:
     CALL HN_ARG                    ; its value in HL, linked,
-    JR   .PUSH                     ; pushed.
+    JP   .PUSH                     ; pushed.
 .FILE:                         ; A File argument.
     CALL RO_FVAL                   ; Its value in DEHL.
-    JR   .OWNER                    ; PUSH DE, the high word, then the low.
+    JP   .OWNER                    ; PUSH DE, the high word, then the low.
 .ADDRESS:                      ; An aggregate of type A, B with AG_VAR.
     PUSH BC                        ; Keep the parameter's type.
     CALL PR_SPOT                   ; The argument's start, HL:
     CP   TK_LPAR                   ; parenthesized,
-    JP   Z,TR_OPER                 ; it waits;
+    JR   Z,.PARENS                 ; a path within;
     CP   TK_NAME                   ; a path begins with
     JR   NZ,.VALUE                 ; a name
     PUSH HL                        ; (the start
@@ -620,6 +621,48 @@ RO_ARGS:
     POP  HL                        ; aggregate
     LD   (EX_START),HL             ; (type-mismatch
     JP   EX_EFIT                   ; at its start).
+.PARENS:                       ; HL is the argument's start.
+    PUSH HL                        ; (kept)
+    LD   B,0                       ; No parentheses yet:
+.OPEN:                         ; B are open.
+    INC  B                         ; One more,
+    PUSH BC                        ; (counted)
+    CALL PR_TAKE                   ; consumed;
+    CALL PR_PEEK                   ; then
+    POP  BC                        ; another,
+    CP   TK_LPAR                   ; or
+    JR   Z,.OPEN                   ; a name,
+    CP   TK_NAME                   ; a name, an aggregate's or a call's
+    JP   NZ,TR_OPER                ; (anything else waits,
+    PUSH BC                        ; (counted)
+    CALL TK_ISID                   ; `id` too, which the reference
+    JP   C,TR_OPER                 ; may take as a conversion,
+    CALL SY_FIND                   ; and a scalar's, which it
+    JR   NC,.ROOT                  ; reports at the first `(`):
+    INC  HL                        ; the
+    INC  HL                        ; symbol's
+    INC  HL                        ; class
+    BIT  7,(HL)                    ; (SY_AGGR)
+    JP   Z,TR_OPER                 ; must be an aggregate's.
+.ROOT:                         ; Then
+    CALL RO_PART                   ; the path, A its type,
+    POP  BC                        ; then
+.SHUT:                         ; B parentheses close:
+    PUSH AF                        ; (the type)
+    PUSH BC                        ; (counted)
+    CALL PR_PEEK                   ; each
+    CP   TK_RPAR                   ; at once
+    JP   NZ,TR_OPER                ; (anything else waits),
+    CALL PR_TAKE                   ; consumed.
+    POP  BC                        ; The count
+    POP  AF                        ; and the type.
+    DJNZ .SHUT                     ; All of them.
+    POP  HL                        ; The argument's start
+    LD   (EX_START),HL             ; is where its faults are.
+    POP  BC                        ; The parameter's type:
+    CALL PL_ISHND                  ; an owning handle's record
+    JP   C,TR_OPER                 ; lent waits;
+    JR   .RECORD                   ; an aggregate is passed.
 .PATH:                         ; A path:
     CALL RO_PART                   ; A is the argument's type:
     POP  BC                        ; an owning

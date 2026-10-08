@@ -13,7 +13,7 @@
 ;
 ;  Principal entries:
 ;    PR_BUILD  compile the source parts
-;    RO_FIND   find the current name among the routines, or main
+;    RO_FIND   find the current name among the routines, main among them
 ;    RO_LIB    find the current name among the predeclared names
 ;    RO_FRESH  reject a routine name that is already in use
 ;    RO_VET    reject a parameter name that is already in use
@@ -26,7 +26,7 @@
 ;  forward awaits its body, RO_FFWD for one declared forward, RO_FVRES for
 ;  a var result, RO_FPRIV), the blob's ordinal, the need once the body is
 ;  complete, the bytes of the arguments and its name's place. A routine is
-;  named by its record's address, main by zero; the records, linked in
+;  named by its record's address, main's too; the records, linked in
 ;  declaration order (RO_RHEAD), are kept with their parameters' below the
 ;  name heap once the signature is complete (AC_PUB), as many as fit.
 ;

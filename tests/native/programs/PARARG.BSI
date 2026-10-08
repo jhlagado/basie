@@ -1,0 +1,31 @@
+// Aggregate arguments in parentheses: an array, a var array in two pairs,
+// a record with spaces, and a call's aggregate result; each is passed as
+// the path itself would be.
+var a as u8[4]
+record R
+    v as u8
+end
+var r as R
+
+sub g() as u8[4]
+    return a
+end
+
+sub first(x as u8[4]) as u8
+    return x[0]
+end
+
+sub set(var x as u8[4])
+    x[0] = 7
+end
+
+sub field(x as R) as u8
+    return x.v
+end
+
+sub main()
+    set(((a)))
+    var c = first((a)) + first(a)
+    var d = field( ( r ) )
+    var e = first((g()))
+end

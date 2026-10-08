@@ -407,6 +407,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: comparisons as inferred locals": ["INFCMP"],
   "74: paths from calls": ["CALLID", "SELCALL"],
   "74: main as a routine, forward and recursive": ["MAINREC"],
+  "74: aggregate arguments in parentheses": ["PARARG"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1097,6 +1098,14 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "an array of another type in parentheses":
+    "var a as u16[4]\nsub f(x as u8[4]) as u8\nreturn x[0]\nend\nsub main()\nvar c = f((a))\nend\n",
+  "an index after an argument in parentheses":
+    "var a as u8[4]\nsub f(x as u8[4]) as u8\nreturn x[0]\nend\nsub main()\nvar c = f((a)[1])\nend\n",
+  "a constant in parentheses to a var parameter":
+    "const a as u8[2] = [1,2]\nsub f(var x as u8[2])\nend\nsub main()\nf((a))\nend\n",
+  "an array in parentheses for a view":
+    "var a as u8[4]\nsub f(x as u8[]) as u8\nreturn x[0]\nend\nsub main()\nvar c = f((a))\nend\n",
   "main calling itself without a forward":
     "var n as u8\nsub main()\nn = n + 1\nif n < 3\nmain()\nend\nend\n",
   "a forward main with a parameter": "forward sub main(x as u8)\nsub main\nend\n",
