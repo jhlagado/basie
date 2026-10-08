@@ -290,7 +290,10 @@ HN_INPTH:                      ; A is the handle's type.
     LD   A,SY_U32                  ; its four
     LD   (RO_OTYPE),A              ; bytes
     CALL GA_LOAD                   ; loaded,
-    CALL HN_TAIL                   ; ending there.
+    LD   A,(AG_CTYPE)              ; compared
+    CALL HN_ICMP                   ; (a Boolean,
+    JP   Z,AC_PRIME                ; the expression's first),
+    CALL HN_TAIL                   ; or ending there.
     CALL AC_LOCAL                  ; The local,
     LD   A,AC_LHND                 ; bound
     LD   (EX_RMETA),A              ; to it.

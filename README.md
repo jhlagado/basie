@@ -49,6 +49,7 @@ The toolchain is built and tested with [Deno](https://deno.com):
 ```
 deno task test       # the whole test suite
 deno task release    # build/BASIE.DSK, a bootable CP/M 2.2 disk
+deno task disktime   # a build's time on modelled 8-inch and 5.25-inch floppies
 ```
 
 The release disk holds `BASIE.COM`, the compiler, with its overlays

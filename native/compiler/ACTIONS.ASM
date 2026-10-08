@@ -286,7 +286,7 @@ AC_DIM:
 ; MakeArrayTypes: once a type's dimensions are parsed, build its arrays
 ; from the innermost, the last bound kept, out (parseType): each an array
 ; of its bound's elements of the current type, interned and made current.
-; The element may not be a view (DG_CLASH), nor here a File (DG_NYI); the
+; The element may not be a view (DG_CLASH); the
 ; extent must fit 64K (out-of-range). Then an open outermost
 ; dimension makes the type an open array of them, AG_OPEN plus the
 ; element's ID. Nothing is done without dimensions.
@@ -332,6 +332,8 @@ AC_ARRAY:
     RET  Z                         ; No: the type is complete.
     LD   (HL),0                    ; Yes, this once:
     CALL AC_ITEM                   ; the element type,
+    CP   AG_FILE                   ; a File's
+    JP   Z,TR_OPER                 ; waiting (DG_NYI),
     CALL PL_LATER                  ; neither a handle nor owning,
     CP   AG_OLIM-AG_OPEN           ; one an open array's ID can hold
     JP   NC,AG_EMETA               ; (DG_META, types, beyond),
@@ -341,14 +343,11 @@ AC_ARRAY:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; The current type (AG_CTYPE) as an element, a field or a result: not a
-; view (DG_CLASH, AG_NOVW), nor here a File (DG_NYI). A returns it.
+; view (DG_CLASH, AG_NOVW). A returns it.
 
 AC_ITEM:                       ; The current type as an element:
     LD   A,(AG_CTYPE)              ; not
-    CALL AG_NOVW                   ; a view,
-    CP   AG_FILE                   ; nor a File
-    JP   Z,TR_OPER                 ; here (DG_NYI).
-    RET                            ; A is it.
+    JP   AG_NOVW                   ; a view; A is it.
 
 ; -------------------------------------------------------- scalar constants
 

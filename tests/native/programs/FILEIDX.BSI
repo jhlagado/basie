@@ -1,0 +1,18 @@
+// File elements at computed places (74): stored and loaded through their
+// addresses as a long is.
+var outs as File[3]
+sub pick(i as u8) as File
+    return outs[i]
+end
+sub main() fails
+    var i as u8
+    for i = 0 to 2
+        outs[i] = console
+    end
+    i = 1
+    writeText(outs[i], "computed\r\n") else fail
+    outs[i + 1] = pick(i)
+    if outs[2] <> console
+        fail 1
+    end
+end

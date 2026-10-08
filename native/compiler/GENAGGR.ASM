@@ -198,15 +198,14 @@ GA_STORE:                      ; RO_PLACE is the place.
     JR   GA_PLACE                  ; at the place; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the File at the place, static or in the frame (a File is never
-; reached through an address), into DEHL (loadRegisters, four bytes): LD
-; HL,(nn) and LD DE,(nn+2), or the frame's two words into HL and then DE,
-; each near or far (ixWord): a long's load.
+; Load the File at the place into DEHL (loadRegisters, four bytes), as a
+; long is loaded (GA_LOAD): from a static place, the frame, an alias or a
+; computed address. RO_OTYPE becomes a long's.
 
 GA_LDF:                        ; RO_PLACE is the place.
-    LD   HL,GX_LOADD               ; From the blob
-    LD   DE,GX_FLOAD               ; or the frame,
-    JR   GA_FILE                   ; a long's load.
+    LD   A,SY_U32                  ; Four bytes,
+    LD   (RO_OTYPE),A              ; a long's,
+    JR   GA_LOAD                   ; loaded; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store DEHL into the File at the place, static or in the frame

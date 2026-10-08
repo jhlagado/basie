@@ -54,6 +54,7 @@
 %INCLUDE "ACTSUB.ASM"              ; Actions: routines, failure and handlers.
 %INCLUDE "ACTSEL.ASM"              ; Actions: select.
 %INCLUDE "ACTSTMT.ASM"             ; Actions: locals, statements and flow.
+%INCLUDE "ACTFOR.ASM"              ; Actions: the counted for loop.
 %INCLUDE "POOLS.ASM"               ; Pools, handle types and owner descriptors.
 %INCLUDE "HANDLES.ASM"             ; new, owning values, handle locals and frees.
 %INCLUDE "HSELECT.ASM"             ; select on handles, and move.

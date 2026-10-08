@@ -445,10 +445,10 @@ AC_VARR:
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; SaveSubResult: the current type is the result type; not a view
-; (DG_CLASH), nor yet a File (DG_NYI).
+; (DG_CLASH).
 
 AC_GIVEN:
-    CALL AC_ITEM                   ; The result type: not a view, nor yet a File.
+    CALL AC_ITEM                   ; The result type: not a view.
     LD   (RO_CTYPE),A              ; The routine's result type.
     RET                            ; Back to the engine.
 

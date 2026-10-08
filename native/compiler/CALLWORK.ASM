@@ -91,9 +91,9 @@
 RO_BASE EQU  AG_WEND           ; First byte of the routine state.
 RO_CUR EQU  RO_BASE+$00        ; Word: the routine being compiled, its record (RO_CREC
                                ; while its signature is parsed); zero for main.
-; RO_BASE+$02: free.
-RO_CTYPE EQU  RO_BASE+$03      ; Byte: its result type ordinal, zero for none.
-; RO_BASE+$04: free.
+AC_IPOS EQU  RO_BASE+$02       ; Word: the offset of an inferred local's initializer.
+; RO_BASE+$03 is AC_IPOS's high byte.
+RO_CTYPE EQU  RO_BASE+$04      ; Byte: its result type ordinal, zero for none.
 RO_CPCNT EQU  RO_BASE+$05      ; Byte: its parameters so far.
 RO_TBASE EQU  RO_BASE+$06      ; Byte: AG_TCNT as the body opened (AG_SCOPE).
 RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.

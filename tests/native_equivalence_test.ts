@@ -403,6 +403,8 @@ const CLAIMED: Record<string, string[]> = {
   "74: a chain of includes past memory": ["CHAIN"],
   "74: escapes in character literals": ["CHARESC"],
   "74: local owning records": ["LOCREC", "LOCPOOL"],
+  "74: File fields, elements and results": ["FILEFLD", "FILEIDX"],
+  "74: comparisons as inferred locals": ["INFCMP"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1020,6 +1022,8 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["74: a chain of includes past memory"],
     ...CLAIMED["74: escapes in character literals"],
     ...CLAIMED["74: local owning records"],
+    ...CLAIMED["74: File fields, elements and results"],
+    ...CLAIMED["74: comparisons as inferred locals"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1467,6 +1471,14 @@ const REFUSED: Record<string, string> = {
   "an incomplete hexadecimal escape":
     'var s as string[8] = "a\\x4"\nsub main()\nend\n',
   "an escape cut off by the part's end": 'var s as string[8] = "ab\\',
+  "a bare return from a File routine":
+    "sub f() as File\n    return\nend\nsub main()\nend\n",
+  "a number returned as a File":
+    "sub f() as File\n    return 3\nend\nsub main()\nend\n",
+  "a call's number where a File is wanted":
+    'sub n() as u8\n    return 1\nend\nsub main() fails\n    writeText(n(), "x") else fail\nend\n',
+  "a call's number after its arguments where a File is wanted":
+    "sub g(x as u8) as u16\n    return 1\nend\nsub main()\n    var f as File = console\n    f = g(5)\nend\n",
   "a string capacity past 253": "var s as string[254]\nsub main()\nend\n",
   "a string capacity of zero": "var s as string[0]\nsub main()\nend\n",
   "an array of strings past 64K":

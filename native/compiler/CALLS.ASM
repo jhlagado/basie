@@ -934,12 +934,22 @@ RO_FCON:                       ; HL is the entry.
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse a File value and generate it into DEHL (the reference's expression
 ; and toRegisters for a File): console or printer, LD HL,n and LD DE,0; a
-; call to a service whose result is a File; or a File variable, local or
-; parameter, loaded at its place (GA_LDF). Anything else raises DG_CLASH:
-; the native compiler takes a File only as a name or such a call.
+; call to a service or a routine whose result is a File; or a File path, a
+; variable, parameter, field or element, loaded at its place (GA_LDF).
+; Anything else raises DG_CLASH: the native compiler takes a File only as
+; a name, a path or such a call.
 
 RO_FVAL:
-    CALL PR_TAKE                   ; A name begins it;
+    CALL PR_SPOT                   ; Its start,
+    LD   (EX_START),HL             ; where a fault is reported,
+    PUSH HL                        ; kept across it
+    CALL .VALUE                    ; (.BACK),
+    POP  HL                        ; dropped.
+    RET                            ; Done.
+.VALUE:                        ; The value:
+    CALL PR_TAKE                   ; a name begins it;
+    CP   TK_LPAR                   ; a parenthesized one
+    JP   Z,TR_OPER                 ; waits (DG_NYI);
     CP   TK_NAME                   ; anything else is
     JR   NZ,.ETYPE                 ; no File value (DG_CLASH).
     CALL RO_LIB                    ; A predeclared name?
@@ -950,15 +960,36 @@ RO_FVAL:
     JR   RO_FCON                   ; DEHL; return.
 .SERVICE:                      ; HL is the service's payload.
     CALL RO_SVC                    ; A is its result type,
+    CALL .BACK                     ; its start again;
 .FILE:                         ; or the variable's.
     CP   AG_FILE                   ; A File
     RET  Z                         ; is in DEHL, or to be loaded.
 .ETYPE:                        ; Anything else
-    JP   EX_ETYPE                  ; raises DG_CLASH.
-.VARIABLE:                     ; A variable, or nothing.
-    CALL RO_NAMED                  ; Parse it; A is its type.
+    LD   A,DG_CLASH                ; raises DG_CLASH
+    JP   EX_EVAL                   ; at its start.
+.VARIABLE:                     ; A routine's call,
+    CALL RO_FIND                   ; its result
+    JR   NZ,.PATH                  ; a File
+    CALL HN_VOIDQ                  ; (no-value without one)
+    CALL RO_CALL                   ; in DEHL,
+    CALL .BACK                     ; its start again;
+    CP   AG_FILE                   ; a path
+    JR   Z,.FILE                   ; from another
+    CP   AG_FIRST                  ; aggregate result
+    JR   C,.ETYPE                  ; waits (DG_NYI);
+    JP   TR_OPER                   ; or
+.PATH:                         ; a path, or nothing:
+    CALL RO_NAMED                  ; parsed, A its type.
     CALL .FILE                     ; It must be a File,
     JP   GA_LDF                    ; loaded at its place; return.
+.BACK:                         ; The arguments moved EX_START:
+    LD   HL,4                      ; the value's start,
+    ADD  HL,SP                     ; kept above
+    LD   E,(HL)                    ; .VALUE's
+    INC  HL                        ; return
+    LD   D,(HL)                    ; and this one's,
+    LD   (EX_START),DE             ; is it again.
+    RET                            ; A is kept.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse a path or a call whose value is an aggregate, and generate its
@@ -974,7 +1005,7 @@ RO_AGGR:
 
 RO_AGGT:                       ; A is the path's type.
     CP   AG_FIRST                  ; It must be an aggregate:
-    JR   C,RO_EFIT                 ; `.length` and elements are not.
+    JP   C,RO_EFIT                 ; `.length` and elements are not.
     CALL GA_ADDR                   ; Its address into HL;
     JR   RO_TYPE                   ; A is its type.
 

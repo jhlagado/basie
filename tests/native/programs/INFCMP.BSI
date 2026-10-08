@@ -1,0 +1,37 @@
+// Inferred locals from comparisons of identifiers and Files (74): the
+// comparison is the initializer's first operand, the local a Boolean.
+forward pool nodes
+record Node
+    v as u16
+    next as nodes?
+end
+pool nodes as Node[4]
+var keep as id nodes?
+var outs as File[2]
+
+sub twice(x as u16) as u16
+    var a = x
+    var same = a = x
+    if same
+        return a + a
+    end
+    return 0
+end
+
+sub main() fails
+    var n = new nodes(1, none)
+    var m = new nodes(2, none)
+    keep = id(n)
+    var same = id(n) = id(m)
+    var p = keep
+    var q = id(n)
+    var equal = p = q and not same
+    var differ = p <> id(m)
+    outs[1] = console
+    var f = outs[1]
+    var isout = f = console
+    var also = outs[1] = console or same
+    if equal and differ and isout and also and not same and twice(4) = 8
+        writeText(f, "comparisons\r\n") else fail
+    end
+end

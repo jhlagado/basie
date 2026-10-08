@@ -24,7 +24,7 @@
 ; through its address, computed first and pushed while the value is,
 ; then POP DE and LD (DE),A or EX DE,HL, LD (HL),E, INC HL, LD (HL),D; or
 ; at a static or frame place directly. A File is a value (RO_FVAL),
-; stored at its static or frame place. Then any failure handling.
+; stored as a long is, at any place. Then any failure handling.
 
 RO_LET:
     LD   HL,AC_ROUTE               ; Any failure handling
@@ -102,11 +102,16 @@ RO_ASGN:                       ; A is the path's type.
     CALL GA_LIT                    ; LD HL,literal.
     POP  AF                        ; The string's type.
     JR   .COPIED                   ; Copy it.
-.FILE:                         ; A File variable.
-    CALL RO_KEEP                   ; Keep its place across the value.
-    CALL RO_FVAL                   ; The value into DEHL.
-    CALL RO_BACK                   ; The place comes back.
-    JP   GA_STF                    ; Store the value there; AC_ROUTE.
+.FILE:                         ; A File: four bytes, a long's,
+    LD   A,SY_U32                  ; stored
+    LD   (RO_OTYPE),A              ; as a long is.
+    LD   A,(RO_PKIND)              ; A computed place?
+    CP   GA_HELD                   ; Its address
+    CALL Z,GX_PUSHW                ; is pushed: PUSH HL.
+    CALL RO_KEEP                   ; Keep the place across the value,
+    CALL RO_FVAL                   ; into DEHL,
+    CALL RO_BACK                   ; and the place comes back.
+    JR   .PLACED                   ; Store it.
 .SCALAR:                       ; A scalar target.
     LD   A,(RO_PPUSH)              ; A writable open string's
     AND  4                         ; length
@@ -120,7 +125,8 @@ RO_ASGN:                       ; A is the path's type.
     LD   E,A                       ; is the value's destination:
     CALL AC_FITTO                  ; it must fit; D, E and HL describe it,
     CALL GX_TOREG                  ; brought into A or HL.
-    LD   A,(RO_PKIND)              ; A computed place?
+.PLACED:                       ; The value is in the registers:
+    LD   A,(RO_PKIND)              ; a computed place?
     CP   GA_HELD                   ; Its address is pushed:
     JR   Z,.THROUGH                ; store through it.
     JP   GA_STORE                  ; Store at the place; AC_ROUTE.

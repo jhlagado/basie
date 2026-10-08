@@ -449,7 +449,7 @@ HN_INFER:                      ; The initializer's first token:
     LD   E,A                       ; whose value
     BIT  1,A                       ; waits): an
     JR   Z,.OWNER                  ; identifier's
-    CALL HN_IDV                    ; in DEHL,
+    CALL HN_IDV0                   ; in DEHL,
     JR   .VALUED                   ; or
 .OWNER:                        ; an owner's
     CALL HN_OWNV                   ; in HL:
@@ -457,8 +457,8 @@ HN_INFER:                      ; The initializer's first token:
     POP  AF                        ; the value's type.
     JR   .TYPED                    ; The local's.
 .NOT:                          ; Anything else
-    OR   A                         ; is not
-    RET                            ; a handle (carry clear).
+    OR   $FF                       ; is not a handle
+    RET                            ; (NZ, carry clear).
 .MOVE:                         ; move:
     CALL HN_MOVE                   ; the handle moved,
     JR   .TYPED                    ; A its type.
@@ -467,13 +467,40 @@ HN_INFER:                      ; The initializer's first token:
     JR   .TYPED                    ; A its type.
 .NEW:                          ; new:
     CALL HN_NEW                    ; the handle, A its type,
-.TYPED:                        ; the local's,
+.TYPED:                        ; the local's, unless
+    BIT  1,A                       ; an identifier's
+    JR   Z,.LOCAL                  ; is compared,
+    CALL HN_ICMP                   ; a Boolean
+    RET  Z                         ; (Z, carry clear);
+.LOCAL:                        ; the value
     CALL HN_TAIL                   ; ending there,
     LD   (AG_CTYPE),A              ; a value.
     LD   A,FW_VALUE                ; Its
     LD   (HN_VKIND),A              ; state.
     SCF                            ; A handle.
     RET                            ; Done.
+
+;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY
+; An identifier's or a File's value of type A, in DEHL, beginning an
+; inferred local's initializer: followed by `=` or `<>`, it is compared
+; (HN_EQ), and Z returns A a Boolean's metadata, the expression's first
+; primary (AC_PRIME); otherwise NZ returns A the type. Carry is clear.
+
+HN_ICMP:                       ; A is the type.
+    PUSH AF                        ; Kept.
+    CALL PR_PEEK                   ; `=`
+    CP   TK_EQ                     ; or
+    JR   Z,.CMP                    ; `<>`
+    CP   TK_NE                     ; next?
+    JR   Z,.CMP                    ; If not,
+    POP  AF                        ; the type,
+    OR   A                         ; NZ.
+    RET                            ; Back.
+.CMP:                          ; A comparison:
+    POP  AF                        ; of the type,
+    CALL HN_EQ                     ; a Boolean,
+    CP   A                         ; Z.
+    RET                            ; Back.
 
 ;@ROUTINE OUT A CLOBBERS DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; DefaultLocalInitializer for a local of type AG_CTYPE: a handle that is
@@ -870,7 +897,7 @@ HN_PEND:                       ; The body has ended.
     RET  Z                         ; to free.
     LD   DE,(SY_BODY)              ; The parameters, before
     LD   HL,(SY_GTOP)              ; the body, from the first.
-    JR   HN_SEG                    ; Freed; return.
+    JP   HN_SEG                    ; Freed; return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; An argument for a handle parameter of type A (argument): for an owner
@@ -907,7 +934,10 @@ HN_RETV:                       ; A is the result's type.
     CP   TK_EOL                    ; is AC_BARE's
     POP  DE                        ; (D the type)
     RET  Z                         ; (return-form).
-    LD   E,D                       ; An identifier's
+    LD   A,D                       ; A File's
+    CP   AG_FILE                   ; value,
+    JR   Z,.FILE                   ; in DEHL;
+    LD   E,D                       ; an identifier's
     BIT  1,D                       ; value,
     JR   Z,.OWNER                  ; in DEHL,
     CALL HN_IDV                    ; as an argument's is;
@@ -920,6 +950,12 @@ HN_RETV:                       ; A is the result's type.
     LD   A,1                       ; the return
     LD   (HN_RETF),A               ; has its value.
     RET                            ; Back to the engine.
+.FILE:                         ; A File's,
+    CALL RO_FVAL                   ; in DEHL, alone
+    CALL PR_PEEK                   ; (anything
+    CP   TK_EOL                    ; after it
+    JP   NZ,TR_OPER                ; waits),
+    JR   .READ                     ; is read.
 
 ;@ROUTINE IN HL OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Routine HL, its name current, is called for a value: one without a

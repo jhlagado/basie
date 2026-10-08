@@ -57,6 +57,20 @@ export type CpmOptions = {
    * address and everything the routine pushed, its own calls included.
    */
   probes?: Map<number, number>;
+  /**
+   * Called before each BDOS function with the cycles run so far, and for a
+   * file function its file and, for a transfer, its record: for modelling
+   * the time a real disk would take (tools/disktime.ts).
+   */
+  onBdos?: (call: BdosCall) => void;
+};
+
+/** One BDOS call, as onBdos reports it. */
+export type BdosCall = {
+  fn: number;
+  cycles: number;
+  file?: string;
+  record?: number;
 };
 
 const CALLS = new Set([0xcd, 0xc4, 0xcc, 0xd4, 0xdc, 0xe4, 0xec, 0xf4, 0xfc]);
@@ -212,6 +226,17 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
   function bdos() {
     const fn = cpu.c;
     const de = (cpu.d << 8) | cpu.e;
+    if (options.onBdos) {
+      const file = (fn >= 15 && fn <= 23) || (fn >= 33 && fn <= 35)
+        ? fcbName(de)
+        : undefined;
+      const record = fn === 20 || fn === 21
+        ? sequentialRecord(de)
+        : fn === 33 || fn === 34
+        ? randomRecord(de)
+        : undefined;
+      options.onBdos({ fn, cycles, file, record });
+    }
     switch (fn) {
       case 1: { // console input with echo
         const ch = nextInput();
