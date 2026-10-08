@@ -71,23 +71,10 @@ RO_PARAM:                      ; A is the parameter.
 ; a routine; that is not itself an error.
 
 RO_FIND:
-    LD   HL,(TK_PTR)               ; The token's
-    LD   A,(TK_LEN)                ; spelling
-    LD   B,A                       ; and length:
-    LD   DE,RO_HTAB                ; its chain's head
-    CALL SY_HASHD                  ; among the routines'.
-.LOOP:                         ; HL addresses a link: the next record.
-    LD   A,(HL)                    ; The
-    INC  HL                        ; record,
-    LD   H,(HL)                    ; or
-    LD   L,A                       ; zero:
-    OR   H                         ; none
-    JR   Z,.MISSING                ; left.
-    CALL TK_SAME                   ; Does its spelling match the token?
-    JR   C,.FOUND                  ; Return its record.
-    LD   DE,RO_RLINK               ; Its link
-    ADD  HL,DE                     ; to the next.
-    JR   .LOOP                     ; Continue along the chain.
+    LD   DE,RO_HTAB                ; The routines' chains,
+    LD   C,RO_RLINK                ; linked there,
+    CALL SY_FINDD                  ; searched as the symbols' are:
+    JR   C,.FOUND                  ; its record, or
 .MISSING:                      ; The name is not in the table.
     LD   A,(RO_MFLAG)              ; Has main been declared?
     AND  RO_FMAIN                  ; Its flags carry RO_FMAIN once it has.
@@ -119,18 +106,9 @@ RO_LIB:
     OR   A                         ; zero ends the table,
     RET  Z                         ; with carry clear.
     LD   B,A                       ; B is the length.
-    INC  HL                        ; HL addresses its spelling.
-    LD   A,(TK_LEN)                ; The token's length.
-    CP   B                         ; Do the lengths agree?
-    JR   NZ,.SKIP                  ; A different length cannot match.
-    LD   DE,(TK_PTR)               ; DE walks the token's spelling.
-.BYTELOOP:                     ; Compare one character.
-    LD   A,(DE)                    ; Read the token's character.
-    CP   (HL)                      ; Compare it with the entry's.
-    JR   NZ,.SKIP                  ; HL + B is still the spelling's end.
-    INC  DE                        ; Advance in the token.
-    INC  HL                        ; Advance in the entry.
-    DJNZ .BYTELOOP                 ; Compare every character.
+    INC  HL                        ; HL addresses its spelling:
+    CALL TK_MATCH                  ; the token's? If not, HL + B
+    JR   NC,.SKIP                  ; is still the spelling's end.
     LD   A,(HL)                    ; The payload's first byte,
     OR   A                         ; negative for a constant.
     SCF                            ; Report a match.

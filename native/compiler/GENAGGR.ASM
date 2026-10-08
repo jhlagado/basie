@@ -308,8 +308,7 @@ GA_ITEM:                       ; D and HL are the index.
     LD   HL,(RO_PBASE)             ; its word
     INC  HL                        ; above
     INC  HL                        ; its address,
-    LD   DE,GX_DLDDE               ; into DE
-    CALL GX_FACC                   ; (ixWord).
+    CALL GX_FLDDE                  ; into DE (ixWord).
     JR   .CHECK                    ; Check the index.
 .FIXED:                        ; An array's
     ADD  A,AG_OPEN                 ; type's

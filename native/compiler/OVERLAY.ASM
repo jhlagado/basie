@@ -124,46 +124,22 @@ OV_FTOI:                       ; An f32 to an integer: entry 6.
 OV_FOLD:                       ; An operation folded: entry 9.
     LD   A,9                       ; Its offset; fall into OV_FCALL.
 
-;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the FLOAT overlay unless it is the one loaded last, and run its
-; entry at offset A with HL; carry returns as the entry leaves it. IX and
-; IY, which loading may change, are kept.
-
 OV_FCALL:                      ; A is the offset, HL the argument.
-    PUSH IX                        ; Keep IX
-    PUSH IY                        ; and IY,
-    PUSH HL                        ; the argument
-    PUSH AF                        ; and the offset.
-    LD   A,OV_FLOAT                ; The overlay
-    CALL OV_LOAD                   ; is loaded, above NAMES.
-    POP  AF                        ; The offset
-    LD   HL,(OV_DIR+4*OV_FLOAT)    ; from its load address
-    ADD  A,L                       ; is
-    LD   L,A                       ; the
-    ADC  A,H                       ; entry's
-    SUB  L                         ; address,
-    LD   D,A                       ; DE.
-    LD   E,L                       ; (its low byte)
-    POP  HL                        ; HL is the argument.
-    CALL .RUN                      ; Run the entry.
-    POP  IY                        ; IY
-    POP  IX                        ; and IX again;
-    RET                            ; the flags are the entry's.
-.RUN:                          ; DE is the entry.
-    PUSH DE                        ; Its address
-    RET                            ; is jumped to; it returns above.
+    LD   B,OV_FLOAT                ; FLOAT's;
+    JR   OV_XCALL                  ; called.
 
-;@ROUTINE IN A OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load the OWNERS overlay (OV_PCALL) unless it is the one loaded last,
-; and run its entry at offset A; A, HL
-; and the flags return as the entry leaves them. IX and IY, which loading
-; may change, are kept.
+;@ROUTINE IN A,HL OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load overlay B (OWNERS for OV_PCALL, FLOAT for OV_FCALL) unless it is
+; the one loaded last, and run its entry at offset A with HL; A, HL and
+; the flags return as the entry leaves them. IX and IY, which loading may
+; change, are kept.
 
 OV_PCALL:                      ; A is the entry's offset.
     LD   B,OV_OWNS                 ; OWNERS'; fall into OV_XCALL.
 OV_XCALL:                      ; B is the overlay.
     PUSH IX                        ; Keep IX
     PUSH IY                        ; and IY,
+    PUSH HL                        ; the argument
     PUSH AF                        ; and the offset.
     LD   A,B                       ; The overlay
     PUSH AF                        ; (kept)
@@ -180,16 +156,18 @@ OV_XCALL:                      ; B is the overlay.
     LD   D,(HL)                    ; The offset
     POP  AF                        ; from it
     ADD  A,E                       ; is
-    LD   L,A                       ; the
+    LD   E,A                       ; the
     ADC  A,D                       ; entry's
-    SUB  L                         ; address,
-    LD   H,A                       ; HL.
+    SUB  E                         ; address,
+    LD   D,A                       ; DE.
+    POP  HL                        ; HL is the argument.
     CALL .RUN                      ; Run it.
     POP  IY                        ; IY
     POP  IX                        ; and IX again;
-    RET                            ; A and the flags are the entry's.
-.RUN:                          ; HL is the entry.
-    JP   (HL)                      ; It returns above.
+    RET                            ; A, HL and the flags are the entry's.
+.RUN:                          ; DE is the entry.
+    PUSH DE                        ; Its address
+    RET                            ; is jumped to; it returns above.
 
 ;@ROUTINE IN C,HL OUT CARRY CLOBBERS A,DE,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read record C of BASIE.OVL to HL. Carry if it can't be read. B, C and

@@ -818,8 +818,7 @@ HN_RECK:                       ; The value is in the registers.
     POP  HL                        ; its
     INC  HL                        ; generation
     INC  HL                        ; in DE,
-    LD   DE,GX_DLDDE               ; HL
-    CALL GX_FACC                   ; kept;
+    CALL GX_FLDDE                  ; HL kept;
     CALL EM_HELP                   ; CALL
     DW   HP_IDCHK                  ; ID_CHK;
     CALL EM_SEQ                    ; POP DE, POP HL,

@@ -112,15 +112,19 @@ SY_BITAT:                      ; A is the bit's index, HL the table.
 ; Compare the current NAME token with the committed records of its hash
 ; chain, newest first. Carry returns the matching record in HL; carry
 ; clear means the name is not an ordinary symbol. The provisional record
-; at SY_TOP is in no chain. B is preserved.
+; at SY_TOP is in no chain. B is preserved. SY_FINDD searches the table at
+; DE, its records linked at offset C (the routines', RO_FIND).
 
 SY_FIND:
-    PUSH BC                        ; Keep B.
+    LD   DE,SY_HTAB                ; The symbols' chains,
+    LD   C,SY_LINK                 ; linked there.
+SY_FINDD:                      ; DE the table, C the link's offset.
+    PUSH BC                        ; Keep B and C.
     LD   HL,(TK_PTR)               ; The token's
     LD   A,(TK_LEN)                ; spelling
     LD   B,A                       ; and length:
-    CALL SY_HASH                   ; its chain's head.
-    POP  BC                        ; B again.
+    CALL SY_HASHD                  ; its chain's head.
+    POP  BC                        ; B and C again.
 .LOOP:                         ; HL addresses a link: the next record.
     LD   A,(HL)                    ; The
     INC  HL                        ; record,
@@ -130,7 +134,8 @@ SY_FIND:
     RET  Z                         ; carry clear (OR).
     CALL TK_SAME                   ; Does its spelling equal the token's?
     RET  C                         ; Return the matching record in HL.
-    LD   DE,SY_LINK                ; Its link
+    LD   E,C                       ; Its link,
+    LD   D,0                       ; C bytes on,
     ADD  HL,DE                     ; to the next.
     JR   .LOOP                     ; Continue along the chain.
 

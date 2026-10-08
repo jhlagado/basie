@@ -355,8 +355,7 @@ HN_SLARG:                      ; A is the parameter's type.
     LD   A,H                       ; slot word,
     OR   L                         ; if
     JR   Z,HN_DEZ                  ; it has one:
-    LD   DE,GX_DLDDE               ; LD E,(IX+n),
-    CALL GX_FACC                   ; LD D,(IX+n+1);
+    CALL GX_FLDDE                  ; LD E,(IX+n), LD D,(IX+n+1);
     JR   HN_PSHDE                  ; or none; then PUSH DE.
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY

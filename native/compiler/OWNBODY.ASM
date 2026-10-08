@@ -406,8 +406,7 @@ OW_IDREC:                      ; The path is parsed.
     LD   A,SY_U16                  ; LD H,(IX+owner+1);
     CALL GX_FLOAD                  ; then
     LD   HL,(RO_PBASE)             ; LD E,(IX+alias),
-    LD   DE,GX_DLDDE               ; LD D,(IX+alias+1);
-    CALL GX_FACC                   ; OR A,
+    CALL GX_FLDDE                  ; LD D,(IX+alias+1); OR A,
     CALL EM_SEQ                    ; SBC HL,DE,
     DB   3,$B7,$ED,$52             ; then
     LD   C,$C2                     ; JP NZ,none,

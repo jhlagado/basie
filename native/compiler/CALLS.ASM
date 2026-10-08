@@ -652,8 +652,7 @@ RO_ARGS:
     LD   A,H                       ; parameter's,
     OR   L                         ; LD E,(IX+n),
     JR   Z,.NOOWN                  ; LD D,(IX+n+1),
-    LD   DE,GX_DLDDE               ; HL kept
-    CALL GX_FACC                   ; (ixWord),
+    CALL GX_FLDDE                  ; HL kept (ixWord),
     JR   .OWNER                    ; or
 .NOOWN:                        ; none: LD DE,0
     CALL HN_DEZ                    ; and PUSH DE;
@@ -882,8 +881,7 @@ RO_VIEW:
     PUSH HL                        ; Keep its offset.
     CALL GA_ADDR                   ; The address first.
     POP  HL                        ; The capacity word
-    LD   DE,GX_DLDDE               ; into DE, HL kept (ixWord).
-    CALL GX_FACC                   ; Append it.
+    CALL GX_FLDDE                  ; into DE, HL kept (ixWord). Append it.
 .PUSHDE:                       ; The view's word is in DE:
     JP   HN_PSHDE                  ; PUSH DE, counted; return.
 .CLASS:                        ; A routine's name where a variable is due.

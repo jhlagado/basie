@@ -599,8 +599,7 @@ CT_WIDE:
 CT_BOUND:
     LD   B,CT_FBND                 ; The bound's offset
     CALL CT_FWORD                  ; is HL.
-    LD   DE,GX_DLDDE               ; DE = (IX+d).
-    JP   GX_FACC                   ; Load it and return.
+    JP   GX_FLDDE                  ; DE = (IX+d). Load it and return.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; After a comparison of the innermost for loop's counter, or of its

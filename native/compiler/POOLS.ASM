@@ -130,20 +130,14 @@ PL_ENDP:                       ; A part or the program has ended:
 PL_RUN:                        ; A is the entry's offset:
     JP   OV_PCALL                  ; run (OVERLAY.ASM).
 
-;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE
+;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,IX,IY
 ; SavePoolCapacity: the bound must be known (not-constant) and fit a u16,
 ; each at the bound; zero is out-of-range at the pool's name, as the
 ; reference reports it (a pool needs at least one slot).
 
-PL_HOLD:                       ; The bound is parsed.
-    CALL EX_RTOK                   ; A its metadata, HL its value.
-    AND  SY_KNOWN                  ; Folded to a constant?
-    LD   A,DG_KNOWN                ; No: not-constant,
-    JP   Z,AG_EVAL                 ; at the bound.
-    LD   E,SY_U16                  ; It must fit
-    LD   A,D                       ; a u16.
-    CALL EX_FITS                   ; Checked at the bound.
-    LD   (PL_NCAP),HL              ; The capacity.
+PL_HOLD:                       ; The bound is parsed:
+    CALL AC_CNT0                   ; known, a u16, at the bound,
+    LD   (PL_NCAP),HL              ; is the capacity.
     LD   A,H                       ; Zero?
     OR   L                         ; Then
     RET  NZ                        ; out of range,

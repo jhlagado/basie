@@ -156,8 +156,7 @@ GX_FLOAD:                      ; A is the type, HL the offset.
     POP  HL                        ; then,
     INC  HL                        ; two
     INC  HL                        ; bytes on,
-    LD   DE,GX_DLDDE               ; its high word into DE.
-    JR   GX_FACC                   ; Load it and return.
+    JR   GX_FLDDE                  ; its high word into DE. Load it and return.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Store the registers into the local or parameter of scalar type A at
@@ -191,6 +190,12 @@ GX_FZERO:                      ; B bytes from offset HL.
     POP  BC                        ; The count.
     DJNZ .BYTE                     ; Until every byte is zero.
     RET                            ; The local is clear.
+
+;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; GX_FACC for GX_DLDDE: LD E,(IX+d), LD D,(IX+d+1), near or far (ixWord).
+
+GX_FLDDE:                      ; HL is the offset.
+    LD   DE,GX_DLDDE               ; The word into DE; fall into GX_FACC.
 
 ;@ROUTINE IN DE,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the frame access that entry DE describes (the module header) for
