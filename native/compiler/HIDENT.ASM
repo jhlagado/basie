@@ -176,17 +176,17 @@ HN_IDV0:                       ; E is the location's type.
     CP   TK_NAME                   ; A name?
     JR   Z,.NAME                   ; Its value.
     CP   TK_NEW                    ; A fresh owner
-    JR   Z,.CLASH                  ; is no identifier (7.9),
+    JP   Z,.CLASH                  ; is no identifier (7.9),
     CP   TK_MOVE                   ; nor is a moved
-    JR   Z,.CLASH                  ; one;
+    JP   Z,.CLASH                  ; one;
     XOR  A                         ; anything else
     CALL EX_RUN                    ; is an expression,
-    JR   .CLASH                    ; no identifier.
+    JP   .CLASH                    ; no identifier.
 .NONE:                         ; none:
     POP  DE                        ; (the type)
     PUSH DE                        ; an
     BIT  0,E                       ; optional
-    JR   Z,.CLASH                  ; location only.
+    JP   Z,.CLASH                  ; location only.
     CALL PR_TAKE                   ; Taken:
     CALL EM_SEQ                    ; LD HL,0,
     DB   6,$21,0,0,$11,0,0         ; LD DE,0.
@@ -220,7 +220,23 @@ HN_IDV0:                       ; E is the location's type.
     CALL HN_VOIDQ                  ; it has a result (no-value),
     CALL RO_CALL                   ; called: A its result,
     CALL PL_ISHND                  ; an identifier's in DEHL;
-    JP   NC,TR_OPER                ; any other's path waits;
+    JR   C,.HND                    ; an aggregate's
+    CP   AG_FILE                   ; path
+    JP   Z,TR_OPER                 ; (not a File's,
+    CP   AG_FIRST                  ; which waits)
+    JP   C,TR_OPER                 ; selects
+    CALL RO_START                  ; one,
+    CALL PL_ISHND                  ; loaded
+    JR   NC,.CLASH                 ; if it is
+    BIT  1,A                       ; an
+    JR   Z,.CLASH                  ; identifier
+    PUSH AF                        ; (its type kept)
+    LD   A,SY_U32                  ; as its
+    LD   (RO_OTYPE),A              ; four
+    CALL GA_LOAD                   ; bytes;
+    POP  AF                        ; checked.
+    JR   .CHECK                    ; Or
+.HND:                          ; a handle:
     BIT  1,A                       ; an owner's
     JR   Z,.CLASH                  ; is none.
 .CHECK:                        ; A is the value's type.

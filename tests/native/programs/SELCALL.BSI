@@ -1,0 +1,56 @@
+// select on a path from a call's aggregate result (74): an owner, an
+// identifier and an integer subject.
+forward pool nodes
+record Node
+    v as u16
+    next as nodes?
+end
+pool nodes as Node[4]
+record Holder
+    head as nodes?
+    ref as id nodes?
+    n as u8
+end
+var hold as Holder
+var all as Holder[2]
+sub get() as Holder
+    return hold
+end
+sub row() as Holder[2]
+    return all
+end
+sub main() fails
+    hold.head = new nodes(3, none)
+    hold.ref = id(hold.head)
+    hold.n = 2
+    var t as u16 = 0
+    select get().head
+    case some(i)
+        t = t + i.v
+    case none
+    end
+    select get().ref
+    case some(i)
+        t = t + i.v
+    case none
+    end
+    select row()[1].ref
+    case some(i)
+        fail 1
+    case none
+        t = t + 1
+    end
+    select get().n
+    case 2
+        t = t + 10
+    case else
+    end
+    select get().n + 1
+    case 3
+        t = t + 100
+    case else
+    end
+    if t = 117
+        writeText(console, "select on calls\r\n") else fail
+    end
+end

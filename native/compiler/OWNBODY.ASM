@@ -48,13 +48,18 @@ OW_SEL:                        ; AC_BOUND is the handle's type.
     LD   HL,(EX_START)             ; at the
     JP   DG_HERE                   ; subject.
 .OWNER:                        ; The subject's kind:
-    LD   HL,(EX_START)             ; used,
+    LD   HL,(RO_PROOT)             ; a path rooted
+    LD   A,H                       ; in a call's
+    OR   L                         ; result is
+    JR   Z,.MODE                   ; not tracked;
+    LD   HL,(EX_START)             ; another is used,
     LD   (FW_PLACE),HL             ; at its name:
     LD   A,(AC_BOUND)              ; an owner
     BIT  1,A                       ; directly
     CALL Z,FW_SEEN               ; (noteDirect),
     CALL FW_USE                    ; then checkUsable.
-    LD   C,8                       ; A handle select,
+.MODE:                         ; The mode:
+    LD   C,8                       ; a handle select,
     LD   A,(RO_PKIND)              ; a lease for a local or
     CP   GA_FRAME                  ; parameter in the frame (not
     JR   NZ,.LOAD                  ; a slot-holder's location),

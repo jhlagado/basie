@@ -81,7 +81,7 @@ AC_PICK:
     CP   TK_NAME                   ; begins a designator,
     JR   Z,.NAME                   ; anything else an expression,
     CP   TK_TEXT                   ; but a string literal
-    JR   NZ,.VALUE                 ; is no integer
+    JP   NZ,.VALUE                 ; is no integer
     LD   A,DG_CLASH                ; (type-mismatch
     JP   DG_ISSUE                  ; at it).
 .NAME:                         ; A name.
@@ -92,7 +92,7 @@ AC_PICK:
     INC  HL                        ; past its spelling's
     LD   A,(HL)                    ; address and length:
     AND  SY_CMASK                  ; a constant's or a type's
-    JR   Z,.VALUE                  ; is an expression's.
+    JP   Z,.VALUE                  ; is an expression's.
     BIT  7,(HL)                    ; SY_AGGR: a path?
     LD   HL,(TK_POS)               ; The designator
     LD   (EX_START),HL             ; starts here:
@@ -103,29 +103,56 @@ AC_PICK:
 .PATH:                         ; A path, its root's name next:
     CALL PR_TAKE                   ; taken,
     CALL RO_NAMED                  ; the path parsed: a handle
+.PICKED:                       ; A is the path's type:
     CALL PL_ISHND                  ; is selected
     JP   C,HN_SEL                  ; by its arms;
     CALL .MOVE                     ; (no `move` of anything else)
     CALL RO_LOAD                   ; a scalar is loaded.
 .LOADED:                       ; A is its type.
     CALL .MOVE                     ; `move` is refused first.
-    JR   .TYPED                    ; A is its type.
+    JP   .TYPED                    ; A is its type.
 .CALL:                         ; A routine's identifier result
     LD   A,(AC_MODE)               ; (not moved)
     OR   A                         ; is selected
     JR   Z,.VALUE                  ; by its arms
     CALL RO_FIND                   ; from
     JR   NZ,.VALUE                 ; DEHL;
-    CALL AC_ROOT                   ; any
-    CALL PL_ISHND                  ; other
-    JR   NC,.VALUE                 ; value
-    AND  AG_HID                    ; is an
-    JR   Z,.VALUE                  ; expression.
+    CALL AC_ROOT                   ; or
+    CALL PL_ISHND                  ; a path
+    JR   C,.HCALL                  ; from
+    CP   AG_FILE                   ; an
+    JR   Z,.VALUE                  ; aggregate
+    CP   AG_FIRST                  ; result
+    JR   C,.VALUE                  ; (any other value is an
+    CALL RO_PART                   ; expression): the call and its path,
+    CALL PL_ISHND                  ; a handle
+    JR   NC,.SCALAR                ; alone
+    PUSH AF                        ; (the type
+    CALL PR_PEEK                   ; kept),
+    CP   TK_EOL                    ; else type-mismatch
+    JP   NZ,EX_EFIT                ; at the subject;
+    POP  AF                        ; with
+    LD   HL,0                      ; no symbol
+    LD   (RO_PROOT),HL             ; its root, selected
+    JR   .PICKED                   ; as a path is.
+.SCALAR:                       ; A scalar
+    CALL RO_LOAD                   ; loaded, the first
+    LD   (EX_PRIME),A              ; primary
+    LD   A,2                       ; (no lone
+    LD   (EX_CHR),A                ; character)
+    LD   HL,(EX_START)             ; of the expression
+    CALL EX_PFROM                  ; from the subject's start,
+    JR   .VTAIL                    ; selected as one.
+.HCALL:                        ; A handle result:
+    AND  AG_HID                    ; any but an identifier
+    JR   Z,.VALUE                  ; is an expression.
     LD   HL,(TK_POS)               ; The subject
-    LD   (EX_START),HL             ; starts here:
+    PUSH HL                        ; starts here:
     CALL PR_TAKE                   ; the name taken,
     CALL RO_FIND                   ; the routine
     CALL RO_CALL                   ; called, A its result,
+    POP  HL                        ; its start
+    LD   (EX_START),HL             ; kept across its arguments,
     CALL HN_TAIL                   ; alone (DG_NYI otherwise),
     PUSH AF                        ; (kept)
     CALL AC_SAFE                   ; no failure pending.
@@ -138,6 +165,7 @@ AC_PICK:
 .VALUE:                        ; An expression,
     XOR  A                         ; nothing expected of it:
     CALL EX_RUN                    ; A is its metadata, HL its value.
+.VTAIL:                        ; The expression is parsed:
     CALL .MOVE                     ; `move` is refused first.
     LD   D,A                       ; Keep the metadata:
     CALL AC_SAFE                   ; no failure may be pending.

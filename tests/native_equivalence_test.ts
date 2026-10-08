@@ -405,6 +405,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: local owning records": ["LOCREC", "LOCPOOL"],
   "74: File fields, elements and results": ["FILEFLD", "FILEIDX"],
   "74: comparisons as inferred locals": ["INFCMP"],
+  "74: paths from calls": ["CALLID", "SELCALL"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1024,6 +1025,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["74: local owning records"],
     ...CLAIMED["74: File fields, elements and results"],
     ...CLAIMED["74: comparisons as inferred locals"],
+    ...CLAIMED["74: paths from calls"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1479,6 +1481,16 @@ const REFUSED: Record<string, string> = {
     'sub n() as u8\n    return 1\nend\nsub main() fails\n    writeText(n(), "x") else fail\nend\n',
   "a call's number after its arguments where a File is wanted":
     "sub g(x as u8) as u16\n    return 1\nend\nsub main()\n    var f as File = console\n    f = g(5)\nend\n",
+  "a call's owner path compared as a select subject":
+    "forward pool nodes\nrecord Node\n    v as u16\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Holder\n    head as nodes?\n    ref as id nodes?\n    n as u8\nend\nvar hold as Holder\nsub get() as Holder\n    return hold\nend\nsub getf() as Holder fails\n    return hold\nend\nsub main()\n    select get().head = none\n    case 1\n    case else\n    end\nend\n",
+  "a call's identifier paths compared as a select subject":
+    "forward pool nodes\nrecord Node\n    v as u16\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Holder\n    head as nodes?\n    ref as id nodes?\n    n as u8\nend\nvar hold as Holder\nsub get() as Holder\n    return hold\nend\nsub getf() as Holder fails\n    return hold\nend\nsub main()\n    select get().ref = get().ref\n    case 1\n    case else\n    end\nend\n",
+  "a failable call's record as a select subject":
+    "forward pool nodes\nrecord Node\n    v as u16\n    next as nodes?\nend\npool nodes as Node[4]\nrecord Holder\n    head as nodes?\n    ref as id nodes?\n    n as u8\nend\nvar hold as Holder\nsub get() as Holder\n    return hold\nend\nsub getf() as Holder fails\n    return hold\nend\nsub main() fails\n    select getf() else fail\n    case 1\n    case else\n    end\nend\n",
+  "a call's Boolean field as a select subject":
+    "record R\n    b as boolean\n    n as u8\nend\nvar r as R\nsub get2(x as u8) as R\n    return r\nend\nsub main()\n    select get2(5).b\n    case 1\n    case else\n    end\nend\n",
+  "a call's record as a select subject":
+    "record R\n    b as boolean\n    n as u8\nend\nvar r as R\nsub get2(x as u8) as R\n    return r\nend\nsub main()\n    select get2(5)\n    case 1\n    case else\n    end\nend\n",
   "a string capacity past 253": "var s as string[254]\nsub main()\nend\n",
   "a string capacity of zero": "var s as string[0]\nsub main()\nend\n",
   "an array of strings past 64K":

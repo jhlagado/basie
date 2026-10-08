@@ -1,0 +1,40 @@
+// Identifiers read from a call's aggregate result (74): its path parsed
+// from the result's address, the identifier's four bytes loaded.
+forward pool nodes
+record Node
+    v as u16
+    next as nodes?
+end
+pool nodes as Node[4]
+record Holder
+    head as nodes?
+    ref as id nodes?
+    n as u16
+end
+var hold as Holder
+var keep as id nodes?
+var all as Holder[2]
+sub get() as Holder
+    return hold
+end
+sub row() as Holder[2]
+    return all
+end
+sub use(i as id nodes?) as u8
+    select i
+    case some(n)
+        return 1
+    case none
+        return 0
+    end
+end
+sub main() fails
+    var n = new nodes(5, none)
+    hold.ref = id(n)
+    var p as id nodes? = get().ref
+    keep = get().ref
+    var k as u8 = use(get().ref) + use(row()[1].ref)
+    if p = keep and k = 1
+        writeText(console, "identifiers from calls\r\n") else fail
+    end
+end
