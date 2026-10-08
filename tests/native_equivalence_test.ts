@@ -408,6 +408,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: paths from calls": ["CALLID", "SELCALL"],
   "74: main as a routine, forward and recursive": ["MAINREC"],
   "74: aggregate arguments in parentheses": ["PARARG"],
+  "74: handle values in parentheses": ["PARHND"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1098,6 +1099,18 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "a new handle of another pool in parentheses, initializing":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\npool other as Job[2]\nvar g as jobs?\nsub main()\nvar h as jobs? = (new other(1))\nend\n",
+  "a new handle of another pool in parentheses, assigned":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\npool other as Job[2]\nvar g as jobs?\nsub main()\ng = (new other(1))\nend\n",
+  "an owner in parentheses, copied":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\npool other as Job[2]\nvar g as jobs?\nsub main()\ng = (g)\nend\n",
+  "none in parentheses for a handle that is not optional":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\npool other as Job[2]\nvar g as jobs?\nsub main()\nvar h as jobs = (none)\nend\n",
+  "a new handle of another pool in parentheses, passed":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\npool other as Job[2]\nvar g as jobs?\nsub f(x as jobs?)\nend\nsub main()\nf((new other(1)))\nend\n",
+  "an owner in parentheses, passed":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\npool other as Job[2]\nvar g as jobs?\nsub f(x as jobs?)\nend\nsub main()\nf((g))\nend\n",
   "an array of another type in parentheses":
     "var a as u16[4]\nsub f(x as u8[4]) as u8\nreturn x[0]\nend\nsub main()\nvar c = f((a))\nend\n",
   "an index after an argument in parentheses":

@@ -157,10 +157,13 @@ HN_IDEX:                       ; `id` was the token.
 ; for an optional location; anything else type-mismatch, at HN_AT when an
 ; assignment set it, else at the value; a routine's identifier result, in
 ; DEHL from its call. A path from an aggregate result waits (DG_NYI).
+; The value may be in parentheses (HN_OPEN, HN_CLOSE).
 
 HN_IDV:                        ; E is the location's type.
-    CALL HN_IDV0                   ; The value,
-    JR   HN_TAIL                   ; ending there; return.
+    CALL HN_OPEN                   ; Its parentheses, B,
+    PUSH BC                        ; (counted)
+    CALL HN_IDV0                   ; the value,
+    JP   HN_CLOSE                  ; and theirs, ending there; return.
 
 HN_IDV0:                       ; E is the location's type.
     PUSH DE                        ; Kept.

@@ -214,11 +214,14 @@ HN_NEW:                        ; `new` is next.
 ; optional handle; none, LD HL,0, only for an optional handle; either
 ; else type-mismatch, at HN_AT when an assignment set it (its target),
 ; else at the value. A name's value waits (DG_NYI); anything else is
-; parsed as an expression, then type-mismatch.
+; parsed as an expression, then type-mismatch. The value may be in
+; parentheses (HN_OPEN, HN_CLOSE).
 
 HN_OWNV:                       ; E is the handle's type.
-    CALL HN_OWN0                   ; The value,
-    JP   HN_TAIL                   ; ending there; return.
+    CALL HN_OPEN                   ; Its parentheses, B,
+    PUSH BC                        ; (counted)
+    CALL HN_OWN0                   ; the value,
+    JP   HN_CLOSE                  ; and theirs, ending there; return.
 
 HN_OWN0:                       ; E is the handle's type.
     PUSH DE                        ; Kept.
@@ -990,6 +993,54 @@ HN_DELHL:                      ; The handle is in HL.
     LD   DE,HP_PDEL                ; POOL_DEL,
     LD   A,D                       ; its stack figure
     JP   EM_HWORD                  ; counted; return.
+
+;@ROUTINE OUT B CLOBBERS A,C,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A handle's value may be in parentheses, as the reference's primary
+; allows: take each `(` before it, B of them, and unless an assignment
+; gave its target (HN_AT), make the first where a mismatch is reported,
+; as the value's start. DE is kept.
+
+HN_OPEN:                       ; A value is next.
+    PUSH DE                        ; (kept)
+    CALL PR_SPOT                   ; Its kind and start:
+    LD   B,0                       ; no parentheses
+    CP   TK_LPAR                   ; unless
+    JR   NZ,.DONE                  ; one is first;
+    LD   DE,(HN_AT)                ; then the
+    LD   A,D                       ; target,
+    OR   E                         ; if any,
+    JR   NZ,.TAKE                  ; else the
+    LD   (HN_AT),HL                ; first `(`.
+.TAKE:                         ; Another `(`:
+    INC  B                         ; counted,
+    PUSH BC                        ; (kept)
+    CALL PR_TAKE                   ; taken;
+    CALL PR_PEEK                   ; another
+    POP  BC                        ; follows?
+    CP   TK_LPAR                   ; Then
+    JR   Z,.TAKE                   ; take it too.
+.DONE:                         ; B parentheses.
+    POP  DE                        ; DE again.
+    RET                            ; Done.
+
+;@ROUTINE CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; HN_OWNV's and HN_IDV's end, entered by JP with the count of HN_OPEN's
+; parentheses on the stack: each is closed at once (anything else waits,
+; DG_NYI), then the value ends (HN_TAIL), which returns to their caller.
+
+HN_CLOSE:                      ; The count is on the stack.
+    POP  BC                        ; B parentheses
+    INC  B                         ; are
+.SHUT:                         ; open:
+    DEC  B                         ; none
+    JP   Z,HN_TAIL                 ; left, the value ends there.
+    PUSH BC                        ; (counted)
+    CALL PR_PEEK                   ; A `)`
+    CP   TK_RPAR                   ; next,
+    JP   NZ,TR_OPER                ; else it waits;
+    CALL PR_TAKE                   ; taken.
+    POP  BC                        ; The count.
+    JR   .SHUT                     ; The next.
 
 ;@ROUTINE OUT C,HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The next token's kind, C, and where a mismatch of the value it begins

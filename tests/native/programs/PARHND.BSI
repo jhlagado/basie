@@ -1,0 +1,26 @@
+// Handle values in parentheses, as the reference's primary allows: an
+// owner made, moved or none, assigned, passed, returned and initializing
+// a typed local; an identifier made or none, assigned.
+record Job
+    number as u16
+end
+pool jobs as Job[4]
+var g as jobs?
+var k as id jobs?
+
+sub take(x as jobs?)
+end
+
+sub make() as jobs?
+    return (new jobs(3))
+end
+
+sub main()
+    g = (new jobs(1))
+    k = (id(g))
+    take(((move g)))
+    take((new jobs(2)))
+    var h as jobs? = (make())
+    g = (none)
+    k = ((none))
+end
