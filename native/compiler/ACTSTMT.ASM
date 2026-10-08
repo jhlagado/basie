@@ -4,8 +4,8 @@
 ;
 ;  The actions for local declarations, name statements (calls and
 ;  assignments), return, exit and continue, if and while; the counted for
-;  loop's are in ACTFOR.ASM, which follows. The calling convention is that of ACTIONS.ASM; the control frames
-;  and labels are CONTROL.ASM's.
+;  loop's are in ACTFOR.ASM, which follows. The calling convention is
+;  that of ACTIONS.ASM; the control frames and labels are CONTROL.ASM's.
 ;
 ;  Principal entries:
 ;    AC_LOCAL, AC_INIT, AC_LINIT, AC_ZERO, AC_ADOPT, AC_BIND  local declarations

@@ -323,14 +323,8 @@ EX_AND:
     CALL EX_OPEN                   ; Keep the left operand.
     LD   C,2                       ; The right operand, an operand
     LD   DE,EX_NOT                 ; of and, where no move
-    CALL HN_NOMOV                  ; may be: parsed.
-    CALL EX_POP                    ; Pop the left operand beneath it.
-    CALL EX_LBOOL                  ; Is the left Boolean?
-    JR   NZ,.INTEGER               ; No: reduce integer `and`.
-    CALL EX_LOGIC                  ; Close the short circuit and fold.
-    JR   .LOOP                     ; Look for another `and`.
-.INTEGER:                      ; Integer operands.
-    CALL EX_ARITH                  ; Reduce the bitwise `and`.
+    CALL HN_NOMOV                  ; may be: parsed,
+    CALL EX_REDL                   ; and reduced (EX_REDL).
     JR   .LOOP                     ; Look for another `and`.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
@@ -399,19 +393,24 @@ EX_ORS:                        ; A/HL is the result so far.
     JR   .RIGHT                    ; may have one.
 .XOR:                          ; `xor`'s right operand:
     CALL EX_AND                    ; parsed.
-.RIGHT:                        ; The right operand is parsed.
-    CALL EX_POP                    ; Pop the left operand beneath it.
-    CALL EX_LBOOL                  ; Is the left Boolean?
-    JR   NZ,EX_ORINT               ; No: reduce the integer operator.
-    CALL EX_LOGIC                  ; Close the short circuit and fold.
+.RIGHT:                        ; The right operand is parsed:
+    CALL EX_REDL                   ; reduced.
     JR   EX_ORS                    ; Look for another operator.
 EX_DONE:                       ; No further operator at this level.
     POP  HL                        ; Recover the value.
     POP  AF                        ; Recover the metadata.
     RET                            ; Return the result.
-EX_ORINT:                      ; Integer `or` or `xor`.
-    CALL EX_ARITH                  ; Reduce the bitwise operator.
-    JR   EX_ORS                    ; Look for another operator.
+
+;@ROUTINE IN A,HL OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
+; Reduce a logical operator's right operand, A/HL, with the left beneath
+; it (EX_POP): a Boolean left closes its short circuit and folds
+; (EX_LOGIC), an integer one reduces the bitwise operator (EX_ARITH).
+
+EX_REDL:                       ; The right operand is parsed.
+    CALL EX_POP                    ; Pop the left operand beneath it.
+    CALL EX_LBOOL                  ; Is the left Boolean?
+    JP   Z,EX_LOGIC                ; Then close the short circuit; or
+    JP   EX_ARITH                  ; reduce the integer operator.
 
 ; Boolean `xor` (logicalOrBitwise), D/HL its left operand: a known left
 ; folds with a known right or appends XOR n; a computed one is kept by
@@ -762,8 +761,7 @@ EX_STORE:
 
 EX_EFLOW:                      ; A return of the wrong form:
     LD   A,DG_RFORM                ; return-form,
-    LD   HL,AC_SPOS                ; at `return`
-    JP   DG_AT                     ; (AC_RET keeps it). No return.
+    JP   DG_KEPT                   ; at `return` (AC_RET keeps it).
 
 ;@ROUTINE IN A,HL OUT A,HL CLOBBERS BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Prepare the left operand A/HL of the operator EX_OPER, just taken, for

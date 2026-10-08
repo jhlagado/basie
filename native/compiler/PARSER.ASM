@@ -266,8 +266,8 @@ PR_EQUAL:
 ; Raise DG_VALUE: a value was required here.
 
 PR_ETERM:
-    LD   A,DG_VALUE                ; The missing-value diagnostic.
-    JP   DG_ISSUE                  ; Abandon the build.
+    CALL DG_RAISE                  ; The missing-value diagnostic.
+    DB   DG_VALUE                  ; Abandon the build.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,HL
 ; Clear the state one compilation accumulates: the diagnostic, the

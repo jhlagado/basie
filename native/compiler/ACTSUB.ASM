@@ -289,9 +289,7 @@ AC_SIG:
     CALL .FRESH                    ; Reject a name already in use.
     CALL EX_MAIN                   ; Is the name `main`?
     JR   C,.MAIN                   ; Yes: open main.
-    LD   HL,KW_ID                  ; `id (` is always the conversion
-    LD   B,2                       ; (spec 3.5), so no routine
-    CALL TK_MATCH                  ; may be named id:
+    CALL TK_ISID                   ; `id (` is the conversion (3.5): no routine is `id`:
     LD   A,DG_CLASS                ; raise wrong-class,
     JP   C,DG_NAMED                ; naming it.
     LD   HL,RO_CREC                ; The routine being declared,

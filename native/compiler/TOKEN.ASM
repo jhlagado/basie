@@ -128,6 +128,13 @@ TK_ALNUM:                      ; A: the byte to classify.
     SCF                            ; Carry set: continue the name.
     RET                            ; Report the byte as part of a name.
 
+;@ROUTINE OUT CARRY,ZERO CLOBBERS A,B,DE,HL,SIGN,PARITY,HALFCARRY
+; Carry if the current name is `id` (TK_MATCH with KW_ID).
+
+TK_ISID:                       ; The name is current:
+    LD   HL,KW_ID                  ; `id`,
+    LD   B,2                       ; two bytes; fall into TK_MATCH.
+
 ;@ROUTINE IN B,HL OUT CARRY,ZERO CLOBBERS A,B,DE,HL,SIGN,PARITY,HALFCARRY
 ; Compare the current name, TK_LEN bytes at TK_PTR, with the B bytes at
 ; HL. Carry reports an exact, case-sensitive match; ZERO agrees while the
@@ -568,8 +575,8 @@ TK_QNEXT:                      ; Take the next byte of the body.
 TK_QCNT:                       ; One more decoded byte.
     INC  C                         ; Count it.
     JR   NZ,TK_QNEXT               ; Take the next byte.
-    LD   A,DG_RANGE                ; 256 bytes: too long for TK_LEN,
-    JP   DG_ISSUE                  ; and for any string (out-of-range).
+    CALL DG_RAISE                  ; 256 bytes: too long for TK_LEN,
+    DB   DG_RANGE                  ; and for any string (out-of-range).
 TK_QESC:                       ; The backslash is consumed; the escape follows.
     LD   HL,(SRC_POS)              ; The backslash's
     DEC  HL                        ; offset,
@@ -758,8 +765,8 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
     JP   TK_DONE                   ; Return the closing bracket.
 
 TK_DEEP:                       ; Brackets open 256 deep:
-    LD   A,DG_NEST                 ; this compiler's capacity,
-    JP   DG_ISSUE                  ; nesting.
+    CALL DG_RAISE                  ; this compiler's capacity,
+    DB   DG_NEST                   ; nesting.
 
 ; HL is at the KW_PUNCT descriptor for the byte in A, not yet consumed. Bit
 ; 7 of a descriptor introduces a based number, and its low seven bits are
@@ -782,8 +789,8 @@ TK_BASED:                      ; C: the descriptor of $ or %.
 ; line and decides whether the parser sees it as a token.
 
 TK_ECR:                        ; A carriage return without a line feed.
-    LD   A,DG_CR                   ; lone-cr,
-    JP   DG_ISSUE                  ; at the line's end.
+    CALL DG_RAISE                  ; lone-cr,
+    DB   DG_CR                     ; at the line's end.
 
 TK_LF:                         ; A: LF.
     CALL SRC_TAKE                  ; Consume it.

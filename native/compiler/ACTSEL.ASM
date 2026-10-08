@@ -82,8 +82,8 @@ AC_PICK:
     JR   Z,.NAME                   ; anything else an expression,
     CP   TK_TEXT                   ; but a string literal
     JP   NZ,.VALUE                 ; is no integer
-    LD   A,DG_CLASH                ; (type-mismatch
-    JP   DG_ISSUE                  ; at it).
+    CALL DG_RAISE                  ; (type-mismatch
+    DB   DG_CLASH                  ; at it).
 .NAME:                         ; A name.
     CALL SY_FIND                   ; A symbol?
     JR   NC,.CALL                  ; No: a routine, or undeclared.

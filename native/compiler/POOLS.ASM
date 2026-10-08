@@ -253,9 +253,7 @@ PL_MARK:                       ; A is the type's ID.
 ; owning handle. Not carry otherwise, for a record type or File.
 
 PL_TYPE:                       ; The NAME is current.
-    LD   HL,KW_ID                  ; `id`
-    LD   B,2                       ; (two bytes)?
-    CALL TK_MATCH                  ; Matched:
+    CALL TK_ISID                   ; `id` (two bytes)? Matched:
     JR   NC,.OWNER                 ; if not, perhaps a pool.
     CALL PR_PEEK                   ; A name
     CP   TK_NAME                   ; follows?

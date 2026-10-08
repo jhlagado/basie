@@ -258,12 +258,8 @@ SY_CMT:
     LD   HL,(SY_TOP)               ; The provisional record's
     LD   DE,SY_FLAGS               ; flags:
     ADD  HL,DE                     ; is the
-    LD   A,(AC_PRIV)               ; declaration
-    OR   A                         ; private?
-    JR   Z,.FLAG                   ; Not:
-    LD   A,SY_FPRIV                ; zero; else SY_FPRIV.
-.FLAG:                         ; A is the flags.
-    LD   (HL),A                    ; Recorded.
+    LD   A,(AC_PRIV)               ; declaration private? AC_PRIV,
+    LD   (HL),A                    ; one or zero, is SY_FPRIV or none.
     LD   HL,(SY_TOP)               ; Its spelling
     PUSH HL                        ; (the record kept)
     CALL WD_GET                    ; its name's address, HL its length.

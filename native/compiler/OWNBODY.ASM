@@ -201,8 +201,7 @@ OW_ONCE:                       ; C is the bit.
     LD   (HL),A                    ; set.
     RET                            ; HL is the mode.
 .TWICE:                        ; At `case`:
-    LD   HL,AC_SPOS                ; syntax.
-    JP   DG_AT                     ; No return.
+    JP   DG_KEPT                   ; syntax. No return.
 
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; CaseElse of a handle select: once, with none (syntax at `case`), the

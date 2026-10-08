@@ -613,9 +613,7 @@ RO_ARGS:
     CP   TK_NAME                   ; a path begins with
     JR   NZ,.VALUE                 ; a name
     PUSH HL                        ; (the start
-    LD   HL,KW_ID                  ; kept)
-    LD   B,2                       ; other than
-    CALL TK_MATCH                  ; `id`;
+    CALL TK_ISID                   ; kept) other than `id`;
     POP  HL                        ; any other
     JR   NC,.PATH                  ; value
 .VALUE:                        ; is parsed

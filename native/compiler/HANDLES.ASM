@@ -852,9 +852,7 @@ HN_ETERM:                      ; A is the token's kind.
 ; caller. Any other NAME is kept.
 
 HN_ISID:                       ; The NAME is current.
-    LD   HL,KW_ID                  ; `id`
-    LD   B,2                       ; (two bytes)?
-    CALL TK_MATCH                  ; If not,
+    CALL TK_ISID                   ; `id` (two bytes)? If not,
     RET  NC                        ; an ordinary name;
     CALL HN_PAREN                  ; with `(`
     RET  NZ                        ; it is id(...),

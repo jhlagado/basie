@@ -127,7 +127,7 @@ SY_BTM EQU  EM_WEND+$09        ; Word: the first record, above the largest part.
 SY_RECB EQU  12                ; Bytes in one symbol record.
 SY_FLAGS EQU  9                ; Record offset of its flags.
 SY_LINK EQU  10                ; Record offset of the next record in its chain.
-SY_FPRIV EQU  1                ; Flag: declared private (AC_PRIV).
+SY_FPRIV EQU  1                ; Flag: declared private; AC_PRIV holds it or zero.
 SY_AGT EQU  6                  ; Record offset of an aggregate's type ordinal.
 SY_VHI EQU  6                  ; Record offset of a constant's value's high bytes.
 SY_HTAB EQU  SY_BTM+2          ; SY_HCAP words: each hash chain's newest record.
@@ -143,24 +143,27 @@ SY_LIM EQU  SY_HTAB+2*SY_HCAP  ; End of the symbol table's marks and chains.
 ; bytes: metadata, the five value bytes, EX_QUIET, operator, operator
 ; offset word and the six-byte position of the left value.
 EX_WANT EQU  SY_LIM+$00        ; Byte: type the context expects.
-EX_QUIET EQU  SY_LIM+$01       ; Byte: nonzero while faults fold to values.
-EX_DEPTH EQU  SY_LIM+$02       ; Byte: entries on the operand stack.
-EX_RMETA EQU  SY_LIM+$03       ; Byte: right operand's metadata.
-EX_RVAL EQU  SY_LIM+$04        ; Five bytes: right operand's exact value.
-EX_LMETA EQU  SY_LIM+$09       ; Byte: left operand's metadata.
-EX_LVAL EQU  SY_LIM+$0A        ; Five bytes: left operand's exact value.
+EX_DEPTH EQU  SY_LIM+$01       ; Byte: entries on the operand stack.
+EX_RMETA EQU  SY_LIM+$02       ; Byte: right operand's metadata.
+EX_RVAL EQU  SY_LIM+$03        ; Five bytes: right operand's exact value.
+; The pending left operand's context, EX_LMETA to EX_RAT, fourteen bytes
+; in an operand-stack entry's order, which EX_PUSH and EX_POP copy whole.
+EX_LMETA EQU  SY_LIM+$08       ; Byte: left operand's metadata.
+EX_LVAL EQU  SY_LIM+$09        ; Five bytes: left operand's exact value.
+EX_QUIET EQU  SY_LIM+$0E       ; Byte: nonzero while faults fold to values.
 EX_OPER EQU  SY_LIM+$0F        ; Byte: pending relation code or operator.
 EX_OPPOS EQU  SY_LIM+$10       ; Word: source offset for its trap.
+EX_LAT EQU  SY_LIM+$12         ; Word: the left operand's first offset (leftAt).
+EX_RAT EQU  SY_LIM+$14         ; Word: the right operand's first offset (rightAt).
+EX_CTX EQU  14                 ; Bytes of the context, EX_LMETA to EX_RAT.
 
 ; The declaration being parsed (ACTIONS.ASM), restored as the current name
 ; when its symbol is finally written.
-AC_DINFO EQU  SY_LIM+$12       ; Byte: class and type of the new symbol.
-AC_DVAL EQU  SY_LIM+$13        ; Five bytes: its payload, value or offset.
-AC_DNAME EQU  SY_LIM+$18       ; Word: spelling, kept by TK_KEEP.
-AC_DLEN EQU  SY_LIM+$1A        ; Byte: length of the spelling.
-AC_DPOS EQU  SY_LIM+$1B        ; Six bytes: the declared name's position.
-EX_LAT EQU  SY_LIM+$21         ; Word: the left operand's first offset (leftAt).
-EX_RAT EQU  SY_LIM+$23         ; Word: the right operand's first offset (rightAt).
+AC_DINFO EQU  SY_LIM+$16       ; Byte: class and type of the new symbol.
+AC_DVAL EQU  SY_LIM+$17        ; Five bytes: its payload, value or offset.
+AC_DNAME EQU  SY_LIM+$1C       ; Word: spelling, kept by TK_KEEP.
+AC_DLEN EQU  SY_LIM+$1E        ; Byte: length of the spelling.
+AC_DPOS EQU  SY_LIM+$1F        ; Six bytes: the declared name's position.
 EX_MINB EQU  SY_LIM+$25        ; Byte: the innermost EX_CLIMB's minimum precedence.
 EX_KMODE EQU  SY_LIM+$26       ; Byte: nonzero while a constant expression is parsed.
 TK_QCH EQU  SY_LIM+$27         ; Byte: the closing quote of the literal being scanned.

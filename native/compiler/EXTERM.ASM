@@ -89,12 +89,10 @@ EX_TERM:
 
 EX_LIT:
     LD   (EX_KVAL),HL              ; The low word,
-    PUSH HL                        ; kept,
     LD   HL,0                      ; and zero
     LD   (EX_KVAL+2),HL            ; above it,
     LD   A,H                       ; three
-    LD   (EX_KVAL+4),A             ; bytes.
-    POP  HL                        ; HL is the value; fall into EX_LITK.
+    LD   (EX_KVAL+4),A             ; bytes; fall into EX_LITK.
 
 ;@ROUTINE IN B OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO
 ; Return the known value in EX_KVAL with metadata B, its low word in HL.

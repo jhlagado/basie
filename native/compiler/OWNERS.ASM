@@ -468,8 +468,8 @@ OW_DESC:                       ; A is the type, HL its ordinal.
     JP   OW_NAMEC                  ; Named; return.
 .MANY:                         ; More than 255 entries:
     CALL PR_PEEK                   ; at the token after the line's end,
-    LD   A,DG_META                 ; capacity,
-    JP   DG_ISSUE                  ; types.
+    CALL DG_RAISE                  ; capacity,
+    DB   DG_META                   ; types.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Walk PL_WTYPE from offset zero under the root frame, whose length is

@@ -25,9 +25,7 @@
 ; name is left, no carry.
 
 HN_IDQ:                        ; A NAME is peeked.
-    LD   HL,KW_ID                  ; `id`
-    LD   B,2                       ; (two bytes)?
-    CALL TK_MATCH                  ; If not,
+    CALL TK_ISID                   ; `id` (two bytes)? If not,
     RET  NC                        ; another name.
     CALL PR_TAKE                   ; Taken:
     CALL HN_PAREN                  ; `(` next?
@@ -206,6 +204,7 @@ HN_IDV0:                       ; E is the location's type.
     CALL SY_FIND                   ; anything else
     JP   NC,SY_UNDEF               ; undeclared is no name;
     CALL RO_NAMED                  ; a path, A its type:
+.PATHT:                        ; A is the path's type:
     CALL PL_ISHND                  ; an
     JR   NC,.CLASH                 ; identifier's,
     BIT  1,A                       ; or no
@@ -225,17 +224,8 @@ HN_IDV0:                       ; E is the location's type.
     JP   Z,TR_OPER                 ; (not a File's,
     CP   AG_FIRST                  ; which waits)
     JP   C,TR_OPER                 ; selects
-    CALL RO_START                  ; one,
-    CALL PL_ISHND                  ; loaded
-    JR   NC,.CLASH                 ; if it is
-    BIT  1,A                       ; an
-    JR   Z,.CLASH                  ; identifier
-    PUSH AF                        ; (its type kept)
-    LD   A,SY_U32                  ; as its
-    LD   (RO_OTYPE),A              ; four
-    CALL GA_LOAD                   ; bytes;
-    POP  AF                        ; checked.
-    JR   .CHECK                    ; Or
+    CALL RO_START                  ; one, loaded as
+    JR   .PATHT                    ; a path's. Or
 .HND:                          ; a handle:
     BIT  1,A                       ; an owner's
     JR   Z,.CLASH                  ; is none.

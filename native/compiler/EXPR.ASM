@@ -175,18 +175,9 @@ EX_PUSH:
     JR   NC,.FULL                  ; No: the expression nests too deeply.
     CALL EX_SLOT                   ; Address the free entry.
     EX   DE,HL                     ; It is the copy's destination.
-    LD   HL,EX_LMETA               ; The left's metadata and value,
-    LD   BC,6                      ; six bytes,
-    LDIR                           ; are saved.
-    LD   A,(EX_QUIET)              ; The short-circuit quiet count:
-    LD   (DE),A                    ; saved; the right arm may raise it.
-    INC  DE                        ; Then
-    LD   HL,EX_OPER                ; the operator and its offset,
-    LD   C,3                       ; three bytes (B is zero),
-    LDIR                           ; saved,
-    LD   HL,EX_LAT                 ; and the operands' first offsets,
-    LD   C,4                       ; four bytes,
-    LDIR                           ; saved.
+    LD   HL,EX_LMETA               ; The left's metadata and value, the
+    LD   BC,EX_CTX                 ; quiet count, the operator, its offset
+    LDIR                           ; and the operands' offsets are saved.
     LD   HL,EX_DEPTH               ; Count
     INC  (HL)                      ; the new entry.
     OR   A                         ; Clear carry for success.
@@ -240,18 +231,9 @@ EX_POP:
     DEC  A                         ; Remove the top entry.
     LD   (EX_DEPTH),A              ; Publish the depth.
     CALL EX_SLOT                   ; Address the removed entry.
-    LD   DE,EX_LMETA               ; The left's metadata and value,
-    LD   BC,6                      ; six bytes,
-    LDIR                           ; restored.
-    LD   A,(HL)                    ; The quiet count saved at the push
-    LD   (EX_QUIET),A              ; is restored, ending a quiet right arm.
-    INC  HL                        ; Then
-    LD   DE,EX_OPER                ; the operator and its offset,
-    LD   C,3                       ; three bytes (B is zero),
-    LDIR                           ; restored,
-    LD   DE,EX_LAT                 ; and the operands' first offsets,
-    LD   C,4                       ; four bytes,
-    LDIR                           ; restored.
+    LD   DE,EX_LMETA               ; The left's context is restored,
+    LD   BC,EX_CTX                 ; the quiet count with it, ending
+    LDIR                           ; a quiet right arm.
     POP  BC                        ; Restore BC.
     OR   A                         ; Clear carry for success.
     RET                            ; Return with both operands in place.
