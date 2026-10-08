@@ -106,6 +106,20 @@ EX_LITK:
     OR   A                         ; Clear carry for success.
     RET                            ; Return the known result.
 
+;@ROUTINE CLOBBERS NOTHING
+; In a constant expression (EX_KMODE), the current name, a call, a service,
+; id(...) or a variable, is not-constant at it; otherwise nothing. A and
+; the flags are kept.
+
+EX_KNOT:                       ; The name is current.
+    PUSH AF                        ; Kept.
+    LD   A,(EX_KMODE)              ; A constant
+    OR   A                         ; expression?
+    LD   A,DG_KNOWN                ; Then
+    JP   NZ,DG_ISSUE               ; not-constant.
+    POP  AF                        ; A and the flags.
+    RET                            ; Back.
+
 ; Resolve a NAME primary, already consumed: a predeclared constant (exact,
 ; as the reference's are; console and printer are Files, no scalar values:
 ; DG_CLASH) or a call to a service, a routine call, an aggregate object
@@ -116,7 +130,8 @@ EX_NAME:
     CALL RO_LIB                    ; A predeclared name?
     JR   NC,.ORDINARY              ; No: an ordinary name.
     JP   M,.PREDEF                 ; A constant: its value.
-    OR   A                         ; A service without a result
+    CALL EX_KNOT                   ; A service is not constant;
+    OR   A                         ; a service without a result
     JP   Z,RO_EVOID                ; has no value (no-value).
     CALL RO_SVC                    ; A service: call it;
     JP   RO_VALUE                  ; its result is the value.
@@ -133,14 +148,17 @@ EX_NAME:
 .ORDINARY:                     ; A routine or an ordinary symbol.
     CALL HN_ISID                   ; Not id(...) yet.
     CALL RO_FIND                   ; Is it a routine?
+    CALL Z,EX_KNOT                 ; (not constant)
     JP   Z,RO_FUNC                 ; Yes: parse a call for its result.
     CALL SY_GET                    ; Fetch class/type and payload, or fail.
     LD   D,A                       ; Keep the symbol info.
     AND  SY_AGGR                   ; An aggregate?
+    CALL NZ,EX_KNOT                ; (not constant)
     JP   NZ,RO_OBJ                 ; Yes: parse its field or element path.
     LD   A,D                       ; A scalar: D is its info, BC its payload.
     CALL EX_CLASS                  ; Reject a type name; zero for a constant.
     JR   Z,.CONST                  ; A constant folds to a literal.
+    CALL EX_KNOT                   ; A variable is not constant.
     LD   A,D                       ; Recover the symbol info.
     AND  SY_TMASK                  ; Keep the type.
     LD   E,A                       ; E is the variable's type.
@@ -171,7 +189,7 @@ EX_NAME:
     LDIR                           ; The value is EX_KVAL.
     POP  BC                        ; B is the constant's type,
     SET  7,B                       ; known (SY_KNOWN).
-    JR   EX_LITK                   ; Return it.
+    JP   EX_LITK                   ; Return it.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a parenthesized expression after its '(' and require the ')'.

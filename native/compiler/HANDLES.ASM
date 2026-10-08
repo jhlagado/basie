@@ -831,6 +831,7 @@ HN_ISID:                       ; The NAME is current.
     RET  NC                        ; an ordinary name;
     CALL HN_PAREN                  ; with `(`
     RET  NZ                        ; it is id(...),
+    CALL EX_KNOT                   ; not constant;
     POP  HL                        ; EX_NAME's value:
     CALL HN_IDEX                   ; made, A its type,
     JP   HN_EQ                     ; compared; return.

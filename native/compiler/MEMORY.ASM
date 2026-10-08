@@ -8,12 +8,13 @@
 ;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
 ;           OV_AREA   the overlay area, from MM_END, as large as the largest
 ;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
-;    $6D61  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
+;    $6DD7  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
 ;           LL_STACK  the LL(1) stack, from a page's start after the
-;                     owner descriptors, then FLOAT's workspace (LL1.ASM)
-;    $7FFE  SH_WBEG   the shell's workspace, SH_WEND
-;    $810F  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
-;    $8484  MM_SRC    the source parts, the symbol table, the blob being
+;                     pools' bytes, the owner descriptors and FLOAT's
+;                     workspace below it or after it (LL1.ASM)
+;    $805E  SH_WBEG   the shell's workspace, SH_WEND
+;    $816F  MM_BLOB   the blob writer's workspace (BLOB.ASM), BL_WEND
+;    $84E4  MM_SRC    the source parts, the symbol table, the blob being
 ;                     written and the name heap
 ;           BDOS-$480 the stack, MM_STACK bytes below the BDOS entry
 ;
@@ -25,8 +26,8 @@
 ;  an extent marker that host tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $6DCA             ; Exclusive end of room for the image.
-MM_WBASE EQU  $6DCA            ; Compiler workspace: the image ends below.
+MM_RLIM EQU  $6DF8             ; Exclusive end of room for the image.
+MM_WBASE EQU  $6DF8            ; Compiler workspace: the image ends below.
 MM_WLIM EQU  $816F             ; Exclusive end of both workspaces.
 SH_WBEG EQU  $805E             ; The shell's workspace, above the compiler's.
 MM_BLOB EQU  $816F             ; The blob writer's workspace, BL_FLAGS on.

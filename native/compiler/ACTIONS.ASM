@@ -91,9 +91,9 @@ AC_BY:
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Island StaticInitializer: parse the initializer of the object being
-; declared, whose type is in AC_DINFO, into the staging (AG_PARSE), zeroed
-; first, 1K in a routine's body, 16K at top level (AG_ZERO). AC_DINFO is preserved
-; across the parse. A File's initializer is not yet compiled (DG_NYI).
+; declared, whose type is in AC_DINFO (AG_PARSE): staged, zeroed first, up
+; to 1K; streamed into its blob, at top level, below 16K (AG_ZERO). AC_DINFO
+; is preserved across the parse. A File's initializer is not yet compiled (DG_NYI).
 
 AC_IMAGE:
     LD   A,(AC_DINFO)              ; The object's type ID.
@@ -159,31 +159,42 @@ AC_NAMED:
 ; at the bound.
 
 AC_COUNT:
+    CALL AC_CNT0                   ; The bound, HL:
+    LD   A,H                       ; is it zero?
+    OR   L                         ; Test both bytes.
+    JP   Z,AG_EBND                 ; A zero bound is out of range.
+    RET                            ; HL is the bound.
+
+;@ROUTINE OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,IX,IY
+; AC_COUNT without the zero bound's check: HL is a known constant that
+; fits a u16 (not-constant, or out-of-range by EX_FITS, at the bound).
+
+AC_CNT0:
     CALL EX_RTOK                   ; The bound: A its metadata, HL its value.
     AND  SY_KNOWN                  ; Was it folded to a constant?
     LD   A,DG_KNOWN                ; No: not-constant,
     JP   Z,AG_EVAL                 ; at the bound.
     LD   E,SY_U16                  ; It must fit a u16.
     LD   A,D                       ; Recover the metadata.
-    CALL EX_FITS                   ; Check the value against u16.
-    LD   A,H                       ; Is it zero?
-    OR   L                         ; Test both bytes.
-    JP   Z,AG_EBND                 ; A zero bound is out of range.
-    RET                            ; HL is the bound.
+    JP   EX_FITS                   ; Check the value against u16; return.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,HL
-; MakeStringType: `string[N]`. N must be below 254, else DG_SIZE. The
+; MakeStringType: `string[N]`. N must be 1 to 253, else out-of-range at
+; the type's first token, `string`, as the reference reports it. The
 ; string type of capacity N, N+2 bytes, becomes the current type, shared
 ; with an identical one already declared.
 
 AC_STR:
-    CALL AC_COUNT                  ; HL is the capacity N.
-    LD   A,H                       ; Over 255?
-    OR   A                         ; Test the high byte.
-    JP   NZ,AG_EBND                ; Out of range, at the capacity.
+    CALL AC_CNT0                   ; HL is the capacity N:
+    DEC  HL                        ; N less one
+    LD   A,H                       ; must be
+    OR   A                         ; below
+    JR   NZ,AC_ERNG                ; 253,
+    LD   A,L                       ; as the length
+    CP   253                       ; byte counts
+    JR   NC,AC_ERNG                ; N+1 bytes.
+    INC  HL                        ; N again.
     LD   A,L                       ; The capacity.
-    CP   254                       ; The length byte must count N+1 bytes.
-    JP   NC,AG_EBND                ; Out of range, at the capacity.
     LD   (AG_NAUX),A               ; The candidate's capacity byte, A.
     LD   (AG_NDIM),HL              ; And its capacity word.
     LD   A,AG_KSTR                 ; A bounded string.
@@ -191,6 +202,16 @@ AC_STR:
     INC  HL                        ; Add the length byte...
     INC  HL                        ; ...and the terminator.
     LD   (AG_NSIZE),HL             ; The candidate's extent.
+    JR   AC_REUSE                  ; Interned and current; return.
+
+;@ROUTINE NORETURN
+; A string's capacity, or an array's extent past 64K, is out-of-range at
+; the type's first token (AG_TPOS), as the reference reports both.
+
+AC_ERNG:                       ; Out of range,
+    LD   A,DG_RANGE                ; at the type's
+    LD   HL,AG_TPOS                ; first token.
+    JP   DG_AT                     ; No return.
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Intern the candidate descriptor and make it the current type.
@@ -294,7 +315,7 @@ AC_ARRAY:
     LD   HL,0                      ; Sum the extent from zero.
 .SIZELOOP:                     ; Add one element per iteration.
     ADD  HL,DE                     ; One more element.
-    JP   C,AG_EWIDE                ; Past 64K: out of range.
+    JP   C,AC_ERNG                 ; Past 64K: out of range, at the type.
     DEC  BC                        ; One element fewer to add.
     LD   A,B                       ; Any left?
     OR   C                         ; Test both bytes.

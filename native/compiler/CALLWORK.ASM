@@ -6,7 +6,7 @@
 ;  at AG_WEND, and the constants of routines, calls, services and the
 ;  multipart source, then the parse driver's saved SP and the LL(1) stack
 ;  (LL1.ASM) to LL_WEND, the end of the compiler workspace. Offsets are
-;  from MM_WBASE ($6D61).
+;  from MM_WBASE.
 ;
 ;    Offset  Size  Block
 ;    +$D59     38  routine state: counts, the signature being parsed, the
@@ -22,12 +22,12 @@
 ;    +$F1D      2  PR_SP, the stack DG_ISSUE restores
 ;    +$F1F    329  the pools' table and the handles' and flows' state, 32
 ;                  frames' flows (PL_CNT to PL_WEND)
-;    +$1068    96  each table type's owner descriptor (PL_DESC, LL1.ASM)
-;    +$10C8   154  the FLOAT overlay's workspace (FL_WBEG, LL1.ASM), in
-;                  the gap before the page the LL(1) stack starts
-;    +$119E   255  the LL(1) stack (LL_DEPTH, then LL_STACK at +$119F, a page
-;                  start, so a slot's address is the page and the depth)
-;    +$129D        LL_WEND, the end of the compiler workspace, 4,765 bytes
+;    PL_WEND       the LL(1) stack from the next page's start, LL_DEPTH
+;                  just below it, the owner descriptors (PL_DESC, 96
+;                  bytes) and the FLOAT overlay's workspace (154) in the
+;                  gap below that page by whichever fits, the rest after
+;                  the stack, to LL_WEND, the end of the compiler workspace
+;                  (LL1.ASM)
 ;
 ;  PR_PARSE clears RO_BASE..RO_HEND before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and

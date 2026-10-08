@@ -976,6 +976,7 @@ OW_RBEG:
     LD   HL,(SY_TOP)               ; ...its entry the provisional
     LD   (AG_CFADR),HL             ; ...symbol record.
     XOR  A                         ; No fields yet...
+    LD   (AG_CWIDE),A              ; ...nor 64K passed,
     LD   (AG_CFCNT),A              ; ...counted...
     LD   H,A                       ; ...and no...
     LD   L,A                       ; ...bytes...
@@ -1011,7 +1012,8 @@ OW_FIELD:
 ; CommitRecordField: give the field its type (not a view, DG_BOUND, nor
 ; here a File, DG_NYI; a handle optional, DG_HOPT; then its name new,
 ; DG_DUP, in the reference's order) and its offset, the record's size so
-; far, then grow the record by the field's extent within 64K.
+; far, then grow the record by the field's extent, noting a size past 64K
+; for CommitRecord (AG_CWIDE).
 
 OW_PLACE:
     CALL AC_ITEM                   ; The field's type: not a view, nor a File.
@@ -1039,15 +1041,19 @@ OW_PLACE:
     PUSH DE                        ; Keep its offset.
     CALL AG_SIZE                   ; HL is its extent.
     POP  DE                        ; Recover the offset.
-    ADD  HL,DE                     ; The record's new size.
-    JP   C,AG_EWIDE                ; Past 64K: out of range.
-    LD   (AG_CSIZE),HL             ; Commit it.
+    ADD  HL,DE                     ; The record's new size,
+    JR   NC,.SIZED                 ; past 64K
+    LD   A,1                       ; noted for
+    LD   (AG_CWIDE),A              ; CommitRecord.
+.SIZED:                        ; The size so far:
+    LD   (AG_CSIZE),HL             ; commit it.
     LD   HL,AG_CFCNT               ; Count...
     INC  (HL)                      ; ...the field,
     JP   SY_SKIP                   ; ...its record kept; return.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; CommitRecord: a record needs a field (DG_EMPTY). Append its descriptor
+; CommitRecord: a record needs a field (DG_EMPTY), and is at most 64K
+; (out-of-range at its name, as the reference checks it). Append its descriptor
 ; as a new type (records are never shared), fill its record entry and
 ; declare its name as a record type whose payload is the type ID.
 
@@ -1055,6 +1061,11 @@ OW_RECOK:
     LD   A,(AG_CFCNT)              ; Any fields?
     OR   A                         ; Zero means none.
     JP   Z,OW_EVOID                ; Raise DG_EMPTY.
+    LD   A,(AG_CWIDE)              ; Past 64K
+    OR   A                         ; is out-of-range
+    LD   A,DG_RANGE                ; at the
+    LD   HL,AC_DPOS                ; record's
+    JP   NZ,DG_AT                  ; name.
     LD   A,(AG_RCNT)               ; The record's ordinal
     LD   H,A                       ; is the auxiliary byte, AG_NAUX,
     LD   L,AG_KREC                 ; after the kind, a record's,

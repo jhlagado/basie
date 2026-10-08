@@ -15,7 +15,6 @@
 ;    AG_DESC   address the descriptor of a type ID
 ;    AG_SIZE   return the extent in bytes of any type ID
 ;    AG_FIELD  address a record field's entry
-;    AG_FITRW  check one extent against the 1 KiB initializer staging
 ;    AG_ZERO   zero the object being initialized
 ;    AG_PARSE  parse one initializer for a type at the staging cursor
 ;    AG_SCOPE  release the types a routine's body made, at its end
@@ -36,11 +35,13 @@
 ;  table, in no chain, whose first six bytes are the name's address and
 ;  length, the field type and the field's byte offset in the record.
 ;
-;  Initializer bytes are staged in AG_IBUF at the cursor AG_OPOS. The object
-;  is zeroed first, so an initializer writes only what it supplies and a
-;  string's padding and terminator need no writes. Nested initializers are
-;  bounded at 32 levels (AG_LCAP) and by the machine stack (PR_ROOM). Every
-;  extent is bounded at 1024 bytes, the size of the staging buffer.
+;  Initializer bytes are written at the cursor AG_OPOS, which only moves
+;  forward: staged in AG_IBUF for an object of up to 1K, zeroed first, so
+;  an initializer writes only what it supplies and a string's padding and
+;  terminator need no writes; for a larger one, at top level and below
+;  16K, appended to its data blob after the zeros the cursor passed over
+;  (AG_ZERO, AG_PUT). Nested initializers are bounded at 32 levels
+;  (AG_LCAP) and by the machine stack (PR_ROOM).
 
 ;@ROUTINE CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A routine's body has ended, its blob written: the types its body made
@@ -237,20 +238,6 @@ AG_REUSE:
     DJNZ .TYPELOOP                 ; Continue through the table.
     JR   AG_ADD                    ; No match: append the candidate.
 
-;@ROUTINE IN HL OUT HL,CARRY CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY
-; Accept an extent HL of at most 1024 bytes ($0400), the size of the
-; initializer staging (AG_ICAP), with carry clear; a larger one raises
-; DG_DATA. Used for one object, array or record.
-
-AG_FITRW:
-    LD   A,L                       ; HL less $0401
-    CP   1                         ; borrows
-    LD   A,H                       ; exactly when
-    SBC  A,4                       ; HL is at most $0400.
-    JR   NC,AG_EDATA               ; No borrow: it exceeds the staging.
-    CCF                            ; Clear carry for success.
-    RET                            ; Return the extent unchanged.
-
 ;@ROUTINE NORETURN
 ; The initializer staging, or a routine's frame, is too large: DG_DATA
 ; (Error 190, object size).
@@ -432,7 +419,6 @@ AG_CHAR:                       ; HL is the source.
 AG_ELONG:                      ; A string literal longer than its string.
     CALL DG_RAISE                  ; Report it.
     DB   DG_RANGE                  ; Diagnostic: out-of-range.
-AG_EWIDE EQU  AG_ELONG         ; An extent past 65,535 bytes, the same.
 AG_ECNT:                       ; Anything but a comma between two items:
     LD   D,TK_COMMA                ; the comma is expected (syntax).
 

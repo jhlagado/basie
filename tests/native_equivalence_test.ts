@@ -1438,6 +1438,32 @@ const REFUSED: Record<string, string> = {
   "an open array program variable": "var a as u8[]\nsub main()\nend\n",
   "an open array field": "record R\na as u8[]\nend\nsub main()\nend\n",
   "an open array result": "sub f() as u8[]\nend\nsub main()\nend\n",
+  "a call without a result in a constant":
+    "sub p()\nend\nconst x = p()\nsub main()\nend\n",
+  "a service in a constant": "const x = readKey()\nsub main()\nend\n",
+  "a service after an operand in a constant":
+    "const x = 1 + readKey()\nsub main()\nend\n",
+  "a variable before a call in a constant":
+    "var v as u8\nsub f() as u8\n    return 1\nend\nconst x = v + f()\nsub main()\nend\n",
+  "a call after an operand in a local constant":
+    "var g as u8\nsub f() as u8\n    return 1\nend\nsub main()\n    const x = 1 + f()\n    g = x\nend\n",
+  "an element in a constant":
+    "var t as u8[2] = [1, 2]\nconst k as u8 = t[1]\nsub main()\nend\n",
+  "id in a local constant":
+    "forward pool p\nrecord R\n    v as u8\nend\npool p as R[2]\nsub main()\n    var h = new p(1)\n    const k = id(h)\nend\n",
+  "a string capacity past 253": "var s as string[254]\nsub main()\nend\n",
+  "a string capacity of zero": "var s as string[0]\nsub main()\nend\n",
+  "an array of strings past 64K":
+    "var s as string[253][300]\nsub main()\nend\n",
+  "an array past 64K": "var a as u8[300][300]\nsub main()\nend\n",
+  "a record past 64K":
+    "record R\n    a as u8[40000]\n    b as u8[40000]\nend\nsub main()\nend\n",
+  "a call in a top-level constant":
+    "sub f() as u8\nreturn 1\nend\nconst k as u8 = f()\nsub main()\nend\n",
+  "a call in a program variable's initializer":
+    "sub f() as u8\nreturn 1\nend\nvar k as u8 = f()\nsub main()\nend\n",
+  "a call in a constant in a body":
+    "var g as u8\nsub f() as u8\nreturn 1\nend\nsub main()\nconst k as u8 = f()\ng = k\nend\n",
   "an open array local inferred":
     "sub h(a as u8[])\nvar b = a\nend\nsub main()\nend\n",
   "a certainly false assert": "sub main()\nassert false\nend\n",

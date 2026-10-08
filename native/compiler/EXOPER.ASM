@@ -696,13 +696,16 @@ EX_INIT:
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
     LD   (EX_CHR),A                ; No primary yet,
-    LD   (EX_MINB),A               ; at the lowest level.
+    LD   (EX_MINB),A               ; at the lowest level,
+    LD   (EX_KMODE),A              ; a run-time expression.
     RET                            ; A is zero.
 
 ;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse an expression with expected type A that must be known, for a
-; constant declaration or a static initializer. The caller requires the
-; result to be known.
+; constant declaration or a static initializer, in constant mode (EX_KMODE):
+; a call, a service, id(...) or a variable is not-constant at its name, as
+; the reference's constant primary has it (EX_KNOT). The caller requires
+; the result to be known.
 
 EX_CONST:
     CALL EX_MBASE                  ; The moves' baselines;
@@ -710,7 +713,14 @@ EX_CONST:
     XOR  A                         ; Form zero.
     LD   (EX_QUIET),A              ; No arm is unevaluated.
     LD   (EX_DEPTH),A              ; Empty the operand stack.
-    JP   EX_PARSE                  ; Parse the expression.
+    INC  A                         ; A constant expression
+    LD   (EX_KMODE),A              ; (EX_KNOT)
+    CALL EX_PARSE                  ; is parsed;
+    PUSH AF                        ; after it
+    XOR  A                         ; the mode
+    LD   (EX_KMODE),A              ; is run-time
+    POP  AF                        ; again.
+    RET                            ; A and HL describe it.
 
 ;@ROUTINE IN A OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse an expression nested in another, an index, an argument or a

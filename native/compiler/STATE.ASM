@@ -162,6 +162,7 @@ AC_DPOS EQU  SY_LIM+$1B        ; Six bytes: the declared name's position.
 EX_LAT EQU  SY_LIM+$21         ; Word: the left operand's first offset (leftAt).
 EX_RAT EQU  SY_LIM+$23         ; Word: the right operand's first offset (rightAt).
 EX_MINB EQU  SY_LIM+$25        ; Byte: the innermost EX_CLIMB's minimum precedence.
+EX_KMODE EQU  SY_LIM+$26       ; Byte: nonzero while a constant expression is parsed.
 EX_START EQU  SY_LIM+$29       ; Word: the offset of the last expression's first token.
 TK_ENDP EQU  SY_LIM+$2B        ; Word: the offset of the last `end` (TOKEN.ASM).
 AC_SPOS EQU  SY_LIM+$2D        ; Word: the offset of the name statement's first token.
@@ -248,7 +249,8 @@ AG_DSTK EQU  AG_BASE+$1A       ; AG_DCAP words: the bounds.
 AG_DCAP EQU  8                 ; Dimensions of one array type; DG_BOUND beyond.
 AG_CFADR EQU  AG_DSTK+2*AG_DCAP ; Word: the record being declared's first field (AC_REC).
 AG_IBASE EQU  AG_CFADR+2       ; Word: where the initializer is staged (AG_ZERO).
-AG_STEND EQU  AG_IBASE+2       ; End of the aggregate scalars.
+AG_CWIDE EQU  AG_IBASE+2       ; Byte: nonzero once the record being declared passes 64K.
+AG_STEND EQU  AG_CWIDE+1       ; End of the aggregate scalars.
 
 ; The type table: one four-byte descriptor per aggregate type, interned so
 ; that equal types share an ID. AG_NKIND..AG_NDIM is built in the same
@@ -286,12 +288,12 @@ AG_FNLEN EQU  2                ; Field entry: spelling length.
 AG_FTYPE EQU  3                ; Field entry: type ID.
 AG_FPOS EQU  4                 ; Field entry: byte offset, a word.
 
-; One object's initializer is staged here in a routine's body, then
-; written as its blob or its stores; at top level it is staged in the
-; source area's free memory, where its blob is then written (AG_ZERO).
+; One object's initializer, up to 1K, is staged here, then written as its
+; blob or its stores; a larger one, at top level only, is streamed into
+; its data blob (AG_ZERO).
 AG_IBUF EQU  AG_RLIM           ; One object's initializer, built here.
 AG_ICAP EQU  1024              ; Bytes of initializer staging; DG_DATA beyond.
-AG_TCAPB EQU  $4000            ; Bytes of an object staged at top level, a blob's.
+AG_TCAPB EQU  $4000            ; An object streamed is below this, a blob's bound.
 AG_WEND EQU  AG_IBUF+AG_ICAP   ; End of the aggregate block.
 PR_WEND EQU  AG_WEND           ; End of this file's workspace.
 
