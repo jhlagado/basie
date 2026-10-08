@@ -409,6 +409,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: main as a routine, forward and recursive": ["MAINREC"],
   "74: aggregate arguments in parentheses": ["PARARG"],
   "74: handle values in parentheses": ["PARHND"],
+  "74: open arrays of records that own": ["OWNVIEW", "OWNVIEW2"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1099,6 +1100,12 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "a handle stored through a read-only open array of records":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\nrecord Box\nh as jobs?\nn as u8\nend\nsub bad(bs as Box[])\nbs[0].h = none\nend\nvar a as Box[3]\nsub main()\nbad(a)\nend\n",
+  "a handle moved out of a read-only open array of records":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\nrecord Box\nh as jobs?\nn as u8\nend\nsub bad(bs as Box[])\nvar t = move bs[0].h\nend\nvar a as Box[3]\nsub main()\nbad(a)\nend\n",
+  "an owning record copied within an open array":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\nrecord Box\nh as jobs?\nn as u8\nend\nsub put(var bs as Box[])\nbs[2] = bs[1]\nend\nvar a as Box[3]\nsub main()\nput(a)\nend\n",
   "a new handle of another pool in parentheses, initializing":
     "record Job\nnumber as u16\nend\npool jobs as Job[4]\npool other as Job[2]\nvar g as jobs?\nsub main()\nvar h as jobs? = (new other(1))\nend\n",
   "a new handle of another pool in parentheses, assigned":

@@ -333,8 +333,9 @@ AC_ARRAY:
     LD   (HL),0                    ; Yes, this once:
     CALL AC_ITEM                   ; the element type,
     CP   AG_FILE                   ; a File's
-    JP   Z,TR_OPER                 ; waiting (DG_NYI),
-    CALL PL_LATER                  ; neither a handle nor owning,
+    JP   Z,TR_OPER                 ; waiting (DG_NYI), and a handle's,
+    CALL PL_ISHND                  ; whose IDs an open array's cannot
+    JP   C,TR_OPER                 ; hold (AG_HND), waiting too,
     CP   AG_OLIM-AG_OPEN           ; one an open array's ID can hold
     JP   NC,AG_EMETA               ; (DG_META, types, beyond),
     ADD  A,AG_OPEN                 ; makes the open array's ID,

@@ -311,27 +311,6 @@ PL_SINIT:                      ; After `=`.
     LD   HL,AC_DPOS                ; at the
     JP   DG_AT                     ; name.
 
-;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A is a local's, parameter's, result's or open array's element type,
-; with or without its var bit: a handle, or an owning aggregate, is
-; refused for now (native-unsupported, DG_NYI). A is kept.
-
-PL_LATER:                      ; A is the type.
-    PUSH AF                        ; Kept.
-    PUSH DE                        ; (PL_OWNS
-    PUSH HL                        ; clobbers these)
-    AND  $7F                       ; Without the var bit:
-    CALL PL_ISHND                  ; a handle
-    CALL NC,PL_OWNS                ; or owning?
-    POP  HL                        ; (DE and HL
-    POP  DE                        ; back)
-    JR   C,.REFUSE                 ; Then refused.
-    POP  AF                        ; The type.
-    RET                            ; Accepted.
-.REFUSE:                       ; Not yet compiled.
-    POP  AF                        ; The type.
-    JP   TR_OPER                   ; native-unsupported.
-
 ;@ROUTINE IN A OUT CARRY CLOBBERS ZERO,SIGN,PARITY,HALFCARRY
 ; Carry if type ID A is a handle, of any form. A is kept.
 
