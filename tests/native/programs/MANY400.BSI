@@ -1,0 +1,815 @@
+// Routines bounded by memory alone (74): 400 routines in one part, past
+// the 255 that a byte once numbered.
+var t as u8
+sub q0()
+t=t+1
+end
+sub q1()
+end
+sub q2()
+end
+sub q3()
+end
+sub q4()
+end
+sub q5()
+end
+sub q6()
+end
+sub q7()
+end
+sub q8()
+end
+sub q9()
+end
+sub q10()
+end
+sub q11()
+end
+sub q12()
+end
+sub q13()
+end
+sub q14()
+end
+sub q15()
+end
+sub q16()
+end
+sub q17()
+end
+sub q18()
+end
+sub q19()
+end
+sub q20()
+end
+sub q21()
+end
+sub q22()
+end
+sub q23()
+end
+sub q24()
+end
+sub q25()
+end
+sub q26()
+end
+sub q27()
+end
+sub q28()
+end
+sub q29()
+end
+sub q30()
+end
+sub q31()
+end
+sub q32()
+end
+sub q33()
+end
+sub q34()
+end
+sub q35()
+end
+sub q36()
+end
+sub q37()
+end
+sub q38()
+end
+sub q39()
+end
+sub q40()
+end
+sub q41()
+end
+sub q42()
+end
+sub q43()
+end
+sub q44()
+end
+sub q45()
+end
+sub q46()
+end
+sub q47()
+end
+sub q48()
+end
+sub q49()
+end
+sub q50()
+t=t+1
+end
+sub q51()
+end
+sub q52()
+end
+sub q53()
+end
+sub q54()
+end
+sub q55()
+end
+sub q56()
+end
+sub q57()
+end
+sub q58()
+end
+sub q59()
+end
+sub q60()
+end
+sub q61()
+end
+sub q62()
+end
+sub q63()
+end
+sub q64()
+end
+sub q65()
+end
+sub q66()
+end
+sub q67()
+end
+sub q68()
+end
+sub q69()
+end
+sub q70()
+end
+sub q71()
+end
+sub q72()
+end
+sub q73()
+end
+sub q74()
+end
+sub q75()
+end
+sub q76()
+end
+sub q77()
+end
+sub q78()
+end
+sub q79()
+end
+sub q80()
+end
+sub q81()
+end
+sub q82()
+end
+sub q83()
+end
+sub q84()
+end
+sub q85()
+end
+sub q86()
+end
+sub q87()
+end
+sub q88()
+end
+sub q89()
+end
+sub q90()
+end
+sub q91()
+end
+sub q92()
+end
+sub q93()
+end
+sub q94()
+end
+sub q95()
+end
+sub q96()
+end
+sub q97()
+end
+sub q98()
+end
+sub q99()
+end
+sub q100()
+t=t+1
+end
+sub q101()
+end
+sub q102()
+end
+sub q103()
+end
+sub q104()
+end
+sub q105()
+end
+sub q106()
+end
+sub q107()
+end
+sub q108()
+end
+sub q109()
+end
+sub q110()
+end
+sub q111()
+end
+sub q112()
+end
+sub q113()
+end
+sub q114()
+end
+sub q115()
+end
+sub q116()
+end
+sub q117()
+end
+sub q118()
+end
+sub q119()
+end
+sub q120()
+end
+sub q121()
+end
+sub q122()
+end
+sub q123()
+end
+sub q124()
+end
+sub q125()
+end
+sub q126()
+end
+sub q127()
+end
+sub q128()
+end
+sub q129()
+end
+sub q130()
+end
+sub q131()
+end
+sub q132()
+end
+sub q133()
+end
+sub q134()
+end
+sub q135()
+end
+sub q136()
+end
+sub q137()
+end
+sub q138()
+end
+sub q139()
+end
+sub q140()
+end
+sub q141()
+end
+sub q142()
+end
+sub q143()
+end
+sub q144()
+end
+sub q145()
+end
+sub q146()
+end
+sub q147()
+end
+sub q148()
+end
+sub q149()
+end
+sub q150()
+t=t+1
+end
+sub q151()
+end
+sub q152()
+end
+sub q153()
+end
+sub q154()
+end
+sub q155()
+end
+sub q156()
+end
+sub q157()
+end
+sub q158()
+end
+sub q159()
+end
+sub q160()
+end
+sub q161()
+end
+sub q162()
+end
+sub q163()
+end
+sub q164()
+end
+sub q165()
+end
+sub q166()
+end
+sub q167()
+end
+sub q168()
+end
+sub q169()
+end
+sub q170()
+end
+sub q171()
+end
+sub q172()
+end
+sub q173()
+end
+sub q174()
+end
+sub q175()
+end
+sub q176()
+end
+sub q177()
+end
+sub q178()
+end
+sub q179()
+end
+sub q180()
+end
+sub q181()
+end
+sub q182()
+end
+sub q183()
+end
+sub q184()
+end
+sub q185()
+end
+sub q186()
+end
+sub q187()
+end
+sub q188()
+end
+sub q189()
+end
+sub q190()
+end
+sub q191()
+end
+sub q192()
+end
+sub q193()
+end
+sub q194()
+end
+sub q195()
+end
+sub q196()
+end
+sub q197()
+end
+sub q198()
+end
+sub q199()
+end
+sub q200()
+t=t+1
+end
+sub q201()
+end
+sub q202()
+end
+sub q203()
+end
+sub q204()
+end
+sub q205()
+end
+sub q206()
+end
+sub q207()
+end
+sub q208()
+end
+sub q209()
+end
+sub q210()
+end
+sub q211()
+end
+sub q212()
+end
+sub q213()
+end
+sub q214()
+end
+sub q215()
+end
+sub q216()
+end
+sub q217()
+end
+sub q218()
+end
+sub q219()
+end
+sub q220()
+end
+sub q221()
+end
+sub q222()
+end
+sub q223()
+end
+sub q224()
+end
+sub q225()
+end
+sub q226()
+end
+sub q227()
+end
+sub q228()
+end
+sub q229()
+end
+sub q230()
+end
+sub q231()
+end
+sub q232()
+end
+sub q233()
+end
+sub q234()
+end
+sub q235()
+end
+sub q236()
+end
+sub q237()
+end
+sub q238()
+end
+sub q239()
+end
+sub q240()
+end
+sub q241()
+end
+sub q242()
+end
+sub q243()
+end
+sub q244()
+end
+sub q245()
+end
+sub q246()
+end
+sub q247()
+end
+sub q248()
+end
+sub q249()
+end
+sub q250()
+t=t+1
+end
+sub q251()
+end
+sub q252()
+end
+sub q253()
+end
+sub q254()
+end
+sub q255()
+end
+sub q256()
+end
+sub q257()
+end
+sub q258()
+end
+sub q259()
+end
+sub q260()
+end
+sub q261()
+end
+sub q262()
+end
+sub q263()
+end
+sub q264()
+end
+sub q265()
+end
+sub q266()
+end
+sub q267()
+end
+sub q268()
+end
+sub q269()
+end
+sub q270()
+end
+sub q271()
+end
+sub q272()
+end
+sub q273()
+end
+sub q274()
+end
+sub q275()
+end
+sub q276()
+end
+sub q277()
+end
+sub q278()
+end
+sub q279()
+end
+sub q280()
+end
+sub q281()
+end
+sub q282()
+end
+sub q283()
+end
+sub q284()
+end
+sub q285()
+end
+sub q286()
+end
+sub q287()
+end
+sub q288()
+end
+sub q289()
+end
+sub q290()
+end
+sub q291()
+end
+sub q292()
+end
+sub q293()
+end
+sub q294()
+end
+sub q295()
+end
+sub q296()
+end
+sub q297()
+end
+sub q298()
+end
+sub q299()
+end
+sub q300()
+t=t+1
+end
+sub q301()
+end
+sub q302()
+end
+sub q303()
+end
+sub q304()
+end
+sub q305()
+end
+sub q306()
+end
+sub q307()
+end
+sub q308()
+end
+sub q309()
+end
+sub q310()
+end
+sub q311()
+end
+sub q312()
+end
+sub q313()
+end
+sub q314()
+end
+sub q315()
+end
+sub q316()
+end
+sub q317()
+end
+sub q318()
+end
+sub q319()
+end
+sub q320()
+end
+sub q321()
+end
+sub q322()
+end
+sub q323()
+end
+sub q324()
+end
+sub q325()
+end
+sub q326()
+end
+sub q327()
+end
+sub q328()
+end
+sub q329()
+end
+sub q330()
+end
+sub q331()
+end
+sub q332()
+end
+sub q333()
+end
+sub q334()
+end
+sub q335()
+end
+sub q336()
+end
+sub q337()
+end
+sub q338()
+end
+sub q339()
+end
+sub q340()
+end
+sub q341()
+end
+sub q342()
+end
+sub q343()
+end
+sub q344()
+end
+sub q345()
+end
+sub q346()
+end
+sub q347()
+end
+sub q348()
+end
+sub q349()
+end
+sub q350()
+t=t+1
+end
+sub q351()
+end
+sub q352()
+end
+sub q353()
+end
+sub q354()
+end
+sub q355()
+end
+sub q356()
+end
+sub q357()
+end
+sub q358()
+end
+sub q359()
+end
+sub q360()
+end
+sub q361()
+end
+sub q362()
+end
+sub q363()
+end
+sub q364()
+end
+sub q365()
+end
+sub q366()
+end
+sub q367()
+end
+sub q368()
+end
+sub q369()
+end
+sub q370()
+end
+sub q371()
+end
+sub q372()
+end
+sub q373()
+end
+sub q374()
+end
+sub q375()
+end
+sub q376()
+end
+sub q377()
+end
+sub q378()
+end
+sub q379()
+end
+sub q380()
+end
+sub q381()
+end
+sub q382()
+end
+sub q383()
+end
+sub q384()
+end
+sub q385()
+end
+sub q386()
+end
+sub q387()
+end
+sub q388()
+end
+sub q389()
+end
+sub q390()
+end
+sub q391()
+end
+sub q392()
+end
+sub q393()
+end
+sub q394()
+end
+sub q395()
+end
+sub q396()
+end
+sub q397()
+end
+sub q398()
+end
+sub q399()
+end
+sub main()
+q0()
+q350()
+end

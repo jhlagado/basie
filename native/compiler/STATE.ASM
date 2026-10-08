@@ -247,7 +247,8 @@ AG_TPOS EQU  AG_BASE+$18       ; Word: the offset of the type's first token.
 AG_DSTK EQU  AG_BASE+$1A       ; AG_DCAP words: the bounds.
 AG_DCAP EQU  8                 ; Dimensions of one array type; DG_BOUND beyond.
 AG_CFADR EQU  AG_DSTK+2*AG_DCAP ; Word: the record being declared's first field (AC_REC).
-AG_STEND EQU  AG_CFADR+2       ; End of the aggregate scalars.
+AG_IBASE EQU  AG_CFADR+2       ; Word: where the initializer is staged (AG_ZERO).
+AG_STEND EQU  AG_IBASE+2       ; End of the aggregate scalars.
 
 ; The type table: one four-byte descriptor per aggregate type, interned so
 ; that equal types share an ID. AG_NKIND..AG_NDIM is built in the same
@@ -285,9 +286,12 @@ AG_FNLEN EQU  2                ; Field entry: spelling length.
 AG_FTYPE EQU  3                ; Field entry: type ID.
 AG_FPOS EQU  4                 ; Field entry: byte offset, a word.
 
-; One object's initializer is staged here, then written as its blob.
+; One object's initializer is staged here in a routine's body, then
+; written as its blob or its stores; at top level it is staged in the
+; source area's free memory, where its blob is then written (AG_ZERO).
 AG_IBUF EQU  AG_RLIM           ; One object's initializer, built here.
 AG_ICAP EQU  1024              ; Bytes of initializer staging; DG_DATA beyond.
+AG_TCAPB EQU  $4000            ; Bytes of an object staged at top level, a blob's.
 AG_WEND EQU  AG_IBUF+AG_ICAP   ; End of the aggregate block.
 PR_WEND EQU  AG_WEND           ; End of this file's workspace.
 
@@ -507,7 +511,7 @@ DG_NEST EQU  DG_CAP+5          ; Control statements open at once (CT_FCAP).
 DG_DEEP EQU  DG_CAP+6          ; The operand stack, or calls inside calls.
 DG_LABEL EQU  DG_CAP+7         ; One routine's labels (EM_LCAP).
 DG_INITS EQU  DG_CAP+8         ; Nested initializers (AG_LCAP).
-DG_DATA EQU  DG_CAP+9          ; The initializer staging (AG_ICAP).
+DG_DATA EQU  DG_CAP+9          ; The initializer staging (AG_ICAP, AG_TCAPB).
 DG_BLOB EQU  DG_CAP+10         ; The blob writer's buffers.
 DG_LLCAP EQU  DG_CAP+11        ; The grammar stack (LL_CAP).
 DG_PARTS EQU  DG_CAP+12        ; Source parts: 255, the line stream's limit.

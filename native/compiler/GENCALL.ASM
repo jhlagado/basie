@@ -239,17 +239,32 @@ RG_DEFER:                      ; Declared in a routine's body.
     RET                            ; Done.
 
 ;@ROUTINE IN A OUT BC CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the object staged in AG_IBUF, AG_OSIZE bytes, as a blob of kind A
-; (BL_KDATA or BL_KRO), named by the retained declaration name. BC returns
-; its ordinal.
+; Write the object, AG_OSIZE bytes, as a blob of kind A (BL_KDATA or
+; BL_KRO), named by the retained declaration name: staged, from AG_IBASE;
+; streamed (AG_IBASE zero), its blob begun by AG_ZERO, finished with the
+; zeros after its last byte. BC returns its ordinal.
 
 RG_DATA:                       ; A is the kind.
+    LD   HL,(AG_IBASE)             ; Streamed?
+    LD   B,A                       ; (the kind)
+    LD   A,H                       ; Zero
+    OR   L                         ; if so.
+    LD   A,B                       ; The kind.
+    JR   Z,.STREAM                 ; Otherwise:
     CALL RG_ADD                    ; HL is the ordinal.
     PUSH HL                        ; Keep it.
     CALL BL_BEGIN                  ; Start the blob; no root, no alignment.
-    LD   HL,AG_IBUF                ; The staged bytes,
+    LD   HL,(AG_IBASE)             ; The staged bytes,
     LD   BC,(AG_OSIZE)             ; all of them,
     CALL RG_WRITE                  ; appended, and the blob written.
+    JR   RG_NAMED                  ; Name it and return its ordinal.
+.STREAM:                       ; Streamed: its kind,
+    LD   (BL_HEAD),A               ; the blob's header,
+    LD   HL,(BL_ORD)               ; its ordinal,
+    PUSH HL                        ; kept;
+    LD   HL,(AG_OSIZE)             ; the zeros
+    CALL AG_PAD                    ; after its last byte,
+    CALL BL_END                    ; and it is written.
     JR   RG_NAMED                  ; Name it and return its ordinal.
 
 ;@ROUTINE IN BC,HL OUT HL CLOBBERS A,BC,DE,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY

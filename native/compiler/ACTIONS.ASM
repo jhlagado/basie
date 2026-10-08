@@ -91,8 +91,8 @@ AC_BY:
 
 ;@ROUTINE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Island StaticInitializer: parse the initializer of the object being
-; declared, whose type is in AC_DINFO, into the staging buffer (AG_PARSE),
-; zeroed first and at most 1K (AG_ZERO, DG_DATA). AC_DINFO is preserved
+; declared, whose type is in AC_DINFO, into the staging (AG_PARSE), zeroed
+; first, 1K in a routine's body, 16K at top level (AG_ZERO). AC_DINFO is preserved
 ; across the parse. A File's initializer is not yet compiled (DG_NYI).
 
 AC_IMAGE:
@@ -403,7 +403,7 @@ AC_ROCMT:
     LD   A,(AG_CTYPE)              ; The constant's type,
     CP   AG_FIRST                  ; a scalar
     JR   NC,.BLOB                  ; or an aggregate.
-    LD   HL,AG_IBUF                ; The staged bytes,
+    LD   HL,(AG_IBASE)             ; The staged bytes,
     LD   DE,AC_DVAL                ; four of them,
     LD   BC,4                      ; are
     LDIR                           ; the value's,

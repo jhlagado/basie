@@ -703,8 +703,10 @@ OW_LDESC:                      ; PL_WTYPE is the type.
     LD   A,L                       ; and as many
     CP   OW_SCAP+1                 ; as the staging holds
     JP   NC,AG_EDATA               ; (object size beyond).
-    LD   HL,OW_SOFF                ; The bytes
-    LD   (AG_OPOS),HL              ; are staged after the walk's:
+    LD   HL,AG_IBUF                ; The bytes
+    LD   (AG_IBASE),HL             ; are staged
+    LD   HL,OW_SOFF                ; in the buffer,
+    LD   (AG_OPOS),HL              ; after the walk's:
     LD   A,(PL_WCNT)               ; the count
     CALL AG_PUT                    ; first,
     LD   A,2                       ; then

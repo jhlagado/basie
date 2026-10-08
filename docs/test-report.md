@@ -95,7 +95,7 @@ large routines and many routines slow.
 
 ## 5. Limits that remain
 
-- An initialized object is staged in 1K (`AG_ICAP`): a larger initializer
+- (Lifted at 74 to 16K at top level.) An initialized object is staged in 1K (`AG_ICAP`): a larger initializer
   is `object size` (Error 190), where the specification has no compiler
   limit. Writing initializers to their blob as they are parsed would lift
   it.

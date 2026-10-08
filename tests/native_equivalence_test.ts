@@ -398,6 +398,8 @@ const CLAIMED: Record<string, string[]> = {
   "69: large programs": ["BIGDATA", "OWNARR"],
   "74: identifier and owning aggregate results": ["IDRES", "OWNRES"],
   "74: var owning array parameters": ["VAROWN"],
+  "74: routines bounded by memory": ["MANY400"],
+  "74: initializers to 16K": ["BIGINIT", "BIGTEXT"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1010,6 +1012,8 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["69: large programs"],
     ...CLAIMED["74: identifier and owning aggregate results"],
     ...CLAIMED["74: var owning array parameters"],
+    ...CLAIMED["74: routines bounded by memory"],
+    ...CLAIMED["74: initializers to 16K"],
   ];
   for (const name of run) {
     const disk = native(name);

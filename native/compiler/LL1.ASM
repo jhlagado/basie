@@ -25,27 +25,32 @@
 ;  any tokens it needs, generates code or records what it has parsed and
 ;  returns, or raises a diagnostic, which abandons the build (PARSER.ASM).
 ;
-;  Workspace: the owner descriptors (PL_DESC), after the pools' bytes
-;  (CALLWORK.ASM), then LL_DEPTH, a byte counting the symbols on the
-;  stack, then LL_STACK, LL_CAP bytes with the top of stack at
-;  LL_STACK+LL_DEPTH-1. LL_STACK starts the first page after them, so a
-;  slot's address is the page and the depth; the FLOAT overlay's bytes
-;  fill the gap below that page when they fit, else follow the stack.
-;  LL_WEND marks the end of the whole compiler workspace for the build's
-;  boundary check.
+;  Workspace: after the pools' bytes (CALLWORK.ASM, PL_WEND), LL_DEPTH, a
+;  byte counting the symbols on the stack, then LL_STACK, LL_CAP bytes
+;  with the top of stack at LL_STACK+LL_DEPTH-1. LL_STACK starts the first
+;  page after the pools' bytes, so a slot's address is the page and the
+;  depth. The owner descriptors (PL_DESC) and the FLOAT overlay's bytes
+;  fill the gap below that page, both when they fit, else the FLOAT
+;  overlay's when they fit, else the descriptors' when they do; whatever
+;  does not fit follows the stack. LL_WEND marks the end of the whole
+;  compiler workspace for the build's boundary check.
 
 LL_CAP EQU  254                ; Grammar stack capacity in symbols.
-PL_DESC EQU  PL_WEND           ; AG_TCAP words: a type's owner descriptor, 0 until written.
-LL_DLIM EQU  PL_DESC+2*AG_TCAP ; The descriptors' end.
-LL_STACK EQU  (LL_DLIM+$100)&$FF00 ; The stack, from a page's start past them.
+LL_STACK EQU  (PL_WEND+$100)&$FF00 ; The stack, from the page's start past the pools.
 LL_DEPTH EQU  LL_STACK-1       ; Symbols on the stack (byte), just below it.
+LL_SEND EQU  LL_STACK+LL_CAP   ; The stack's end.
+LL_GAP EQU  LL_DEPTH-PL_WEND   ; Bytes below the page, 0 to 255.
+LL_DSIZE EQU  2*AG_TCAP        ; The owner descriptors' bytes.
 ; The FLOAT overlay's workspace, resident so that it takes no records of
-; the overlay area: in the bytes the stack's page leaves below it when
-; they hold it (FL_BELOW one), else after the stack.
+; the overlay area.
 FL_NB EQU  64                  ; Bytes of FL_N and FL_D.
 FL_SIZE EQU  2*FL_NB+26        ; The workspace's bytes, FL_WBEG to FL_WEND.
-FL_BELOW EQU  (LL_DEPTH-LL_DLIM+256-FL_SIZE)>>8 ; One when they fit below the stack.
-FL_WBEG EQU  LL_DLIM+(1-FL_BELOW)*(LL_STACK+LL_CAP-LL_DLIM) ; The workspace's start.
+LL_BOTH EQU  (LL_GAP-FL_SIZE-LL_DSIZE+256)>>8 ; One when both fit below.
+FL_BELOW EQU  (LL_GAP-FL_SIZE+256)>>8 ; One when the FLOAT bytes go below.
+LL_DBLW EQU  LL_BOTH+(1-FL_BELOW)*((LL_GAP-LL_DSIZE+256)>>8) ; Descriptors below.
+PL_DESC EQU  LL_DBLW*PL_WEND+(1-LL_DBLW)*LL_SEND ; AG_TCAP words: a type's owner
+                               ; descriptor, 0 until written.
+FL_WBEG EQU  FL_BELOW*(PL_WEND+LL_DBLW*LL_DSIZE)+(1-FL_BELOW)*(LL_SEND+(1-LL_DBLW)*LL_DSIZE)
 FL_N EQU  FL_WBEG              ; N, the dividend, FL_NB bytes.
 FL_D EQU  FL_N+FL_NB           ; D, the divisor, FL_NB bytes.
 FL_Q EQU  FL_D+FL_NB           ; q, the quotient, then the f32's bits: 5 bytes.
@@ -59,7 +64,7 @@ FL_A EQU  FL_SIG+2             ; a unpacked: sign, exponent, significand.
 FL_B EQU  FL_A+5               ; b unpacked.
 FL_ZRUN EQU  FL_B+5            ; Zeros pending after a significant digit: a word.
 FL_WEND EQU  FL_ZRUN+2         ; The workspace's end.
-LL_WEND EQU  FL_WEND+FL_BELOW*(LL_STACK+LL_CAP-FL_WEND) ; End of compiler workspace (marker).
+LL_WEND EQU  LL_SEND+(1-LL_DBLW)*LL_DSIZE+(1-FL_BELOW)*FL_SIZE ; End of the compiler workspace.
 
 ;@ROUTINE OUT A,BC,DE,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,IX,IY
 ; Parse the program: push GR_START and expand, match and act until the

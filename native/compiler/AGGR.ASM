@@ -333,21 +333,49 @@ AG_FIELD:                      ; A is a field's index.
     RET                            ; HL is the entry.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
-; Store byte A at the staging cursor and advance the cursor. The object's
-; extent has passed AG_FITRW, so the cursor stays inside AG_IBUF. BC and
-; HL are kept.
+; Store byte A at the cursor and advance the cursor: in the staging
+; (AG_IBASE), which the object's extent fits (AG_ZERO), or, for an object
+; streamed, appended to its blob after the zeros the cursor passed over
+; (AG_PAD). BC and HL are kept.
 
 AG_PUT:
     PUSH HL                        ; Keep the caller's HL.
     LD   HL,(AG_OPOS)              ; Fetch the cursor offset
     INC  HL                        ; and advance it past the byte:
     LD   (AG_OPOS),HL              ; publish it.
-    LD   DE,AG_IBUF-1              ; The byte is the one before it
-    ADD  HL,DE                     ; in the staging buffer.
-    LD   (HL),A                    ; Stage it.
+    LD   DE,(AG_IBASE)             ; Staged?
+    PUSH AF                        ; (the byte)
+    LD   A,D                       ; Zero
+    OR   E                         ; if streamed.
+    JR   Z,.STREAM                 ; Otherwise
+    POP  AF                        ; the byte
+    DEC  DE                        ; is the one
+    ADD  HL,DE                     ; before the cursor
+    LD   (HL),A                    ; in the staging.
     POP  HL                        ; The caller's HL.
     OR   A                         ; Clear carry for success.
     RET                            ; Return the byte in A.
+.STREAM:                       ; Streamed:
+    DEC  HL                        ; the byte's offset,
+    CALL AG_PAD                    ; reached with zeros,
+    POP  AF                        ; then
+    CALL BL_BYTE                   ; the byte.
+    POP  HL                        ; The caller's HL.
+    OR   A                         ; Clear carry for success.
+    RET                            ; Return the byte in A.
+
+;@ROUTINE IN HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append zeros to the blob streamed until it holds HL bytes. BC and HL
+; are kept.
+
+AG_PAD:                        ; HL is the length to reach.
+    LD   DE,(BL_LEN)               ; The bytes
+    CALL CP_HLDE                   ; so far:
+    RET  Z                         ; enough
+    RET  C                         ; already;
+    XOR  A                         ; else
+    CALL BL_BYTE                   ; a zero,
+    JR   AG_PAD                    ; until they are.
 
 ;@ROUTINE IN HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Decode the string literal's character at HL, which the tokenizer has
@@ -650,18 +678,39 @@ AG_LEAVE:
     OR   A                         ; Clear carry for success.
     RET                            ; Return to the initializer parser.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,HL
-; Begin staging an object's initializer: the cursor AG_OPOS at the
-; buffer's start, and the AG_OSIZE bytes from there, at most the
-; buffer's (AG_FITRW, DG_DATA), zeroed before the initializer is applied.
-; Returns A zero with carry clear.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Begin an object's initializer, AG_OSIZE bytes, the cursor AG_OPOS at
+; their start. Up to 1K is staged in the buffer (AG_IBASE is AG_IBUF),
+; zeroed first; a larger object, at top level only and below 16K (DG_DATA
+; otherwise), is streamed into its data blob, begun here with its ordinal
+; (AG_IBASE zero): AG_PUT appends each byte after the zeros before it,
+; RG_DATA the zeros after the last, and the blob spills as a routine's
+; does. Returns A zero with carry clear.
 
 AG_ZERO:
-    LD   HL,(AG_OSIZE)             ; The object
-    CALL AG_FITRW                  ; must fit the staging.
-    LD   HL,0                      ; Stage from
-    LD   (AG_OPOS),HL              ; the first byte,
-    LD   HL,AG_IBUF                ; the buffer's start.
+    LD   HL,(AG_OSIZE)             ; The object:
+    LD   DE,AG_ICAP+1              ; up to 1K
+    CALL CP_HLDE                   ; is
+    JR   C,.STAGE                  ; staged;
+    LD   A,(SY_BODY+1)             ; a larger one
+    OR   A                         ; in a routine's body,
+    JP   NZ,AG_EDATA               ; or
+    LD   DE,AG_TCAPB               ; of 16K,
+    CALL CP_HLDE                   ; is too
+    JP   NC,AG_EDATA               ; large (object size).
+    CALL RG_ADD                    ; Its ordinal, HL:
+    LD   A,BL_KDATA                ; its blob begun
+    CALL BL_BEGIN                  ; (RG_DATA sets its kind),
+    LD   HL,0                      ; streamed
+    LD   (AG_IBASE),HL             ; (AG_IBASE zero)
+    LD   (AG_OPOS),HL              ; from the first byte.
+    XOR  A                         ; A zero,
+    RET                            ; carry clear.
+.STAGE:                        ; Staged in the buffer:
+    LD   HL,AG_IBUF                ; its start,
+    LD   (AG_IBASE),HL             ; kept.
+    LD   DE,0                      ; Stage from
+    LD   (AG_OPOS),DE              ; the first byte.
     LD   BC,(AG_OSIZE)             ; BC counts the object's bytes.
 .LOOP:                         ; Zero one byte per iteration.
     LD   A,B                       ; Are bytes left?
