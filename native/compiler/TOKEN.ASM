@@ -469,32 +469,28 @@ TK_DBL:                        ; DEHL is the value.
     RET  NC                        ; Nothing left the top,
     JR   TK_OVER                   ; or something did.
 
-;@ROUTINE IN B OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
-; Scan a character literal: one printable byte between apostrophes, with no
-; escapes, returned as TK_CHAR with the byte in C. B arrives zero from the
-; punctuation scan in TK_NEXT, which makes BC the whole payload.
+;@ROUTINE OUT A,BC,CARRY,ZERO CLOBBERS DE,HL,SIGN,PARITY,HALFCARRY
+; Scan a character literal: its body scanned as a string's, escapes
+; included (TK_QBODY), then exactly one decoded byte (empty-character, or
+; long-character, at its start), returned as TK_CHAR with the byte in C
+; and B zero, which makes BC the whole payload.
 
 TK_APOS:                       ; The current byte is the opening apostrophe.
-    CALL SRC_TAKE                  ; Consume it.
-    CALL SRC_TAKE                  ; The character itself.
-    JR   C,TK_EOPEN                ; The part ended: unterminated.
-    CP   $20                       ; Printable bytes begin at space;
-    JR   C,TK_ECTL                 ; a line end leaves it unterminated.
-    CP   $7F                       ; And end before DEL.
-    JR   NC,TK_EBYTE               ; DEL and the bytes above are refused.
-    CP   '\''                      ; An apostrophe here would close an empty literal.
-    LD   E,DG_NONE                 ; Then the literal is empty:
-    JR   Z,TK_ECODE                ; empty-character.
-    CP   '\\'                      ; A backslash would begin an escape,
-    JP   Z,TR_OPER                 ; which this compiler takes in strings only.
-    LD   C,A                       ; C: the payload byte; B is already zero.
-    CALL SRC_TAKE                  ; The closing apostrophe.
-    JR   C,TK_EOPEN                ; The part ended: unterminated.
-    CP   '\''                      ; Exactly one byte is allowed.
-    LD   E,DG_LONGC                ; More than one,
-    JR   NZ,TK_ECODE               ; or unclosed: long-character.
-    LD   A,TK_CHAR                 ; The token kind.
-    JP   TK_DONE                   ; Return the character.
+    LD   A,'\''                    ; Its body, to the
+    CALL TK_QBODY                  ; closing apostrophe: C bytes.
+    LD   A,C                       ; None
+    OR   A                         ; is
+    LD   E,DG_NONE                 ; empty-character;
+    JR   Z,TK_ECODE                ; more
+    DEC  A                         ; than one
+    LD   E,DG_LONGC                ; is
+    JR   NZ,TK_ECODE               ; long-character.
+    LD   HL,(TK_PTR)               ; The byte,
+    INC  HL                        ; after the apostrophe,
+    CALL AG_CHAR                   ; decoded,
+    LD   C,A                       ; is the payload.
+    LD   A,TK_CHAR                 ; The token kind:
+    JR   TK_QEND                   ; return the character.
 
 ; Literal failures, within JR range of the scanners, each raised at the
 ; literal's start: E is the code (TK_ECODE). A control byte is bad-byte,
@@ -538,13 +534,31 @@ TK_HEX:                        ; A: the byte to classify.
 ; declaration parser can decode the bytes straight into the static image.
 
 TK_QUOTE:                      ; The current byte is the opening quote.
-    CALL SRC_TAKE                  ; Consume it.
+    LD   A,'"'                     ; Its body, to the
+    CALL TK_QBODY                  ; closing quote: C bytes.
+    LD   A,C                       ; The decoded length,
+    LD   (TK_LEN),A                ; kept for the declaration parser.
+    LD   A,TK_TEXT                 ; The token kind.
+TK_QEND:                       ; A is the kind, C the payload:
+    LD   B,0                       ; BC.
+    JP   TK_DONE                   ; Return the token.
+
+;@ROUTINE IN A OUT C CLOBBERS A,B,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Scan a literal's body after its opening quote, the current byte, to the
+; closing quote A: printable bytes and the escapes \0 \n \r \t \' \" \\ and
+; \xHH, each counted as one decoded byte in C (the reference's literal);
+; anything else is raised at the literal's start.
+
+TK_QBODY:                      ; A is the closing quote.
+    LD   (TK_QCH),A                ; Kept.
+    CALL SRC_TAKE                  ; The opening one consumed.
     LD   C,0                       ; C counts the decoded bytes.
 TK_QNEXT:                      ; Take the next byte of the body.
     CALL SRC_TAKE                  ; Consume it; C survives.
     JR   C,TK_EOPEN                ; The part ended: unterminated.
-    CP   '"'                       ; The closing quote ends the body.
-    JR   Z,TK_QDONE                ; The literal is complete.
+    LD   HL,TK_QCH                 ; The closing quote
+    CP   (HL)                      ; ends the body.
+    RET  Z                         ; The literal is complete; C its length.
     CP   $20                       ; Printable bytes begin at space;
     JR   C,TK_ECTL                 ; a line end leaves it unterminated.
     CP   $7F                       ; And end before DEL.
@@ -557,20 +571,24 @@ TK_QCNT:                       ; One more decoded byte.
     LD   A,DG_RANGE                ; 256 bytes: too long for TK_LEN,
     JP   DG_ISSUE                  ; and for any string (out-of-range).
 TK_QESC:                       ; The backslash is consumed; the escape follows.
+    LD   HL,(SRC_POS)              ; The backslash's
+    DEC  HL                        ; offset,
+    PUSH HL                        ; where a bad one is reported.
     CALL SRC_TAKE                  ; The escape letter.
-    JR   C,TK_EOPEN                ; The part ended: unterminated.
+    JR   C,.BAD                    ; The part ended: incomplete.
     CP   'x'                       ; \x takes two hexadecimal digits.
     JR   Z,.HEX                    ; Check them.
     LD   HL,TK_ESC                 ; The single-letter escapes.
     LD   B,TK_ECNT                 ; B counts the letters left.
 .LOOP:                         ; B letters remain at HL.
     CP   (HL)                      ; Compare with this escape letter.
-    JR   Z,TK_QCNT                 ; A known escape decodes to one byte.
+    JR   Z,.ONE                    ; A known escape decodes to one byte.
     INC  HL                        ; Next letter.
     DJNZ .LOOP                     ; Until the table is exhausted.
 .BAD:                          ; An unknown or incomplete escape:
-    LD   E,DG_ESC                  ; bad-escape.
-    JR   TK_ECODE                  ; Raise it.
+    POP  HL                        ; bad-escape,
+    LD   A,DG_ESC                  ; at the
+    JP   DG_HERE                   ; backslash.
 .HEX:                          ; Exactly two digits must follow.
     LD   B,2                       ; B counts them.
 .DIGIT:                        ; B digits remain.
@@ -578,13 +596,9 @@ TK_QESC:                       ; The backslash is consumed; the escape follows.
     CALL TK_HEX                    ; Only its validity matters here.
     JR   NC,.BAD                   ; Not a hexadecimal digit.
     DJNZ .DIGIT                    ; Until both are taken.
-    JR   TK_QCNT                   ; \xHH decodes to one byte.
-TK_QDONE:                      ; The closing quote is consumed; C is the length.
-    LD   B,0                       ; BC: the payload; B was the escape count.
-    LD   A,C                       ; The decoded length.
-    LD   (TK_LEN),A                ; Kept for the declaration parser.
-    LD   A,TK_TEXT                 ; The token kind.
-    JP   TK_DONE                   ; Return the string.
+.ONE:                          ; One decoded byte:
+    POP  HL                        ; the offset dropped.
+    JR   TK_QCNT                   ; Count it.
 
 ;@ROUTINE OUT CARRY CLOBBERS A,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; Skip the rest of a // comment, leaving its line end unconsumed for

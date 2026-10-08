@@ -401,6 +401,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: routines bounded by memory": ["MANY400"],
   "74: initializers to 16K": ["BIGINIT", "BIGTEXT"],
   "74: a chain of includes past memory": ["CHAIN"],
+  "74: escapes in character literals": ["CHARESC"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1016,6 +1017,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["74: routines bounded by memory"],
     ...CLAIMED["74: initializers to 16K"],
     ...CLAIMED["74: a chain of includes past memory"],
+    ...CLAIMED["74: escapes in character literals"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1453,6 +1455,16 @@ const REFUSED: Record<string, string> = {
     "var t as u8[2] = [1, 2]\nconst k as u8 = t[1]\nsub main()\nend\n",
   "id in a local constant":
     "forward pool p\nrecord R\n    v as u8\nend\npool p as R[2]\nsub main()\n    var h = new p(1)\n    const k = id(h)\nend\n",
+  "an empty character literal": "var a as u8 = ''\nsub main()\nend\n",
+  "a character literal of two bytes": "var a as u8 = 'ab'\nsub main()\nend\n",
+  "an unknown escape in a character literal":
+    "var a as u8 = '\\q'\nsub main()\nend\n",
+  "an unterminated character literal": "var a as u8 = '\\n\nsub main()\nend\n",
+  "an unknown escape in a string":
+    'var s as string[8] = "a\\qb"\nsub main()\nend\n',
+  "an incomplete hexadecimal escape":
+    'var s as string[8] = "a\\x4"\nsub main()\nend\n',
+  "an escape cut off by the part's end": 'var s as string[8] = "ab\\',
   "a string capacity past 253": "var s as string[254]\nsub main()\nend\n",
   "a string capacity of zero": "var s as string[0]\nsub main()\nend\n",
   "an array of strings past 64K":

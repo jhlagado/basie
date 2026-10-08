@@ -1,0 +1,21 @@
+// Escapes in character literals (74): each decodes as in a string's.
+var a as u8 = '\n'
+var b as u8 = '\t'
+var c as u8 = '\0'
+var d as u8 = '\x41'
+var e as u8 = '\''
+var f as u8 = '\\'
+var g as u8 = '"'
+var h as u8 = 'z'
+var s as string[8] = "a\x42\'c"
+sub main() fails
+    if a = 10 and b = 9 and c = 0 and d = 65 and e = 39 and f = 92 and g = 34 and h = 122 and s.length = 4
+        writeText(console, "chars\r\n") else fail
+    end
+    select a
+    case '\n'
+        writeText(console, "newline\r\n") else fail
+    case else
+        fail 1
+    end
+end
