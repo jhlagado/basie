@@ -90,7 +90,7 @@
 
 RO_BASE EQU  AG_WEND           ; First byte of the routine state.
 RO_CUR EQU  RO_BASE+$00        ; Word: the routine being compiled, its record (RO_CREC
-                               ; while its signature is parsed); zero for main.
+                               ; while its signature is parsed).
 AC_IPOS EQU  RO_BASE+$02       ; Word: the offset of an inferred local's initializer.
 ; RO_BASE+$03 is AC_IPOS's high byte.
 AC_PPOS EQU  RO_BASE+$04       ; Word: the offset of the token after `private` (AC_MARK).
@@ -99,7 +99,7 @@ RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.
 ; RO_BASE+$08: free.
 RO_PEND EQU  RO_BASE+$09       ; Byte: $80 and a failure's label while it is unconsumed.
 RO_KEPT EQU  RO_BASE+$0A       ; Byte: temporaries' bytes beneath a handled call.
-RO_MFLAG EQU  RO_BASE+$0B      ; Byte: main's flags, as main has no routine record.
+RO_MFLAG EQU  RO_BASE+$0B      ; Byte: RO_FMAIN once main is declared (AC_PUB).
 ; RO_BASE+$0C: free.
 RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
 ; RO_BASE+$0E: free.

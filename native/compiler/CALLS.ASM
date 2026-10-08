@@ -486,13 +486,10 @@ RO_ARG:
 ;@ROUTINE IN HL OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
 ; Parse a call to routine HL, RO_FIND's record, whose name has been read, as
 ; the reference's call does (RO_ARGS); only a routine declared forward may
-; call itself (DG_UNMET otherwise). A returns the result type, zero for
-; none. A call to main is refused for now (DG_NYI).
+; call itself (DG_UNMET otherwise), main as any other. A returns the
+; result type, zero for none.
 
 RO_CALL:
-    LD   A,H                       ; Is the callee
-    OR   L                         ; main?
-    JP   Z,TR_OPER                 ; Refused for now.
     LD   DE,(RO_CUR)               ; The routine being compiled:
     CALL CP_HLDE                   ; does it call itself?
     JR   NZ,.OTHER                 ; Another routine: any may be called.

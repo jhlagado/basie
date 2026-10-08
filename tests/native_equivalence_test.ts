@@ -406,6 +406,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: File fields, elements and results": ["FILEFLD", "FILEIDX"],
   "74: comparisons as inferred locals": ["INFCMP"],
   "74: paths from calls": ["CALLID", "SELCALL"],
+  "74: main as a routine, forward and recursive": ["MAINREC"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1096,6 +1097,11 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "main calling itself without a forward":
+    "var n as u8\nsub main()\nn = n + 1\nif n < 3\nmain()\nend\nend\n",
+  "a forward main with a parameter": "forward sub main(x as u8)\nsub main\nend\n",
+  "a forward main never completed": "forward sub main()\nsub other()\nend\n",
+  "main completed with no forward": "sub main()\nend\nsub main\nend\n",
   "an f32 loop counter": "sub main()\nvar f as f32\nfor f = 1 to 3\nend\nend\n",
   "an f32 select subject":
     "sub main()\nvar f as f32 = 1.5\nselect f\ncase 1\nend\nend\n",

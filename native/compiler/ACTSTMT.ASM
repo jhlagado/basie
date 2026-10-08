@@ -255,10 +255,7 @@ AC_ROOT:
     RET                            ; A is it.
 .ROUTINE:                      ; Not predeclared.
     CALL RO_FIND                   ; A routine?
-    JR   NZ,.SYMBOL                ; No: a symbol.
-    LD   A,H                       ; Main
-    OR   L                         ; has
-    JR   Z,.NONE                   ; no result. Its record:
+    JR   NZ,.SYMBOL                ; No: a symbol. Its record:
     LD   DE,RO_RTYPE               ; its result
     ADD  HL,DE                     ; type
     LD   A,(HL)                    ; is A.

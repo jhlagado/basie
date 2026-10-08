@@ -38,12 +38,13 @@
 ;  64.
 
 ;@ROUTINE OUT A,HL,ZERO CLOBBERS CARRY,SIGN,PARITY,HALFCARRY
-; HL is the routine being compiled (RO_CUR), zero, with Z, for main.
+; HL is the routine being compiled (RO_CUR), Z if it is main (RO_FMAIN).
 
 RO_ISMN:                       ; The routine being compiled:
     LD   HL,(RO_CUR)               ; its record,
-    LD   A,H                       ; zero
-    OR   L                         ; for main.
+    LD   A,(RO_CFLAG)              ; and its flags:
+    CPL                            ; Z if
+    AND  RO_FMAIN                  ; main.
     RET                            ; Z if main.
 
 ;@ROUTINE IN A OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE
@@ -65,24 +66,14 @@ RO_PARAM:                      ; A is the parameter.
 
 ;@ROUTINE OUT A,HL,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE
 ; Find the current NAME among the routines, through its hash chain
-; (RO_HTAB). Z returns its record in HL, or zero once main has been
-; declared and the name is main. NZ, with A = $FF, means the name is not
-; a routine; that is not itself an error.
+; (RO_HTAB). Z returns its record in HL, main's as any other's. NZ, with
+; A = $FF, means the name is not a routine; that is not itself an error.
 
 RO_FIND:
     LD   DE,RO_HTAB                ; The routines' chains,
     LD   C,RO_RLINK                ; linked there,
     CALL SY_FINDD                  ; searched as the symbols' are:
-    JR   C,.FOUND                  ; its record, or
-.MISSING:                      ; The name is not in the table.
-    LD   A,(RO_MFLAG)              ; Has main been declared?
-    AND  RO_FMAIN                  ; Its flags carry RO_FMAIN once it has.
-    JR   Z,.ABSENT                 ; No main to call yet.
-    CALL EX_MAIN                   ; Is the name main?
-    JR   NC,.ABSENT                ; It is no routine at all.
-    LD   HL,0                      ; Report the main routine,
-    XOR  A                         ; Z with carry clear.
-    RET                            ; HL identifies main.
+    JR   C,.FOUND                  ; its record, or none:
 .ABSENT:                       ; Report that no routine matched.
     LD   A,$FF                     ; No routine index.
     OR   A                         ; NZ with carry clear.

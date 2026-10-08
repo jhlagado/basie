@@ -1,0 +1,26 @@
+// main as a routine: declared forward, it calls itself, another routine
+// calls it back, and a routine after it calls it too; a counter ends the
+// recursion.
+forward sub main()
+var depth as u8
+var calls as u16
+
+sub helper()
+    calls = calls + 1
+    if depth < 5
+        main()
+    end
+end
+
+sub main
+    depth = depth + 1
+    if depth < 3
+        main()
+    else
+        helper()
+    end
+end
+
+sub later()
+    main()
+end
