@@ -1,0 +1,65 @@
+// Local owning records that no pool describes (74): each is freed where
+// its scope ends through an owner descriptor made at its first free and
+// kept for its type, as a pool of the type would then reuse it.
+forward pool nodes
+record Node
+    v as u16
+    next as nodes?
+end
+pool nodes as Node[8]
+record Holder
+    head as nodes?
+    count as u8
+end
+record Pair
+    a as Holder
+    b as Holder
+end
+
+sub fill(var h as Holder, v as u16)
+    h.head = new nodes(v, move h.head)
+    h.count = h.count + 1
+end
+
+sub sum(h as Holder) as u16
+    var total as u16 = 0
+    var p = id(h.head)
+    while true
+        select p
+        case some(n)
+            total = total + n.v
+            p = id(n.next)
+        case none
+            exit
+        end
+    end
+    return total
+end
+
+sub once() as u16
+    var tmp as Holder
+    fill(tmp, 3)
+    fill(tmp, 4)
+    return sum(tmp)
+end
+
+sub twice() as u16
+    var both as Pair
+    fill(both.a, 5)
+    fill(both.b, 6)
+    var t as u16 = sum(both.a) + sum(both.b)
+    var again as Holder
+    fill(again, 1)
+    return t + sum(again)
+end
+
+sub main() fails
+    var total as u16 = 0
+    var round as u8
+    for round = 1 to 5
+        total = total + once() + twice()
+    end
+    if total = 95
+        writeText(console, "local owners\r\n") else fail
+    end
+end

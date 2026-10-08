@@ -24,8 +24,9 @@
 ;    OW_REC    the PoolRecord island: the record after `as`
 ;    OW_CMT    CommitPool: declare or complete the pool, write its blobs
 ;    OW_ENDP   a part's or the program's end: forward pools completed
-;    OW_LDESC  the owner descriptor of a local owning array being freed,
-;              waiting until its routine's blob is written
+;    OW_LDESC  the owner descriptor of a local owning array or record
+;              being freed, waiting until its routine's blob is written; a
+;              record's kept for its type
 ;    OW_RBEG, OW_FIELD, OW_PLACE, OW_RECOK  a record's declaration:
 ;              BeginRecord, each field's begin and commit, CommitRecord
 ;              (AC_REC, AC_FIELD, AC_PLACE, AC_RECOK reach them)
@@ -39,7 +40,7 @@ OW_TAB:                        ; Entry 0:
     JP   OW_REC                    ; 3: PoolRecord;
     JP   OW_CMT                    ; 6: CommitPool;
     JP   OW_ENDP                   ; 9: a part's or the program's end;
-    JP   OW_LDESC                  ; 12: a local owning array's descriptor;
+    JP   OW_LDESC                  ; 12: a local owning array's or record's descriptor;
     JP   OW_RBEG                   ; 15: BeginRecord;
     JP   OW_FIELD                  ; 18: BeginRecordField;
     JP   OW_PLACE                  ; 21: CommitRecordField;
@@ -699,7 +700,7 @@ OW_LDESC:                      ; PL_WTYPE is the type.
     LD   HL,(PL_WCNT)              ; At most
     LD   A,H                       ; 255
     OR   A                         ; (types
-    JR   NZ,.MANY                  ; beyond),
+    JP   NZ,.MANY                  ; beyond),
     LD   A,L                       ; and as many
     CP   OW_SCAP+1                 ; as the staging holds
     JP   NC,AG_EDATA               ; (object size beyond).
@@ -759,7 +760,16 @@ OW_LDESC:                      ; PL_WTYPE is the type.
     POP  AF                        ; The declaration's
     LD   (AC_DLEN),A               ; name
     POP  HL                        ; again.
-    LD   (AC_DNAME),HL             ; HL is
+    LD   (AC_DNAME),HL             ; A record's
+    LD   A,(PL_WTYPE)              ; is kept
+    CALL HN_ARRAY                  ; for its type
+    JR   Z,.ORD                    ; (PL_DESC),
+    LD   A,(PL_WTYPE)              ; reused by
+    CALL OW_DSLOT                  ; its later frees
+    LD   (HL),C                    ; and a pool
+    INC  HL                        ; of it
+    LD   (HL),B                    ; (OW_DESC).
+.ORD:                          ; HL is
     LD   H,B                       ; the
     LD   L,C                       ; ordinal.
     RET                            ; Done.

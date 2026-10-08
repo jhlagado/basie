@@ -1,0 +1,21 @@
+// A pool of a record type declared after a local of it was freed (74):
+// the pool reuses the owner descriptor that free made.
+forward pool nodes
+record Node
+    v as u16
+    next as nodes?
+end
+pool nodes as Node[8]
+record Holder
+    head as nodes?
+end
+sub use() as u8
+    var tmp as Holder
+    tmp.head = new nodes(1, none)
+    return 1
+end
+pool holders as Holder[2]
+sub main()
+    var n as u8 = use()
+    var h = new holders(new nodes(2, none))
+end

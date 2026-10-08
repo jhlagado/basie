@@ -402,6 +402,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: initializers to 16K": ["BIGINIT", "BIGTEXT"],
   "74: a chain of includes past memory": ["CHAIN"],
   "74: escapes in character literals": ["CHARESC"],
+  "74: local owning records": ["LOCREC", "LOCPOOL"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1018,6 +1019,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["74: initializers to 16K"],
     ...CLAIMED["74: a chain of includes past memory"],
     ...CLAIMED["74: escapes in character literals"],
+    ...CLAIMED["74: local owning records"],
   ];
   for (const name of run) {
     const disk = native(name);

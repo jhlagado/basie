@@ -36,10 +36,8 @@
 ; (AC_BIND), after its initializer, as the reference's does.
 
 AC_LOCAL:
-    LD   A,(AG_CTYPE)              ; The local's type: a handle,
-    CALL PL_ISHND                  ; or an owning one whose
-    CALL NC,HN_LOCTY               ; descriptor is written,
-    CALL AG_NOVW                   ; and a view is a parameter's only.
+    LD   A,(AG_CTYPE)              ; The local's type:
+    CALL AG_NOVW                   ; a view is a parameter's only.
     LD   D,SY_AGGR+SY_LOCAL        ; An aggregate local's class,
     CP   AG_FIRST                  ; unless
     JR   NC,.CLASS                 ; it is a scalar:

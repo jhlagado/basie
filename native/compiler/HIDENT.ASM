@@ -591,7 +591,7 @@ HN_NOCMP:                      ; What follows?
 
 ;@ROUTINE IN A OUT HL,ZERO CLOBBERS A,DE,CARRY,SIGN,PARITY,HALFCARRY
 ; The ordinal of table type A's owner descriptor (PL_DESC) in HL, zero
-; (Z) while none is written.
+; (Z) while none is made (one made may still wait for its routine's blob).
 
 HN_DESC:                       ; A is a table type.
     SUB  AG_FIRST                  ; Its
@@ -605,32 +605,6 @@ HN_DESC:                       ; A is a table type.
     LD   H,(HL)                    ; or
     LD   L,A                       ; zero
     OR   H                         ; (Z).
-    RET                            ; Back.
-
-;@ROUTINE IN A OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A local's type A, not a handle: an owning record waits (DG_NYI) unless
-; its owner descriptor is written already (a pool's record), which its
-; free names (HN_OFREE); an owning array's is made at each free. A, DE
-; and HL are kept.
-
-HN_LOCTY:                      ; A is the type.
-    PUSH HL                        ; HL,
-    PUSH DE                        ; DE
-    PUSH AF                        ; and A kept.
-    CALL PL_OWNS                   ; Owning?
-    JR   NC,.KEEP                  ; No.
-    POP  AF                        ; Then
-    PUSH AF                        ; an array,
-    CALL HN_ARRAY                  ; or a record
-    JR   Z,.KEEP                   ; whose descriptor
-    POP  AF                        ; is
-    PUSH AF                        ; written
-    CALL HN_DESC                   ; (a pool's);
-    JP   Z,TR_OPER                 ; another waits.
-.KEEP:                         ; Accepted.
-    POP  AF                        ; A,
-    POP  DE                        ; DE
-    POP  HL                        ; and HL.
     RET                            ; Back.
 
 ;@ROUTINE IN A OUT ZERO CLOBBERS A,CARRY,SIGN,PARITY,HALFCARRY
@@ -657,7 +631,8 @@ HN_ARRAY:                      ; A is the type.
 ; Free the owning local of type A at IX+DE (emitFrees): HL = IX+DE, LD
 ; DE,descriptor, CALL OBJ_FREE; an array's descriptor a new one, made by
 ; the OWNERS overlay and written after the routine (OW_LDESC), a record's
-; its pool's.
+; the one made already (its pool's, or an earlier free's), else made there
+; and kept for the type, as the reference's descriptorOf keeps it.
 
 HN_OFREE:                      ; A is the type, DE the offset.
     PUSH AF                        ; (kept)
@@ -668,16 +643,19 @@ HN_OFREE:                      ; A is the type, DE the offset.
     POP  AF                        ; the type's
     PUSH AF                        ; descriptor:
     CALL HN_ARRAY                  ; an array's
-    JR   NZ,.RECORD                ; is made
-    POP  AF                        ; now, for
+    JR   Z,.MAKE                   ; is made now;
+    POP  AF                        ; a record's
+    PUSH AF                        ; is the one
+    CALL HN_DESC                   ; made already,
+    JR   NZ,.KEPT                  ; HL, if any,
+.MAKE:                         ; else made,
+    POP  AF                        ; for
     LD   (PL_WTYPE),A              ; its type,
     LD   A,12                      ; by OWNERS
-    CALL OV_PCALL                  ; (OW_LDESC);
-    JR   .MADE                     ; HL is its ordinal.
-.RECORD:                       ; A record's
-    POP  AF                        ; is its pool's,
-    CALL HN_DESC                   ; HL.
-.MADE:                         ; HL is the descriptor:
+    CALL OV_PCALL                  ; (OW_LDESC):
+    PUSH AF                        ; HL is its ordinal.
+.KEPT:                         ; HL is the descriptor:
+    POP  AF                        ; (dropped)
     LD   DE,0                      ; an
     CALL EM_REF                    ; address;
     CALL EM_HELP                   ; CALL
