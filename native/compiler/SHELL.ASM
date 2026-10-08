@@ -58,6 +58,7 @@ SH_ERASE EQU  19               ; BDOS delete file: an absent file is only a stat
 SH_DISK EQU  25                ; BDOS current disk: A is the drive, 0 for A:.
 SH_READ EQU  20                ; BDOS read sequential: A is nonzero at end of file.
 SH_DMA EQU  26                 ; BDOS set DMA address: DE receives the next record.
+SH_SIZE EQU  35                ; BDOS compute file size: records in the FCB's r0 to r2.
 SH_RCODE EQU  108              ; BDOS set return code (CP/M 3): DE is the code.
 SH_FLEN EQU  36                ; FCB bytes, through the random record number.
 SH_NLEN EQU  11                ; FCB name and type bytes, padded with spaces.

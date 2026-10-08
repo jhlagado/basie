@@ -102,8 +102,10 @@ large routines and many routines slow.
 - 255 routines (`RO_RCAP`): the 1,000 top-level names of the
   specification were met only with fewer routines among them. Lifted at
   74: routines are bounded by memory, about 24 bytes each.
-- Parts that include one another in a chain are all held while they load:
-  sixteen parts of 1.5K in a chain do not fit, where the same parts
-  included from the main part do.
+- Parts that include one another in a chain were all held while they
+  loaded: sixteen parts of 1.5K in a chain did not fit, where the same
+  parts included from the main part did. Lifted at 74: a part is dropped
+  while a part it includes loads, when that part would not fit above it,
+  and read again after.
 - A routine is bounded by its log, about 20 bytes a statement, beside its
   part's source: 413 one-line statements beside a 7.6K part.

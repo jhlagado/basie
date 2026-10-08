@@ -1,0 +1,62 @@
+include "CHN12.BSI"
+// Part 11 of a chain of includes: each part includes the next, so all
+// of them are open while the last loads.
+var c11 as u16
+sub p11r0() as u16
+    c11 = c11 + 0
+    c11 = c11 + 1
+    c11 = c11 + 2
+    c11 = c11 + 3
+    return c11
+end
+sub p11r1() as u16
+    c11 = c11 + 1
+    c11 = c11 + 2
+    c11 = c11 + 3
+    c11 = c11 + 4
+    return c11
+end
+sub p11r2() as u16
+    c11 = c11 + 2
+    c11 = c11 + 3
+    c11 = c11 + 4
+    c11 = c11 + 5
+    return c11
+end
+sub p11r3() as u16
+    c11 = c11 + 3
+    c11 = c11 + 4
+    c11 = c11 + 5
+    c11 = c11 + 6
+    return c11
+end
+sub p11r4() as u16
+    c11 = c11 + 4
+    c11 = c11 + 5
+    c11 = c11 + 6
+    c11 = c11 + 7
+    return c11
+end
+sub p11r5() as u16
+    c11 = c11 + 5
+    c11 = c11 + 6
+    c11 = c11 + 7
+    c11 = c11 + 8
+    return c11
+end
+sub p11r6() as u16
+    c11 = c11 + 6
+    c11 = c11 + 7
+    c11 = c11 + 8
+    c11 = c11 + 9
+    return c11
+end
+sub p11r7() as u16
+    c11 = c11 + 7
+    c11 = c11 + 8
+    c11 = c11 + 9
+    c11 = c11 + 10
+    return c11
+end
+// padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long 
+// padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long padding text to make the part about a kilobyte and a half long 

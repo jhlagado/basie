@@ -33,9 +33,13 @@
 ;  the table and the bytes grow towards each other; a record must fit
 ;  below the table before it is read. A part's bytes are dropped once its
 ;  include lines are read, so that only the parts whose includes are open
-;  are in memory at once; part 0 is left loaded at MM_SRC (SRC_RES). The
-;  compilation loads each part again, there, before it is compiled
-;  (SRC_BODY, SH_AGAIN), and the shell one a diagnostic names (SH_TELL).
+;  are in memory at once. A part an include names loads above the
+;  including part when it fits (SH_FITS); otherwise the including part's
+;  bytes are dropped while it loads and read again after, where they were
+;  (SH_BACK), so that a chain of includes holds only what fits. Part 0 is
+;  left loaded at MM_SRC (SRC_RES). The compilation loads each part again,
+;  there, before it is compiled (SRC_BODY, SH_AGAIN), and the shell one a
+;  diagnostic names (SH_TELL).
 ;
 ;  Failure. A part named on the command line that is not on the disk
 ;  (L-MISSING) or one CP/M can't read (L-IO), and source too large for
@@ -96,9 +100,7 @@ SH_BEGIN:                      ; At OV_AREA.
     LD   DE,SH_FCB                 ; The FCB takes them.
     LD   BC,SH_SLOT                ; Twelve bytes.
     LDIR                           ; The FCB names the part.
-    LD   DE,SH_FCB                 ; DE is the FCB for BDOS.
-    LD   C,SH_OPEN                 ; Open the part for reading.
-    CALL SH_BDOS                   ; A is $FF if the file is not on the disk.
+    CALL SH_FOPEN                  ; Open it: A is $FF if it is not on the disk.
     INC  A                         ; $FF becomes zero.
     POP  HL                        ; The name.
     JP   Z,SH_MISS                 ; Report the missing part by name.
@@ -193,7 +195,7 @@ SH_LOAD:                       ; HL is the part's name.
     LD   (SH_CUR),HL               ; the part being loaded's;
     LD   (SH_LIMIT),HL             ; the source must stay below it,
     LD   DE,(SH_LOADP)             ; where it
-    CALL .ROOM                     ; is already.
+    CALL SH_ROOM                   ; is already.
     JP   C,SH_LARGE                ; No room: the source is too large.
     LD   DE,(SH_CUR)               ; DE is the entry,
     POP  HL                        ; HL the name,
@@ -204,63 +206,7 @@ SH_LOAD:                       ; HL is the part's name.
     LD   (HL),PT_OPEN              ; open until its includes are loaded.
     LD   HL,SH_LCNT                ; It is
     INC  (HL)                      ; counted.
-    LD   HL,(SH_LOADP)             ; The part starts at the load point.
-    LD   (SH_PBEG),HL              ; Keep its start for the trim and the entry.
-    LD   DE,EM_LTAB                ; Each record is read into a buffer,
-    LD   C,SH_DMA                  ; the label table, not yet in use,
-    CALL SH_BDOS                   ; so the read that finds the end needs no room.
-.RECORD:                       ; SH_LOADP is where the next record goes.
-    LD   DE,SH_FCB                 ; DE is the open part's FCB.
-    LD   C,SH_READ                 ; Read its next record.
-    CALL SH_BDOS                   ; A is zero if a record was read.
-    OR   A                         ; Was one read?
-    JR   Z,.ADVANCE                ; Yes: move past it.
-    DEC  A                         ; Status 1 is the end of the file.
-    JR   Z,.LOADED                 ; The part is complete.
-    JP   SH_RERR                   ; Any other status is a read error (toolchain §6.2).
-.ADVANCE:                      ; A record was read into the buffer.
-    LD   HL,(SH_LOADP)             ; It must end
-    LD   DE,128                    ; below
-    ADD  HL,DE                     ; the table
-    EX   DE,HL                     ; at the load point,
-    CALL .ROOM                     ; else
-    JP   C,SH_LARGE                ; the source is too large.
-    LD   HL,EM_LTAB                ; It is
-    LD   DE,(SH_LOADP)             ; copied
-    LD   BC,128                    ; there,
-    LDIR                           ; and the next
-    LD   (SH_LOADP),DE             ; goes after it.
-    JR   .RECORD                   ; Read until the end of the file.
-.LOADED:                       ; The file is in memory from SH_PBEG to SH_LOADP.
-    LD   HL,(SH_PBEG)              ; Scan from the part's start for its first $1A.
-    LD   DE,(SH_LOADP)             ; DE is the end of the last record.
-.TRIM:                         ; HL is the next byte to test, below or at DE.
-    LD   A,L                       ; Has the scan reached DE?
-    CP   E                         ; Compare the low bytes.
-    JR   NZ,.BYTE                  ; They differ: test the byte at HL.
-    LD   A,H                       ; Compare the high bytes.
-    CP   D                         ; Equal means the end of the records.
-    JR   Z,.FOUND                  ; A part without $1A ends there.
-.BYTE:                         ; HL is inside the loaded records.
-    LD   A,(HL)                    ; Read the next source byte.
-    CP   $1A                       ; CP/M ends a text file with $1A in its last record.
-    JR   Z,.FOUND                  ; The part ends at the first one.
-    INC  HL                        ; Not yet: test the next byte.
-    JR   .TRIM                     ; Continue the scan.
-.FOUND:                        ; HL is the part's exclusive end.
-    LD   (SH_LOADP),HL             ; The next part loads here, over the $1A and padding.
-    EX   DE,HL                     ; DE is the end.
-    LD   HL,(SH_CUR)               ; The entry's
-    LD   BC,PT_START               ; start
-    ADD  HL,BC                     ; and end:
-    LD   BC,(SH_PBEG)              ; BC is where the part began.
-    LD   (HL),C                    ; Store the start's low byte.
-    INC  HL                        ; Move to its high byte.
-    LD   (HL),B                    ; Store the start's high byte.
-    INC  HL                        ; The exclusive end follows.
-    LD   (HL),E                    ; Store the end's low byte.
-    INC  HL                        ; Move to its high byte.
-    LD   (HL),D                    ; Store the end's high byte.
+    CALL SH_READP                  ; Its bytes, read:
     LD   HL,(SH_PBEG)              ; Its bytes, [HL,DE),
     LD   A,(SH_LCNT)               ; with its index plus one,
     CALL SRC_INIT                  ; are the tokenizer's.
@@ -332,6 +278,13 @@ SH_LOAD:                       ; HL is the part's name.
     CP   SH_ICAP                   ; within
     LD   A,DG_INEST                ; the capacity
     JR   NC,.REPORT                ; of includes open at once.
+    CALL SH_FITS                   ; If the part fits above this one,
+    SBC  A,A                       ; A is $FF, else zero,
+    PUSH AF                        ; kept for after it:
+    JR   NZ,.ABOVE                 ; then this part's bytes
+    CALL SH_PBASE                  ; are dropped while it loads,
+    LD   (SH_LOADP),HL             ; from their start.
+.ABOVE:                        ; The included part loads at SH_LOADP.
     LD   HL,(SH_CUR)               ; Keep this part's entry
     PUSH HL                        ; and
     LD   HL,-SH_STATE              ; the tokenizer's
@@ -350,19 +303,16 @@ SH_LOAD:                       ; HL is the part's name.
     LDIR                           ; and
     LD   SP,HL                     ; dropped.
     POP  HL                        ; This part's
-    LD   (SH_CUR),HL               ; entry again.
+    LD   (SH_CUR),HL               ; entry again,
+    POP  AF                        ; its bytes
+    OR   A                         ; read again
+    CALL Z,SH_BACK                 ; if they were dropped.
     LD   HL,SH_DEPTH               ; One include
     DEC  (HL)                      ; fewer is open.
     JP   .LINE                     ; The next line.
-.DONE:                         ; The include lines are over.
-    LD   HL,(SH_CUR)               ; The part's
-    LD   DE,PT_START               ; bytes
-    ADD  HL,DE                     ; are
-    LD   A,(HL)                    ; dropped:
-    INC  HL                        ; the next
-    LD   H,(HL)                    ; loads
-    LD   L,A                       ; at its
-    LD   (SH_LOADP),HL             ; start.
+.DONE:                         ; The include lines are over:
+    CALL SH_PBASE                  ; the part's bytes are dropped,
+    LD   (SH_LOADP),HL             ; the next loading at their start.
     LD   HL,(SH_CUR)               ; The part's
     LD   DE,PT_NUM                 ; number
     ADD  HL,DE                     ; in the stream
@@ -376,12 +326,144 @@ SH_LOAD:                       ; HL is the part's name.
 ; Carry if the address DE is past SH_LIMIT, the first byte the source may
 ; not use.
 
-.ROOM:                         ; DE is an address in the source area.
+SH_ROOM:                       ; DE is an address in the source area.
     LD   HL,(SH_LIMIT)             ; HL is the limit.
     OR   A                         ; Clear carry for the subtraction.
     SBC  HL,DE                     ; Carry if DE is above it.
     RET                            ; The caller tests carry.
 
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Read the part open in SH_FCB, whose entry is SH_CUR, at SH_LOADP (kept
+; in SH_PBEG), each record through EM_LTAB (the DMA address), whole
+; records below the part table (SH_LARGE otherwise), to its first $1A;
+; its entry takes its start and end, and SH_LOADP returns past it.
+
+SH_READP:                      ; SH_LOADP is where it goes.
+    LD   HL,(SH_LOADP)             ; The part starts at the load point.
+    LD   (SH_PBEG),HL              ; Keep its start for the trim and the entry.
+    LD   DE,EM_LTAB                ; Each record is read into a buffer,
+    LD   C,SH_DMA                  ; the label table, not yet in use,
+    CALL SH_BDOS                   ; so the read that finds the end needs no room.
+.RECORD:                       ; SH_LOADP is where the next record goes.
+    CALL SH_FREAD                  ; Read its next record: A zero if read.
+    OR   A                         ; Was one read?
+    JR   Z,.ADVANCE                ; Yes: move past it.
+    DEC  A                         ; Status 1 is the end of the file.
+    JR   Z,.LOADED                 ; The part is complete.
+    JP   SH_RERR                   ; Any other status is a read error (toolchain §6.2).
+.ADVANCE:                      ; A record was read into the buffer.
+    LD   HL,(SH_LOADP)             ; It must end
+    LD   DE,128                    ; below
+    ADD  HL,DE                     ; the table
+    EX   DE,HL                     ; at the load point,
+    CALL SH_ROOM                   ; else
+    JP   C,SH_LARGE                ; the source is too large.
+    LD   HL,EM_LTAB                ; It is
+    LD   DE,(SH_LOADP)             ; copied
+    LD   BC,128                    ; there,
+    LDIR                           ; and the next
+    LD   (SH_LOADP),DE             ; goes after it.
+    JR   .RECORD                   ; Read until the end of the file.
+.LOADED:                       ; The file is in memory from SH_PBEG to SH_LOADP.
+    LD   HL,(SH_PBEG)              ; Scan from the part's start for its first $1A.
+    LD   DE,(SH_LOADP)             ; DE is the end of the last record.
+.TRIM:                         ; HL is the next byte to test, below or at DE.
+    LD   A,L                       ; Has the scan reached DE?
+    CP   E                         ; Compare the low bytes.
+    JR   NZ,.BYTE                  ; They differ: test the byte at HL.
+    LD   A,H                       ; Compare the high bytes.
+    CP   D                         ; Equal means the end of the records.
+    JR   Z,.FOUND                  ; A part without $1A ends there.
+.BYTE:                         ; HL is inside the loaded records.
+    LD   A,(HL)                    ; Read the next source byte.
+    CP   $1A                       ; CP/M ends a text file with $1A in its last record.
+    JR   Z,.FOUND                  ; The part ends at the first one.
+    INC  HL                        ; Not yet: test the next byte.
+    JR   .TRIM                     ; Continue the scan.
+.FOUND:                        ; HL is the part's exclusive end.
+    LD   (SH_LOADP),HL             ; The next part loads here, over the $1A and padding.
+    EX   DE,HL                     ; DE is the end.
+    LD   HL,(SH_CUR)               ; The entry's
+    LD   BC,PT_START               ; start
+    ADD  HL,BC                     ; and end:
+    LD   BC,(SH_PBEG)              ; BC is where the part began.
+    LD   (HL),C                    ; Store the start's low byte.
+    INC  HL                        ; Move to its high byte.
+    LD   (HL),B                    ; Store the start's high byte.
+    INC  HL                        ; The exclusive end follows.
+    LD   (HL),E                    ; Store the end's low byte.
+    INC  HL                        ; Move to its high byte.
+    LD   (HL),D                    ; Store the end's high byte.
+    RET                            ; Its bytes are in place.
+
+;@ROUTINE OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Open the file SH_FCB names (BDOS): A is $FF if it is absent.
+
+SH_FOPEN:                      ; SH_FCB names it.
+    LD   DE,SH_FCB                 ; Open
+    LD   C,SH_OPEN                 ; it;
+    JP   SH_BDOS                   ; return.
+
+;@ROUTINE OUT A CLOBBERS BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Read the next record of the file open in SH_FCB (BDOS): A is zero if
+; one was read, one at its end.
+
+SH_FREAD:                      ; SH_FCB is open.
+    LD   DE,SH_FCB                 ; Read
+    LD   C,SH_READ                 ; its next
+    JP   SH_BDOS                   ; record; return.
+
+;@ROUTINE OUT HL CLOBBERS DE,CARRY,HALFCARRY
+; HL is the start of the bytes of the part being loaded (SH_CUR).
+
+SH_PBASE:                      ; SH_CUR is the part.
+    LD   HL,(SH_CUR)               ; Its entry's
+    LD   DE,PT_START               ; start
+    ADD  HL,DE                     ; field:
+    CALL WD_GET                    ; DE,
+    EX   DE,HL                     ; HL.
+    RET                            ; Done.
+
+;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
+; Carry if the part open in SH_FCB, its records (BDOS compute file size),
+; fits below the part table with a record to spare for its entry: fewer
+; records than the whole records between the load point and the table.
+
+SH_FITS:                       ; SH_FCB is open.
+    LD   DE,SH_FCB                 ; Its size
+    LD   C,SH_SIZE                 ; in records
+    CALL SH_BDOS                   ; (r0 and r1)
+    LD   HL,(SH_FCB+33)            ; is
+    PUSH HL                        ; needed;
+    LD   HL,(SH_LIMIT)             ; the room
+    LD   DE,(SH_LOADP)             ; below
+    OR   A                         ; the table,
+    SBC  HL,DE                     ; in
+    ADD  HL,HL                     ; whole
+    LD   E,H                       ; records,
+    LD   D,0                       ; DE,
+    POP  HL                        ; holds them
+    JP   CP_HLDE                   ; if the need is below it.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Read the part being loaded (SH_CUR) again where it was (SH_READP), its
+; bytes dropped while a part it includes loaded (SH_FITS), so that the
+; tokenizer's state, kept on the stack, addresses them again; the next
+; part loads after them.
+
+SH_BACK:                       ; SH_CUR is the part.
+    CALL SH_BLANK                  ; A clear FCB
+    LD   HL,(SH_CUR)               ; takes
+    LD   DE,SH_FCB                 ; its drive
+    LD   BC,SH_SLOT                ; and
+    LDIR                           ; name;
+    CALL SH_FOPEN                  ; it is opened
+    INC  A                         ; again (gone,
+    JP   Z,SH_RERR                 ; it is unreadable),
+    CALL SH_PBASE                  ; and read
+    LD   (SH_LOADP),HL             ; at its start;
+    JP   SH_READP                  ; return.
 
 ;@ROUTINE IN A,HL CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Make the include's string literal, A bytes decoded from the source at
@@ -457,9 +539,7 @@ SH_TRY:                        ; A is the drive.
     LD   (HL),A                    ; a byte
     INC  HL                        ; at a
     DJNZ .CLEAR                    ; time.
-    LD   DE,SH_FCB                 ; Open
-    LD   C,SH_OPEN                 ; the
-    CALL SH_BDOS                   ; part:
+    CALL SH_FOPEN                  ; Open the part:
     CP   $FF                       ; carry unless it is absent ($FF).
     RET                            ; Carry if it is open.
 
@@ -477,7 +557,7 @@ SH_MISS:                       ; HL is the part's drive and name.
 ; Report a part that CP/M could not read: L-IO, its argument the part's
 ; name, and a disk error's return code.
 
-SH_RERR:                       ; SH_LOAD had a read status other than 0 or 1.
+SH_RERR:                       ; A read status other than 0 or 1 (SH_READP).
     LD   A,SH_RDISK                ; A disk error's
     LD   (SH_RLOW),A               ; return code.
     LD   DE,(SH_CUR)               ; The part being loaded,
@@ -503,7 +583,7 @@ SH_NAMED:                      ; HL is the message number.
 ;@ROUTINE NORETURN
 ; Report a part whose next record would cross SH_LIMIT.
 
-SH_LARGE:                      ; SH_LOAD found no room for a record.
+SH_LARGE:                      ; No room for a record (SH_READP).
     LD   A,DG_ROOM                 ; The source's capacity:
     JP   SH_OVER                   ; report it and fail.
 

@@ -1,0 +1,24 @@
+include "CHN01.BSI"
+// A chain of sixteen includes (74).
+var t as u16
+sub main() fails
+    t = t + p1r7()
+    t = t + p2r7()
+    t = t + p3r7()
+    t = t + p4r7()
+    t = t + p5r7()
+    t = t + p6r7()
+    t = t + p7r7()
+    t = t + p8r7()
+    t = t + p9r7()
+    t = t + p10r7()
+    t = t + p11r7()
+    t = t + p12r7()
+    t = t + p13r7()
+    t = t + p14r7()
+    t = t + p15r7()
+    t = t + p16r7()
+    if t > 0
+        writeText(console, "chain\r\n") else fail
+    end
+end

@@ -400,6 +400,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: var owning array parameters": ["VAROWN"],
   "74: routines bounded by memory": ["MANY400"],
   "74: initializers to 16K": ["BIGINIT", "BIGTEXT"],
+  "74: a chain of includes past memory": ["CHAIN"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1014,6 +1015,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["74: var owning array parameters"],
     ...CLAIMED["74: routines bounded by memory"],
     ...CLAIMED["74: initializers to 16K"],
+    ...CLAIMED["74: a chain of includes past memory"],
   ];
   for (const name of run) {
     const disk = native(name);

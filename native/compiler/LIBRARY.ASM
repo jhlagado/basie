@@ -190,9 +190,7 @@ LB_CHECK:                      ; CL_LIB is the library's name.
     LD   HL,LB_TYPE+1              ; its type,
     LD   C,3                       ; BRL,
     LDIR                           ; into the type field.
-    LD   DE,SH_FCB                 ; DE is the FCB for BDOS.
-    LD   C,SH_OPEN                 ; Open it;
-    CALL SH_BDOS                   ; A is $FF if it is absent,
+    CALL SH_FOPEN                  ; Open it: A is $FF if it is absent,
     ADD  A,1                       ; which alone sets carry.
     RET                            ; Carry if not there.
 
@@ -259,14 +257,10 @@ LB_STAMP:                      ; The parts are loaded; the streams are not open.
     LD   DE,LB_BUF                 ; Its first record
     LD   C,SH_DMA                  ; is read
     CALL SH_BDOS                   ; into the buffer.
-    LD   DE,SH_FCB                 ; Open it;
-    LD   C,SH_OPEN                 ; A is $FF
-    CALL SH_BDOS                   ; if it is absent.
+    CALL SH_FOPEN                  ; Open it: A is $FF if it is absent.
     INC  A                         ; $FF becomes zero:
     JR   Z,.NEW                    ; no earlier directory.
-    LD   DE,SH_FCB                 ; Read
-    LD   C,SH_READ                 ; its
-    CALL SH_BDOS                   ; header.
+    CALL SH_FREAD                  ; Read its header.
     OR   A                         ; An empty file
     JR   NZ,.NEW                   ; has none.
     LD   HL,LB_BUF                 ; Its magic
