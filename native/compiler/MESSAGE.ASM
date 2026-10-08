@@ -19,6 +19,7 @@
 ;    MS_SHOWE  at OV_AREA: "Error N: text" for diagnostic HL (MS_FAIL's)
 ;    MS_SHOWD  at OV_AREA+3: the compiler's diagnostic, DG_CODE in DG_PART
 ;              at DG_POS (SH_DIAG's and SH_OVER's)
+;    MS_SCRUB  at OV_AREA+6: delete the streams after a failure (SH_SCRUB's)
 ;    SH_NUM    print HL in decimal; only diagnostics print numbers, so it is
 ;              here rather than in the resident shell
 ;
@@ -45,10 +46,49 @@ MS_NCAP EQU  190               ; The reference's capacity.
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The overlay's entries: OV_AREA, MS_SHOWE, prints "Error N: text" for
 ; diagnostic HL, as BLINK prints its own; OV_AREA+3, MS_SHOWD, the
-; compiler's diagnostic. Neither ends the line.
+; compiler's diagnostic, neither ending the line; OV_AREA+6, MS_SCRUB.
 
 MS_ENTRY:                      ; At OV_AREA: HL is the number.
-    JP   MS_SHOWE                  ; MS_SHOWD follows at +3.
+    JP   MS_SHOWE                  ; Print it.
+    JP   MS_SHOWD                  ; At OV_AREA+3; MS_SCRUB follows at +6.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; SH_SCRUB's: delete the four streams, NAME.$DR, $BY, $LN and $NM on the
+; spool drive, and a blob's spilled bytes, NAME.$CD (BL_SPILL), after a failure, unless
+; option K keeps them (toolchain §6.2). A stream never made is only a
+; status from BDOS.
+
+MS_SCRUB:                      ; At OV_AREA+6.
+    LD   A,(BL_FLAGS)              ; Did option K
+    AND  SH_KEEP                   ; ask to keep them?
+    RET  NZ                        ; Then they stay.
+    LD   HL,MS_STYPE               ; The streams' types, two letters each.
+    LD   B,5                       ; Four streams and the spill.
+.LOOP:                         ; HL is the next type.
+    PUSH BC                        ; Keep the count.
+    CALL SH_BLANK                  ; A clear FCB; HL is kept.
+    PUSH HL                        ; Keep the type.
+    LD   HL,SH_SNAME               ; The streams' drive and name,
+    LD   DE,SH_FCB                 ; into the FCB:
+    LD   BC,9                      ; nine bytes.
+    LDIR                           ; DE is the FCB's type.
+    LD   A,'$'                     ; Each type begins with a dollar,
+    LD   (DE),A                    ; then
+    INC  DE                        ; its
+    POP  HL                        ; two
+    LDI                            ; letters.
+    LDI                            ; HL is the next type.
+    PUSH HL                        ; Keep it.
+    LD   DE,SH_FCB                 ; DE is the FCB for BDOS.
+    LD   C,SH_ERASE                ; Delete the stream;
+    CALL SH_BDOS                   ; an absent one is only a status.
+    POP  HL                        ; The next type.
+    POP  BC                        ; The count.
+    DJNZ .LOOP                     ; Until all five are deleted.
+    RET                            ; The streams are gone.
+
+MS_STYPE:                      ; The streams' types after their dollar.
+    DB   "DRBYLNNMCD"              ; $DR, $BY, $LN, $NM and $CD.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Print the compiler's diagnostic, DG_CODE in DG_PART at DG_POS, as the

@@ -29,7 +29,7 @@
 ;                  the stack, to LL_WEND, the end of the compiler workspace
 ;                  (LL1.ASM)
 ;
-;  PR_PARSE clears RO_BASE up to RO_SPAR before parsing; the tables are written
+;  PREP (PP_RUN) clears RO_BASE up to RO_SPAR before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
 ;  failure-routing fields as the grammar's actions run; ROUTINES.ASM writes
 ;  the tables; CALLS.ASM the path in hand (RO_PLACE), which GENAGGR.ASM
@@ -151,7 +151,7 @@ RO_RPOS EQU  14                ; Word: its name's offset in that part.
 RO_RLINK EQU  16               ; Word: the next record of its hash chain (RO_HTAB).
 RO_RNEXT EQU  18               ; Word: the next routine declared, zero for none.
 RO_CREC EQU  RO_HEND           ; The record of the signature being parsed
-                               ; (PR_PARSE clears RO_BASE to its end),
+                               ; (PP_RUN clears RO_BASE to its end),
 RO_SPAR EQU  RO_CREC+RO_RLEN   ; then its parameters' records, RO_SCAP.
 ; The routine being compiled is described by its fields in RO_CREC, which
 ; AC_PUB copies below the name heap and AC_IMPL copies back for a forward's
@@ -187,7 +187,7 @@ SRC_WEND EQU  SRC_RES+1        ; End of the source cursor.
 ; overlay does the same while it loads the parts.
 PR_SP EQU  SRC_WEND            ; Word: SP that DG_ISSUE restores.
 ; The pools (POOLS.ASM), in the bytes before the LL(1) stack's page:
-; PR_PARSE clears PL_CNT..FW_TAB; FW_OPEN each frame's flows. A pool's entry is PL_LEN bytes.
+; PP_RUN clears PL_CNT..FW_TAB; FW_OPEN each frame's flows. A pool's entry is PL_LEN bytes.
 PL_CNT EQU  PR_SP+2            ; Byte: pools declared, forward ones too.
 PL_NCAP EQU  PL_CNT+1          ; Word: the capacity of the pool being declared.
 PL_NREC EQU  PL_NCAP+2         ; Byte: its record type.

@@ -20,7 +20,10 @@
 ;                           streams closed first, with BLCLOSE.ASM (CH_DONE
 ;                           at OV_AREA+3)
 ;    OV_DIAG   MESSAGE.ASM  diagnostics from BASIE.MSG (MS_SHOWE at
-;                           OV_AREA, MS_SHOWD at OV_AREA+3)
+;                           OV_AREA, MS_SHOWD at OV_AREA+3), and the streams
+;                           deleted after a failure (MS_SCRUB at OV_AREA+6)
+;    OV_PREP   PREP.ASM     the state a compilation begins with (PP_RUN at
+;                           OV_AREA), loaded once by PR_BUILD before NAMES
 ;    OV_LOOK   LOOKUP.ASM   option T: a trap's address looked up (LK_RUN at
 ;                           OV_AREA), which the command line's reading runs
 ;  PARTNAME.ASM, the parts' names, is assembled into BEGIN and DIAG, which
@@ -67,6 +70,7 @@ OV_DIAG EQU  3                 ; Diagnostics from BASIE.MSG.
 OV_LOOK EQU  4                 ; Option T: a trap's address looked up.
 OV_FLOAT EQU  5                ; f32 constants: literals and folding.
 OV_OWNS EQU  6                 ; Owner descriptors.
+OV_PREP EQU  7                 ; A compilation's starting state.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 

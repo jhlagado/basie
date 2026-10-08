@@ -22,7 +22,6 @@
 ;    PR_NEED   consume the next token, which must be of kind E
 ;    PR_LEFT, PR_RIGHT, PR_EQUAL  PR_NEED for "(", ")" and "="
 ;    PR_ETERM  raise DG_VALUE, a missing or malformed value
-;    PR_RESET  clear the parse state before a compilation
 ;
 ;  Failure. PR_BUILD (ROUTINES.ASM) saves SP in PR_SP before parsing.
 ;  DG_ISSUE stores the code in DG_CODE, the source part in DG_PART and the
@@ -269,37 +268,3 @@ PR_ETERM:
     CALL DG_RAISE                  ; The missing-value diagnostic.
     DB   DG_VALUE                  ; Abandon the build.
 
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,B,HL
-; Clear the state one compilation accumulates: the diagnostic, the
-; lookahead, the symbol table, the forward flag, the aggregate counters,
-; the next ordinal (the program's base, $0400) and the largest frame.
-; Returns A zero.
-
-PR_RESET:
-    XOR  A                         ; Zero for every cleared field.
-    LD   H,A                       ; HL is zero
-    LD   L,A                       ; for the word fields.
-    LD   (DG_CODE),HL              ; No diagnostic yet, and no failing part (DG_PART).
-    LD   (RG_LARGE),HL             ; No frame yet: the largest is zero.
-    LD   (SY_BODY),HL              ; No body is open (SRC_OPEN places
-                                   ; the symbol table), and no chain
-    LD   HL,SY_HTAB                ; has a record:
-    LD   B,2*SY_HCAP               ; each head's
-.CHAINS:                       ; two bytes
-    LD   (HL),A                    ; are
-    INC  HL                        ; zero.
-    DJNZ .CHAINS                   ; All of them.
-    LD   (RG_FWD),A                ; No forward routines.
-    LD   (EX_PRIME),A              ; No primary parsed ahead.
-    LD   HL,AG_DCNT                ; The aggregate counters, AG_DCNT..AG_OPENF.
-    LD   B,AG_OPENF-AG_DCNT+1      ; Their byte count.
-.LOOP:                         ; Clear one aggregate counter.
-    LD   (HL),A                    ; Zero it.
-    INC  HL                        ; Step to the next.
-    DJNZ .LOOP                     ; Until all are clear.
-    LD   HL,$0400                  ; The first blob takes the
-    LD   (RG_ORD),HL               ; program's ordinal base, $0400.
-    DEC  A                         ; The empty-lookahead marker, $FF:
-    LD   (PR_LKIND),A              ; no token is buffered.
-    XOR  A                         ; Return A zero.
-    RET                            ; The compilation starts clean.

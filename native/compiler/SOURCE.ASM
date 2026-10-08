@@ -15,7 +15,6 @@
 ;  Principal entries:
 ;    SRC_PART  address a part's entry in the part table
 ;    SRC_FIND  find the part with a given number in the stream
-;    SRC_OPEN  begin the compilation at the stream's first part
 ;    SRC_BODY make the stream's part A current, at its body
 ;    SRC_LOAD  load a part's bytes again, at MM_SRC
 ;    SRC_INIT  make the byte range [HL,DE) the current part with identity A
@@ -94,67 +93,6 @@ SRC_FIND:                      ; A is the number.
     RET  Z                         ; Yes.
     INC  B                         ; No: the next entry.
     JR   .LOOP                     ; Try it.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; Begin a compilation at the stream's first part, owing no line end: the
-; name heap starts below the part table, the symbol table above the
-; largest part in whole records, where each part is loaded (SY_BTM), and
-; no constant waits above that (RG_CBEG, RG_PEND). DG_ROOM if they meet.
-
-SRC_OPEN:
-    LD   A,(SRC_PCNT)              ; The part table's
-    DEC  A                         ; last entry,
-    CALL SRC_PART                  ; its bottom,
-    LD   (NH_PTR),HL               ; begins the name heap (TK_KEEP).
-    LD   BC,0                      ; The largest part's length, BC,
-    LD   A,(SRC_PCNT)              ; of every part:
-.LARGE:                        ; A entries remain.
-    DEC  A                         ; Entry A,
-    PUSH AF                        ; (kept)
-    CALL SRC_PART                  ; HL; BC is kept:
-    LD   DE,PT_START               ; its
-    ADD  HL,DE                     ; start,
-    CALL WD_GET                    ; DE, and its end,
-    LD   A,(HL)                    ; HL,
-    INC  HL                        ; give
-    LD   H,(HL)                    ; its
-    LD   L,A                       ; length,
-    OR   A                         ; HL;
-    SBC  HL,DE                     ; is it
-    PUSH HL                        ; longer
-    SBC  HL,BC                     ; than
-    POP  HL                        ; BC?
-    JR   C,.SHORT                  ; No.
-    LD   B,H                       ; Then it is
-    LD   C,L                       ; the longest yet.
-.SHORT:                        ; The next.
-    POP  AF                        ; Until
-    JR   NZ,.LARGE                 ; entry zero.
-    LD   HL,127                    ; Its whole
-    ADD  HL,BC                     ; records'
-    LD   A,L                       ; bytes
-    AND  $80                       ; above
-    LD   L,A                       ; the
-    LD   DE,MM_SRC                 ; base
-    ADD  HL,DE                     ; are where
-    LD   (SY_BTM),HL               ; the symbol table
-    LD   (SY_TOP),HL               ; begins;
-    LD   DE,SY_RECB                ; past its
-    ADD  HL,DE                     ; provisional record
-    LD   (RG_CBEG),HL              ; no constant
-    LD   (RG_PEND),HL              ; waits,
-    EX   DE,HL                     ; all below
-    LD   HL,(NH_PTR)               ; the name
-    OR   A                         ; heap,
-    SBC  HL,DE                     ; else
-    JR   NC,.FITS                  ; DG_ROOM,
-    XOR  A                         ; naming
-    LD   (SRC_ID),A                ; no part:
-    JP   MM_FULL                   ; the memory is full.
-.FITS:                         ; The tables are ready.
-    XOR  A                         ; No boundary line end
-    LD   (SRC_OWE),A               ; is owed; part zero of the stream
-                                   ; is current; fall into SRC_BODY.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the stream's part A current at its body: the bytes after its

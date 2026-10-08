@@ -78,6 +78,7 @@ export const OVERLAYS = [
     offset: 0,
     after: "NAMES",
   },
+  { name: "PREP", equate: "OV_PREP", files: ["PREP.ASM"], offset: 0 },
 ];
 
 export type Overlay = {

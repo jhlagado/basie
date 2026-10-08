@@ -11,7 +11,7 @@
 ;  bytes, modulo SY_HCAP (SY_HASH), each chain links its records newest
 ;  first (SY_LINK), and a scope's end unlinks its records from the chains'
 ;  heads, where they are (SY_CUT). It starts above the largest part, in
-;  whole records (SY_BTM, SRC_OPEN), and grows up as names are declared:
+;  whole records (SY_BTM, PP_RUN), and grows up as names are declared:
 ;  the routine's waiting constants above it move up a record when it
 ;  reaches them (RG_LIFT), and the name heap above them is the limit
 ;  (DG_ROOM, `source size`). Scopes are its prefixes: a routine's

@@ -566,7 +566,8 @@ SH_RERR:                       ; A read status other than 0 or 1 (SH_READP).
 ;@ROUTINE IN DE,HL NORETURN
 ; Report diagnostic HL with the part whose drive and name are at DE as its
 ; argument, and fail; once the parts are loaded (SRC_RES not $FF), the
-; streams are open, and are deleted first (SH_SCRUB).
+; streams are open, and are deleted first (MS_SCRF), the resident shell
+; doing it, since deleting them loads DIAG over this overlay.
 
 SH_NAMED:                      ; HL is the message number.
     PUSH HL                        ; Keep it across the spelling.
@@ -574,11 +575,11 @@ SH_NAMED:                      ; HL is the message number.
     LD   DE,DG_ABUF                ; D:NAME.TYP,
     CALL SH_SPELL                  ; spelled there,
     LD   (DG_ARG1),HL              ; is argument 1.
-    LD   A,(SRC_RES)               ; Once the parts
+    LD   A,(SRC_RES)               ; Before the parts
     INC  A                         ; are loaded,
-    CALL NZ,SH_SCRUB               ; the streams go.
-    POP  HL                        ; The number.
-    JP   MS_FAIL                   ; Print it and fail.
+    POP  HL                        ; the number
+    JP   Z,MS_FAIL                 ; is printed and fails;
+    JP   MS_SCRF                   ; after, the streams go first.
 
 ;@ROUTINE NORETURN
 ; Report a part whose next record would cross SH_LIMIT.

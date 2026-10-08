@@ -10,7 +10,8 @@
 ;  compiler's workspace, chooses the compilation stamp, opens the
 ;  intermediate streams NAME.$DR, $BY, $LN and $NM on the spool drive and
 ;  with the first part's name (toolchain §3.2) and names each part in the
-;  line stream; NAMES holds the predeclared names while PR_BUILD compiles
+;  line stream; PREP makes the compilation's starting state and NAMES
+;  holds the predeclared names while PR_BUILD compiles
 ;  the parts into blobs; then CHAIN closes the streams and runs BLINK.COM
 ;  to link them, unless option C compiles only; option X runs BLINK at
 ;  once. A diagnostic is printed by the DIAG overlay, by the reference's
@@ -118,7 +119,7 @@ MS_REC EQU  DG_ARG2+2          ; Byte: the record of BASIE.MSG in MS_BUF.
 OV_CUR EQU  MS_REC+1           ; Byte: the overlay loaded last, $FF for none (OVERLAY.ASM).
 OV_FCB EQU  OV_CUR+1           ; SH_FLEN bytes: BASIE.OVL's FCB, open once loaded.
 OV_DIR EQU  OV_FCB+SH_FLEN     ; OV_DCAP entries of four: each overlay's address, records.
-OV_DCAP EQU  7                 ; Overlays BASIE.OVL may describe.
+OV_DCAP EQU  8                 ; Overlays BASIE.OVL may describe.
 SH_WEND EQU  OV_DIR+4*OV_DCAP  ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN
@@ -154,8 +155,6 @@ SH_START:                      ; Entered from the jump at $0100.
     JR   C,SH_DIAG                 ; (SH_BEGIN), a diagnostic printed;
     CALL OV_AREA+9                 ; choose the stamp, open the streams
                                    ; and name the parts (LB_OPEN).
-    LD   A,OV_NAMES                ; The predeclared names
-    CALL OV_LOAD                   ; are in the overlay area for the compilation.
     CALL PR_BUILD                  ; Compile; carry reports a diagnostic in DG_CODE.
     JR   C,SH_DIAG                 ; Print it and fail.
     LD   HL,OV_AREA+3              ; The chain's overlay closes the streams and runs
@@ -200,8 +199,8 @@ SH_BLANK:                      ; Called for each part and for A:$$$.SUB.
 ; DIAG overlay's MS_SHOWD), delete the streams and fail.
 
 SH_DIAG:                       ; Reached on carry from PR_BUILD.
-    CALL SH_TELL                   ; Print the diagnostic.
-    CALL SH_SCRUB                  ; Delete the streams.
+    CALL SH_TELL                   ; Print the diagnostic; DIAG is loaded:
+    CALL OV_AREA+6                 ; delete the streams (MS_SCRUB).
     JR   SH_QUIT                   ; End the line and fail.
 
 ;@ROUTINE IN A NORETURN
@@ -241,6 +240,14 @@ SH_TELL:                       ; DG_CODE, DG_PART and DG_POS are set.
     LD   A,OV_DIAG                 ; The diagnostics' overlay,
     CALL OV_LOAD                   ; loaded,
     JP   OV_AREA+3                 ; prints it (MS_SHOWD); return.
+
+;@ROUTINE IN HL NORETURN
+; Delete the streams (SH_SCRUB), then fail as MS_FAIL does, DIAG loaded.
+
+MS_SCRF:                       ; HL is the number.
+    PUSH HL                        ; Keep it.
+    CALL SH_SCRUB                  ; Delete the streams.
+    POP  HL                        ; The number; fall into MS_FAIL.
 
 ;@ROUTINE IN HL NORETURN
 ; Print "Error N: text" for diagnostic HL, its arguments at DG_ARG1 and
@@ -331,44 +338,16 @@ OUT_FAIL:                      ; A stream could not be written or made.
     JR   SH_FAIL                   ; Print it and fail.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Delete the four streams, NAME.$DR, $BY, $LN and $NM on the spool drive,
-; and a blob's spilled bytes, NAME.$CD (BL_SPILL), after a failure, unless
-; option K keeps them (toolchain §6.2). A stream never made is only a
-; status from BDOS.
+; Delete the streams after a failure, through the DIAG overlay (MS_SCRUB,
+; MESSAGE.ASM).
 
 SH_SCRUB:                      ; The streams were opened by BL_OPEN.
-    LD   A,(BL_FLAGS)              ; Did option K
-    AND  SH_KEEP                   ; ask to keep them?
-    RET  NZ                        ; Then they stay.
-    LD   HL,SH_STYPE               ; The streams' types, two letters each.
-    LD   B,5                       ; Four streams and the spill.
-.LOOP:                         ; HL is the next type.
-    PUSH BC                        ; Keep the count.
-    CALL SH_BLANK                  ; A clear FCB; HL is kept.
-    PUSH HL                        ; Keep the type.
-    LD   HL,SH_SNAME               ; The streams' drive and name,
-    LD   DE,SH_FCB                 ; into the FCB:
-    LD   BC,9                      ; nine bytes.
-    LDIR                           ; DE is the FCB's type.
-    LD   A,'$'                     ; Each type begins with a dollar,
-    LD   (DE),A                    ; then
-    INC  DE                        ; its
-    POP  HL                        ; two
-    LDI                            ; letters.
-    LDI                            ; HL is the next type.
-    PUSH HL                        ; Keep it.
-    LD   DE,SH_FCB                 ; DE is the FCB for BDOS.
-    LD   C,SH_ERASE                ; Delete the stream;
-    CALL SH_BDOS                   ; an absent one is only a status.
-    POP  HL                        ; The next type.
-    POP  BC                        ; The count.
-    DJNZ .LOOP                     ; Until all five are deleted.
-    RET                            ; The streams are gone.
+    LD   A,OV_DIAG                 ; The diagnostics' overlay,
+    CALL OV_LOAD                   ; loaded,
+    JP   OV_AREA+6                 ; deletes them; return.
 
 ; ---- data -------------------------------------------------------------------
 
-SH_STYPE:                      ; The streams' types after their dollar.
-    DB   "DRBYLNNMCD"              ; $DR, $BY, $LN, $NM and $CD.
 SH_JOB:                        ; The SUBMIT job file a failed build deletes.
     DB   1,"$$$     SUB"           ; Drive A:, then name and type as an FCB holds them.
 SH_DMSG:                       ; A stream could not be written.

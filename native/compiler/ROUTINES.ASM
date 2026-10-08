@@ -13,7 +13,6 @@
 ;
 ;  Principal entries:
 ;    PR_BUILD  compile the source parts
-;    PR_PARSE  clear the routine workspace and parse the whole program
 ;    RO_FIND   find the current name among the routines, or main
 ;    RO_LIB    find the current name among the predeclared names
 ;    RO_FRESH  reject a routine name that is already in use
@@ -138,35 +137,16 @@ RO_LIB:
 
 PR_BUILD:
     LD   (PR_SP),SP                ; A diagnostic returns from here.
-    CALL PR_RESET                  ; Clear the parser's state.
-    CALL SRC_OPEN                  ; Open the first part.
-    CALL PR_PARSE                  ; Parse every part, writing its blobs.
+    LD   A,OV_PREP                 ; The state a compilation
+    CALL OV_LOAD                   ; begins with is made by
+    CALL OV_AREA                   ; the PREP overlay (PP_RUN),
+    LD   A,OV_NAMES                ; then the predeclared names
+    CALL OV_LOAD                   ; take the overlay area.
+    XOR  A                         ; Part zero of the stream
+    CALL SRC_BODY                  ; is current;
+    CALL LL_PARSE                  ; every part is parsed, its blobs written.
     OR   A                         ; Carry clear: success.
     RET                            ; The caller closes the streams.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX,IY
-; Clear the routine state and run the LL(1) parser
-; over every source part. The tables are written before they are read.
-
-PR_PARSE:
-    LD   HL,PL_CNT                 ; Clear the pools,
-    LD   B,FW_TAB-PL_CNT           ; their table (a frame's flows are
-                                   ; cleared as it opens, FW_OPEN),
-    CALL .WIPE                     ; zeroed;
-    LD   HL,PL_DESC                ; the owner descriptors'
-    LD   B,2*AG_TCAP               ; ordinals,
-    CALL .WIPE                     ; none yet;
-    LD   HL,RO_BASE                ; and the routine state:
-    LD   B,RO_SPAR-RO_BASE         ; its counts, fields, hash chains and record.
-    LD   DE,LL_PARSE               ; Then parse the program
-    PUSH DE                        ; and return.
-.WIPE:                         ; Clear B bytes at HL:
-    XOR  A                         ; zero
-.ZERO:                         ; each
-    LD   (HL),A                    ; byte
-    INC  HL                        ; in
-    DJNZ .ZERO                     ; turn.
-    RET                            ; Done.
 
 ;@ROUTINE IN A OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Reject the current name if it is a routine's or a predeclared name, as

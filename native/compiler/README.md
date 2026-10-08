@@ -27,25 +27,24 @@ disks in the tests and the Triptych machine's.
 
 | Overlay | Files | Bytes | Loaded |
 | --- | --- | ---: | --- |
-| `COMMAND` | `COMMAND.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 978 | first, to read the command line |
-| `START` | `LIBRARY.ASM`, `BLOPEN.ASM`, `PARTNAME.ASM` | 812 | to check the library, then, once the parts are loaded, to choose the stamp, open the streams and name the parts |
-| `NAMES` | `PREDEF.ASM` | 947 | before the compilation, for all of it: the predeclared names stay where `RO_LIB` reads them, so lookups are as fast as from the image |
-| `CHAIN` | `CHAIN.ASM`, `BLCLOSE.ASM` | 448 | after a compilation, to close the streams and, unless option C, run `BLINK`; with option X, to run `BLINK` alone |
-| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,034 | to print a diagnostic |
-| `PARTS` | `PARTS.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 915 | to load the parts and the parts they include |
-| `FLOAT` | `FLOAT.ASM` | 1,460 | the first time a compilation meets an `f32` constant, above `NAMES`, both kept for the rest of it: decimal literals to `f32` and the folding of `f32` constants |
+| `BEGIN` | `COMMAND.ASM`, `LIBRARY.ASM`, `BLOPEN.ASM`, `PARTS.ASM`, `FILENAME.ASM`, `PARTNAME.ASM` | 2,558 | first, once, its entries run in turn: the command line, the library check, the parts and their includes, then the stamp and the streams |
+| `PREP` | `PREP.ASM` | 165 | once, by `PR_BUILD`: the parse state cleared and the tables placed above the largest part |
+| `NAMES` | `PREDEF.ASM` | 947 | before the parse, for all of it: the predeclared names stay where `RO_LIB` reads them, so lookups are as fast as from the image |
+| `FLOAT` | `FLOAT.ASM` | 1,458 | above `NAMES`, when a compilation meets an `f32` constant: decimal literals to `f32` and the folding of `f32` constants |
+| `OWNERS` | `OWNERS.ASM` | 1,639 | above `NAMES`, in `FLOAT`'s place: pool and record declarations and owner descriptors |
+| `CHAIN` | `CHAIN.ASM`, `BLCLOSE.ASM` | 496 | after a compilation, to write the entry and limits records, close the streams and, unless option C, run `BLINK`; with option X, to run `BLINK` alone |
+| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,110 | to print a diagnostic, and to delete the streams after a failure |
+| `LOOKUP` | `LOOKUP.ASM`, `FILENAME.ASM` | 1,063 | with option T, to look up a trap's address |
 
-The overlay area is 2,483 bytes: `FLOAT` loads above `NAMES`, from its
-last byte (loading it later overwrites only the padding of `NAMES`' last
-record), and the others at the start. `DIAG`, at 1,034 bytes, reaches into
-`FLOAT`'s first record; that is harmless, since a diagnostic ends the
-compilation, but the area must keep `DIAG` and `NAMES` below `FLOAT`'s
-records end (`build.ts` checks `NAMES`). Code
-that runs once, before the compilation or after it, belongs in an overlay
-rather than the image: the streams' opening code is `START`'s, their
-closing code `CHAIN`'s, and the decimal printer `SH_NUM` `DIAG`'s. The
-conversion of decimal literals to `f32` is to be an overlay loaded above
-`NAMES`, which stays loaded while it is used.
+The overlay area is 2,611 bytes: `NAMES` and `OWNERS` above it, the
+largest pair, in whole records. `FLOAT` and `OWNERS` load from `NAMES`'
+last byte, taking turns there, and the others at the start. Code that
+runs once, before the compilation or after it, or only after a failure,
+belongs in an overlay rather than the image: the start-up is `BEGIN`'s,
+the compilation's starting state `PREP`'s, the closing records and
+streams `CHAIN`'s, and the failure's messages and deletions `DIAG`'s.
+Code a routine's parse needs stays resident, since an overlay that took
+turns with `OWNERS` or `FLOAT` there would be read again for each routine.
 
 Code is generated as it is parsed, in the reference compiler's templates,
 and each routine and top-level declaration is written as a blob (design

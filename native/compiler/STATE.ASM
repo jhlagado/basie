@@ -6,7 +6,7 @@
 ;  the constants that every phase shares: token kinds, diagnostic numbers,
 ;  symbol classes, aggregate type ordinals and relation codes. CALLWORK.ASM
 ;  continues the workspace to LL_WEND. Nothing here is initialised by the
-;  image: PR_RESET and the routine entries clear what each needs.
+;  image: PREP (PP_RUN) and the routine entries clear what each needs.
 ;
 ;  The compiler makes one pass. The parser reads the source and the code
 ;  generators write each routine and top-level declaration as a blob while

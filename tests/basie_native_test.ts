@@ -174,6 +174,35 @@ Deno.test("BASIE loads the parts a part includes, each once, before it", () => {
   assertEquals(partsOf(again.disk.get("MAIN.$LN")!).length, 3);
 });
 
+Deno.test("a part gone when it is loaded again is L-MISSING, and the streams go", () => {
+  // The parts are read, then the streams made; deleting the parts then
+  // makes the compilation's reload of the part not resident fail.
+  let gone = false;
+  const r = runCom(basie, {
+    tail: "MAIN,BASE",
+    files: {
+      "BASIE.MSG": MSG,
+      "BASIE.OVL": OVL,
+      "CPM22.BRL": LIBRARY,
+      "MAIN.BSI": "sub main()\nend\n",
+      "BASE.BSI": "var b as u8\n",
+    },
+    maxSteps: 50_000_000,
+    onBdos: (c) => {
+      if (!gone && c.fn === 22 && c.file === "MAIN.$DR") {
+        gone = true;
+        c.disk.delete("MAIN.BSI");
+        c.disk.delete("BASE.BSI");
+      }
+    },
+  });
+  assertEquals(gone, true);
+  assertEquals(r.output, "Error 225: MAIN.BSI not found\r\n");
+  for (const t of ["$DR", "$BY", "$LN", "$NM"]) {
+    assertEquals(r.disk.has(`MAIN.${t}`), false, t);
+  }
+});
+
 Deno.test("an include is looked for on its part's drive, then on L's or A:", () => {
   const main = 'include "LIB.BSI"\nsub main()\nresult = 1\nend\n';
   const lib = "var result as u8\n";
@@ -327,11 +356,13 @@ Deno.test("the source and the part table may fill memory to the stack below the 
   // (1.125K since 68, for 32 nested expressions); each record must
   // fit below the table before it is read, which bounds the loader. The
   // symbol table and the name heap share the memory above the largest part
-  // (67h.3), so a part a record smaller than the loader's bound leaves them
-  // room; one byte past the bound is the loader's capacity.
+  // (67h.3), so a part two records smaller than the loader's bound leaves
+  // them room (one record leaves between 128 and 255 bytes, as MM_SRC falls,
+  // too few for this program's names at the low end); one byte past the
+  // bound is the loader's capacity.
   const top = 0xe406 - built.symbols.MM_STACK;
   const bound = Math.floor((top - 21 - built.symbols.MM_SRC) / 128) * 128;
-  const room = bound - 128;
+  const room = bound - 256;
   const fill = (size: number) => {
     let text = PROGRAM;
     while (text.length < size - 70) text += "// " + "x".repeat(60) + "\n";

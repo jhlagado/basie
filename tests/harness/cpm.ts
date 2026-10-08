@@ -71,6 +71,8 @@ export type BdosCall = {
   cycles: number;
   file?: string;
   record?: number;
+  /** The simulated disk, which a test may change before the call runs. */
+  disk: Map<string, Uint8Array>;
 };
 
 const CALLS = new Set([0xcd, 0xc4, 0xcc, 0xd4, 0xdc, 0xe4, 0xec, 0xf4, 0xfc]);
@@ -235,7 +237,7 @@ export function runCom(bytes: Uint8Array, options: CpmOptions = {}): CpmRun {
         : fn === 33 || fn === 34
         ? randomRecord(de)
         : undefined;
-      options.onBdos({ fn, cycles, file, record });
+      options.onBdos({ fn, cycles, file, record, disk });
     }
     switch (fn) {
       case 1: { // console input with echo
