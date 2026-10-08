@@ -3,12 +3,15 @@
 ;==========================================================================
 ;
 ;  The blob writer's (BLOB.ASM) and the output streams' (OUT.ASM) closing
-;  code, which runs once, after the compilation has succeeded. It is part
+;  code, and the entry and limits records written before it (RG_END,
+;  CHAIN.ASM), which run once, after the compilation has succeeded. It is part
 ;  of the CHAIN overlay (OVERLAY.ASM), with CHAIN.ASM, whose CH_DONE calls
 ;  it, so the resident image does not carry it.
 ;
 ;  Principal entries:
 ;    BL_CLOSE   write the trailers and close the streams
+;    BL_LIMIT   write the limits control record
+;    BL_ENTRY   write the entry control record
 ;    OUT_CRC    append the stream's CRC, low byte first
 ;    OUT_END    pad the last record with zeros, write it and close the file
 
@@ -97,3 +100,24 @@ OUT_END:                       ; IX is the stream.
     RET  NZ                        ; The file is closed.
     JP   OUT_FAIL                  ; A failed close loses the file.
 
+;@ROUTINE IN A,DE,HL CLOBBERS A,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the limits control record: stack reserve HL, largest frame DE and
+; flags A (object format §5.3).
+
+BL_LIMIT:                      ; HL is the reserve, DE the frame, A the flags.
+    PUSH AF                        ; Keep the flags for last.
+    LD   A,$1E                     ; Control kind 6, subtype 3: limits,
+    CALL BL_CWORD                  ; then the stack reserve.
+    POP  AF                        ; The flags follow the frame's high byte:
+    LD   H,A                       ; they are the high byte
+    LD   L,D                       ; of a word whose low byte is the frame's,
+    LD   A,E                       ; after the frame's low byte.
+    JP   BL_CWORD                  ; Append the three, and return.
+
+;@ROUTINE IN HL CLOBBERS A,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the entry control record: the program starts at blob HL (object
+; format §5.3).
+
+BL_ENTRY:                      ; HL is main's ordinal.
+    LD   A,$0E                     ; Control kind 6, subtype 1: entry.
+    JP   BL_CWORD                  ; Append it and the word; return.

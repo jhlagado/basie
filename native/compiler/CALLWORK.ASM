@@ -29,7 +29,7 @@
 ;                  the stack, to LL_WEND, the end of the compiler workspace
 ;                  (LL1.ASM)
 ;
-;  PR_PARSE clears RO_BASE..RO_HEND before parsing; the tables are written
+;  PR_PARSE clears RO_BASE up to RO_SPAR before parsing; the tables are written
 ;  before they are read. ACTIONS.ASM writes the signature, body and
 ;  failure-routing fields as the grammar's actions run; ROUTINES.ASM writes
 ;  the tables; CALLS.ASM the path in hand (RO_PLACE), which GENAGGR.ASM
@@ -93,23 +93,22 @@ RO_CUR EQU  RO_BASE+$00        ; Word: the routine being compiled, its record (R
                                ; while its signature is parsed); zero for main.
 AC_IPOS EQU  RO_BASE+$02       ; Word: the offset of an inferred local's initializer.
 ; RO_BASE+$03 is AC_IPOS's high byte.
-RO_CTYPE EQU  RO_BASE+$04      ; Byte: its result type ordinal, zero for none.
-RO_CPCNT EQU  RO_BASE+$05      ; Byte: its parameters so far.
+AC_PPOS EQU  RO_BASE+$04       ; Word: the offset of the token after `private` (AC_MARK).
 RO_TBASE EQU  RO_BASE+$06      ; Byte: AG_TCNT as the body opened (AG_SCOPE).
 RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.
-RO_CFLAG EQU  RO_BASE+$08      ; Byte: flags of the routine being compiled.
+; RO_BASE+$08: free.
 RO_PEND EQU  RO_BASE+$09       ; Byte: $80 and a failure's label while it is unconsumed.
 RO_KEPT EQU  RO_BASE+$0A       ; Byte: temporaries' bytes beneath a handled call.
 RO_MFLAG EQU  RO_BASE+$0B      ; Byte: main's flags, as main has no routine record.
-RO_CARGS EQU  RO_BASE+$0C      ; Byte: the routine's argument bytes, removed by RETN.
+; RO_BASE+$0C: free.
 RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
 ; RO_BASE+$0E: free.
 RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FAILS).
 ; RO_BASE+$11: free.
 AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
 AC_PRIV EQU  RO_BASE+$13       ; Byte: nonzero while a private declaration is parsed.
-RO_CPIDX EQU  RO_BASE+$14      ; Word: its first parameter's record.
-RO_VARP EQU  RO_CPIDX+2        ; Byte: nonzero for a var parameter being parsed.
+; RO_BASE+$14 and +$15: free.
+RO_VARP EQU  RO_BASE+$16       ; Byte: nonzero for a var parameter being parsed.
 RO_CRO EQU  RO_VARP+1          ; Byte: nonzero when the last call's result is read-only.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's
 ; Designator holds them, and the position of the index being parsed. The
@@ -136,7 +135,7 @@ GA_HELD EQU  3                 ; Place: computed, in HL.
 RO_HTAB EQU  RO_STEND          ; SY_HCAP words: the routines' hash chains' heads.
 RO_RHEAD EQU  RO_HTAB+2*SY_HCAP ; Word: the first routine declared, zero for none.
 RO_RLAST EQU  RO_RHEAD+2      ; Word: the last, whose RO_RNEXT the next takes.
-RO_HEND EQU  RO_RLAST+2        ; Their end; PR_PARSE clears from RO_BASE to it.
+RO_HEND EQU  RO_RLAST+2        ; Their end.
 RO_RLEN EQU  20                ; Bytes in one routine record.
 RO_RNAME EQU  0                ; Word: address of the routine's name.
 RO_RNLEN EQU  2                ; Byte: length of the name.
@@ -151,8 +150,17 @@ RO_RPART EQU  13               ; Byte: the part its name is in (SRC_ID).
 RO_RPOS EQU  14                ; Word: its name's offset in that part.
 RO_RLINK EQU  16               ; Word: the next record of its hash chain (RO_HTAB).
 RO_RNEXT EQU  18               ; Word: the next routine declared, zero for none.
-RO_CREC EQU  RO_HEND           ; The record of the signature being parsed,
+RO_CREC EQU  RO_HEND           ; The record of the signature being parsed
+                               ; (PR_PARSE clears RO_BASE to its end),
 RO_SPAR EQU  RO_CREC+RO_RLEN   ; then its parameters' records, RO_SCAP.
+; The routine being compiled is described by its fields in RO_CREC, which
+; AC_PUB copies below the name heap and AC_IMPL copies back for a forward's
+; body; main's are there too, though it has no record.
+RO_CPIDX EQU  RO_CREC+RO_RPIDX ; Word: its first parameter's record.
+RO_CPCNT EQU  RO_CREC+RO_RPCNT ; Byte: its parameters so far.
+RO_CTYPE EQU  RO_CREC+RO_RTYPE ; Byte: its result type ordinal, zero for none.
+RO_CFLAG EQU  RO_CREC+RO_RFLAG ; Byte: its flags.
+RO_CARGS EQU  RO_CREC+RO_RARGS ; Byte: its argument bytes, removed by RETN.
 RO_PLEN EQU  5                 ; Bytes in one parameter record.
 RO_SCAP EQU  64                ; Parameters of one routine; DG_PARAM beyond.
 RO_PLIM EQU  RO_SPAR+RO_PLEN*RO_SCAP ; Exclusive end of the signature.

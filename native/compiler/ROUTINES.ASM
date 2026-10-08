@@ -9,7 +9,7 @@
 ;  aggregate paths that use these tables.
 ;
 ;  The module also holds the compile entry PR_BUILD, which parses the
-;  program, writing its blobs as it goes, then its entry and limits.
+;  program, writing its blobs as it goes; CHAIN writes its entry and limits.
 ;
 ;  Principal entries:
 ;    PR_BUILD  compile the source parts
@@ -131,7 +131,8 @@ RO_LIB:
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,SIGN,PARITY,HALFCARRY,ZERO
 ; Compile the source parts of the part table (SOURCE.ASM) in stream order
 ; into the blob writer's streams, which the caller has opened (BL_OPEN):
-; every blob, then the entry and limits records. Carry clear reports
+; every blob; the CHAIN overlay writes the entry and limits records
+; (RG_END, CH_DONE). Carry clear reports
 ; success. A diagnostic returns carry set, with DG_CODE, DG_PART and
 ; DG_POS describing it.
 
@@ -140,7 +141,6 @@ PR_BUILD:
     CALL PR_RESET                  ; Clear the parser's state.
     CALL SRC_OPEN                  ; Open the first part.
     CALL PR_PARSE                  ; Parse every part, writing its blobs.
-    CALL RG_END                    ; The entry and limits records.
     OR   A                         ; Carry clear: success.
     RET                            ; The caller closes the streams.
 
@@ -157,7 +157,7 @@ PR_PARSE:
     LD   B,2*AG_TCAP               ; ordinals,
     CALL .WIPE                     ; none yet;
     LD   HL,RO_BASE                ; and the routine state:
-    LD   B,RO_HEND-RO_BASE         ; its counts, fields and hash chains.
+    LD   B,RO_SPAR-RO_BASE         ; its counts, fields, hash chains and record.
     LD   DE,LL_PARSE               ; Then parse the program
     PUSH DE                        ; and return.
 .WIPE:                         ; Clear B bytes at HL:

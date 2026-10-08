@@ -49,7 +49,7 @@
 ;    RG_DATA   write the staged object as a blob of a given kind
 ;    RG_DEFER  keep a routine's aggregate constant until its blob is written
 ;    RG_BSS    write a bss blob of the staged object's size
-;    RG_END    write the entry and limits records
+;    RG_END    write the entry and limits records (CHAIN.ASM)
 ;    BL_OVER   the blob writer's overflow: refuse a routine or object of 16K
 
 RG_EXIT EQU  0                 ; Label of a routine's exit sequence.
@@ -309,24 +309,6 @@ RG_NAMED:                      ; The ordinal is on top of the stack.
     CALL BL_NAME                   ; Record it.
     POP  BC                        ; BC is the ordinal.
     RET                            ; The blob is written and named.
-
-;@ROUTINE CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the entry record, at main, and the limits record: the stack reserve
-; main's need plus the guard band, the largest frame, and the flag that
-; says some routine was declared forward.
-
-RG_END:                        ; The whole program is written.
-    LD   HL,(RG_MAIN)              ; The program starts at main.
-    CALL BL_ENTRY                  ; Record it.
-    LD   HL,(RG_NEED)              ; Main's need
-    LD   DE,RG_GUARD               ; and the guard band
-    ADD  HL,DE                     ; are the stack reserve.
-    LD   DE,(RG_LARGE)             ; The largest frame.
-    LD   A,(RG_FWD)                ; Flag 1 when a routine is forward
-    CP   1                         ; (the limits record's recursion flag):
-    SBC  A,A                       ; $FF when none is, else zero,
-    INC  A                         ; then zero or one.
-    JP   BL_LIMIT                  ; Record them and return.
 
 ;@ROUTINE NORETURN
 ; The blob writer's overflow (BLOB.ASM): a routine or object of 16K is

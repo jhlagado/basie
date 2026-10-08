@@ -44,13 +44,13 @@
 ;    BL_END     write the blob's record, bytes and line record
 ;    BL_MAP     an offset in the blob once its short jumps have shrunk
 ;    BL_BSS     write a bss blob's record: it has a size and nothing else
-;    BL_ENTRY   write the entry control record
-;    BL_LIMIT  write the limits control record
+;    BL_LIMIT, BL_ENTRY  write the limits and entry records (BLCLOSE.ASM)
 ;    BL_NAME    write an ordinal's name to the name stream
 ;    BL_CLOSE   write the trailers and close the streams (BLCLOSE.ASM)
 ;
 ;  The opening and closing code each run once, so they are not resident:
-;  BLOPEN.ASM is part of the START overlay and BLCLOSE.ASM of CHAIN.
+;  BLOPEN.ASM is part of the START overlay and BLCLOSE.ASM of CHAIN,
+;  which also writes the entry and limits records (RG_END, BL_LIMIT).
 ;
 ;  Blob header byte (object format §5.1): bits 0-2 kind, bit 3 explicit
 ;  ordinal, bit 4 root, bits 5-7 alignment code. Callers pass the kind,
@@ -666,27 +666,6 @@ BL_REC:                        ; HL is the size, DE the count.
 .WIDE:                         ; The count needs a word.
     LD   A,255                     ; 255 escapes to a word:
     JR   BL_CWORD                  ; both appended; return.
-
-;@ROUTINE IN A,DE,HL CLOBBERS A,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the limits control record: stack reserve HL, largest frame DE and
-; flags A (object format §5.3).
-
-BL_LIMIT:                      ; HL is the reserve, DE the frame, A the flags.
-    PUSH AF                        ; Keep the flags for last.
-    LD   A,$1E                     ; Control kind 6, subtype 3: limits,
-    CALL BL_CWORD                  ; then the stack reserve.
-    POP  AF                        ; The flags follow the frame's high byte:
-    LD   H,A                       ; they are the high byte
-    LD   L,D                       ; of a word whose low byte is the frame's,
-    LD   A,E                       ; after the frame's low byte.
-    JR   BL_CWORD                  ; Append the three, and return.
-
-;@ROUTINE IN HL CLOBBERS A,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Write the entry control record: the program starts at blob HL (object
-; format §5.3).
-
-BL_ENTRY:                      ; HL is main's ordinal.
-    LD   A,$0E                     ; Control kind 6, subtype 1: entry.
 
 ;@ROUTINE IN A,HL CLOBBERS A,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the byte A and then the word HL to the directory stream.

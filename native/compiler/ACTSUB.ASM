@@ -21,8 +21,9 @@
 ;
 ;  Routines. The routine being declared is RO_CUR: its record's address
 ;  (CALLWORK.ASM), or zero for main (RO_ISMN). Its signature is
-;  gathered in RO_CPIDX, RO_CPCNT, RO_CTYPE, RO_CFLAG and RO_CARGS, and
-;  AC_PUB copies it into the routine's record with the routine's ordinal,
+;  gathered in the record RO_CREC (RO_CPIDX, RO_CPCNT, RO_CTYPE, RO_CFLAG
+;  and RO_CARGS are its fields), and AC_PUB keeps a copy below the name
+;  heap with the routine's ordinal,
 ;  which makes the routine visible to calls, its own body included. A
 ;  forward routine (RO_FFWD) is published where it is declared, so it
 ;  takes its ordinal there, as the reference's does; RO_FOPEN marks it
@@ -143,48 +144,14 @@ AC_UNMET:                      ; HL is the record.
     LD   E,DG_UNMET                ; forward-incomplete.
     JP   DG_PLACE                  ; No return.
 
-;@ROUTINE IN HL OUT HL CLOBBERS A,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The offset in the current part of `forward` before `sub` and the routine's
-; name, at offset HL (a declaration's tokens are on one line): back from
-; the name over the spaces and tabs to `sub`, then to `forward`. BC is
-; kept.
-
-AC_FWDAT:                      ; HL is the name's offset.
-    PUSH HL                        ; (kept)
-    LD   A,(SRC_ID)                ; The part's
-    DEC  A                         ; entry,
-    CALL SRC_PART                  ; its
-    LD   DE,PT_START               ; first
-    ADD  HL,DE                     ; byte,
-    LD   E,(HL)                    ; DE;
-    INC  HL                        ; plus
-    LD   D,(HL)                    ; the
-    POP  HL                        ; offset,
-    ADD  HL,DE                     ; the name's address.
-    PUSH DE                        ; (the start kept)
-    CALL .BACK                     ; Back over the spaces to `sub`'s b,
-    DEC  HL                        ; back
-    DEC  HL                        ; to its s,
-    CALL .BACK                     ; over the spaces to `forward`'s d,
-    LD   DE,1-7                    ; back
-    ADD  HL,DE                     ; to its f,
-    POP  DE                        ; less
-    OR   A                         ; the part's
-    SBC  HL,DE                     ; start.
-    RET                            ; HL is its offset.
-.BACK:                         ; HL is after spaces and tabs.
-    DEC  HL                        ; The byte before:
-    LD   A,(HL)                    ; a space
-    CP   ' '                       ; or
-    JR   Z,.BACK                   ; a tab
-    CP   9                         ; is passed;
-    JR   Z,.BACK                   ; anything else
-    RET                            ; ends a word.
-
-;@ROUTINE OUT A
-; MarkPrivate: the declaration that follows is private (D33).
+;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; MarkPrivate: the declaration that follows is private (D33). The offset
+; of its next token, `forward` in a private forward, is kept (AC_PPOS),
+; where a forward left open is reported.
 
 AC_MARK:
+    CALL PR_SPOT                   ; The next token's offset
+    LD   (AC_PPOS),HL              ; is kept.
     LD   A,1                       ; Mark it.
     LD   (AC_PRIV),A               ; SY_CMT and AC_VIS read it.
     RET                            ; Back to the engine.
@@ -294,13 +261,9 @@ AC_SIG:
     JP   C,DG_NAMED                ; naming it.
     LD   HL,RO_CREC                ; The routine being declared,
     LD   (RO_CUR),HL               ; its record built in RO_CREC.
-    CALL TK_KEEP                   ; Record its name; HL addresses the length.
-    INC  HL                        ; Step to RO_RPIDX.
-    LD   DE,RO_SPAR                ; Its parameters follow it,
-    LD   (HL),E                    ; the first
-    INC  HL                        ; in the
-    LD   (HL),D                    ; record
-    LD   (RO_CPIDX),DE             ; and the signature.
+    CALL TK_KEEP                   ; Record its name.
+    LD   HL,RO_SPAR                ; Its parameters follow
+    LD   (RO_CPIDX),HL             ; the record.
     CALL AC_CLEAR                  ; No parameters or result yet.
     CALL AC_VIS                    ; The routine's flags: private, or none,
     LD   (RO_CFLAG),A              ; yet.
@@ -312,7 +275,9 @@ AC_SIG:
     LD   HL,(AC_DPOS)              ; its name,
     LD   A,(RO_CFLAG)              ; or for
     BIT  5,A                       ; a private one (RO_FPRIV)
-    CALL NZ,AC_FWDAT               ; its `forward`.
+    JR   Z,.NAMED                  ; its `forward`,
+    LD   HL,(AC_PPOS)              ; after `private`.
+.NAMED:                        ; HL is the offset.
     EX   DE,HL                     ; The offset,
     POP  HL                        ; in
     LD   (HL),E                    ; the
@@ -515,20 +480,14 @@ AC_IMPL:
     LD   A,H                       ; Main is
     OR   L                         ; never forward:
     JR   Z,.MISSING                ; raise forward-mismatch.
-    LD   (RO_CUR),HL               ; It is the routine being defined.
-    LD   DE,RO_RPIDX               ; Skip the name...
-    ADD  HL,DE                     ; ...to the signature.
-    LD   E,(HL)                    ; Its first
-    INC  HL                        ; parameter's
-    LD   D,(HL)                    ; record,
-    LD   (RO_CPIDX),DE             ; for the body.
-    INC  HL                        ; Step to RO_RPCNT.
-    LD   A,(HL)                    ; Its parameter count.
-    LD   (RO_CPCNT),A              ; Recover it.
-    INC  HL                        ; Step to RO_RTYPE.
-    LD   A,(HL)                    ; Its result type.
-    LD   (RO_CTYPE),A              ; Recover it.
-    INC  HL                        ; Step to RO_RFLAG.
+    LD   (RO_CUR),HL               ; It is the routine being defined:
+    PUSH HL                        ; its record
+    LD   DE,RO_CREC                ; describes it
+    LD   BC,RO_RLEN                ; again, its signature
+    LDIR                           ; recovered.
+    POP  HL                        ; The record's
+    LD   DE,RO_RFLAG               ; flags
+    ADD  HL,DE                     ; (RO_RFLAG).
     BIT  2,(HL)                    ; RO_FOPEN: still waiting for a body?
     JR   Z,.MISSING                ; No: no forward is incomplete.
     PUSH HL                        ; Keep the flags' place.
@@ -541,10 +500,6 @@ AC_IMPL:
     AND  $FF-RO_FOPEN              ; The body is here.
     LD   (HL),A                    ; In the record...
     LD   (RO_CFLAG),A              ; ...and the signature.
-    LD   DE,RO_RARGS-RO_RFLAG      ; Then the argument bytes:
-    ADD  HL,DE                     ; HL addresses them.
-    LD   A,(HL)                    ; Recover
-    LD   (RO_CARGS),A              ; them.
     JP   AC_BEGIN                  ; Open the body.
 .MISSING:                      ; No forward to complete.
     CALL DG_RNAME                  ; Abandon the build, naming it:
@@ -558,31 +513,10 @@ AC_IMPL:
 ; the last routine declared (RO_RLAST) and into its name's hash chain.
 
 AC_PUB:
-    LD   HL,RO_CREC+RO_RPCNT       ; The record built, at RO_RPCNT:
-    LD   A,(RO_CPCNT)              ; The parameter count.
-    LD   (HL),A                    ; Store it.
-    INC  HL                        ; Step to RO_RTYPE.
-    LD   A,(RO_CTYPE)              ; The result type.
-    LD   (HL),A                    ; Store it.
-    INC  HL                        ; Step to RO_RFLAG.
-    LD   A,(RO_CFLAG)              ; The flags.
-    LD   (HL),A                    ; Store them.
-    INC  HL                        ; Step to RO_RORD.
-    PUSH HL                        ; Keep the place.
-    CALL RG_ADD                    ; HL is the routine's ordinal.
-    EX   DE,HL                     ; DE is the ordinal.
-    POP  HL                        ; The place.
-    LD   (HL),E                    ; The ordinal,
-    INC  HL                        ; low byte
-    LD   (HL),D                    ; and high byte.
-    XOR  A                         ; The need is zero
-    INC  HL                        ; until the body
-    LD   (HL),A                    ; is complete,
-    INC  HL                        ; both
-    LD   (HL),A                    ; bytes.
-    INC  HL                        ; Step to RO_RARGS.
-    LD   A,(RO_CARGS)              ; The argument bytes.
-    LD   (HL),A                    ; Store them.
+    CALL RG_ADD                    ; The routine's ordinal,
+    LD   (RO_CREC+RO_RORD),HL      ; in the record,
+    LD   HL,0                      ; and a need of zero
+    LD   (RO_CREC+RO_RNEED),HL     ; until the body is complete.
     LD   A,(RO_CPCNT)              ; The record
     CALL RO_PARAM                  ; and its
     LD   DE,RO_CREC                ; parameters'

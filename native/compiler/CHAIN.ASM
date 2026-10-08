@@ -13,7 +13,8 @@
 ;
 ;  Principal entries, the CHAIN overlay's (OVERLAY.ASM), with BLCLOSE.ASM:
 ;    CH_RUN    run BLINK.COM with the build's tail, at OV_AREA
-;    CH_DONE   close the streams, then run BLINK unless option C, at OV_AREA+3
+;    CH_DONE   end and close the streams, then run BLINK unless C, at OV_AREA+3
+;    RG_END    write the entry and limits records (GENCALL.ASM's, run once)
 ;
 ;  The tail: the first part's name as the command line gave it, drive and
 ;  type included, then the options as given, less X, which BLINK does not
@@ -39,11 +40,13 @@ CH_ENTRY:                      ; At OV_AREA.
     JP   CH_RUN                    ; Run BLINK.
 
 ;@ROUTINE NORETURN
-; The compilation has succeeded: write the streams' trailers and close
-; them (BL_CLOSE, BLCLOSE.ASM), then, unless option C compiles only, run
+; The compilation has succeeded: write the entry and limits records
+; (RG_END), the streams' trailers, and close them (BL_CLOSE, BLCLOSE.ASM),
+; then, unless option C compiles only, run
 ; BLINK; with C, warm boot, so that a SUBMIT job runs on.
 
 CH_DONE:                       ; At OV_AREA+3.
+    CALL RG_END                    ; The entry and limits records.
     CALL BL_CLOSE                  ; Write the trailers and close the streams.
     LD   A,(CL_SEEN+CL_IC)         ; Option C
     CP   'C'                       ; compiles only:
@@ -227,3 +230,21 @@ CH_RUN:                        ; The streams are closed, or X was given.
 
 CH_NAME:                       ; BLINK.COM's name.
     DB   "BLINK.COM",0             ; Printed whole; copied without the dot.
+
+;@ROUTINE CLOBBERS A,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Write the entry record, at main, and the limits record: the stack reserve
+; main's need plus the guard band, the largest frame, and the flag that
+; says some routine was declared forward.
+
+RG_END:                        ; The whole program is written.
+    LD   HL,(RG_MAIN)              ; The program starts at main.
+    CALL BL_ENTRY                  ; Record it.
+    LD   HL,(RG_NEED)              ; Main's need
+    LD   DE,RG_GUARD               ; and the guard band
+    ADD  HL,DE                     ; are the stack reserve.
+    LD   DE,(RG_LARGE)             ; The largest frame.
+    LD   A,(RG_FWD)                ; Flag 1 when a routine is forward
+    CP   1                         ; (the limits record's recursion flag):
+    SBC  A,A                       ; $FF when none is, else zero,
+    INC  A                         ; then zero or one.
+    JP   BL_LIMIT                  ; Record them and return.
