@@ -1067,7 +1067,7 @@ of every program's transient area.
 
 ## Adopted for the next language version
 
-Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D55 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
+Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D56 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
 
 ### D48. A value `select` needs `case else` unless it covers every value
 
@@ -1119,7 +1119,25 @@ end
 
 **To settle.** Whether scalar elements are bound as copies, iteration over strings, and the index's type for arrays that fit a `u8`.
 
-### D51. `else` supplies a value when a call fails
+### D51. `try` passes a failure on
+
+`try` before a failable call passes its failure on: if the call fails, the routine fails with the same code. It replaces `else fail`.
+
+```basie
+try writeText(console, "Name? ")
+var count = try parseU16(text)
+try appendU16(report, try parseU16(text))
+```
+
+Only a routine declared `fails` may use `try`, as with `else fail` today. A failure can still be dealt with in place after the call, with `else` and a value (D52) or with `handle code … end`. So `try` at the front means the line may leave the routine, and anything after the call means the failure is dealt with there.
+
+**Why.** About nine failures in ten are passed on: the library, examples and tests have 1,172 `else fail` and 120 `handle`. The commonest case should be the shortest, and `else fail` is ten characters repeated on most lines of input and output code. `try` is visible at the start of the line, like `move`, which also marks an effect before the expression it applies to. Zig and Swift use the same keyword for the same job.
+
+**Rejected.** Implicit propagation, because every failable call would become a hidden exit. `?` after the call, because `?` already marks optional types and `new?`. `!` after the call, because one character at the end of a line is easy to miss, and readers of TypeScript, Kotlin and Swift take a trailing `!` to mean "this can't fail".
+
+**To settle.** `try` applies to one call, so a nested failable call needs its own `try`. Whether `try` is allowed on a call inside a larger expression or only where the call's value is used directly. The 1,172 `else fail` uses change mechanically.
+
+### D52. `else` supplies a value when a call fails
 
 A failable call may be followed by `else` and a value. If the call fails, the value is used in its place:
 
@@ -1127,13 +1145,13 @@ A failable call may be followed by `else` and a value. If the call fails, the va
 var count = parseU16(text) else 0
 ```
 
-This joins the existing forms after a failable call: `else fail` passes the failure on and `handle code … end` deals with it in a block. All three sit after the call, so the way a failure is handled is always in the same place.
+It joins `handle code … end` as a way to deal with a failure in place, after the call. `try` (D51) passes a failure on instead.
 
-**Why.** Many `handle` blocks exist only to set a default. Zig writes this `parse(text) catch 0`. Basie's `else` already has the right shape and needs no new keyword. The `?` candidate for passing a failure on was dropped on 2026-10-10: it clashed with `?` on optional types, and `try` would have split propagation and defaults between a prefix and a suffix.
+**Why.** Many `handle` blocks exist only to set a default. Zig writes this `parse(text) catch 0`. Basie's `else` already has the right shape and needs no new keyword.
 
 **To settle.** The value must have the call's result type and is evaluated only when the call fails. Whether the value may itself be a failable call (recommended: no). Whether a routine with no result may use `else` with a statement.
 
-### D52. `defer` runs a call when its block ends
+### D53. `defer` runs a call when its block ends
 
 A `defer` statement names a call to run when the enclosing block ends, by any exit: reaching `end`, `return`, `exit`, `continue` or a failure passed on.
 
@@ -1153,7 +1171,7 @@ Deferred calls run in reverse order of their `defer` statements, after the block
 
 **To settle.** Whether a failure-only form is needed. Zig's `errdefer` is rejected as a spelling, and a failure-only form would use existing words. A deferred call must not fail, or the statement must say what happens if it does. Whether arguments are evaluated at the `defer` or when the call runs (Zig evaluates them when it runs). Whether a deferred call may refer to a local declared after the `defer`.
 
-### D53. Record initialisers may name their fields
+### D54. Record initialisers may name their fields
 
 An initialiser may name each field:
 
@@ -1166,9 +1184,9 @@ The positional form `(12, true)` remains.
 
 **Why.** Swapping two fields of the same type in a record declaration changes the meaning of every positional initialiser, and every one still compiles. Named fields keep their meaning when the declaration changes.
 
-**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D55) or zero.
+**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D56) or zero.
 
-### D54. Included parts are namespaces and shadowing stays refused
+### D55. Included parts are namespaces and shadowing stays refused
 
 A part's public names are reached through the part's name:
 
@@ -1187,7 +1205,7 @@ Spec §5.6 is unchanged: a parameter or local can't reuse a name visible where i
 
 **To settle.** The default namespace name when `as` is omitted, and whether a part may still be included unqualified for small programs. Whether built-in services such as `writeLine` stay unqualified (recommended). How a qualified name is told from a record field, which the compiler can do because the first name is a namespace. Whether a part can refer to its own names qualified.
 
-### D55. Record fields may have default values
+### D56. Record fields may have default values
 
 A field declaration may give a default:
 

@@ -160,7 +160,7 @@ Basie marks every transfer of ownership with `move` at the point where it happen
 | Unrecoverable error | a trap, which nothing can catch | a panic, which `catch_unwind` can catch |
 | Error data | an integer code only | any type |
 
-In both languages failure is part of a routine's signature, and every call must deal with it. Basie's form is lighter but carries less information. Basie keeps `else fail` and adds `else` with a value for a default ([D51](design-decisions.md)), the counterpart of Rust's `unwrap_or`.
+In both languages failure is part of a routine's signature, and every call must deal with it. Basie's form is lighter but carries less information. The next version replaces `else fail` with `try` before the call, which does the job of Rust's `?`, and adds `else` with a value for a default, the counterpart of Rust's `unwrap_or` ([D51 and D52](design-decisions.md#adopted-for-the-next-language-version)).
 
 ## Program structure
 
@@ -175,7 +175,7 @@ In both languages failure is part of a routine's signature, and every call must 
 
 ## Proposed syntax changes
 
-Two [stretch goals](stretch-goals.md) would bring the surface closer to Rust: `fn` for `sub` and `:` for `as`. Writable parameters keep `var` and failures keep `else fail`. Together they would turn this routine:
+Two [stretch goals](stretch-goals.md) would bring the surface closer to Rust: `fn` for `sub` and `:` for `as`. Writable parameters keep `var`. Together with `try` (D51), they would turn this routine:
 
 ```basie
 sub execute(text as string[]) as u16 fails
@@ -188,7 +188,7 @@ into:
 
 ```basie
 fn execute(text: string[]): u16 fails
-    var value = parseU16(text) else fail
+    var value = try parseU16(text)
     return value * 2
 end
 ```
@@ -211,7 +211,7 @@ Some surface differences would remain:
 - read-only calls that pass a record without `&`
 - explicit moves
 
-Further changes are [adopted for the next language version](design-decisions.md#adopted-for-the-next-language-version): required `case else`, `var` at the call site, `for … in` over arrays, `else` with a value, `defer`, named record initialisers, namespaced includes and default field values. `var` at the call site and `for … in` bring Basie closer to Rust's `&mut` arguments and iterators. Shadowing stays refused, as in Zig, with namespaces taking the pressure off library names.
+Further changes are [adopted for the next language version](design-decisions.md#adopted-for-the-next-language-version): required `case else`, `var` at the call site, `for … in` over arrays, `try`, `else` with a value, `defer`, named record initialisers, namespaced includes and default field values. `var` at the call site and `for … in` bring Basie closer to Rust's `&mut` arguments and iterators. Shadowing stays refused, as in Zig, with namespaces taking the pressure off library names.
 
 The differences of substance would also remain. Basie has pools in place of a heap and aliases limited to a call in place of stored borrows. It has no enumerations, generics, traits or methods.
 
