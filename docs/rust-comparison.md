@@ -142,11 +142,11 @@ The two languages are closest in intent here and furthest apart in mechanism.
 | Writable aliases | several may exist at once | `&mut` is exclusive |
 | How safety is proved | aliases limited to calls, plus run-time generation checks | the borrow checker with lifetime inference |
 
-Basie keeps the guarantees that Rust's ownership model exists to provide. No access outlives its storage, no access goes out of bounds and every pool record has exactly one owner. It gets there by limiting aliases to the length of a call, so the compiler needs no general lifetime analysis. The cost is expressiveness. A Basie record can't hold a borrowed reference the way a Rust struct can. It can hold an `id`, which is checked each time it is used.
+Basie keeps the guarantees that Rust's ownership model exists to provide. Every access stays inside live storage, and every pool record has exactly one owner. Basie limits aliases to the length of a call, so the compiler needs no general lifetime analysis. The cost is that a Basie record can't hold a borrowed reference the way a Rust struct can. It can hold an `id` instead, which is checked each time it is used.
 
-Rust also forbids two mutable paths to the same data. Basie allows them, and its memory safety doesn't depend on exclusivity. Two aliases can still interfere with each other's logic, as they can in Pascal or C. Basie has no threads, so the data races that Rust's rule also prevents don't arise.
+Rust also forbids two mutable paths to the same data. Basie allows them, and its memory safety doesn't depend on exclusivity. Two aliases can still interfere with each other's logic, as they can in Pascal or C. Rust's rule also prevents data races between threads, and Basie has no threads.
 
-Basie marks every transfer of ownership with `move` at the point where it happens. Rust moves values implicitly.
+Basie marks every transfer of ownership with `move` at the point where it happens, where Rust moves values implicitly.
 
 ## Errors
 
@@ -189,6 +189,15 @@ fn update(item: &mut Reading, value: u16) {
 }
 ```
 
-The surface differences that would remain are `end` blocks and newlines, the operator words (`=`, `<>`, `and`, `or`, `mod`), the `$` and `%` number prefixes and calls that pass a record without `&`. `mut` would mark the parameter, where Rust marks the type, and moves would stay explicit. The differences of substance would remain: pools in place of a heap, aliases limited to a call in place of stored borrows, and no enumerations, generics, traits or methods.
+Some surface differences would remain:
 
-A Rust programmer should find Basie's safety model familiar but its syntax old-fashioned and its type system small. A programmer who knows BASIC or Pascal should find the syntax familiar and the ownership rules new.
+- `end` blocks and newlines in place of braces and semicolons
+- the operator words `=`, `<>`, `and`, `or` and `mod`
+- the `$` and `%` number prefixes
+- calls that pass a record without `&`
+- `mut` on the parameter, where Rust puts it on the type
+- explicit moves
+
+The differences of substance would also remain. Basie has pools in place of a heap and aliases limited to a call in place of stored borrows. It has no enumerations, generics, traits or methods.
+
+A Rust programmer should find Basie's safety model familiar but its syntax old-fashioned and its type system small. A BASIC or Pascal programmer should find the syntax familiar and the ownership rules new.
