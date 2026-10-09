@@ -1067,7 +1067,7 @@ of every program's transient area.
 
 ## Adopted for the next language version
 
-Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D54 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
+Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D55 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
 
 ### D48. A value `select` needs `case else` unless it covers every value
 
@@ -1119,28 +1119,41 @@ end
 
 **To settle.** Whether scalar elements are bound as copies, iteration over strings, and the index's type for arrays that fit a `u8`.
 
-### D51. `defer` runs a call when its block ends
+### D51. `else` supplies a value when a call fails
 
-A `defer` statement names a call to run when the enclosing block ends, by any exit: reaching `end`, `return`, `exit`, `continue` or a failure passed on. `errdefer` runs its call only when the block ends by a failure.
+A failable call may be followed by `else` and a value. If the call fails, the value is used in its place:
+
+```basie
+var count = parseU16(text) else 0
+```
+
+This joins the existing forms after a failable call: `else fail` passes the failure on and `handle code … end` deals with it in a block. All three sit after the call, so the way a failure is handled is always in the same place.
+
+**Why.** Many `handle` blocks exist only to set a default. Zig writes this `parse(text) catch 0`. Basie's `else` already has the right shape and needs no new keyword. The `?` candidate for passing a failure on was dropped on 2026-10-10: it clashed with `?` on optional types, and `try` would have split propagation and defaults between a prefix and a suffix.
+
+**To settle.** The value must have the call's result type and is evaluated only when the call fails. Whether the value may itself be a failable call (recommended: no). Whether a routine with no result may use `else` with a statement.
+
+### D52. `defer` runs a call when its block ends
+
+A `defer` statement names a call to run when the enclosing block ends, by any exit: reaching `end`, `return`, `exit`, `continue` or a failure passed on.
 
 ```basie
 sub copyFile(inName as string[], outName as string[]) fails
     var source = openRead(inName, 0) else fail
     defer abort(source)
     var target = openWrite(outName, 0) else fail
-    errdefer abort(target)
     ...
     close(target) else fail
 end
 ```
 
-Deferred calls run in reverse order of their `defer` statements, after the block's owning locals are released.
+Deferred calls run in reverse order of their `defer` statements, after the block's owning locals are released. In this example `target` still needs clean-up if the routine fails before `close`, which is the case a failure-only form would cover.
 
 **Why.** Pool records are released automatically, but files are not. A routine that opens a file and then fails leaves it open until `main` returns. `defer` keeps the clean-up next to the open, as Zig does. The compiler already emits release code on every exit path for owning locals, and deferred calls use the same paths.
 
-**To settle.** A deferred call must not fail, or the statement must say what happens if it does. Whether arguments are evaluated at the `defer` or when the call runs (Zig evaluates them when it runs). Whether a deferred call may refer to a local declared after the `defer`.
+**To settle.** Whether a failure-only form is needed. Zig's `errdefer` is rejected as a spelling, and a failure-only form would use existing words. A deferred call must not fail, or the statement must say what happens if it does. Whether arguments are evaluated at the `defer` or when the call runs (Zig evaluates them when it runs). Whether a deferred call may refer to a local declared after the `defer`.
 
-### D52. Record initialisers may name their fields
+### D53. Record initialisers may name their fields
 
 An initialiser may name each field:
 
@@ -1153,9 +1166,9 @@ The positional form `(12, true)` remains.
 
 **Why.** Swapping two fields of the same type in a record declaration changes the meaning of every positional initialiser, and every one still compiles. Named fields keep their meaning when the declaration changes.
 
-**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D54) or zero.
+**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D55) or zero.
 
-### D53. Included parts are namespaces; shadowing stays refused
+### D54. Included parts are namespaces and shadowing stays refused
 
 A part's public names are reached through the part's name:
 
@@ -1174,7 +1187,7 @@ Spec §5.6 is unchanged: a parameter or local can't reuse a name visible where i
 
 **To settle.** The default namespace name when `as` is omitted, and whether a part may still be included unqualified for small programs. Whether built-in services such as `writeLine` stay unqualified (recommended). How a qualified name is told from a record field, which the compiler can do because the first name is a namespace. Whether a part can refer to its own names qualified.
 
-### D54. Record fields may have default values
+### D55. Record fields may have default values
 
 A field declaration may give a default:
 
