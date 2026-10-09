@@ -160,7 +160,7 @@ Basie marks every transfer of ownership with `move` at the point where it happen
 | Unrecoverable error | a trap, which nothing can catch | a panic, which `catch_unwind` can catch |
 | Error data | an integer code only | any type |
 
-In both languages failure is part of a routine's signature, and every call must deal with it. Basie's form is lighter but carries less information. The [lighter failure propagation](stretch-goals.md) candidate would bring Basie close to Rust's `?`.
+In both languages failure is part of a routine's signature, and every call must deal with it. Basie's form is lighter but carries less information. The [`?` candidate](stretch-goals.md) would replace `else fail` with Rust's `?`.
 
 ## Program structure
 
@@ -175,17 +175,30 @@ In both languages failure is part of a routine's signature, and every call must 
 
 ## Proposed syntax changes
 
-Three [stretch goals](stretch-goals.md) would bring the surface closer to Rust and TypeScript: `mut` for writable parameters, `fun` for `sub` and `:` for `as`. Together they would turn the example above into:
+Three [stretch goals](stretch-goals.md) would bring the surface closer to Rust: `fn` for `sub`, `:` for `as` and `?` for `else fail`. Writable parameters would keep `var`. Together they would turn this routine:
 
 ```basie
-fun update(mut item: Reading, value: u16)
-    item.value = value
+sub execute(text as string[]) as u16 fails
+    var value = parseU16(text) else fail
+    return value * 2
 end
 ```
 
+into:
+
+```basie
+fn execute(text: string[]): u16 fails
+    var value = parseU16(text)?
+    return value * 2
+end
+```
+
+which is close to Rust's:
+
 ```rust
-fn update(item: &mut Reading, value: u16) {
-    item.value = value;
+fn execute(text: &str) -> Result<u16, ParseError> {
+    let value = parse_u16(text)?;
+    Ok(value * 2)
 }
 ```
 
@@ -194,8 +207,8 @@ Some surface differences would remain:
 - `end` blocks and newlines in place of braces and semicolons
 - the operator words `=`, `<>`, `and`, `or` and `mod`
 - the `$` and `%` number prefixes
+- `var` on a writable parameter, where Rust writes `&mut` on the type
 - calls that pass a record without `&`
-- `mut` on the parameter, where Rust puts it on the type
 - explicit moves
 
 The differences of substance would also remain. Basie has pools in place of a heap and aliases limited to a call in place of stored borrows. It has no enumerations, generics, traits or methods.
