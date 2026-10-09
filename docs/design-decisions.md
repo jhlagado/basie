@@ -1067,7 +1067,7 @@ of every program's transient area.
 
 ## Adopted for the next language version
 
-Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D56 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
+Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D57 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
 
 ### D48. A value `select` needs `case else` unless it covers every value
 
@@ -1221,3 +1221,22 @@ An initialiser or `new` that omits the field uses the default in place of zero.
 **Why.** Many records have a natural starting state that isn't all zeros. Writing it once in the declaration keeps every initialiser short and consistent.
 
 **To settle.** Defaults are constant expressions. An owning-handle field can only default to `none`, and an aggregate field takes a constant initialiser.
+
+### D57. Block comments
+
+`/*` begins a comment that runs to the matching `*/`, across lines if needed. Block comments nest, so a stretch of code that already contains one can be commented out whole:
+
+```basie
+/* Disabled while the parser is rewritten.
+sub trace(text as string[]) fails
+    try writeLine(console, text)   /* echoes the command */
+end
+*/
+```
+
+`//` line comments are unchanged.
+
+**Why.** A long explanation or a disabled stretch of code needs `//` on every line today. C, Rust, Swift and Pascal (`{ }` and `(* *)`) all have a block form.
+
+**To settle.** A block comment that contains a line ending counts as one line ending, so the statement before it still ends there (recommended), and one that contains none is plain whitespace. An unclosed comment at the end of a part is an error that names where it began. `/` and `*` already have tokens, so `/*` and `*/` are recognised by longest match, as `//` is. Zig has only line comments, so that each line can be read without the lines before it. The cost of the other choice is a counter for the nesting depth in the tokenizer.
+
