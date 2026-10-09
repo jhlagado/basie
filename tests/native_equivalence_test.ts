@@ -413,6 +413,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: the spill in an overlay, FLOAT loaded again": ["BIGSPLF"],
   "74: an inferred local's handle in parentheses": ["INFPAR"],
   "74: Files and leases in parentheses, a name id": ["PARFILE", "IDBREAK"],
+  "74: handles dereferenced outside the frame": ["HNDGLOB"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */

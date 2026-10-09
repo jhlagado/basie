@@ -703,9 +703,9 @@ HN_NOTE:                       ; A is the target's type.
 ; A is the next token's kind in a path (RO_PATH). A field selected
 ; through a handle (RO_OTYPE) goes through its slot (suffixes): an
 ; optional handle is optional-handle, at the dot, and a forward pool's
-; pool-incomplete; the handle, a local's, is loaded and kept in a
-; two-byte frame temporary, LD L,(IX+d), LD H,(IX+d+1), LD (IX+t),L,
-; LD (IX+t+1),H, and the path goes on from the record at that address,
+; pool-incomplete; the handle, at any place, is loaded (GA_LOAD) and
+; kept in a two-byte frame temporary, LD (IX+t),L, LD (IX+t+1),H, and
+; the path goes on from the record at that address,
 ; computed, the temporary its slot word, an identifier's checked (ID_CHK)
 ; and kept with its generation. A handle is not indexed (not-indexable,
 ; at the bracket). A is kept.
@@ -730,16 +730,14 @@ RO_HSEL:                       ; A is the next token's kind.
     RET                            ; Back.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; The path in hand, a handle local, goes through its slot (RO_HSEL).
+; The path in hand, a handle at any place (a local, a program variable's
+; element, through a var parameter), goes through its slot (RO_HSEL).
 
 HN_DEREF:                      ; A dot follows the handle.
     LD   A,(RO_OTYPE)              ; The handle:
     RRA                            ; optional?
     LD   A,DG_OPTH                 ; Then
     JP   C,DG_ISSUE                ; tested first.
-    LD   A,(RO_PKIND)              ; A place not
-    CP   GA_FRAME                  ; in the frame waits
-    JP   NZ,TR_OPER                ; (DG_NYI).
     LD   A,(RO_OTYPE)              ; The pool's
     CALL HN_REC                    ; record, if it has one
     PUSH AF                        ; (kept),
@@ -755,9 +753,15 @@ HN_DEREF:                      ; A dot follows the handle.
 .SLOT:                         ; A is the temporary's size.
     CALL EM_ALLOC                  ; The temporary,
     LD   (RO_POWN),HL              ; the slot word.
-    CALL HN_WIDT                   ; The handle,
-    LD   HL,(RO_PADD)              ; the local's,
-    CALL GX_FLOAD                  ; loaded;
+    CALL HN_WIDT                   ; The handle, at any place
+    LD   HL,RO_OTYPE               ; (the reference's loadValue),
+    LD   B,(HL)                    ; loaded as
+    LD   (HL),A                    ; the scalar
+    PUSH BC                        ; that holds it
+    CALL GA_LOAD                   ; (GA_LOAD);
+    POP  BC                        ; its type
+    LD   A,B                       ; the
+    LD   (RO_OTYPE),A              ; handle's again;
     LD   A,(RO_OTYPE)              ; an identifier
     BIT  1,A                       ; is
     JR   Z,.KEEP                   ; checked,

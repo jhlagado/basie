@@ -1,0 +1,28 @@
+// Handles dereferenced outside the frame, as the reference loads them:
+// elements of a program variable's array of owners, by constant and
+// variable index, read and written; an array of identifiers; and an
+// array of owners through a var parameter.
+forward pool nodes
+record Node
+    value as u8
+    next as nodes?
+end
+pool nodes as Node[8]
+var hs as nodes[2]
+var ids as id nodes[2]
+var g as u8
+var i as u8
+
+sub f(var a as nodes[2], k as u8) as u8
+    a[k].value = 7
+    return a[0].value
+end
+
+sub main()
+    hs[0].value = 3
+    g = hs[1].value
+    g = hs[i].value
+    hs[i].value = g
+    g = ids[1].value
+    var y = f(hs, 1)
+end

@@ -54,6 +54,6 @@ Deno.test("BASIE.COM and BASIE.OVL are the recorded images and within budget", a
 });
 
 const DIGEST =
-  "6f23e096566921ff4ebfbb7aa1fc296ad3d185657929020ec911da02f0a85b3b";
+  "8bc97ba0f177f9f7c01526fd968dc6064f7b68b204c77f1c9228582a02ab7cb8";
 const OVL_DIGEST =
-  "071053017434891d434ca4a0ac6c01f175ea60b271c097bc5b2418bd086b8437";
+  "6146ffb7bf0996d7d3d206f88b51d1fa0a44b0a3126a5d34fea95bbf59f2dad0";
