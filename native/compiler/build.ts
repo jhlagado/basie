@@ -79,6 +79,14 @@ export const OVERLAYS = [
     after: "NAMES",
   },
   { name: "PREP", equate: "OV_PREP", files: ["PREP.ASM"], offset: 0 },
+  // Above NAMES too: the spill, which OV_SCALL runs from any overlay.
+  {
+    name: "SPILL",
+    equate: "OV_SPILL",
+    files: ["SPILL.ASM"],
+    offset: 0,
+    after: "NAMES",
+  },
 ];
 
 export type Overlay = {

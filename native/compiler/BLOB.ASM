@@ -375,7 +375,7 @@ BL_NEXT:                       ; HL is an entry.
 ; Spill the blob's bytes held in memory, all their whole records, to
 ; NAME.$CD (made at the first, its first record kept in BL_REC0 too), and
 ; move the rest to where they began: BL_CBASE moves down by the bytes
-; spilled. Carry when no blob is built or none of its records is whole;
+; spilled. The writing is the SPILL overlay's (SP_WRITE, SPILL.ASM). Carry when no blob is built or none of its records is whole;
 ; a full disk is OUT_FAIL. BC, DE, HL, IX and IY are kept.
 
 BL_FLUSH:                      ; The free memory is full.
@@ -386,7 +386,7 @@ BL_FLUSH:                      ; The free memory is full.
     LD   A,(BL_CBASE+1)            ; Is a blob
     OR   A                         ; built?
     SCF                            ; If not,
-    JP   Z,.DONE                   ; nothing spills.
+    JR   Z,.DONE                   ; nothing spills.
     LD   HL,(BL_LEN)               ; Its bytes
     LD   DE,(BL_SPILL)             ; in
     OR   A                         ; memory,
@@ -394,91 +394,16 @@ BL_FLUSH:                      ; The free memory is full.
     ADD  HL,HL                     ; records,
     LD   A,H                       ; A;
     CP   1                         ; carry
-    JP   C,.DONE                   ; when none.
-    LD   B,A                       ; B is their count.
-    LD   A,D                       ; Are some
-    OR   E                         ; on the disk
-    JR   NZ,.MADE                  ; already?
-    PUSH BC                        ; If not,
-    LD   HL,(BL_CBASE)             ; the first
-    LD   DE,BL_REC0                ; record
-    LD   BC,128                    ; is kept
-    LDIR                           ; in memory,
-    LD   HL,(BL_NAMEP)             ; and NAME.$CD
-    LD   DE,BL_SFCB                ; is made:
-    LD   BC,9                      ; the drive
-    LDIR                           ; and name,
-    LD   HL,.TYPE                  ; the
-    LD   C,3                       ; type,
-    LDIR                           ; then
-    LD   B,24                      ; zeros.
-.ZERO:                         ; B remain.
-    LD   (DE),A                    ; A is zero.
-    INC  DE                        ; The next.
-    DJNZ .ZERO                     ; Until all are.
-    LD   DE,BL_SFCB                ; An old
-    LD   C,BD_DEL                  ; one
-    CALL BL_BDOS                   ; goes;
-    LD   DE,BL_SFCB                ; a new
-    LD   C,BD_MAKE                 ; one
-    CALL BL_BDOS                   ; is made,
-    INC  A                         ; or the directory
-    JP   Z,OUT_FAIL                ; is full.
-    POP  BC                        ; B is the count.
-.MADE:                         ; The file is open for writing.
-    LD   HL,(BL_CBASE)             ; The bytes
-    LD   DE,(BL_SPILL)             ; in memory
-    ADD  HL,DE                     ; begin here.
-    PUSH HL                        ; Kept.
-.RECORD:                       ; HL is a record, B remain.
-    PUSH BC                        ; Keep the count
-    PUSH HL                        ; and the record.
-    EX   DE,HL                     ; It is
-    LD   C,BD_DMA                  ; written
-    CALL BL_BDOS                   ; from
-    LD   DE,BL_SFCB                ; where
-    LD   C,BD_WRITE                ; it is,
-    CALL BL_BDOS                   ; or the disk
-    OR   A                         ; is
-    JP   NZ,OUT_FAIL               ; full.
-    POP  HL                        ; The next
-    LD   DE,128                    ; record
-    ADD  HL,DE                     ; on;
-    POP  BC                        ; one fewer.
-    DJNZ .RECORD                   ; Until all are written.
-    LD   DE,(BL_CBASE)             ; HL is the first not spilled.
-    PUSH HL                        ; The bytes spilled,
-    OR   A                         ; past
-    SBC  HL,DE                     ; the base,
-    LD   DE,(BL_SPILL)             ; less those spilled before,
-    SBC  HL,DE                     ; are BC;
-    LD   B,H                       ; the base
-    LD   C,L                       ; moves down
-    LD   HL,(BL_CBASE)             ; by them,
-    SBC  HL,BC                     ; and those spilled
-    LD   (BL_CBASE),HL             ; grow
-    EX   DE,HL                     ; by
-    ADD  HL,BC                     ; them.
-    LD   (BL_SPILL),HL             ; HL is the bytes spilled.
-    LD   DE,(BL_LEN)               ; The rest,
-    EX   DE,HL                     ; from their
-    SBC  HL,DE                     ; length,
-    LD   B,H                       ; BC of
-    LD   C,L                       ; them,
-    POP  HL                        ; move from the first not spilled
-    POP  DE                        ; to where the bytes began.
-    LD   A,B                       ; (none:
-    OR   C                         ; none
-    JR   Z,.DONE                   ; moved; carry is clear)
-    LDIR                           ; Moved: carry is clear.
+    JR   C,.DONE                   ; when none.
+    LD   L,A                       ; Their count
+    XOR  A                         ; to SPILL's
+    CALL OV_SCALL                  ; spill (SP_WRITE): carry is clear.
 .DONE:                         ; Carry says whether any spilled.
     POP  IX                        ; Restore
     POP  HL                        ; the
     POP  DE                        ; registers
     POP  BC                        ; but A.
     RET                            ; Done.
-.TYPE:                         ; The spill file's type.
-    DB   "$CD"                     ; NAME.$CD.
 
 ;@ROUTINE IN DE OUT A CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; A is the blob's byte at offset DE, read in order as BL_END writes it:
@@ -551,28 +476,13 @@ BL_RNEXT:                      ; The next record is wanted.
     POP  BC                        ; registers.
     RET                            ; Done.
 
-;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; NAME.$CD, written, is read back from its start (BL_RDB): closed, opened
-; again, its first record read, which BL_REC0 replaces.
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; NAME.$CD, written, is read back from its start (BL_RDB), by the SPILL
+; overlay (SP_RBACK, SPILL.ASM).
 
 BL_RBACK:                      ; The blob's bytes spilled.
-    LD   DE,BL_SFCB                ; Close
-    LD   C,BD_CLOSE                ; the
-    CALL BL_BDOS                   ; file,
-    CALL .RESET                    ; open it
-    LD   C,BD_OPEN                 ; again,
-    CALL BL_BDOS                   ; from
-    CALL .RESET                    ; its start,
-    XOR  A                         ; and read
-    LD   (BL_RREC),A               ; its first
-    JR   BL_RNEXT                  ; record; return.
-.RESET:                        ; The extent and record are zero.
-    XOR  A                         ; Zero:
-    LD   (BL_SFCB+12),A            ; the extent,
-    LD   (BL_SFCB+14),A            ; its high byte,
-    LD   (BL_SFCB+32),A            ; the current record.
-    LD   DE,BL_SFCB                ; DE is the FCB.
-    RET                            ; Done.
+    LD   A,3                       ; SPILL's
+    JP   OV_SCALL                  ; SP_RBACK; return.
 
 ;@ROUTINE IN C,DE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Call BDOS function C with DE (OUT_BDOS), keeping IX and IY, which an

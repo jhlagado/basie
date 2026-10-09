@@ -410,6 +410,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: aggregate arguments in parentheses": ["PARARG"],
   "74: handle values in parentheses": ["PARHND"],
   "74: open arrays of records that own": ["OWNVIEW", "OWNVIEW2"],
+  "74: the spill in an overlay, FLOAT loaded again": ["BIGSPLF"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */

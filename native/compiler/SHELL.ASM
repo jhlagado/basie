@@ -120,7 +120,7 @@ MS_REC EQU  DG_ARG2+2          ; Byte: the record of BASIE.MSG in MS_BUF.
 OV_CUR EQU  MS_REC+1           ; Byte: the overlay loaded last, $FF for none (OVERLAY.ASM).
 OV_FCB EQU  OV_CUR+1           ; SH_FLEN bytes: BASIE.OVL's FCB, open once loaded.
 OV_DIR EQU  OV_FCB+SH_FLEN     ; OV_DCAP entries of four: each overlay's address, records.
-OV_DCAP EQU  8                 ; Overlays BASIE.OVL may describe.
+OV_DCAP EQU  9                 ; Overlays BASIE.OVL may describe.
 SH_WEND EQU  OV_DIR+4*OV_DCAP  ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN

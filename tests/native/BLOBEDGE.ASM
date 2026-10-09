@@ -15,6 +15,7 @@
 %INCLUDE "../../native/compiler/BLEND.ASM"
 %INCLUDE "../../native/compiler/BLOPEN.ASM"
 %INCLUDE "../../native/compiler/BLCLOSE.ASM"
+%INCLUDE "../../native/compiler/SPILL.ASM"
 
 ;@ROUTINE NORETURN
 ; Write the four streams and warm boot.
@@ -92,6 +93,14 @@ BE_ZEROS:                      ; B zeros remain.
     CALL BL_BYTE                   ; Append it.
     DJNZ BE_ZEROS                  ; Until B are done.
     RET                            ; The blob has grown by B.
+
+;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,IX,ZERO,SIGN,PARITY,HALFCARRY
+; The SPILL overlay's entry A, here in the image: SP_WRITE or SP_RBACK.
+
+OV_SCALL:                      ; A is the entry.
+    OR   A                         ; Zero:
+    JP   Z,SP_WRITE                ; the spill;
+    JP   SP_RBACK                  ; three: reading it back.
 
 ;@ROUTINE NORETURN
 ; A full disk or an overflowing blob: print F or O and warm boot.

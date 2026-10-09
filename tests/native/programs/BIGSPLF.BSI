@@ -1,0 +1,518 @@
+// BIGSPILL with an f32 constant folded at every fourth step, so that the
+// spill to BIGSPLF.$CD happens with the FLOAT overlay loaded above NAMES,
+// where SPILL loads: it is loaded again after each spill (OV_SCALL).
+var g as u16
+var h as f32
+var t as u8[4]
+sub main() fails
+    var i as u16 = 0
+    g = g + 0
+    h = h + 0.5 * 2.0
+    var loc0 as u16 = g
+    if g > 0
+        var inner0 as u8 = 0
+        const tab0 as u8[3] = [0, 2, 3]
+        t[1] = tab0[0] + inner0
+        writeText(console, "step 0\r\n") else fail
+    end
+    while i < 0
+        i = i + 1
+        var w0 as u8 = 1
+    end
+    g = g + 1
+    g = g + 2
+    g = g + 3
+    g = g + 4
+    h = h + 4.5 * 2.0
+    g = g + 5
+    g = g + 6
+    g = g + 7
+    g = g + 8
+    h = h + 8.5 * 2.0
+    g = g + 9
+    g = g + 10
+    var loc10 as u16 = g
+    if g > 30
+        var inner10 as u8 = 10
+        const tab10 as u8[3] = [10, 2, 3]
+        t[1] = tab10[0] + inner10
+        writeText(console, "step 10\r\n") else fail
+    end
+    g = g + 11
+    g = g + 12
+    h = h + 12.5 * 2.0
+    g = g + 13
+    g = g + 14
+    g = g + 15
+    g = g + 16
+    h = h + 16.5 * 2.0
+    g = g + 17
+    g = g + 18
+    g = g + 19
+    g = g + 20
+    h = h + 20.5 * 2.0
+    var loc20 as u16 = g
+    if g > 60
+        var inner20 as u8 = 20
+        const tab20 as u8[3] = [20, 2, 3]
+        t[1] = tab20[0] + inner20
+        writeText(console, "step 20\r\n") else fail
+    end
+    g = g + 21
+    g = g + 22
+    g = g + 23
+    g = g + 24
+    h = h + 24.5 * 2.0
+    g = g + 25
+    while i < 25
+        i = i + 1
+        var w25 as u8 = 1
+    end
+    g = g + 26
+    g = g + 27
+    g = g + 28
+    h = h + 28.5 * 2.0
+    g = g + 29
+    g = g + 30
+    var loc30 as u16 = g
+    if g > 90
+        var inner30 as u8 = 30
+        const tab30 as u8[3] = [30, 2, 3]
+        t[1] = tab30[0] + inner30
+        writeText(console, "step 30\r\n") else fail
+    end
+    g = g + 31
+    g = g + 32
+    h = h + 32.5 * 2.0
+    g = g + 33
+    g = g + 34
+    g = g + 35
+    g = g + 36
+    h = h + 36.5 * 2.0
+    g = g + 37
+    g = g + 38
+    g = g + 39
+    g = g + 40
+    h = h + 40.5 * 2.0
+    var loc40 as u16 = g
+    if g > 120
+        var inner40 as u8 = 40
+        const tab40 as u8[3] = [40, 2, 3]
+        t[1] = tab40[0] + inner40
+        writeText(console, "step 40\r\n") else fail
+    end
+    g = g + 41
+    g = g + 42
+    g = g + 43
+    g = g + 44
+    h = h + 44.5 * 2.0
+    g = g + 45
+    g = g + 46
+    g = g + 47
+    g = g + 48
+    h = h + 48.5 * 2.0
+    g = g + 49
+    g = g + 50
+    var loc50 as u16 = g
+    if g > 150
+        var inner50 as u8 = 50
+        const tab50 as u8[3] = [50, 2, 3]
+        t[1] = tab50[0] + inner50
+        writeText(console, "step 50\r\n") else fail
+    end
+    while i < 50
+        i = i + 1
+        var w50 as u8 = 1
+    end
+    g = g + 51
+    g = g + 52
+    h = h + 52.5 * 2.0
+    g = g + 53
+    g = g + 54
+    g = g + 55
+    g = g + 56
+    h = h + 56.5 * 2.0
+    g = g + 57
+    g = g + 58
+    g = g + 59
+    g = g + 60
+    h = h + 60.5 * 2.0
+    var loc60 as u16 = g
+    if g > 180
+        var inner60 as u8 = 60
+        const tab60 as u8[3] = [60, 2, 3]
+        t[1] = tab60[0] + inner60
+        writeText(console, "step 60\r\n") else fail
+    end
+    g = g + 61
+    g = g + 62
+    g = g + 63
+    g = g + 64
+    h = h + 64.5 * 2.0
+    g = g + 65
+    g = g + 66
+    g = g + 67
+    g = g + 68
+    h = h + 68.5 * 2.0
+    g = g + 69
+    g = g + 70
+    var loc70 as u16 = g
+    if g > 210
+        var inner70 as u8 = 70
+        const tab70 as u8[3] = [70, 2, 3]
+        t[1] = tab70[0] + inner70
+        writeText(console, "step 70\r\n") else fail
+    end
+    g = g + 71
+    g = g + 72
+    h = h + 72.5 * 2.0
+    g = g + 73
+    g = g + 74
+    g = g + 75
+    while i < 75
+        i = i + 1
+        var w75 as u8 = 1
+    end
+    g = g + 76
+    h = h + 76.5 * 2.0
+    g = g + 77
+    g = g + 78
+    g = g + 79
+    g = g + 80
+    h = h + 80.5 * 2.0
+    var loc80 as u16 = g
+    if g > 240
+        var inner80 as u8 = 80
+        const tab80 as u8[3] = [80, 2, 3]
+        t[1] = tab80[0] + inner80
+        writeText(console, "step 80\r\n") else fail
+    end
+    g = g + 81
+    g = g + 82
+    g = g + 83
+    g = g + 84
+    h = h + 84.5 * 2.0
+    g = g + 85
+    g = g + 86
+    g = g + 87
+    g = g + 88
+    h = h + 88.5 * 2.0
+    g = g + 89
+    g = g + 90
+    var loc90 as u16 = g
+    if g > 270
+        var inner90 as u8 = 90
+        const tab90 as u8[3] = [90, 2, 3]
+        t[1] = tab90[0] + inner90
+        writeText(console, "step 90\r\n") else fail
+    end
+    g = g + 91
+    g = g + 92
+    h = h + 92.5 * 2.0
+    g = g + 93
+    g = g + 94
+    g = g + 95
+    g = g + 96
+    h = h + 96.5 * 2.0
+    g = g + 97
+    g = g + 98
+    g = g + 99
+    g = g + 100
+    h = h + 100.5 * 2.0
+    var loc100 as u16 = g
+    if g > 300
+        var inner100 as u8 = 100
+        const tab100 as u8[3] = [100, 2, 3]
+        t[1] = tab100[0] + inner100
+        writeText(console, "step 100\r\n") else fail
+    end
+    while i < 100
+        i = i + 1
+        var w100 as u8 = 1
+    end
+    g = g + 101
+    g = g + 102
+    g = g + 103
+    g = g + 104
+    h = h + 104.5 * 2.0
+    g = g + 105
+    g = g + 106
+    g = g + 107
+    g = g + 108
+    h = h + 108.5 * 2.0
+    g = g + 109
+    g = g + 110
+    var loc110 as u16 = g
+    if g > 330
+        var inner110 as u8 = 110
+        const tab110 as u8[3] = [110, 2, 3]
+        t[1] = tab110[0] + inner110
+        writeText(console, "step 110\r\n") else fail
+    end
+    g = g + 111
+    g = g + 112
+    h = h + 112.5 * 2.0
+    g = g + 113
+    g = g + 114
+    g = g + 115
+    g = g + 116
+    h = h + 116.5 * 2.0
+    g = g + 117
+    g = g + 118
+    g = g + 119
+    g = g + 120
+    h = h + 120.5 * 2.0
+    var loc120 as u16 = g
+    if g > 360
+        var inner120 as u8 = 120
+        const tab120 as u8[3] = [120, 2, 3]
+        t[1] = tab120[0] + inner120
+        writeText(console, "step 120\r\n") else fail
+    end
+    g = g + 121
+    g = g + 122
+    g = g + 123
+    g = g + 124
+    h = h + 124.5 * 2.0
+    g = g + 125
+    while i < 125
+        i = i + 1
+        var w125 as u8 = 1
+    end
+    g = g + 126
+    g = g + 127
+    g = g + 128
+    h = h + 128.5 * 2.0
+    g = g + 129
+    g = g + 130
+    var loc130 as u16 = g
+    if g > 390
+        var inner130 as u8 = 130
+        const tab130 as u8[3] = [130, 2, 3]
+        t[1] = tab130[0] + inner130
+        writeText(console, "step 130\r\n") else fail
+    end
+    g = g + 131
+    g = g + 132
+    h = h + 132.5 * 2.0
+    g = g + 133
+    g = g + 134
+    g = g + 135
+    g = g + 136
+    h = h + 136.5 * 2.0
+    g = g + 137
+    g = g + 138
+    g = g + 139
+    g = g + 140
+    h = h + 140.5 * 2.0
+    var loc140 as u16 = g
+    if g > 420
+        var inner140 as u8 = 140
+        const tab140 as u8[3] = [140, 2, 3]
+        t[1] = tab140[0] + inner140
+        writeText(console, "step 140\r\n") else fail
+    end
+    g = g + 141
+    g = g + 142
+    g = g + 143
+    g = g + 144
+    h = h + 144.5 * 2.0
+    g = g + 145
+    g = g + 146
+    g = g + 147
+    g = g + 148
+    h = h + 148.5 * 2.0
+    g = g + 149
+    g = g + 150
+    var loc150 as u16 = g
+    if g > 450
+        var inner150 as u8 = 150
+        const tab150 as u8[3] = [150, 2, 3]
+        t[1] = tab150[0] + inner150
+        writeText(console, "step 150\r\n") else fail
+    end
+    while i < 150
+        i = i + 1
+        var w150 as u8 = 1
+    end
+    g = g + 151
+    g = g + 152
+    h = h + 152.5 * 2.0
+    g = g + 153
+    g = g + 154
+    g = g + 155
+    g = g + 156
+    h = h + 156.5 * 2.0
+    g = g + 157
+    g = g + 158
+    g = g + 159
+    g = g + 160
+    h = h + 160.5 * 2.0
+    var loc160 as u16 = g
+    if g > 480
+        var inner160 as u8 = 160
+        const tab160 as u8[3] = [160, 2, 3]
+        t[1] = tab160[0] + inner160
+        writeText(console, "step 160\r\n") else fail
+    end
+    g = g + 161
+    g = g + 162
+    g = g + 163
+    g = g + 164
+    h = h + 164.5 * 2.0
+    g = g + 165
+    g = g + 166
+    g = g + 167
+    g = g + 168
+    h = h + 168.5 * 2.0
+    g = g + 169
+    g = g + 170
+    var loc170 as u16 = g
+    if g > 510
+        var inner170 as u8 = 170
+        const tab170 as u8[3] = [170, 2, 3]
+        t[1] = tab170[0] + inner170
+        writeText(console, "step 170\r\n") else fail
+    end
+    g = g + 171
+    g = g + 172
+    h = h + 172.5 * 2.0
+    g = g + 173
+    g = g + 174
+    g = g + 175
+    while i < 175
+        i = i + 1
+        var w175 as u8 = 1
+    end
+    g = g + 176
+    h = h + 176.5 * 2.0
+    g = g + 177
+    g = g + 178
+    g = g + 179
+    g = g + 180
+    h = h + 180.5 * 2.0
+    var loc180 as u16 = g
+    if g > 540
+        var inner180 as u8 = 180
+        const tab180 as u8[3] = [180, 2, 3]
+        t[1] = tab180[0] + inner180
+        writeText(console, "step 180\r\n") else fail
+    end
+    g = g + 181
+    g = g + 182
+    g = g + 183
+    g = g + 184
+    h = h + 184.5 * 2.0
+    g = g + 185
+    g = g + 186
+    g = g + 187
+    g = g + 188
+    h = h + 188.5 * 2.0
+    g = g + 189
+    g = g + 190
+    var loc190 as u16 = g
+    if g > 570
+        var inner190 as u8 = 190
+        const tab190 as u8[3] = [190, 2, 3]
+        t[1] = tab190[0] + inner190
+        writeText(console, "step 190\r\n") else fail
+    end
+    g = g + 191
+    g = g + 192
+    h = h + 192.5 * 2.0
+    g = g + 193
+    g = g + 194
+    g = g + 195
+    g = g + 196
+    h = h + 196.5 * 2.0
+    g = g + 197
+    g = g + 198
+    g = g + 199
+    g = g + 200
+    h = h + 200.5 * 2.0
+    var loc200 as u16 = g
+    if g > 600
+        var inner200 as u8 = 0
+        const tab200 as u8[3] = [200, 2, 3]
+        t[1] = tab200[0] + inner200
+        writeText(console, "step 200\r\n") else fail
+    end
+    while i < 200
+        i = i + 1
+        var w200 as u8 = 1
+    end
+    g = g + 201
+    g = g + 202
+    g = g + 203
+    g = g + 204
+    h = h + 204.5 * 2.0
+    g = g + 205
+    g = g + 206
+    g = g + 207
+    g = g + 208
+    h = h + 208.5 * 2.0
+    g = g + 209
+    g = g + 210
+    var loc210 as u16 = g
+    if g > 630
+        var inner210 as u8 = 10
+        const tab210 as u8[3] = [210, 2, 3]
+        t[1] = tab210[0] + inner210
+        writeText(console, "step 210\r\n") else fail
+    end
+    g = g + 211
+    g = g + 212
+    h = h + 212.5 * 2.0
+    g = g + 213
+    g = g + 214
+    g = g + 215
+    g = g + 216
+    h = h + 216.5 * 2.0
+    g = g + 217
+    g = g + 218
+    g = g + 219
+    g = g + 220
+    h = h + 220.5 * 2.0
+    var loc220 as u16 = g
+    if g > 660
+        var inner220 as u8 = 20
+        const tab220 as u8[3] = [220, 2, 3]
+        t[1] = tab220[0] + inner220
+        writeText(console, "step 220\r\n") else fail
+    end
+    g = g + 221
+    g = g + 222
+    g = g + 223
+    g = g + 224
+    h = h + 224.5 * 2.0
+    g = g + 225
+    while i < 225
+        i = i + 1
+        var w225 as u8 = 1
+    end
+    g = g + 226
+    g = g + 227
+    g = g + 228
+    h = h + 228.5 * 2.0
+    g = g + 229
+    g = g + 230
+    var loc230 as u16 = g
+    if g > 690
+        var inner230 as u8 = 30
+        const tab230 as u8[3] = [230, 2, 3]
+        t[1] = tab230[0] + inner230
+        writeText(console, "step 230\r\n") else fail
+    end
+    g = g + 231
+    g = g + 232
+    h = h + 232.5 * 2.0
+    g = g + 233
+    g = g + 234
+    g = g + 235
+    g = g + 236
+    h = h + 236.5 * 2.0
+    g = g + 237
+    g = g + 238
+    g = g + 239
+    writeText(console, "done\r\n") else fail
+end
