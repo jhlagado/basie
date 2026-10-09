@@ -1,0 +1,2 @@
+// The part DLMAIN includes: a parse fault, its rest read for lexical ones.
+var c as u8 = 1 +

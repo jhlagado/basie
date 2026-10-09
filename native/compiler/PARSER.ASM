@@ -81,14 +81,40 @@ DG_HERE:
 
 ;@ROUTINE IN D,E,HL NORETURN
 ; Record diagnostic E at offset HL of part D and abandon the build: SP is
-; reloaded from PR_SP and the RET leaves PR_BUILD with carry set.
+; reloaded from PR_SP and the RET leaves PR_BUILD with carry set. The
+; reference reads every part's tokens as it loads them, so a lexical
+; diagnostic comes before any other: while the program is parsed
+; (DG_MODE 1), the DIAG overlay reads the parts not yet read, in the
+; order they were loaded (MS_LEXS, DG_MODE 2), and reports the first
+; lexical one it meets there instead. While it reads, a lexical one
+; returns to it with carry, anything else without.
 
 DG_PLACE:
+    LD   A,(DG_MODE)               ; Being read
+    CP   2                         ; by DIAG?
+    JR   Z,.READ                   ; Then back to it.
     LD   (DG_POS),HL               ; Where it is,
     LD   (DG_CODE),DE              ; its code and, after it, DG_PART.
     LD   SP,(PR_SP)                ; Discard every frame above PR_BUILD's.
+    DEC  A                         ; While parsing,
+    JR   NZ,.FAIL                  ; the parts not yet read
+    LD   A,2                       ; are read
+    LD   (DG_MODE),A               ; first
+    LD   A,OV_DIAG                 ; (MS_LEXS,
+    CALL OV_LOAD                   ; in the DIAG
+    CALL OV_AREA+9                 ; overlay).
+.FAIL:                         ; The diagnostic stands.
     SCF                            ; Carry reports the failure.
     RET                            ; Return from PR_BUILD.
+.READ:                         ; A diagnostic met while reading:
+    LD   A,E                       ; is it
+    CP   DG_LEXN                   ; lexical?
+    JR   NC,.MISS                  ; Anything else is no find.
+    LD   (DG_POS),HL               ; A lexical one is the diagnostic,
+    LD   (DG_CODE),DE              ; its part after its code.
+.MISS:                         ; Back to the reader, carry if found.
+    LD   SP,(DG_SCSP)              ; Its frame (MS_SCAN).
+    RET                            ; Carry as the compare left it.
 
 ;@ROUTINE NORETURN
 ; Raise the diagnostic whose code is the byte after the CALL: `CALL DG_RAISE`
@@ -218,6 +244,8 @@ PR_PEEK:
     LD   A,(PR_LKIND)              ; Is a token already buffered?
     CP   $FF                       ; $FF marks the lookahead cell empty.
     JR   NZ,.BUFFERED              ; Return the buffered token.
+    DEC  A                         ; $FE while it is read, so that a fault
+    LD   (PR_LKIND),A              ; inside a token is known (MS_LEXS).
     CALL TK_NEXT                   ; Read a token: kind in A, payload in BC.
     LD   (PR_LKIND),A              ; Buffer its kind...
     LD   (PR_LVAL),BC              ; ...and its payload.

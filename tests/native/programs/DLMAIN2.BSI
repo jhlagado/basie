@@ -1,0 +1,6 @@
+include "DLPART2.BSI"
+// Lexical faults in this part and in the part it includes, which is
+// compiled first: the reference reads this part first, and reports its own.
+sub main()
+var d = 2 # 3
+end

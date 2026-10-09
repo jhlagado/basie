@@ -64,8 +64,17 @@ TK_LEN EQU  PR_BASE+$15        ; Byte: length of a name or decoded string.
 DG_CODE EQU  PR_BASE+$16       ; Byte: diagnostic number, zero for none.
 DG_PART EQU  PR_BASE+$17       ; Byte: SRC_ID of the part at fault.
 DG_POS EQU  PR_BASE+$18        ; Word: the offset in the part of the fault.
+DG_MODE EQU  PR_BASE+$1A       ; Byte: 1 while the program is parsed, 2 while
+                               ; DIAG reads the parts after a fault (DG_PLACE).
+DG_SCSP EQU  PR_BASE+$1B       ; Word: SP at MS_SCAN's call, which DG_PLACE restores.
+; The open brackets (TOKEN.ASM): each its offset in the part, bit 15 set for
+; `[`, the innermost at TK_NEST, so that a closing bracket of the other kind
+; is mismatched-delimiter at it and one left open open-delimiter at itself.
+BK_STK EQU  PR_BASE+$1D        ; BK_CAP words.
+BK_CAP EQU  48                 ; Brackets open at once; DG_NEST beyond.
+DG_LEXN EQU  12                ; Diagnostics below are lexical (DG_LEXB..DG_AJAR).
 
-PR_STEND EQU  PR_BASE+$1B      ; End of the first block.
+PR_STEND EQU  BK_STK+2*BK_CAP ; End of the first block.
 
 
 ; The emitter's state (EMIT.ASM) for the routine being written: its frame
@@ -404,6 +413,7 @@ DG_NONE EQU  6                 ; empty-character.
 DG_LONGC EQU  7                ; long-character.
 DG_OPEN EQU  8                 ; unterminated-literal.
 DG_SHUT EQU  9                 ; unmatched-delimiter.
+DG_MISM EQU  10                ; mismatched-delimiter.
 DG_AJAR EQU  11                ; open-delimiter.
 DG_LATE EQU  21                ; include-position: an include after a declaration.
 DG_CYCLE EQU  22               ; include-cycle.

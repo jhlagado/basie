@@ -1,0 +1,6 @@
+include "DLPART3.BSI"
+include "DLPART4.BSI"
+// A parse fault in the first part included and a lexical one in the
+// second: the reference reads every part first, and reports the second.
+sub main()
+end

@@ -1,0 +1,6 @@
+include "DLPART.BSI"
+// A lexical fault in this part comes after the parse fault in the part it
+// includes, which is compiled first: the reference reports that one.
+sub main()
+var d = 2 # 3
+end

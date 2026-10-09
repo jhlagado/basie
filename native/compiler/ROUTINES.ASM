@@ -135,6 +135,8 @@ PR_BUILD:
     CALL OV_LOAD                   ; take the overlay area.
     XOR  A                         ; Part zero of the stream
     CALL SRC_BODY                  ; is current;
+    LD   A,1                       ; a diagnostic waits for
+    LD   (DG_MODE),A               ; the rest of its part (DG_PLACE);
     CALL LL_PARSE                  ; every part is parsed, its blobs written.
     OR   A                         ; Carry clear: success.
     RET                            ; The caller closes the streams.

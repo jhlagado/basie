@@ -724,7 +724,7 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
     JP   TK_DONE                   ; Return less than.
 .LE:                           ; '=' is current.
     LD   C,TK_LE                   ; The token kind.
-    JR   TK_TAKE                   ; Consume the '=' and return C.
+    JP   TK_TAKE                   ; Consume the '=' and return C.
 .NE:                           ; '>' is current.
     LD   C,TK_NE                   ; The token kind.
     JR   TK_TAKE                   ; Consume the '>' and return C.
@@ -754,10 +754,21 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
     LD   C,TK_LBRAC                ; The token kind; fall into the open path.
 .OPEN:                         ; C: the kind of the opening bracket.
     CALL SRC_TAKE                  ; Consume it; C survives.
-    LD   A,(TK_NEST)               ; The current depth.
-    INC  A                         ; One level deeper.
-    JR   Z,TK_DEEP                 ; 256 open brackets: refused.
-    LD   (TK_NEST),A               ; Line ends are whitespace while nonzero.
+    LD   A,(TK_NEST)               ; The current depth,
+    CP   BK_CAP                   ; below the stack's
+    JR   NC,TK_DEEP                ; capacity, else refused,
+    INC  A                         ; one level deeper:
+    LD   (TK_NEST),A               ; line ends are whitespace while nonzero.
+    CALL TK_BTOP                   ; Its entry, HL, keeps
+    LD   DE,(TK_POS)               ; its offset,
+    LD   A,C                       ; with
+    CP   TK_LBRAC                  ; bit 15
+    JR   NZ,.PAREN                 ; for
+    SET  7,D                       ; `[`.
+.PAREN:                        ; DE is the entry.
+    LD   (HL),E                    ; Kept,
+    INC  HL                        ; both
+    LD   (HL),D                    ; bytes.
     LD   A,C                       ; Return the bracket's kind.
     JP   TK_DONE                   ; Return the opening bracket.
 
@@ -765,15 +776,37 @@ TK_AGAIN:                      ; Rescan after whitespace, a comment or a line en
     LD   C,TK_RBRAC                ; The token kind; fall into the close path.
 .CLOSE:                        ; C: the kind of the closing bracket.
     LD   A,(TK_NEST)               ; The current depth.
-    SUB  1                         ; One level out; the parser checks the kind.
+    SUB  1                         ; One level out.
     LD   B,DG_SHUT                 ; Below zero: an unbalanced close,
-    JR   C,.SHUT                   ; unmatched-delimiter.
+    JP   C,.SHUT                   ; unmatched-delimiter.
     LD   (TK_NEST),A               ; Line ends count again at depth zero.
+    INC  A                         ; The bracket it closes:
+    CALL TK_BTOP                   ; its entry,
+    INC  HL                        ; whose bit 15
+    BIT  7,(HL)                    ; says `[`,
+    LD   A,TK_RPAR                 ; closed by `]`,
+    JR   Z,.KIND                   ; or `(`,
+    LD   A,TK_RBRAC                ; by `)`:
+.KIND:                         ; A is the closer it takes.
+    CP   C                         ; Another
+    LD   B,DG_MISM                 ; is mismatched-delimiter
+    JP   NZ,.SHUT                  ; at it.
     CALL SRC_TAKE                  ; Consume the bracket; C survives.
     LD   A,C                       ; Return the bracket's kind.
     JP   TK_DONE                   ; Return the closing bracket.
 
-TK_DEEP:                       ; Brackets open 256 deep:
+;@ROUTINE IN A OUT HL CLOBBERS DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; HL is the entry in BK_STK of the bracket open at depth A, from one.
+
+TK_BTOP:                       ; A is the depth.
+    ADD  A,A                       ; Two bytes
+    LD   L,A                       ; an entry,
+    LD   H,0                       ; the first
+    LD   DE,BK_STK-2              ; at
+    ADD  HL,DE                     ; depth one.
+    RET                            ; Done.
+
+TK_DEEP:                       ; Brackets open BK_CAP deep:
     CALL DG_RAISE                  ; this compiler's capacity,
     DB   DG_NEST                   ; nesting.
 
@@ -792,7 +825,7 @@ TK_TAKE:                       ; C: the kind of a token ending at the current by
 TK_BASED:                      ; C: the descriptor of $ or %.
     RES  7,C                       ; C: digit limit plus one; bit 5 set for binary.
     LD   B,C                       ; B counts down the digits allowed.
-    JR   TK_RADIX                  ; Scan the based number.
+    JP   TK_RADIX                  ; Scan the based number.
 
 ; Line ends. TK_LF and TK_CRLF consume LF or CR LF; TK_BREAK then counts the
 ; line and decides whether the parser sees it as a token.
@@ -835,8 +868,20 @@ TK_EOLR:                       ; Return a line end; the next line starts empty.
 TK_ATEND:                      ; SRC_PEEK reported the end of the part.
     LD   A,(TK_NEST)               ; The bracket depth.
     OR   A                         ; Nonzero if a bracket is still open:
-    LD   A,DG_AJAR                 ; open-delimiter,
-    JP   NZ,DG_ISSUE               ; at the part's end.
+    JR   Z,.CLOSED                 ; open-delimiter,
+    CALL TK_BTOP                   ; at the innermost
+    LD   E,(HL)                    ; open
+    INC  HL                        ; bracket,
+    LD   A,(HL)                    ; its
+    AND  $7F                       ; offset
+    LD   H,A                       ; less its
+    LD   L,E                       ; kind.
+    LD   A,DG_AJAR                 ; Raise it
+    JP   DG_HERE                   ; there.
+.CLOSED:                       ; None is open.
+    LD   A,(DG_MODE)               ; While DIAG reads the parts
+    CP   2                         ; after a fault, each ends
+    JR   Z,.EOF                    ; as the last does (MS_LEXS).
     LD   HL,SRC_OWE                ; Was the boundary line end returned?
     LD   A,(HL)                    ; Then
     OR   A                         ; move on

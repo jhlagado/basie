@@ -20,6 +20,8 @@
 ;    MS_SHOWD  at OV_AREA+3: the compiler's diagnostic, DG_CODE in DG_PART
 ;              at DG_POS (SH_DIAG's and SH_OVER's)
 ;    MS_SCRUB  at OV_AREA+6: delete the streams after a failure (SH_SCRUB's)
+;    MS_LEXS   at OV_AREA+9: read the parts not yet read after a fault, for
+;              the first lexical diagnostic in load order (DG_PLACE's)
 ;    SH_NUM    print HL in decimal; only diagnostics print numbers, so it is
 ;              here rather than in the resident shell
 ;
@@ -46,11 +48,109 @@ MS_NCAP EQU  190               ; The reference's capacity.
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The overlay's entries: OV_AREA, MS_SHOWE, prints "Error N: text" for
 ; diagnostic HL, as BLINK prints its own; OV_AREA+3, MS_SHOWD, the
-; compiler's diagnostic, neither ending the line; OV_AREA+6, MS_SCRUB.
+; compiler's diagnostic, neither ending the line; OV_AREA+6, MS_SCRUB;
+; OV_AREA+9, MS_LEXS.
 
 MS_ENTRY:                      ; At OV_AREA: HL is the number.
     JP   MS_SHOWE                  ; Print it.
-    JP   MS_SHOWD                  ; At OV_AREA+3; MS_SCRUB follows at +6.
+    JP   MS_SHOWD                  ; At OV_AREA+3;
+    JP   MS_SCRUB                  ; at +6; MS_LEXS follows at +9.
+
+;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; DG_PLACE's, while the program is parsed: the reference reads every
+; part's tokens as it loads it, main first, so the diagnostic it reports
+; is the first lexical one in that order, else the first fault. Read the
+; parts not yet read: the rest of the current part, then, in the part
+; table's order (the order they were loaded), every part whose number in
+; the stream is past the current one's; DG_CODE, DG_PART and DG_POS are
+; then the first lexical diagnostic in that order, or, with none, the
+; fault. This code lies in the overlay's first bytes, below FLOAT, which
+; an f32 literal read may load (OV_FSCAN).
+
+MS_LEXS:                       ; At OV_AREA+9: DG_CODE is the fault.
+    LD   HL,DG_CODE                ; The fault,
+    LD   DE,MS_FAULT               ; its code, part
+    CALL .KEEP                     ; and offset, kept.
+    LD   A,(SRC_NUM)               ; The current part's
+    LD   (MS_CUR),A                ; number in the stream.
+    LD   A,(DG_CODE)               ; A lexical fault
+    CP   DG_LEXN                   ; is the current part's
+    JR   C,.MINE                   ; first lexical one;
+    LD   A,(PR_LKIND)              ; another raised inside
+    CP   $FE                       ; a token (PR_PEEK) leaves
+    JR   Z,.NONE                   ; the rest unread;
+    CALL MS_SCAN                   ; else the rest is read:
+    JR   C,.MINE                   ; one there,
+.NONE:                         ; or none:
+    XOR  A                         ; its code
+    LD   (DG_CODE),A               ; zero.
+.MINE:                         ; DG_CODE..DG_POS is the current part's.
+    LD   HL,DG_CODE                ; It is
+    LD   DE,MS_CURD                ; kept
+    CALL .KEEP                     ; too.
+    LD   B,0                       ; The table's entries, from the first:
+.PART:                         ; B is the entry.
+    LD   A,(SRC_PCNT)              ; Are they
+    CP   B                         ; all read?
+    JR   Z,.FAULT                  ; Then the fault stands.
+    PUSH BC                        ; (the entry)
+    LD   A,B                       ; Its
+    CALL SRC_PART                  ; number
+    LD   DE,PT_NUM                 ; in the
+    ADD  HL,DE                     ; stream:
+    LD   A,(HL)                    ; one compiled
+    LD   HL,MS_CUR                 ; is read
+    CP   (HL)                      ; already;
+    JR   C,.NEXT                   ; the current part's
+    JR   Z,.CURR                   ; is kept;
+    CALL MS_SCANP                  ; any other is read:
+    POP  BC                        ; a lexical
+    RET  C                         ; one is the diagnostic.
+    JR   .ON                       ; The next.
+.CURR:                         ; The current part:
+    POP  BC                        ; (the entry)
+    LD   HL,MS_CURD                ; a lexical one
+    LD   A,(HL)                    ; in it, if
+    OR   A                         ; any, is
+    JR   NZ,.TAKE                  ; the diagnostic.
+    PUSH BC                        ; (as .NEXT pops)
+.NEXT:                         ; Read already.
+    POP  BC                        ; The entry;
+.ON:                           ; the next.
+    INC  B                         ; One
+    JR   .PART                     ; more.
+.FAULT:                        ; No lexical one:
+    LD   HL,MS_FAULT               ; the fault.
+.TAKE:                         ; HL is the diagnostic:
+    LD   DE,DG_CODE                ; it is DG_CODE..DG_POS;
+.KEEP:                         ; four bytes, HL to DE.
+    LD   BC,4                      ; Its code, part
+    LDIR                           ; and offset.
+    RET                            ; Done.
+
+;@ROUTINE IN A OUT CARRY CLOBBERS A,BC,DE,HL,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
+; Read the stream's part A from its body (MS_SCANP), or the current part
+; from where its tokens stopped (MS_SCAN), to its end (the tokenizer ends
+; each part while DG_MODE is 2): carry when a lexical diagnostic is met,
+; DG_PLACE then returning here with it in DG_CODE..DG_POS.
+
+MS_SCANP:                      ; A is the part's number.
+    LD   (DG_SCSP),SP              ; A find returns from here.
+    CALL SRC_BODY                  ; Its body is current; read it.
+    JR   MS_READ                   ; Read it.
+MS_SCAN:                       ; The current part's rest.
+    LD   (DG_SCSP),SP              ; A find returns from here.
+MS_READ:                       ; Each token
+    CALL TK_NEXT                   ; is read
+    JR   NZ,MS_READ                ; to the part's end (TK_EOF),
+    RET                            ; carry clear.
+
+MS_FAULT:                      ; The fault: code, part, offset.
+    DB   0,0,0,0                   ; (MS_LEXS)
+MS_CURD:                       ; The current part's first lexical one, or zero.
+    DB   0,0,0,0                   ; (MS_LEXS)
+MS_CUR:                        ; The current part's number in the stream.
+    DB   0                         ; (MS_LEXS)
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; SH_SCRUB's: delete the four streams, NAME.$DR, $BY, $LN and $NM on the
@@ -58,7 +158,7 @@ MS_ENTRY:                      ; At OV_AREA: HL is the number.
 ; option K keeps them (toolchain §6.2). A stream never made is only a
 ; status from BDOS.
 
-MS_SCRUB:                      ; At OV_AREA+6.
+MS_SCRUB:                      ; From OV_AREA+6.
     LD   A,(BL_FLAGS)              ; Did option K
     AND  SH_KEEP                   ; ask to keep them?
     RET  NZ                        ; Then they stay.

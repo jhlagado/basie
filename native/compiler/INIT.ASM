@@ -36,7 +36,9 @@ SH_START:                      ; Entered from the jump at $0100.
     LD   (SH_RLOW),A               ; unless a disk fails.
     LD   HL,0                      ; Zero:
     LD   (DG_ARG1),HL              ; no diagnostic has
-    LD   (DG_ARG2),HL              ; an argument yet.
+    LD   (DG_ARG2),HL              ; an argument yet,
+    XOR  A                         ; nor waits for
+    LD   (DG_MODE),A               ; its part's rest (DG_PLACE).
     CALL OV_OPEN                   ; BASIE.OVL is opened and checked;
     LD   A,$FF                     ; no overlay
     LD   (OV_CUR),A                ; is loaded yet:

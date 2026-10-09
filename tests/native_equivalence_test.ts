@@ -1101,6 +1101,22 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "a call left open at the part's end":
+    "sub f(x as u8) as u8\nreturn x\nend\nsub main()\nvar c = f(3\nend\n",
+  "a bracket left open at the part's end, after its last line":
+    "sub main()\nvar c = (1 + 2\n",
+  "a `]` closing a `(`":
+    "var t as u8[4]\nsub main()\nvar c = t[(1]\nend\n",
+  "a `)` closing a `[`":
+    "var t as u8[4]\nsub main()\nvar c = t[1)\nend\n",
+  "a bad character after a parse fault":
+    "sub main()\nvar c = 1 +\nvar d = 2 # 3\nend\n",
+  "an unterminated string after a parse fault":
+    "sub main()\nvar c = 1 +\nvar d = \"abc\nend\n",
+  "the innermost of two brackets left open":
+    "sub main()\nvar c = (1 + [2\nend\n",
+  "a malformed number after a parse fault":
+    "sub main()\nvar c = = 2\nvar d = $\nend\n",
   "a handle stored through a read-only open array of records":
     "record Job\nnumber as u16\nend\npool jobs as Job[4]\nrecord Box\nh as jobs?\nn as u8\nend\nsub bad(bs as Box[])\nbs[0].h = none\nend\nvar a as Box[3]\nsub main()\nbad(a)\nend\n",
   "a handle moved out of a read-only open array of records":
@@ -2132,6 +2148,12 @@ const codeOf = (n: number) => MESSAGES.find((m) => m.number === n)?.code;
 // Programs of the conformance suite both compilers refuse, with the parts
 // of their folder beside them (67a: include and private).
 const REFUSED_WITH_PARTS: Record<string, string> = {
+  "a lexical fault in a later part after a parse fault in one it includes":
+    "tests/native/programs/DLMAIN.BSI",
+  "lexical faults in a part and in the part it includes":
+    "tests/native/programs/DLMAIN2.BSI",
+  "a parse fault in one included part, a lexical fault in the next":
+    "tests/native/programs/DLMAIN3.BSI",
   "an include after a declaration":
     "tests/conformance/structure/include-after-declaration.bsi",
   "a declaration split across parts":

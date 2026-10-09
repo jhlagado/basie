@@ -20,8 +20,10 @@
 ;                           streams closed first, with BLCLOSE.ASM (CH_DONE
 ;                           at OV_AREA+3)
 ;    OV_DIAG   MESSAGE.ASM  diagnostics from BASIE.MSG (MS_SHOWE at
-;                           OV_AREA, MS_SHOWD at OV_AREA+3), and the streams
-;                           deleted after a failure (MS_SCRUB at OV_AREA+6)
+;                           OV_AREA, MS_SHOWD at OV_AREA+3), the streams
+;                           deleted after a failure (MS_SCRUB at +6), and
+;                           the parts read for a lexical fault first, in
+;                           load order (MS_LEXS at +9, within NAMES' bytes)
 ;    OV_PREP   PREP.ASM     the state a compilation begins with (PP_RUN at
 ;                           OV_AREA), loaded once by PR_BUILD before NAMES
 ;    OV_SPILL  SPILL.ASM    the blob writer's spill to NAME.$CD and its
