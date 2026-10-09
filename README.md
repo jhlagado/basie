@@ -17,6 +17,15 @@ of a call, and no reference can outlive the storage it points into.
 
 *Few notes. Make them count.*
 
+## Status
+
+Version 1 is complete: the native compiler `BASIE.COM` and linker `BLINK.COM`
+run on CP/M 2.2 and compile every program the reference toolchain compiles,
+byte for byte, apart from the open arrays of handles that wait for version 2
+([roadmap](docs/roadmap.md) step 74, [limits](docs/limits.md)). `BASIE.COM`
+takes 24,927 bytes and a 2,611-byte overlay area, 1,134 bytes under its 28K
+limit. Version 2 is planned in [the version 2 plan](docs/version-2.md).
+
 ## What Basie is
 
 Basie is a small, strictly specified language compiled to native Z80 code by

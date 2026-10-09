@@ -1,8 +1,8 @@
 # Test report
 
-Roadmap step 69: large-program tests and stress tests. This report records
-what the test suite proves about the toolchain at the end of step 69, how it
-is run, and the limits it found. The capacity figures themselves are in the
+Roadmap step 69: large-program tests and stress tests, brought up to date at
+the end of step 74, version 1. This report records what the test suite proves
+about the toolchain, how it is run, and the limits it found. The capacity figures themselves are in the
 [limits register](limits.md) §5.1 and §5.2.
 
 ## 1. Running the tests
@@ -23,15 +23,15 @@ programs in the stress test rather than 40.
 
 | Area | Tests | What they establish |
 | --- | ---: | --- |
-| Native compiler against the reference (`native_equivalence_test.ts`) | 747 | Every claimed program (the `CLAIMED` groups, 229 programs and parts, including `ADVENT.BSI` and the standard library's) compiles to the reference's directory, byte, line and name streams byte for byte; each is linked by `BLINK.COM` and run, its output, return code and files equal to the reference build's. 514 refusal cases are refused by both compilers with the same diagnostic number, line and column. Random statements, expressions, `select` arms and `f32` statements compile alike. |
+| Native compiler against the reference (`native_equivalence_test.ts`) | 838 | Every claimed program (the `CLAIMED` groups, 255 programs and parts, including `ADVENT.BSI` and the standard library's) compiles to the reference's directory, byte, line and name streams byte for byte; each is linked by `BLINK.COM` and run, its output, return code and files equal to the reference build's. 579 refusal cases, 17 of them across parts, are refused by both compilers with the same diagnostic number, line and column. Random statements, expressions, `select` arms and `f32` statements compile alike. |
 | Large programs and stress (`stress_test.ts`) | 13 | A program at each capacity minimum of the specification compiles as the reference's; random whole programs compile alike; a large program in many parts links and runs alike (§3). |
-| The native shell (`basie_native_test.ts`) | 30 | Options, the library check, the stamp, chaining to `BLINK`, overlays, diagnostics, memory and nesting bounds. |
+| The native shell (`basie_native_test.ts`) | 31 | Options, the library check, the stamp, chaining to `BLINK`, overlays, diagnostics, memory and nesting bounds. |
 | The book's examples (`book_test.ts`) | 1 | Every example program of Programming Basie (debug80-docs, roadmap step 71) compiles with `BASIE.COM` to the reference's four streams, names included. |
-| The native linker (`blink_test.ts`) | 47 | `BLINK.COM` links what the reference linker links, to the same image, and refuses alike. |
+| The native linker (`blink_test.ts`) | 53 | `BLINK.COM` links what the reference linker links, to the same image, and refuses alike. |
 | The conformance corpus (`conformance_test.ts`, `conformance_triptych_test.ts`) | 6 | 174 programs run on the reference toolchain with their recorded results, 106 of them on real CP/M 2.2. |
 | The reference toolchain | the rest | The lexer, grammar, source loader, object formats, linker, helper table, `f32` constants, messages and publishing. |
 
-The whole suite, 943 tests, passes.
+The whole suite, 1,045 tests, passes. Every program of the conformance corpus, the examples, the native test programs and the library that the reference compiles, 250 in all, compiles natively too (a sweep, `tools/_sweep.ts`, at 74.20); the constructs the native compiler still refuses (Error 191) are those the reference refuses too, with another diagnostic, and the open arrays of handles and of `File`s, which wait for version 2 ([limits](limits.md)).
 
 ## 3. Large programs and stress tests
 
