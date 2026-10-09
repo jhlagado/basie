@@ -1015,23 +1015,57 @@ HN_DELHL:                      ; The handle is in HL.
     LD   A,D                       ; its stack figure
     JP   EM_HWORD                  ; counted; return.
 
+;@ROUTINE IN HL OUT A,HL CLOBBERS CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; HL past the source's whitespace from HL, A the byte there: spaces, tabs
+; and `//` comments, and within brackets (TK_NEST) line ends, as the
+; tokenizer passes them. Nothing is consumed (HN_IDQ, HN_PHND).
+
+HN_BLANK:                      ; HL is in the source.
+    LD   A,(HL)                    ; A space
+    CP   ' '                       ; or
+    JR   Z,.ON                     ; a tab
+    CP   9                         ; is
+    JR   Z,.ON                     ; passed;
+    CP   '/'                       ; so is
+    JR   NZ,.EOL                   ; a comment,
+    INC  HL                        ; `//`,
+    CP   (HL)                      ; (one `/`
+    DEC  HL                        ; is a token)
+    RET  NZ                        ; to its
+.NOTE:                         ; line's
+    INC  HL                        ; end,
+    LD   A,(HL)                    ; a line
+    CP   10                        ; feed
+    JR   Z,.LINE                   ; or a
+    CP   13                        ; carriage
+    JR   NZ,.NOTE                  ; return.
+.EOL:                          ; A line end
+    CP   10                        ; within brackets
+    JR   Z,.LINE                   ; is passed
+    CP   13                        ; too; anything
+    RET  NZ                        ; else is the token.
+.LINE:                         ; A line end:
+    LD   A,(TK_NEST)               ; outside brackets
+    OR   A                         ; it ends
+    LD   A,(HL)                    ; the statement
+    RET  Z                         ; (A is it).
+.ON:                           ; Passed:
+    INC  HL                        ; the next
+    JR   HN_BLANK                  ; byte.
+
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; With `(` peeked, carry when the source after it, past spaces, tabs and
 ; more `(`, begins `new`, `move` or `id` and no longer name: an inferred
 ; local's handle in parentheses (HN_INFER). Nothing is consumed.
 
 HN_PHND:                       ; `(` is the next token.
-    LD   HL,(SRC_PTR)              ; The bytes after it.
-.SKIP:                         ; Past
-    LD   A,(HL)                    ; spaces,
-    INC  HL                        ; tabs
-    CP   ' '                       ; and
-    JR   Z,.SKIP                   ; more
-    CP   9                         ; `(`;
-    JR   Z,.SKIP                   ; (a part
-    CP   '('                       ; ends at a
-    JR   Z,.SKIP                   ; line end)
-    DEC  HL                        ; HL is the word.
+    LD   HL,(SRC_PTR)              ; The bytes after it,
+    DEC  HL                        ; from the `(`:
+.SKIP:                         ; past it and more `(`
+    INC  HL                        ; and whitespace
+    CALL HN_BLANK                  ; (HN_BLANK),
+    CP   '('                       ; HL is
+    JR   Z,.SKIP                   ; the word.
     LD   DE,.WORDS                 ; Each candidate:
 .WORD:                         ; DE is one, its length first.
     LD   A,(DE)                    ; Its length,

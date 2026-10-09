@@ -1,0 +1,23 @@
+// id and an inferred local's handle with their ( after a line end or a
+// comment, within brackets, where the tokenizer passes them (HN_BLANK).
+record Job
+number as u16
+end
+pool jobs as Job[4]
+var g as jobs?
+var keep as id jobs?
+sub look(k as id jobs?)
+end
+
+sub main()
+    look(id
+    (g))
+    look(id // the id of g
+      (g))
+    keep = (id
+	(g))
+    var h = (
+     new jobs(1))
+    var i = ( // an identifier
+     id(g))
+end

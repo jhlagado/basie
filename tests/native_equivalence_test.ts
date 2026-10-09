@@ -412,6 +412,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: open arrays of records that own": ["OWNVIEW", "OWNVIEW2"],
   "74: the spill in an overlay, FLOAT loaded again": ["BIGSPLF"],
   "74: an inferred local's handle in parentheses": ["INFPAR"],
+  "74: Files and leases in parentheses, a name id": ["PARFILE", "IDBREAK"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1102,6 +1103,12 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "an indexed path from a call's result that is no File":
+    "record Channel\nitems as u8[4]\nend\nvar chan as Channel\nvar i as u8\nsub mk() as Channel\nreturn chan\nend\nsub main() fails\nwriteText(mk().items[i + 1], \"x\") else fail\nend\n",
+  "id undeclared, read as an identifier's value":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\nvar g as jobs?\nvar keep as id jobs?\nsub main()\nkeep = id\nend\n",
+  "a File argument's parenthesis left open":
+    "sub main() fails\n    writeText((console, \"x\") else fail\nend\n",
   "a mismatch after an inferred new in parentheses, at its own value":
     "record Job\nnumber as u16\nend\npool jobs as Job[4]\nsub main()\nvar h = (new jobs(1))\nvar x as jobs = 5\nend\n",
   "an identifier moved in parentheses, inferred":

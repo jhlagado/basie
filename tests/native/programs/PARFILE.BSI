@@ -1,0 +1,39 @@
+// Files, leases and a name `id`, as the reference takes them: a File field
+// of a call's record result passed; File arguments in parentheses; a File
+// compared with one in parentheses; an owner lent in parentheses; and a
+// variable named id read as an identifier's value, id(...) beside it.
+record Channel
+    out as File
+end
+record Job
+    number as u16
+end
+pool jobs as Job[4]
+var chan as Channel
+var out as File
+var g as jobs?
+var id as id jobs?
+var keep as id jobs?
+
+sub mk() as Channel
+    return chan
+end
+
+sub look(j as Job) as u16
+    return j.number
+end
+
+sub main() fails
+    chan.out = console
+    out = console
+    writeText(mk().out, "a") else fail
+    writeText((console), "b") else fail
+    writeText(((chan.out)), "c") else fail
+    var same = out = (console)
+    var other = out <> ((chan.out))
+    var h as jobs = new jobs(4)
+    var n = look((h))
+    keep = id
+    keep = id (g)
+    var b = id = keep
+end

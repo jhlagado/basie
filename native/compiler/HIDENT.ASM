@@ -18,22 +18,25 @@
 ;    HN_INPTH  an inferred local from a handle path
 
 ;@ROUTINE OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
-; The next token is a NAME, peeked: `id` is taken, and carry returned when
-; `(` follows (id(...), whatever is declared, as the reference's
-; nameExpression has it); without `(`, an undeclared `id` is
-; undeclared-name at it, a declared one's value waits (DG_NYI). Any other
-; name is left, no carry.
+; The next token is a NAME, peeked: `id` with `(` after it (read in the
+; source, past whitespace, HN_BLANK, without taking it) is taken, and carry
+; returned (id(...), whatever is declared, as the reference's
+; nameExpression has it). Any other name, `id` alone among them, a
+; variable's or undeclared, is left, no carry.
 
 HN_IDQ:                        ; A NAME is peeked.
     CALL TK_ISID                   ; `id` (two bytes)? If not,
     RET  NC                        ; another name.
-    CALL PR_TAKE                   ; Taken:
-    CALL HN_PAREN                  ; `(` next?
-    SCF                            ; Then
-    RET  Z                         ; id(...).
-    CALL SY_FIND                   ; Undeclared,
-    JP   NC,SY_UNDEF               ; or declared
-    JP   TR_OPER                   ; and waiting.
+    LD   HL,(SRC_PTR)              ; The source after it, past
+    CALL HN_BLANK                  ; whitespace: is it `(`?
+    CP   '('                       ; If not,
+    JR   NZ,.NAME                  ; a name;
+    CALL PR_TAKE                   ; if so, `id` is taken:
+    SCF                            ; id(...).
+    RET                            ; Done.
+.NAME:                         ; `id` is a name here.
+    OR   A                         ; No carry.
+    RET                            ; Done.
 
 ;@ROUTINE OUT ZERO CLOBBERS A,BC,HL,CARRY,SIGN,PARITY,HALFCARRY
 ; Z if `(` follows the NAME taken; the NAME, its spelling and place, stay
@@ -529,8 +532,10 @@ HN_EQ:                         ; A is the type.
     JR   Z,.CMP                    ; Then compared;
     CP   TK_NE                     ; otherwise
     JR   Z,.CMP                    ; an identifier
-    LD   A,C                       ; waits, and
-    CP   AG_FILE                   ; a File is
+    CP   TK_RPAR                   ; waits, as does
+    LD   A,C                       ; a File in parentheses
+    JP   Z,TR_OPER                 ; (compared after them),
+    CP   AG_FILE                   ; and a File is
     JP   NZ,TR_OPER                ; no scalar
     JP   EX_EFIT                   ; (type-mismatch).
 .CMP:                          ; B is the operator, C the type.
@@ -546,11 +551,8 @@ HN_EQ:                         ; A is the type.
     PUSH BC                        ; a File's
     LD   A,C                       ; right operand
     CP   AG_FILE                   ; is a File's
-    JR   NZ,.ID                    ; value (in
-    CALL PR_PEEK                   ; parentheses
-    CP   TK_LPAR                   ; it
-    JP   Z,TR_OPER                 ; waits),
-    CALL RO_FVAL                   ; or
+    JR   NZ,.ID                    ; value (in parentheses
+    CALL RO_FVAL                   ; too), or
     JR   .GOT                      ; an
 .ID:                           ; identifier's
     OR   AG_HOPT                   ; of the type

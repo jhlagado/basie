@@ -660,12 +660,11 @@ RO_ARGS:
     POP  HL                        ; The argument's start
     LD   (EX_START),HL             ; is where its faults are.
     POP  BC                        ; The parameter's type:
-    CALL PL_ISHND                  ; an owning handle's record
-    JP   C,TR_OPER                 ; lent waits;
-    JR   .RECORD                   ; an aggregate is passed.
+    JR   .LENT                     ; then as a path's.
 .PATH:                         ; A path:
     CALL RO_PART                   ; A is the argument's type:
     POP  BC                        ; an owning
+.LENT:                         ; A is the argument's type:
     CALL PL_ISHND                  ; handle
     JR   NC,.RECORD                ; lends
     CALL HN_LEASA                  ; its record (a lease),
@@ -977,14 +976,19 @@ RO_FCON:                       ; HL is the entry.
 RO_FVAL:
     CALL PR_SPOT                   ; Its start,
     LD   (EX_START),HL             ; where a fault is reported,
-    PUSH HL                        ; kept across it
+    PUSH HL                        ; (kept)
+    CALL HN_OPEN                   ; after its parentheses, B,
+    LD   HL,0                      ; (none of which is
+    LD   (HN_AT),HL                ; a handle's target)
+    POP  HL                        ; (the start)
+    PUSH BC                        ; counted,
+    PUSH HL                        ; and kept across it
     CALL .VALUE                    ; (.BACK),
-    POP  HL                        ; dropped.
-    RET                            ; Done.
+    POP  HL                        ; dropped;
+    POP  BC                        ; then as many
+    JP   HN_SHUT                   ; closed; return.
 .VALUE:                        ; The value:
     CALL PR_TAKE                   ; a name begins it;
-    CP   TK_LPAR                   ; a parenthesized one
-    JP   Z,TR_OPER                 ; waits (DG_NYI);
     CP   TK_NAME                   ; anything else is
     JR   NZ,.ETYPE                 ; no File value (DG_CLASH).
     CALL RO_LIB                    ; A predeclared name?
@@ -1010,11 +1014,16 @@ RO_FVAL:
     CALL .BACK                     ; its start again;
     CP   AG_FILE                   ; a path
     JR   Z,.FILE                   ; from another
-    CP   AG_FIRST                  ; aggregate result
-    JR   C,.ETYPE                  ; waits (DG_NYI);
-    JP   TR_OPER                   ; or
+    CP   AG_FIRST                  ; aggregate result,
+    JR   C,.ETYPE                  ; its rest
+    CALL RO_START                  ; parsed (RO_PART's),
+    LD   HL,RO_ESC                 ; its root
+    LD   (HL),0                    ; the call's;
+    JR   .PATHED                   ; or
 .PATH:                         ; a path, or nothing:
     CALL RO_NAMED                  ; parsed, A its type.
+.PATHED:                       ; A is the path's type;
+    CALL .BACK                     ; an index moved EX_START.
     CALL .FILE                     ; It must be a File,
     JP   GA_LDF                    ; loaded at its place; return.
 .BACK:                         ; The arguments moved EX_START:
