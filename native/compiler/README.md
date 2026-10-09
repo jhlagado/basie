@@ -14,9 +14,11 @@ deno task census:basie       size by file, against the 26K target and 28K limit,
 ## Files
 
 `BASIE.ASM` includes the resident files in image order. ATOM assembles each
-included file before its includer, so the list is the layout, and
-`BASIE.ASM`'s own lines, the markers that end the shell and the image and
-begin the overlay area, come last.
+included file before its includer, so the list is the layout. `INIT.ASM`
+comes last: it marks the shell's and the image's end and the overlay
+area's start (`OV_AREA`), then holds the start-up, which BASIE.COM's file
+carries into the area and the first overlay replaces, so that it takes no
+room of its own.
 
 The overlays are not included: `build.ts` assembles each on its own at its
 load address in the overlay area (`OV_AREA`, the image's end), against an
@@ -92,6 +94,7 @@ number, code, position and arguments against the reference's.
 | `FILENAME.ASM` | `CL_` | A CP/M file name parsed into the FCB; in the `COMMAND` and `PARTS` overlays |
 | `PARTNAME.ASM` | `SH_` | The parts' names, the command line's and the part table's, spelled for the line stream and diagnostics; in the `COMMAND`, `START`, `DIAG` and `PARTS` overlays |
 | `OVERLAY.ASM` | `OV_` | Resident: the overlay loader and `BASIE.OVL`'s format |
+| `INIT.ASM` | `SH_`, `OV_` | The start-up, in the overlay area: the stack and the source's bounds, `BASIE.OVL` opened and checked (`OV_OPEN`, its header read into the area's last record, `OV_HDR`), then the shell goes on at `SH_GO` |
 | `CHAIN.ASM` | `CH_` | The chain to `BLINK.COM`: its tail, and the loader copied to the top of memory; first, after a compilation, the streams closed (`CH_DONE`); overlay `CHAIN` |
 
 `GRAMMAR.ASM` is generated from the grammar, `grammar/grammar.json`, by

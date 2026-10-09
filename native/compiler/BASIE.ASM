@@ -74,7 +74,4 @@
 %INCLUDE "KEYWORDS.ASM"            ; Keyword and punctuation tables.
 %INCLUDE "SHELL.ASM"               ; The CP/M shell.
 %INCLUDE "OVERLAY.ASM"             ; The overlay loader.
-
-SH_CEND:                       ; End of the shell, which the build measures from SH_CBEG.
-MM_END:                        ; End of BASIE.COM's file; the overlay area follows.
-OV_AREA:                       ; The overlay area: build.ts checks it ends below MM_WBASE.
+%INCLUDE "INIT.ASM"                ; The start-up, in the overlay area: last.

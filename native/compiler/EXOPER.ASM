@@ -528,15 +528,12 @@ EX_OPEN:
     INC  C                         ; Discard the right if it is true.
 
 ;@ROUTINE IN C OUT ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY,A,HL
-; Raise EX_QUIET when the left operand is the constant C that decides the
-; short circuit (false for `and`, true for `or`): the right arm will never
+; Raise EX_QUIET when the left operand, known, is the constant C that
+; decides the short circuit (false for `and`, true for `or`): the right arm will never
 ; run, so its code is discarded, as the reference compiler discards it.
 ; EX_POP lowers it again.
 
-EX_MUTE:
-    LD   A,(EX_LMETA)              ; Is the left operand known?
-    AND  SY_KNOWN                  ; Test its flag.
-    RET  Z                         ; No: the right arm may run.
+EX_MUTE:                       ; The left operand is known (EX_LVAL).
     LD   HL,(EX_LVAL)              ; Fetch the left value.
     LD   A,L                       ; Booleans are zero or one.
     XOR  C                         ; Is it the deciding value?

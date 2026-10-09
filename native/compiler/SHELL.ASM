@@ -20,7 +20,8 @@
 ;  chain to BLINK.
 ;
 ;  Principal entries:
-;    SH_START  the program entry, reached from the jump at $0100
+;    SH_START  the program entry, reached from the jump at $0100 (INIT.ASM,
+;              in the overlay area), which goes on at SH_GO
 ;    SH_FAIL   print a message and fail
 ;    SH_OVER   report one of this compiler's capacities and fail
 ;    MS_FAIL   report diagnostic HL through the DIAG overlay and fail
@@ -123,27 +124,12 @@ OV_DCAP EQU  8                 ; Overlays BASIE.OVL may describe.
 SH_WEND EQU  OV_DIR+4*OV_DCAP  ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN
-; Read the command line, check the library, load the parts it names,
-; compile them and warm boot, after reporting a diagnostic if there is one.
+; The start-up after INIT.ASM's SH_START: load BEGIN, read the command
+; line, check the library, load the parts it names, compile them and warm
+; boot, after reporting a diagnostic if there is one.
 
-SH_START:                      ; Entered from the jump at $0100.
-    LD   HL,(SH_BDOS+1)            ; HL is the BDOS entry, the top of memory.
-    LD   SP,HL                     ; The stack grows down from there, over the CCP.
-    LD   DE,-MM_STACK              ; Keep MM_STACK bytes below it for the stack.
-    ADD  HL,DE                     ; HL is the first byte the source may not use.
-    LD   (SH_LIMIT),HL             ; Each record read is checked against it.
-    LD   HL,MM_SRC                 ; The first part loads at the base of the source.
-    LD   (SH_LOADP),HL             ; Start the load point there.
-    LD   A,SH_RSRC                 ; A failure is a source error
-    LD   (SH_RLOW),A               ; unless a disk fails.
-    LD   HL,0                      ; Zero:
-    LD   (DG_ARG1),HL              ; no diagnostic has
-    LD   (DG_ARG2),HL              ; an argument yet.
-    XOR  A                         ; No overlay is loaded,
-    LD   (OV_FCB+1),A              ; nor BASIE.OVL opened,
-    DEC  A                         ; until
-    LD   (OV_CUR),A                ; the first is needed.
-    INC  A                         ; The start-up's: OV_BEGIN, zero.
+SH_GO:                         ; BASIE.OVL is open; nothing is loaded.
+    XOR  A                         ; The start-up's: OV_BEGIN, zero.
     CALL OV_LOAD                   ; Load it,
     CALL OV_AREA                   ; and read the parts and options (CL_READ).
     LD   HL,OV_AREA                ; CH_RUN, if

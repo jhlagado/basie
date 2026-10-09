@@ -12,7 +12,7 @@
 
 ORG  $0100                     ; CP/M loads every transient here.
 MM_BEG:                        ; First byte of BASIE.COM.
-    JP   SH_START                  ; Enter the shell at the end of the image.
+    JP   SH_START                  ; Start up, in the overlay area (INIT.ASM).
 
     ORG  MM_RBASE                  ; The compiler core follows the jump.
 MM_CBEG:                       ; First byte of the compiler's code.

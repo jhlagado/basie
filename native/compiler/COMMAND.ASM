@@ -32,7 +32,7 @@
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; The BEGIN overlay's entries, at OV_AREA, which the shell runs in turn
-; from one load (SH_START): the command line (CL_READ), the library
+; from one load (SH_GO): the command line (CL_READ), the library
 ; (LIBRARY.ASM's LB_FIRST), the parts (PARTS.ASM's SH_BEGIN), the stamp
 ; and the streams (LB_OPEN); and a part SH_AGAIN could not load again
 ; (SH_GONE).

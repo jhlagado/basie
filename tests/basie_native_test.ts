@@ -818,7 +818,8 @@ Deno.test("BASIE loads its overlays from BASIE.OVL on the current drive, then A:
 
 Deno.test("BASIE.OVL describes every overlay, each loaded when first needed", () => {
   assertEquals([...OVL.subarray(0, 6)], [0x42, 0x53, 0x49, 0x4f, 1, 0]);
-  const sum = basie.reduce((s, b) => (s + b) & 0xffff, 0);
+  const sum = basie.subarray(0, built.resident)
+    .reduce((s, b) => (s + b) & 0xffff, 0);
   assertEquals(OVL[6] | (OVL[7] << 8), sum);
   assertEquals(OVL[8], built.overlays.length);
   const names = built.overlays.find((o) => o.name === "NAMES")!;

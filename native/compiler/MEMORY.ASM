@@ -5,9 +5,11 @@
 ;  BASIE.COM's memory under CP/M (toolchain §7.1):
 ;
 ;    $0100  MM_BEG    JP SH_START (HEAD.ASM)
-;    $0103  MM_RBASE  compiler core, then the shell's code and data (MM_END)
-;           OV_AREA   the overlay area, from MM_END, as large as the largest
-;                     overlay in whole records (OVERLAY.ASM, BASIE.OVL)
+;    $0103  MM_RBASE  compiler core, then the shell's code and data
+;           OV_AREA   the overlay area, as large as the largest overlay in
+;                     whole records (OVERLAY.ASM, BASIE.OVL); the file goes
+;                     on into it with the start-up (INIT.ASM) to MM_END,
+;                     which the first overlay replaces
 ;    $6DD7  MM_WBASE  compiler workspace (STATE, CALLWORK), LL_WEND
 ;           LL_STACK  the LL(1) stack, from a page's start after the
 ;                     pools' bytes, the owner descriptors and FLOAT's
@@ -20,17 +22,19 @@
 ;
 ;  Nothing in the workspace is initialised by the image, so the image and
 ;  the overlay area only have to end below MM_WBASE. build.ts checks the
-;  boundaries: MM_END against MM_WBASE, the LL(1) stack within its page,
+;  boundaries: the area's end against MM_WBASE, MM_END against OV_HDR,
+;  the area's last record, into which the start-up reads BASIE.OVL's
+;  header, the LL(1) stack within its page,
 ;  LL_WEND against SH_WBEG, SH_WEND against MM_BLOB and BL_WEND against
 ;  MM_SRC; each is packed against the one below. Every MM_ name is
 ;  an extent marker that host tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $6D16             ; Exclusive end of room for the image.
-MM_WBASE EQU  $6D16            ; Compiler workspace: the image ends below.
-MM_WLIM EQU  $80AD             ; Exclusive end of both workspaces.
-SH_WBEG EQU  $7F98             ; The shell's workspace, above the compiler's.
-MM_BLOB EQU  $80AD             ; The blob writer's workspace, BL_FLAGS on.
+MM_RLIM EQU  $6C5C             ; Exclusive end of room for the image.
+MM_WBASE EQU  $6C5C            ; Compiler workspace: the image ends below.
+MM_WLIM EQU  $800D             ; Exclusive end of both workspaces.
+SH_WBEG EQU  $7EF8             ; The shell's workspace, above the compiler's.
+MM_BLOB EQU  $800D             ; The blob writer's workspace, BL_FLAGS on.
 
-MM_SRC EQU  $8422              ; Resident source parts, up to the stack.
+MM_SRC EQU  $8382              ; Resident source parts, up to the stack.
 MM_STACK EQU  $0480            ; Bytes kept below the BDOS entry for the stack.

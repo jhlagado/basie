@@ -81,10 +81,11 @@ if (import.meta.main) {
   const budget = option("--budget");
   const target = option("--target");
   const base = Number(option("--base") ?? 0x100);
+  const endName = option("--end");
   const entry = args[0];
   if (!entry) {
     console.error(
-      "usage: census ENTRY.asm [--target BYTES] [--budget BYTES] [--base ADDRESS]",
+      "usage: census ENTRY.asm [--target BYTES] [--budget BYTES] [--base ADDRESS] [--end SYMBOL]",
     );
     Deno.exit(2);
   }
@@ -92,7 +93,13 @@ if (import.meta.main) {
   const image = await assembleFile(path);
   const symbols = image.symbols;
   const owner = await labelFiles(dirname(path));
-  const census = attribute(symbols, owner, base, image.end);
+  // --end measures to a symbol rather than the image's end: BASIE.COM's
+  // file goes on past OV_AREA with the start-up, which takes no room.
+  const end = endName === undefined ? image.end : symbols.find((x) =>
+    x[0] === endName.toLowerCase()
+  )?.[1];
+  if (end === undefined) throw new Error(`no symbol ${endName}`);
+  const census = attribute(symbols, owner, base, end);
   console.log(`Image: ${census.total} bytes from $${base.toString(16)}`);
   console.log("\nBy directory:\n" + table(census.byDirectory, census.total));
   console.log("\nBy file:\n" + table(census.byFile, census.total));

@@ -91,13 +91,18 @@ export type Overlay = {
 };
 
 export type BasieImage = {
-  /** The .COM file's bytes, from $0100 to the end of the resident image. */
+  /** The .COM file's bytes, from $0100 to the end of the start-up (MM_END). */
   com: Uint8Array;
   /** BASIE.OVL. */
   ovl: Uint8Array;
   overlays: Overlay[];
   /** The overlay area: its address and its bytes, whole records. */
   area: number;
+  /**
+   * Bytes of the resident image, $0100 to OV_AREA; the file goes on into
+   * the area with the start-up (INIT.ASM), which the first overlay replaces.
+   */
+  resident: number;
   areaSize: number;
   /** Symbol values by upper-case name. */
   symbols: Record<string, number>;
@@ -204,12 +209,18 @@ async function build(): Promise<BasieImage> {
   if (areaEnd > at("MM_WBASE")) {
     throw new Error(`the overlay area ends at ${hex(areaEnd)}, over MM_WBASE`);
   }
+  // The start-up (INIT.ASM) lies in the overlay area, below the record into
+  // which it reads BASIE.OVL's header.
+  if (at("MM_END") > at("OV_HDR")) {
+    throw new Error("the start-up runs into BASIE.OVL's header record");
+  }
   if (overlays.length > at("OV_DCAP")) throw new Error("too many overlays");
   return {
     com,
-    ovl: overlayFile(com, overlays),
+    ovl: overlayFile(com.slice(0, area - at("MM_BEG")), overlays),
     overlays,
     area,
+    resident: area - at("MM_BEG"),
     areaSize: areaEnd - area,
     symbols,
     code: at("MM_CEND") - at("MM_CBEG"),
@@ -270,7 +281,7 @@ async function overlay(
   };
 }
 
-/** BASIE.OVL for the resident image `com` and its overlays. */
+/** BASIE.OVL for the resident image `com`, $0100 to OV_AREA, and its overlays. */
 export function overlayFile(com: Uint8Array, overlays: Overlay[]): Uint8Array {
   const sum = com.reduce((s, b) => (s + b) & 0xffff, 0);
   const head = [..."BSIO"].map((c) => c.charCodeAt(0));
@@ -294,7 +305,7 @@ export function overlayFile(com: Uint8Array, overlays: Overlay[]): Uint8Array {
 if (import.meta.main) {
   const image = await buildBasie();
   console.log(
-    `BASIE.COM ${image.com.length} bytes: compiler core ${image.core} (code ${image.code}, immutable ${image.immutable}), shell ${image.shell}`,
+    `BASIE.COM ${image.resident} bytes resident (${image.com.length} in the file): compiler core ${image.core} (code ${image.code}, immutable ${image.immutable}), shell ${image.shell}`,
   );
   console.log(
     `BASIE.OVL ${image.ovl.length} bytes; overlay area ${
