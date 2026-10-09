@@ -1067,15 +1067,25 @@ of every program's transient area.
 
 ## Adopted for the next language version
 
-Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D57 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
+Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D52 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
 
-### D48. A value `select` needs `case else` unless it covers every value
+### D48. `try` passes a failure on
 
-A `select` on an integer, character or Boolean subject must have `case else`, unless its labels cover every value of the subject's type.
+`try` before a failable call passes its failure on: if the call fails, the routine fails with the same code. It replaces `else fail`.
 
-**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Enumerations, when they arrive, will use the same rule for exhaustive selection.
+```basie
+try writeText(console, "Name? ")
+var count = try parseU16(text)
+try appendU16(report, try parseU16(text))
+```
 
-**To settle.** Whether `case else` may be empty, and whether a handle `select` must always have both its `some` arm and its `none` or `else` arm (recommended: yes).
+Only a routine declared `fails` may use `try`, as with `else fail` today. A failure can still be dealt with in place with `handle code … end` after the call. So `try` at the front means the line may leave the routine, and `handle` after the call means the failure is dealt with there.
+
+**Why.** About nine failures in ten are passed on: the library, examples and tests have 1,172 `else fail` and 120 `handle`. The commonest case should be the shortest, and `else fail` is ten characters repeated on most lines of input and output code. `try` is visible at the start of the line, like `move`, which also marks an effect before the expression it applies to. Zig and Swift use the same keyword for the same job.
+
+**Rejected.** Implicit propagation, because every failable call would become a hidden exit. `?` after the call, because `?` already marks optional types and `new?`. `!` after the call, because one character at the end of a line is easy to miss, and readers of TypeScript, Kotlin and Swift take a trailing `!` to mean "this can't fail".
+
+**To settle.** `try` applies to one call, so a nested failable call needs its own `try`. Whether `try` is allowed on a call inside a larger expression or only where the call's value is used directly. The 1,172 `else fail` uses change mechanically.
 
 ### D49. A writable argument is marked `var` at the call
 
@@ -1107,7 +1117,7 @@ for var item in readings      // item is a mutable alias
 end
 ```
 
-The loop runs over the array's own length. Open arrays use the length passed with them. An index can be named as well, as Zig's `for (items, 0..) |item, i|` allows:
+The loop runs over the array's own length. A string can be iterated the same way, one byte at a time, because most whole traversals in the library walk a string. Open arrays use the length passed with them. An index can be named as well, as Zig's `for (items, 0..) |item, i|` allows:
 
 ```basie
 for i, item in readings       // i counts 0, 1, 2 … as a u16
@@ -1117,126 +1127,35 @@ end
 
 **Why.** A counted loop can drift from the array it indexes. The loop's bound and the array's length are written separately, and nothing traps when they disagree. Iterating over the array removes that bug, which is the main safety benefit Rust gets from iterators. The index is always in range, so the loop needs no bounds check.
 
-**To settle.** Whether scalar elements are bound as copies, iteration over strings, and the index's type for arrays that fit a `u8`.
+**To settle.** Whether scalar elements and string bytes are bound as copies, and the index's type for arrays that fit a `u8`.
 
-### D51. `try` passes a failure on
+### D51. A value `select` needs `case else` unless it covers every value
 
-`try` before a failable call passes its failure on: if the call fails, the routine fails with the same code. It replaces `else fail`.
+A `select` on an integer, character or Boolean subject must have `case else`, unless its labels cover every value of the subject's type.
 
-```basie
-try writeText(console, "Name? ")
-var count = try parseU16(text)
-try appendU16(report, try parseU16(text))
-```
+**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Enumerations, when they arrive, will use the same rule for exhaustive selection.
 
-Only a routine declared `fails` may use `try`, as with `else fail` today. A failure can still be dealt with in place after the call, with `else` and a value (D52) or with `handle code … end`. So `try` at the front means the line may leave the routine, and anything after the call means the failure is dealt with there.
+**To settle.** Whether `case else` may be empty, and whether a handle `select` must always have both its `some` arm and its `none` or `else` arm (recommended: yes).
 
-**Why.** About nine failures in ten are passed on: the library, examples and tests have 1,172 `else fail` and 120 `handle`. The commonest case should be the shortest, and `else fail` is ten characters repeated on most lines of input and output code. `try` is visible at the start of the line, like `move`, which also marks an effect before the expression it applies to. Zig and Swift use the same keyword for the same job.
+### D52. `:` in place of `as` for types
 
-**Rejected.** Implicit propagation, because every failable call would become a hidden exit. `?` after the call, because `?` already marks optional types and `new?`. `!` after the call, because one character at the end of a line is easy to miss, and readers of TypeScript, Kotlin and Swift take a trailing `!` to mean "this can't fail".
-
-**To settle.** `try` applies to one call, so a nested failable call needs its own `try`. Whether `try` is allowed on a call inside a larger expression or only where the call's value is used directly. The 1,172 `else fail` uses change mechanically.
-
-### D52. `else` supplies a value when a call fails
-
-A failable call may be followed by `else` and a value. If the call fails, the value is used in its place:
+A declared name is followed by `:` and its type, in place of `as`:
 
 ```basie
-var count = parseU16(text) else 0
-```
-
-It joins `handle code … end` as a way to deal with a failure in place, after the call. `try` (D51) passes a failure on instead.
-
-**Why.** Many `handle` blocks exist only to set a default. Zig writes this `parse(text) catch 0`. Basie's `else` already has the right shape and needs no new keyword.
-
-**To settle.** The value must have the call's result type and is evaluated only when the call fails. Whether the value may itself be a failable call (recommended: no). Whether a routine with no result may use `else` with a statement.
-
-### D53. `defer` runs a call when its block ends
-
-A `defer` statement names a call to run when the enclosing block ends, by any exit: reaching `end`, `return`, `exit`, `continue` or a failure passed on.
-
-```basie
-sub copyFile(inName as string[], outName as string[]) fails
-    var source = openRead(inName, 0) else fail
-    defer abort(source)
-    var target = openWrite(outName, 0) else fail
-    ...
-    close(target) else fail
+var total: u32
+sub distance(a: Point, b: Point): u16
+record Node
+    value: u16
+    next: nodes?
 end
 ```
 
-Deferred calls run in reverse order of their `defer` statements, after the block's owning locals are released. In this example `target` still needs clean-up if the routine fails before `close`, which is the case a failure-only form would cover.
+This revises D14's choice of `as`. Name-first order and single-pass parsing are unchanged.
 
-**Why.** Pool records are released automatically, but files are not. A routine that opens a file and then fails leaves it open until `main` returns. `defer` keeps the clean-up next to the open, as Zig does. The compiler already emits release code on every exit path for owning locals, and deferred calls use the same paths.
+**Why.** The colon is shorter and is the form most programmers know, from TypeScript, Pascal, Go, Rust and Zig. It is made in the same rewrite as `try` (D48) and `var` at the call site (D49), which touch nearly every source file anyway, so the cost of rewriting the library, tests and book is paid once.
 
-**To settle.** Whether a failure-only form is needed. Zig's `errdefer` is rejected as a spelling, and a failure-only form would use existing words. A deferred call must not fail, or the statement must say what happens if it does. Whether arguments are evaluated at the `defer` or when the call runs (Zig evaluates them when it runs). Whether a deferred call may refer to a local declared after the `defer`.
+**To settle.** Every place `as` appears today: declarations, parameters, results (`as var T` becomes `: var T`), record fields and pool declarations (`pool jobs as Job[1]`). Whether `as` remains anywhere. Colon has no token in Basie 1.0 (§3), so it is free to take.
 
-### D54. Record initialisers may name their fields
+### Withdrawn and deferred, 2026-10-10
 
-An initialiser may name each field:
-
-```basie
-var current as Reading = (value = 12, usable = true)
-var next = new jobs(number = 7)
-```
-
-The positional form `(12, true)` remains.
-
-**Why.** Swapping two fields of the same type in a record declaration changes the meaning of every positional initialiser, and every one still compiles. Named fields keep their meaning when the declaration changes.
-
-**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D56) or zero.
-
-### D55. Included parts are namespaces and shadowing stays refused
-
-A part's public names are reached through the part's name:
-
-```basie
-include "STRINGS.BSI" as strings
-
-sub main() fails
-    var report as string[32]
-    strings.append(report, "Mean: ") else fail
-end
-```
-
-Spec §5.6 is unchanged: a parameter or local can't reuse a name visible where it is declared. A local named `append` no longer conflicts with the library, because the library's routine is `strings.append`.
-
-**Why.** Zig forbids shadowing, because a name that hides another is a common source of bugs, and it can do so because imports are namespaces (`std.mem.eql`). Without namespaces, every public library name blocks that name in every program, and the pressure grows with the library. Namespaces remove that pressure while keeping one meaning for each name. This replaces the earlier decision to allow shadowing (2026-10-10).
-
-**To settle.** The default namespace name when `as` is omitted, and whether a part may still be included unqualified for small programs. Whether built-in services such as `writeLine` stay unqualified (recommended). How a qualified name is told from a record field, which the compiler can do because the first name is a namespace. Whether a part can refer to its own names qualified.
-
-### D56. Record fields may have default values
-
-A field declaration may give a default:
-
-```basie
-record Reading
-    value as u16
-    usable as boolean = true
-end
-```
-
-An initialiser or `new` that omits the field uses the default in place of zero.
-
-**Why.** Many records have a natural starting state that isn't all zeros. Writing it once in the declaration keeps every initialiser short and consistent.
-
-**To settle.** Defaults are constant expressions. An owning-handle field can only default to `none`, and an aggregate field takes a constant initialiser.
-
-### D57. Block comments
-
-`/*` begins a comment that runs to the matching `*/`, across lines if needed. Block comments nest, so a stretch of code that already contains one can be commented out whole:
-
-```basie
-/* Disabled while the parser is rewritten.
-sub trace(text as string[]) fails
-    try writeLine(console, text)   /* echoes the command */
-end
-*/
-```
-
-`//` line comments are unchanged.
-
-**Why.** A long explanation or a disabled stretch of code needs `//` on every line today. C, Rust, Swift and Pascal (`{ }` and `(* *)`) all have a block form.
-
-**To settle.** A block comment that contains a line ending counts as one line ending, so the statement before it still ends there (recommended), and one that contains none is plain whitespace. An unclosed comment at the end of a part is an error that names where it began. `/` and `*` already have tokens, so `/*` and `*/` are recognised by longest match, as `//` is. Zig has only line comments, so that each line can be read without the lines before it. The cost of the other choice is a counter for the nesting depth in the tokenizer.
-
+Each adopted change was then tested against real Basie code, and only those that prevent a real bug, remove frequent friction or add a missing capability were kept ([stretch goals](stretch-goals.md)). `else` with a value, `defer`, default field values and block comments were withdrawn. Named record initialisers were deferred. Namespaced includes moved to version 2, with module interfaces, and shadowing stays refused (spec §5.6).

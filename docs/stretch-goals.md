@@ -1,51 +1,80 @@
 # Basie stretch goals
 
-Date: 2026-10-06
-Status: evaluation brief, not a language amendment
+Date: 2026-10-06, plan decided 2026-10-10
+Status: plan for the language after Basie 1.0, not a language amendment
 
-These candidates are retained for evaluation if the completed native compiler has spare capacity. The Basie 1.0 specification remains authoritative and its feature list remains frozen. Earlier evaluation is permitted as an isolated experiment. Admission requires a design decision and corresponding specification and conformance changes. Existing version 2 plans are the starting point, not a promise to implement everything.
+The Basie 1.0 specification remains authoritative and its feature list remains frozen. Each change below still needs a design decision, specification text, conformance tests and a measurement against the compiler budget (D43) before the native compiler admits it.
+
+## How each item was judged
+
+An item stays only if it does at least one of these:
+
+1. It prevents a real bug that compiles today and then runs wrongly without a trap.
+2. It removes friction from code that is written constantly, measured in real Basie code.
+3. It makes possible a program that can't reasonably be written today.
+
+It must then be worth its compiler bytes, with about 1.2K free under the 28K limit, and worth the extra thing every reader has to learn. "Nice to have" is not a reason.
+
+The evidence comes from the code that does real work: the standard library, the example programs and the book's examples, 37 files and about 1,900 lines. The tests were left out, because they are written to exercise the compiler, not to show how programs are written. A larger application could change the counts. The deferred items are the ones most likely to move.
+
+## Plan
+
+1. Finish the post-roadmap work on the native compiler.
+2. The next language version: the five changes below, in their order. `try`, `var` at the call site and `:` touch nearly every source file, so they are made as one rewrite of the library, tests and book.
+3. A compression pass, if the budget needs it.
+4. Version 2: precompiled libraries with module interfaces, then plain enumerations with typed failure codes.
+
+## Next language version
+
+Adopted 2026-10-10, in order of importance. The design decisions are D48 to D52.
+
+| Rank | Change | Justification | Design to settle | Cost |
+| --- | --- | --- | --- | --- |
+| 1 | `try` in place of `else fail` (D48) | Friction: 146 `else fail` in about 1,900 lines of real code, one line in eight, and 1,172 in all. The commonest way of handling a failure is the longest. | one `try` per call, and whether `try` may appear inside a larger expression. | Small: the same jump `else fail` emits, marked before the call. 1,172 uses change mechanically. |
+| 2 | `var` at the call site (D49) | Bug and friction: about 280 calls change the caller's data with no sign at the call. The book spends a section warning that `var` in a declaration is easy to miss. | required for every `var` parameter (recommended), the form for leases (`bump(var h)`), `var` results passed on (`touch(var pick(items, 2))`), and a diagnostic for a missing or unexpected `var`. | Tiny: one optional token in the argument parser and a check against the parameter's mode. Every existing call to a `var` parameter in the library, tests and book needs the marker. |
+| 3 | `for … in` over arrays and strings (D50) | Bug: a counted loop can drift from its array without a trap. The library has about nine whole-array or whole-string traversals written with a counter. | scalar elements bound as copies or aliases (the same thing for reading), open arrays and strings (bytes), the index's type, and that the array can't be resized or released during the loop, which pools already guarantee by leasing. | Small: a hidden `u16` index, the length the compiler already knows or the open-array length already passed, and one element address per pass. No new run-time check, since the index is always in range. |
+| 4 | `case else` required for value selections (D51) | Bug in principle: a value that matches no case runs nothing, the same silent gap that checked conversions close. The real code has one value `select`, which already has `case else`, so its payoff comes with enumerations. | whether `case else` may be empty, and whether a handle selection may still omit its second arm (recommend it must have both `some` and `none` or `else`). | Small: label coverage is already computed to reject overlaps. A full-coverage check is needed only for `u8`, `i8` and `boolean`, and is otherwise just the presence of `case else`. |
+| 5 | `:` in place of `as` for types (D52) | Readability: `total: u32` and `distance(a: Point, b: Point): u16` are shorter and familiar from TypeScript, Pascal, Go, Rust and Zig. Kept by decision on 2026-10-10. Done in the same rewrite as `try` and call-site `var`, so the churn is paid once. | Every place `as` appears today: declarations, parameters, results (`as var T`), record fields and pool declarations (`pool jobs as Job[1]`). D14 chose `as` because it reads as a phrase where modifiers stack up (`var list as nodes?`). Colon has no token in Basie 1.0 (§3). | Small in both compilers: the lexer gains a `:` token and the declaration parsers accept it where they now expect `as`. Name-first order and single-pass parsing are unchanged. The same source-wide edit as above applies. |
+
+## Version 2
+
+| Rank | Change | Justification | Cost |
+| --- | --- | --- | --- |
+| 1 | Precompiled libraries and module interfaces | Capability: the route to programs larger than one compilation can hold, already the main version 2 aim. Namespaced includes (`include "STRINGS.BSI" as strings`) belong here, so that the library can grow while shadowing stays refused. | Precompiled libraries have an unmeasured 1–2K estimate. This is not a measured module-system cost. Namespaces: 300–600 bytes more. |
+| 2 | Nominal enumerations, without payloads | Bug: 26 constants and 11 failure codes are integer groups the compiler can't tell apart, so a code can be mixed up with a count. Enumerations also give required `case else` its full use. | Plain enumerations alone about 0.5–1K, unmeasured. No separate measured estimate. The feature inventory estimates enums and variants together at 1.7–2.7K. |
+| 3 | Typed failure codes | Bug: the 11 failure codes sit in three number ranges kept apart by convention only. | The inventory estimates enum-named failure codes at 0.1K. This does not estimate rich errors with payloads. |
+
+## Deferred
+
+Kept on file because a larger program could justify them. Each needs a real program that suffers without it.
+
+| Change | Why deferred | Cost |
+| --- | --- | --- |
+| Named record initialisers | 4 of 14 records have two fields of the same type, so a reordered declaration could silently change an initialiser, but the real code has only about six positional initialisers. | 150–250 bytes |
+| Tagged unions | A real capability, but no example program needs one, and it is the most complex item: ownership of whichever alternative is stored. Comes after enumerations. | The same combined 1.7–2.7K estimate, unmeasured. |
+| Checked slices | The only real case is `copyFrom(dest, src, start, count)`. | No measured estimate. Include descriptor handling, range checks, parameter binding and generated code. |
+
+## Cut
+
+Decided 2026-10-10. These fail the test above.
+
+| Change | Reason |
+| --- | --- |
+| `else` with a value | 1 of 11 `handle` blocks in the real code only sets a default, and `handle` already covers it. |
+| `defer` | 3 file opens in the real code, and the runtime closes every file when `main` ends. A leak needs a long-running program that recovers from a failure and keeps opening files. The riskiest change for a rare case. |
+| Default field values | No initialiser in the real code repeats a non-zero value. |
+| Block comments | 9 runs of three or more `//` lines, which an editor comments in one keystroke. |
+| `fn` in place of `sub` | Cosmetic, with a rewrite of every file and the book and the loss of the BASIC character. |
+| Limited type parameters | No algorithm in the real code is duplicated for different element types. 1–2K, and it needs routine values before a sort works. |
+| Routine values | No callback or comparator need in the real code. Its main use was generic sorting. |
+| Enumeration-indexed arrays | A Pascal convenience that a constant index already provides. |
+| Shadowing | Withdrawn 2026-10-10 in favour of keeping §5.6, as Zig does. |
+| `?` or `!` in place of `else fail` | `?` clashes with optional types, and a trailing `!` is easy to miss and reads as "can't fail" to TypeScript, Kotlin and Swift programmers. `try` was chosen. |
+| `mut` in place of `var` on parameters | Declined 2026-10-09. `var` stays, as D17 decided. |
 
 ## Establish the capacity first
 
 Complete the existing native language work and capacity corrections before spending the remaining budget on extensions. Measure the resident image, overlay area, writable workspace and stack separately. Account for generated program bytes, runtime helpers and disk latency as well as compiler size. Spare COM bytes alone do not establish spare RAM or acceptable performance.
-
-## Candidates
-
-| Candidate | Capability to evaluate | Cost evidence |
-| --- | --- | --- |
-| Nominal enumerations | A closed set of named values with exact type checks and exhaustive selection. Decide member naming, zero initialisation and boundary conversions explicitly. | No separate measured estimate. The feature inventory estimates enums and variants together at 1.7–2.7K. |
-| Tagged unions or variants | Alternatives carrying different typed payloads, with selection binding only the active payload. Establish construction, mutation, alias lifetimes and automatic freeing of owning payloads. | The same combined 1.7–2.7K estimate, unmeasured. |
-| Enumeration-indexed arrays | A finite table indexed by its declared enum type. Reject unrelated indices and evaluate complete initialisation. | No estimate yet. Evaluate independently from enums and variants. No implied adoption of subranges, ordinal arithmetic or Pascal's whole ordinal system. |
-| Typed failure codes | Distinguish error domains while retaining explicit consumption and propagation. Evaluate payload-bearing errors separately. | The inventory estimates enum-named failure codes at 0.1K. This does not estimate rich errors with payloads. |
-| Checked array slices | Pass a contiguous portion of existing storage with its extent, preserving element type, bounds and lifetime. Evaluate call-only views first. | No measured estimate. Include descriptor handling, range checks, parameter binding and generated code. |
-| Limited type parameters | Reuse algorithms across element types while preserving static checks. Start with a concrete library need that open views cannot express. | General generics have an unmeasured 1–2K estimate. No selected mechanism or committed syntax. |
-| Routine values | Pass an operation to an algorithm, for example a comparison to a sorter. Investigate non-capturing routines first and distinguish them from closures. | Unmeasured 0.5–1K inventory estimate. Account for failure effects, signatures, stack bounds and ownership. |
-| Explicit module interfaces | Describe dependencies and support independently checked or compiled units. Dependency clarity and independent checking are the motivations. Naming conventions already address many collisions. | Precompiled libraries have an unmeasured 1–2K estimate. This is not a measured module-system cost. |
-| `fn` in place of `sub` | Declare routines with `fn` instead of `sub`, including `forward fn`, as Rust does. `sub` comes from BASIC's subroutines, but few current languages use it, and Basie routines take parameters and return results like functions elsewhere. Decide whether a routine with no result keeps the same word (Rust uses `fn` for both). For discussion. | Small in both compilers: one reserved word replaced. `sub` would be freed as an identifier and `fn` reserved. Every source file, the library, tests, the specification and the Programming Basie book would change. |
-| `:` in place of `as` for types | Write `total: u32`, `distance(a: Point, b: Point): u16` and `value: u16` in records, as TypeScript and Pascal do. It is more compact and familiar to most programmers. D14 chose `as` because it reads as a phrase where modifiers stack up (`var list as nodes?`), says what it does, and keeps the BASIC character. Decide every place `as` appears today: declarations, parameters, results (`as var T`), record fields and pool declarations (`pool jobs as Job[1]`). Colon has no token in Basie 1.0 (§3), so it is free to take. For discussion. | Small in both compilers: the lexer gains a `:` token and the declaration parsers accept it where they now expect `as`. Name-first order and single-pass parsing are unchanged. The same source-wide edit as above applies. |
-
-**Dropped: `?` in place of `else fail`** (2026-10-10). It clashed with `?` on optional types. `try` replaces `else fail` instead (D51), and `else` with a value deals with a failure in place (D52).
-
-**Considered and kept: `var` for writable parameters.** Replacing `var` with `mut` on writable aggregate parameters (2026-10-07) was considered and declined on 2026-10-09. `var` stays, as D17 decided: it is Pascal's variable parameter with exactly this meaning, and it adds no reserved word.
-
-Open strings and open arrays already generalise capacity or length. They do not generalise the element type or permit an operation to be supplied by the caller. Before adding type parameters, demonstrate why a concrete Basie library cannot be expressed adequately using existing views and ordinary routines. Evaluate single-pass checking, code duplication, object-format implications and the native compiler's storage needs. C++ template machinery is not the requested model.
-
-## Adopted for the next language version
-
-Decided 2026-10-10. These changes are adopted for the language after Basie 1.0. The 1.0 specification is unchanged until each one has a design decision, specification text and conformance tests. They follow the capacity rule above: measure each before admitting it to the native compiler. They are listed in order of importance.
-
-| Change | Design to settle | Cost evidence |
-| --- | --- | --- |
-| `case else` required for value selections | A `select` on an integer, character or Boolean subject without `case else` is rejected unless its labels cover every value of the subject's type. A value that matches no arm then can't pass unnoticed. Exhaustive checking of enumerations, when they arrive, uses the same rule. Settle: whether `case else` may be empty, and whether a handle selection may still omit its second arm (recommend it must have both `some` and `none` or `else`). | Small: label coverage is already computed to reject overlaps. A full-coverage check is needed only for `u8`, `i8` and `boolean`, and is otherwise just the presence of `case else`. |
-| `var` at the call site | A writable argument must be marked: `update(var current, 20)`. The call then shows every place the caller's data can change, as Rust's `&mut` does, and the reader no longer has to find `var` in the declaration. Settle: required for every `var` parameter (recommended), the form for leases (`bump(var h)`), `var` results passed on (`touch(var pick(items, 2))`), and a diagnostic for a missing or unexpected `var`. | Tiny: one optional token in the argument parser and a check against the parameter's mode. Every existing call to a `var` parameter in the library, tests and book needs the marker. |
-| `for … in` over arrays | `for item in readings` binds each element in turn as a read-only alias, and `for var item in readings` as a mutable alias. The loop runs over the array's length, so the counter and the array can't drift apart, which today's `for i = 0 until n` allows without a trap. An index may be named too: `for i, item in readings`, as in Zig's `for (items, 0..) |item, i|`. Settle: scalar elements bound as copies or aliases (the same thing for reading), open arrays and strings (bytes), the index's type, and that the array can't be resized or released during the loop, which pools already guarantee by leasing. | Small: a hidden `u16` index, the length the compiler already knows or the open-array length already passed, and one element address per pass. No new run-time check, since the index is always in range. |
-| `try` in place of `else fail` | `try parseU16(text)` passes the failure on, as in Zig and Swift. About nine failures in ten are passed on (1,172 `else fail` against 120 `handle`), so the commonest case becomes the shortest. The keyword sits at the front of the line, like `move`, so a reader can see which lines may leave the routine. Settle: one `try` per call, and whether `try` may appear inside a larger expression. | Small: the same jump `else fail` emits, marked before the call. 1,172 uses change mechanically. |
-| `else` with a value | `var count = parseU16(text) else 0` uses the value when the call fails, beside `handle`, as a way to deal with a failure in place (Zig's `catch 0`). Settle: the value has the call's result type and is evaluated only on failure; whether it may itself fail (recommend not). | Small: the failure path stores the value where `else fail` jumps. |
-| `defer` | `defer abort(source)` runs the call when the enclosing block ends by any exit, as in Zig. Files are not released automatically as pool records are, so a routine that fails after opening one leaves it open until `main` returns. Zig's `errdefer` is rejected as a spelling, and a failure-only form, if needed, would use existing words. Settle: a deferred call must not fail or must say what happens, when its arguments are evaluated, and the order (reverse, after owning locals are released). | Small to moderate: the compiler already emits release code on every exit path for owning locals, and deferred calls join those paths. Each `defer` adds its call's code to each exit. |
-| Named record initialisers | `(value = 12, usable = true)` alongside positional `(12, true)`, in declarations, constants, `new` arguments and nested initialisers. Swapping two fields of the same type in a record declaration silently changes the meaning of every positional initialiser. Settle: whether named and positional forms may mix (recommend not), whether every field must be named or omitted fields are zeroed (consistent with today's trailing omission and with default field values below), and the diagnostic for a repeated or unknown field. | Small: the parser already resolves `.field`. Each named item looks up its field and stores at that offset. |
-| Namespaced includes, no shadowing | `include "STRINGS.BSI" as strings` makes the part's public names `strings.append` and so on. Shadowing stays refused (§5.6), as in Zig, which can refuse it because its imports are namespaces. A local named `append` then no longer conflicts with the library. Replaces the earlier adoption of shadowing. Settle: the default namespace when `as` is omitted, whether a part may still be included unqualified, whether built-in services stay unqualified (recommended), and telling `strings.append` from a record field, which the compiler can do because `strings` is a namespace. | Moderate: a namespace symbol for each included part and a qualified lookup. Every library call in the library's own clients, the tests and the book gains its prefix. |
-| Default field values | `usable as boolean = true` in a record declaration. An omitted field in an initialiser or in `new` takes its default rather than zero. Settle: defaults must be constant expressions, owning-handle fields default only to `none`, and aggregate fields take a constant initialiser. | Small: the record's initial image already exists for zeroing; defaults change its bytes. |
-| Block comments | `/* … */`, nesting, alongside `//`, as in Rust and Swift. Settle: a comment containing a line ending counts as one line ending (recommended), an unclosed comment is reported where it began, and `/*` is recognised by longest match as `//` is. | Tiny: a few dozen bytes in the tokenizer and a nesting counter. |
 
 ## Safety arguments for enums and slices
 
@@ -63,7 +92,7 @@ Keep three quantities separate: reserved capacity, logical number of occupied el
 
 A bounded first design could allow slices only as routine arguments with call-length validity. Check range construction and indexing, preserve read-only or writable parameter permissions and prohibit a view escaping its storage lifetime. Specify empty ranges, endpoint conventions, nesting and arithmetic overflow. A descriptor must be constructible only from valid storage and a checked extent.
 
-Writable slices require an explicit alias policy. Basie's current read-only tickets restrict writes through that path but do not globally freeze the object. Rust's prohibition on overlapping mutable borrows must not be assumed to exist in Basie. Evaluate whether existing alias semantics suffice or whether stronger exclusion is required for the proposed operation. A split into provably disjoint writable ranges is a separate candidate with its own checking and representation costs.
+Writable slices require an explicit alias policy. Basie's current read-only aliases restrict writes through that path but do not globally freeze the object. Rust's prohibition on overlapping mutable borrows must not be assumed to exist in Basie. Evaluate whether existing alias semantics suffice or whether stronger exclusion is required for the proposed operation. A split into provably disjoint writable ranges is a separate candidate with its own checking and representation costs.
 
 Use a fixed-buffer utility as the first comparison: process an occupied prefix, produce output in caller-provided storage and report the number of elements written. Compare the current buffer/offset/count interface with checked views at equivalent behaviour. Measure compiler bytes, descriptor workspace, generated bounds checks and runtime cost. Growable vectors, stored references, closures and general type parameters are separate extensions.
 
