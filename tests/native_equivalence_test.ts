@@ -1101,6 +1101,8 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "an identifier assigned to an owner":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\nvar p as jobs?\nvar q as id jobs?\nsub main()\np = q\nend\n",
   "a call left open at the part's end":
     "sub f(x as u8) as u8\nreturn x\nend\nsub main()\nvar c = f(3\nend\n",
   "a bracket left open at the part's end, after its last line":

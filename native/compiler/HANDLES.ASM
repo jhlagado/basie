@@ -255,7 +255,7 @@ HN_OWN0:                       ; E is the handle's type.
     CALL PL_ISHND                  ; an owner's
     JR   NC,.OTHER                 ; is moved,
     BIT  1,A                       ; not copied
-    JR   NZ,.OTHER                 ; (needs-move),
+    JR   NZ,.IDENT                 ; (needs-move),
     CALL HN_TAIL                   ; unless an operand;
     POP  DE                        ; (the type)
     POP  HL                        ; at the
@@ -264,6 +264,9 @@ HN_OWN0:                       ; E is the handle's type.
 .IDEX:                         ; id(...):
     CALL HN_IDEX                   ; an identifier,
     JR   .OTHER                    ; no owner.
+.IDENT:                        ; An identifier's path: an operand
+    CALL HN_TAIL                   ; waits (the reference's operator
+    JR   .OTHER                    ; reports it); else no owner.
 .ROUTINE:                      ; HL is the routine.
     CALL HN_VOIDQ                  ; It has a result (no-value),
     CALL RO_CALL                   ; called: A its result,
