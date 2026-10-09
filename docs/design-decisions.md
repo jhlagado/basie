@@ -1067,9 +1067,25 @@ of every program's transient area.
 
 ## Adopted for the next language version
 
-Decided by John on 2026-10-10, following the [comparison with Rust](rust-comparison.md). D48 to D53 apply to the language after Basie 1.0. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
+Decided by John on 2026-10-10, following the [comparison with Rust](rust-comparison.md). D48 to D53 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
 
-### D48. `for … in` iterates over an array
+### D48. A writable argument is marked `var` at the call
+
+A call to a routine with a `var` parameter marks the argument:
+
+```basie
+sub update(var item as Reading, value as u16)
+...
+update(var current, 20)
+```
+
+The marker is required. A missing or unexpected `var` is a compile error. D17 is unchanged: `var` still marks the parameter, and `mut` was considered and declined on 2026-10-09.
+
+**Why.** `var` in a declaration is easy to miss, and the reader of a call can't see it at all. With the marker, every call that can change the caller's data shows it where it happens, as Rust's `&mut` does.
+
+**To settle.** The marker for a lease (`bump(var h)`, D30) and for passing on a `var` result.
+
+### D49. `for … in` iterates over an array
 
 A loop can run over an array's elements directly:
 
@@ -1089,7 +1105,15 @@ The loop runs over the array's own length. Open arrays use the length passed wit
 
 **To settle.** Whether scalar elements are bound as copies, iteration over strings, and whether an index is available as well (`for i, item in readings`).
 
-### D49. Record initialisers may name their fields
+### D50. A value `select` needs `case else` unless it covers every value
+
+A `select` on an integer, character or Boolean subject must have `case else`, unless its labels cover every value of the subject's type.
+
+**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Enumerations, when they arrive, will use the same rule for exhaustive selection.
+
+**To settle.** Whether `case else` may be empty, and whether a handle `select` must always have both its `some` arm and its `none` or `else` arm (recommended: yes).
+
+### D51. Record initialisers may name their fields
 
 An initialiser may name each field:
 
@@ -1102,25 +1126,17 @@ The positional form `(12, true)` remains.
 
 **Why.** Swapping two fields of the same type in a record declaration changes the meaning of every positional initialiser, and every one still compiles. Named fields keep their meaning when the declaration changes.
 
-**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D51) or zero.
+**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D53) or zero.
 
-### D50. A writable argument is marked `var` at the call
+### D52. Shadowing is allowed
 
-A call to a routine with a `var` parameter marks the argument:
+A parameter or local may reuse a name visible where it is declared. The innermost declaration wins. This reverses spec §5.6, which refuses every shadowing with `shadowed-name`.
 
-```basie
-sub update(var item as Reading, value as u16)
-...
-update(var current, 20)
-```
+**Why.** Without shadowing, every program-wide name and every public name of an included library part is unavailable to locals and parameters. That surprises programmers who know other languages, and the pressure grows as the library grows. Rust and most block-structured languages allow shadowing. Shadowing was preferred to qualified library names, which were not adopted.
 
-The marker is required. A missing or unexpected `var` is a compile error. D17 is unchanged: `var` still marks the parameter, and `mut` was considered and declined on 2026-10-09.
+**To settle.** Full shadowing or a middle course, where locals may hide program, part and built-in names but not an enclosing local or parameter. Also whether the compiler warns, how a hidden built-in routine is reached, and the symbol table's search order, which must find the newest binding first.
 
-**Why.** `var` in a declaration is easy to miss, and the reader of a call can't see it at all. With the marker, every call that can change the caller's data shows it where it happens, as Rust's `&mut` does.
-
-**To settle.** The marker for a lease (`bump(var h)`, D30) and for passing on a `var` result.
-
-### D51. Record fields may have default values
+### D53. Record fields may have default values
 
 A field declaration may give a default:
 
@@ -1136,19 +1152,3 @@ An initialiser or `new` that omits the field uses the default in place of zero.
 **Why.** Many records have a natural starting state that isn't all zeros. Writing it once in the declaration keeps every initialiser short and consistent.
 
 **To settle.** Defaults are constant expressions. An owning-handle field can only default to `none`, and an aggregate field takes a constant initialiser.
-
-### D52. A value `select` needs `case else` unless it covers every value
-
-A `select` on an integer, character or Boolean subject must have `case else`, unless its labels cover every value of the subject's type.
-
-**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Enumerations, when they arrive, will use the same rule for exhaustive selection.
-
-**To settle.** Whether `case else` may be empty, and whether a handle `select` must always have both its `some` arm and its `none` or `else` arm (recommended: yes).
-
-### D53. Shadowing is allowed
-
-A parameter or local may reuse a name visible where it is declared. The innermost declaration wins. This reverses spec §5.6, which refuses every shadowing with `shadowed-name`.
-
-**Why.** Without shadowing, every program-wide name and every public name of an included library part is unavailable to locals and parameters. That surprises programmers who know other languages, and the pressure grows as the library grows. Rust and most block-structured languages allow shadowing. Shadowing was preferred to qualified library names, which were not adopted.
-
-**To settle.** Full shadowing or a middle course, where locals may hide program, part and built-in names but not an enclosing local or parameter. Also whether the compiler warns, how a hidden built-in routine is reached, and the symbol table's search order, which must find the newest binding first.
