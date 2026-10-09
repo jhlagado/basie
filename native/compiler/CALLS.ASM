@@ -964,8 +964,7 @@ RO_FCON:                       ; HL is the entry.
     CALL EM_OP                     ; LD HL,n,
     DB   $21                       ; the opcode,
     CALL EM_WORD                   ; and n;
-    CALL EM_SEQX                   ; then LD DE,0, the high word,
-    DB   3,$11,0,0                 ; and return: DEHL is the File.
+    JP   GX_DE0                    ; then LD DE,0, the high word: DEHL.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Parse a File value and generate it into DEHL (the reference's expression

@@ -413,8 +413,7 @@ GX_WIDEN:                      ; D is the type, E the type it becomes.
     DB   5,$7C,$07,$9F,$57,$5F     ; the sign in DE.
     JR   .FLOAT                    ; Then perhaps an f32.
 .UNSIGNED:                     ; A zero high word:
-    CALL EM_SEQ                    ; LD DE,0.
-    DB   3,$11,0,0                 ; Append it.
+    CALL GX_DE0                    ; LD DE,0.
 .FLOAT:                        ; DEHL is a long:
     LD   A,E                       ; an f32
     CP   SY_F32                    ; is converted
@@ -540,23 +539,23 @@ GX_TRIM:                       ; D is the source's type, E the target's.
     LD   (HL),A                    ; (HL is GX_PTO).
     OR   B                         ; Is either
     AND  4                         ; a long?
-            JR   NZ,.WIDE          ; Then the 32-bit checks.
+    JR   NZ,.WIDE                  ; Then the 32-bit checks.
     BIT  1,B                       ; Is the source a byte (not a word)?
-            JR   Z,.BYTE           ; Then to a byte or a word.
+    JR   Z,.BYTE                   ; Then to a byte or a word.
     CALL .TOBYTE                   ; A word: to a word?
-            JR   NZ,.WORDS         ; Then u16 to i16, or i16 to u16.
+    JR   NZ,.WORDS                 ; Then u16 to i16, or i16 to u16.
     LD   A,B                       ; A word to a byte:
     AND  (HL)                      ; both signed? (HL is GX_PTO)
     RLA                            ; Then
-            JR   C,.SIGNS          ; H must be L's sign.
+    JR   C,.SIGNS                  ; H must be L's sign.
     CALL .HZERO                    ; Otherwise H must be zero,
     LD   A,(GX_PTO)                ; and for
     RLA                            ; an i8
-            JR   NC,.LOW           ; target
+    JR   NC,.LOW                   ; target
     CALL EM_SEQ                    ; L's top bit clear:
     DB   2,$7D,$07                 ; LD A,L, RLCA,
     CALL .IFC                      ; CALL C,TRAP_NAR.
-            JR   .LOW              ; Then the low byte.
+    JR   .LOW                      ; Then the low byte.
 .SIGNS:                        ; i16 to i8.
     CALL EM_SEQ                    ; LD A,L, RLCA, SBC A,A, XOR H:
     DB   4,$7D,$07,$9F,$AC         ; zero when H is L's sign;
@@ -581,16 +580,16 @@ GX_TRIM:                       ; D is the source's type, E the target's.
     LD   A,B                       ; Both
     AND  (HL)                      ; longs?
     AND  4                         ; (HL is GX_PTO)
-            JR   Z,.ONE            ; No.
+    JR   Z,.ONE                    ; No.
     LD   A,$7A                     ; u32 and i32: D's top bit clear:
     JP   .TOPC                     ; LD A,D, RLA, CALL C,TRAP_NAR; return.
 .ONE:                          ; Just one is a long.
     BIT  2,B                       ; The source?
-            JR   Z,.TOLONG         ; Then narrower to a long.
+    JR   Z,.TOLONG                 ; Then narrower to a long.
     LD   A,B                       ; A long to narrower:
     AND  (HL)                      ; both signed?
     RLA                            ; Then DE must be
-            JR   NC,.DEZERO        ; H's sign,
+    JR   NC,.DEZERO                ; H's sign,
     CALL EM_SEQ                    ; LD A,H, RLA, SBC A,A, CP E,
     DB   4,$7C,$17,$9F,$BB         ; CALL NZ,TRAP_NAR,
     CALL .IFNZ                     ; then
@@ -598,11 +597,11 @@ GX_TRIM:                       ; D is the source's type, E the target's.
     DB   $BA                       ; CALL NZ,TRAP_NAR;
     CALL .IFNZ                     ; and for a byte
     CALL .TOBYTE                   ; H must be L's sign:
-            JR   NZ,.LOWEST        ; LD A,L, RLA,
+    JR   NZ,.LOWEST                ; LD A,L, RLA,
     CALL EM_SEQ                    ; SBC A,A,
     DB   4,$7D,$17,$9F,$BC         ; CP H,
     CALL .IFNZ                     ; CALL NZ,TRAP_NAR.
-            JR   .LOWEST           ; Then the low byte, if a byte.
+    JR   .LOWEST                   ; Then the low byte, if a byte.
 .DEZERO:                       ; Otherwise DE must be zero:
     CALL EM_SEQ                    ; LD A,D, OR E,
     DB   2,$7A,$B3                 ; CALL NZ,TRAP_NAR;
@@ -611,10 +610,10 @@ GX_TRIM:                       ; D is the source's type, E the target's.
     CALL Z,.HZERO                  ; LD A,H, OR A, CALL NZ,TRAP_NAR.
     LD   A,(GX_PTO)                ; A signed target
     RLA                            ; needs its own top bit
-            JR   NC,.LOWEST        ; clear:
+    JR   NC,.LOWEST                ; clear:
     CALL .TOBYTE                   ; L's for a byte,
     LD   A,$7D                     ; LD A,L,
-            JR   Z,.TOP            ; or
+    JR   Z,.TOP                    ; or
     LD   A,$7C                     ; LD A,H for a word,
 .TOP:                          ; A is the load.
     CALL .TOPC                     ; Then RLA, CALL C,TRAP_NAR.
@@ -625,20 +624,19 @@ GX_TRIM:                       ; D is the source's type, E the target's.
 .TOLONG:                       ; A byte or a word to a long:
     LD   A,B                       ; signed to unsigned
     RLA                            ; needs the sign clear;
-            JR   C,.CLEAR          ; anything else widens:
+    JR   C,.CLEAR                  ; anything else widens:
     JP   GX_WIDEN                  ; D to E, still the types; return.
 .CLEAR:                        ; i8 or i16 to u32.
     BIT  1,B                       ; A byte's top bit is A's, a word's H's:
     PUSH AF                        ; Z for a byte, kept for its widening:
     LD   A,$7F                     ; LD A,A for a byte,
-            JR   Z,.SIGN           ; or
+    JR   Z,.SIGN                   ; or
     LD   A,$7C                     ; LD A,H.
 .SIGN:                         ; A is the load.
     CALL .TOPC                     ; Then RLA, CALL C,TRAP_NAR.
     POP  AF                        ; A byte is
     CALL Z,GX_ZEXT                 ; zero-extended to a word,
-    CALL EM_SEQX                   ; and the high word
-    DB   3,$11,0,0                 ; is LD DE,0.
+    JP   GX_DE0                    ; and the high word is LD DE,0.
 
 ;@ROUTINE OUT HL,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Z when the narrowing's target, not a long, is a byte; HL addresses
@@ -662,7 +660,7 @@ GX_TRIM:                       ; D is the source's type, E the target's.
 
 .IFNZ:                         ; CALL NZ.
     LD   A,$C4                     ; Its opcode.
-            JR   .TRAP             ; Append it.
+    JR   .TRAP                     ; Append it.
 
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append the load A, RLA and CALL C,TRAP_NAR: the top bit loaded must be
@@ -678,6 +676,13 @@ GX_TRIM:                       ; D is the source's type, E the target's.
     LD   L,HP_TRUNC&$FF            ; The narrowing trap.
     JP   EM_TRAP                   ; Append the site and return.
 
+
+;@ROUTINE CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Append LD DE,0: a long's zero high word. HL is kept.
+
+GX_DE0:                        ; DE is to be zero.
+    CALL EM_SEQX                   ; LD DE,0;
+    DB   3,$11,0,0                 ; return.
 ;@ROUTINE IN A CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Compare two Booleans for = or <>, relation A, not both known: the left
 ; known or pushed, the right in A or known (the reference's Boolean

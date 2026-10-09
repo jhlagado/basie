@@ -365,8 +365,7 @@ HN_SLARG:                      ; A is the parameter's type.
 ; Append LD DE,0, then PUSH DE, counted as two bytes pushed (HN_PSHDE).
 
 HN_DEZ:                        ; No word:
-    CALL EM_SEQ                    ; LD DE,0;
-    DB   3,$11,0,0                 ; fall into HN_PSHDE.
+    CALL GX_DE0                    ; LD DE,0; fall into HN_PSHDE.
 
 ;@ROUTINE CLOBBERS A,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Append PUSH DE, counted as two bytes pushed. BC is kept.

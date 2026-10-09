@@ -245,20 +245,10 @@ EX_NOT:
     AND  SY_TMASK                  ; Keep its type,
     LD   C,A                       ; the result's.
     JR   NZ,.TYPED                 ; A typed operand keeps it.
-    LD   A,(EX_WANT)               ; An exact one takes the expected type,
-    LD   C,A                       ; which must be an integer:
-    CALL GX_PROP                   ; a size,
-    BIT  6,A                       ; neither
-    JR   NZ,.NODEF                 ; Boolean nor f32,
-    AND  7                         ; and not
-    JR   Z,.NODEF                  ; exact itself.
-    PUSH DE                        ; Keep the offset.
-    LD   A,C                       ; The value
-    LD   HL,EX_KVAL                ; must fit
-    CALL VL_FITS                   ; the type; BC is kept.
-    POP  HL                        ; The offset:
-    LD   A,DG_RANGE                ; out-of-range
-    JP   C,DG_HERE                 ; at `not`.
+    PUSH DE                        ; (`not`'s offset kept)
+    CALL EX_WINT                   ; An exact one takes the expected type,
+    POP  HL                        ; C, an integer it fits, or else the
+    JP   C,DG_HERE                 ; diagnostic A is at `not`.
 .TYPED:                        ; C is the result's type, B the metadata.
     LD   A,C                       ; An f32
     CP   SY_F32                    ; is no integer:
@@ -284,10 +274,6 @@ EX_NOT:
 .INTCONST:                     ; Complement a known integer.
     CALL VL_NOT                    ; Every bit,
     JP   EX_FOLD                   ; wrapped to the type; return.
-.NODEF:                        ; No integer type is expected:
-    EX   DE,HL                     ; at `not`,
-    LD   A,DG_INFER                ; no-definite-type.
-    JP   DG_HERE                   ; No return.
 .FLOAT:                        ; An f32 operand (unaryNot):
     EX   DE,HL                     ; at `not`,
     LD   A,DG_CLASH                ; type-mismatch.
@@ -789,20 +775,9 @@ EX_SHAPE:
     CALL EX_PEEKX                  ; A certainly exact count?
     POP  DE                        ; (the metadata)
     JR   Z,.VALUE                  ; Then it folds exactly.
-    LD   A,(EX_WANT)               ; Otherwise the expected type,
-    LD   C,A                       ; which must be an integer:
-    CALL GX_PROP                   ; a size,
-    BIT  6,A                       ; neither Boolean
-    LD   A,DG_INFER                ; nor f32,
-    JR   NZ,.LEFT                  ; nor
-    INC  C                         ; exact
-    DEC  C                         ; itself
-    JR   Z,.LEFT                   ; (no-definite-type, at the left).
-    LD   HL,EX_KVAL                ; The value
-    LD   A,C                       ; must fit it
-    CALL VL_FITS                   ; (out-of-range, at the left); BC is kept.
-    LD   A,DG_RANGE                ; It is typed
-    JR   C,.LEFT                   ; from here:
+    CALL EX_WINT                   ; Otherwise the expected type, C, an
+    JR   C,.LEFT                   ; integer it fits, else A at the left;
+                                   ; it is typed from here:
     LD   A,C                       ; the expected
     OR   SY_KNOWN                  ; type,
     LD   D,A                       ; known.
@@ -825,6 +800,30 @@ EX_SHAPE:
     RET                            ; Ready to push.
 .LEFT:                         ; A is the diagnostic,
     JP   EX_ELOP                   ; at the left; no return.
+
+;@ROUTINE OUT A,C,CARRY CLOBBERS DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; An exact known value (EX_KVAL) takes the expected type (EX_WANT), C,
+; which must be an integer (no-definite-type: neither Boolean, f32 nor
+; exact itself) that the value fits (out-of-range): carry, with A that
+; diagnostic, when it is not.
+
+EX_WINT:                       ; EX_KVAL is the value.
+    LD   A,(EX_WANT)               ; The expected type,
+    LD   C,A                       ; C:
+    CALL GX_PROP                   ; its properties:
+    BIT  6,A                       ; neither Boolean
+    JR   NZ,.NODEF                 ; nor f32,
+    AND  7                         ; nor
+    JR   Z,.NODEF                  ; exact.
+    LD   HL,EX_KVAL                ; The value
+    LD   A,C                       ; must fit it;
+    CALL VL_FITS                   ; carry if not, BC kept.
+    LD   A,DG_RANGE                ; out-of-range
+    RET                            ; then.
+.NODEF:                        ; No integer is expected:
+    LD   A,DG_INFER                ; no-definite-type.
+    SCF                            ; Carry.
+    RET                            ; Done.
 
 ;@ROUTINE OUT ZERO CLOBBERS A,BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY
 ; Z when the next token is certainly an exact operand (peekExactOperand):
