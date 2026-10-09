@@ -246,7 +246,7 @@ MS_KIND:                       ; A is the kind.
     JR   Z,.END                    ; the spelling's end: its kind.
     LD   A,(HL)                    ; Is it
     CP   C                         ; the kind expected?
-    JR   Z,.QUOTE                  ; Quote the spelling, DE to HL.
+    JR   Z,.KWORD                  ; Quote the spelling, DE to HL.
     INC  HL                        ; The next entry.
     DJNZ .KEY                      ; Until the keywords are done.
     LD   HL,KW_PUNCT               ; Then the punctuators: a character, a kind.
@@ -281,6 +281,25 @@ MS_KIND:                       ; A is the kind.
     LD   (BC),A                    ; terminator.
     LD   HL,DG_ABUF                ; That is
     JR   .FOUND                    ; argument 1.
+.KWORD:                        ; DE is a keyword's spelling, HL its end:
+    LD   BC,DG_ABUF                ; argument 1 is
+    LD   A,$27                     ; a quote,
+    LD   (BC),A                    ; then
+    INC  BC                        ; the first letter,
+    PUSH HL                        ; which the entry's
+    LD   A,E                       ; offset in
+    SUB  LOW(KW_TAB)               ; KW_TAB gives:
+    LD   HL,KW_IDX                 ; the letter
+.LETTER:                       ; whose next one's
+    INC  HL                        ; entries begin
+    CP   (HL)                      ; past
+    JR   NC,.LETTER                ; it,
+    LD   A,L                       ; counted
+    SUB  LOW(KW_IDX+1)             ; from
+    ADD  A,'a'                     ; a;
+    POP  HL                        ; then
+    EX   DE,HL                     ; the spelling, HL to DE.
+    JR   .COPY                     ; Copy them.
 
 ;@ROUTINE IN HL CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Print message HL's text from BASIE.MSG with its arguments, or, when the

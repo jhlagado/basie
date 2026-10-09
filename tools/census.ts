@@ -95,9 +95,11 @@ if (import.meta.main) {
   const owner = await labelFiles(dirname(path));
   // --end measures to a symbol rather than the image's end: BASIE.COM's
   // file goes on past OV_AREA with the start-up, which takes no room.
-  const end = endName === undefined ? image.end : symbols.find((x) =>
-    x[0] === endName.toLowerCase()
-  )?.[1];
+  const end = endName === undefined
+    ? image.end
+    : symbols.find((x: readonly [string, number]) =>
+      x[0] === endName.toLowerCase()
+    )?.[1];
   if (end === undefined) throw new Error(`no symbol ${endName}`);
   const census = attribute(symbols, owner, base, end);
   console.log(`Image: ${census.total} bytes from $${base.toString(16)}`);

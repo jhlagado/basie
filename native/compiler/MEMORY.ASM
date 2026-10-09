@@ -30,8 +30,8 @@
 ;  an extent marker that host tools may read.
 
 MM_RBASE EQU  $0103            ; Compiler core: after the jump at $0100.
-MM_RLIM EQU  $6C5C             ; Exclusive end of room for the image.
-MM_WBASE EQU  $6C5C            ; Compiler workspace: the image ends below.
+MM_RLIM EQU  $6C36             ; Exclusive end of room for the image.
+MM_WBASE EQU  $6C36            ; Compiler workspace: the image ends below.
 MM_WLIM EQU  $800D             ; Exclusive end of both workspaces.
 SH_WBEG EQU  $7EF8             ; The shell's workspace, above the compiler's.
 MM_BLOB EQU  $800D             ; The blob writer's workspace, BL_FLAGS on.

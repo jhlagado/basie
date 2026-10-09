@@ -167,7 +167,8 @@ async function build(): Promise<BasieImage> {
   ) {
     throw new Error("the FLOAT overlay's workspace overlaps the LL(1) stack");
   }
-  if (at("KW_IDX") - at("KW_TAB") > 256) {
+  if (at("KW_IDX") - at("KW_TAB") >= 256) {
+    // The end's offset is a byte, and TK_WORD compares low bytes.
     throw new Error("the keywords pass the index's byte offsets");
   }
   if (at("LL_WEND") > at("SH_WBEG")) {

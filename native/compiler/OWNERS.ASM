@@ -804,8 +804,20 @@ OW_TYNAM:                      ; A is the type.
     JR   Z,.WORD                   ; its spelling;
     POP  AF                        ; if not,
     JR   .KEY                      ; the next.
-.WORD:                         ; The spelling:
-    POP  HL                        ; HL.
+.WORD:                         ; The spelling, less its first letter:
+    POP  HL                        ; HL,
+    PUSH HL                        ; kept.
+    LD   A,L                       ; Its offset
+    SUB  LOW(KW_TAB)               ; in KW_TAB
+    LD   HL,KW_IDX                 ; gives the letter
+.LETTER:                       ; whose next one's
+    INC  HL                        ; entries begin
+    CP   (HL)                      ; past
+    JR   NC,.LETTER                ; it,
+    LD   A,L                       ; counted
+    SUB  LOW(KW_IDX+1-'a')         ; from a,
+    POP  HL                        ; written
+    CALL OW_PUTC                   ; first.
 .SPELL:                        ; Each byte,
     LD   A,(HL)                    ; the last
     AND  $7F                       ; without its bit 7,

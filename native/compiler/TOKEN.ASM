@@ -258,7 +258,8 @@ NH_ALLOC:                      ; BC is the bytes.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS BC,DE,HL,SIGN,PARITY,HALFCARRY
 ; Scan a name whose first byte, a letter, is current, then look it up in
-; KW_TAB, among the entries of its first letter (KW_IDX). A returns the
+; KW_TAB, among the entries of its first letter (KW_IDX), which spell the
+; rest of it. A returns the
 ; keyword's kind, or TK_NAME; TK_PTR and TK_LEN
 ; locate the name either way. Reached by a jump from TK_NEXT.
 
@@ -276,7 +277,8 @@ TK_WORD:                       ; The current byte is a letter.
 .DONE:                         ; B is the name's length.
     LD   A,B                       ; Publish the length for the parser.
     LD   (TK_LEN),A                ; TK_PTR already holds its address.
-    LD   C,B                       ; C keeps the length.
+    DEC  A                         ; One letter is no keyword,
+    JR   Z,.NAME                   ; each having two or more.
     LD   HL,(TK_PTR)               ; Its first
     LD   A,(HL)                    ; byte,
     SUB  'a'                       ; a letter
@@ -286,15 +288,22 @@ TK_WORD:                       ; The current byte is a letter.
     LD   D,0                       ; entries
     LD   HL,KW_IDX                 ; begin
     ADD  HL,DE                     ; at
-    LD   E,(HL)                    ; KW_TAB
-    LD   HL,KW_TAB                 ; plus
-    ADD  HL,DE                     ; its offset.
+    LD   E,(HL)                    ; KW_TAB plus
+    INC  HL                        ; its offset and
+    LD   A,(HL)                    ; end at the next
+    LD   HL,KW_TAB                 ; letter's, whose
+    ADD  A,L                       ; low byte is C
+    LD   C,A                       ; (fewer than 256);
+    ADD  HL,DE                     ; HL is the first.
 .KEYLOOP:                      ; HL is at an entry's first byte.
-    LD   DE,(TK_PTR)               ; DE walks the name.
-    LD   A,(DE)                    ; An entry
-    CP   (HL)                      ; of another letter
-    JR   NZ,.NAME                  ; ends them.
-    LD   B,C                       ; B counts its bytes.
+    LD   A,L                       ; The letter's
+    CP   C                         ; entries
+    JR   Z,.NAME                   ; are done.
+    LD   DE,(TK_PTR)               ; DE walks the name
+    INC  DE                        ; after its first letter,
+    LD   A,(TK_LEN)                ; which the entry
+    LD   B,A                       ; leaves out:
+    DEC  B                         ; B counts the rest.
 .CHAR:                         ; HL and DE step together.
     LD   A,(DE)                    ; The name's byte
     XOR  (HL)                      ; is zero against an equal byte, $80 an equal last.
