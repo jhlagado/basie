@@ -1069,7 +1069,15 @@ of every program's transient area.
 
 Decided by John on 2026-10-10, following the [comparison with Rust](rust-comparison.md). D48 to D53 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
 
-### D48. A writable argument is marked `var` at the call
+### D48. A value `select` needs `case else` unless it covers every value
+
+A `select` on an integer, character or Boolean subject must have `case else`, unless its labels cover every value of the subject's type.
+
+**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Enumerations, when they arrive, will use the same rule for exhaustive selection.
+
+**To settle.** Whether `case else` may be empty, and whether a handle `select` must always have both its `some` arm and its `none` or `else` arm (recommended: yes).
+
+### D49. A writable argument is marked `var` at the call
 
 A call to a routine with a `var` parameter marks the argument:
 
@@ -1085,7 +1093,7 @@ The marker is required. A missing or unexpected `var` is a compile error. D17 is
 
 **To settle.** The marker for a lease (`bump(var h)`, D30) and for passing on a `var` result.
 
-### D49. `for … in` iterates over an array
+### D50. `for … in` iterates over an array
 
 A loop can run over an array's elements directly:
 
@@ -1104,14 +1112,6 @@ The loop runs over the array's own length. Open arrays use the length passed wit
 **Why.** A counted loop can drift from the array it indexes. The loop's bound and the array's length are written separately, and nothing traps when they disagree. Iterating over the array removes that bug, which is the main safety benefit Rust gets from iterators. The index is always in range, so the loop needs no bounds check.
 
 **To settle.** Whether scalar elements are bound as copies, iteration over strings, and whether an index is available as well (`for i, item in readings`).
-
-### D50. A value `select` needs `case else` unless it covers every value
-
-A `select` on an integer, character or Boolean subject must have `case else`, unless its labels cover every value of the subject's type.
-
-**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Enumerations, when they arrive, will use the same rule for exhaustive selection.
-
-**To settle.** Whether `case else` may be empty, and whether a handle `select` must always have both its `some` arm and its `none` or `else` arm (recommended: yes).
 
 ### D51. Record initialisers may name their fields
 
