@@ -411,6 +411,7 @@ const CLAIMED: Record<string, string[]> = {
   "74: handle values in parentheses": ["PARHND"],
   "74: open arrays of records that own": ["OWNVIEW", "OWNVIEW2"],
   "74: the spill in an overlay, FLOAT loaded again": ["BIGSPLF"],
+  "74: an inferred local's handle in parentheses": ["INFPAR"],
 };
 
 /** The CPM22 library, which BASIE.COM checks before it compiles. */
@@ -1101,6 +1102,10 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "a mismatch after an inferred new in parentheses, at its own value":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\nsub main()\nvar h = (new jobs(1))\nvar x as jobs = 5\nend\n",
+  "an identifier moved in parentheses, inferred":
+    "record Job\nnumber as u16\nend\npool jobs as Job[4]\nvar g as jobs?\nvar k as id jobs?\nsub main()\nvar h = (move k)\nend\n",
   "an identifier assigned to an owner":
     "record Job\nnumber as u16\nend\npool jobs as Job[4]\nvar p as jobs?\nvar q as id jobs?\nsub main()\np = q\nend\n",
   "a call left open at the part's end":

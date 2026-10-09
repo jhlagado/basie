@@ -57,6 +57,7 @@
 %INCLUDE "ACTFOR.ASM"              ; Actions: the counted for loop.
 %INCLUDE "POOLS.ASM"               ; Pools, handle types and owner descriptors.
 %INCLUDE "HANDLES.ASM"             ; new, owning values, handle locals and frees.
+%INCLUDE "HFREE.ASM"              ; Handles: the frees.
 %INCLUDE "HSELECT.ASM"             ; select on handles, and move.
 %INCLUDE "OWNBODY.ASM"             ; Handle selects' actions, leases, id() of records.
 %INCLUDE "HIDENT.ASM"              ; Identifiers: id(), their values and stores.

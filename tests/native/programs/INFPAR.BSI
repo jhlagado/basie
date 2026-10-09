@@ -1,0 +1,20 @@
+// An inferred local's initializer, a handle in parentheses: an owner made
+// or moved, an identifier made, an identifier compared; the parentheses
+// are taken when the source after them begins new, move or id (HN_PHND).
+record Job
+    number as u16
+end
+pool jobs as Job[4]
+var g as jobs?
+var k as id jobs?
+var newsy as u8
+
+sub main()
+    g = new jobs(5)
+    var a = (new jobs(1))
+    var b = ( new? jobs(2) )
+    var i = (id(g))
+    var same = (id(g) = k)
+    var c = ((move g))
+    var n = (newsy + 1)
+end
