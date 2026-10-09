@@ -1067,7 +1067,7 @@ of every program's transient area.
 
 ## Adopted for the next language version
 
-Decided by John on 2026-10-10, following the [comparison with Rust](rust-comparison.md). D48 to D53 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
+Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D54 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
 
 ### D48. A value `select` needs `case else` unless it covers every value
 
@@ -1107,13 +1107,40 @@ for var item in readings      // item is a mutable alias
 end
 ```
 
-The loop runs over the array's own length. Open arrays use the length passed with them.
+The loop runs over the array's own length. Open arrays use the length passed with them. An index can be named as well, as Zig's `for (items, 0..) |item, i|` allows:
+
+```basie
+for i, item in readings       // i counts 0, 1, 2 … as a u16
+    total = total + item.value
+end
+```
 
 **Why.** A counted loop can drift from the array it indexes. The loop's bound and the array's length are written separately, and nothing traps when they disagree. Iterating over the array removes that bug, which is the main safety benefit Rust gets from iterators. The index is always in range, so the loop needs no bounds check.
 
-**To settle.** Whether scalar elements are bound as copies, iteration over strings, and whether an index is available as well (`for i, item in readings`).
+**To settle.** Whether scalar elements are bound as copies, iteration over strings, and the index's type for arrays that fit a `u8`.
 
-### D51. Record initialisers may name their fields
+### D51. `defer` runs a call when its block ends
+
+A `defer` statement names a call to run when the enclosing block ends, by any exit: reaching `end`, `return`, `exit`, `continue` or a failure passed on. `errdefer` runs its call only when the block ends by a failure.
+
+```basie
+sub copyFile(inName as string[], outName as string[]) fails
+    var source = openRead(inName, 0) else fail
+    defer abort(source)
+    var target = openWrite(outName, 0) else fail
+    errdefer abort(target)
+    ...
+    close(target) else fail
+end
+```
+
+Deferred calls run in reverse order of their `defer` statements, after the block's owning locals are released.
+
+**Why.** Pool records are released automatically, but files are not. A routine that opens a file and then fails leaves it open until `main` returns. `defer` keeps the clean-up next to the open, as Zig does. The compiler already emits release code on every exit path for owning locals, and deferred calls use the same paths.
+
+**To settle.** A deferred call must not fail, or the statement must say what happens if it does. Whether arguments are evaluated at the `defer` or when the call runs (Zig evaluates them when it runs). Whether a deferred call may refer to a local declared after the `defer`.
+
+### D52. Record initialisers may name their fields
 
 An initialiser may name each field:
 
@@ -1126,17 +1153,28 @@ The positional form `(12, true)` remains.
 
 **Why.** Swapping two fields of the same type in a record declaration changes the meaning of every positional initialiser, and every one still compiles. Named fields keep their meaning when the declaration changes.
 
-**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D53) or zero.
+**To settle.** Whether one initialiser may mix named and positional values (recommended: no), and the diagnostics for a repeated or unknown field. Omitted fields take their default (D54) or zero.
 
-### D52. Shadowing is allowed
+### D53. Included parts are namespaces; shadowing stays refused
 
-A parameter or local may reuse a name visible where it is declared. The innermost declaration wins. This reverses spec §5.6, which refuses every shadowing with `shadowed-name`.
+A part's public names are reached through the part's name:
 
-**Why.** Without shadowing, every program-wide name and every public name of an included library part is unavailable to locals and parameters. That surprises programmers who know other languages, and the pressure grows as the library grows. Rust and most block-structured languages allow shadowing. Shadowing was preferred to qualified library names, which were not adopted.
+```basie
+include "STRINGS.BSI" as strings
 
-**To settle.** Full shadowing or a middle course, where locals may hide program, part and built-in names but not an enclosing local or parameter. Also whether the compiler warns, how a hidden built-in routine is reached, and the symbol table's search order, which must find the newest binding first.
+sub main() fails
+    var report as string[32]
+    strings.append(report, "Mean: ") else fail
+end
+```
 
-### D53. Record fields may have default values
+Spec §5.6 is unchanged: a parameter or local can't reuse a name visible where it is declared. A local named `append` no longer conflicts with the library, because the library's routine is `strings.append`.
+
+**Why.** Zig forbids shadowing, because a name that hides another is a common source of bugs, and it can do so because imports are namespaces (`std.mem.eql`). Without namespaces, every public library name blocks that name in every program, and the pressure grows with the library. Namespaces remove that pressure while keeping one meaning for each name. This replaces the earlier decision to allow shadowing (2026-10-10).
+
+**To settle.** The default namespace name when `as` is omitted, and whether a part may still be included unqualified for small programs. Whether built-in services such as `writeLine` stay unqualified (recommended). How a qualified name is told from a record field, which the compiler can do because the first name is a namespace. Whether a part can refer to its own names qualified.
+
+### D54. Record fields may have default values
 
 A field declaration may give a default:
 

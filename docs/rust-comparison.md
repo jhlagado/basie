@@ -211,7 +211,7 @@ Some surface differences would remain:
 - read-only calls that pass a record without `&`
 - explicit moves
 
-Six further changes are [adopted for the next language version](stretch-goals.md#adopted-for-the-next-language-version): required `case else`, `var` at the call site, `for … in` over arrays, named record initialisers, shadowing and default field values. The second, third and fifth bring Basie closer to Rust's `&mut` arguments, iterators and `let` shadowing.
+Further changes are [adopted for the next language version](design-decisions.md#adopted-for-the-next-language-version): required `case else`, `var` at the call site, `for … in` over arrays, `defer`, named record initialisers, namespaced includes and default field values. `var` at the call site and `for … in` bring Basie closer to Rust's `&mut` arguments and iterators. Shadowing stays refused, as in Zig, with namespaces taking the pressure off library names.
 
 The differences of substance would also remain. Basie has pools in place of a heap and aliases limited to a call in place of stored borrows. It has no enumerations, generics, traits or methods.
 
