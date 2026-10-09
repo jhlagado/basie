@@ -88,6 +88,8 @@ These terms are provisional, but the documents use them consistently.
 
 - [Philosophy](docs/philosophy.md): the motivation, the principle and the
   constraints that shape the design.
+- [Basie compared with Rust](docs/rust-comparison.md): syntax, types,
+  ownership and errors side by side with Rust.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
 - [Feature inventory](docs/feature-inventory.md): every feature, its cost
