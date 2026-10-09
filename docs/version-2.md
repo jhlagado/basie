@@ -188,6 +188,25 @@ sort(stock, byPrice)
   no closures and no values that capture a frame.
 - **Cost:** estimated 0.5 to 1K, and one runtime helper.
 
+### 3.6 Open arrays as type descriptors
+
+An open array's type ID is `AG_OPEN` plus its element's ID, so its element
+must have an ID below `$28`: a handle's (`$68` up) cannot be one, and a
+string, array or record type declared late (ID `$28` up) cannot be one
+either. `slots as jobs?[]`, an open array of handles, waits for this
+(Error 191), as does an open array of a type past `$28` (Error 190,
+`types`); an open array of records that own handles works from 74.20, and a
+record wrapping the handle is the workaround meanwhile.
+
+- An open array becomes a descriptor in the type table, kind open array
+  with its element's ID, interned as the other descriptors are, so any
+  element type may be one.
+- The tests by ID range (`AG_ISVW`, `CP AG_OPEN`, `SUB AG_OPEN`: about 20
+  sites) read the descriptor's kind and element instead.
+- Agreed with the user on 2026-10-09: fix it properly, not with spare IDs
+  for the handles, and later.
+- **Cost:** estimated 150 to 250 bytes.
+
 ## 4. Order of work
 
 Each feature is one roadmap step, run as version 1's were: the reference
@@ -203,6 +222,7 @@ D43 cycle and its census at every increment.
 | V2.3 | Variants, owning payloads, `OBJ_FREE` by tag | V2.1, room |
 | V2.4 | `select` as an expression, then expression blocks | V2.3 for variant arms |
 | V2.5 | Routine values | room |
+| V2.5a | Open arrays as type descriptors: open arrays of handles and of late types | room |
 | V2.6 | The book's version 2 chapters, the release | all |
 
 Room is found again before V2.3 and V2.5, the two largest.
