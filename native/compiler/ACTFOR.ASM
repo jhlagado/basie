@@ -207,8 +207,8 @@ AC_STEP:
 ;@ROUTINE IN A,E OUT E CLOBBERS A,B,CARRY,ZERO,SIGN,PARITY,HALFCARRY,HL
 ; A is a typed bound's type, E the counter's: return their common type
 ; in E, the type the other widens to (commonType); none, or f32, raises
-; mixed-operands at the bound, and a long one for a narrower counter is
-; the reference's NotImplemented, refused here too (DG_NYI).
+; mixed-operands at the bound, as is a long one for a narrower counter
+; (D58).
 
 .COMMON:                       ; A is the bound's type.
     LD   B,A                       ; Keep it.
@@ -233,7 +233,7 @@ AC_STEP:
     LD   A,E                       ; a narrower one
     CALL GX_PROP                   ; no long
     AND  4                         ; comparison
-    JP   NZ,TR_OPER                ; (NotImplemented).
+    JR   NZ,.MIXED                 ; (D58).
     RET                            ; E is it.
 
 ;@ROUTINE IN A OUT E,CARRY CLOBBERS A,HL,ZERO,SIGN,PARITY,HALFCARRY

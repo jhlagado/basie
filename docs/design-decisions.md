@@ -1065,6 +1065,23 @@ allows.
 **Rejected.** Embedding the table always: on a CP/M machine the bytes come out
 of every program's transient area.
 
+### D58. A counted loop compared in 32 bits needs a 32-bit counter
+
+When a counted loop's bound and its counter are compared in a 32-bit type,
+`u32` or `i32`, the counter must be a 32-bit type too: `for i = 0 to n` with
+`i` a `u8` or `u16` and `n` a `u32` is mixed-operands at the bound (spec §12.4),
+in both compilers, as John chose on 2026-10-10. An exact bound is unaffected:
+it takes the counter's type, or none.
+
+**Why.** Neither compiler generated the 32-bit comparison for a narrower
+counter: the reference stopped with an internal error and the native compiler
+refused it. A program needing the range widens the counter, which costs it two
+bytes of frame.
+
+**Rejected.** Comparing a narrow counter against a 32-bit bound at run time in
+both compilers: more code in each, for a loop that a wider counter writes as
+plainly.
+
 ## Adopted for the next language version
 
 Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D52 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.

@@ -1103,6 +1103,8 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
 // diagnostic: its number and code, at its part, line and column, and, where
 // both compilers supply them, with its arguments (BASIE.MSG's ^1 and ^2).
 const REFUSED: Record<string, string> = {
+  "a u8 counter with a u32 bound (D58)":
+    "var n as u32 = 300\nsub main()\nvar i as u8\nfor i = 0 to n\nend\nend\n",
   "an indexed path from a call's result that is no File":
     "record Channel\nitems as u8[4]\nend\nvar chan as Channel\nvar i as u8\nsub mk() as Channel\nreturn chan\nend\nsub main() fails\nwriteText(mk().items[i + 1], \"x\") else fail\nend\n",
   "id undeclared, read as an identifier's value":

@@ -2777,7 +2777,12 @@ export class Compiler {
       boundType = common;
     }
     if (SCALARS[boundType].size > 2 && !big) {
-      throw new NotImplemented("a 32-bit bound with a narrower counter");
+      // D58: a 32-bit comparison needs a 32-bit counter.
+      fail(
+        "mixed-operands",
+        boundAt,
+        `a ${ctype.name} counter can't take a ${boundType} bound: widen the counter`,
+      );
     }
     const boundOffset = this.allocLocal(big ? 4 : 2);
     const storeBound = (value: Value) => {

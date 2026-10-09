@@ -46,7 +46,7 @@ The counter name must resolve to a local variable of an integer type, `u8`, `i8`
 
 The counter becomes read-only to source statements from the beginning of the loop body through its closing `end`. The body may read it and pass its scalar value, but it cannot assign to it. A nested counted loop cannot reuse the same local as its counter because its initialization would be another write. The compiler enforces both restrictions by comparing the resolved local binding with the counters in its active loop contexts; it needs no call-graph analysis because another routine cannot name a caller's local.
 
-The start expression must be assignment-compatible with the counter type. The bound must be an integer expression whose type and the counter's type are compatible under the mixed-operand rule of Chapter 9, Section 9.7; the comparison is done in the wider type. An exact bound remains mathematical for the loop comparison and need not fit the counter, because the bound is never stored in it.
+The start expression must be assignment-compatible with the counter type. The bound must be an integer expression whose type and the counter's type are compatible under the mixed-operand rule of Chapter 9, Section 9.7; the comparison is done in the wider type. When that type is 32 bits, `u32` or `i32`, the counter must be a 32-bit type too: a narrower counter with a 32-bit bound is invalid (mixed-operands, design decision D58). An exact bound remains mathematical for the loop comparison and need not fit the counter, because the bound is never stored in it.
 
 The compiler evaluates the start expression and then the bound expression exactly once when the loop begins. It performs both evaluations before storing the converted start in the counter. A bound expression that reads the counter therefore reads its pre-loop value. If either evaluation or the start conversion traps, the counter is not initialized by the loop and the body does not begin.
 
@@ -124,7 +124,7 @@ These omissions leave `while` for condition-controlled iteration and one mechani
 
 ## 12.10 Invalid loops and capacity limits
 
-The compiler must diagnose a non-Boolean `while` condition, a `move` in a `while` condition, a back edge that breaks the flow rule of Section 12.5.1, a counter that is not a local of an integer type, assignment to an active counter, reuse of an active counter by a nested loop, an incompatible start or bound, an unavailable or nonconstant step magnitude, a zero step, a missing header `NEWLINE` or closing `end`, and `exit` or `continue` outside a loop.
+The compiler must diagnose a non-Boolean `while` condition, a `move` in a `while` condition, a back edge that breaks the flow rule of Section 12.5.1, a counter that is not a local of an integer type, a counter narrower than a 32-bit bound, assignment to an active counter, reuse of an active counter by a nested loop, an incompatible start or bound, an unavailable or nonconstant step magnitude, a zero step, a missing header `NEWLINE` or closing `end`, and `exit` or `continue` outside a loop.
 
 An implementation may bound loop nesting, retained saved bounds, active counter bindings, active branch targets, and fixup state. It must publish each limit and issue a capacity diagnostic before overflow changes a loop's bound, direction, target, or counter update.
 
