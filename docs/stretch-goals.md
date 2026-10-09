@@ -5,7 +5,7 @@ Status: plan for the language after Basie 1.0, not a language amendment
 
 The Basie 1.0 specification remains authoritative and its feature list remains frozen. Each change below still needs a design decision, specification text, conformance tests and a measurement against the compiler budget (D43) before the native compiler admits it.
 
-## How each item was judged
+## Criteria for each item
 
 An item stays only if it does at least one of these:
 
