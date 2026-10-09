@@ -357,7 +357,7 @@ version 2 (D24), since an enumeration is a variant without data. They extend
 programs use named constants.
 
 **Why.** In version 1 the statement only chooses between constants, ranges and
-`some`/`none`, so the BASIC name is the honest one. Enumerations earn their
+`some`/`none`, so the BASIC name is the accurate one. Enumerations earn their
 place mainly alongside full matching, so they wait for it.
 
 ### D16. No aliases into pool storage
@@ -995,7 +995,7 @@ matching.
 algorithms (implementation plan). Comparing behaviour would catch a wrong
 answer only when a test happens to observe it. Comparing streams catches
 every divergence, in the program that first shows it. About 9K of compiler
-code is still to be written, and a byte oracle is what keeps it honest. It
+code is still to be written, and a byte oracle is what keeps it correct. It
 also makes the line streams, names and diagnostics positions match, which
 behavioural tests would not see.
 
