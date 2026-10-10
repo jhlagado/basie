@@ -19,8 +19,8 @@ sub push(var l: nodes?, v: u8)
 end
 
 sub main() fails
-    push(list, 'X')
-    push(list, 'Y')
+    push(var list, 'X')
+    push(var list, 'Y')
     select list
     case some(i)
         try writeByte(console, i.value)

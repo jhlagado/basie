@@ -288,9 +288,9 @@ sub bump(var n: Node)
 end
 
 var h = new nodes(1, "a", none, none)
-bump(h)                       // lends h's node
+bump(var h)                       // lends h's node
 var p: Node
-bump(p)                       // a Node in activation storage works too
+bump(var p)                       // a Node in activation storage works too
 ```
 
 A record parameter, a ticket or `var`, accepts any record of its type in program

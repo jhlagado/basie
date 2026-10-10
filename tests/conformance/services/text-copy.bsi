@@ -15,7 +15,7 @@ sub main() fails
     var src = try openRead("IN.TXT", textMode)
     var dst = try openWrite("OUT.TXT", textMode)
     while true
-        readLine(src, line) handle code
+        readLine(src, var line) handle code
             if code = endOfInput
                 exit
             end
@@ -28,7 +28,7 @@ sub main() fails
     try close(src)
     try close(dst)
     var report: string[8]
-    try appendU16(report, count)
+    try appendU16(var report, count)
     try writeText(console, report)
     try writeText(console, "\r\n")
 end

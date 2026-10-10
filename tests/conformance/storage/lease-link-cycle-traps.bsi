@@ -18,7 +18,7 @@ end
 
 sub main()
     var h = new nodes(1, none)
-    attach(h)
+    attach(var h)
     var i = id(h)
     select i.next
     case some(c)

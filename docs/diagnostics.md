@@ -107,6 +107,7 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | 85 | `missing-return` | ^1 can reach its end without returning a value |
 | 86 | `return-form` | Wrong return for this routine |
 | 117 | `select-incomplete` | A select needs case else unless its cases cover every value |
+| 118 | `var-marker` | A var parameter's argument is written var, and no other |
 
 ## Ownership and routines (Chapters 7, 10, 13 and 14)
 

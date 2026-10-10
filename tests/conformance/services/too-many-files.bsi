@@ -15,7 +15,7 @@ sub main() fails
     var e: File
     e = openRead("A.TXT", textMode) handle code
     end
-    try appendU16(line, code)
+    try appendU16(var line, code)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

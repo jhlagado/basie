@@ -10,7 +10,7 @@ sub main() fails
     var f: File
     f = openRead("NOPE.TXT", textMode) handle code
     end
-    try appendU16(line, code)
+    try appendU16(var line, code)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

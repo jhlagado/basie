@@ -46,7 +46,7 @@ sub clear(var bs: Box[])
 end
 
 sub pass(var bs: Box[])
-    clear(bs)
+    clear(var bs)
 end
 
 sub deep(var bk: Bucket[], v: u16)
@@ -55,11 +55,11 @@ end
 
 sub main()
     var loc: Box[2]
-    fill(a, 5)
-    fill(loc, 6)
+    fill(var a, 5)
+    fill(var loc, 6)
     var c = total(a) + total(b) + total(loc)
     var k = keep(a)
-    var h = take(a)
-    pass(b)
-    deep(buckets, 7)
+    var h = take(var a)
+    pass(var b)
+    deep(var buckets, 7)
 end

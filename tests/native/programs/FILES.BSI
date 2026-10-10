@@ -20,7 +20,7 @@ end
 
 sub pick(n: u8, f: File, s: string[]) fails
     var line: string[8]
-    try readLine(f, line)
+    try readLine(f, var line)
     try writeText(console, line)
     try writeText(console, s)
 end

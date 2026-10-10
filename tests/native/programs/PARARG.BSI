@@ -24,7 +24,7 @@ sub field(x: R): u8
 end
 
 sub main()
-    set(((a)))
+    set(var ((a)))
     var c = first((a)) + first(a)
     var d = field( ( r ) )
     var e = first((g()))

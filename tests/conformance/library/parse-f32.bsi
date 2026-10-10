@@ -9,9 +9,9 @@ include "PARSE.BSI"
 sub same(var line: string[], text: string[], want: f32) fails
     var v = try parseF32(text)
     if v = want
-        try appendByte(line, 'T')
+        try appendByte(var line, 'T')
     else
-        try appendByte(line, 'F')
+        try appendByte(var line, 'F')
     end
 end
 
@@ -20,34 +20,34 @@ sub bad(var line: string[], text: string[]) fails
     var v: f32 = 0.0
     v = parseF32(text) handle code
         if code = badNumber
-            try appendByte(line, 'B')
+            try appendByte(var line, 'B')
         end
         return
     end
-    try appendByte(line, '?')
+    try appendByte(var line, '?')
 end
 
 sub main() fails
     var line: string[40]
-    try same(line, "1.5", 1.5)
-    try same(line, "-0.25", -0.25)
-    try same(line, ".5", 0.5)
-    try same(line, "3.", 3.0)
-    try same(line, " 2.5e+1 ", 25.0)
-    try same(line, "0.1", 0.1)
-    try same(line, "3.14159", 3.14159)
-    try same(line, "1234.5678", 1234.5678)
-    try same(line, "123456789012", 123456789012.0)
+    try same(var line, "1.5", 1.5)
+    try same(var line, "-0.25", -0.25)
+    try same(var line, ".5", 0.5)
+    try same(var line, "3.", 3.0)
+    try same(var line, " 2.5e+1 ", 25.0)
+    try same(var line, "0.1", 0.1)
+    try same(var line, "3.14159", 3.14159)
+    try same(var line, "1234.5678", 1234.5678)
+    try same(var line, "123456789012", 123456789012.0)
     var tiny = try parseF32("1e-50")
     if tiny = 0.0
-        try append(line, " 0 ")
+        try append(var line, " 0 ")
     end
-    try bad(line, "1e39")
-    try bad(line, "abc")
-    try bad(line, "1e")
-    try bad(line, "1.2.3")
-    try bad(line, "-")
-    try bad(line, ".")
-    try append(line, "\r\n")
+    try bad(var line, "1e39")
+    try bad(var line, "abc")
+    try bad(var line, "1e")
+    try bad(var line, "1.2.3")
+    try bad(var line, "-")
+    try bad(var line, ".")
+    try append(var line, "\r\n")
     try writeText(console, line)
 end

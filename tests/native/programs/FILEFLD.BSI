@@ -25,7 +25,7 @@ sub main() fails
     try writeText(chan.out, "field\r\n")
     try writeText(outs[1], "element\r\n")
     try writeText(pick(0), "result\r\n")
-    try say(local, "through a var record\r\n")
+    try say(var local, "through a var record\r\n")
     var both: File[2]
     both[1] = outs[0]
     if local.count = 1 and both[1] = console and local.out = console

@@ -9,11 +9,11 @@ sub main() fails
     var a: u16 = 300
     var b: i16 = -3
     var c: u8 = 200
-    try appendU16(line, a * 200)
-    try appendByte(line, ' ')
-    try appendI16(line, b * 2)
-    try appendByte(line, ' ')
-    try appendU16(line, c * 3)
+    try appendU16(var line, a * 200)
+    try appendByte(var line, ' ')
+    try appendI16(var line, b * 2)
+    try appendByte(var line, ' ')
+    try appendU16(var line, c * 3)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

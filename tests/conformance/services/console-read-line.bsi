@@ -5,7 +5,7 @@
 
 sub main() fails
     var line: string[40]
-    try readLine(console, line)
+    try readLine(console, var line)
     try writeText(console, "<")
     try writeText(console, line)
     try writeText(console, ">\r\n")

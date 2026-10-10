@@ -14,13 +14,13 @@ var c: f32 = f32(-0)
 sub main() fails
     var line: string[24]
     var d: f32 = minus
-    try appendF32(line, a, 2)
-    try appendByte(line, ' ')
-    try appendF32(line, b, 2)
-    try appendByte(line, ' ')
-    try appendF32(line, c, 2)
-    try appendByte(line, ' ')
-    try appendF32(line, d, 2)
+    try appendF32(var line, a, 2)
+    try appendByte(var line, ' ')
+    try appendF32(var line, b, 2)
+    try appendByte(var line, ' ')
+    try appendF32(var line, c, 2)
+    try appendByte(var line, ' ')
+    try appendF32(var line, d, 2)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

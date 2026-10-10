@@ -1,0 +1,14 @@
+// The argument for a var parameter is written var at the call (D49).
+// spec: 13.4
+// expect error: var-marker at 13:11
+
+record Point
+    x: u8
+end
+
+sub nudge(var p: Point)
+end
+sub main()
+    var here: Point
+    nudge(here)
+end

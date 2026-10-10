@@ -1,0 +1,9 @@
+// Only a var parameter's argument is written var (D49).
+// spec: 13.4
+// expect error: var-marker at 8:10
+
+sub show(n: u8)
+end
+sub main()
+    show(var 3)
+end

@@ -8,13 +8,13 @@ sub main() fails
     var line: string[30]
     var a: i16 = -7
     var b: i16 = 2
-    try appendI16(line, a / b)
-    try appendByte(line, ' ')
-    try appendI16(line, a mod b)
-    try appendByte(line, ' ')
-    try appendI16(line, 7 / -b)
-    try appendByte(line, ' ')
-    try appendI16(line, 7 mod -b)
+    try appendI16(var line, a / b)
+    try appendByte(var line, ' ')
+    try appendI16(var line, a mod b)
+    try appendByte(var line, ' ')
+    try appendI16(var line, 7 / -b)
+    try appendByte(var line, ' ')
+    try appendI16(var line, 7 mod -b)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

@@ -17,9 +17,9 @@ end
 sub main() fails
     var line: string[12]
     var three: u16[3] = [10, 20, 30]
-    try appendU16(line, 3)
-    try appendByte(line, ' ')
-    try appendU16(line, total(three))
+    try appendU16(var line, 3)
+    try appendByte(var line, ' ')
+    try appendU16(var line, total(three))
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

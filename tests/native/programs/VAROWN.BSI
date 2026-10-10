@@ -38,7 +38,7 @@ end
 sub addAll(var t: Bucket[4], v: u16)
     var k: u8
     for k = 0 to 3
-        add(t[k], v + u16(k))
+        add(var t[k], v + u16(k))
     end
 end
 
@@ -60,10 +60,10 @@ sub total(slots: jobs?[3]): u16
 end
 
 sub main() fails
-    fill(spare, 10)
+    fill(var spare, 10)
     var before: u16 = total(spare)
-    swap(spare)
-    clear(spare, 1)
+    swap(var spare)
+    clear(var spare, 1)
     var after: u16 = total(spare)
     select spare[0]
     case some(j)
@@ -74,11 +74,11 @@ sub main() fails
         fail 2
     end
     var local: jobs?[3]
-    fill(local, 20)
-    clear(local, 0)
+    fill(var local, 20)
+    clear(var local, 0)
     var l: u16 = total(local)
-    addAll(table, 100)
-    add(row(table, 2), 7)
+    addAll(var table, 100)
+    add(var row(var table, 2), 7)
     var c: u8 = table[2].count + table[0].count
     if before = 33 and after = 22 and l = 43 and c = 3
         try writeText(console, "var owning arrays\r\n")

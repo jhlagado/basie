@@ -4344,6 +4344,17 @@ export class Compiler {
   /** Evaluate and push one argument; returns the bytes pushed. */
   private argument(p: Parameter, callee: Symbol & { kind: "routine" }): number {
     const r = this.routine!;
+    // A var parameter's argument is marked var at the call, and no other (D49).
+    if (this.isKeyword("var") !== !!p.var) {
+      fail(
+        "var-marker",
+        this.token,
+        p.var
+          ? "the argument for a var parameter is written var"
+          : "only a var parameter's argument is written var",
+      );
+    }
+    if (p.var) this.advance();
     const at = this.token;
     const t = p.type;
     if (t.kind === "openString" || t.kind === "openArray") {

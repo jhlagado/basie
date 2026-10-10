@@ -208,7 +208,7 @@ postfix-suffix
 argument-list
     ::= "(" [ argument { "," argument } ] ")"
 argument
-    ::= expression | STRING
+    ::= [ "var" ] expression | STRING
 ```
 
 `boolean(...)` matches the conversion production but is rejected semantically: there is no conversion to `boolean`. The `case-arm` sequence is constrained by Chapter 11: integer labels and `some`/`none` arms do not mix, and `case else` comes last. In `name-statement`, the `=` is required for an assignment and absent for a call; Section 17.3 selects between them. `"id" NAME` in `type-atom` and `"id" "("` in `primary` are the contextual uses of `id` (Chapter 3).

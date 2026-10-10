@@ -17,7 +17,7 @@ end
 
 sub main() fails
     var h = new nodes('A', none)
-    bump(h)
+    bump(var h)
     try writeByte(console, h.value)
     try writeText(console, "\r\n")
 end

@@ -35,8 +35,8 @@ end
 
 sub main() fails
     list = new nodes('A', new nodes('B', none))
-    try writeByte(console, pop(list))
-    var t = take(list)
-    try check(list)
+    try writeByte(console, pop(var list))
+    var t = take(var list)
+    try check(var list)
     try writeText(console, "\r\n")
 end

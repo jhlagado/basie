@@ -46,6 +46,8 @@ A call expression takes its static result type directly from the signature. A sc
 
 ## 13.4 Parameters and arguments
 
+**The `var` marker.** The argument for a `var` parameter, of any kind (an aggregate, a slot-holder, or a record passed as a lease), is written with `var` before it: `update(var current, 20)`. The marker is required there and invalid anywhere else; a missing or extra marker is `var-marker`, at the argument or at `var` (design decision D49). It marks permission to change the caller's storage, not a transfer of ownership.
+
 Arguments are evaluated from left to right, and each is bound before the next is evaluated. If argument evaluation traps, no later argument is evaluated and the body does not begin; effects of earlier arguments remain.
 
 **Scalar parameters.** A scalar parameter receives a copy of its argument, which must be compatible with the parameter type under Chapter 6: the same type, an implicit widening, or an exact value that fits. Narrowing must be written explicitly. Within the routine, a scalar parameter is a local copy and may be assigned. `var` is invalid on a scalar parameter.
@@ -53,11 +55,11 @@ Arguments are evaluated from left to right, and each is bound before the next is
 **Aggregate parameters.** A record, array or bounded-string parameter is an alias to the caller's object; no copy is made (Chapter 7, Section 7.7).
 
 - Without `var` it is a **ticket**: read-only in the routine (design decision D17). Its argument may be any aggregate designator or aggregate result of exactly the parameter's type, including a constant. For a read-only `string[]` parameter, the argument may be a bounded string of any capacity, or a string literal, which the compiler supplies as a constant.
-- With `var`, the routine may write through it. The argument must be a writable designator of exactly the parameter's type, or of any bounded-string capacity for `var s: string[]`, or any complete `T[N]` for `var a: T[]`; a constant or string literal is invalid. A call to a routine whose result is `as var` is also a writable designator, so it may be passed (Section 13.6).
+- With `var`, the routine may write through it. The argument must be a writable designator of exactly the parameter's type, or of any bounded-string capacity for `var s: string[]`, or any complete `T[N]` for `var a: T[]`; a constant or string literal is invalid. A call to a routine whose result is `: var` is also a writable designator, so it may be passed (Section 13.6).
 - A `string[]` parameter carries its argument's capacity, so `.length`, `.capacity` and indexing use the real bound.
 - An aggregate field of a pool record reached through a handle is copied into a hidden temporary of the caller when passed to a ticket (Chapter 7, Section 7.13); it cannot be passed to a `var` parameter except through a lease.
 
-**Leases.** A record parameter, ticket or `var`, also accepts the record in the slot owned by one of the caller's own owning locals or parameters, or by a temporary, written as that handle: `bump(h)` (design decision D30). This is a **lease** (Chapter 7, Section 7.14): the handle must not appear elsewhere in the same statement except as `id(h)` or a read of a scalar field, and the callee sees an ordinary record with no handle to move or free.
+**Leases.** A record parameter, ticket or `var`, also accepts the record in the slot owned by one of the caller's own owning locals or parameters, or by a temporary, written as that handle: `bump(h)`, or `bump(var h)` for a `var` parameter (design decision D30). This is a **lease** (Chapter 7, Section 7.14): the handle must not appear elsewhere in the same statement except as `id(h)` or a read of a scalar field, and the callee sees an ordinary record with no handle to move or free.
 
 **Handle parameters.**
 
@@ -102,7 +104,7 @@ end
 
 At a call, the result lives as long as the arguments passed for the `from` parameters. If any of them is rooted in a local of the caller, the result may be used within the caller but can't be returned from it. It can be returned only when every such argument is rooted in program storage or in a parameter that the caller's own `from` clause names (design decision D8).
 
-The result is read-only unless the result clause says `as var Type`. A `var` result must be rooted in a `var` parameter named in `from`, or in program storage other than a constant.
+The result is read-only unless the result clause says `: var Type`. A `var` result must be rooted in a `var` parameter named in `from`, or in program storage other than a constant.
 
 The caller consumes an aggregate result within the statement: by discarding it, passing it to a compatible parameter, returning it, applying a field or index suffix, or using it as the source of an exact-type assignment, which copies it. It cannot be stored.
 
@@ -212,8 +214,8 @@ end
 
 sub demo()
     var h = new nodes(1, none)
-    bump(h)                          // lends h's record
-    push(head, 2)                    // head is a slot-holder
+    bump(var h)                          // lends h's record
+    push(var head, 2)                    // head is a slot-holder
     sink(move h)                     // h now holds none
 end
 ```

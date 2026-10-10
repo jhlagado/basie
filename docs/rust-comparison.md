@@ -19,7 +19,7 @@ sub update(var item: Reading, value: u16)
 end
 
 sub main()
-    update(current, 20)
+    update(var current, 20)
     assert current.value = 20
 end
 ```

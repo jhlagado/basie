@@ -22,6 +22,6 @@ sub f(var list: nodes?) fails
 end
 sub main() fails
     head = new nodes(65, none)
-    try f(head)
+    try f(var head)
     try writeText(console, "\r\n")
 end

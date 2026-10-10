@@ -22,7 +22,7 @@ sub fill(): u8
     var made: u8 = 0
     var i: u8
     for i = 0 to 2
-        if addJob(queue[i], u16(i) * 10)
+        if addJob(var queue[i], u16(i) * 10)
             made = made + 1
         end
     end
@@ -36,7 +36,7 @@ sub main() fails
         total = total + fill()
     end
     var grid: jobs?[2][2]
-    assert addJob(grid[1][1], 5)
+    assert addJob(var grid[1][1], 5)
     if total = 12
         try writeText(console, "owning arrays\r\n")
     end

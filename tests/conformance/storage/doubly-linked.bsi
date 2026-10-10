@@ -52,10 +52,10 @@ sub show() fails
         select p
         case some(i)
             if started
-                try appendByte(line, ' ')
+                try appendByte(var line, ' ')
             end
             started = true
-            try appendU16(line, i.key)
+            try appendU16(var line, i.key)
             p = id(i.next)
         case none
             try writeText(console, line)

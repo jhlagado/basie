@@ -5,7 +5,7 @@
 
 sub main() fails
     var text: string[40]
-    commandTail(text)
+    commandTail(var text)
     try writeText(console, "[")
     try writeText(console, text)
     try writeText(console, "]\r\n")

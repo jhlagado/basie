@@ -42,7 +42,7 @@ sub chop(var s: string[], n: u8)
 end
 
 sub reads(f: File, var buf: u8[]): u16 fails
-    var n = try readBlock(f, buf, 4)
+    var n = try readBlock(f, var buf, 4)
     return n
 end
 
@@ -53,9 +53,9 @@ sub main() fails
     var line: string[12] = "hello"
     var bytes: u8[8]
     var t: u16 = sum(w)
-    bump(w)
-    pairs(ps, 7)
-    var c: u8 = grid(gr)
-    chop(line, 2)
-    var n = try reads(console, bytes)
+    bump(var w)
+    pairs(var ps, 7)
+    var c: u8 = grid(var gr)
+    chop(var line, 2)
+    var n = try reads(console, var bytes)
 end

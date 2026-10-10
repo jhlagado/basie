@@ -20,23 +20,23 @@ sub main() fails
     var line: string[60]
     var name: string[14]
     var there = try exists("A.TXT")
-    try appendByte(line, flag(there))
-    try appendByte(line, ' ')
+    try appendByte(var line, flag(there))
+    try appendByte(var line, ' ')
     there = try exists("Q.TXT")
-    try appendByte(line, flag(there))
-    var more = try findFirst("*.TXT", name)
+    try appendByte(var line, flag(there))
+    var more = try findFirst("*.TXT", var name)
     while more
-        try appendByte(line, ' ')
-        try append(line, name)
-        more = try findNext(name)
+        try appendByte(var line, ' ')
+        try append(var line, name)
+        more = try findNext(var name)
     end
     try delete("C.DAT")
     try rename("A.TXT", "Z.TXT")
-    try appendByte(line, ';')
-    more = try findFirst("Z*.*", name)
+    try appendByte(var line, ';')
+    more = try findFirst("Z*.*", var name)
     if more
-        try appendByte(line, ' ')
-        try append(line, name)
+        try appendByte(var line, ' ')
+        try append(var line, name)
     end
     try writeText(console, line)
     try writeText(console, "\r\n")

@@ -29,10 +29,10 @@ sub poke(var s: Sub) fails
 end
 
 sub bump(var n: Node) fails
-    try poke(n.inner)
+    try poke(var n.inner)
 end
 
 sub main() fails
     var h = new nodes(1)
-    try bump(h)
+    try bump(var h)
 end

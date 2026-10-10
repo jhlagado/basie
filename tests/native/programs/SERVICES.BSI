@@ -50,11 +50,11 @@ sub main() fails
     var free = freeMemory()
     var user = currentUser()
     var f = try openRead("DATA.TXT", textMode)
-    commandTail(text)
+    commandTail(var text)
     try put("[")
     try put(text)
     try writeText(console, "]<")
-    try readLine(console, e.name)
+    try readLine(console, var e.name)
     try writeText(console, e.name)
     try writeByte(console, '>')
     e.tag = readKey()
@@ -69,7 +69,7 @@ sub main() fails
     if free > 1000 or keyReady()
         try writeText(console, " T ")
     end
-    try readLine(f, text)
+    try readLine(f, var text)
     try close(f)
     try put(text)
     total = endOfInput + 300
@@ -79,7 +79,7 @@ sub main() fails
         cells[i] = i
     end
     e.data[2] = 3
-    got = readBlock(console, e.data, 2) handle code
+    got = readBlock(console, var e.data, 2) handle code
     end
     try writeByte(console, ' ')
     try putNumber(e.data[2])

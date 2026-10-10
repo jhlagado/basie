@@ -18,7 +18,7 @@ sub main() fails
     i = 1
     select keep
     case some(k)
-        push(k.kids[i], 'K')
+        push(var k.kids[i], 'K')
     case none
     end
     select root

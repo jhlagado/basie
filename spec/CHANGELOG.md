@@ -1,5 +1,8 @@
 # Specification change log
 
+2026-10-11: D49 requires `var` before the argument for every `var` parameter,
+and refuses it anywhere else (`var-marker`, 118).
+
 2026-10-11: D48 replaces the `else fail` suffix with the `try` prefix: `try`
 before a call statement, a local's initializer or an assignment's source
 passes the call's failure on. `try` is a reserved word.

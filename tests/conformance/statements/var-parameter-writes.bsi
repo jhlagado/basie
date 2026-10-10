@@ -16,8 +16,8 @@ end
 sub main() fails
     var line: string[8]
     var here: Point = (1, 2)
-    nudge(here)
-    try appendI16(line, here.x)
+    nudge(var here)
+    try appendI16(var line, here.x)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

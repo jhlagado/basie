@@ -576,6 +576,21 @@ RO_ARGS:
     CALL PR_PEEK                   ; Does the call close
     CP   TK_RPAR                   ; where an argument is due?
     JP   Z,.ARITY                  ; Too few arguments.
+    SUB  TK_VAR                    ; Zero if marked var (D49):
+    LD   C,A                       ; kept.
+    POP  AF                        ; The parameter's type:
+    PUSH AF                        ; a var parameter's (AG_VAR)
+    RLA                            ; argument is marked
+    LD   A,C                       ; var, and
+    JR   NC,.PLAIN                 ; no other's.
+    OR   A                         ; Marked?
+    JP   NZ,.EMARK                 ; No: var-marker.
+    CALL PR_TAKE                   ; Past var.
+    JR   .MARKED                   ; The argument.
+.PLAIN:                        ; Not a var parameter:
+    OR   A                         ; marked
+    JP   Z,.EMARK                  ; is var-marker.
+.MARKED:                       ; The marker is right.
     POP  AF                        ; The parameter's type.
     CALL AG_SCAL                 ; An aggregate?
     JR   NC,.AGGR                  ; Its address is passed.
@@ -768,6 +783,9 @@ RO_ARGS:
     LD   HL,RO_TPOS                ; at the try.
     LD   A,DG_SAFE                 ; No
     JP   DG_AT                     ; return.
+.EMARK:                        ; A var marker missing or extra:
+    CALL DG_RAISE                  ; var-marker,
+    DB   DG_VMARK                  ; at the argument.
 .DEEP:                         ; Calls nest too deeply in arguments.
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_DEEP                   ; Nested too deeply.

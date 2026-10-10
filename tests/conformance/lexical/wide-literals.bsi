@@ -8,9 +8,9 @@ sub main() fails
     var line: string[40]
     var top: u32 = $FFFFFFFF
     var next: u32 = 65536
-    try appendU32(line, top)
-    try appendByte(line, ' ')
-    try appendU32(line, next)
+    try appendU32(var line, top)
+    try appendByte(var line, ' ')
+    try appendU32(var line, next)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

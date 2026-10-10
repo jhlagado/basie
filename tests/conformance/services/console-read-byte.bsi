@@ -12,14 +12,14 @@ sub main() fails
     b = try readByte(console)
     b = try readByte(console)
     b = readByte(console) handle code
-        try appendByte(line, '[')
-        try appendU16(line, code)
-        try appendByte(line, ']')
+        try appendByte(var line, '[')
+        try appendU16(var line, code)
+        try appendByte(var line, ']')
     end
     b = readByte(console) handle code
-        try appendByte(line, '[')
-        try appendU16(line, code)
-        try appendByte(line, ']')
+        try appendByte(var line, '[')
+        try appendU16(var line, code)
+        try appendByte(var line, ']')
     end
     try writeText(console, line)
     try writeText(console, "\r\n")

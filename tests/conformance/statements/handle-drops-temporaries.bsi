@@ -23,11 +23,11 @@ sub main() fails
             passes = passes + 1
         end
     end
-    try appendU16(line, code)
-    try appendByte(line, ' ')
-    try appendU16(line, passes)
-    try appendByte(line, ' ')
-    try appendU16(line, total)
-    try append(line, "\r\n")
+    try appendU16(var line, code)
+    try appendByte(var line, ' ')
+    try appendU16(var line, passes)
+    try appendByte(var line, ' ')
+    try appendU16(var line, total)
+    try append(var line, "\r\n")
     try writeText(console, line)
 end

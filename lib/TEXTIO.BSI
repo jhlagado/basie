@@ -15,7 +15,7 @@ end
 // Write text to the console and read one edited line into answer.
 sub prompt(text: string[], var answer: string[]) fails
     try writeText(console, text)
-    try readLine(console, answer)
+    try readLine(console, var answer)
     // BDOS 10 echoes the return key as CR alone.
     try writeByte(console, 10)
 end
@@ -24,7 +24,7 @@ end
 // delete remove the last character; return ends the line; Control-Z at the
 // start is endOfInput.
 sub readSecret(var answer: string[]) fails
-    clear(answer)
+    clear(var answer)
     while true
         var k = readKey()
         if k = 13 or k = 10
@@ -39,7 +39,7 @@ sub readSecret(var answer: string[]) fails
                 answer.length = answer.length - 1
             end
         elseif k >= 32
-            try appendByte(answer, k)
+            try appendByte(var answer, k)
         end
     end
     try writeText(console, "\r\n")
@@ -48,7 +48,7 @@ end
 // Word n of text (0 for the first), words being separated by spaces and
 // tabs. False, with out empty, when text has fewer words.
 sub word(text: string[], n: u8, var out: string[]): boolean fails
-    clear(out)
+    clear(var out)
     var i: u8 = 0
     var count: u8 = 0
     while true
@@ -60,7 +60,7 @@ sub word(text: string[], n: u8, var out: string[]): boolean fails
         end
         if count = n
             while i < text.length and not blank(text[i])
-                try appendByte(out, text[i])
+                try appendByte(var out, text[i])
                 i = i + 1
             end
             return true
@@ -103,10 +103,10 @@ sub truncate(name: string[], newSize: u32, mode: u8) fails
     var temp: string[16]
     var i: u8 = 0
     while i < name.length and name[i] <> '.'
-        try appendByte(temp, name[i])
+        try appendByte(var temp, name[i])
         i = i + 1
     end
-    try append(temp, ".~")
+    try append(var temp, ".~")
     var there = try exists(temp)
     if there
         fail fileExists
@@ -123,7 +123,7 @@ sub truncate(name: string[], newSize: u32, mode: u8) fails
                 want = u16(left)
             end
             var got: u16 = 0
-            got = readBlock(source, block, want) handle code
+            got = readBlock(source, var block, want) handle code
                 abort(source)
                 abort(target)
                 fail code

@@ -7,7 +7,7 @@ include "FORMAT.BSI"
 sub main() fails
     var line: string[12]
     var x: f32 = -2.75
-    try appendI16(line, i16(x))
+    try appendI16(var line, i16(x))
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

@@ -71,17 +71,17 @@ sub draw() fails
     var line: string[20]
     var y: u8 = 0
     while y < height
-        clear(line)
+        clear(var line)
         var x: u8 = 0
         while x < width
             if x = playerX and y = playerY and bugAt(x, y)
-                try appendByte(line, '*')
+                try appendByte(var line, '*')
             elseif x = playerX and y = playerY
-                try appendByte(line, '@')
+                try appendByte(var line, '@')
             elseif bugAt(x, y)
-                try appendByte(line, 'B')
+                try appendByte(var line, 'B')
             else
-                try appendByte(line, '.')
+                try appendByte(var line, '.')
             end
             x = x + 1
         end
@@ -222,15 +222,15 @@ sub main() fails
             spawn()
         end
         try draw()
-        prompt("> ", line) handle code
+        prompt("> ", var line) handle code
             if code = endOfInput
                 return
             end
             fail code
         end
-        toLower(line)
-        var hasVerb = try word(line, 0, verb)
-        var hasNoun = try word(line, 1, noun)
+        toLower(var line)
+        var hasVerb = try word(line, 0, var verb)
+        var hasNoun = try word(line, 1, var noun)
         if equal(verb, "zap") or equal(verb, "z")
             var d = direction(noun)
             var hit = false

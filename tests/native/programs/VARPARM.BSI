@@ -26,7 +26,7 @@ end
 
 sub outer(var o: Outer, k: Outer)
     o.n = k.n + 1
-    inner(o.i)
+    inner(var o.i)
     o.far = -5
     o.pad[33] = 7
     o = k
@@ -34,8 +34,8 @@ sub outer(var o: Outer, k: Outer)
 end
 
 sub again(var o: Outer)
-    outer(o, g)
-    inner(o.i)
+    outer(var o, g)
+    inner(var o.i)
 end
 
 sub keep(var o: Outer): var Inner from o
@@ -52,9 +52,9 @@ sub main()
     var l: Outer
     var rs: Inner[3]
     var s: string[10]
-    outer(l, g)
-    again(g)
-    inner(rs[2])
-    inner(keep(l))
-    fill(cells, s)
+    outer(var l, g)
+    again(var g)
+    inner(var rs[2])
+    inner(var keep(var l))
+    fill(var cells, var s)
 end

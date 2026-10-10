@@ -44,7 +44,7 @@ end
 sub addNext(var b: Bucket, v: u16)
     // The call's result is rooted in program storage: its owner word is
     // zero, whatever path its index reads.
-    add(rows()[b.count], v)
+    add(var rows()[b.count], v)
 end
 
 sub used(items: jobs?[4]): u8
@@ -74,16 +74,16 @@ sub total(b: Bucket): u16
 end
 
 sub main() fails
-    add(bucketFor(1), 7)
-    add(bucketFor(5), 8)
-    add(same(table[2]), 9)
-    add(table[3], 10)
-    addNext(table[2], 0)
-    add(same(table[0]), 11)
-    add(table[0], 12)
+    add(var bucketFor(1), 7)
+    add(var bucketFor(5), 8)
+    add(var same(var table[2]), 9)
+    add(var table[3], 10)
+    addNext(var table[2], 0)
+    add(var same(var table[0]), 11)
+    add(var table[0], 12)
     var n: u8 = bucketFor(1).count + view(table[0]).count
-    var s: u16 = total(view(table[1])) + total(same(table[0]))
-    n = n + used(slots(table[2]))
+    var s: u16 = total(view(table[1])) + total(same(var table[0]))
+    n = n + used(slots(var table[2]))
     s = s + total(table[2]) + total(row(table, 3))
     if n = 6 and s = 57
         try writeText(console, "owning results\r\n")

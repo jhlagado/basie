@@ -72,7 +72,7 @@ sub main() fails
     assert home <> heading
     local = choose(echo(home))
     assert local = east
-    turn(point, local)
+    turn(var point, local)
     assert point.facing = east
     assert point.trail[1] = east
     global = point

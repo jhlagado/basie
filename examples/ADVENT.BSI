@@ -74,9 +74,9 @@ sub look() fails
     while i < 3
         if items[i].place = here
             var line: string[40]
-            try append(line, "There is a ")
-            try append(line, items[i].name)
-            try append(line, " here.")
+            try append(var line, "There is a ")
+            try append(var line, items[i].name)
+            try append(var line, " here.")
             try say(line)
         end
         i = i + 1
@@ -122,8 +122,8 @@ sub inventory() fails
     while i < 3
         if items[i].place = carried
             var line: string[20]
-            try append(line, "  ")
-            try append(line, items[i].name)
+            try append(var line, "  ")
+            try append(var line, items[i].name)
             try say(line)
             empty = false
         end
@@ -142,15 +142,15 @@ sub main() fails
     try say("ADVENT: bring the gold back to the cellar.")
     try look()
     while true
-        prompt("> ", line) handle code
+        prompt("> ", var line) handle code
             if code = endOfInput
                 return
             end
             fail code
         end
-        toLower(line)
-        var hasVerb = try word(line, 0, verb)
-        var hasNoun = try word(line, 1, noun)
+        toLower(var line)
+        var hasVerb = try word(line, 0, var verb)
+        var hasNoun = try word(line, 1, var noun)
         if not hasVerb
             continue
         end

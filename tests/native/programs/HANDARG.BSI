@@ -25,5 +25,5 @@ sub fo(var o: Outer)
 end
 sub main()
     var c = new outers(1)
-    fr(c.inn)
+    fr(var c.inn)
 end

@@ -10,41 +10,41 @@ include "TEXTIO.BSI"
 sub main() fails
     var name: string[20]
     var secret: string[20]
-    try prompt("Name? ", name)
-    try readSecret(secret)
+    try prompt("Name? ", var name)
+    try readSecret(var secret)
     var line: string[60]
-    try append(line, "[")
-    try append(line, name)
-    try append(line, "] [")
-    try append(line, secret)
-    try append(line, "] ")
+    try append(var line, "[")
+    try append(var line, name)
+    try append(var line, "] [")
+    try append(var line, secret)
+    try append(var line, "] ")
     var tail: string[60]
-    commandTail(tail)
+    commandTail(var tail)
     var w: string[20]
     var n: u8 = 0
-    var more = try word(tail, 0, w)
+    var more = try word(tail, 0, var w)
     while more
         n = n + 1
-        more = try word(tail, n, w)
+        more = try word(tail, n, var w)
     end
-    try appendByte(line, '0' + n)
-    try append(line, " [")
+    try appendByte(var line, '0' + n)
+    try append(var line, " [")
     var i: u8 = 0
     while i < n
         if i > 0
-            try appendByte(line, '|')
+            try appendByte(var line, '|')
         end
-        var got = try word(tail, i, w)
-        try append(line, w)
+        var got = try word(tail, i, var w)
+        try append(var line, w)
         i = i + 1
     end
-    try append(line, "] ")
+    try append(var line, "] ")
     var small: string[2]
     var code: u8 = 0
     var found: boolean = false
-    found = word(tail, 1, small) handle code
+    found = word(tail, 1, var small) handle code
         if code = lineTooLong
-            try appendByte(line, 'F')
+            try appendByte(var line, 'F')
         end
     end
     try writeLine(console, line)

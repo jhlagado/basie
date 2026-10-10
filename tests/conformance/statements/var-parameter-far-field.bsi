@@ -16,7 +16,7 @@ sub set(var p: Triple)
 end
 
 sub main() fails
-    set(t)
+    set(var t)
     try writeOutputByte(u8(t.c))
     try writeOutputByte(13)
     try writeOutputByte(10)

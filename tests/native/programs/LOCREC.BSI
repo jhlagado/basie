@@ -38,18 +38,18 @@ end
 
 sub once(): u16
     var tmp: Holder
-    fill(tmp, 3)
-    fill(tmp, 4)
+    fill(var tmp, 3)
+    fill(var tmp, 4)
     return sum(tmp)
 end
 
 sub twice(): u16
     var both: Pair
-    fill(both.a, 5)
-    fill(both.b, 6)
+    fill(var both.a, 5)
+    fill(var both.b, 6)
     var t: u16 = sum(both.a) + sum(both.b)
     var again: Holder
-    fill(again, 1)
+    fill(var again, 1)
     return t + sum(again)
 end
 

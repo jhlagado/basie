@@ -28,8 +28,8 @@ sub drop(var l: nodes?)
 end
 
 sub twice(var l: nodes?, v: u8)
-    push(l, v)
-    push(l, v + 1)
+    push(var l, v)
+    push(var l, v + 1)
 end
 
 sub show(var l: nodes?) fails
@@ -47,19 +47,19 @@ end
 
 sub main() fails
     var mine: nodes?
-    push(list, 'A')
-    push(box.head, 'B')
-    push(box.more[1], 'C')
+    push(var list, 'A')
+    push(var box.head, 'B')
+    push(var box.more[1], 'C')
     i = 0
-    push(box.more[i], 'D')
-    push(mine, 'E')
-    twice(mine, 'F')
-    try show(list)
-    try show(box.head)
-    try show(box.more[0])
-    try show(box.more[1])
-    try show(mine)
-    drop(mine)
-    try show(mine)
+    push(var box.more[i], 'D')
+    push(var mine, 'E')
+    twice(var mine, 'F')
+    try show(var list)
+    try show(var box.head)
+    try show(var box.more[0])
+    try show(var box.more[1])
+    try show(var mine)
+    drop(var mine)
+    try show(var mine)
     try writeText(console, "\r\n")
 end

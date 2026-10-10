@@ -22,7 +22,7 @@ sub main() fails
     var b = try readByte(g)
     check = check + u32(b) - 7
     try seek(g, at - 150)
-    var n = try readBlock(g, buf, 150)
+    var n = try readBlock(g, var buf, 150)
     check = check + u32(buf[0]) - 50 + u32(n) - 150
     at = try position(g)
     check = check + at - 200

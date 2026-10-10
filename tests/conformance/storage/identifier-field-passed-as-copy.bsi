@@ -22,7 +22,7 @@ sub look(x: Inner, s: string[]) fails
     case none
     end
     var line: string[20]
-    try appendU16(line, x.w)
+    try appendU16(var line, x.w)
     try writeText(console, line)
 end
 sub main() fails

@@ -1183,7 +1183,7 @@ const REFUSED: Record<string, string> = {
   "an index after an argument in parentheses":
     "var a: u8[4]\nsub f(x: u8[4]): u8\nreturn x[0]\nend\nsub main()\nvar c = f((a)[1])\nend\n",
   "a constant in parentheses to a var parameter":
-    "const a: u8[2] = [1,2]\nsub f(var x: u8[2])\nend\nsub main()\nf((a))\nend\n",
+    "const a: u8[2] = [1,2]\nsub f(var x: u8[2])\nend\nsub main()\nf(var (a))\nend\n",
   "an array in parentheses for a view":
     "var a: u8[4]\nsub f(x: u8[]): u8\nreturn x[0]\nend\nsub main()\nvar c = f((a))\nend\n",
   "main calling itself without a forward":
@@ -1388,11 +1388,11 @@ const REFUSED: Record<string, string> = {
   "a File where a number is wanted":
     "var x: u8\nsub main()\nx = console\nend\n",
   "a literal passed to a var string[]":
-    'sub main() fails\ntry readLine(console, "abc")\nend\n',
+    'sub main() fails\ntry readLine(console, var "abc")\nend\n',
   "a string[] parameter passed to a var string[]":
-    "sub f(s: string[]) fails\ntry readLine(console, s)\nend\nsub main()\nend\n",
+    "sub f(s: string[]) fails\ntry readLine(console, var s)\nend\nsub main()\nend\n",
   "a constant passed to a var string[]":
-    'const k: string[4] = "ab"\nsub main() fails\ntry readLine(console, k)\nend\n',
+    'const k: string[4] = "ab"\nsub main() fails\ntry readLine(console, var k)\nend\n',
   "a u16 array passed as a u8[]":
     "var w: u16[4]\nsub main() fails\ntry writeBlock(console, w, 2)\nend\n",
   "a string passed as a u8[]":
@@ -1517,11 +1517,11 @@ const REFUSED: Record<string, string> = {
   "a result rooted in a parameter outside from":
     "record R\na: u8\nend\nsub f(a: R, b: R): R from a\nreturn b\nend\nsub main()\nend\n",
   "a constant passed to a var parameter":
-    "record R\na: u8\nend\nconst k: R = (1)\nsub h(var r: R)\nend\nsub main()\nh(k)\nend\n",
+    "record R\na: u8\nend\nconst k: R = (1)\nsub h(var r: R)\nend\nsub main()\nh(var k)\nend\n",
   "a read-only parameter passed to a var parameter":
-    "record R\na: u8\nend\nsub h(var r: R)\nend\nsub g(r: R)\nh(r)\nend\nsub main()\nend\n",
+    "record R\na: u8\nend\nsub h(var r: R)\nend\nsub g(r: R)\nh(var r)\nend\nsub main()\nend\n",
   "a read-only call result passed to a var parameter":
-    "record R\na: u8\nend\nvar v: R\nsub f(): R\nreturn v\nend\nsub h(var r: R)\nend\nsub main()\nh(f())\nend\n",
+    "record R\na: u8\nend\nvar v: R\nsub f(): R\nreturn v\nend\nsub h(var r: R)\nend\nsub main()\nh(var f())\nend\n",
   "an open string assigned whole":
     'sub h(var s: string[])\ns = "abc"\nend\nsub main()\nend\n',
   "an open array assigned whole":
@@ -1680,6 +1680,14 @@ const REFUSED: Record<string, string> = {
     "enum E\na 1.5\nend\nsub main()\nend\n",
   "an f32 literal after a forward pool":
     "forward pool p 2.5\nsub main()\nend\n",
+  "a var parameter's argument unmarked": Deno.readTextFileSync(
+    "tests/conformance/statements/var-marker-missing.bsi",
+  ),
+  "a plain parameter's argument marked var": Deno.readTextFileSync(
+    "tests/conformance/statements/var-marker-extra.bsi",
+  ),
+  "a service's var argument unmarked":
+    "sub main() fails\n    var s: string[8]\n    try readLine(console, s)\nend\n",
   "an incomplete i32 select":
     "var x: i32\nsub main()\nselect x\ncase -2147483648 to 2147483646\nend\nend\n",
   "an incomplete u16 select":
@@ -1810,9 +1818,9 @@ const REFUSED: Record<string, string> = {
   "a lease indexed":
     'forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\npool nodes: Node[4]\nrecord Leaf\n    v: u8\n    s: string[3]\nend\npool leaves: Leaf[3]\nvar head: nodes?\nvar gl: Leaf\nvar gh: leaves?\nvar g: u8\nsub fv(r: Leaf)\nend\nsub fr(var r: Leaf)\nend\nsub main()\n    var a: nodes? = new? nodes(1, none)\n    var b: leaves? = new? leaves(1, "ab")\n    select b\n    case some(x)\n        g = x[1]\n    end\nend\n',
   "a field through an identifier passed to a var parameter (M05)":
-    "record Leaf\n    v: u8\n    s: string[3]\nend\nrecord Outer\n    w: u8\n    inn: Leaf\n    arr: Leaf[2]\nend\npool outers: Outer[3]\nvar go: outers?\nvar gl: Leaf\nvar g: u8\nsub fv(r: Leaf)\n    g = r.v\nend\nsub fr(var r: Leaf)\n    r.v = 1\nend\nsub fs(var s: string[])\nend\nsub fo(var o: Outer)\nend\nsub main()\n    select go\n    case some(x)\n        fs(x.inn.s)\n    end\nend\n",
+    "record Leaf\n    v: u8\n    s: string[3]\nend\nrecord Outer\n    w: u8\n    inn: Leaf\n    arr: Leaf[2]\nend\npool outers: Outer[3]\nvar go: outers?\nvar gl: Leaf\nvar g: u8\nsub fv(r: Leaf)\n    g = r.v\nend\nsub fr(var r: Leaf)\n    r.v = 1\nend\nsub fs(var s: string[])\nend\nsub fo(var o: Outer)\nend\nsub main()\n    select go\n    case some(x)\n        fs(var x.inn.s)\n    end\nend\n",
   "a field through an identifier passed to a var parameter (T04)":
-    "record Leaf\n    v: u8\n    s: string[3]\n    arr: u8[2]\nend\npool leaves: Leaf[3]\nvar g: u8\nvar gh: leaves?\nsub fs(var s: string[])\nend\nsub fa(a: u8[])\nend\nsub main()\n    select gh\n    case some(j)\n        fs(j.s)\n    end\nend\n",
+    "record Leaf\n    v: u8\n    s: string[3]\n    arr: u8[2]\nend\npool leaves: Leaf[3]\nvar g: u8\nvar gh: leaves?\nsub fs(var s: string[])\nend\nsub fa(a: u8[])\nend\nsub main()\n    select gh\n    case some(j)\n        fs(var j.s)\n    end\nend\n",
   "use after move":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\npool nodes: Node[8]\nvar head: nodes?\nvar g: u8\nvar c: boolean\nsub main()\n    var a = new nodes(1, none)\n    head = move a\n    g = a.value\nend\n",
   "use after a move in one arm":
@@ -2070,7 +2078,7 @@ const REFUSED: Record<string, string> = {
   "a record of another type through an identifier":
     "forward pool boxes\nforward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord A\n    w: u16\nend\nrecord B\n    q: u8\nend\nrecord Holder\n    h: nodes?\nend\nrecord Box\n    a: A\n    b: B\n    hold: Holder\n    name: string[4]\n    own: nodes?\nend\npool boxes: Box[2]\npool nodes: Node[2]\nvar keep: id boxes?\nvar gl: A\nsub mk(): A\n    return gl\nend\nsub two(x: A, y: A)\nend\nsub pb(x: B)\nend\nsub vb(var x: B)\nend\nsub ph(x: Holder)\nend\nsub vs(var s: string[])\nend\nsub ps(s: string[])\nend\nsub main()\n    select keep\n    case some(i)\n        pb(i.a)\n    case none\n    end\nend\n",
   "a record of another type through an identifier to a var parameter":
-    "forward pool boxes\nforward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord A\n    w: u16\nend\nrecord B\n    q: u8\nend\nrecord Holder\n    h: nodes?\nend\nrecord Box\n    a: A\n    b: B\n    hold: Holder\n    name: string[4]\n    own: nodes?\nend\npool boxes: Box[2]\npool nodes: Node[2]\nvar keep: id boxes?\nvar gl: A\nsub mk(): A\n    return gl\nend\nsub two(x: A, y: A)\nend\nsub pb(x: B)\nend\nsub vb(var x: B)\nend\nsub ph(x: Holder)\nend\nsub vs(var s: string[])\nend\nsub ps(s: string[])\nend\nsub main()\n    select keep\n    case some(i)\n        vb(i.a)\n    case none\n    end\nend\n",
+    "forward pool boxes\nforward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord A\n    w: u16\nend\nrecord B\n    q: u8\nend\nrecord Holder\n    h: nodes?\nend\nrecord Box\n    a: A\n    b: B\n    hold: Holder\n    name: string[4]\n    own: nodes?\nend\npool boxes: Box[2]\npool nodes: Node[2]\nvar keep: id boxes?\nvar gl: A\nsub mk(): A\n    return gl\nend\nsub two(x: A, y: A)\nend\nsub pb(x: B)\nend\nsub vb(var x: B)\nend\nsub ph(x: Holder)\nend\nsub vs(var s: string[])\nend\nsub ps(s: string[])\nend\nsub main()\n    select keep\n    case some(i)\n        vb(var i.a)\n    case none\n    end\nend\n",
   "an owning record of another type through an identifier":
     "forward pool boxes\nforward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord A\n    w: u16\nend\nrecord B\n    q: u8\nend\nrecord Holder\n    h: nodes?\nend\nrecord Box\n    a: A\n    b: B\n    hold: Holder\n    name: string[4]\n    own: nodes?\nend\npool boxes: Box[2]\npool nodes: Node[2]\nvar keep: id boxes?\nvar gl: A\nsub mk(): A\n    return gl\nend\nsub two(x: A, y: A)\nend\nsub pb(x: B)\nend\nsub vb(var x: B)\nend\nsub ph(x: Holder)\nend\nsub vs(var s: string[])\nend\nsub ps(s: string[])\nend\nsub main()\n    select keep\n    case some(i)\n        pb(i.hold)\n    case none\n    end\nend\n",
   "an owning record through an identifier copied":
@@ -2078,7 +2086,7 @@ const REFUSED: Record<string, string> = {
   "a handle field through an identifier for a string":
     "forward pool boxes\nforward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord A\n    w: u16\nend\nrecord B\n    q: u8\nend\nrecord Holder\n    h: nodes?\nend\nrecord Box\n    a: A\n    b: B\n    hold: Holder\n    name: string[4]\n    own: nodes?\nend\npool boxes: Box[2]\npool nodes: Node[2]\nvar keep: id boxes?\nvar gl: A\nsub mk(): A\n    return gl\nend\nsub two(x: A, y: A)\nend\nsub pb(x: B)\nend\nsub vb(var x: B)\nend\nsub ph(x: Holder)\nend\nsub vs(var s: string[])\nend\nsub ps(s: string[])\nend\nsub main()\n    select keep\n    case some(i)\n        ps(i.own)\n    case none\n    end\nend\n",
   "a string through an identifier to a var string parameter":
-    "forward pool boxes\nforward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord A\n    w: u16\nend\nrecord B\n    q: u8\nend\nrecord Holder\n    h: nodes?\nend\nrecord Box\n    a: A\n    b: B\n    hold: Holder\n    name: string[4]\n    own: nodes?\nend\npool boxes: Box[2]\npool nodes: Node[2]\nvar keep: id boxes?\nvar gl: A\nsub mk(): A\n    return gl\nend\nsub two(x: A, y: A)\nend\nsub pb(x: B)\nend\nsub vb(var x: B)\nend\nsub ph(x: Holder)\nend\nsub vs(var s: string[])\nend\nsub ps(s: string[])\nend\nsub main()\n    select keep\n    case some(i)\n        vs(i.name)\n    case none\n    end\nend\n",
+    "forward pool boxes\nforward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord A\n    w: u16\nend\nrecord B\n    q: u8\nend\nrecord Holder\n    h: nodes?\nend\nrecord Box\n    a: A\n    b: B\n    hold: Holder\n    name: string[4]\n    own: nodes?\nend\npool boxes: Box[2]\npool nodes: Node[2]\nvar keep: id boxes?\nvar gl: A\nsub mk(): A\n    return gl\nend\nsub two(x: A, y: A)\nend\nsub pb(x: B)\nend\nsub vb(var x: B)\nend\nsub ph(x: Holder)\nend\nsub vs(var s: string[])\nend\nsub ps(s: string[])\nend\nsub main()\n    select keep\n    case some(i)\n        vs(var i.name)\n    case none\n    end\nend\n",
   "an owner for an identifier parameter":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub look(i: id nodes?)\n    select i\n    case some(n)\n        g = n.value\n    case none\n    end\nend\nsub must(i: id nodes)\n    g = i.value\nend\nsub main()\n    var a = new nodes(1, none)\n    look(a)\nend\n",
   "none for a non-optional identifier parameter":
@@ -2115,7 +2123,7 @@ const REFUSED: Record<string, string> = {
     "tests/conformance/storage/move-in-elseif-condition.bsi",
   ),
   "a maybe-moved owner of another pool lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new leaves(1)\n    if g = 1\n        var b = move a\n    end\n    bump(a)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new leaves(1)\n    if g = 1\n        var b = move a\n    end\n    bump(var a)\nend\n",
   "id of a value record parameter":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub f(n: Node)\n    var i = id(n)\nend\nsub main()\nend\n",
   "id of a local record":
@@ -2129,25 +2137,25 @@ const REFUSED: Record<string, string> = {
   "id of a var array parameter":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub f(var a: u8[2])\n    var i = id(a)\nend\nsub main()\nend\n",
   "an optional owner lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a: nodes? = new nodes(1, none)\n    bump(a)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a: nodes? = new nodes(1, none)\n    bump(var a)\nend\n",
   "an identifier lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = id(list)\n    bump(a)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = id(list)\n    bump(var a)\nend\n",
   "another pool's owner lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new leaves(1)\n    bump(a)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new leaves(1)\n    bump(var a)\nend\n",
   "a program variable lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    bump(list)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    bump(var list)\nend\n",
   "a moved owner lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    var b = move a\n    bump(a)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    var b = move a\n    bump(var a)\nend\n",
   "a maybe-moved owner lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    if g = 1\n        var b = move a\n    end\n    bump(a)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    if g = 1\n        var b = move a\n    end\n    bump(var a)\nend\n",
   "a lease passed to a var record parameter":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    select list\n    case some(k)\n        bump(k)\n    case none\n    end\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    select list\n    case some(k)\n        bump(var k)\n    case none\n    end\nend\n",
   "an owning field lent":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    bump(a.next)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    var a = new nodes(1, none)\n    bump(var a.next)\nend\n",
   "a value record parameter's owner moved":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub f(n: Node)\n    var x = move n.next\nend\nsub main()\nend\n",
   "a number for an owning record parameter":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    bump(5)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub main()\n    bump(var 5)\nend\n",
   "a number for a record parameter":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Leaf\n    v: u8\nend\npool nodes: Node[8]\npool leaves: Leaf[2]\nvar list: nodes?\nvar keep: id nodes?\nvar g: u8\nsub bump(var n: Node)\n    n.value = n.value + 1\nend\nsub look(n: Node)\n    g = n.value\nend\nsub make(): nodes\n    return new nodes(1, none)\nend\nsub l(x: Leaf)\nend\nsub main()\n    l(5)\nend\n",
   "a var non-optional owning parameter":
@@ -2155,21 +2163,21 @@ const REFUSED: Record<string, string> = {
   "a var identifier parameter":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub f(var l: id nodes?)\nend\nsub main()\nend\n",
   "a scalar for a slot-holder":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(g, 1)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(var g, 1)\nend\n",
   "another pool's owner for a slot-holder":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(o, 1)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(var o, 1)\nend\n",
   "a slot-holder through an identifier":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    select keep\n    case some(k)\n        push(k.next, 1)\n    case none\n    end\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    select keep\n    case some(k)\n        push(var k.next, 1)\n    case none\n    end\nend\n",
   "a slot-holder through a lease":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    select list\n    case some(k)\n        push(k.next, 1)\n    case none\n    end\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    select list\n    case some(k)\n        push(var k.next, 1)\n    case none\n    end\nend\n",
   "none for a slot-holder":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(none, 1)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(var none, 1)\nend\n",
   "a move for a slot-holder":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(move list, 1)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(var move list, 1)\nend\n",
   "a non-optional owner for a slot-holder":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    var a: nodes = new nodes(1, none)\n    push(a, 1)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    var a: nodes = new nodes(1, none)\n    push(var a, 1)\nend\n",
   "a routine for a slot-holder":
-    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(main, 1)\nend\n",
+    "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\nrecord Box\n    head: nodes?\nend\npool nodes: Node[8]\npool other: Node[2]\nvar list: nodes?\nvar keep: id nodes?\nvar o: other?\nvar g: u8\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub main()\n    push(var main, 1)\nend\n",
   "a slot-holder copied":
     "forward pool nodes\nrecord Node\n    value: u8\n    next: nodes?\nend\npool nodes: Node[8]\nvar list: nodes?\nsub push(var l: nodes?, v: u8)\n    l = new nodes(v, none)\nend\nsub f(var l: nodes?)\n    var a = l\nend\nsub main()\nend\n",
   "a move in an operand of and":

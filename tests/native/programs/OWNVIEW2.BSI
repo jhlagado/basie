@@ -22,12 +22,12 @@ sub r(var bx: Box)
 end
 
 sub fill(var bs: Box[])
-    r(bs[1])
+    r(var bs[1])
     bs[0].n = 1
 end
 
 sub viaRecord(var k: Bucket)
-    fill(k.items)
+    fill(var k.items)
 end
 
 sub pair(var two: Box[2])
@@ -36,11 +36,11 @@ end
 
 sub rows(var v: Box[][2])
     v[1][0].h = new jobs(2)
-    pair(v[0])
+    pair(var v[0])
 end
 
 sub main()
-    fill(a)
-    viaRecord(b)
-    rows(m)
+    fill(var a)
+    viaRecord(var b)
+    rows(var m)
 end

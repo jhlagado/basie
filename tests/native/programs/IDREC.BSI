@@ -27,7 +27,7 @@ end
 
 sub main() fails
     var h = new nodes('A', none)
-    mark(h)
+    mark(var h)
     try show()
     var list: nodes? = new nodes('B', none)
     select list
@@ -36,7 +36,7 @@ sub main() fails
     case none
     end
     try show()
-    mark(loose)
+    mark(var loose)
     try show()
     try writeText(console, "\r\n")
 end

@@ -18,9 +18,9 @@ sub show() fails
     var line: string[20]
     select gb
     case some(j)
-        try appendU16(line, j.w)
-        try appendByte(line, ' ')
-        try appendU16(line, j.arr[2])
+        try appendU16(var line, j.w)
+        try appendByte(var line, ' ')
+        try appendU16(var line, j.arr[2])
     case none
     end
     try writeText(console, line)

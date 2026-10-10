@@ -1196,11 +1196,12 @@ not admission of nested failure calls or new expression positions.
 
 ### D49. A writable argument is marked `var` at the call
 
-**Current status, 2026-10-10.** Accepted for the next-milestone plan after review.
-The feature is unimplemented and does not change the
-current 0.1 completion scope. It marks permission to mutate caller storage,
-not ownership transfer or Rust-style exclusivity. Lease arguments and forwarded
-writable-result spelling remain to settle. No implementation is requested now.
+**Current status, 2026-10-11.** Implemented in both compilers, with the library, tests,
+examples, specification and book migrated. It marks permission to mutate caller storage,
+not ownership transfer or Rust-style exclusivity. The marker is required exactly when the
+parameter is `var`, whatever the argument: an aggregate, a slot-holder, a lease
+(`bump(var h)`) or a call whose result is `: var T`. A missing or extra marker is
+`var-marker` (118), at the argument or at `var`.
 
 A call to a routine with a `var` parameter marks the argument:
 
@@ -1214,7 +1215,7 @@ The marker is required. A missing or unexpected `var` is a compile error. D17 is
 
 **Why.** `var` in a declaration is easy to miss, and the reader of a call can't see it at all. With the marker, every call that can change the caller's data shows it where it happens, as Rust's `&mut` does.
 
-**To settle.** The marker for a lease (`bump(var h)`, D30) and for passing on a `var` result.
+**Settled.** A lease and a `var` result take the marker like any other argument for a `var` parameter.
 
 ### D50. `for … in` iterates over an array
 

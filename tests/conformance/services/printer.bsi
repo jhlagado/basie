@@ -11,7 +11,7 @@ sub main() fails
     var b: u8
     b = readByte(printer) handle code
     end
-    try appendU16(line, code)
+    try appendU16(var line, code)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

@@ -1,7 +1,7 @@
 // A field reached through an identifier can't be passed to a var parameter
 // (7.13; review finding B2).
 // spec: 7.13
-// expect error: not-writable at 23:14
+// expect error: not-writable at 23:18
 include "FORMAT.BSI"
 record Inner
     w: u16
@@ -20,13 +20,13 @@ sub main() fails
     gb = new boxes()
     select gb
     case some(j)
-        bump(j.inner)
+        bump(var j.inner)
     case none
     end
     var line: string[20]
     select gb
     case some(j)
-        try appendU16(line, j.inner.w)
+        try appendU16(var line, j.inner.w)
     case none
     end
     try writeText(console, line)

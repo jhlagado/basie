@@ -28,13 +28,13 @@ sub look(x: Holder) fails
     case none
     end
     var line: string[20]
-    try appendU16(line, x.w)
-    try appendByte(line, ' ')
+    try appendU16(var line, x.w)
+    try appendByte(var line, ' ')
     select x.h
     case some(k)
-        try appendU16(line, k.v)
+        try appendU16(var line, k.v)
     case none
-        try appendByte(line, 'N')
+        try appendByte(var line, 'N')
     end
     try writeText(console, line)
 end

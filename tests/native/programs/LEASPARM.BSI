@@ -22,7 +22,7 @@ sub make(): nodes
     return new nodes(1, none)
 end
 sub f(h: nodes)
-    bump(h)
+    bump(var h)
     look(h)
 end
 sub main()

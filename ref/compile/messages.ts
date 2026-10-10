@@ -187,6 +187,12 @@ const TABLE: [number, string, string, Group][] = [
   [115, "move-position", "move can't appear in ^1", OWN],
   [116, "empty-enum", "An enum needs at least one member", DECL],
   [
+    118,
+    "var-marker",
+    "A var parameter's argument is written var, and no other",
+    EXPR,
+  ],
+  [
     117,
     "select-incomplete",
     "A select needs case else unless its cases cover every value",
