@@ -46,7 +46,8 @@
     "TokenSelect": "TK_SEL",
     "TokenCase": "TK_CASE",
     "TokenPool": "TK_POOL",
-    "TokenQuestion": "TK_QUEST"
+    "TokenQuestion": "TK_QUEST",
+    "TokenEnum": "TK_ENUMD"
   },
   "diagnosticCodes": {
     "DiagnosticExpectedDeclaration": "DG_DECL",
@@ -220,7 +221,8 @@
     "SavePoolCapacity": "PL_HOLD",
     "CommitPool": "PL_CMT",
     "RefuseOwningInitializer": "PL_SINIT",
-    "MakeOptionalHandle": "PL_OPT"
+    "MakeOptionalHandle": "PL_OPT",
+    "EnumDeclaration": "EN_DECL"
   },
   "equates": {
     "GR_STMT": "statement",
@@ -352,6 +354,9 @@
       "TokenName",
       "TokenType",
       "TokenString"
+    ],
+    "EnumDeclaration": [
+      "TokenName"
     ]
   },
   "productions": [
@@ -1147,6 +1152,13 @@
         "TokenEquals",
         "x:InferredInitializer",
         "a:FinishLocalInitializer"
+      ]
+    },
+    {
+      "lhs": "private-declaration",
+      "rhs": [
+        "TokenEnum",
+        "x:EnumDeclaration"
       ]
     }
   ]

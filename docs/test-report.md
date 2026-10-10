@@ -1,7 +1,8 @@
 # Test report
 
 Roadmap step 69: large-program tests and stress tests, brought up to date at
-the end of step 74, version 1. This report records what the test suite proves
+the end of step 74 (the current 0.1 line), with plain enum verification
+added on 2026-10-10. This report records what the test suite proves
 about the toolchain, how it is run, and the limits it found. The capacity figures themselves are in the
 [limits register](limits.md) §5.1 and §5.2.
 
@@ -28,10 +29,10 @@ programs in the stress test rather than 40.
 | The native shell (`basie_native_test.ts`) | 31 | Options, the library check, the stamp, chaining to `BLINK`, overlays, diagnostics, memory and nesting bounds. |
 | The book's examples (`book_test.ts`) | 1 | Every example program of Programming Basie (debug80-docs, roadmap step 71) compiles with `BASIE.COM` to the reference's four streams, names included. |
 | The native linker (`blink_test.ts`) | 53 | `BLINK.COM` links what the reference linker links, to the same image, and refuses alike. |
-| The conformance corpus (`conformance_test.ts`, `conformance_triptych_test.ts`) | 6 | 174 programs run on the reference toolchain with their recorded results, 106 of them on real CP/M 2.2. |
+| The conformance corpus (`conformance_test.ts`, `conformance_triptych_test.ts`) | 6 | 176 programs run on the reference toolchain with their recorded results, 108 of them on real CP/M 2.2. The native compiler also builds and links the enum fixture under that operating system. |
 | The reference toolchain | the rest | The lexer, grammar, source loader, object formats, linker, helper table, `f32` constants, messages and publishing. |
 
-The whole suite, 1,045 tests, passes. Every program of the conformance corpus, the examples, the native test programs and the library that the reference compiles, 250 in all, compiles natively too (a sweep, `tools/_sweep.ts`, at 74.20); the constructs the native compiler still refuses (Error 191) are those the reference refuses too, with another diagnostic, and the open arrays of handles and of `File`s, which wait for version 2 ([limits](limits.md)).
+The whole suite, 1,124 tests, passes. Every program of the conformance corpus, the examples, the native test programs and the library that the reference compiles, 250 in all, compiles natively too (a sweep, `tools/_sweep.ts`, at 74.20); the constructs the native compiler still refuses (Error 191) are those the reference refuses too, with another diagnostic, and the open arrays of handles and of `File`s, which wait for version 2 ([limits](limits.md)).
 
 ## 3. Large programs and stress tests
 
@@ -109,3 +110,66 @@ large routines and many routines slow.
   and read again after.
 - A routine is bounded by its log, about 20 bytes a statement, beside its
   part's source: 413 one-line statements beside a 7.6K part.
+
+## 6. Plain enums
+
+Plain nominal enums (D53) are implemented in the reference and CP/M compilers.
+`tests/plain_enums_test.ts` checks 79 cases: compile, link and execute enum
+variables, constants, record fields, arrays, parameters and results; compare
+all four object streams; and reject mixed enum/integer operations and invalid
+members. Boundary proofs cover 256/257 members, 48/49 shared type descriptors,
+and the last supported native open-array element ID (39) versus ID 40. An
+untyped enum constant retains its nominal identity. The Triptych CP/M 2.2 test
+also compiles the enum fixture with BASIE, chains to BLINK and runs the result. Existing integer selection
+and `as` syntax remain; typed failures and exhaustive selection are separate work.
+
+### Compiler cost and compression
+
+ATOM builds give the following accounting. Workspace is the compiler's writable
+region, including the grammar stack, FLOAT scratch and owner descriptors;
+it excludes the separately reserved 1,152-byte machine stack and shell/blob
+workspace. No runtime helper or linker change is required.
+
+| Component | Before enums | Enums before compression | After compression |
+| --- | ---: | ---: | ---: |
+| Compiler code | 24,195 | 24,780 | 24,697 |
+| Immutable compiler tables | 278 | 282 | 282 |
+| Resident image, including shell | 24,927 | 25,516 | 25,433 |
+| Reserved overlay window | 2,611 | 2,611 | 2,611 |
+| Resident plus overlay window | 27,538 | 28,127 | 28,044 |
+| Compiler writable workspace | 4,812 | 4,812 | 4,812 |
+| Overlay file | 10,368 | 10,496 | 10,496 |
+
+The compression pass saves 83 resident bytes, primarily by sharing nominal
+symbol decoding, removing checks already made by callers, simplifying class
+encoding and shortening four branches. Independent reviews checked type identity,
+flags, stack balance, diagnostic positions and the packed memory layout. The
+net resident cost is 506 bytes, with 628 bytes left below the 28 KiB limit.
+The DIAG overlay grows by 13 bytes (one extra disk record); no overlay is added.
+Generated object streams remain byte-identical to the reference compiler.
+
+The source/symbol region begins at `$85EC`, 512 bytes above the pre-enum `$83EC`.
+Compression recovers one page from the uncompressed `$86EC` layout, but does not
+eliminate the feature's capacity cost. BIGSPLF's 518 lines retain every token
+and statement; removing one leading space from each indented line reduces its
+source allocation by exactly four CP/M records, restoring its former source-end
+address. Its test now requires code-spill writes and reads and a subsequent
+FLOAT-overlay reload, as well as all existing stream comparisons and execution
+against the reference build. Specification capacity minimums are checked by the
+existing stress suite.
+
+### Measured compile paths
+
+These CP/M harness measurements compare the same enum implementation before
+and after compression. They count CPU T-states and overlay record reads;
+mechanical disk latency is not simulated.
+
+| Source | Before compression T-states | After compression T-states | Overlay records read, both builds |
+| --- | ---: | ---: | ---: |
+| Empty main | 2,087,802 | 2,082,683 | 35 |
+| Enum values fixture, including record/array storage | 8,811,055 | 8,796,573 | 48 |
+| Plain enum with a local and equality assertion | 2,382,237 | 2,374,931 | 35 |
+
+Successful compilation reads the same overlay records in the same order.
+Thus the compression savings do not depend on additional disk loads. These are
+emulator proofs, not measurements on a physical floppy drive.

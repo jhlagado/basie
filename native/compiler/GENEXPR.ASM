@@ -50,7 +50,11 @@
 ; bytes in bits 0 to 2, bit 6 for a Boolean or an f32, bit 7 for a signed
 ; type. Every other register is kept.
 
-GX_PROP:                       ; A is the type.
+GX_PROP:
+    CP   AG_FIRST                  ; Nominal enum scalars use byte storage.
+    JR   C,.BUILTIN
+    LD   A,SY_U8
+.BUILTIN:
     PUSH HL                        ; Keep HL.
     LD   HL,GX_PTAB                ; The table
     ADD  A,L                       ; indexed
@@ -364,7 +368,7 @@ GX_TOREG:                      ; D is the metadata, E the type, HL a known value
     RET                            ; DEHL is the value.
 .HELD:                         ; The value is in the registers.
     LD   A,D                       ; Its type
-    AND  SY_TMASK                  ; alone.
+    AND  EX_TMASK                  ; alone.
     CP   E                         ; The destination's?
     RET  Z                         ; Nothing to do.
     PUSH DE                        ; Keep the metadata and the type.
@@ -448,7 +452,7 @@ GX_ZEXT:                       ; A byte becomes a word.
 GX_PUSH:                       ; A is the left operand's metadata.
     BIT  7,A                       ; SY_KNOWN: a constant?
     RET  NZ                        ; It needs no code.
-    AND  SY_TMASK                  ; Its type:
+    AND  EX_TMASK                  ; Its type:
     CALL GX_SIZE                   ; its size.
     LD   A,$F5                     ; PUSH AF: a byte is in A.
     JR   C,GX_PUSHA                ; A byte it is.
@@ -636,7 +640,7 @@ GX_TRIM:                       ; D is the source's type, E the target's.
     CALL .TOPC                     ; Then RLA, CALL C,TRAP_NAR.
     POP  AF                        ; A byte is
     CALL Z,GX_ZEXT                 ; zero-extended to a word,
-    JP   GX_DE0                    ; and the high word is LD DE,0.
+    JR   GX_DE0                    ; and the high word is LD DE,0.
 
 ;@ROUTINE OUT HL,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; Z when the narrowing's target, not a long, is a byte; HL addresses

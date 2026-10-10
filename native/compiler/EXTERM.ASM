@@ -150,15 +150,17 @@ EX_NAME:
     JP   Z,RO_FUNC                 ; Yes: parse a call for its result.
     CALL SY_GET                    ; Fetch class/type and payload, or fail.
     LD   D,A                       ; Keep the symbol info.
+    BIT  6,A                       ; Type name?
+    JP   NZ,EN_MEM
     AND  SY_AGGR                   ; An aggregate?
     CALL NZ,EX_KNOT                ; (not constant)
     JP   NZ,RO_OBJ                 ; Yes: parse its field or element path.
     LD   A,D                       ; A scalar: D is its info, BC its payload.
-    CALL EX_CLASS                  ; Reject a type name; zero for a constant.
+    AND  SY_CMASK                  ; Type names and aggregates were routed above.
     JR   Z,.CONST                  ; A constant folds to a literal.
     CALL EX_KNOT                   ; A variable is not constant.
     LD   A,D                       ; Recover the symbol info.
-    AND  SY_TMASK                  ; Keep the type.
+    CALL EN_STYPE                  ; Decode the packed scalar type at HL.
     LD   E,A                       ; E is the variable's type.
     LD   A,D                       ; Recover the symbol info.
     AND  SY_CMASK                  ; Keep the storage class.
@@ -179,6 +181,10 @@ EX_NAME:
     OR   A                         ; Clear carry for success.
     RET                            ; Return it.
 .CONST:                        ; A scalar constant: BC its value's low word,
+    LD   A,D
+    CALL EN_STYPE
+    CP   AG_FIRST
+    JR   NC,.ECONST
     LD   (EX_KVAL),BC              ; and HL its record's payload, whose
     INC  HL                        ; high bytes follow it
     PUSH DE                        ; (the info kept)
@@ -188,6 +194,13 @@ EX_NAME:
     POP  BC                        ; B is the constant's type,
     SET  7,B                       ; known (SY_KNOWN).
     JP   EX_LITK                   ; Return it.
+
+.ECONST:
+    LD   H,B
+    LD   L,C
+    LD   B,A
+    SET  7,B
+    JP   EX_LIT
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse a parenthesized expression after its '(' and require the ')'.
@@ -239,14 +252,16 @@ EX_CONV:                       ; C is the target type.
     CP   SY_BOOL                   ; no conversion
     JR   Z,.NONE                   ; to Boolean,
     CALL EX_DBOOL                  ; nor from one.
-    JR   Z,.NONE                   ; (conversion-unavailable)
+    JR   Z,.NONE
+    CP   AG_FIRST
+    JR   NC,.NONE                   ; (conversion-unavailable)
     BIT  7,D                       ; A known operand?
     JR   Z,.COMPUTED               ; No: converted at run time.
     PUSH HL                        ; Keep the parenthesis.
     PUSH BC                        ; (and the target)
     LD   HL,EX_KVAL                ; The value:
     LD   A,D                       ; from
-    AND  SY_TMASK                  ; an f32
+    AND  EX_TMASK                  ; an f32
     CP   SY_F32                    ; to an integer
     JR   NZ,.FROMINT               ; it is truncated,
     LD   A,C                       ; to an f32
@@ -297,11 +312,13 @@ EX_CONV:                       ; C is the target type.
 EX_INT:
     LD   D,A                       ; Keep the metadata.
     CALL EX_TBOOL                  ; Is its type Boolean?
-    JR   Z,.BOOL                   ; Yes: an integer is required.
+    JR   Z,EX_SIGN                 ; Yes: an integer is required.
+    CP   AG_FIRST
+    JR   NC,EX_SIGN
     LD   A,D                       ; Recover the metadata.
     OR   A                         ; Clear carry.
     RET                            ; Return it.
-.BOOL:                         ; A Boolean:
+EX_SIGN:                       ; An invalid numeric operand:
     LD   H,B                       ; type-mismatch
     LD   L,C                       ; at
     LD   A,DG_CLASH                ; the
@@ -334,7 +351,12 @@ EX_PLUS:
     PUSH HL                        ; kept.
     CALL EX_UNARY                  ; Parse its operand, signs included.
     POP  BC                        ; The sign's offset, BC.
-    RET                            ; Unary plus takes any operand.
+    PUSH AF
+    AND  EX_TMASK
+    CP   AG_FIRST
+    JR   NC,EX_SIGN
+    POP  AF
+    RET                            ; Other existing unary-plus rules remain.
 
 ;@ROUTINE OUT A,HL,CARRY CLOBBERS SIGN,PARITY,HALFCARRY,ZERO,BC,DE,IX,IY
 ; Parse unary minus (negate): an exact operand is negated exactly, and
@@ -355,7 +377,7 @@ EX_MINUS:
     RET                            ; Return it.
 .FOLD:                         ; EX_KVAL is the known value.
     LD   B,A                       ; An f32's
-    AND  SY_TMASK                  ; sign
+    AND  EX_TMASK                  ; sign
     CP   SY_F32                    ; bit
     LD   A,B                       ; (the metadata)
     JR   NZ,.WHOLE                 ; flips,
@@ -370,7 +392,7 @@ EX_MINUS:
     CALL VL_NEG                    ; negated.
     POP  BC                        ; B is the metadata,
     LD   A,B                       ; its type
-    AND  SY_TMASK                  ; alone:
+    AND  EX_TMASK                  ; alone:
     LD   C,A                       ; exact or typed,
     JP   NZ,EX_FOLD                ; a typed one wrapped; return.
     JP   EX_LITK                   ; An exact one as it is.

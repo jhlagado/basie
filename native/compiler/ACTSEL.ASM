@@ -122,7 +122,7 @@ AC_PICK:
     JR   C,.HCALL                  ; from
     CP   AG_FILE                   ; an
     JR   Z,.VALUE                  ; aggregate
-    CP   AG_FIRST                  ; result
+    CALL AG_SCAL                 ; result
     JR   C,.VALUE                  ; (any other value is an
     CALL RO_PART                   ; expression): the call and its path,
     CALL PL_ISHND                  ; a handle
@@ -170,7 +170,7 @@ AC_PICK:
     LD   D,A                       ; Keep the metadata:
     CALL AC_SAFE                   ; no failure may be pending.
     LD   A,D                       ; Its type,
-    AND  SY_TMASK                  ; alone,
+    AND  EX_TMASK                  ; alone,
     LD   E,A                       ; in E.
     BIT  7,D                       ; Known?
     JR   Z,.TYPED                  ; No: it is in the registers.
@@ -180,12 +180,15 @@ AC_PICK:
     CALL GX_TOREG                  ; A typed constant is loaded.
     LD   A,E                       ; Its type.
 .TYPED:                        ; A is the subject's type, in the registers.
+    CP   AG_FIRST                  ; Nominal enums are scalar subjects.
+    JR   NC,.SUBJECT               ; Their type remains in the frame.
     CP   SY_BOOL                   ; A Boolean,
     JP   Z,EX_EFIT                 ; or anything
     DEC  A                         ; but the types
     CP   SY_I32                    ; from u8 to i32,
     INC  A                         ; is no integer
     JP   NC,EX_EFIT                ; (type-mismatch at it).
+.SUBJECT:                      ; A is an integer or nominal enum type.
     LD   (AC_BOUND),A              ; Keep the type for the frame.
     CALL GX_PROP                   ; Its size
     AND  7                         ; is the slot's,
@@ -367,6 +370,10 @@ AC_LABEL:
     CALL PR_PEEK                   ; A range
     CP   TK_TO                     ; has `to`
     JR   NZ,.SINGLE                ; and a high value.
+    CALL .TYPE                     ; Enum labels are single members.
+    CP   AG_FIRST                  ; Enum IDs are above builtins here.
+    LD   A,DG_CLASH                ; A range is a type mismatch,
+    JP   NC,DG_KEPT                ; at the retained label's first token.
     CALL PR_TAKE                   ; Past `to`,
     LD   DE,AC_RVAL+4              ; the high value,
     CALL .VALUE                    ; after the low.

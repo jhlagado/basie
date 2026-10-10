@@ -441,6 +441,9 @@ function partsBeside(file: string): Record<string, Uint8Array> {
  */
 function native(name: string, options = "") {
   const source = Deno.readFileSync(path(name));
+  let spillWritten = false, spillRead = false, floatReloaded = false;
+  const floatIndex = built.overlays.findIndex((o) => o.name === "FLOAT");
+  const floatFirst = OVL[9 + 4 * floatIndex + 2];
   const run = runCom(basie, {
     tail: `${name} [C${options}]`,
     files: {
@@ -450,8 +453,25 @@ function native(name: string, options = "") {
       "BASIE.OVL": OVL,
     },
     maxSteps: 50_000_000,
+    onBdos: name === "BIGSPLF"
+      ? (call) => {
+        if (call.file === "BIGSPLF.$CD") {
+          if (call.fn === 21 || call.fn === 34) spillWritten = true;
+          if (call.fn === 20 || call.fn === 33) spillRead = true;
+        }
+        if (
+          spillWritten && call.file === "BASIE.OVL" &&
+          (call.fn === 20 || call.fn === 33) && call.record === floatFirst
+        ) floatReloaded = true;
+      }
+      : undefined,
   });
   assertEquals(run.output, "", `${name}${options}`);
+  if (name === "BIGSPLF") {
+    assertEquals(spillWritten, true, "BIGSPLF writes its code spill");
+    assertEquals(spillRead, true, "BIGSPLF reads its code spill back");
+    assertEquals(floatReloaded, true, "FLOAT reloads after the spill");
+  }
   return run.disk;
 }
 
@@ -1034,6 +1054,7 @@ Deno.test("BLINK links BASIE.COM's streams and the programs run", async () => {
     ...CLAIMED["74: File fields, elements and results"],
     ...CLAIMED["74: comparisons as inferred locals"],
     ...CLAIMED["74: paths from calls"],
+    ...CLAIMED["74: the spill in an overlay, FLOAT loaded again"],
   ];
   for (const name of run) {
     const disk = native(name);
@@ -1107,11 +1128,11 @@ const REFUSED: Record<string, string> = {
   "a u8 counter with a u32 bound (D58)":
     "var n as u32 = 300\nsub main()\nvar i as u8\nfor i = 0 to n\nend\nend\n",
   "an indexed path from a call's result that is no File":
-    "record Channel\nitems as u8[4]\nend\nvar chan as Channel\nvar i as u8\nsub mk() as Channel\nreturn chan\nend\nsub main() fails\nwriteText(mk().items[i + 1], \"x\") else fail\nend\n",
+    'record Channel\nitems as u8[4]\nend\nvar chan as Channel\nvar i as u8\nsub mk() as Channel\nreturn chan\nend\nsub main() fails\nwriteText(mk().items[i + 1], "x") else fail\nend\n',
   "id undeclared, read as an identifier's value":
     "record Job\nnumber as u16\nend\npool jobs as Job[4]\nvar g as jobs?\nvar keep as id jobs?\nsub main()\nkeep = id\nend\n",
   "a File argument's parenthesis left open":
-    "sub main() fails\n    writeText((console, \"x\") else fail\nend\n",
+    'sub main() fails\n    writeText((console, "x") else fail\nend\n',
   "a mismatch after an inferred new in parentheses, at its own value":
     "record Job\nnumber as u16\nend\npool jobs as Job[4]\nsub main()\nvar h = (new jobs(1))\nvar x as jobs = 5\nend\n",
   "an identifier moved in parentheses, inferred":
@@ -1122,14 +1143,12 @@ const REFUSED: Record<string, string> = {
     "sub f(x as u8) as u8\nreturn x\nend\nsub main()\nvar c = f(3\nend\n",
   "a bracket left open at the part's end, after its last line":
     "sub main()\nvar c = (1 + 2\n",
-  "a `]` closing a `(`":
-    "var t as u8[4]\nsub main()\nvar c = t[(1]\nend\n",
-  "a `)` closing a `[`":
-    "var t as u8[4]\nsub main()\nvar c = t[1)\nend\n",
+  "a `]` closing a `(`": "var t as u8[4]\nsub main()\nvar c = t[(1]\nend\n",
+  "a `)` closing a `[`": "var t as u8[4]\nsub main()\nvar c = t[1)\nend\n",
   "a bad character after a parse fault":
     "sub main()\nvar c = 1 +\nvar d = 2 # 3\nend\n",
   "an unterminated string after a parse fault":
-    "sub main()\nvar c = 1 +\nvar d = \"abc\nend\n",
+    'sub main()\nvar c = 1 +\nvar d = "abc\nend\n',
   "the innermost of two brackets left open":
     "sub main()\nvar c = (1 + [2\nend\n",
   "a malformed number after a parse fault":
@@ -1162,7 +1181,8 @@ const REFUSED: Record<string, string> = {
     "var a as u8[4]\nsub f(x as u8[]) as u8\nreturn x[0]\nend\nsub main()\nvar c = f((a))\nend\n",
   "main calling itself without a forward":
     "var n as u8\nsub main()\nn = n + 1\nif n < 3\nmain()\nend\nend\n",
-  "a forward main with a parameter": "forward sub main(x as u8)\nsub main\nend\n",
+  "a forward main with a parameter":
+    "forward sub main(x as u8)\nsub main\nend\n",
   "a forward main never completed": "forward sub main()\nsub other()\nend\n",
   "main completed with no forward": "sub main()\nend\nsub main\nend\n",
   "an f32 loop counter": "sub main()\nvar f as f32\nfor f = 1 to 3\nend\nend\n",

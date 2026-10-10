@@ -1,4 +1,4 @@
-# Forward development plan
+# Development plan
 
 Updated 2026-10-10. This is the authoritative plan for the current **0.1
 toolchain line** and the **next development milestone**. Version **1.0** is
@@ -16,8 +16,8 @@ The [stretch-goals catalogue](stretch-goals.md) holds the feature arguments,
 semantics to settle and deferred or rejected dispositions in one place. The
 [historical cost estimates](#historical-cost-estimates) below retain provisional
 figures, not measured budgets or implementation permission. Selection is complete for this
-review; design and measured admission remain unfinished. No implementation is
-requested now.
+review; design and measured admission remain unfinished. Plain enums are implemented in both compilers (D53); the remaining items retain
+their separate design and measurement gates.
 
 The [proposed 1.0 language specification](../spec/01-status-and-conformance.md)
 governs current programs and remains a working draft. The feature-selection freeze for completion
@@ -101,8 +101,11 @@ introduce compatible error domains, not rich payload errors.
 Read-only slices forbid writes through the view while preserving transient
 lifetimes and pool leases. They do not globally freeze backing storage or impose
 Rust exclusivity. Writable slices and string slices remain separately deferred.
-Routine values capture no local environment; closures remain excluded. No
-feature implementation is requested and current 0.1 completion is unchanged.
+Routine values capture no local environment; closures remain excluded. Plain enums are the first implemented next-milestone feature; no other feature
+is included in that implementation. The completed 0.1 scope remains the baseline.
+
+Implementation order begins with plain enums (D53), as confirmed by John.
+The other accepted items retain the priorities and dependencies above.
 
 ## 3. Selected scope and deferred proposals
 
@@ -129,7 +132,7 @@ It concerns an existing facility rather than optional syntax or generics. Preser
 rules. Complete the current 0.1 toolchain completion contract first, then verify this
 correction before extensions that depend on the affected element types.
 The older 150–250 byte estimate across about 20 ID-range tests is unmeasured.
-No implementation is requested now.
+Implementation of this correction has not yet been requested.
 
 ## 5. Evaluation and admission
 

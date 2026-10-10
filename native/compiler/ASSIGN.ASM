@@ -57,7 +57,7 @@ RO_ASGN:                       ; A is the path's type.
     JP   C,HN_LET                  ; an owning value.
     CP   AG_FILE                   ; A File?
     JR   Z,.FILE                   ; Its value is stored.
-    CP   AG_FIRST                  ; A scalar?
+    CALL AG_SCAL                 ; A scalar?
     JR   C,.SCALAR                 ; Its value is stored; an aggregate
 .COPY:                         ; is copied whole, of type A.
     PUSH AF                        ; Keep the type.

@@ -41,6 +41,7 @@ import {
 import {
   BOOLEAN,
   commonType,
+  type EnumType,
   fits,
   isAggregate,
   isInteger,
@@ -462,6 +463,7 @@ export class Compiler {
     if (this.isKeyword("const")) this.constDeclaration(isPrivate);
     else if (this.isKeyword("var")) this.programVar(isPrivate);
     else if (this.isKeyword("record")) this.recordDeclaration(isPrivate);
+    else if (this.isKeyword("enum")) this.enumDeclaration(isPrivate);
     else if (this.isKeyword("pool")) this.poolDeclaration(isPrivate);
     else if (this.isKeyword("forward")) this.forwardDeclaration(isPrivate);
     else if (this.isKeyword("sub")) this.routineDefinition(isPrivate);
@@ -526,7 +528,7 @@ export class Compiler {
       }
       if (
         v.type &&
-        !(v.type.kind === "scalar" &&
+        v.type.kind !== "enum" && !(v.type.kind === "scalar" &&
           (v.type.name === "boolean" || v.type.name === "u8"))
       ) {
         fail(
@@ -535,7 +537,11 @@ export class Compiler {
           "an untyped constant must be an integer, character or boolean",
         );
       }
-      const untyped = typeof v.value === "boolean" ? BOOLEAN : undefined;
+      const untyped = v.type?.kind === "enum"
+        ? v.type
+        : typeof v.value === "boolean"
+        ? BOOLEAN
+        : undefined;
       this.scopes.declare(
         { kind: "const", name: name.text, type: untyped, value: v.value },
         name,
@@ -649,6 +655,40 @@ export class Compiler {
 
   // ---- types (chapter 6) ---------------------------------------------------------
 
+  private enumDeclaration(isPrivate: boolean): void {
+    this.expectKeyword("enum");
+    const name = this.expectName();
+    this.expectNewline();
+    const type: EnumType = { kind: "enum", name: name.text, members: [] };
+    while (!this.isKeyword("end")) {
+      if (this.token.kind === "newline") {
+        this.advance();
+        continue;
+      }
+      const member = this.expectName();
+      if (type.members.includes(member.text)) {
+        fail("duplicate-name", member, `${member.text} is already declared`, [
+          member.text,
+        ]);
+      }
+      if (type.members.length === 256) {
+        fail("capacity", member, "enum members exceed 256", ["enum members"]);
+      }
+      type.members.push(member.text);
+      this.expectNewline();
+    }
+    this.expectKeyword("end");
+    this.expectNewline();
+    if (!type.members.length) {
+      fail("empty-enum", name, "an enum needs a member");
+    }
+    this.scopes.declare(
+      { kind: "enum", name: name.text, type },
+      name,
+      isPrivate,
+    );
+  }
+
   private parseType(): Type {
     const t = this.token;
     let base: Type;
@@ -670,7 +710,7 @@ export class Compiler {
       base = this.handleType(true);
     } else if (t.kind === "name") {
       const sym = this.scopes.lookup(t.text);
-      if (sym?.kind === "record") {
+      if (sym?.kind === "record" || sym?.kind === "enum") {
         this.advance();
         base = sym.type;
       } else if (sym?.kind === "pool") {
@@ -755,6 +795,10 @@ export class Compiler {
   private staticInitializer(type: Type): number[] {
     const at = this.token;
     switch (type.kind) {
+      case "enum": {
+        const v = this.constantExpression(type);
+        return [v.value as number];
+      }
       case "scalar": {
         const v = this.constantExpression(type);
         return this.encodeScalar(v.value, type.name);
@@ -851,6 +895,10 @@ export class Compiler {
     to: Type,
     at: Position,
   ): Value & { kind: "const" } {
+    if (to.kind === "enum") {
+      if (v.type === to) return v;
+      fail("type-mismatch", at, `a ${typeName(to)} is required`);
+    }
     if (to.kind === "file") {
       if (v.type?.kind === "file") return v;
       fail("type-mismatch", at, "a File value is required");
@@ -917,7 +965,8 @@ export class Compiler {
         const ptype = this.parseType();
         if (
           isVar &&
-          (ptype.kind === "scalar" || ptype.kind === "file" ||
+          (ptype.kind === "scalar" || ptype.kind === "enum" ||
+            ptype.kind === "file" ||
             (ptype.kind === "handle" && (ptype.id || !ptype.optional)))
         ) {
           fail(
@@ -1820,14 +1869,16 @@ export class Compiler {
     if (!type || type.kind === "handle") {
       fail("type-mismatch", subjectAt, "select takes an integer or a handle");
     }
-    if (!isInteger(type)) {
+    if (!isInteger(type) && type.kind !== "enum") {
       fail(
         "type-mismatch",
         subjectAt,
         "select takes an integer or an optional handle",
       );
     }
-    const name = (type as { name: ScalarName }).name;
+    const name = type.kind === "enum"
+      ? "u8"
+      : (type as { name: ScalarName }).name;
     const s = SCALARS[name];
     this.expectNewline();
     // The subject lives in a hidden local for the arms' comparisons.
@@ -1877,6 +1928,9 @@ export class Compiler {
         const low = this.constantExpression(type).value as number;
         let high = low;
         if (this.acceptKeyword("to")) {
+          if (type.kind === "enum") {
+            fail("type-mismatch", labelAt, "enum cases do not have ranges");
+          }
           high = this.constantExpression(type).value as number;
           if (high < low) {
             fail(
@@ -4131,7 +4185,9 @@ export class Compiler {
       r.blob.u8(0x11, 0, 0); // LD DE,0
       return;
     }
-    const name = (type as { name: ScalarName }).name;
+    const name = type.kind === "enum"
+      ? "u8"
+      : (type as { name: ScalarName }).name;
     const bytes = this.encodeScalar(value, name);
     if (bytes.length === 1) r.blob.u8(0x3e, bytes[0]); // LD A,n
     else if (bytes.length === 2) r.blob.u8(0x21, bytes[0], bytes[1]); // LD HL,nn
@@ -4593,8 +4649,12 @@ export class Compiler {
       return this.negate(v, at);
     }
     if (this.isPunct("+")) {
-      this.advance();
-      return this.unary(expected, constant);
+      const at = this.advance();
+      const value = this.unary(expected, constant);
+      if ((value as { type?: Type }).type?.kind === "enum") {
+        fail("type-mismatch", at, "an enum has no unary plus operation");
+      }
+      return value;
     }
     return this.postfix(expected, constant);
   }
@@ -4674,6 +4734,23 @@ export class Compiler {
       ]);
     }
     switch (sym!.kind) {
+      case "enum": {
+        this.advance();
+        if (!this.acceptPunct(".")) {
+          fail("wrong-class", name, `${name.text} is not a value`, [name.text]);
+        }
+        const member = this.expectName();
+        const value = sym.type.members.indexOf(member.text);
+        if (value < 0) {
+          fail(
+            "undeclared-name",
+            member,
+            `${member.text} is not a member of ${name.text}`,
+            [member.text],
+          );
+        }
+        return { kind: "const", type: sym.type, value };
+      }
       case "const":
         this.advance();
         return { kind: "const", type: sym!.type, value: sym!.value };
@@ -4963,6 +5040,7 @@ export class Compiler {
         fail("type-mismatch", at, "a boolean can't be negated");
       }
       if (!v.type) return { kind: "const", value: -v.value };
+      if (!isNumeric(v.type)) fail("type-mismatch", at, "a number is required");
       const name = (v.type as { name: ScalarName }).name;
       if (name === "f32") {
         return { kind: "const", type: v.type, value: -v.value };
@@ -5108,8 +5186,46 @@ export class Compiler {
       if (op === "=") r.blob.u8(0xee, 0x01);
       return { kind: "reg", type: BOOLEAN };
     }
-    // Identifiers and File values compare by equality only (9.11, 16.3).
     const leftT = (left as { type?: Type }).type;
+    if (leftT?.kind === "enum") {
+      if (op !== "=" && op !== "<>") {
+        fail("type-mismatch", leftAt, "enums compare only with = and <>");
+      }
+      if (left.kind === "reg") {
+        r.blob.u8(0xf5); // PUSH AF: the left enum byte
+        this.push(2);
+      }
+      const rightAt = this.token;
+      const rv = right();
+      const rightType = (rv as { type?: Type }).type;
+      if (rightType !== leftT) {
+        fail("type-mismatch", rightAt, `a ${typeName(leftT)} is required`);
+      }
+      if (left.kind === "const" && rv.kind === "const") {
+        return {
+          kind: "const",
+          type: BOOLEAN,
+          value: op === "=" ? left.value === rv.value : left.value !== rv.value,
+        };
+      }
+      if (left.kind === "reg" && rv.kind === "const") {
+        this.popValue(1);
+        return this.emitBinaryImmediate(op, rv.value as number, U8, leftAt);
+      }
+      this.toRegisters(rv, leftT, rightAt);
+      if (left.kind === "reg") {
+        r.blob.u8(0x5f, 0xf1); // LD E,A; POP AF
+        this.pop(2);
+      } else {
+        r.blob.u8(0x1e, (left as Value & { kind: "const" }).value as number); // LD E,left
+      }
+      return this.emitBinaryRegisters(
+        op,
+        U8 as Type & { kind: "scalar" },
+        leftAt,
+      );
+    }
+    // Identifiers and File values compare by equality only (9.11, 16.3).
     if (
       isComparison && leftT &&
       (leftT.kind === "file" || (leftT.kind === "handle" && leftT.id))
@@ -5216,6 +5332,9 @@ export class Compiler {
       const rightAt = this.token;
       const rv = right();
       if (rv.kind === "const") {
+        if (isShift && rv.type?.kind === "enum") {
+          fail("type-mismatch", rightAt, "a shift count must be an integer");
+        }
         // An exact right operand adopts the typed constant's type (8.4).
         const type = isShift || !rv.type
           ? leftType
@@ -5318,7 +5437,7 @@ export class Compiler {
 
   private numericType(v: Value, at: Token): Type {
     if (v.kind === "const") {
-      if (typeof v.value === "boolean") {
+      if (typeof v.value === "boolean" || (v.type && !isNumeric(v.type))) {
         fail("type-mismatch", at, "a number is required");
       }
       return v.type ?? { kind: "scalar", name: "u16" }; // exact: caller checks v.type
@@ -5912,6 +6031,9 @@ export class Compiler {
     const name = (type as { name: ScalarName }).name;
     if (!isInteger(type)) fail("type-mismatch", at, "shifts take integers");
     const s = SCALARS[name];
+    if ((count as { type?: Type }).type?.kind === "enum") {
+      fail("type-mismatch", at, "a shift count must be an integer");
+    }
     if (count.kind === "const") {
       if (typeof count.value !== "number" || count.value < 0) {
         fail("type-mismatch", at, "a shift count is unsigned");

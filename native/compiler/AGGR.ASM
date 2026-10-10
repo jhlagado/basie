@@ -474,7 +474,7 @@ AG_TAKE:
 ; of its fields; an array a bracketed list of its elements.
 
 AG_PARSE:
-    CP   AG_FIRST                  ; Is this a scalar type?
+    CALL AG_SCAL                 ; Built-in or nominal byte scalar?
     JR   C,.SCALAR                 ; Yes: parse a constant.
     CALL PL_ISHND                  ; A handle has no
     JR   C,.HANDLE                 ; static initializer.

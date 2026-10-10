@@ -40,7 +40,7 @@
 ;    +4  word  payload: a constant's value, the blob ordinal of a program
 ;              variable or aggregate constant, a local's or parameter's
 ;              offset from IX (negative for a local)
-;    +6  byte  an aggregate's type ordinal (SY_TAG); for a scalar constant,
+;    +6  byte  an aggregate or enum's type ID (SY_TAG); for other scalar constants,
 ;              +6..+8 are its value's three high bytes (SY_VHI), the
 ;              payload its low word
 ;    +9  byte  flags (SY_FLAGS): SY_FPRIV for a private declaration

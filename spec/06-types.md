@@ -9,12 +9,13 @@ The type system supports local checking during one streaming source pass. A comp
 
 ## 6.2 Type set
 
-Basie 1.0 has eight scalar types, four handle forms, three owned aggregate
+Basie 1.0 has eight built-in scalar types, user-declared enums, four handle forms, three owned aggregate
 forms, two parameter-only aggregate views, and the predeclared type `File`:
 
 | Category        | Types or forms                                         |
 | --------------- | ------------------------------------------------------ |
 | Scalar          | `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `f32`, `boolean` |
+| Enum scalar     | nominal enums (Section 6.16)                            |
 | Handle          | `P`, `P?`, `id P`, `id P?` for a pool `P` (Section 6.14) |
 | Owned aggregate | nominal records, `T[N]`, `string[N]`                   |
 | Parameter view  | `string[]`, `T[]`                                      |
@@ -33,6 +34,7 @@ The following skeleton records type formation without defining declaration gramm
 type             ::= scalar-type
                    | handle-type
                    | record-type-name
+                   | enum-type-name
                    | fixed-array-type
                    | bounded-string-type
 scalar-type      ::= "u8" | "i8" | "u16" | "i16" | "u32" | "i32"
@@ -40,7 +42,7 @@ scalar-type      ::= "u8" | "i8" | "u16" | "i16" | "u32" | "i32"
 handle-type      ::= [ "id" ] pool-name [ "?" ]
 fixed-array-type ::= element-type "[" array-length "]"
                    | element-type "[" "]"
-element-type     ::= scalar-type | handle-type | record-type-name
+element-type     ::= scalar-type | enum-type-name | handle-type | record-type-name
                    | bounded-string-type | fixed-array-type
 bounded-string-type
                  ::= "string" "[" [ string-capacity ] "]"
@@ -227,7 +229,7 @@ Basie 1.0 has none of the following:
 - raw pointer or address types visible to source;
 - pointer or address arithmetic;
 - implicit word/address interchange;
-- enumeration or subrange types (enumerations are planned for version 2);
+- subrange types;
 - set types;
 - variant records, unions, or overlaid aggregate layouts (variants are planned for version 2);
 - structural equivalence between distinct record declarations;
@@ -344,3 +346,50 @@ array whose element type is owning is also an owning type. Owning types can't be
 copied: whole-object assignment, by-value initialization and returning one by
 value are invalid. They may be passed by alias, and their fields moved
 individually (Chapter 7).
+
+## 6.16 Plain enumerations
+
+An enum declares a distinct scalar type and its named values:
+
+```basie
+enum Direction
+    north
+    east
+    south
+    west
+end
+
+var heading as Direction = Direction.north
+```
+
+The declaration is top level, optionally `private`, and contains one member
+name per logical line followed by `end`. It has 1 to 256 members. Member names
+must be unique within the declaration; different enums may reuse them. An enum
+and its members become visible after its declaration. Members are qualified
+as `Direction.north`; a bare member name does not enter the surrounding scope.
+
+Each declaration creates a distinct type. Assignment, argument passing and
+return copy the enum value and require that exact enum type. Enums may occur
+in constants, variables, record fields, array elements, ordinary parameters
+and results. Like the built-in scalars, they cannot be `var` parameters or
+`var` results. An omitted initializer supplies the first declared member,
+including enum fields and array elements in zero-initialized aggregates.
+An untyped constant or inferred local initialized with a member retains its
+enum type.
+
+Values occupy one byte, with member ordinals 0 through 255 in declaration
+order. Those ordinals are an implementation representation, not integers
+available to the program. There is no implicit or explicit numeric conversion,
+ordering, arithmetic, bitwise operation, enum array index or enum loop counter.
+Only `=` and `<>` compare two values of the same enum. An enum value cannot
+serve as a Boolean condition. `select` accepts single constant members of the
+subject's enum type, including comma-separated labels, but not `to` ranges.
+Exhaustiveness is a separate planned feature; current selection fall-through
+rules remain unchanged.
+
+Enums own no storage and add no runtime type tags or cleanup. Native enums
+share the compiler's 48 dynamic type slots with records, strings and arrays.
+Each member uses six metadata bytes plus its retained spelling in the existing
+name heap. Native open-array element encoding still requires a type ID below
+40; a sufficiently late enum inherits that existing limit until the planned
+open-array descriptor correction. A capacity diagnostic reports that limit.

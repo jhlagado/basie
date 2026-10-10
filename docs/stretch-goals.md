@@ -15,8 +15,8 @@ also included provisionally, with a whole-feature prototype and explicit
 back-out gate. Candidate sorting is complete for this review.
 
 Plan selection is distinct from implementation admission. Specification,
-prototype safety and measured budgets remain required; no feature implementation
-is requested now. The [forward development plan](development-plan.md) defines admission
+prototype safety and measured budgets remain required. Plain enums are the
+first authorized implementation; other selected features are not yet authorized. The [forward development plan](development-plan.md) defines admission
 and dependencies. The [proposed 1.0 language specification](../spec/01-status-and-conformance.md)
 remains authoritative for current programs and remains a working draft. Its
 feature-selection freeze for completion work is separate from formally freezing
@@ -37,7 +37,7 @@ from completing that review. Current dispositions are:
 | Required call-site `var` | Accepted next-milestone plan item after renewed review; unimplemented, with no request to implement or change to current 0.1 completion scope. |
 | Colon type syntax | Accepted next-milestone plan item alongside call-site `var`; unimplemented, with modifier placement and coordinated migration still to settle. Current 0.1 scope is unchanged. |
 | Restricted `try` | Accepted next-milestone prefix replacement for `else fail` within current call positions; unimplemented. Nested failable calls and general expression use are outside scope. |
-| Plain enums and enum-typed failures | Accepted next-milestone directions: enums first, then typed failures. Separate design completion and measured budgets remain required; unimplemented, with no change to current 0.1 completion scope. |
+| Plain enums and enum-typed failures | Accepted next-milestone directions: enums first, then typed failures. Plain enums are implemented in both compilers (D53); typed failures remain separate accepted work. The measured footprint is recorded in the test report. |
 | Exhaustive value selection | Accepted next-milestone plan item: compile-time whole-domain coverage or explicit `case else`. Empty default is intended; formal grammar remains to settle. Handle completeness is undecided. |
 | Open-array descriptor correction | Accepted next-milestone compatibility/capacity work before dependent slice and array extensions. Preserve address/extent calls and ownership/view/lease rules; verify types, diagnostics and workspace. |
 | Temporary read-only array slices | Accepted next-milestone direction: checked subrange arguments for typed open-array routines, with no copy. Bounds, empty ranges, arithmetic, nesting and lifetime/lease rules require specification and measurement. |
@@ -184,8 +184,8 @@ Deferred projects add no implementation work to this migration.
 Accepted for the next milestone, separately from payload variants. The nominal type prevents
 integer-domain mixups and supports exhaustive selection. Implement enums before
 typed failure codes. Design completion and an independently measured enum budget
-remain required. The feature is unimplemented; the current 0.1 completion scope is unchanged and no
-implementation is requested now.
+remain required. John has authorized plain enums as the first implementation (D53);
+no typed-failure or exhaustiveness extension is included.
 
 A closed set of named values has its own type. It prevents unrelated numeric
 codes being substituted and supports exhaustive selection. The recorded source
@@ -199,16 +199,14 @@ accepted plain-enum and typed-failure directions.
 
 The previous sketch proposed qualified members, a byte representation with at
 most 256 members, default initialisation to the first member, equality without
-ordering or arithmetic, and checked explicit numeric conversions. These are
-useful starting questions, not settled semantics. Decide representation and
-member capacity, initialisation, conversion and external-data validation,
-qualified versus contextual member names, forward availability and exhaustive
-selection. Define enum identity across modules if interfaces are adopted.
+ordering or arithmetic, and checked explicit numeric conversions. D53 settles the first implementation: qualified members, one byte, 1–256
+members and a first-member default, with equality only. Numeric conversions
+are omitted; external-data validation and exhaustive selection remain separate
+design work. Define enum identity across modules if interfaces are adopted.
 
-Plain enums have a provisional 0.5–1 KiB compiler estimate in this
-catalogue. No implementation measurement establishes that range. A real-code
-comparison and bounded prototype must demonstrate enough safety and clarity
-per byte. Plan acceptance does not authorise any unmeasured budget or exceeding D43.
+The implementation adds 506 resident bytes after an 83-byte compression pass.
+The 2,611-byte overlay window is unchanged; the combined footprint is 28,044 bytes,
+628 below D43’s 28 KiB limit. See the [enum verification and measurements](test-report.md#6-plain-enums).
 
 ### Typed failure codes
 

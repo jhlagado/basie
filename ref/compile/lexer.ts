@@ -14,6 +14,7 @@ export const KEYWORDS = [
   "else",
   "elseif",
   "end",
+  "enum",
   "exit",
   "f32",
   "fail",

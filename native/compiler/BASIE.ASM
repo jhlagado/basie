@@ -44,6 +44,7 @@
 %INCLUDE "EXOPER.ASM"              ; Expressions: binary operators and entries.
 %INCLUDE "VALUE.ASM"               ; Expressions: exact and typed constants folded.
 %INCLUDE "CONTROL.ASM"             ; The structured control parser.
+%INCLUDE "ENUMS.ASM"              ; Nominal byte enums and scalar classification.
 %INCLUDE "AGGR.ASM"                ; Records, arrays, strings and constants.
 %INCLUDE "ROUTINES.ASM"            ; Routine names, parameters, compile entry.
 %INCLUDE "CALLS.ASM"               ; Calls, services and aggregate paths.

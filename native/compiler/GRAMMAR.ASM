@@ -43,9 +43,9 @@
 ;  actions derives what differs from the ordinal (the equates below).
 
 GR_ROW_N EQU  50               ; Nonterminals, one row each.
-GR_ALT_N EQU  85               ; Productions.
+GR_ALT_N EQU  86               ; Productions.
 GR_SPLIT EQU  67               ; First production in the high directory.
-GR_ACT_N EQU  98               ; Actions in GR_ACTX.
+GR_ACT_N EQU  99               ; Actions in GR_ACTX.
 GR_START EQU  $40              ; Start symbol: compilation-unit, row 0.
 GR_RHIGH EQU  45               ; First row whose offset counts from GR_ROWS+256.
 GR_STMT EQU  $40+28            ; The statement nonterminal, row 28.
@@ -58,55 +58,55 @@ GR_UNTIL EQU  69               ; Action ordinal of ForUntil (AC_FORTO).
 
 GR_ROWX:
     DB   0,DG_DECL                 ; GR_ROW0-GR_ROWS; compilation-unit
-    DB   10,DG_DECL                ; GR_ROW1-GR_ROWS; top-level-list
-    DB   21,DG_DECL                ; GR_ROW2-GR_ROWS; top-level-declaration
-    DB   32,DG_DECL                ; GR_ROW3-GR_ROWS; private-declaration
-    DB   44,DG_DECL                ; GR_ROW4-GR_ROWS; const-declaration
-    DB   46,DG_EQ                  ; GR_ROW5-GR_ROWS; const-declaration-tail
-    DB   50,DG_DECL                ; GR_ROW6-GR_ROWS; assert-declaration
-    DB   52,DG_DECL                ; GR_ROW7-GR_ROWS; program-var-declaration
-    DB   54,DG_EQ                  ; GR_ROW8-GR_ROWS; program-initializer-opt
-    DB   58,DG_DECL                ; GR_ROW9-GR_ROWS; record-declaration
-    DB   60,DG_EMPTY               ; GR_ROW10-GR_ROWS; record-fields
-    DB   62,DG_NAME                ; GR_ROW11-GR_ROWS; record-field-tail
-    DB   66,DG_NAME                ; GR_ROW12-GR_ROWS; record-field
-    DB   68,DG_FORW                ; GR_ROW13-GR_ROWS; forward-declaration
-    DB   70,DG_SUB                 ; GR_ROW14-GR_ROWS; forward-tail
-    DB   74,DG_DECL                ; GR_ROW15-GR_ROWS; pool-declaration
-    DB   76,DG_SUB                 ; GR_ROW16-GR_ROWS; sub-definition
-    DB   78,DG_LPAR                ; GR_ROW17-GR_ROWS; sub-definition-tail
-    DB   82,DG_RPAR                ; GR_ROW18-GR_ROWS; parameter-list
-    DB   87,DG_RPAR                ; GR_ROW19-GR_ROWS; parameter-tail
-    DB   91,DG_NAME                ; GR_ROW20-GR_ROWS; parameter
-    DB   95,DG_EOL                 ; GR_ROW21-GR_ROWS; result-opt
-    DB   100,DG_TYPE               ; GR_ROW22-GR_ROWS; result-var-opt
-    DB   106,DG_EOL                ; GR_ROW23-GR_ROWS; fails-opt
-    DB   110,DG_STMT               ; GR_ROW24-GR_ROWS; routine-body
-    DB   127,DG_VAR                ; GR_ROW25-GR_ROWS; local-declaration
-    DB   129,DG_EOL                ; GR_ROW26-GR_ROWS; local-initializer-opt
-    DB   133,DG_STMT               ; GR_ROW27-GR_ROWS; statement-sequence
-    DB   151,DG_STMT               ; GR_ROW28-GR_ROWS; statement
-    DB   174,DG_CASE               ; GR_ROW29-GR_ROWS; select-arms
-    DB   178,DG_VALUE              ; GR_ROW30-GR_ROWS; case-arm
-    DB   192,DG_RET                ; GR_ROW31-GR_ROWS; return-statement
-    DB   194,DG_EOL                ; GR_ROW32-GR_ROWS; return-value-opt
-    DB   207,DG_KFAIL              ; GR_ROW33-GR_ROWS; fail-statement
-    DB   209,DG_EOL                ; GR_ROW34-GR_ROWS; name-statement-tail
-    DB   213,DG_LOOP               ; GR_ROW35-GR_ROWS; transfer-statement
-    DB   217,DG_IF                 ; GR_ROW36-GR_ROWS; if-statement
-    DB   219,DG_STMT               ; GR_ROW37-GR_ROWS; if-tail
-    DB   225,DG_VALUE              ; GR_ROW38-GR_ROWS; while-statement
-    DB   227,DG_FOR                ; GR_ROW39-GR_ROWS; for-statement
-    DB   229,DG_UPTO               ; GR_ROW40-GR_ROWS; for-bound
-    DB   233,DG_EOL                ; GR_ROW41-GR_ROWS; for-step-opt
-    DB   237,DG_TYPE               ; GR_ROW42-GR_ROWS; type
-    DB   241,DG_TYPE               ; GR_ROW43-GR_ROWS; type-atom
-    DB   247,DG_TYPE               ; GR_ROW44-GR_ROWS; type-optional-opt
-    DB   1,DG_VALUE                ; GR_ROW45-GR_ROWS-256; string-capacity
-    DB   14,DG_VALUE               ; GR_ROW46-GR_ROWS-256; type-array-opt
-    DB   23,DG_VALUE               ; GR_ROW47-GR_ROWS-256; array-bound
-    DB   36,DG_TYPE                ; GR_ROW48-GR_ROWS-256; scalar-type
-    DB   38,DG_TYPE                ; GR_ROW49-GR_ROWS-256; local-shape
+    DB   11,DG_DECL                ; GR_ROW1-GR_ROWS; top-level-list
+    DB   23,DG_DECL                ; GR_ROW2-GR_ROWS; top-level-declaration
+    DB   35,DG_DECL                ; GR_ROW3-GR_ROWS; private-declaration
+    DB   49,DG_DECL                ; GR_ROW4-GR_ROWS; const-declaration
+    DB   51,DG_EQ                  ; GR_ROW5-GR_ROWS; const-declaration-tail
+    DB   55,DG_DECL                ; GR_ROW6-GR_ROWS; assert-declaration
+    DB   57,DG_DECL                ; GR_ROW7-GR_ROWS; program-var-declaration
+    DB   59,DG_EQ                  ; GR_ROW8-GR_ROWS; program-initializer-opt
+    DB   63,DG_DECL                ; GR_ROW9-GR_ROWS; record-declaration
+    DB   65,DG_EMPTY               ; GR_ROW10-GR_ROWS; record-fields
+    DB   67,DG_NAME                ; GR_ROW11-GR_ROWS; record-field-tail
+    DB   71,DG_NAME                ; GR_ROW12-GR_ROWS; record-field
+    DB   73,DG_FORW                ; GR_ROW13-GR_ROWS; forward-declaration
+    DB   75,DG_SUB                 ; GR_ROW14-GR_ROWS; forward-tail
+    DB   79,DG_DECL                ; GR_ROW15-GR_ROWS; pool-declaration
+    DB   81,DG_SUB                 ; GR_ROW16-GR_ROWS; sub-definition
+    DB   83,DG_LPAR                ; GR_ROW17-GR_ROWS; sub-definition-tail
+    DB   87,DG_RPAR                ; GR_ROW18-GR_ROWS; parameter-list
+    DB   92,DG_RPAR                ; GR_ROW19-GR_ROWS; parameter-tail
+    DB   96,DG_NAME                ; GR_ROW20-GR_ROWS; parameter
+    DB   100,DG_EOL                ; GR_ROW21-GR_ROWS; result-opt
+    DB   105,DG_TYPE               ; GR_ROW22-GR_ROWS; result-var-opt
+    DB   111,DG_EOL                ; GR_ROW23-GR_ROWS; fails-opt
+    DB   115,DG_STMT               ; GR_ROW24-GR_ROWS; routine-body
+    DB   132,DG_VAR                ; GR_ROW25-GR_ROWS; local-declaration
+    DB   134,DG_EOL                ; GR_ROW26-GR_ROWS; local-initializer-opt
+    DB   138,DG_STMT               ; GR_ROW27-GR_ROWS; statement-sequence
+    DB   156,DG_STMT               ; GR_ROW28-GR_ROWS; statement
+    DB   179,DG_CASE               ; GR_ROW29-GR_ROWS; select-arms
+    DB   183,DG_VALUE              ; GR_ROW30-GR_ROWS; case-arm
+    DB   197,DG_RET                ; GR_ROW31-GR_ROWS; return-statement
+    DB   199,DG_EOL                ; GR_ROW32-GR_ROWS; return-value-opt
+    DB   212,DG_KFAIL              ; GR_ROW33-GR_ROWS; fail-statement
+    DB   214,DG_EOL                ; GR_ROW34-GR_ROWS; name-statement-tail
+    DB   218,DG_LOOP               ; GR_ROW35-GR_ROWS; transfer-statement
+    DB   222,DG_IF                 ; GR_ROW36-GR_ROWS; if-statement
+    DB   224,DG_STMT               ; GR_ROW37-GR_ROWS; if-tail
+    DB   230,DG_VALUE              ; GR_ROW38-GR_ROWS; while-statement
+    DB   232,DG_FOR                ; GR_ROW39-GR_ROWS; for-statement
+    DB   234,DG_UPTO               ; GR_ROW40-GR_ROWS; for-bound
+    DB   238,DG_EOL                ; GR_ROW41-GR_ROWS; for-step-opt
+    DB   242,DG_TYPE               ; GR_ROW42-GR_ROWS; type
+    DB   246,DG_TYPE               ; GR_ROW43-GR_ROWS; type-atom
+    DB   252,DG_TYPE               ; GR_ROW44-GR_ROWS; type-optional-opt
+    DB   6,DG_VALUE                ; GR_ROW45-GR_ROWS-256; string-capacity
+    DB   19,DG_VALUE               ; GR_ROW46-GR_ROWS-256; type-array-opt
+    DB   28,DG_VALUE               ; GR_ROW47-GR_ROWS-256; array-bound
+    DB   41,DG_TYPE                ; GR_ROW48-GR_ROWS-256; scalar-type
+    DB   43,DG_TYPE                ; GR_ROW49-GR_ROWS-256; local-shape
 GR_ROWXE:                      ; End of the row directory.
 
 ; Rows: alternatives of production byte and predicting token kinds.
@@ -116,6 +116,7 @@ GR_ROW0:                       ; compilation-unit
     DB   0+$80
     DB   TK_ASSRT
     DB   TK_CONST
+    DB   TK_ENUMD
     DB   TK_EOF
     DB   TK_FORW
     DB   TK_POOL
@@ -127,6 +128,7 @@ GR_ROW1:                       ; top-level-list
     DB   1
     DB   TK_ASSRT
     DB   TK_CONST
+    DB   TK_ENUMD
     DB   TK_FORW
     DB   TK_POOL
     DB   TK_PRIV
@@ -140,6 +142,7 @@ GR_ROW2:                       ; top-level-declaration
     DB   TK_PRIV+$80
     DB   4
     DB   TK_CONST
+    DB   TK_ENUMD
     DB   TK_FORW
     DB   TK_POOL
     DB   TK_REC
@@ -158,8 +161,10 @@ GR_ROW3:                       ; private-declaration
     DB   TK_FORW+$80
     DB   10
     DB   TK_SUB+$80
-    DB   11+$80
+    DB   11
     DB   TK_POOL+$80
+    DB   85+$80
+    DB   TK_ENUMD+$80
 GR_ROW4:                       ; const-declaration
     DB   12+$80
     DB   TK_CONST+$80
@@ -552,7 +557,8 @@ GR_ALTXH:
     DB   50                        ; GR_ALT82-GR_ALTHI; scalar-type
     DB   52                        ; GR_ALT83-GR_ALTHI; local-shape
     DB   56                        ; GR_ALT84-GR_ALTHI; local-shape
-    DB   59                        ; GR_ALT_E-GR_ALTHI
+    DB   59                        ; GR_ALT85-GR_ALTHI; private-declaration
+    DB   61                        ; GR_ALT_E-GR_ALTHI
 GR_ALTXE:                      ; End of the production directories.
 
 ; Production bodies, each right side stored right to left.
@@ -728,6 +734,8 @@ GR_ALT83:                      ; local-shape
     DB   $5a,$a6,$6a,TK_AS
 GR_ALT84:                      ; local-shape
     DB   $aa,$d3,TK_EQ
+GR_ALT85:                      ; private-declaration
+    DB   $e2,TK_ENUMD
 GR_ALT_E:                      ; End of the production bodies.
 
 ; Action directory: the routine for each action ordinal.
@@ -831,6 +839,7 @@ GR_ACTX:
     DW   PL_CMT                    ; a:CommitPool
     DW   PL_SINIT                  ; a:RefuseOwningInitializer
     DW   PL_OPT                    ; a:MakeOptionalHandle
+    DW   EN_DECL                   ; x:EnumDeclaration
 GR_ACTXE:                      ; End of the action directory.
 
 GR_TAB_E:                      ; End of the generated tables (marker).

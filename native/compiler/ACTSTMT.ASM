@@ -37,11 +37,8 @@
 AC_LOCAL:
     LD   A,(AG_CTYPE)              ; The local's type:
     CALL AG_NOVW                   ; a view is a parameter's only.
-    LD   D,SY_AGGR+SY_LOCAL        ; An aggregate local's class,
-    CP   AG_FIRST                  ; unless
-    JR   NC,.CLASS                 ; it is a scalar:
-    OR   SY_LOCAL                  ; then its type with class local.
-    LD   D,A                       ; D is its information byte.
+    LD   D,SY_LOCAL                ; Storage class only.
+    CALL SY_KIND                   ; Encode scalar, enum or aggregate.
 .CLASS:                        ; D is the information byte.
     LD   A,D                       ; It is
     LD   (AC_DINFO),A              ; the declaration's.
@@ -82,7 +79,7 @@ AC_INIT EQU  AC_TOVAR          ; BeginLocalInitializer: expect the local's type.
 
 AC_LINIT:
     LD   A,(AG_CTYPE)              ; The local's type.
-    CP   AG_FIRST                  ; A scalar?
+    CALL AG_SCAL                 ; A scalar?
     JP   C,AC_EXPR                 ; A run-time expression.
     CP   AG_FILE                   ; A File?
     JR   Z,AC_FILE                 ; Its value.
@@ -166,14 +163,14 @@ AC_INFER:
     CALL AC_ROOT                   ; A is the type it roots:
     CP   AG_FILE                   ; a File,
     JR   Z,.FILE                   ; whose value is taken,
-    CP   AG_FIRST                  ; or an aggregate, whose path is
+    CALL AG_SCAL                 ; or an aggregate, whose path is
     JR   C,.SCALAR                 ; parsed; anything else is a scalar.
     CALL RO_PART                   ; Parse the path; A is its type.
     CALL PL_ISHND                  ; A handle's value
     JP   C,HN_INPTH                ; (HN_INPTH).
     CP   AG_FILE                   ; A File's
     JR   Z,.FPATH                  ; is loaded.
-    CP   AG_FIRST                  ; An aggregate?
+    CALL AG_SCAL                 ; An aggregate?
     JR   C,.SELECT                 ; No: a scalar it selects.
     CALL AG_ISVW                   ; A view
     JP   C,EX_EFIT                 ; is no local's type (DG_CLASH).
@@ -213,7 +210,7 @@ AC_INFER:
     CALL EX_RUN                    ; A and HL describe it.
 .TYPED:                        ; A and HL describe the initializer.
     CALL EX_STASH                  ; Keep them for AC_ADOPT and AC_BIND.
-    AND  SY_TMASK                  ; Its type:
+    AND  EX_TMASK                  ; Its type:
     JR   NZ,.DECLARE               ; an exact value has none,
     LD   A,(EX_CHR)                ; unless it is
     DEC  A                         ; a character literal alone,
@@ -237,7 +234,7 @@ AC_PRIME:                      ; A is the primary's metadata.
     LD   HL,(AC_IPOS)              ; of the expression
     CALL EX_PFROM                  ; at the initializer.
     CALL EX_STASH                  ; Kept for AC_BIND;
-    AND  SY_TMASK                  ; its type
+    AND  EX_TMASK                  ; its type
     LD   (AG_CTYPE),A              ; the local's.
     JP   AC_LOCAL                  ; Declare it; return.
 
@@ -285,7 +282,7 @@ AC_ZERO:
 
 AC_ADOPT:
     LD   A,(AG_CTYPE)              ; A scalar local's
-    CP   AG_FIRST                  ; value
+    CALL AG_SCAL                 ; value
     CALL C,AC_FIT                  ; must fit its type.
     LD   A,(RO_PEND)               ; Is a failure pending?
     OR   A                         ; Zero means none.
@@ -373,7 +370,7 @@ AC_BIND:
     LD   E,A                       ; type.
     CALL GX_TOREG                  ; The value in the registers at that type.
     CALL AC_STORE                  ; Store the value in the local.
-    JP   SY_CMT                    ; The local is now in scope.
+    JR   .COMMIT                   ; Publish enum identity as well as storage.
 .ZERO:                         ; BC is the local's size.
     CALL GA_ZERO                   ; Zero its bytes.
     JR   .COMMIT                   ; Commit it.
@@ -391,8 +388,8 @@ AC_BIND:
     CALL GA_STF                    ; Store DEHL there.
 .COMMIT:                       ; The local holds its value.
     LD   A,(AG_CTYPE)              ; Its type:
-    CP   AG_FIRST                  ; a scalar's symbol
-    JP   C,SY_CMT                  ; is committed,
+    CP   AG_FIRST                  ; A builtin scalar needs no tag.
+    JP   C,SY_CMT                  ; Commit it,
     JP   SY_TAG                    ; an aggregate's with its type.
 
 ; -------------------------------------------------------------- statements
@@ -424,8 +421,11 @@ AC_STMT:
     CALL AC_FIND                   ; A is its class and type, BC its payload.
     AND  SY_AGGR                   ; An aggregate?
     JP   NZ,RO_LET                 ; Assign to its path.
-    LD   A,D                       ; The class and type.
-    CALL EX_CLASS                  ; A scalar? A is its class.
+    BIT  6,D                       ; A type name is not assignable.
+    LD   A,DG_CLASS
+    JP   NZ,DG_NAMED
+    LD   A,D
+    AND  SY_CMASK                  ; Scalar storage class.
     CP   SY_LOCAL                  ; A local?
     CALL Z,CT_GUARD                ; Only a local can be an active for counter (C, its offset).
 .CHECKED:                      ; The variable may be written.
@@ -462,7 +462,7 @@ AC_RET:
     JP   C,HN_RETV                 ; is read now (AC_BARE ends it),
     CP   AG_FILE                   ; as is
     JP   Z,HN_RETV                 ; a File's.
-    CP   AG_FIRST                  ; An aggregate?
+    CALL AG_SCAL                 ; An aggregate?
     RET  NC                        ; Parsed by type, not expected type.
     JP   AC_WANT                   ; Expect the scalar type.
 
@@ -476,7 +476,7 @@ AC_YIELD:
     LD   A,(RO_CTYPE)              ; The routine's result type.
     OR   A                         ; None?
     JP   Z,EX_EFLOW                ; A value cannot be returned: raise DG_FLOW.
-    CP   AG_FIRST                  ; An aggregate?
+    CALL AG_SCAL                 ; An aggregate?
     JR   NC,.AGGR                  ; Parse a path.
     CALL EX_RUN                    ; Parse and emit the scalar value.
     JP   EX_STASH                  ; Keep it for AC_RETOP.
@@ -500,7 +500,7 @@ AC_RETOP:
     JR   C,.RETURN                 ; is in HL, A its type,
     CP   AG_FILE                   ; and a File
     JR   Z,.RETURN                 ; in DEHL.
-    CP   AG_FIRST                  ; An aggregate?
+    CALL AG_SCAL                 ; An aggregate?
     JR   NC,.AGGR                  ; Check its type.
     LD   E,A                       ; The scalar result type.
     CALL AC_VALOK                  ; Check the value, with nothing pending.
@@ -600,7 +600,7 @@ AC_ASSRT:
 
 AC_TRUE:
     LD   A,(EX_RMETA)              ; The condition's metadata:
-    AND  SY_KNOWN+SY_TMASK         ; known,
+    OR   A                         ; Bit 7 distinguishes known metadata,
     JP   P,.TEST                   ; or computed.
     CP   SY_KNOWN+SY_BOOL          ; A known Boolean
     JR   NZ,.FALSE                 ; that

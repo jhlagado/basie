@@ -122,6 +122,7 @@ Deno.test({
         "CPM22.BRL": (await buildRuntime()).file,
         "BASIE.MSG": messageFile(),
         "HELLO.BSI": Deno.readFileSync("tests/conformance/basics/hello.bsi"),
+        "ENUMS.BSI": Deno.readFileSync("tests/conformance/enums/values.bsi"),
         "BAD.BSI": encode("sub main()\nvalue = 1\nend\n"),
       }),
     );
@@ -130,6 +131,8 @@ Deno.test({
       // the real BDOS and starts it; BLINK publishes HELLO.COM and HELLO.LIN.
       assertEquals(cpm.command("BASIE HELLO", 400_000), "");
       assertEquals(cpm.command("HELLO"), "Hello\r\n");
+      assertEquals(cpm.command("BASIE ENUMS", 20_000_000), "");
+      assertEquals(cpm.command("ENUMS"), "E\r\n");
       assertEquals(
         cpm.command("BASIE BAD", 400_000),
         "BAD.BSI 2:1: 27: value is not declared\r\n",

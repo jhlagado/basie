@@ -26,7 +26,10 @@ AC_FOR:
     AND  SY_CMASK                  ; Its class.
     CP   SY_LOCAL                  ; A local?
     JP   NZ,CT_EVAR                ; No: raise DG_COUNT.
-    CALL EX_DBOOL                  ; Is its type Boolean?
+    CALL EX_DTYPE                  ; Decode the counter type.
+    CP   SY_F32+1
+    JP   NC,CT_EVAR                ; Nominal enums cannot count.
+    CP   SY_BOOL                   ; Is its type Boolean?
     JP   Z,CT_EVAR                 ; Cannot count: raise DG_COUNT.
     CP   SY_F32                    ; Nor can
     JP   Z,CT_EVAR                 ; an f32.
@@ -129,7 +132,7 @@ AC_STEP:
     PUSH BC                        ; (the counter's type kept)
     CALL EX_RTOK                   ; The bound: D its metadata, A too.
     POP  BC                        ; C is the counter's type.
-    AND  SY_TMASK                  ; Its type:
+    AND  EX_TMASK                  ; Its type:
     LD   E,C                       ; (the counter's in E)
     JR   Z,.EXACT                  ; exact, or
     CALL .COMMON                   ; the common type of a typed one.

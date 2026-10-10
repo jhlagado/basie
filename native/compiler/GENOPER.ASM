@@ -53,7 +53,7 @@ GX_BINOP:                      ; C is the width.
     JR   GX_IMM                    ; is the immediate.
 .POPL:                         ; Pop the left operand, widened.
     LD   A,(EX_LMETA)              ; The left's
-    AND  SY_TMASK                  ; type:
+    AND  EX_TMASK                  ; type:
     PUSH AF                        ; kept,
     CALL GX_POPV                   ; its value popped (BC is kept),
     POP  AF                        ; then widened to the width C
@@ -95,7 +95,7 @@ GX_BINOP:                      ; C is the width.
 
 .RWIDEN:                       ; C is the width.
     LD   A,(EX_RMETA)              ; The right's
-    AND  SY_TMASK                  ; type.
+    AND  EX_TMASK                  ; type.
 .WIDEN:                        ; A is the type to widen from.
     CP   C                         ; Is it the width's?
     RET  Z                         ; nothing to do.
@@ -621,7 +621,7 @@ GX_SHVAR:                      ; C is the left's type.
     ADD  A,A                       ; eight times.
     LD   E,A                       ; E is the width.
     LD   A,(EX_RMETA)              ; The count's
-    AND  SY_TMASK                  ; type:
+    AND  EX_TMASK                  ; type:
     CALL GX_SIZE                   ; a byte needs no clamp from above.
     JR   C,.CLAMP                  ; It is one.
     PUSH AF                        ; Keep the size.

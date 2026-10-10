@@ -144,7 +144,7 @@ SY_HCAP EQU  32                ; Hash chains, a power of two.
 SY_LIM EQU  SY_HTAB+2*SY_HCAP  ; End of the symbol table's marks and chains.
 
 ; Expression state (EXPR.ASM). An expression returns metadata in A (type
-; in SY_TMASK, SY_KNOWN when the value is exact) and, when it is known,
+; in EX_TMASK, SY_KNOWN when the value is exact) and, when it is known,
 ; the low word of its value in HL and the whole of it in EX_KVAL: five
 ; bytes, the value in two's complement (VALUE.ASM), as wide as an exact
 ; value's range of -2^31 to 2^32-1 needs. A bounded stack retains the
@@ -232,7 +232,7 @@ CT_MNONE EQU  $40              ; For mode: no bound in reach; it never starts.
 CT_MLONG EQU  $80              ; For mode: the counter is a long.
 
 ; Aggregate type and layout metadata lasts the whole compilation. Type IDs
-; 1..3 are the predefined scalars; IDs 4 and above name bounded four-byte
+; 1..8 are the predefined scalars; IDs 16..63 name bounded four-byte
 ; descriptors. Record field offsets stay live for field selection.
 AG_BASE EQU  CT_FLIM           ; First byte of the aggregate block.
 AG_DCNT EQU  AG_BASE+$00       ; Byte: array bounds waiting in AG_DSTK.
@@ -338,6 +338,7 @@ TK_VAR EQU  13                 ; Keyword var.
 TK_AS EQU  14                  ; Keyword as.
 TK_TYPE EQU  15                ; A type keyword: u8, i8, u16, i16, u32, i32, f32
                                ; or boolean, its type ID in C (SY_U8...).
+TK_ENUMD EQU  28               ; Keyword enum.
 TK_FOR EQU  16                 ; Keyword for.
 TK_UNTIL EQU  17               ; Keyword until.
 TK_LBRAC EQU  18               ; Left bracket.
@@ -535,11 +536,13 @@ DG_ROOM EQU  DG_CAP+13         ; Memory for the source.
 DG_INEST EQU  DG_CAP+14        ; Includes open at once (SH_ICAP).
 DG_FDIG EQU  DG_CAP+15         ; An f32 literal's digits (FLOAT.ASM, FL_NB).
 DG_POOLS EQU  DG_CAP+16        ; Pools (PL_CAP).
+DG_EMEM EQU  DG_CAP+18         ; Enum members, at most 256.
+DG_EENUM EQU  116              ; Empty enum.
 DG_OWNRS EQU  DG_CAP+17        ; Owners in scope (FW_CAP).
 
 
-; Scalar types and symbol information. An expression's metadata byte and a
-; symbol's class/type byte share the low four bits: the type in SY_TMASK.
+; Scalar types and symbol information. Expressions retain full nominal IDs
+; in EX_TMASK. Symbols pack built-in type or SY_ENUM in SY_TMASK.
 ; The symbol byte adds its storage class in SY_CMASK and the flags SY_TYPE
 ; and SY_AGGR; the metadata byte uses bit 7 as SY_KNOWN instead. Each
 ; scalar type's size and signedness are in GX_PROP (GENEXPR.ASM).
@@ -553,6 +556,8 @@ SY_I16 EQU  5                  ; Type: i16.
 SY_U32 EQU  6                  ; Type: u32.
 SY_I32 EQU  7                  ; Type: i32.
 SY_F32 EQU  8                  ; Type: f32, a known value its IEEE single bits.
+SY_ENUM EQU  9                ; Packed scalar marker: nominal ID at SY_AGT.
+EX_TMASK EQU  $7F             ; Expression type identity; bit 7 is known.
 SY_TMASK EQU  $0F              ; Mask of the type bits.
 SY_KNOWN EQU  $80              ; Metadata flag: the value is exact, in HL.
 SY_CONST EQU  $00              ; Class: a constant.
@@ -572,6 +577,7 @@ AG_U16 EQU  SY_U16             ; Type ID of u16; IDs 1..8 are the scalars.
 AG_FIRST EQU  16               ; First type ID of the type table.
 AG_KREC EQU  4                 ; Descriptor kind: record.
 AG_KSTR EQU  5                 ; Descriptor kind: bounded string.
+AG_KENUM EQU  7               ; Nominal byte enum: count and member-list head.
 AG_KARR EQU  6                 ; Descriptor kind: array.
 ; Types outside the type table, so outside its compact ordinals. A File
 ; is four bytes, held as a value as the reference's is: a program variable,

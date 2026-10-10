@@ -95,7 +95,7 @@ case-label       ::= constant-expression [ "to" constant-expression ]
 
 The expression after `select` is the **subject**. A `select` has at least one `case` arm before any `case else`, and at most one `case else`, which comes last. Each arm's body is a block with its own scope. There is no fall-through: after an arm's body completes, execution continues after the `end`. `select` is a statement, not an expression.
 
-A `select` is either an **integer selection** or a **handle selection**, chosen by the subject's type.
+A `select` is either an **integer selection**, an **enum selection**, or a **handle selection**, chosen by the subject's type.
 
 ### 11.7.2 Integer selection
 
@@ -117,6 +117,11 @@ end
 ```
 
 A compiler may implement the comparison by tests, a jump table or a search; the choice is not observable.
+
+An enum selection follows the same evaluation and arm rules, but each label
+must be a constant of the subject's exact enum type. Integer labels, labels
+from other enums and `to` ranges are invalid (Section 6.16). No implicit
+conversion from a member ordinal is available.
 
 ### 11.7.3 Handle selection
 
@@ -175,7 +180,7 @@ Basie 1.0 has no:
 - fall-through between `select` arms; or
 - implicit integer truth test.
 
-Enumerations, and variants whose cases carry data, with exhaustiveness checking, are planned for version 2 as extensions of `select` (design decision D24).
+Plain enum selection is supported (Section 11.7). Exhaustiveness checking remains accepted future work; payload variants remain deferred (Chapter 20).
 
 ## 11.10 Invalid conditionals and capacity limits
 

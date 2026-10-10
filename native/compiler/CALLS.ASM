@@ -243,7 +243,7 @@ RO_PATH:
 .DOT:                          ; Select by name.
     CALL PR_TAKE                   ; Consume the dot.
     LD   A,(RO_OTYPE)              ; The type selected from:
-    CP   AG_FIRST                  ; a scalar has no fields,
+    CALL AG_SCAL                 ; a scalar has no fields,
     JR   C,.NONE                   ; reported at the dot,
     CP   AG_FILE                   ; nor has a File.
     JR   Z,.NONE                   ; (no-such-field).
@@ -371,7 +371,7 @@ RO_FIELD:
 RO_INDEX:
     CALL PR_TAKE                   ; Consume the bracket.
     LD   A,(RO_OTYPE)              ; The type indexed:
-    CP   AG_FIRST                  ; a scalar
+    CALL AG_SCAL                 ; a scalar
     JR   C,.NOINDEX                ; cannot be indexed,
     CP   AG_FILE                   ; nor can a File
     JR   NZ,.INDEXED               ; (not-indexable).
@@ -411,7 +411,7 @@ RO_INDEX:
     CALL EX_STASH                  ; Keep them.
     CALL RO_BACK                   ; The path's block comes back.
     LD   A,(EX_RMETA)              ; The index's metadata:
-    AND  SY_TMASK                  ; an exact value
+    AND  EX_TMASK                  ; an exact value
     JR   Z,.EXACT                  ; from 0 to 65535,
     CP   SY_U16+1                  ; or a u8 or u16 (checkIndexType);
     JR   NC,.EINDEX                ; anything else is index-type.
@@ -573,7 +573,7 @@ RO_ARGS:
     CP   TK_RPAR                   ; where an argument is due?
     JP   Z,.ARITY                  ; Too few arguments.
     POP  AF                        ; The parameter's type.
-    CP   AG_FIRST                  ; An aggregate?
+    CALL AG_SCAL                 ; An aggregate?
     JR   NC,.AGGR                  ; Its address is passed.
     CALL RO_ARG                    ; D, E and HL describe the argument.
     CALL GX_TOREG                  ; The value in the registers at type E.
@@ -868,7 +868,7 @@ RO_VIEW:
     JR   NZ,.BUFFER                ; An array.
     CP   AG_VIEW                   ; An open string passed on?
     JR   Z,.PASS                   ; Its capacity word.
-    CP   AG_FIRST                  ; A scalar
+    CALL AG_SCAL                 ; A scalar
     JR   C,RO_EFIT                 ; is no string: DG_CLASH at the path.
     CALL AG_DESC                   ; HL addresses the descriptor.
     LD   A,(HL)                    ; Its kind
@@ -888,7 +888,7 @@ RO_VIEW:
     LD   A,E                       ; The path's type:
     CP   B                         ; the same open array
     JR   Z,.PASS                   ; passes its word on;
-    CP   AG_FIRST                  ; a scalar,
+    CALL AG_SCAL                 ; a scalar,
     JR   C,RO_EFIT                 ; a File
     CP   AG_OPEN                   ; or a view
     JR   NC,RO_EFIT                ; is no array: DG_CLASH at the path.
@@ -1014,7 +1014,7 @@ RO_FVAL:
     CALL .BACK                     ; its start again;
     CP   AG_FILE                   ; a path
     JR   Z,.FILE                   ; from another
-    CP   AG_FIRST                  ; aggregate result,
+    CALL AG_SCAL                 ; aggregate result,
     JR   C,.ETYPE                  ; its rest
     CALL RO_START                  ; parsed (RO_PART's),
     LD   HL,RO_ESC                 ; its root
@@ -1048,7 +1048,7 @@ RO_AGGR:
 ; RO_AGGR after its path, of type A, is parsed and is no handle.
 
 RO_AGGT:                       ; A is the path's type.
-    CP   AG_FIRST                  ; It must be an aggregate:
+    CALL AG_SCAL                 ; It must be an aggregate:
     JP   C,RO_EFIT                 ; `.length` and elements are not.
     CALL GA_ADDR                   ; Its address into HL;
     JR   RO_TYPE                   ; A is its type.
@@ -1067,7 +1067,7 @@ RO_PART:
     LD   DE,(TK_POS)               ; The call's offset,
     PUSH DE                        ; kept across it.
     CALL RO_CALL                   ; A is the result type, HL the address.
-    CP   AG_FIRST                  ; It must be an aggregate.
+    CALL AG_SCAL                 ; It must be an aggregate.
     JP   C,EX_ETYPE                ; Raise DG_CLASH.
     CALL RO_START                  ; Parse the rest of the path,
     LD   HL,RO_ESC                 ; whose root is the call's,
@@ -1085,7 +1085,7 @@ RO_LOAD:
     JP   C,HN_IDLD                 ; (HN_IDLD), as is a File's
     CP   AG_FILE                   ; (HN_FLD);
     JP   Z,HN_FLD                  ; neither is a scalar.
-    CP   AG_FIRST                  ; An aggregate is not a scalar value:
+    CALL AG_SCAL                 ; An aggregate is not a scalar value:
     JP   NC,RO_EFIT                ; DG_CLASH at the path.
     CALL GA_LOAD                   ; Load it into A or HL.
 
@@ -1109,7 +1109,7 @@ RO_FUNC:
     CALL HN_VOIDQ                  ; A result (no-value at its name),
     CALL RO_CALL                   ; called: A is the result type.
 RO_VALUE:                      ; A call's result type is A, never zero.
-    CP   AG_FIRST                  ; Is the result an aggregate?
+    CALL AG_SCAL                 ; Is the result an aggregate?
     RET  C                         ; No: A is the scalar result type.
     CP   AG_FILE                   ; A File, in DEHL,
     JP   Z,HN_EQ                   ; is compared,

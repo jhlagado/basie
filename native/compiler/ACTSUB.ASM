@@ -79,7 +79,7 @@ AC_TOP:
 ; were complete when they ended, and are cut already.
 
 AC_ENDP:
-    LD   HL,RO_RHEAD              ; The routines, from the first.
+    LD   HL,RO_RHEAD               ; The routines, from the first.
 .NEXT:                         ; HL addresses the next's link:
     CALL WD_GET                    ; DE is it,
     EX   DE,HL                     ; HL,
@@ -194,7 +194,7 @@ AC_SPLIT:
 
 AC_MAIN:
     CALL AC_ENDP                   ; The last part ends, and the program.
-    LD   HL,RO_RHEAD              ; The routines, from the first.
+    LD   HL,RO_RHEAD               ; The routines, from the first.
 .LOOP:                         ; HL addresses the next's link:
     CALL WD_GET                    ; DE is it,
     EX   DE,HL                     ; HL,
@@ -221,7 +221,7 @@ AC_MAIN:
     LD   A,DG_UNMET                ; forward-incomplete,
     CALL DG_SETN                   ; naming it,
     POP  HL                        ; at its name,
-    JP   AC_UNMET                  ; in its part, which may be another.
+    JR   AC_UNMET                  ; in its part, which may be another.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; Make the retained name the current token again, at its own position, so
@@ -370,7 +370,7 @@ AC_JOIN:
     DEC  (HL)                      ; Zero if it was,
     LD   (HL),0                    ; (cleared)
     JP   NZ,RO_ENROL               ; else append it; return.
-    CP   AG_FIRST                  ; A scalar
+    CALL AG_SCAL                 ; A scalar
     JR   C,.EVAR                   ; or
     CP   AG_FILE                   ; a File
     JR   Z,.EVAR                   ; is never var.
@@ -439,7 +439,7 @@ AC_FROM:
     AND  $7F                       ; must be
     CALL PL_ISHND                  ; an aggregate,
     JR   C,.EFROM                  ; not a handle,
-    CP   AG_FIRST                  ; nor
+    CALL AG_SCAL                 ; nor
     JR   C,.EFROM                  ; a scalar
     CP   AG_FILE                   ; nor
     JR   Z,.EFROM                  ; a File.
@@ -554,7 +554,7 @@ AC_PUB:
     LD   BC,RO_RNEXT               ; the
     ADD  HL,BC                     ; first
     JR   NZ,.LINK                  ; (RO_RHEAD,
-    LD   HL,RO_RHEAD              ; the link's place).
+    LD   HL,RO_RHEAD               ; the link's place).
 .LINK:                         ; HL is the link:
     LD   (HL),E                    ; the record,
     INC  HL                        ; both
@@ -865,6 +865,10 @@ AC_FIND:
     LD   (AC_DINFO),A              ; Record them
     LD   (AC_DVAL),BC              ; for the action's later steps.
     LD   D,A                       ; Return the class and type in D too.
+    CALL EN_STYPE                  ; Decode scalar nominal identity when tagged.
+    LD   (AG_CTYPE),A              ; Built-in IDs are harmless to EX_DTYPE.
+    LD   A,D                       ; Preserve the information result.
+    OR   A                         ; Restore SY_GET's clear carry.
     RET                            ; Back to the caller.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL

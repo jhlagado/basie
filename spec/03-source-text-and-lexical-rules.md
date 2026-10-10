@@ -89,7 +89,7 @@ The Basie 1.0 reserved words are:
 
 ```text
 and      as       assert   boolean  case     const    continue
-else     elseif   end      exit     f32      fail     fails
+else     elseif   end      enum     exit     f32      fail     fails
 false    for      forward  handle   i16      i32      i8
 if       include  mod      move     new      none     not
 or       pool     private  record   return   select   shl
@@ -183,7 +183,7 @@ The tokenizer recognizes these punctuation tokens:
 | `(` `)`  | grouping, calls, declarations, and record initializers |
 | `[` `]`  | array types, indexing, and array initializers          |
 | `,`      | item and argument separator                            |
-| `.`      | record-field selection; also the decimal point inside a floating-point literal |
+| `.`      | record-field selection and qualified enum members; also the decimal point inside a floating-point literal |
 | `?`      | the optional suffix on a handle type (`nodes?`)        |
 | `+` `-`  | arithmetic punctuation; also unary punctuation         |
 | `*` `/`  | arithmetic punctuation                                 |

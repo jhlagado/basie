@@ -37,11 +37,11 @@ Each record type has its own field scope. A field scope is separate from the ord
 
 ## 5.4 One ordinary namespace
 
-Program, part, routine and block scopes use one ordinary namespace. A record type, pool, named constant, variable, routine, parameter or local with a given exact identity prevents another visible ordinary binding from using that identity. Type and value names do not occupy separate namespaces.
+Program, part, routine and block scopes use one ordinary namespace. A record or enum type, pool, named constant, variable, routine, parameter or local with a given exact identity prevents another visible ordinary binding from using that identity. Type and value names do not occupy separate namespaces.
 
 Name lookup first finds the one ordinary binding and then checks whether its declaration class is valid in context. A record type used as an expression, a variable used as a type, or a result-free routine used as a value is invalid. A pool name is valid both as a type, meaning an owning handle into that pool, and where Chapter 7 admits a pool as an operand, as in `new nodes(...)`. The compiler must not continue searching for another declaration of a more convenient class.
 
-Basie has no overload sets. Two routines with the same identity conflict even when their parameter or result types differ. Enumeration and subrange types are absent and introduce no member or range namespaces.
+Basie has no overload sets. Two routines with the same identity conflict even when their parameter or result types differ. Each enum has a separate member namespace, accessed only through its type name (Section 6.16). Subrange types are absent.
 
 Every ordinary binding has one canonical declaration. An abbreviated routine body completes an earlier forward declaration under Section 5.8; it is the only case in which a later header with the same identity is not a duplicate declaration.
 

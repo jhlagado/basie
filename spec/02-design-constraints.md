@@ -40,4 +40,4 @@ Basie is implemented twice (design decision D35): a **reference toolchain** in T
 
 ## 2.6 Excluded
 
-Basie 1.0 has no interrupt routines or vectors, no concurrency, no inline machine code, no garbage collector, no general heap, no exceptions or unwinding, and no generics. Arenas, enumerations and variants, expression blocks, routine values, default parameters, generics and `repeat` are planned for version 2 (design decision D24; Chapter 20, Section 20.3).
+Basie 1.0 has no interrupt routines or vectors, no concurrency, no inline machine code, no garbage collector, no general heap, no exceptions or unwinding, and no generics. Plain enums are supported (Section 6.16). Arenas, variants, expression blocks, routine values, default parameters, generics and `repeat` retain their separate planning dispositions (Chapter 20, Section 20.3).

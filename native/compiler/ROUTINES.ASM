@@ -323,10 +323,7 @@ RO_BIND:
     SRL  E                         ; The type.
     POP  BC                        ; The payload.
     LD   A,E                       ; Classify the parameter.
-    CP   AG_FIRST                  ; Is it an aggregate?
-    JR   NC,.SYMBOL                ; Its class is D.
-    OR   SY_PARAM                  ; A scalar's: its type, class parameter.
-    LD   D,A                       ; The symbol's class byte.
+    CALL SY_KIND                   ; Encode the parameter's type and class.
 .SYMBOL:                       ; D is the class, E the type.
     CALL SY_NEW                    ; Write the record; DE is kept.
     PUSH DE                        ; (the type kept)

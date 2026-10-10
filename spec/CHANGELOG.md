@@ -1,5 +1,10 @@
 # Specification change log
 
+2026-10-10: D53 adds plain nominal byte enums: declarations, qualified members,
+exact-type scalar storage and calls, equality and enum selection. Numeric
+conversions and ranges are excluded. Existing selection fall-through remains;
+typed failures and exhaustive selection are not implemented by this change.
+
 This log records, chapter by chapter, which design decisions
 ([design decisions](../docs/design-decisions.md)) each chapter of the Basie 1.0
 specification carries. A decision that changes a chapter is added to its row.

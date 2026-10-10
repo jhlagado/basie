@@ -1,0 +1,10 @@
+private enum Choice
+    first
+    last
+end
+
+private var selected as Choice = Choice.last
+
+sub fromB() as boolean
+    return selected = Choice.last
+end

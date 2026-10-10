@@ -27,7 +27,6 @@
 ;    EX_RTOK   make it the latest result again
 ;    EX_WIDEN  whether one scalar type widens to another
 ;    EX_UNIFY  resolve the type of a binary integer operation
-;    EX_CLASS  check that a symbol is a scalar and return its class
 ;    EX_FOLD   return a folded value, checked or wrapped
 ;    EX_ARITH  reduce an arithmetic or bitwise operator
 ;    EX_SHIFT  reduce a shift
@@ -310,7 +309,7 @@ EX_DBOOL:
 ; Zero if metadata A is a Boolean's. A returns its type.
 
 EX_TBOOL:
-    AND  SY_TMASK                  ; Keep its type.
+    AND  EX_TMASK                  ; Keep its type.
     CP   SY_BOOL                   ; Is it Boolean?
     RET                            ; Return the comparison in zero.
 
@@ -319,7 +318,10 @@ EX_TBOOL:
 
 EX_DTYPE:
     LD   A,(AC_DINFO)              ; Fetch the declaration's class and type.
-    AND  SY_TMASK                  ; Keep the type.
+    AND  SY_TMASK                  ; Keep the packed type.
+    CP   SY_ENUM                   ; A nominal scalar?
+    RET  NZ                        ; Built-in type.
+    LD   A,(AG_CTYPE)              ; Its retained full ID.
     RET                            ; Return it.
 
 ;@ROUTINE IN A,E OUT CARRY CLOBBERS A,ZERO,SIGN,PARITY,HALFCARRY
@@ -329,6 +331,11 @@ EX_DTYPE:
 ; are kept.
 
 EX_WIDEN:                      ; A is the source, E the target.
+    PUSH AF
+    OR   E                        ; Either nominal ID forbids numeric widening.
+    CP   AG_FIRST
+    JR   NC,.NOMINAL
+    POP  AF                       ; Built-ins have IDs 0..8.
     PUSH HL                        ; Keep HL
     PUSH BC                        ; and BC.
     LD   HL,.TABLE                 ; The source's
@@ -348,6 +355,10 @@ EX_WIDEN:                      ; A is the source, E the target.
     POP  BC                        ; Restore BC
     POP  HL                        ; and HL.
     RET                            ; Carry if it widens.
+.NOMINAL:
+    POP  AF
+    OR   A
+    RET
 .TABLE:                        ; By source: the types it widens to.
     DB   0,$F2,$E0,0               ; Exact, u8, u16, boolean,
     DB   $D0,$C0,0,0,0             ; i8, i16, u32, i32, f32.
@@ -388,7 +399,7 @@ EX_UNIFY:
     RLCA                           ; Then
     RET  NC                        ; nothing; carry clear.
     RRCA                           ; Its type:
-    AND  SY_TMASK                  ; an f32
+    AND  EX_TMASK                  ; an f32
     CP   SY_F32                    ; already?
     RET  Z                         ; Carry clear.
     LD   (HL),SY_KNOWN+SY_F32      ; It is one now:
@@ -406,6 +417,10 @@ EX_UNIFY:
     LD   C,A                       ; C is the right type.
     LD   A,DG_CLASH                ; Booleans have no arithmetic:
     JP   Z,EX_EROP                 ; type-mismatch at the right.
+    LD   A,C
+    CP   AG_FIRST
+    LD   A,DG_CLASH
+    JP   NC,EX_EROP                ; Right nominal operand is not numeric.
     LD   A,D                       ; Is the left operand typed?
     OR   A                         ; Test for SY_EXACT.
     JR   NZ,.LTYPE                 ; Yes: resolve from the left type.
@@ -453,24 +468,6 @@ EX_UNIFY:
 .FITS:                         ; C is the type.
     LD   A,C                       ; The type
     JP   VL_FITS                   ; checked; carry if it does not fit.
-
-;@ROUTINE IN A,D OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
-; Check that symbol info A (also in D) names a scalar: a type name, a
-; record's or a pool's, is wrong-class, naming the current NAME, and an
-; aggregate DG_CLASH; return its storage class in A, with zero set for a
-; constant. D is preserved.
-
-EX_CLASS:
-    AND  SY_TYPE+SY_AGGR           ; A type name or an aggregate?
-    JR   Z,.SCALAR                 ; Neither: a scalar.
-    CP   SY_TYPE                   ; A type name
-    LD   A,DG_CLASS                ; is wrong-class,
-    JP   Z,DG_NAMED                ; naming it;
-    JP   EX_ETYPE                  ; an aggregate no scalar value.
-.SCALAR:                       ; A scalar's symbol.
-    LD   A,D                       ; Recover the symbol info.
-    AND  SY_CMASK                  ; Keep the storage class; zero is constant.
-    RET                            ; Return it.
 
 ;@ROUTINE OUT A,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,CARRY
 ; Nonzero when both operands are known at compile time; zero otherwise.
@@ -656,8 +653,14 @@ EX_ARITH:
 ; blames the left operand.
 
 EX_SHIFT:
+    LD   A,(EX_RMETA)
+    AND  EX_TMASK
+    CP   AG_FIRST
+    JP   NC,.MISMATCH
     CALL EX_LBOOL                  ; The left's type:
     JP   Z,.MISMATCH               ; a Boolean is no number,
+    CP   AG_FIRST
+    JP   NC,.MISMATCH
     CP   SY_F32                    ; and an f32
     JP   Z,.MISMATCH               ; no integer (emitShift).
     LD   C,A                       ; C is the left's type.
@@ -671,14 +674,14 @@ EX_SHIFT:
     OR   A                         ; or typed?
     JR   NZ,.TYPED                 ; Typed: foldTyped.
     LD   A,(EX_RMETA)              ; Exact: an exact count
-    AND  SY_TMASK                  ; too,
+    AND  EX_TMASK                  ; too,
     JP   NZ,.NOTYPE                ; or no definite type.
     CALL .COUNT                    ; B is the count, below zero raises
     JP   C,EX_ELEFT                ; out-of-range.
     JR   .FOLD                     ; Fold it.
 .TYPED:                        ; A typed left with a known count.
     LD   A,(EX_RMETA)              ; An f32 count
-    AND  SY_TMASK                  ; is
+    AND  EX_TMASK                  ; is
     CP   SY_F32                    ; no
     JR   Z,.MISMATCH               ; integer.
     CALL .COUNT                    ; B is the count; below zero
@@ -711,7 +714,7 @@ EX_SHIFT:
 .EMIT:                         ; A computed left, pushed.
     LD   A,(EX_RMETA)              ; The count:
     LD   D,A                       ; its metadata.
-    AND  SY_TMASK                  ; Its type,
+    AND  EX_TMASK                  ; Its type,
     LD   E,A                       ; in E,
     CP   SY_BOOL                   ; not a Boolean,
     JR   Z,.MISMATCH               ; and

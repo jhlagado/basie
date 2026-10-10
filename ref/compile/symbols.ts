@@ -1,7 +1,7 @@
 /** Scopes and symbols (spec chapter 5). */
 import type { Position } from "./lexer.ts";
 import { fail } from "./diagnostics.ts";
-import type { PoolInfo, RecordType, Type } from "./types.ts";
+import type { EnumType, PoolInfo, RecordType, Type } from "./types.ts";
 
 export type Storage =
   | { kind: "static"; ordinal: number; offset: number }
@@ -71,6 +71,7 @@ export type Symbol =
     slotOffset?: number;
   }
   | { kind: "record"; name: string; type: RecordType }
+  | { kind: "enum"; name: string; type: EnumType }
   | { kind: "pool"; name: string; info: PoolInfo; forward: boolean }
   | {
     kind: "routine";

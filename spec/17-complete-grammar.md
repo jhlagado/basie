@@ -53,6 +53,7 @@ declaration
     ::= const-declaration
       | program-var-declaration
       | record-declaration
+      | enum-declaration
       | pool-declaration
       | forward-declaration
       | routine-definition
@@ -73,6 +74,11 @@ record-initializer
     ::= "(" static-initializer { "," static-initializer } ")"
 array-initializer
     ::= "[" static-initializer { "," static-initializer } "]"
+
+enum-declaration
+    ::= "enum" NAME NEWLINE
+        NAME NEWLINE { NAME NEWLINE }
+        "end" NEWLINE
 
 record-declaration
     ::= "record" NAME NEWLINE
@@ -224,7 +230,7 @@ The grammar is deterministic with one token of lookahead, given these semantic p
 | `isIncompleteForwardName` | `sub NAME NEWLINE` is a body header only when `NAME` is one incomplete forward routine; its stored parameters become the body's bindings. |
 | `isFailableCall` | `else fail` and `handle` follow only a complete statement or initializer whose source is exactly one direct call to a failing routine. |
 
-Field lookup after `.` uses the selected record or handle type, or the string intrinsics `.length` and `.capacity`. Static initializer checking descends the declared type and records the expected component before each nested initializer. These are static checks over a deterministic token stream, not backtracking.
+After an enum type name, `.NAME` resolves a qualified member of that enum (Section 6.16). Otherwise, field lookup after `.` uses the selected record or handle type, or the string intrinsics `.length` and `.capacity`. Static initializer checking descends the declared type and records the expected component before each nested initializer. These are static checks over a deterministic token stream, not backtracking.
 
 ## 17.4 Predictive analysis
 
@@ -236,7 +242,7 @@ Read as plain LL(1), the grammar has the conflicts below and no others. Each is 
 | --- | --- | --- |
 | `compilation` | `EOF` | Source-part boundaries are events of the include mechanism (Chapter 4, Section 17.1), not tokens, so the parser always knows where a part ends. |
 | `source-part` | `include` | The same: an `include` line belongs to the part that holds it. |
-| `source-part` | `assert` `const` `forward` `pool` `private` `record` `sub` `var` | The same: a declaration belongs to the part that holds it. |
+| `source-part` | `assert` `const` `forward` `pool` `private` `record` `enum` `sub` `var` | The same: a declaration belongs to the part that holds it. |
 | `static-initializer` | `(` | `isInitializerForDeclaredType`: `(` begins a record initializer when the expected type is a record, and a parenthesised expression otherwise. |
 | `local-initializer` | `(` | The same predicate. |
 | `case-selector` | `none` | `case none` is always the handle arm. An integer label can't be `none`, so nothing is lost. |

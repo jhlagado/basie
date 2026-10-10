@@ -1291,3 +1291,22 @@ This revises D14's choice of `as`. Name-first order and single-pass parsing are 
 ### Withdrawn and deferred, 2026-10-10
 
 Each adopted change was then tested against real Basie code, and only those that prevent a real bug, remove frequent friction or add a missing capability were kept ([stretch goals](stretch-goals.md)). `else` with a value, `defer`, default field values and block comments were withdrawn. Named record initialisers were deferred. Namespaced includes were grouped with module interfaces in the earlier next-milestone sketch. Both are now deferred in the [forward plan](development-plan.md). Shadowing stays refused (spec §5.6).
+
+### D53. Plain nominal enums
+
+**Adopted 2026-10-10.** Implement plain enums first in the next development
+milestone. Keep the current `as` syntax and existing non-exhaustive selection
+rules; colon types, typed failures and exhaustive selection are separate work.
+
+Each top-level `enum` introduces 1 to 256 qualified member constants and a
+nominal scalar type. Values are bytes, default to the first member and copy
+like other scalars. They admit same-type equality and selection, but no
+numeric conversions, ordinal arithmetic, ordered comparisons or ranges.
+There are no payloads or ownership rules. See [spec §6.16](../spec/06-types.md#616-plain-enumerations).
+
+The native compiler reuses dynamic type descriptors and the existing name
+heap. Expressions keep full type identity; packed symbols use an enum marker
+and their existing type-tag byte. Code generation uses the byte ABI. No new
+overlay or overlay load is introduced. Compiler footprint, source capacity
+and correctness remain admission gates; no estimate substitutes for the
+assembled image and compile–link–run proof.

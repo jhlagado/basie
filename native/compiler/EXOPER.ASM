@@ -174,6 +174,21 @@ EX_LOOK:                       ; Is the next token a binary operator?
 ; f32 values as the numbers they are (VL_FKEYS).
 
 .REDUCE:
+    LD   A,(EX_LMETA)
+    AND  EX_TMASK
+    CP   AG_FIRST
+    JR   C,.ORDINARY
+    LD   C,A
+    LD   A,(EX_RMETA)
+    AND  EX_TMASK
+    CP   C
+    LD   A,DG_CLASH
+    JP   NZ,EX_EROP
+    CALL EX_KNOWN
+    JP   NZ,.FOLD
+    CALL GX_BINOP
+    JR   .RUNTIME
+.ORDINARY:
     CALL EX_LBOOL                  ; Is the left Boolean?
     JR   NZ,.INTEGER               ; No: compare integers.
     LD   A,(EX_RMETA)              ; Then the right must be Boolean too.
@@ -242,7 +257,7 @@ EX_NOT:
     CALL EX_NOT                    ; Parse its operand, `not` included.
     POP  DE                        ; DE is `not`'s offset.
     LD   B,A                       ; Keep the operand's metadata.
-    AND  SY_TMASK                  ; Keep its type,
+    AND  EX_TMASK                  ; Keep its type,
     LD   C,A                       ; the result's.
     JR   NZ,.TYPED                 ; A typed operand keeps it.
     PUSH DE                        ; (`not`'s offset kept)
@@ -253,6 +268,8 @@ EX_NOT:
     LD   A,C                       ; An f32
     CP   SY_F32                    ; is no integer:
     JR   Z,.FLOAT                  ; type-mismatch at `not`.
+    CP   AG_FIRST
+    JR   NC,.FLOAT
     BIT  7,B                       ; SY_KNOWN: is the operand known?
     JR   NZ,.FOLD                  ; Yes: fold it.
     PUSH BC                        ; Keep the type.
@@ -460,9 +477,12 @@ EX_BXOR:                       ; D/HL is the left.
 
 EX_LBOK:                       ; A is the left's metadata.
     PUSH AF                        ; Kept.
-    AND  SY_TMASK                  ; A Boolean
+    AND  EX_TMASK                  ; A Boolean
+    CP   AG_FIRST
+    JR   NC,.LIMIT
     CP   SY_BOOL                   ; left
     JR   NZ,.OK                    ; takes
+.LIMIT:
     LD   A,(EX_OPER)               ; = and <>
     CP   EX_NE+1                   ; only.
     LD   A,DG_CLASH                ; Anything else
@@ -489,6 +509,9 @@ EX_OPEN:
     LD   D,A                       ; Keep the metadata.
     CALL EX_TBOOL                  ; Is its type Boolean?
     JR   Z,.BOOL                   ; It may short-circuit.
+    CP   AG_FIRST
+    LD   A,DG_CLASH
+    JP   NC,EX_ELOP
     LD   A,D                       ; An integer: keep it,
     CALL EX_SAVE                   ; with the operator.
     LD   A,(EX_LMETA)              ; If it was computed,
@@ -591,9 +614,11 @@ EX_LOGIC:
 
 EX_FITS:
     LD   D,A                       ; Keep the metadata.
-    AND  SY_TMASK                  ; Is the result typed?
+    AND  EX_TMASK                  ; Is the result typed?
     JR   NZ,.TYPED                 ; Yes: compare the types.
     LD   A,E                       ; An exact constant: what is the target?
+    CP   AG_FIRST
+    JR   NC,EX_EFIT
     CP   SY_BOOL                   ; A Boolean?
     JR   Z,EX_EFIT                 ; A number is not a Boolean.
     CP   SY_F32                    ; An f32?
@@ -609,6 +634,11 @@ EX_FITS:
 .TYPED:                        ; A is the result's type.
     CP   E                         ; The destination's?
     JR   Z,.FITS                   ; It fits.
+    OR   E                        ; A mismatched enum cannot convert.
+    CP   AG_FIRST
+    JR   NC,EX_EFIT
+    LD   A,D
+    AND  EX_TMASK
     CP   SY_F32                    ; An f32 to another:
     JR   Z,.FROMF                  ; known, never; computed, converted.
     CALL EX_WIDEN                  ; Does it widen to it?
@@ -731,8 +761,12 @@ EX_SUB:
 
 EX_STORE:
     LD   A,D                       ; Fetch the symbol info.
-    AND  SY_TMASK                  ; Keep the type.
-    LD   E,A                       ; E is the type.
+    AND  SY_TMASK                  ; Decode physical packed scalar.
+    CP   SY_ENUM
+    JR   NZ,.TYPE
+    LD   A,SY_U8
+.TYPE:
+    LD   E,A                       ; E is the physical type.
     LD   A,D                       ; The symbol info again.
     AND  SY_CMASK                  ; Keep the storage class.
     CP   SY_GLOB                   ; A program variable?
@@ -769,7 +803,7 @@ EX_SHAPE:
     BIT  7,D                       ; Computed?
     JR   Z,.DONE                   ; Then it is pushed.
     LD   A,D                       ; Exact?
-    AND  SY_TMASK                  ; Then it may
+    AND  EX_TMASK                  ; Then it may
     JR   NZ,.TYPED                 ; take a type.
     PUSH DE                        ; Keep the metadata.
     CALL EX_PEEKX                  ; A certainly exact count?
@@ -787,7 +821,7 @@ EX_SHAPE:
     POP  DE                        ; (the metadata)
     JR   Z,.VALUE                  ; Then it folds.
     LD   A,D                       ; Otherwise it loads
-    AND  SY_TMASK                  ; at its type,
+    AND  EX_TMASK                  ; at its type,
     LD   E,A                       ; from
     LD   HL,(EX_KVAL)              ; its value,
     PUSH DE                        ; (kept)
@@ -810,6 +844,8 @@ EX_SHAPE:
 EX_WINT:                       ; EX_KVAL is the value.
     LD   A,(EX_WANT)               ; The expected type,
     LD   C,A                       ; C:
+    CP   AG_FIRST
+    JR   NC,.NODEF                 ; Enums do not give integers a context.
     CALL GX_PROP                   ; its properties:
     BIT  6,A                       ; neither Boolean
     JR   NZ,.NODEF                 ; nor f32,
@@ -830,7 +866,7 @@ EX_WINT:                       ; EX_KVAL is the value.
 ; a number, or the name of an exact constant, predeclared or declared.
 
 EX_PEEKX:
-    LD   C,SY_TMASK                ; Its type must be exact;
+    LD   C,EX_TMASK                ; Its type must be exact;
     JR   EX_PEEKK                  ; look.
 
 ;@ROUTINE OUT ZERO CLOBBERS A,BC,DE,HL,CARRY,SIGN,PARITY,HALFCARRY

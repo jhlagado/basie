@@ -73,6 +73,8 @@ The compiler resolves each `NAME` before interpreting its suffixes. A constant, 
 
 **Indexing.** An index suffix applies to a fixed array, an open array parameter or a bounded string. The index must have type `u8` or `u16`, or be an exact integer that fits `u16`; a signed or 32-bit index must be converted explicitly, and the checked conversion traps if the value is negative or too large, so a negative index never wraps into a valid one. For an array, each index is checked against its own dimension's bound (design decision D32) and the result has the element type. For a bounded string, the result is a `u8` byte, checked against the current length. A failed check traps with `bounds` before any element is read or written. A constant-expression index out of range is diagnosed (Chapter 15, Section 15.3); any other index is checked at run time. An array of arrays is indexed one dimension at a time: `screen[r][c]`.
 
+**Enum members.** `EnumName.NAME` denotes that enum's named constant (Section 6.16). An enum value itself has no fields.
+
 **Field selection.** `.NAME` on a record designator resolves `NAME` in that record's field scope. On a bounded string, `.length` gives the current length as `u8`, and on a `string[]` parameter `.capacity` gives its capacity as `u8` (Chapter 6). On a non-optional handle, `.NAME` selects a field of the slot's record, through the access rules of Chapter 7, Section 7.13. An optional handle cannot be selected through; it must first be tested with `select`.
 
 **Results.** Index and field suffixes may follow a call whose result is an aggregate alias; the suffix does not copy the object. A scalar result cannot take a suffix, nor can a handle result: `make().v` is invalid, and the handle is stored in a local first, which also gives a fresh owning result its owner (Chapter 7, Section 7.13), and a result-free call is not an expression.
@@ -150,6 +152,7 @@ Shifts are not defined for `f32` or `boolean`.
 The six comparison operators produce `boolean`.
 
 - **Numeric operands** follow Section 9.7: they must have one type after widening, or the comparison is invalid. Integer comparison uses the type's ordering, signed or unsigned. `f32` comparison is ordinary, with `-0.0 = 0.0`.
+- **Enum operands** admit only `=` and `<>`, and both operands must have the same nominal enum type (Section 6.16).
 - **`boolean` operands** admit only `=` and `<>`.
 - **Identifiers** of the same pool admit only `=` and `<>`; `id P` widens to `id P?` for the comparison, so either may be compared with the other. Two identifiers are equal when both are `none`, or when both were made from the same slot with the same generation. `none` may be compared with an optional identifier. Comparing identifiers performs no check and never traps; a stale identifier is not equal to `none` by comparison, though `select` treats it as `none`.
 - **`File` values** admit only `=` and `<>`, comparing the entry and generation, so a value equals `console`, `printer` or a copy of itself (Chapter 16, Section 16.3).

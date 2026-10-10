@@ -26,9 +26,10 @@ remains a working draft. It is not a delivered 1.0 release.
 The native compiler `BASIE.COM` and linker `BLINK.COM` run on CP/M 2.2. Roadmap
 step 74 records completion of the current implementation scope, with open arrays
 of handles and `File`s retained for the next development milestone
-([limits](docs/limits.md)). Current completion and verification remain immediate.
-`BASIE.COM` takes 24,927 bytes and a 2,611-byte overlay area, 1,134 bytes under
-its 28K limit.
+([limits](docs/limits.md)). Plain nominal enums are implemented in both compilers as the first next-milestone feature
+([types](spec/06-types.md#616-plain-enumerations)).
+`BASIE.COM` takes 25,433 resident bytes and a 2,611-byte overlay area, 628 bytes under
+its 28 KiB limit.
 
 The [forward development plan](docs/development-plan.md) records the next milestone's
 selected directions and admission gates. No next release number is assigned.

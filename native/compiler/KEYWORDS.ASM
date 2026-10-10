@@ -49,6 +49,7 @@ KW_TAB:                        ; The entries.
     DB   "ontinu",'e'+$80,TK_CONT  ; Next iteration of the innermost loop.
     DB   "as",'e'+$80,TK_CASE      ; A select's arm.
 .E:                            ; e:
+    DB   "nu",'m'+$80,TK_ENUMD     ; Nominal enumeration declaration.
     DB   "n",'d'+$80,TK_END        ; Closes a block.
     DB   "lsei",'f'+$80,TK_ELSIF   ; Further conditional arm.
     DB   "ls",'e'+$80,TK_ELSE      ; Final arm; also `else fail`.
@@ -117,7 +118,7 @@ KW_TAB:                        ; The entries.
     DB   .V-KW_TAB,.W-KW_TAB,.X-KW_TAB ; v to x.
     DB   .END-KW_TAB,.END-KW_TAB,.END-KW_TAB ; y, z and the end.
 KW_IDX EQU  .IDX               ; The index, after the entries.
-KW_CNT EQU  49                 ; Entries in KW_TAB.
+KW_CNT EQU  50                 ; Entries in KW_TAB.
 KW_TYPE EQU  $80               ; A type keyword's kind byte: this plus its type.
 
 ; Punctuators found by table search: the character, then a descriptor.

@@ -214,6 +214,6 @@ Some surface differences would remain:
 
 The other adopted changes are `var` at the call site, `for … in` over arrays and strings, and required `case else` ([design decisions](design-decisions.md#adopted-for-the-next-language-version)). `var` at the call site and `for … in` bring Basie closer to Rust's `&mut` arguments and iterators. Shadowing stays refused, as in Zig. Namespaced includes, planned for version 2, would take the pressure off library names.
 
-The differences of substance would also remain. Basie has pools in place of a heap and aliases limited to a call in place of stored borrows. It has no enumerations, generics, traits or methods.
+The differences of substance would also remain. Basie has pools in place of a heap and aliases limited to a call in place of stored borrows. Plain enums distinguish named code domains, without payloads. It has no generics, traits or methods.
 
 A Rust programmer should find Basie's safety model familiar but its syntax old-fashioned and its type system small. A BASIC or Pascal programmer should find the syntax familiar and the ownership rules new.

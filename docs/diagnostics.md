@@ -83,6 +83,7 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | 53 | `conversion-unavailable` | There is no conversion to ^1 |
 | 54 | `var-parameter` | var is not allowed on a ^1 parameter |
 | 55 | `from-clause` | ^1 is not an aggregate parameter |
+| 116 | `empty-enum` | An enum needs at least one member |
 
 ## Expressions and statements (Chapters 9 to 12)
 

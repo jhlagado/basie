@@ -1,0 +1,17 @@
+// Private enum namespaces in included parts do not leak or collide.
+// expect output: P\r\n
+
+include "ENUMPA.BSI"
+include "ENUMPB.BSI"
+
+enum Choice
+    own
+end
+
+sub main() fails
+    var selected as Choice
+    assert selected = Choice.own
+    assert fromA()
+    assert fromB()
+    writeText(console, "P\r\n") else fail
+end

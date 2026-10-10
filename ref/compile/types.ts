@@ -12,6 +12,9 @@ export type ScalarName =
 
 export type Field = { name: string; type: Type; offset: number };
 
+/** Declaration identity, independent of the byte representation. */
+export type EnumType = { kind: "enum"; name: string; members: string[] };
+
 export type RecordType = {
   kind: "record";
   name: string;
@@ -83,6 +86,7 @@ export function owningEntries(t: Type, base = 0): OwningEntry[] {
 
 export type Type =
   | { kind: "scalar"; name: ScalarName }
+  | EnumType
   | RecordType
   | { kind: "array"; element: Type; length: number; size: number }
   | { kind: "openArray"; element: Type }
@@ -145,6 +149,8 @@ export function sizeOf(t: Type): number {
   switch (t.kind) {
     case "scalar":
       return SCALARS[t.name].size;
+    case "enum":
+      return 1;
     case "record":
       return t.size;
     case "array":
@@ -210,6 +216,8 @@ export function sameType(a: Type, b: Type): boolean {
   switch (a.kind) {
     case "scalar":
       return a.name === (b as typeof a).name;
+    case "enum":
+      return a === b;
     case "record":
       return a === b;
     case "array":
@@ -232,6 +240,8 @@ export function sameType(a: Type, b: Type): boolean {
 export function typeName(t: Type): string {
   switch (t.kind) {
     case "scalar":
+      return t.name;
+    case "enum":
       return t.name;
     case "record":
       return t.name;

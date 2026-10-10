@@ -315,7 +315,7 @@ AC_ARRAY:
     LD   HL,0                      ; Sum the extent from zero.
 .SIZELOOP:                     ; Add one element per iteration.
     ADD  HL,DE                     ; One more element.
-    JP   C,AC_ERNG                 ; Past 64K: out of range, at the type.
+    JR   C,AC_ERNG                 ; Past 64K: out of range, at the type.
     DEC  BC                        ; One element fewer to add.
     LD   A,B                       ; Any left?
     OR   C                         ; Test both bytes.
@@ -378,9 +378,11 @@ AC_VALUE:
     LD   A,DG_KNOWN                ; No: not-constant,
     JP   Z,EX_EVAL                 ; at the value.
     LD   A,D                       ; Recover the metadata.
-    AND  SY_TMASK                  ; Its type:
+    AND  EX_TMASK                  ; Its type:
     CP   SY_U8                     ; a u8
     JR   Z,.EXACT                  ; becomes exact,
+    CP   AG_FIRST                  ; Enums retain their nominal type.
+    JR   NC,.TYPEOK                ; Expression types above this are enums.
     CP   SY_BOOL                   ; a Boolean
     JR   Z,.TYPEOK                 ; stays one,
     OR   A                         ; and any other
@@ -403,7 +405,8 @@ AC_VALUE:
 
 AC_CONST:
     LD   A,(AC_DINFO)              ; Its type, class constant (SY_CONST, zero),
-    LD   D,A                       ; is the symbol's class and type.
+    LD   D,SY_CONST                ; Storage class constant.
+    CALL SY_KIND                   ; Encode the nominal type when needed.
     LD   BC,(AC_DVAL)              ; Its value's low word.
     CALL EX_PREP                   ; Write the provisional symbol.
     INC  HL                        ; HL is its payload's high byte: next,
@@ -411,7 +414,10 @@ AC_CONST:
     LD   HL,AC_DVAL+2              ; takes the value's
     LD   BC,3                      ; three high bytes.
     LDIR                           ; Copied.
-    JP   SY_CMT                    ; Commit it and return.
+    LD   A,(AC_DINFO)              ; Its full type,
+    CP   AG_FIRST                  ; a nominal enum needs its tag.
+    JP   NC,SY_TAG                 ; Tag and commit it.
+    JP   SY_CMT                    ; Commit a builtin scalar.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; CommitAggregateConstant: a typed scalar constant (D20) is declared with
@@ -422,12 +428,18 @@ AC_CONST:
 
 AC_ROCMT:
     LD   A,(AG_CTYPE)              ; The constant's type,
-    CP   AG_FIRST                  ; a scalar
+    CALL AG_SCAL                 ; a scalar, including enums,
     JR   NC,.BLOB                  ; or an aggregate.
     LD   HL,(AG_IBASE)             ; The staged bytes,
     LD   DE,AC_DVAL                ; four of them,
     LD   BC,4                      ; are
     LDIR                           ; the value's,
+    LD   A,(AG_CTYPE)              ; Keep the full nominal type.
+    LD   (AC_DINFO),A              ; AC_CONST consumes it.
+    CP   AG_FIRST                  ; Enum payloads are unsigned bytes.
+    JR   C,.PHYSICAL               ; A builtin retains its storage type.
+    LD   A,SY_U8                   ; Enum ordinal.
+.PHYSICAL:
     LD   HL,AC_DVAL                ; read as
     CALL VL_WRAP                   ; the type's number.
     JR   AC_CONST                  ; Declare it.
@@ -455,7 +467,6 @@ AC_CLAIM EQU  EX_KEEP          ; BeginAssert: keep `assert`'s position.
 AC_PROVE:
     CALL AC_RESUB                  ; Report at the retained `assert` token.
     LD   A,(EX_RMETA)              ; The expression's metadata.
-    AND  SY_KNOWN+SY_TMASK         ; Its known flag and type.
     CP   SY_KNOWN+SY_BOOL          ; A known Boolean?
     JR   NZ,.BADTYPE               ; No: raise DG_CLASH.
     LD   A,(EX_RVAL)               ; Its value.
@@ -529,11 +540,8 @@ AC_ALLOC:
     CALL RG_BSS                    ; Its size only; BC is the ordinal.
 .DECLARE:                      ; BC is the blob's ordinal.
     LD   A,(AC_DINFO)              ; The object's type ID.
-    CP   AG_FIRST                  ; A scalar?
-    LD   D,SY_AGLOB                ; Assume an aggregate program variable.
-    JR   NC,.PREPARE               ; It is one.
-    OR   SY_GLOB                   ; A scalar: class program variable,
-    LD   D,A                       ; with its type.
+    LD   D,SY_GLOB                 ; Storage class program variable.
+    CALL SY_KIND                   ; Encode scalar, enum or aggregate.
 .PREPARE:                      ; D is the information byte, BC the ordinal.
     CALL EX_PREP                   ; Write the provisional symbol.
     LD   A,(AC_DINFO)              ; The type ID.
