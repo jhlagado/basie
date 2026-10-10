@@ -135,9 +135,12 @@ OW_REC:                        ; After `as`.
     CP   SY_RTYPE                  ; type?
     JR   NZ,.NEED                  ; No.
     INC  HL                        ; Its payload,
-    LD   A,(HL)                    ; the record's type ID,
-    LD   (PL_NREC),A               ; kept.
-    RET                            ; Back to the engine.
+    LD   A,(HL)                    ; the type's ID,
+    LD   (PL_NREC),A               ; kept,
+    CALL AG_DESC                   ; must name
+    LD   A,(HL)                    ; a record,
+    CP   AG_KREC                   ; not an enum.
+    RET  Z                         ; Back to the engine.
 .NEED:                         ; Not a record:
     CALL DG_RAISE                  ; pool-needs-record,
     DB   DG_PNREC                  ; at the token.

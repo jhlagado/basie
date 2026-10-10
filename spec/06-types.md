@@ -371,8 +371,7 @@ as `Direction.north`; a bare member name does not enter the surrounding scope.
 Each declaration creates a distinct type. Assignment, argument passing and
 return copy the enum value and require that exact enum type. Enums may occur
 in constants, variables, record fields, array elements, ordinary parameters
-and results. Like the built-in scalars, they cannot be `var` parameters or
-`var` results. An omitted initializer supplies the first declared member,
+and results. Like the built-in scalars, they cannot be `var` parameters. An omitted initializer supplies the first declared member,
 including enum fields and array elements in zero-initialized aggregates.
 An untyped constant or inferred local initialized with a member retains its
 enum type.

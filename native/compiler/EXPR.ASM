@@ -272,9 +272,9 @@ EX_RTOK:
 ; compiler reports it.
 
 EX_EBOOL:                      ; A: the operands' metadata, ORed.
-    RLA                            ; A right operand not Boolean:
-    LD   A,DG_CLASH                ; type-mismatch if either is known,
-    JR   C,EX_EROP                 ; else conversion-required (the
+    CP   AG_FIRST                  ; A right operand not Boolean:
+    LD   A,DG_CLASH                ; type-mismatch if either is known
+    JR   NC,EX_EROP                ; or not a scalar, else conversion-required (the
     LD   A,DG_CONV                 ; reference's toRegisters), at the
     DB   $01                       ; right: LD BC,nn passes EX_ERNG's LD.
 EX_ERNG:                       ; The right operand is out of range.

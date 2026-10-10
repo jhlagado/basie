@@ -211,9 +211,11 @@ AC_STEP:
 ; A is a typed bound's type, E the counter's: return their common type
 ; in E, the type the other widens to (commonType); none, or f32, raises
 ; mixed-operands at the bound, as is a long one for a narrower counter
-; (D58).
+; (D58); one not a scalar, an enum, is type-mismatch there.
 
 .COMMON:                       ; A is the bound's type.
+    CP   AG_FIRST                  ; Not a scalar:
+    JP   NC,EX_EFIT                ; type-mismatch.
     LD   B,A                       ; Keep it.
     CP   E                         ; The same as the counter's,
     JR   Z,.LONG                   ; or

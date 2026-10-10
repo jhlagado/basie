@@ -243,6 +243,36 @@ const refused = [
     ),
     "type-mismatch",
   ],
+  [
+    "pool of enums",
+    `${types}pool p as Direction[4]\nsub main()\nend\n`,
+    "pool-needs-record",
+  ],
+  [
+    "pool name is not a value",
+    `record N\n    a as u8\nend\nvar big as u8[600]\npool nodes as N[4]\nsub main()\n    var y = nodes.x\nend\n`,
+    "wrong-class",
+  ],
+  [
+    "computed enum for boolean",
+    body("var flag as boolean\n    var same = flag = direction"),
+    "type-mismatch",
+  ],
+  [
+    "computed enum after or",
+    body("var flag as boolean\n    var either = flag or direction"),
+    "type-mismatch",
+  ],
+  [
+    "enum loop bound",
+    body("var i as u8\n    for i = 0 to direction\n    end"),
+    "type-mismatch",
+  ],
+  [
+    "enum constant loop bound",
+    body("var i as u8\n    for i = 0 to Direction.south\n    end"),
+    "type-mismatch",
+  ],
 ] as const;
 
 for (const fixture of accepted) {

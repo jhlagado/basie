@@ -141,10 +141,14 @@ EN_DECL:
 ; A type name's payload BC. Resolve its qualified member as known enum.
 ; Non-enum names retain the existing wrong-class diagnostic.
 EN_MEM:
+    LD   A,D
+    CP   SY_TYPE                ; A type name, not a pool (SY_GLOB too)?
+    JR   NZ,.CLASS
     LD   A,C
     CALL AG_DESC                 ; Type names hold dynamic IDs; BC kept.
     LD   A,(HL)
     CP   AG_KENUM
+.CLASS:
     LD   A,DG_CLASS
     JP   NZ,DG_NAMED
     PUSH BC                     ; Retain nominal ID.

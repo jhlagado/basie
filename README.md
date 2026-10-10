@@ -28,7 +28,7 @@ step 74 records completion of the current implementation scope, with open arrays
 of handles and `File`s retained for the next development milestone
 ([limits](docs/limits.md)). Plain nominal enums are implemented in both compilers as the first next-milestone feature
 ([types](spec/06-types.md#616-plain-enumerations)).
-`BASIE.COM` takes 25,433 resident bytes and a 2,611-byte overlay area, 628 bytes under
+`BASIE.COM` takes 25,445 resident bytes and a 2,611-byte overlay area, 616 bytes under
 its 28 KiB limit.
 
 The [forward development plan](docs/development-plan.md) records the next milestone's

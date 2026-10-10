@@ -148,6 +148,13 @@ net resident cost is 506 bytes, with 628 bytes left below the 28 KiB limit.
 The DIAG overlay grows by 13 bytes (one extra disk record); no overlay is added.
 Generated object streams remain byte-identical to the reference compiler.
 
+A follow-up review compared 224 probes with the reference and found four native
+divergences, now fixed: a pool of enums is pool-needs-record; a pool's name in
+an expression is wrong-class without reading past the type table; a computed
+enum, handle or `File` beside a Boolean is type-mismatch; and an enum `for`
+bound is type-mismatch. The fixes cost 12 resident bytes (25,445; total 28,056,
+616 below the 28 KiB limit) and add six refusal checks; 1,136 tests pass.
+
 The source/symbol region begins at `$85EC`, 512 bytes above the pre-enum `$83EC`.
 Compression recovers one page from the uncompressed `$86EC` layout, but does not
 eliminate the feature's capacity cost. BIGSPLF's 518 lines retain every token

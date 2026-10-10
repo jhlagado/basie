@@ -195,9 +195,10 @@ EX_LOOK:                       ; Is the next token a binary operator?
     LD   D,A                       ; (its metadata)
     CALL EX_TBOOL                  ; Is its type Boolean?
     JR   Z,.BOOLS                  ; If not, at the left:
-    BIT  7,D                       ; a known one
+    LD   A,D                       ; a known one, or
+    CP   AG_FIRST                  ; one not a scalar,
     LD   A,DG_CLASH                ; is a mismatch,
-    JP   NZ,EX_ELOP                ; a computed one
+    JP   NC,EX_ELOP                ; a computed one
     LD   A,DG_CONV                 ; needs a
     JP   EX_ELOP                   ; conversion.
 .BOOLS:                        ; Two Booleans, = or <> (EX_LBOK).
