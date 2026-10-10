@@ -56,6 +56,7 @@ sub words(v as u16, s as i16) as u8
         return 'i'
     case 65535
         return 'j'
+    case else
     end
     return '?'
 end
@@ -66,6 +67,7 @@ sub longs(v as u32, s as i32) as u8
         return 'k'
     case 2147483647
         return 'l'
+    case else
     end
     select v
     case 0 to 99999
@@ -119,6 +121,7 @@ sub main() fails
             select i
             case 13 to 255
                 exit
+            case else
             end
             odd = odd + 1
         case else

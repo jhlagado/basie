@@ -383,8 +383,7 @@ ordering, arithmetic, bitwise operation, enum array index or enum loop counter.
 Only `=` and `<>` compare two values of the same enum. An enum value cannot
 serve as a Boolean condition. `select` accepts single constant members of the
 subject's enum type, including comma-separated labels, but not `to` ranges.
-Exhaustiveness is a separate planned feature; current selection fall-through
-rules remain unchanged.
+Without `case else` it must name every member (D51, Chapter 11).
 
 Enums own no storage and add no runtime type tags or cleanup. Native enums
 share the compiler's 48 dynamic type slots with records, strings and arrays.

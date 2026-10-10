@@ -186,6 +186,12 @@ const TABLE: [number, string, string, Group][] = [
   [114, "handle-destination", "handle needs a writable u8 variable", OWN],
   [115, "move-position", "move can't appear in ^1", OWN],
   [116, "empty-enum", "An enum needs at least one member", DECL],
+  [
+    117,
+    "select-incomplete",
+    "A select needs case else unless its cases cover every value",
+    EXPR,
+  ],
   // 190-199: capacity and internal
   [190, "capacity", "A compiler capacity was exceeded: ^1", CAP],
   // The native compiler's own refusals of programs the reference accepts

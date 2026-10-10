@@ -52,7 +52,12 @@ VL_ADD:                        ; r is to be a plus b.
 ; Add the B bytes at DE into the B bytes at HL; carry out of the last.
 
 VL_ADDN:                       ; (HL) += (DE), B bytes.
-    OR   A                         ; No carry in.
+    OR   A                         ; No carry in; fall into VL_ADDC.
+
+;@ROUTINE IN B,DE,HL,CARRY OUT CARRY CLOBBERS A,B,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
+; VL_ADDN with carry in: the B bytes at DE and the carry into those at HL.
+
+VL_ADDC:                       ; (HL) += (DE) + carry, B bytes.
 .LOOP:                         ; One byte each pass.
     LD   A,(DE)                    ; Its byte of the addend
     ADC  A,(HL)                    ; and of the sum, with the carry,

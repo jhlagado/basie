@@ -76,6 +76,9 @@ const CONFORMANCE: Record<string, string> = {
   SELSIGN: "tests/conformance/statements/select-signed-range.bsi",
   SEL32: "tests/conformance/statements/select-32-bit.bsi",
   SELWORD: "tests/conformance/statements/select-whole-word-range.bsi",
+  SELELSE: "tests/conformance/statements/select-empty-else.bsi",
+  SELCOVR: "tests/conformance/statements/select-covering.bsi",
+  ENSELM: "tests/conformance/enums/select-members.bsi",
   DUMP: "examples/DUMP.BSI",
   INFERCON: "tests/conformance/declarations/inference.bsi",
   TCARITH: "tests/conformance/declarations/typed-constant-arithmetic.bsi",
@@ -257,6 +260,9 @@ const CLAIMED: Record<string, string[]> = {
     "SELSIGN",
     "SEL32",
     "SELWORD",
+    "SELELSE",
+    "SELCOVR",
+    "ENSELM",
   ],
   "67f: f32, and the programs of the library inside the subset": [
     "FLOATS",
@@ -718,7 +724,8 @@ Deno.test("c to i: random expressions compile as the reference compiles them", a
           rnd(2) ? statement + "\n" : ""
         }`;
       }
-      if (rnd(2)) arms += `case else\n${statement}\n`;
+      // (D51) Usually case else, else refused alike as incomplete.
+      if (rnd(4)) arms += `case else\n${rnd(2) ? statement + "\n" : ""}`;
       const subject = pick([
         "a",
         "x",
@@ -1657,6 +1664,18 @@ const REFUSED: Record<string, string> = {
     "var x as u8\nsub main()\nselect x\ncase 1\nexit\nend\nend\n",
   "a value routine whose select has no case else":
     "sub g(n as u8) as u8\nselect n\ncase 1\nreturn 1\nend\nend\nsub main()\nend\n",
+  "a value routine whose select may run no arm":
+    "sub g(n as u8) as u8\nselect n\ncase 1\nreturn 1\ncase else\nend\nend\nsub main()\nend\n",
+  "an incomplete select": Deno.readTextFileSync(
+    "tests/conformance/statements/select-incomplete.bsi",
+  ),
+  "an enum select missing a member": Deno.readTextFileSync(
+    "tests/conformance/enums/select-missing.bsi",
+  ),
+  "an incomplete i32 select":
+    "var x as i32\nsub main()\nselect x\ncase -2147483648 to 2147483646\nend\nend\n",
+  "an incomplete u16 select":
+    "var x as u16\nsub main()\nselect x\ncase 0 to 9, 11 to 65535\nend\nend\n",
   "move as a name": "sub main()\nvar move as u8\nend\n",
   "overlapping select labels": Deno.readTextFileSync(
     "tests/conformance/statements/select-overlap.bsi",

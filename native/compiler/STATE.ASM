@@ -538,6 +538,7 @@ DG_FDIG EQU  DG_CAP+15         ; An f32 literal's digits (FLOAT.ASM, FL_NB).
 DG_POOLS EQU  DG_CAP+16        ; Pools (PL_CAP).
 DG_EMEM EQU  DG_CAP+18         ; Enum members, at most 256.
 DG_EENUM EQU  116              ; Empty enum.
+DG_SINC EQU  117               ; select-incomplete: no case else, a value uncovered.
 DG_OWNRS EQU  DG_CAP+17        ; Owners in scope (FW_CAP).
 
 

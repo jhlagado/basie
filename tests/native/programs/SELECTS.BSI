@@ -40,6 +40,7 @@ sub kind(v as i16) as u8
         r = t + 1
     case 100 to 32767
         r = 9
+    case else
     end
     return r
 end
@@ -57,6 +58,7 @@ sub wide(v as u32, m as i32) as u8
         end
     case 4000000000 to 4294967295
         return 4
+    case else
     end
     return 5
 end
@@ -78,6 +80,7 @@ sub all(b as u8, w as u16, sb as i8) as u8
     select w
     case 5 to 65535
         k = k + 1
+    case else
     end
     return k
 end
@@ -90,10 +93,12 @@ sub far()
         big[1] = 1
     case 1 to 4
         big[2] = 2
+    case else
     end
     select i
     case 7
         i = 8
+    case else
     end
 end
 
@@ -111,6 +116,7 @@ sub main()
             if total > 10
                 exit
             end
+        case else
         end
     end
     for i = 1 to 9
@@ -119,48 +125,59 @@ sub main()
             exit
         case 2 to 3
             continue
+        case else
         end
         total = total + i
     end
     select g
     case 300
         g = 1
+    case else
     end
     select p.a
     case 1
         p.w = 2
+    case else
     end
     select p.w
     case -5 to 5
         p.a = 3
+    case else
     end
     select bytes[i and 3]
     case 9
         bytes[0] = 1
+    case else
     end
     select s[1]
     case 'e'
         s[2] = 'x'
+    case else
     end
     select n
     case 70000
         n = 1
+    case else
     end
     select code('q')
     case 1
         g = 2
+    case else
     end
     select (g + 1)
     case 3
         g = 4
+    case else
     end
     select u16(i) * 2
     case 0 to 100
         g = 5
+    case else
     end
     select tk
     case -2
         g = 6
+    case else
     end
     select kind(-7)
     case 1

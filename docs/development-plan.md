@@ -101,10 +101,11 @@ introduce compatible error domains, not rich payload errors.
 Read-only slices forbid writes through the view while preserving transient
 lifetimes and pool leases. They do not globally freeze backing storage or impose
 Rust exclusivity. Writable slices and string slices remain separately deferred.
-Routine values capture no local environment; closures remain excluded. Plain enums are the first implemented next-milestone feature; no other feature
-is included in that implementation. The completed 0.1 scope remains the baseline.
+Routine values capture no local environment; closures remain excluded. Plain enums are the first implemented next-milestone feature, and exhaustive
+value selection (D51) the second. The completed 0.1 scope remains the baseline.
 
-Implementation order begins with plain enums (D53), as confirmed by John.
+Implementation order begins with plain enums (D53), then exhaustive value
+selection (D51), as confirmed by John.
 The other accepted items retain the priorities and dependencies above.
 
 ## 3. Selected scope and deferred proposals
@@ -199,7 +200,7 @@ book and release examples through the public compile/link/run workflow.
 | Bounded prototypes | Verify descriptor corrections and read-only slices; evaluate full routine values under the explicit back-out gate | Safety and machine costs are measured for each item. Routine-value scope includes parameters and storage together. |
 | Implementation admission | Admit each change under section 5 | Specification, reference/native equivalence, independent safety tests and migrated examples pass within D43. Decisions to defer, reject or back out are explicit. |
 
-Implementation of the next milestone has not started. Priority does not provide
+Plain enums (D53) and exhaustive value selection (D51) are implemented. Priority does not provide
 missing semantics or a measured budget. The current 0.1 toolchain contract
 remains the immediate obligation. Neither planning document changes the current
 source language.

@@ -180,3 +180,25 @@ mechanical disk latency is not simulated.
 Successful compilation reads the same overlay records in the same order.
 Thus the compression savings do not depend on additional disk loads. These are
 emulator proofs, not measurements on a physical floppy drive.
+
+## 7. Exhaustive value selection (D51)
+
+An integer or enum `select` without `case else` must cover every value of its
+subject's type (`select-incomplete`, 117, at `select`); such a selection always
+runs an arm, for flow states and fall-through. Both compilers decide coverage
+from the labels' value count, since labels never overlap: 2^8, 2^16 or 2^32
+values, or every member of an enum. The native compiler keeps the count in a
+seven-byte log entry below each select's labels (`BL_TSUM`, `AC_RSUM`) and
+checks it at `end` (`AC_COVER`); a covering select takes the case-else mode
+bit, so the existing join and fall-through code is unchanged.
+
+The library, examples and book had no incomplete value selection. Two test
+programs received empty `case else` arms (`RUNSEL` 3, `SELECTS` 17), and the
+stress and equivalence generators now usually write one. Five conformance
+programs and five native refusals cover the rule, including i32 and u16 near
+misses and an enum missing a member.
+
+The native cost is 125 resident bytes (25,570; total 28,181, 491 below the
+28 KiB limit). The source/symbol region begins at `$8686`, 154 bytes higher;
+BIGSPLF's indentation was reduced again, keeping every statement and its
+code spill.

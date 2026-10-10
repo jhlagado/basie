@@ -147,7 +147,7 @@ Deno.test("statements nested 32 deep, mixed", async () => {
       }\n${body}${pad}else\n${pad}    g = 0\n${pad}end\n`
       : i % 3 === 1
       ? `${pad}for k${i} = 1 to 2\n${body}${pad}end\n`
-      : `${pad}select g\n${pad}case 0 to 100\n${body}${pad}end\n`;
+      : `${pad}select g\n${pad}case 0 to 100\n${body}${pad}case else\n${pad}end\n`;
   }
   const counters = lines(32, (i) => i % 3 === 1 ? `    var k${i} as u8\n` : "");
   await alike("nesting", {
@@ -275,7 +275,9 @@ function randomProgram(seed: number) {
           out += `${pad}case ${low}${rnd(2) ? ` to ${low + 5}` : ""}\n` +
             block(reads, writes, depth - 1, inner);
         }
-        out += (rnd(2) ? `${pad}case else\n${inner}gf = true\n` : "") +
+        out += (rnd(2)
+          ? `${pad}case else\n${inner}gf = true\n`
+          : `${pad}case else\n`) +
           `${pad}end\n`;
       } else {
         out += `${pad}gf = ${condition(reads)}\n`;

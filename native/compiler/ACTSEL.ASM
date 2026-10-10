@@ -221,7 +221,10 @@ AC_PICK:
 AC_SOPEN:                      ; The subject is in its slot.
     LD   DE,(BL_LBOT)              ; The select's labels start
     CALL BL_FLIP                   ; at the log's bottom,
-    LD   (AC_DELTA),HL             ; kept by its form.
+    LD   (AC_DELTA),HL             ; kept by its form;
+    LD   A,BL_TSUM                 ; first, below it,
+    CALL BL_LOG                    ; the count of their values
+    CALL VL_ZERO                   ; (AC_RSUM), from zero.
     LD   B,CT_KSEL                 ; The select's frame
     CALL CT_PUSH                   ; opens: HL is it.
     LD   DE,CT_FVAR                ; Its fields from CT_FVAR
@@ -323,8 +326,9 @@ AC_SHUT:
 ;@ROUTINE OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; EndSelect: anything but `end` after case else is syntax, at it, as a
 ; `case` there is (case else must be last); a select with no labelled arm
-; is syntax, at `select`. The end is here, the select's ranges are free,
-; and it completes when an arm falls through or it has no case else.
+; is syntax, at `select`; without case else its labels must cover the
+; subject's type (AC_COVER). The end is here, the select's ranges are
+; free, and it completes when an arm falls through.
 
 AC_FINAL:
     CALL PR_PEEK                   ; After case else
@@ -333,7 +337,9 @@ AC_FINAL:
     JP   NZ,DG_ISSUE               ; is syntax at it.
     CALL CT_MODE                   ; The mode: an arm with labels
     BIT  2,A                       ; is
-    JR   Z,.EMPTY                  ; needed.
+    JR   Z,.EMPTY                  ; needed;
+    BIT  1,A                       ; without case else
+    CALL Z,AC_COVER                ; they cover the type, as if with one.
     XOR  2                         ; Bit 1 now says there is no case else:
     AND  3                         ; nonzero if the select completes.
     LD   (CT_FALLS),A              ; Record it.
@@ -457,6 +463,16 @@ AC_LABEL:
     LD   A,(AC_RWID)               ; width's
     LD   C,A                       ; bytes
     LDIR                           ; follow.
+    CALL AC_RSUM                   ; The select's count, HL,
+    PUSH HL                        ; (kept)
+    LD   DE,AC_RVAL+4              ; takes
+    LD   B,4                       ; the high
+    SCF                            ; value
+    CALL VL_ADDC                   ; plus one,
+    POP  DE                        ; less
+    LD   HL,AC_RVAL                ; the low:
+    LD   B,4                       ; the range's
+    CALL VL_SUBN                   ; values, modulo 2^32.
     LD   HL,AC_RVAL                ; The range
     CALL .TEST                     ; is tested.
     CALL PR_PEEK                   ; Another label
@@ -732,3 +748,78 @@ AC_LABEL:
 .FLIPH:                        ; A word, in H:
     CALL EM_SEQX                   ; LD A,H, XOR $80,
     DB   4,$7C,$EE,$80,$67         ; LD H,A.
+
+;@ROUTINE OUT HL CLOBBERS A,B,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; HL addresses the innermost select's count of its labels' values, four
+; bytes in the log's first entry below its place (AC_SOPEN, BL_TSUM).
+
+AC_RSUM:                       ; The select's frame is innermost.
+    LD   B,CT_FSTEP                ; Its place's
+    CALL CT_FWORD                  ; form,
+    EX   DE,HL                     ; in DE,
+    CALL BL_FLIP                   ; is its address;
+    LD   DE,BL_EBACK+2             ; the entry below,
+    ADD  HL,DE                     ; past its first two bytes.
+    RET                            ; Done.
+
+;@ROUTINE IN A OUT A CLOBBERS BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; A select without case else (D51): its labels, which never overlap, must
+; cover every value of its type, as their count (AC_RSUM) shows: 2^8 for
+; a byte, 2^16 for a word, 2^32 (zero) for a long, or an enum's members,
+; zero meaning 256. Else select-incomplete at `select`. Covering, it has
+; mode bit 1, as with case else: an arm always runs. A is the mode, in and
+; out; a handle select (bit 3) is returned as it is.
+
+AC_COVER:                      ; No case else:
+    BIT  3,A                       ; a handle select's
+    RET  NZ                        ; arms are its own (OW_ARM).
+    CALL AC_RSUM                   ; The count,
+    PUSH HL                        ; (kept)
+    LD   B,CT_FBND                 ; and the
+    CALL CT_FBYTE                  ; subject's type.
+    POP  HL                        ; (the count)
+    CP   AG_FIRST                  ; An enum's
+    JR   C,.INT                    ; members:
+    PUSH HL                        ; (the count)
+    CALL AG_DESC                   ; its
+    INC  HL                        ; descriptor's
+    LD   C,(HL)                    ; count, C,
+    POP  HL                        ; is taken
+    LD   A,(HL)                    ; from
+    SUB  C                         ; the
+    LD   (HL),A                    ; count's low byte;
+    LD   A,C                       ; zero means 256,
+    OR   A                         ; a byte's values;
+    JR   NZ,.CHECK                 ; otherwise the rest is zero.
+    INC  A                         ; One byte, as for u8.
+    JR   .POWER                    ; Its 2^8.
+.INT:                          ; An integer:
+    CALL GX_PROP                   ; its size
+    AND  7                         ; in bytes,
+.POWER:                        ; A: its 2^(8A) is taken
+    CP   4                         ; (2^32 is zero)
+    JR   Z,.CHECK                  ; from the count,
+    PUSH HL                        ; one from
+    LD   E,A                       ; its
+    LD   D,0                       ; byte
+    ADD  HL,DE                     ; A.
+    DEC  (HL)                      ; Taken.
+    POP  HL                        ; The count:
+.CHECK:                        ; covering if now zero.
+    LD   A,(HL)                    ; Its
+    INC  HL                        ; four
+    OR   (HL)                      ; bytes
+    INC  HL                        ; are
+    OR   (HL)                      ; all
+    INC  HL                        ; zero,
+    OR   (HL)                      ; else a value
+    JR   NZ,.SHORT                 ; is uncovered.
+    CALL CT_FLAGS                  ; The mode
+    SET  1,(HL)                    ; as with case else,
+    LD   A,(HL)                    ; returned.
+    RET                            ; Done.
+.SHORT:                        ; Some value has no arm:
+    LD   B,CT_FSTEP+2              ; select-incomplete
+    CALL CT_FIELD                  ; at
+    LD   A,DG_SINC                 ; `select`.
+    JP   DG_AT                     ; No return.

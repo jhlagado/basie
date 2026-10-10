@@ -1,0 +1,24 @@
+// An enum select without case else names every member, and then needs no
+// return after it (D51).
+// spec: 11.7.2
+// expect output: NE\r\n
+
+enum Dir
+    north
+    east
+end
+
+sub letter(d as Dir) as u8
+    select d
+    case Dir.north
+        return 'N'
+    case Dir.east
+        return 'E'
+    end
+end
+
+sub main() fails
+    writeByte(console, letter(Dir.north)) else fail
+    writeByte(console, letter(Dir.east)) else fail
+    writeText(console, "\r\n") else fail
+end

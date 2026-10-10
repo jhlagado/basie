@@ -1,0 +1,17 @@
+// An empty case else lets the other values do nothing (D51).
+// spec: 11.7.2
+// expect output: Q.\r\n
+
+sub show(c as u8) fails
+    select c
+    case 'q'
+        writeByte(console, 'Q') else fail
+    case else
+    end
+end
+
+sub main() fails
+    show('q') else fail
+    show('x') else fail
+    writeText(console, ".\r\n") else fail
+end

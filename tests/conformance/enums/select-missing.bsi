@@ -1,0 +1,15 @@
+// An enum select without case else that omits a member is incomplete (D51).
+// spec: 11.7.2
+// expect error: select-incomplete at 12:5
+
+enum Dir
+    north
+    east
+end
+
+sub main()
+    var d as Dir
+    select d
+    case Dir.north
+    end
+end

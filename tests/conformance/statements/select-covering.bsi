@@ -1,0 +1,29 @@
+// Labels covering every value need no case else, and one arm always runs:
+// a value routine needs no return after the select (D51, 13).
+// spec: 11.7.2, 13
+// expect output: LHN\r\n
+
+sub half(v as u8) as u8
+    select v
+    case 0 to 127
+        return 'L'
+    case 128 to 255
+        return 'H'
+    end
+end
+
+sub sign(v as i32) as u8
+    select v
+    case -2147483648 to -1
+        return 'N'
+    case 0 to 2147483647
+        return 'P'
+    end
+end
+
+sub main() fails
+    writeByte(console, half(3)) else fail
+    writeByte(console, half(200)) else fail
+    writeByte(console, sign(-7)) else fail
+    writeText(console, "\r\n") else fail
+end

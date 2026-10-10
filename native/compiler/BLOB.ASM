@@ -89,6 +89,7 @@ BL_TLINE EQU  $FF              ; A line entry's first byte.
 BL_TLIT EQU  $FE               ; A string literal's (GENAGGR.ASM, GA_LIT).
 BL_TLOW EQU  $FD               ; A select label's low value (ACTSEL.ASM).
 BL_THIGH EQU  $FC              ; Its high value, the entry after.
+BL_TSUM EQU  $FB               ; A select's count of its labels' values.
 BL_PAST EQU  $7FFF             ; An offset past every blob's: the jumps' sentinel.
 
 ; The workspace, from MM_BLOB.
@@ -358,8 +359,8 @@ BL_SPAN:                       ; Where is the free memory?
 ; Step from the log's entry HL, or from the name heap's bottom, to the
 ; next entry in the order given, the one below it: carry when there is
 ; none, else A its first byte: a reference's form, below BL_TREFS, or
-; BL_TLINE, BL_TLIT, BL_TLOW or BL_THIGH. The compiler adds the last
-; three for a routine's string literals and its selects' labels; BL_END
+; BL_TLINE, BL_TLIT, BL_TLOW, BL_THIGH or BL_TSUM. The compiler adds the
+; last four for a routine's string literals and its selects' labels; BL_END
 ; passes over them.
 
 BL_NEXT:                       ; HL is an entry.

@@ -118,7 +118,7 @@ The rule uses a structured summary of whether each statement can **fall through*
 
 - `return`, `fail` and an `exit` or `continue` do not fall through; other simple statements and local declarations do;
 - an `if` does not fall through only when it has an `else` and no clause body falls through;
-- a `select` does not fall through only when some arm always executes, which is when an integer selection has `case else`, or a handle selection has both a `some` arm and a `none` or `else` arm, and no arm body falls through; and
+- a `select` does not fall through only when some arm always executes, which is when it is an integer or enum selection (Chapter 11 requires one to cover every value) or a handle selection with both a `some` arm and a `none` or `else` arm, and no arm body falls through; and
 - every `while` and `for` is treated as able to finish, whatever its condition.
 
 A block falls through when control can pass through every statement on some path. This needs no control-flow graph.

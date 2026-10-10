@@ -157,12 +157,11 @@ calls, `return try`, whole-statement implicit propagation or general expression
 extension is admitted. The earlier nested-call sketch is not accepted scope.
 The feature is unimplemented and does not change current 0.1 completion work.
 
-D51 is accepted for the next milestone. A value `select` must cover every possible value of its
+D51 is implemented (2026-10-10). A value `select` must cover every possible value of its
 subject type, checked at compile time, or contain an explicit `case else`.
 Intentional do-nothing behaviour must be explicit. An empty default is the
-intended option, with its formal grammar still to settle. Apply the same rule to
-accepted plain enums when implemented. Handle-selection completeness is a separate unresolved question. The feature is unimplemented;
-the current 0.1 completion scope is unchanged and no implementation is requested now.
+explicit option, admitted by the existing grammar. Plain enums follow the same
+rule. Handle-selection completeness is a separate unresolved question.
 
 D50 is explicitly deferred. Counted loops remain the existing form. Retain
 `for … in` as a [stretch goal](#array-and-string-traversal), not accepted next-milestone scope.

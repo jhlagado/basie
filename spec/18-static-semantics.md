@@ -34,7 +34,7 @@ Calls match their signatures in arity, order, type and parameter kind. Every fai
 
 ## 18.7 Control
 
-Conditions are `boolean`. `select` labels are constants of the subject's type with no overlap (Chapter 11). A counted-loop counter is an integer local declared before the loop and read-only within it (Chapter 12). `exit` and `continue` need an enclosing loop.
+Conditions are `boolean`. `select` labels are constants of the subject's type with no overlap, and an integer or enum selection without `case else` covers every value of its type (Chapter 11). A counted-loop counter is an integer local declared before the loop and read-only within it (Chapter 12). `exit` and `continue` need an enclosing loop.
 
 ## 18.8 Invalid source and capacities
 

@@ -1962,12 +1962,26 @@ export class Compiler {
       r.blob.defineLabel(next);
     }
     if (!anyArm) fail("syntax", at, "select needs at least one case");
+    // Without case else the labels, which never overlap, must cover the
+    // subject's whole type (D51); one arm then always executes.
+    if (!sawElse) {
+      const domain = type.kind === "enum"
+        ? (type as EnumType).members.length
+        : 2 ** (8 * s.size);
+      const count = covered.reduce((n, [a, b]) => n + b - a + 1, 0);
+      if (count !== domain) {
+        fail(
+          "select-incomplete",
+          at,
+          "a select needs case else unless its cases cover every value",
+        );
+      }
+    }
     this.expectKeyword("end");
     this.expectNewline();
     r.blob.defineLabel(end);
-    if (!sawElse) armFlows.push(entryFlow);
     this.meetFlow(armFlows);
-    r.fallsThrough = anyFalls || !sawElse;
+    r.fallsThrough = anyFalls;
   }
 
   /** select on an optional handle or an identifier (11.7.3). */

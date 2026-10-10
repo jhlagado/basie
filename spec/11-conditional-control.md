@@ -103,7 +103,15 @@ The subject has an integer type: `u8`, `i8`, `u16`, `i16`, `u32` or `i32`. An ex
 
 Each label is a constant expression, or a range `low to high` of two. Each label is converted to the subject's type as an assignment would convert it: an exact label must fit the type, and a typed constant label must widen to it without a conversion, so a `u16` constant can't label a `u8` subject even when its value would fit (Chapter 6, Section 6.4). In a range `low` must not exceed `high`. No value may be covered by two labels, in the same arm or in different arms; an overlap is diagnosed as `duplicate-case`. `some` and `none` arms are invalid.
 
-The subject is evaluated once, before any label is compared. If its value is covered by a label, that arm's body executes. Otherwise the `case else` body executes if present; with no `case else`, no body executes. The arms need not cover every value.
+The subject is evaluated once, before any label is compared. If its value is covered by a label, that arm's body executes; otherwise the `case else` body executes. A selection without `case else` must cover every value of the subject's type, judged from its labels alone, such as `0 to 255` for a `u8` subject; one that does not is invalid (`select-incomplete`, at `select`). An empty `case else` states that the other values do nothing:
+
+```basie
+select key
+case 'q'
+    exit
+case else
+end
+```
 
 ```basie
 select key
@@ -121,7 +129,8 @@ A compiler may implement the comparison by tests, a jump table or a search; the 
 An enum selection follows the same evaluation and arm rules, but each label
 must be a constant of the subject's exact enum type. Integer labels, labels
 from other enums and `to` ranges are invalid (Section 6.16). No implicit
-conversion from a member ordinal is available.
+conversion from a member ordinal is available. An enum selection without
+`case else` must name every member of its enum (`select-incomplete`).
 
 ### 11.7.3 Handle selection
 
@@ -160,7 +169,7 @@ A fresh subject is held in the statement's temporary (Chapter 10, Section 10.8) 
 
 ### 11.7.4 Flow states after `select`
 
-As for `if` (Section 11.4.1), the flow state of each owning local after a `select` is the meet of the states at the end of every arm that can complete normally, together with the state after the subject when no arm need execute: an integer selection without `case else`, or a handle selection with only a `some` arm.
+As for `if` (Section 11.4.1), the flow state of each owning local after a `select` is the meet of the states at the end of every arm that can complete normally, together with the state after the subject when no arm need execute: a handle selection with only a `some` arm. An integer or enum selection always executes one arm.
 
 ## 11.8 Lowering boundary
 
@@ -180,11 +189,11 @@ Basie 1.0 has no:
 - fall-through between `select` arms; or
 - implicit integer truth test.
 
-Plain enum selection is supported (Section 11.7). Exhaustiveness checking remains accepted future work; payload variants remain deferred (Chapter 20).
+Plain enum selection and exhaustive value selection are supported (Section 11.7); payload variants remain deferred (Chapter 20).
 
 ## 11.10 Invalid conditionals and capacity limits
 
-The compiler must diagnose a non-Boolean condition, `elseif` after `else`, more than one `else`, `else if` used as a flat-clause spelling, a missing logical newline, a missing closing `end`, and any clause token outside its conditional context. For `select` it must diagnose a subject of another type, a label that is not constant or not representable in the subject's type, a reversed range, an overlapping label (`duplicate-case`), a `select` with no `case` arm, `case else` not last or repeated, integer labels in a handle selection, `some` or `none` in an integer selection, a repeated `some` or `none` arm, both `case none` and `case else`, `select move` on a subject that is not an owning location of optional type, and any use of a leased subject that the lease forbids.
+The compiler must diagnose a non-Boolean condition, `elseif` after `else`, more than one `else`, `else if` used as a flat-clause spelling, a missing logical newline, a missing closing `end`, and any clause token outside its conditional context. For `select` it must diagnose a subject of another type, a label that is not constant or not representable in the subject's type, a reversed range, an overlapping label (`duplicate-case`), an integer or enum selection that has no `case else` and does not cover its subject's type (`select-incomplete`), a `select` with no `case` arm, `case else` not last or repeated, integer labels in a handle selection, `some` or `none` in an integer selection, a repeated `some` or `none` arm, both `case none` and `case else`, `select move` on a subject that is not an owning location of optional type, and any use of a leased subject that the lease forbids.
 
 An implementation may bound nested conditional depth, clause count, `select` labels, and branch-fixup state. It must publish each limit and issue a capacity diagnostic before overflow changes clause association, skips a selected body, evaluates an unselected condition, or emits an unresolved branch.
 

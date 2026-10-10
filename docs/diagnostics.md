@@ -106,6 +106,7 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | 84 | `loop-step` | The step must be a nonzero constant that fits the counter |
 | 85 | `missing-return` | ^1 can reach its end without returning a value |
 | 86 | `return-form` | Wrong return for this routine |
+| 117 | `select-incomplete` | A select needs case else unless its cases cover every value |
 
 ## Ownership and routines (Chapters 7, 10, 13 and 14)
 

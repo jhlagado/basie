@@ -1248,8 +1248,9 @@ end
 
 ### D51. A value `select` needs `case else` unless it covers every value
 
-**Current status, 2026-10-10.** Accepted for the next milestone. The feature is unimplemented;
-the current 0.1 completion scope is unchanged and no implementation is requested now. Coverage is checked at
+**Current status, 2026-10-10.** Implemented in both compilers, after plain enums, as chosen by
+John: `select-incomplete` (117) at `select`, an empty `case else` as the explicit no-op, and a
+covering selection treated as always running an arm. Coverage is checked at
 compile time. A selection must cover every possible subject value or have an
 explicit `case else`. Intentional do-nothing behaviour must be explicit.
 
@@ -1257,8 +1258,8 @@ A `select` on an integer, character or Boolean subject must have `case else`, un
 
 **Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Accepted next-milestone plain enums use the same exhaustiveness rule.
 
-**To settle.** An empty `case else` is the intended explicit no-op; settle its
-formal grammar. Handle-selection completeness is a separate unresolved question
+**Settled.** An empty `case else` is the explicit no-op; the existing grammar's
+empty block already admits it (spec 11.7.2). Handle-selection completeness is a separate unresolved question
 and was not decided by this acceptance. The earlier suggestion to require both
 `some` and `none` or `else` is not an accepted rule.
 
