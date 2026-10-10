@@ -3,7 +3,7 @@
 // expect output: neg\r\n
 
 sub main() fails
-    var d as i8 = -3
+    var d: i8 = -3
     select d
     case -5 to -1
         writeText(console, "neg\r\n") else fail

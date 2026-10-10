@@ -1,9 +1,9 @@
 // More conditions through a handle: a while loop, then the path again.
 record Leaf
-    v as u8
+    v: u8
 end
-pool leaves as Leaf[3]
-var g as u8
+pool leaves: Leaf[3]
+var g: u8
 sub main()
     var a = new leaves(1)
     while a.v < 3

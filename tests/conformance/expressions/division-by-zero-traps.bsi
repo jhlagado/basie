@@ -3,7 +3,7 @@
 // expect trap: division-by-zero at 8
 
 sub main()
-    var a as u16 = 10
-    var b as u16 = 0
+    var a: u16 = 10
+    var b: u16 = 0
     a = a / b
 end

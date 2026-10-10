@@ -4,14 +4,14 @@
 // expect error: not-writable at 23:14
 include "FORMAT.BSI"
 record Inner
-    w as u16
+    w: u16
 end
 record Box
-    inner as Inner
+    inner: Inner
 end
-pool boxes as Box[1]
-var gb as boxes?
-sub bump(var x as Inner)
+pool boxes: Box[1]
+var gb: boxes?
+sub bump(var x: Inner)
     gb = none
     gb = new boxes()
     x.w = 3
@@ -23,7 +23,7 @@ sub main() fails
         bump(j.inner)
     case none
     end
-    var line as string[20]
+    var line: string[20]
     select gb
     case some(j)
         appendU16(line, j.inner.w) else fail

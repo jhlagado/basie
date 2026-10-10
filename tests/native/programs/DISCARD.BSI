@@ -2,12 +2,12 @@
 // literals and inner short circuits: their code is not written and their
 // literals are not placed, while the stack they would use is still counted,
 // as the reference discards them (65.4 h).
-var x as boolean
-var y as u16 = 3
-var c as u8[4]
-var i as u8 = 1
+var x: boolean
+var y: u16 = 3
+var c: u8[4]
+var i: u8 = 1
 
-sub long(s as string[]) as boolean
+sub long(s: string[]): boolean
     return s.length > 2
 end
 

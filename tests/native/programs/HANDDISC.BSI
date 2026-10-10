@@ -3,19 +3,19 @@
 // field through an owning local.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[8]
-var head as nodes?
-var g as u8
-var s as string[8]
-sub make(v as u8) as nodes
+pool nodes: Node[8]
+var head: nodes?
+var g: u8
+var s: string[8]
+sub make(v: u8): nodes
     return new nodes(v, none)
 end
 sub nothing()
 end
-sub mk(v as u8) as nodes fails
+sub mk(v: u8): nodes fails
     if v = 0
         fail 1
     end
@@ -24,7 +24,7 @@ end
 sub main() fails
     make(1)
     mk(2) else fail
-    var e as u8
+    var e: u8
     mk(3) handle e
         g = e
     end

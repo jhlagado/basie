@@ -1,14 +1,14 @@
 // Counted loops over the 32-bit types (67b): u32 and i32 counters, up
 // and down, with bounds in reach and beyond, word and exact steps, and
 // the comparison through CMP32U with the sign flipped for i32.
-const top as u32 = 100000
+const top: u32 = 100000
 
 sub main()
-    var i as u32
-    var j as i32
-    var t as u32
-    var n as u16 = 7
-    var b as i32 = -5
+    var i: u32
+    var j: i32
+    var t: u32
+    var n: u16 = 7
+    var b: i32 = -5
     for i = 70000 to top step 9999
         t = t + i
     end

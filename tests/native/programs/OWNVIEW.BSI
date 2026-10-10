@@ -4,22 +4,22 @@
 // view of an array in a record of arrays; fixed arrays of any length,
 // program variables and locals, passed.
 record Job
-    number as u16
+    number: u16
 end
-pool jobs as Job[4]
+pool jobs: Job[4]
 record Box
-    h as jobs?
-    n as u8
+    h: jobs?
+    n: u8
 end
 record Bucket
-    items as Box[2]
+    items: Box[2]
 end
-var a as Box[3]
-var b as Box[5]
-var buckets as Bucket[3]
+var a: Box[3]
+var b: Box[5]
+var buckets: Bucket[3]
 
-sub total(bs as Box[]) as u16
-    var t as u16 = 0
+sub total(bs: Box[]): u16
+    var t: u16 = 0
     select bs[1].h
     case some(j)
         t = j.number
@@ -28,33 +28,33 @@ sub total(bs as Box[]) as u16
     return t + u16(bs[0].n)
 end
 
-sub keep(bs as Box[]) as id jobs?
+sub keep(bs: Box[]): id jobs?
     return id(bs[0].h)
 end
 
-sub fill(var bs as Box[], v as u16)
+sub fill(var bs: Box[], v: u16)
     bs[1].h = new jobs(v)
     bs[1].n = 2
 end
 
-sub take(var bs as Box[]) as jobs?
+sub take(var bs: Box[]): jobs?
     return move bs[1].h
 end
 
-sub clear(var bs as Box[])
+sub clear(var bs: Box[])
     bs[0].h = none
 end
 
-sub pass(var bs as Box[])
+sub pass(var bs: Box[])
     clear(bs)
 end
 
-sub deep(var bk as Bucket[], v as u16)
+sub deep(var bk: Bucket[], v: u16)
     bk[0].items[1].h = new jobs(v)
 end
 
 sub main()
-    var loc as Box[2]
+    var loc: Box[2]
     fill(a, 5)
     fill(loc, 6)
     var c = total(a) + total(b) + total(loc)

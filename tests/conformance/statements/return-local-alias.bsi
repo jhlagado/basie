@@ -3,11 +3,11 @@
 // expect error: alias-escapes at 11:12
 
 record Entry
-    value as u8
+    value: u8
 end
 
-sub bad() as Entry
-    var mine as Entry
+sub bad(): Entry
+    var mine: Entry
     return mine
 end
 

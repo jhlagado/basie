@@ -4,11 +4,11 @@
 
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[4]
-sub look(i as id nodes?)
+pool nodes: Node[4]
+sub look(i: id nodes?)
 end
 sub main()
     look(new nodes(1, none))

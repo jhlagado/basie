@@ -5,7 +5,7 @@
 include "FORMAT.BSI"
 
 sub main() fails
-    var line as string[20]
+    var line: string[20]
     appendU16(line, currentDrive()) else fail
     appendByte(line, ' ') else fail
     appendU16(line, currentUser()) else fail

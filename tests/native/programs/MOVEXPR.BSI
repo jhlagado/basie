@@ -2,19 +2,19 @@
 forward pool nodes
 
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 
-pool nodes as Node[8]
+pool nodes: Node[8]
 
-var g as u8
+var g: u8
 
-sub eat(n as nodes) as u8
+sub eat(n: nodes): u8
     return n.value
 end
 
-sub maybe(n as nodes?) as u8
+sub maybe(n: nodes?): u8
     select n
     case some(m)
         return m.value
@@ -23,11 +23,11 @@ sub maybe(n as nodes?) as u8
     return '-'
 end
 
-sub wrap(v as u8) as nodes
+sub wrap(v: u8): nodes
     return new nodes(v, none)
 end
 
-sub total() as u8
+sub total(): u8
     var a = new nodes(1, none)
     return eat(move a) + 1
 end
@@ -43,14 +43,14 @@ sub main() fails
     writeByte(console, eat(wrap('C'))) else fail
     writeByte(console, eat(new nodes('D', none)) + 1) else fail
     writeByte(console, maybe(none)) else fail
-    var z as nodes? = new nodes('F', none)
+    var z: nodes? = new nodes('F', none)
     select maybe(move z)
     case 'F'
         writeByte(console, 'f') else fail
     case else
     end
     var w = new nodes(3, none)
-    var i as u8
+    var i: u8
     for i = 1 to eat(move w)
         writeByte(console, '0' + i) else fail
     end

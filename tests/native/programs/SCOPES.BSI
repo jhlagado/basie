@@ -3,69 +3,69 @@
 // released at the block's end and taken again by the next block, the
 // same name in sibling blocks with different types, and blocks nested
 // in loops and handlers.
-var total as u16
-var flag as boolean = true
+var total: u16
+var flag: boolean = true
 record pair
-    a as u8
-    b as u16
+    a: u8
+    b: u16
 end
 
-sub work(n as u8) as u8 fails
+sub work(n: u8): u8 fails
     if n > 200
         fail n
     end
-    var doubled as u8 = n + n
+    var doubled: u8 = n + n
     return doubled
 end
 
 sub main() fails
     total = 1
-    var first as u8 = 3
+    var first: u8 = 3
     total = total + first
     if flag
-        var count as u8 = 1
-        var wide as u16 = 1000
+        var count: u8 = 1
+        var wide: u16 = 1000
         total = total + count + wide
     elseif total > 5
-        var count as u16 = 2
+        var count: u16 = 2
         total = total + count
     else
-        var other as pair
+        var other: pair
         other.a = 4
-        var last as u8 = other.a
+        var last: u8 = other.a
         total = total + last
     end
-    var second as u16 = total
+    var second: u16 = total
     while second > 100
-        var stride as u16 = 300
+        var stride: u16 = 300
         second = second - stride
         if second < 2000
-            var inner as u8 = 7
+            var inner: u8 = 7
             second = second - inner
             exit
         end
-        var later as boolean = second > 50
+        var later: boolean = second > 50
         if later
             continue
         end
     end
-    var i as u8
+    var i: u8
     for i = 1 to 3
-        var square as u8 = i * i
-        var j as u8
+        var square: u8 = i * i
+        var j: u8
         for j = 1 until i
-            var both as u16 = square + j
+            var both: u16 = square + j
             total = total + both
         end
         total = total + square
     end
-    var code as u8
+    var code: u8
     total = total + work(250) handle code
-        var shifted as u16 = code
+        var shifted: u16 = code
         total = total + shifted
     end
-    var p as pair
+    var p: pair
     p.b = total
-    var tail as u16 = p.b
+    var tail: u16 = p.b
     total = tail + i
 end

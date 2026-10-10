@@ -2,12 +2,12 @@
 // generates nothing, a computed one OR A and CALL Z,TRAP_AST; a result
 // rooted in a parameter its from clause names, of several.
 record Item
-    value as u8
+    value: u8
 end
 
 const ready = true
 
-sub pick(items as Item[4], spare as Item, index as u8) as Item from items, spare
+sub pick(items: Item[4], spare: Item, index: u8): Item from items, spare
     if index > 3
         return spare
     end
@@ -15,9 +15,9 @@ sub pick(items as Item[4], spare as Item, index as u8) as Item from items, spare
 end
 
 sub main()
-    var list as Item[4]
-    var other as Item
-    var n as u8 = 2
+    var list: Item[4]
+    var other: Item
+    var n: u8 = 2
     assert ready
     assert n = 2 and list[1].value = 0
     list[2].value = 'K'

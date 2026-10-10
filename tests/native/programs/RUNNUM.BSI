@@ -1,18 +1,18 @@
 // The signed types run (67b): each result is checked, and the narrowing
 // at the end traps only when every one is right.
-var check as u16
-var out as u8
+var check: u16
+var out: u8
 
-sub signs(a as i8, b as i16) as i16
+sub signs(a: i8, b: i16): i16
     return i16(a) * b / -7 + b mod 10
 end
 
 sub main()
-    var x as i8 = -100
-    var y as i16 = -30000
-    var s as i16 = 0
-    var i as i8
-    var j as i16
+    var x: i8 = -100
+    var y: i16 = -30000
+    var s: i16 = 0
+    var i: i8
+    var j: i16
     check = u16(signs(x, 70) - 1000)
     s = y / 7 + y mod 7
     check = check + u16(s + 4290)

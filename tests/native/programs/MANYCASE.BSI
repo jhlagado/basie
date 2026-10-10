@@ -1,8 +1,8 @@
 // A select of 150 cases (63 labels before 68) and a routine of 60 string
 // literals (48): labels and literals are entries of the blob writer's log.
-var g as u8
-var h as u16
-sub pick() as u8
+var g: u8
+var h: u16
+sub pick(): u8
     select h
     case 0
         g = 0

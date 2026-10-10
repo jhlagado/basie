@@ -2,7 +2,7 @@
 // spec: 5.9
 // expect error: recursion-needs-forward at 7:9
 
-sub countDown(n as u8)
+sub countDown(n: u8)
     if n > 0
         countDown(n - 1)
     end

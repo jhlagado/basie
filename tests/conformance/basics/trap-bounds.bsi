@@ -2,9 +2,9 @@
 // spec: 15 (traps)
 // expect trap: bounds at 9
 
-var cells as u8[4]
+var cells: u8[4]
 
 sub main()
-    var i as u8 = 4
+    var i: u8 = 4
     cells[i] = 1
 end

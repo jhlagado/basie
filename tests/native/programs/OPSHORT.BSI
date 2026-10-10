@@ -1,6 +1,6 @@
 // Unary plus of a Boolean, and known left operands deciding and and or.
-var a as boolean
-var n as u8
+var a: boolean
+var n: u8
 sub main()
     a = +a
     a = false and n

@@ -5,8 +5,8 @@
 include "FORMAT.BSI"
 
 sub main() fails
-    var line as string[30]
-    var i as i8
+    var line: string[30]
+    var i: i8
     for i = 2 to -2 step -2
         appendI16(line, i) else fail
         appendByte(line, ' ') else fail

@@ -4,38 +4,38 @@
 // conversions from every integer type through I2F and U2F and to each
 // through F2I and F2U, then narrowed.
 record sample
-v as f32
-n as u8
+v: f32
+n: u8
 end
 
-var s as sample
-var series as f32[8]
-var total as f32
+var s: sample
+var series: f32[8]
+var total: f32
 
-sub mean(values as f32[], count as u8) as f32
-    var sum as f32 = 0.0
-    var i as u8
+sub mean(values: f32[], count: u8): f32
+    var sum: f32 = 0.0
+    var i: u8
     for i = 0 until count
         sum = sum + values[i]
     end
     return sum / f32(count)
 end
 
-sub scale(x as f32, by as i16) as f32
+sub scale(x: f32, by: i16): f32
     return x * by - 1 / x
 end
 
 sub main()
-    var a as f32 = 2.5
-    var b as f32 = -a
-    var c as u8 = 7
-    var d as i8 = -3
-    var e as u16 = 60000
-    var f as i16 = -30000
-    var g as u32 = 4000000000
-    var h as i32 = -2000000000
-    var far as u8[140]
-    var z as f32
+    var a: f32 = 2.5
+    var b: f32 = -a
+    var c: u8 = 7
+    var d: i8 = -3
+    var e: u16 = 60000
+    var f: i16 = -30000
+    var g: u32 = 4000000000
+    var h: i32 = -2000000000
+    var far: u8[140]
+    var z: f32
     series[1] = a * b
     series[c and 7] = a / 3.0 - b
     s.v = 1.0 - a

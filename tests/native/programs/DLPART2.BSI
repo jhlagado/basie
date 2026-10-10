@@ -1,2 +1,2 @@
 // A lexical fault in the part DLMAIN2 includes.
-var c as u8 = 1 ` 2
+var c: u8 = 1 ` 2

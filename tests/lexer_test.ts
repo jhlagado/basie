@@ -135,7 +135,7 @@ Deno.test("floating-point literals round to the nearest f32", () => {
       Math.fround(0.0025)
     }) NEWLINE EOF`,
   );
-  assertEquals(error("var half as f32 = 5.").column, 19);
+  assertEquals(error("var half: f32 = 5.").column, 17);
   assertEquals(show(".5"), ". NUMBER(5) NEWLINE EOF"); // the grammar rejects it
   assertEquals(error("1.5f").code, "malformed-number");
   assertEquals(error("1e").code, "malformed-number");

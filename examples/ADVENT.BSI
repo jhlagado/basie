@@ -17,15 +17,15 @@ const blocked = 255
 const carried = 254
 
 record Room
-    name as string[16]
-    text as string[80]
-    north as u8
-    south as u8
-    east as u8
-    west as u8
+    name: string[16]
+    text: string[80]
+    north: u8
+    south: u8
+    east: u8
+    west: u8
 end
 
-const rooms as Room[5] = [
+const rooms: Room[5] = [
     ("Cellar", "A damp cellar. Stone steps lead up to the north.", hall, blocked, blocked, blocked),
     ("Hall", "A dusty hall. Doors open east and west; the cellar is south.", blocked, cellar, passage, library),
     ("Library", "Shelves of rotting books. The only way out is east.", blocked, blocked, hall, blocked),
@@ -34,21 +34,21 @@ const rooms as Room[5] = [
 ]
 
 record Item
-    name as string[8]
-    place as u8
+    name: string[8]
+    place: u8
 end
 
-var items as Item[3] = [("lamp", hall), ("key", library), ("gold", vault)]
+var items: Item[3] = [("lamp", hall), ("key", library), ("gold", vault)]
 
-var here as u8 = cellar
+var here: u8 = cellar
 
-sub say(text as string[]) fails
+sub say(text: string[]) fails
     writeLine(console, text) else fail
 end
 
 // The item named, or 255.
-sub itemNamed(noun as string[]) as u8
-    var i as u8 = 0
+sub itemNamed(noun: string[]): u8
+    var i: u8 = 0
     while i < 3
         if equal(items[i].name, noun)
             return i
@@ -58,7 +58,7 @@ sub itemNamed(noun as string[]) as u8
     return 255
 end
 
-sub carrying(name as string[]) as boolean
+sub carrying(name: string[]): boolean
     var i = itemNamed(name)
     return i <> 255 and items[i].place = carried
 end
@@ -70,10 +70,10 @@ sub look() fails
     end
     say(rooms[here].name) else fail
     say(rooms[here].text) else fail
-    var i as u8 = 0
+    var i: u8 = 0
     while i < 3
         if items[i].place = here
-            var line as string[40]
+            var line: string[40]
             append(line, "There is a ") else fail
             append(line, items[i].name) else fail
             append(line, " here.") else fail
@@ -83,7 +83,7 @@ sub look() fails
     end
 end
 
-sub go(way as u8) fails
+sub go(way: u8) fails
     if way = blocked
         say("You can't go that way.") else fail
         return
@@ -96,7 +96,7 @@ sub go(way as u8) fails
     look() else fail
 end
 
-sub take(noun as string[]) fails
+sub take(noun: string[]) fails
     var i = itemNamed(noun)
     if i = 255 or items[i].place <> here
         say("You don't see that here.") else fail
@@ -106,7 +106,7 @@ sub take(noun as string[]) fails
     say("Taken.") else fail
 end
 
-sub drop(noun as string[]) fails
+sub drop(noun: string[]) fails
     var i = itemNamed(noun)
     if i = 255 or items[i].place <> carried
         say("You aren't carrying that.") else fail
@@ -118,10 +118,10 @@ end
 
 sub inventory() fails
     var empty = true
-    var i as u8 = 0
+    var i: u8 = 0
     while i < 3
         if items[i].place = carried
-            var line as string[20]
+            var line: string[20]
             append(line, "  ") else fail
             append(line, items[i].name) else fail
             say(line) else fail
@@ -135,10 +135,10 @@ sub inventory() fails
 end
 
 sub main() fails
-    var line as string[60]
-    var verb as string[12]
-    var noun as string[12]
-    var code as u8 = 0
+    var line: string[60]
+    var verb: string[12]
+    var noun: string[12]
+    var code: u8 = 0
     say("ADVENT: bring the gold back to the cellar.") else fail
     look() else fail
     while true

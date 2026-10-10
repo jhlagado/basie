@@ -3,32 +3,32 @@
 // and freed at every return, fail and the end.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[8]
-var head as nodes?
-var g as u8
-sub make(v as u8) as nodes
+pool nodes: Node[8]
+var head: nodes?
+var g: u8
+sub make(v: u8): nodes
     return new nodes(v, none)
 end
-sub maybe(v as u8) as nodes?
+sub maybe(v: u8): nodes?
     if v = 0
         return none
     end
     var n = new nodes(v, none)
     return move n
 end
-sub keep(n as nodes)
+sub keep(n: nodes)
     head = move n
 end
-sub drop(n as nodes?, k as u8)
+sub drop(n: nodes?, k: u8)
     g = k
 end
-sub look(n as nodes) as u8
+sub look(n: nodes): u8
     return n.value
 end
-sub lease(n as nodes?) fails
+sub lease(n: nodes?) fails
     select n
     case some(x)
         x.value = 3
@@ -37,7 +37,7 @@ sub lease(n as nodes?) fails
 end
 sub main() fails
     var a = make(1)
-    var b as nodes? = maybe(2)
+    var b: nodes? = maybe(2)
     keep(move a)
     drop(move b, 3)
     drop(new nodes(4, none), 5)

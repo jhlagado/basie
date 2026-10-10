@@ -1,18 +1,18 @@
 // The 32-bit types run (67b): each result is checked, and the narrowing
 // at the end traps only when every one is right.
-var check as u32
-var out as u8
+var check: u32
+var out: u8
 
-sub scale(a as u32, b as i32) as i32
+sub scale(a: u32, b: i32): i32
     return i32(a / 1000) * b + i32(a mod 1000)
 end
 
 sub main()
-    var l as u32 = 3000000000
-    var m as i32 = -2000000
-    var t as u32
-    var i as u32
-    var j as i32
+    var l: u32 = 3000000000
+    var m: i32 = -2000000
+    var t: u32
+    var i: u32
+    var j: i32
     check = u32(scale(123456789, -3) + 370246)
     check = check + (l / 7 - 428571428) + u32(m / -1000 - 2000)
     check = check + u32(i32(l shr 12) - 732421) + u32((m shr 8) + 7813)

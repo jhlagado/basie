@@ -6,11 +6,11 @@
 forward pool trees
 
 record Tree
-    key as u8
-    kids as trees?[4]
+    key: u8
+    kids: trees?[4]
 end
 
-pool trees as Tree[8]
+pool trees: Tree[8]
 
 sub main() fails
     var t = new trees('1')

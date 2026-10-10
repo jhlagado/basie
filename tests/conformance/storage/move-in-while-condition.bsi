@@ -4,12 +4,12 @@
 
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[4]
-var count as u8
-sub eat(n as nodes) as u8
+pool nodes: Node[4]
+var count: u8
+sub eat(n: nodes): u8
     return n.value
 end
 sub main() fails

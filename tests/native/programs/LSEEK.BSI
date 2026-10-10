@@ -1,12 +1,12 @@
 // Binary files with 32-bit positions (67b): position, size and seek take
 // and return u32 values; each is checked, and the narrowing at the end
 // traps only when every one is right.
-var buf as u8[200]
-var check as u32
-var out as u8
+var buf: u8[200]
+var check: u32
+var out: u8
 
 sub main() fails
-    var i as u16
+    var i: u16
     for i = 0 until 200
         buf[i] = u8(i mod 256)
     end

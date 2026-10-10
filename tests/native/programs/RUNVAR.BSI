@@ -3,30 +3,30 @@
 include "STRINGS.BSI"
 
 record Acc
-    total as u16
-    count as u8
+    total: u16
+    count: u8
 end
 
-var check as u16
-var out as u8
+var check: u16
+var out: u8
 
-sub add(var a as Acc, v as u16)
+sub add(var a: Acc, v: u16)
     a.total = a.total + v
     a.count = a.count + 1
 end
 
-sub addAll(var a as Acc, vs as u16[])
-    var i as u16
+sub addAll(var a: Acc, vs: u16[])
+    var i: u16
     for i = 0 until vs.length
         add(a, vs[i])
     end
 end
 
 sub main() fails
-    var acc as Acc
-    var vs as u16[4] = [10, 20, 30, 40]
-    var s as string[16]
-    var t as string[16]
+    var acc: Acc
+    var vs: u16[4] = [10, 20, 30, 40]
+    var s: string[16]
+    var t: string[16]
     addAll(acc, vs)
     check = acc.total - 100 + u16(acc.count) - 4
     append(s, "Basie") else fail

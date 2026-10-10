@@ -87,7 +87,7 @@ An integer literal is exact and has no fixed integer type until an expected inte
 
 Chapter 9 defines the treatment of an integer literal with no expected type and the result types of operators. This chapter does not assign an expression-wide default type.
 
-A character literal is an exact integer whose value is the decoded byte from Chapter 3, so it adopts any integer type that holds the value, as `var a as i8 = 'A'` does. Where nothing else gives it a type, as in `var c = 'A'`, it is `u8` (Chapter 9, Section 9.7). Basie has no separate character type.
+A character literal is an exact integer whose value is the decoded byte from Chapter 3, so it adopts any integer type that holds the value, as `var a: i8 = 'A'` does. Where nothing else gives it a type, as in `var c = 'A'`, it is `u8` (Chapter 9, Section 9.7). Basie has no separate character type.
 
 **Implicit widening** is admitted only where every source value is preserved (design decisions D4 and D31):
 
@@ -259,40 +259,40 @@ The numeric type ID has no source meaning and need not match across compilations
 These locals, inside a routine, illustrate scalar compatibility (as program variables, whose initializers must be constant, the ones initialized from other variables would be invalid):
 
 ```basie
-var byteValue as u8 = 42
-var wordValue as u16 = byteValue    // u8 widens to u16
-var delta as i8 = -3
-var offset as i16 = delta           // i8 widens to i16
-var big as u32 = 70000
-var ratio as f32 = 0.25
-var scaled as f32 = wordValue       // u16 widens to f32
-var code as u8 = 'A'
-var flag as boolean = true
+var byteValue: u8 = 42
+var wordValue: u16 = byteValue    // u8 widens to u16
+var delta: i8 = -3
+var offset: i16 = delta           // i8 widens to i16
+var big: u32 = 70000
+var ratio: f32 = 0.25
+var scaled: f32 = wordValue       // u16 widens to f32
+var code: u8 = 'A'
+var flag: boolean = true
 ```
 
 Each of the following is invalid under this chapter:
 
 ```basie
-var tooSmall as u8 = 256       // literal does not fit
-var narrowed as u8 = wordValue // explicit checked conversion required
-var unsigned as u16 = delta    // i8 does not widen to u16
-var fromBig as f32 = big       // u32 does not widen to f32
-var whole as u16 = 1.5         // a floating-point literal is f32
-var truth as boolean = 1       // integer is not Boolean
-var count as u16 = false       // Boolean is not integer
+var tooSmall: u8 = 256       // literal does not fit
+var narrowed: u8 = wordValue // explicit checked conversion required
+var unsigned: u16 = delta    // i8 does not widen to u16
+var fromBig: f32 = big       // u32 does not widen to f32
+var whole: u16 = 1.5         // a floating-point literal is f32
+var truth: boolean = 1       // integer is not Boolean
+var count: u16 = false       // Boolean is not integer
 ```
 
 Record identity is nominal:
 
 ```basie
 record LeftPoint
-    x as u16
-    y as u16
+    x: u16
+    y: u16
 end
 
 record RightPoint
-    x as u16
-    y as u16
+    x: u16
+    y: u16
 end
 ```
 
@@ -301,8 +301,8 @@ end
 Array and bounded-string bounds are part of their types:
 
 ```basie
-var bytes as u8[16]
-var name as string[12]
+var bytes: u8[16]
+var name: string[12]
 ```
 
 `bytes[0]` through `bytes[15]` are within the declared domain. `bytes[16]` is a compile-time error. A runtime value used as the index is checked before access. `string[12]` and `string[16]` are different types, and a thirteen-byte literal cannot initialize `name`.
@@ -359,7 +359,7 @@ enum Direction
     west
 end
 
-var heading as Direction = Direction.north
+var heading: Direction = Direction.north
 ```
 
 The declaration is top level, optionally `private`, and contains one member

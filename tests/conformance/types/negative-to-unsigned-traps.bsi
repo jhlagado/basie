@@ -3,7 +3,7 @@
 // expect trap: narrowing at 8
 
 sub main()
-    var delta as i16 = -1
-    var count as u16
+    var delta: i16 = -1
+    var count: u16
     count = u16(delta)
 end

@@ -2,5 +2,5 @@
 include "INCUTIL.BSI"
 
 sub main()
-    var x as u8 = scale
+    var x: u8 = scale
 end

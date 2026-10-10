@@ -1,10 +1,10 @@
 // Comparisons of bytes, words and Booleans (65.4 c).
-var a as u8 = 200
-var b as u8 = 9
-var x as u16 = 1000
-var y as u16 = 2
-var f as boolean
-var g as boolean = true
+var a: u8 = 200
+var b: u8 = 9
+var x: u16 = 1000
+var y: u16 = 2
+var f: boolean
+var g: boolean = true
 
 sub main()
     f = a = b

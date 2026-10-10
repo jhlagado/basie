@@ -1,10 +1,10 @@
 // A local aggregate's initializer must be of the local's type: a string of
 // another capacity is not copied into it.
 // spec: 7.6
-// expect error: type-mismatch at 9:26
+// expect error: type-mismatch at 9:24
 
-var longer as string[5]
+var longer: string[5]
 
 sub main()
-    var s as string[4] = longer
+    var s: string[4] = longer
 end

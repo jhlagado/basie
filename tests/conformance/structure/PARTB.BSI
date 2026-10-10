@@ -1,6 +1,6 @@
 // Another part reusing the private name k, for private-across-parts.bsi.
 private const k = 2
 
-sub fromB() as u8
+sub fromB(): u8
     return k
 end

@@ -1,13 +1,13 @@
 // A typed local whose initializer reaches through a handle: the local is
 // allocated after the initializer's temporary.
 record Leaf
-    v as u8
-    w as u16
+    v: u8
+    w: u16
 end
-pool leaves as Leaf[3]
-var g as u8
+pool leaves: Leaf[3]
+var g: u8
 sub main()
     var a = new leaves(1)
-    var w as u8 = a.v
+    var w: u8 = a.v
     g = w
 end

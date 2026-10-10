@@ -3,38 +3,38 @@
 // as a var view; and an open array whose elements are owning arrays, an
 // element passed on as a fixed array.
 record Job
-    number as u16
+    number: u16
 end
-pool jobs as Job[4]
+pool jobs: Job[4]
 record Box
-    h as jobs?
-    n as u8
+    h: jobs?
+    n: u8
 end
 record Bucket
-    items as Box[2]
+    items: Box[2]
 end
-var a as Box[3]
-var b as Bucket
-var m as Box[3][2]
+var a: Box[3]
+var b: Bucket
+var m: Box[3][2]
 
-sub r(var bx as Box)
+sub r(var bx: Box)
     bx.h = new jobs(1)
 end
 
-sub fill(var bs as Box[])
+sub fill(var bs: Box[])
     r(bs[1])
     bs[0].n = 1
 end
 
-sub viaRecord(var k as Bucket)
+sub viaRecord(var k: Bucket)
     fill(k.items)
 end
 
-sub pair(var two as Box[2])
+sub pair(var two: Box[2])
     two[1].h = none
 end
 
-sub rows(var v as Box[][2])
+sub rows(var v: Box[][2])
     v[1][0].h = new jobs(2)
     pair(v[0])
 end

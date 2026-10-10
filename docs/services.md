@@ -89,8 +89,8 @@ The consequences:
 | `writeByte(console, b)`, `writeText(console, s)` | Write bytes unchanged | BDOS 6 |
 | `readByte(console)` | Read one key and echo it; Control-Z gives `endOfInput`, which is then sticky for the rest of the run | BDOS 6 |
 | `readLine(console, var line)` | Read one edited line, up to the string's capacity, without its terminator (Section 3.3) | BDOS 10, through the runtime's buffer |
-| `readKey() as u8` | Wait for one key, without echo | BDOS 6 `$FF`, repeated; the lookahead first |
-| `keyReady() as boolean` | Whether a key is waiting | BDOS 6 `$FF`; a key found is kept in the lookahead |
+| `readKey(): u8` | Wait for one key, without echo | BDOS 6 `$FF`, repeated; the lookahead first |
+| `keyReady(): boolean` | Whether a key is waiting | BDOS 6 `$FF`; a key found is kept in the lookahead |
 
 On CP/M 3, the `CPM3` profile uses BDOS 6's blocking (`$FD`) and status (`$FE`)
 forms.
@@ -136,13 +136,13 @@ reserved for temporary files. User numbers can't be named; see Section 6.
 
 | Service | Meaning |
 | --- | --- |
-| `openRead(name as string[], mode as u8) as File fails` | Open an existing file for reading |
-| `openWrite(name as string[], mode as u8) as File fails` | Create a file that replaces any existing one when it is closed (Section 4.6) |
-| `openAppend(name as string[], mode as u8) as File fails` | Open an existing file, or create it, positioned at its end |
-| `openUpdate(name as string[]) as File fails` | Open an existing file for reading and writing anywhere, in binary mode |
-| `close(f as File) fails` | Write out any buffered data and release the number |
-| `abort(f as File)` | Discard an `openWrite` file's new contents, or close any other file without further writes, and release the number |
-| `flush(f as File) fails` | Write out buffered data and the directory entry, so the data survives if the machine stops |
+| `openRead(name: string[], mode: u8): File fails` | Open an existing file for reading |
+| `openWrite(name: string[], mode: u8): File fails` | Create a file that replaces any existing one when it is closed (Section 4.6) |
+| `openAppend(name: string[], mode: u8): File fails` | Open an existing file, or create it, positioned at its end |
+| `openUpdate(name: string[]): File fails` | Open an existing file for reading and writing anywhere, in binary mode |
+| `close(f: File) fails` | Write out any buffered data and release the number |
+| `abort(f: File)` | Discard an `openWrite` file's new contents, or close any other file without further writes, and release the number |
+| `flush(f: File) fails` | Write out buffered data and the directory entry, so the data survives if the machine stops |
 
 `mode` is `textMode` (0) or `binaryMode` (1), predeclared constants; any other
 value fails with `badMode`.
@@ -176,12 +176,12 @@ record of a binary file is padded with zeros when written.
 
 | Service | Meaning |
 | --- | --- |
-| `readByte(f as File) as u8 fails` | Read one byte; `endOfInput` at the end |
-| `writeByte(f as File, b as u8) fails` | Write one byte |
-| `readBlock(f as File, var buf as u8[], count as u16) as u16 fails` | Read up to `count` bytes, never more than `buf.length`; returns the number read, 0 only at the end |
-| `writeBlock(f as File, buf as u8[], count as u16) fails` | Write the first `count` bytes of `buf`; `count` above `buf.length` traps `bounds` before anything is written |
-| `readLine(f as File, var line as string[]) fails` | Read one line in text mode (Section 4.3) |
-| `writeText(f as File, text as string[]) fails` | Write a string's bytes |
+| `readByte(f: File): u8 fails` | Read one byte; `endOfInput` at the end |
+| `writeByte(f: File, b: u8) fails` | Write one byte |
+| `readBlock(f: File, var buf: u8[], count: u16): u16 fails` | Read up to `count` bytes, never more than `buf.length`; returns the number read, 0 only at the end |
+| `writeBlock(f: File, buf: u8[], count: u16) fails` | Write the first `count` bytes of `buf`; `count` above `buf.length` traps `bounds` before anything is written |
+| `readLine(f: File, var line: string[]) fails` | Read one line in text mode (Section 4.3) |
+| `writeText(f: File, text: string[]) fails` | Write a string's bytes |
 
 **Failure semantics,** following z80-tool-services:
 
@@ -201,9 +201,9 @@ restore the DMA address before returning.
 
 | Service | Meaning |
 | --- | --- |
-| `seek(f as File, position as u32) fails` | Move to a byte position; binary, append and update files only |
-| `position(f as File) as u32 fails` | The current byte position; `notAvailable` on the console and printer |
-| `size(f as File) as u32 fails` | The file's size in bytes, a multiple of 128 |
+| `seek(f: File, position: u32) fails` | Move to a byte position; binary, append and update files only |
+| `position(f: File): u32 fails` | The current byte position; `notAvailable` on the console and printer |
+| `size(f: File): u32 fails` | The file's size in bytes, a multiple of 128 |
 
 - In an update file, any position below 8,388,608 is allowed. Writing past the
   end extends the file, filling any gap with zeros; reading past the end gives
@@ -238,11 +238,11 @@ with `ERA *.$??`.
 
 | Service | Meaning |
 | --- | --- |
-| `exists(name as string[]) as boolean fails` | Whether a file exists |
-| `delete(name as string[]) fails` | Delete a file; `fileNotFound` if it doesn't exist |
-| `rename(oldName as string[], newName as string[]) fails` | Rename within a drive; `fileExists` if the new name is taken |
-| `findFirst(pattern as string[], var name as string[]) as boolean fails` | Start a search; `false` if nothing matches |
-| `findNext(var name as string[]) as boolean fails` | The next match, or `false` |
+| `exists(name: string[]): boolean fails` | Whether a file exists |
+| `delete(name: string[]) fails` | Delete a file; `fileNotFound` if it doesn't exist |
+| `rename(oldName: string[], newName: string[]) fails` | Rename within a drive; `fileExists` if the new name is taken |
+| `findFirst(pattern: string[], var name: string[]): boolean fails` | Start a search; `false` if nothing matches |
+| `findNext(var name: string[]): boolean fails` | The next match, or `false` |
 
 - `delete`, `rename` and the replacement step of `close` fail with `fileBusy` if
   the name is open on any file number.
@@ -278,7 +278,7 @@ from names read back; search FCBs use extent 0 and never drive `?`.
 
 | Service | Meaning |
 | --- | --- |
-| `commandTail(var text as string[])` | The whole command tail as typed, without its leading separator, truncated to the capacity |
+| `commandTail(var text: string[])` | The whole command tail as typed, without its leading separator, truncated to the capacity |
 
 The library's `word(text, n, var out)` splits text into space- or
 tab-separated words. The CP/M CCP converts the command line to upper case, so
@@ -291,13 +291,13 @@ startup moves the DMA address before any disk operation
 | Service | Meaning | CP/M 2.2 |
 | --- | --- | --- |
 | `resetDisks()` | Reset the disk system, after the user changes disks | BDOS 13 |
-| `resetDrive(drive as u8)` | Reset one drive, 0 for A | BDOS 37 |
-| `currentDrive() as u8` | The current drive, 0 for A | BDOS 25 |
-| `selectDrive(drive as u8) fails` | Make a drive current | BDOS 14 |
-| `currentUser() as u8` | The current user number | BDOS 32 |
-| `setUser(user as u8) fails` | Change the user number, 0 to 15 | BDOS 32 |
-| `driveReadOnly(drive as u8) as boolean` | Whether a drive is read-only | BDOS 29 |
-| `freeMemory() as u16` | Bytes between the end of `BSS` and the stack | — |
+| `resetDrive(drive: u8)` | Reset one drive, 0 for A | BDOS 37 |
+| `currentDrive(): u8` | The current drive, 0 for A | BDOS 25 |
+| `selectDrive(drive: u8) fails` | Make a drive current | BDOS 14 |
+| `currentUser(): u8` | The current user number | BDOS 32 |
+| `setUser(user: u8) fails` | Change the user number, 0 to 15 | BDOS 32 |
+| `driveReadOnly(drive: u8): boolean` | Whether a drive is read-only | BDOS 29 |
+| `freeMemory(): u16` | Bytes between the end of `BSS` and the stack | — |
 
 A program that asks the user to change disks must call `resetDisks` or
 `resetDrive` afterwards; otherwise CP/M marks the drive read-only.

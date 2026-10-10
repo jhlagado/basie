@@ -1,27 +1,27 @@
 // A var record parameter given a field reached through an owning handle
 // local: the root has no owner word, so none is passed.
 record Leaf
-    v as u8
-    s as string[3]
+    v: u8
+    s: string[3]
 end
 record Outer
-    w as u8
-    inn as Leaf
-    arr as Leaf[2]
+    w: u8
+    inn: Leaf
+    arr: Leaf[2]
 end
-pool outers as Outer[3]
-var go as outers?
-var gl as Leaf
-var g as u8
-sub fv(r as Leaf)
+pool outers: Outer[3]
+var go: outers?
+var gl: Leaf
+var g: u8
+sub fv(r: Leaf)
     g = r.v
 end
-sub fr(var r as Leaf)
+sub fr(var r: Leaf)
     r.v = 1
 end
-sub fs(var s as string[])
+sub fs(var s: string[])
 end
-sub fo(var o as Outer)
+sub fo(var o: Outer)
 end
 sub main()
     var c = new outers(1)

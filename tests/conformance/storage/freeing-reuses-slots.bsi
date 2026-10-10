@@ -5,14 +5,14 @@
 forward pool nodes
 
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 
-pool nodes as Node[1]
+pool nodes: Node[1]
 
 sub main() fails
-    var i as u8
+    var i: u8
     for i = 1 to 5
         var n = new nodes(i, none)
     end

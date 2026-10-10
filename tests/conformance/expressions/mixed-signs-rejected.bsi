@@ -3,7 +3,7 @@
 // expect error: mixed-operands at 8:17
 
 sub main()
-    var w as u16 = 1
-    var s as i16 = 1
+    var w: u16 = 1
+    var s: i16 = 1
     var x = w + s
 end

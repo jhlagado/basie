@@ -4,7 +4,7 @@
 // expect output: <hello>\r\n
 
 sub main() fails
-    var line as string[40]
+    var line: string[40]
     readLine(console, line) else fail
     writeText(console, "<") else fail
     writeText(console, line) else fail

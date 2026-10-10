@@ -2,14 +2,14 @@
 // Spaces and tabs may surround the number. Each routine fails with
 // badNumber on text that isn't a number of its kind or doesn't fit.
 
-const badNumber as u8 = 32
+const badNumber: u8 = 32
 
-private sub blank(b as u8) as boolean
+private sub blank(b: u8): boolean
     return b = ' ' or b = 9
 end
 
-private sub skipBlanks(text as string[], at as u8) as u8
-    var i as u8 = at
+private sub skipBlanks(text: string[], at: u8): u8
+    var i: u8 = at
     while i < text.length and blank(text[i])
         i = i + 1
     end
@@ -17,8 +17,8 @@ private sub skipBlanks(text as string[], at as u8) as u8
 end
 
 // The value of a digit in the base, or 255.
-private sub digitValue(b as u8, base as u8) as u8
-    var v as u8 = 255
+private sub digitValue(b: u8, base: u8): u8
+    var v: u8 = 255
     if b >= '0' and b <= '9'
         v = b - '0'
     elseif b >= 'A' and b <= 'F'
@@ -34,17 +34,17 @@ end
 
 // The unsigned number from position at to the end of the text: decimal, or
 // hexadecimal after $ when hex is allowed, no larger than limit.
-private sub magnitude(text as string[], at as u8, hex as boolean, limit as u32) as u32 fails
-    var i as u8 = at
-    var base as u8 = 10
+private sub magnitude(text: string[], at: u8, hex: boolean, limit: u32): u32 fails
+    var i: u8 = at
+    var base: u8 = 10
     if hex and i < text.length and text[i] = '$'
         base = 16
         i = i + 1
     end
-    var n as u32 = 0
-    var digits as u8 = 0
+    var n: u32 = 0
+    var digits: u8 = 0
     while i < text.length
-        var d as u8 = digitValue(text[i], base)
+        var d: u8 = digitValue(text[i], base)
         if d = 255
             exit
         end
@@ -62,26 +62,26 @@ private sub magnitude(text as string[], at as u8, hex as boolean, limit as u32) 
 end
 
 // A sign at the start: 1 for '-', 0 for '+' or none, so the caller skips it.
-private sub negative(text as string[], at as u8) as boolean
+private sub negative(text: string[], at: u8): boolean
     return at < text.length and text[at] = '-'
 end
 
-private sub signed(text as string[], at as u8) as boolean
+private sub signed(text: string[], at: u8): boolean
     return at < text.length and (text[at] = '-' or text[at] = '+')
 end
 
-sub parseU16(text as string[]) as u16 fails
+sub parseU16(text: string[]): u16 fails
     var n = magnitude(text, skipBlanks(text, 0), true, 65535) else fail
     return u16(n)
 end
 
-sub parseU32(text as string[]) as u32 fails
+sub parseU32(text: string[]): u32 fails
     var n = magnitude(text, skipBlanks(text, 0), true, $FFFFFFFF) else fail
     return n
 end
 
-sub parseI16(text as string[]) as i16 fails
-    var at as u8 = skipBlanks(text, 0)
+sub parseI16(text: string[]): i16 fails
+    var at: u8 = skipBlanks(text, 0)
     var minus = negative(text, at)
     if signed(text, at)
         at = at + 1
@@ -97,8 +97,8 @@ sub parseI16(text as string[]) as i16 fails
     return i16(n)
 end
 
-sub parseI32(text as string[]) as i32 fails
-    var at as u8 = skipBlanks(text, 0)
+sub parseI32(text: string[]): i32 fails
+    var at: u8 = skipBlanks(text, 0)
     var minus = negative(text, at)
     if signed(text, at)
         at = at + 1
@@ -114,14 +114,14 @@ sub parseI32(text as string[]) as i32 fails
     return i32(n)
 end
 
-private sub isDigit(text as string[], at as u8) as boolean
+private sub isDigit(text: string[], at: u8): boolean
     return at < text.length and text[at] >= '0' and text[at] <= '9'
 end
 
 // 10 to the power k, for k from 0 to 10: each is exact in f32.
-private sub power10(k as u8) as f32
-    var p as f32 = 1.0
-    var i as u8 = 0
+private sub power10(k: u8): f32
+    var p: f32 = 1.0
+    var i: u8 = 0
     while i < k
         p = p * 10.0
         i = i + 1
@@ -132,15 +132,15 @@ end
 // A decimal number with an optional fraction and exponent, such as -1.5,
 // .25, 3. or 6.02e23. The result is rounded to f32; a value too small for
 // f32 becomes zero, and one too large fails.
-sub parseF32(text as string[]) as f32 fails
-    var at as u8 = skipBlanks(text, 0)
+sub parseF32(text: string[]): f32 fails
+    var at: u8 = skipBlanks(text, 0)
     var minus = negative(text, at)
     if signed(text, at)
         at = at + 1
     end
-    var mantissa as u32 = 0
-    var scale as i16 = 0
-    var digits as u8 = 0
+    var mantissa: u32 = 0
+    var scale: i16 = 0
+    var digits: u8 = 0
     while isDigit(text, at)
         if mantissa < 100000000
             mantissa = mantissa * 10 + u32(text[at] - '0')
@@ -173,7 +173,7 @@ sub parseF32(text as string[]) as f32 fails
         if not isDigit(text, at)
             fail badNumber
         end
-        var e as i16 = 0
+        var e: i16 = 0
         while isDigit(text, at)
             if e < 1000
                 e = e * 10 + i16(text[at] - '0')
@@ -189,10 +189,10 @@ sub parseF32(text as string[]) as f32 fails
     if skipBlanks(text, at) <> text.length
         fail badNumber
     end
-    var v as f32 = f32(mantissa)
+    var v: f32 = f32(mantissa)
     if mantissa <> 0
         while scale > 0
-            var k as u8 = 10
+            var k: u8 = 10
             if scale < 10
                 k = u8(scale)
             end
@@ -204,7 +204,7 @@ sub parseF32(text as string[]) as f32 fails
             scale = scale - i16(k)
         end
         while scale < 0 and v <> 0.0
-            var k as u8 = 10
+            var k: u8 = 10
             if scale > -10
                 k = u8(-scale)
             end

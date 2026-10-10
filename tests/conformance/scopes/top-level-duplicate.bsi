@@ -4,7 +4,7 @@
 // expect error: duplicate-name at 7:5
 
 const Limit = 4
-var Limit as u8
+var Limit: u8
 
 sub main()
 end

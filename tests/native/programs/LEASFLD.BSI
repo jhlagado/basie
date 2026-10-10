@@ -1,27 +1,27 @@
 // An owning field of a var record parameter moved out and back.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 record Leaf
-    v as u8
+    v: u8
 end
-pool nodes as Node[8]
-pool leaves as Leaf[2]
-var list as nodes?
-var keep as id nodes?
-var g as u8
-sub bump(var n as Node)
+pool nodes: Node[8]
+pool leaves: Leaf[2]
+var list: nodes?
+var keep: id nodes?
+var g: u8
+sub bump(var n: Node)
     n.value = n.value + 1
 end
-sub look(n as Node)
+sub look(n: Node)
     g = n.value
 end
-sub make() as nodes
+sub make(): nodes
     return new nodes(1, none)
 end
-sub f(var n as Node)
+sub f(var n: Node)
     var x = move n.next
     n.next = move x
 end

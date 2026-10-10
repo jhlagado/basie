@@ -1,9 +1,9 @@
 // A select of 256 cases, the spec's minimum (limits 5.1), beside a 7K
 // part: the routine's bytes spill to SEL.$CD as memory fills (68.4) and are
 // read back as its blob is written, its jumps shrunk as the reference's.
-var g as u8
-var h as u16
-sub pick() as u8
+var g: u8
+var h: u16
+sub pick(): u8
     select h
     case 0
         g = 0

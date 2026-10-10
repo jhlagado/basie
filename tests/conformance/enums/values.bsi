@@ -13,49 +13,49 @@ enum Colour
     blue
 end
 
-const home as Direction = Direction.north
-const away as Direction = Direction.south
+const home: Direction = Direction.north
+const away: Direction = Direction.south
 const preferred = Direction.south
-const colours as Colour[2] = [Colour.north, Colour.blue]
-var heading as Direction
-var route as Direction[3] = [Direction.east, Direction.south, Direction.west]
+const colours: Colour[2] = [Colour.north, Colour.blue]
+var heading: Direction
+var route: Direction[3] = [Direction.east, Direction.south, Direction.west]
 
 record Position
-    padding as u8[140]
-    facing as Direction
-    trail as Direction[2]
+    padding: u8[140]
+    facing: Direction
+    trail: Direction[2]
 end
 
-var global as Position
+var global: Position
 
-sub echo(value as Direction) as Direction
+sub echo(value: Direction): Direction
     return value
 end
 
-sub choose(value as Direction) as Direction
+sub choose(value: Direction): Direction
     if value = Direction.north
         return Direction.east
     end
     return Direction.west
 end
 
-sub turn(var point as Position, direction as Direction)
+sub turn(var point: Position, direction: Direction)
     point.facing = direction
     point.trail[1] = echo(direction)
 end
 
-sub first(items as Direction[]) as Direction
+sub first(items: Direction[]): Direction
     return items[0]
 end
 
 sub main() fails
-    var local as Direction
+    var local: Direction
     var inferred = Direction.west
-    const east as Direction = Direction.east
+    const east: Direction = Direction.east
     const localMember = Direction.west
-    const equal as boolean = home = Direction.north
-    const different as boolean = home <> away
-    var point as Position
+    const equal: boolean = home = Direction.north
+    const different: boolean = home <> away
+    var point: Position
     assert heading = home
     assert local = home
     assert global.facing = home
@@ -79,7 +79,7 @@ sub main() fails
     assert global.facing = east
     route[0] = local
     assert first(route) = east
-    var matched as boolean
+    var matched: boolean
     select heading
     case Direction.north, Direction.east
         matched = false

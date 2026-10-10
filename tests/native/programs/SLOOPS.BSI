@@ -2,14 +2,14 @@
 // whose comparison is signed, a byte counter's exact bound beyond its
 // type compared as a word, and exact bounds beyond any word, where the
 // loop runs until the counter would leave its type or never starts.
-const down as i8 = 3
+const down: i8 = 3
 
 sub main()
-    var i as i8
-    var j as i16
-    var u as u8
-    var t as i16
-    var b as i16 = -40
+    var i: i8
+    var j: i16
+    var u: u8
+    var t: i16
+    var b: i16 = -40
     for i = -5 to 5
         t = t + i
     end

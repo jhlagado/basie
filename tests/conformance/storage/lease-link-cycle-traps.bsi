@@ -6,13 +6,13 @@
 forward pool nodes
 
 record Node
-    value as u16
-    next as nodes?
+    value: u16
+    next: nodes?
 end
 
-pool nodes as Node[8]
+pool nodes: Node[8]
 
-sub attach(var n as Node)
+sub attach(var n: Node)
     n.next = new nodes(2, none)
 end
 

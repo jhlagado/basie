@@ -145,7 +145,7 @@ for row = 7 to 0 step -1
     clearRow(row)
 end
 
-var offset as i16
+var offset: i16
 for offset = -3 to 3
     plot(centre + offset)
 end

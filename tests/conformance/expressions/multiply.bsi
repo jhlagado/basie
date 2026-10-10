@@ -5,10 +5,10 @@
 include "FORMAT.BSI"
 
 sub main() fails
-    var line as string[20]
-    var a as u16 = 300
-    var b as i16 = -3
-    var c as u8 = 200
+    var line: string[20]
+    var a: u16 = 300
+    var b: i16 = -3
+    var c: u8 = 200
     appendU16(line, a * 200) else fail
     appendByte(line, ' ') else fail
     appendI16(line, b * 2) else fail

@@ -3,23 +3,23 @@
 // records, and a local array of 1,500 words, each written and read at its
 // far end; only an initializer is staged, so only it is held to 1K.
 record Big
-    head as u8
-    data as u8[2048]
-    tail as u16
+    head: u8
+    data: u8[2048]
+    tail: u16
 end
 record Cell
-    a as u16
-    b as u8[30]
-    c as u16
+    a: u16
+    b: u8[30]
+    c: u16
 end
-var buf as u8[4096]
-var big as Big
-var cells as Cell[100]
-var sum as u16
+var buf: u8[4096]
+var big: Big
+var cells: Cell[100]
+var sum: u16
 
-sub fill() as u16
-    var words as u16[1500]
-    var i as u16
+sub fill(): u16
+    var words: u16[1500]
+    var i: u16
     for i = 0 to 1499
         words[i] = i * 3
     end
@@ -27,7 +27,7 @@ sub fill() as u16
 end
 
 sub main() fails
-    var i as u16
+    var i: u16
     for i = 0 to 4095
         buf[i] = u8(i and 255)
     end

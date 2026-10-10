@@ -7,14 +7,14 @@ include "FORMAT.BSI"
 forward pool nodes
 
 record Node
-    key as u16
-    next as nodes?
+    key: u16
+    next: nodes?
 end
 
-pool nodes as Node[64]
-var head as nodes?
+pool nodes: Node[64]
+var head: nodes?
 
-sub insert(k as u16)
+sub insert(k: u16)
     var n = new nodes(k, none)
     select head
     case some(f)
@@ -49,7 +49,7 @@ sub insert(k as u16)
     end
 end
 
-sub remove(k as u16) as boolean
+sub remove(k: u16): boolean
     select head
     case some(f)
         if f.key = k
@@ -81,9 +81,9 @@ sub remove(k as u16) as boolean
 end
 
 sub show() fails
-    var line as string[40]
+    var line: string[40]
     var p = id(head)
-    var first as boolean = true
+    var first: boolean = true
     while true
         select p
         case some(i)
@@ -107,7 +107,7 @@ sub main() fails
     insert(7)
     insert(3)
     show() else fail
-    var gone as boolean = remove(3)
+    var gone: boolean = remove(3)
     gone = remove(9)
     show() else fail
 end

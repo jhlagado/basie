@@ -6,18 +6,18 @@
 
 include "FORMAT.BSI"
 
-var base as u16 = 1
+var base: u16 = 1
 
-sub probe() as u16 fails
+sub probe(): u16 fails
     fail 7
 end
 
 sub main() fails
-    var line as string[20]
-    var code as u8 = 0
-    var total as u16 = 0
-    var passes as u16 = 0
-    var i as u16
+    var line: string[20]
+    var code: u8 = 0
+    var total: u16 = 0
+    var passes: u16 = 0
+    var i: u16
     for i = 1 to 50000
         total = base + probe() handle code
             passes = passes + 1

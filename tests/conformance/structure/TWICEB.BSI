@@ -1,6 +1,6 @@
 // A part for include-once.bsi, including TWICEA.BSI, already compiled.
 include "TWICEA.BSI"
 
-sub fromB() as u8
+sub fromB(): u8
     return base + 1
 end

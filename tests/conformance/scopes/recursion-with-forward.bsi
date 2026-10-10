@@ -2,7 +2,7 @@
 // spec: 5.9, 13.8
 // expect output: 321\r\n
 
-forward sub countDown(n as u8) fails
+forward sub countDown(n: u8) fails
 
 sub countDown
     if n > 0

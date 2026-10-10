@@ -5,15 +5,15 @@
 forward pool nodes
 
 record Node
-    value as u8
+    value: u8
 end
 
-pool nodes as Node[4]
+pool nodes: Node[4]
 
-sub show(n as Node, k as u8)
+sub show(n: Node, k: u8)
 end
 
-sub eat(n as nodes) as u8
+sub eat(n: nodes): u8
     return 0
 end
 

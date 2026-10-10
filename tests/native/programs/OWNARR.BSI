@@ -2,11 +2,11 @@
 // through an owner descriptor made at that free, as the reference makes
 // one at each (jobs?[3].owners), and kept until its routine is written.
 record Job
-    number as u16
+    number: u16
 end
-pool jobs as Job[6]
+pool jobs: Job[6]
 
-sub addJob(var place as jobs?, value as u16) as boolean
+sub addJob(var place: jobs?, value: u16): boolean
     var candidate = new? jobs(value)
     select move candidate
     case some(allocated)
@@ -17,10 +17,10 @@ sub addJob(var place as jobs?, value as u16) as boolean
     end
 end
 
-sub fill() as u8
-    var queue as jobs?[3]
-    var made as u8 = 0
-    var i as u8
+sub fill(): u8
+    var queue: jobs?[3]
+    var made: u8 = 0
+    var i: u8
     for i = 0 to 2
         if addJob(queue[i], u16(i) * 10)
             made = made + 1
@@ -30,12 +30,12 @@ sub fill() as u8
 end
 
 sub main() fails
-    var total as u8 = 0
-    var round as u8
+    var total: u8 = 0
+    var round: u8
     for round = 1 to 4
         total = total + fill()
     end
-    var grid as jobs?[2][2]
+    var grid: jobs?[2][2]
     assert addJob(grid[1][1], 5)
     if total = 12
         writeText(console, "owning arrays\r\n") else fail

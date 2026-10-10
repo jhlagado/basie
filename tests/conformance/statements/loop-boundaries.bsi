@@ -7,11 +7,11 @@
 include "FORMAT.BSI"
 
 sub main() fails
-    var line as string[60]
-    var c as u8
-    var s as i8
-    var w as u16
-    var count as u16 = 0
+    var line: string[60]
+    var c: u8
+    var s: i8
+    var w: u16
+    var count: u16 = 0
     for c = 7 to 0 step -1
         if c = 7
             appendU16(line, c) else fail

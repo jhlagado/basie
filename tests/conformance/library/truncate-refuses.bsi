@@ -11,14 +11,14 @@
 include "TEXTIO.BSI"
 
 sub main() fails
-    var line as string[10]
-    var code as u8 = 0
+    var line: string[10]
+    var code: u8 = 0
     truncate("KEEP.TXT", 2, textMode) handle code
         if code = fileExists
             append(line, "E ") else fail
         end
     end
-    var secret as string[10]
+    var secret: string[10]
     readSecret(secret) handle code
         if code = endOfInput
             append(line, "E") else fail

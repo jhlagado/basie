@@ -5,9 +5,9 @@
 include "FORMAT.BSI"
 
 sub main() fails
-    var line as string[30]
-    var u as u8 = 255
-    var s as i16 = 32767
+    var line: string[30]
+    var u: u8 = 255
+    var s: i16 = 32767
     u = u + 1
     s = s + 1
     appendU16(line, u) else fail

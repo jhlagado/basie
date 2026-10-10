@@ -104,10 +104,10 @@ After a routine's complete signature has been checked, its routine name and sign
 For example, this order satisfies the structural rules:
 
 ```basie
-forward sub emit(value as u8)
+forward sub emit(value: u8)
 
 sub run()
-    var value as u8
+    var value: u8
     emit(value)
     return
 end
@@ -125,7 +125,7 @@ sub run()
     return
 end
 
-sub emit(value as u8)
+sub emit(value: u8)
     return
 end
 ```

@@ -19,19 +19,19 @@ const goal = 8
 forward pool bugs
 
 record Bug
-    x as u8
-    y as u8
-    next as bugs?
+    x: u8
+    y: u8
+    next: bugs?
 end
 
-pool bugs as Bug[6]
+pool bugs: Bug[6]
 
-var swarm as bugs?
-var playerX as u8 = 5
-var playerY as u8 = 3
-var zapped as u8 = 0
+var swarm: bugs?
+var playerX: u8 = 5
+var playerY: u8 = 3
+var zapped: u8 = 0
 
-sub bugAt(x as u8, y as u8) as boolean
+sub bugAt(x: u8, y: u8): boolean
     var p = id(swarm)
     while true
         select p
@@ -50,8 +50,8 @@ end
 // A new bug at a random place on the edge, unless the pool is full or the
 // place is taken.
 sub spawn()
-    var x as u8 = u8(randomBelow(width))
-    var y as u8 = 0
+    var x: u8 = u8(randomBelow(width))
+    var y: u8 = 0
     if randomBelow(2) = 1
         y = height - 1
     end
@@ -68,11 +68,11 @@ sub spawn()
 end
 
 sub draw() fails
-    var line as string[20]
-    var y as u8 = 0
+    var line: string[20]
+    var y: u8 = 0
     while y < height
         clear(line)
-        var x as u8 = 0
+        var x: u8 = 0
         while x < width
             if x = playerX and y = playerY and bugAt(x, y)
                 appendByte(line, '*') else fail
@@ -91,7 +91,7 @@ sub draw() fails
 end
 
 // One step toward a, from v.
-sub toward(v as u8, a as u8) as u8
+sub toward(v: u8, a: u8): u8
     if v < a
         return v + 1
     elseif v > a
@@ -102,7 +102,7 @@ end
 
 // Every bug steps toward the player, along x or y at random. True when one
 // reaches the player.
-sub crawl() as boolean
+sub crawl(): boolean
     var p = id(swarm)
     while true
         select p
@@ -130,7 +130,7 @@ sub crawl() as boolean
 end
 
 // Free the bug at x, y.
-sub squash(x as u8, y as u8)
+sub squash(x: u8, y: u8)
     select swarm
     case some(f)
         if f.x = x and f.y = y
@@ -161,7 +161,7 @@ sub squash(x as u8, y as u8)
 end
 
 // Zap along a direction from the player: the first bug in line is freed.
-sub zap(dx as i8, dy as i8) as boolean
+sub zap(dx: i8, dy: i8): boolean
     var x = i16(playerX)
     var y = i16(playerY)
     while true
@@ -179,7 +179,7 @@ sub zap(dx as i8, dy as i8) as boolean
 end
 
 // The direction a word names: 1 north, 2 south, 3 east, 4 west, 0 none.
-sub direction(w as string[]) as u8
+sub direction(w: string[]): u8
     if equal(w, "n")
         return 1
     elseif equal(w, "s")
@@ -192,7 +192,7 @@ sub direction(w as string[]) as u8
     return 0
 end
 
-sub walk(d as u8)
+sub walk(d: u8)
     var x = playerX
     var y = playerY
     if d = 1 and y > 0
@@ -211,11 +211,11 @@ sub walk(d as u8)
 end
 
 sub main() fails
-    var line as string[40]
-    var verb as string[8]
-    var noun as string[8]
-    var code as u8 = 0
-    var turn as u16 = 0
+    var line: string[40]
+    var verb: string[8]
+    var noun: string[8]
+    var code: u8 = 0
+    var turn: u16 = 0
     writeLine(console, "BUGS: zap 8 bugs before one reaches you.") else fail
     while true
         if turn mod 2 = 0

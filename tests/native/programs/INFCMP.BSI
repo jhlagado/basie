@@ -2,14 +2,14 @@
 // comparison is the initializer's first operand, the local a Boolean.
 forward pool nodes
 record Node
-    v as u16
-    next as nodes?
+    v: u16
+    next: nodes?
 end
-pool nodes as Node[4]
-var keep as id nodes?
-var outs as File[2]
+pool nodes: Node[4]
+var keep: id nodes?
+var outs: File[2]
 
-sub twice(x as u16) as u16
+sub twice(x: u16): u16
     var a = x
     var same = a = x
     if same

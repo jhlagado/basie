@@ -1,57 +1,57 @@
 include "CHN16.BSI"
 // Part 15 of a chain of includes: each part includes the next, so all
 // of them are open while the last loads.
-var c15 as u16
-sub p15r0() as u16
+var c15: u16
+sub p15r0(): u16
     c15 = c15 + 0
     c15 = c15 + 1
     c15 = c15 + 2
     c15 = c15 + 3
     return c15
 end
-sub p15r1() as u16
+sub p15r1(): u16
     c15 = c15 + 1
     c15 = c15 + 2
     c15 = c15 + 3
     c15 = c15 + 4
     return c15
 end
-sub p15r2() as u16
+sub p15r2(): u16
     c15 = c15 + 2
     c15 = c15 + 3
     c15 = c15 + 4
     c15 = c15 + 5
     return c15
 end
-sub p15r3() as u16
+sub p15r3(): u16
     c15 = c15 + 3
     c15 = c15 + 4
     c15 = c15 + 5
     c15 = c15 + 6
     return c15
 end
-sub p15r4() as u16
+sub p15r4(): u16
     c15 = c15 + 4
     c15 = c15 + 5
     c15 = c15 + 6
     c15 = c15 + 7
     return c15
 end
-sub p15r5() as u16
+sub p15r5(): u16
     c15 = c15 + 5
     c15 = c15 + 6
     c15 = c15 + 7
     c15 = c15 + 8
     return c15
 end
-sub p15r6() as u16
+sub p15r6(): u16
     c15 = c15 + 6
     c15 = c15 + 7
     c15 = c15 + 8
     c15 = c15 + 9
     return c15
 end
-sub p15r7() as u16
+sub p15r7(): u16
     c15 = c15 + 7
     c15 = c15 + 8
     c15 = c15 + 9

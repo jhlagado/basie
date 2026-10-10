@@ -5,11 +5,11 @@
 // expect trap: narrowing at 14
 
 sub main()
-    var l as u32 = 100000
-    var m as i32 = 40000
+    var l: u32 = 100000
+    var m: i32 = 40000
     l = u32(l)
     m = i32(m)
-    var w as u16 = u16(l - 34465)
+    var w: u16 = u16(l - 34465)
     w = u16(m - 34465)
     w = u16(l)
 end

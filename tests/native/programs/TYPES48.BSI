@@ -2,135 +2,135 @@
 // thirty records and ten array types, all program-wide (67h.4b: 48 type
 // IDs and 48 records).
 record R00
-    v as u16
+    v: u16
 end
-var x00 as R00
+var x00: R00
 record R01
-    v as u8
+    v: u8
 end
-var x01 as R01
+var x01: R01
 record R02
-    v as u16
+    v: u16
 end
-var x02 as R02
+var x02: R02
 record R03
-    v as u8
+    v: u8
 end
-var x03 as R03
+var x03: R03
 record R04
-    v as u16
+    v: u16
 end
-var x04 as R04
+var x04: R04
 record R05
-    v as u8
+    v: u8
 end
-var x05 as R05
+var x05: R05
 record R06
-    v as u16
+    v: u16
 end
-var x06 as R06
+var x06: R06
 record R07
-    v as u8
+    v: u8
 end
-var x07 as R07
+var x07: R07
 record R08
-    v as u16
+    v: u16
 end
-var x08 as R08
+var x08: R08
 record R09
-    v as u8
+    v: u8
 end
-var x09 as R09
+var x09: R09
 record R10
-    v as u16
+    v: u16
 end
-var x10 as R10
+var x10: R10
 record R11
-    v as u8
+    v: u8
 end
-var x11 as R11
+var x11: R11
 record R12
-    v as u16
+    v: u16
 end
-var x12 as R12
+var x12: R12
 record R13
-    v as u8
+    v: u8
 end
-var x13 as R13
+var x13: R13
 record R14
-    v as u16
+    v: u16
 end
-var x14 as R14
+var x14: R14
 record R15
-    v as u8
+    v: u8
 end
-var x15 as R15
+var x15: R15
 record R16
-    v as u16
+    v: u16
 end
-var x16 as R16
+var x16: R16
 record R17
-    v as u8
+    v: u8
 end
-var x17 as R17
+var x17: R17
 record R18
-    v as u16
+    v: u16
 end
-var x18 as R18
+var x18: R18
 record R19
-    v as u8
+    v: u8
 end
-var x19 as R19
+var x19: R19
 record R20
-    v as u16
+    v: u16
 end
-var x20 as R20
+var x20: R20
 record R21
-    v as u8
+    v: u8
 end
-var x21 as R21
+var x21: R21
 record R22
-    v as u16
+    v: u16
 end
-var x22 as R22
+var x22: R22
 record R23
-    v as u8
+    v: u8
 end
-var x23 as R23
+var x23: R23
 record R24
-    v as u16
+    v: u16
 end
-var x24 as R24
+var x24: R24
 record R25
-    v as u8
+    v: u8
 end
-var x25 as R25
+var x25: R25
 record R26
-    v as u16
+    v: u16
 end
-var x26 as R26
+var x26: R26
 record R27
-    v as u8
+    v: u8
 end
-var x27 as R27
+var x27: R27
 record R28
-    v as u16
+    v: u16
 end
-var x28 as R28
+var x28: R28
 record R29
-    v as u8
+    v: u8
 end
-var x29 as R29
-var a0 as u8[2]
-var a1 as u8[3]
-var a2 as u8[4]
-var a3 as u8[5]
-var a4 as u8[6]
-var a5 as u8[7]
-var a6 as u8[8]
-var a7 as u8[9]
-var a8 as u8[10]
-var a9 as u8[11]
+var x29: R29
+var a0: u8[2]
+var a1: u8[3]
+var a2: u8[4]
+var a3: u8[5]
+var a4: u8[6]
+var a5: u8[7]
+var a6: u8[8]
+var a7: u8[9]
+var a8: u8[10]
+var a9: u8[11]
 sub main() fails
     x29.v = 5
     a9[10] = 7

@@ -10,22 +10,22 @@
 // expect output: [SOME WORDS]<Line>xy 5 1 T abc 301 3\r\n
 
 record entry
-    tag as u8
-    data as u8[4]
-    name as string[12]
+    tag: u8
+    data: u8[4]
+    name: string[12]
 end
 
-var cells as u8[6]
-var total as u16
+var cells: u8[6]
+var total: u16
 
-sub put(s as string[]) fails
+sub put(s: string[]) fails
     writeText(console, s) else fail
 end
 
-sub putNumber(n as u16) fails
-    var digits as string[6]
-    var k as u16 = 10000
-    var started as boolean = false
+sub putNumber(n: u16) fails
+    var digits: string[6]
+    var k: u16 = 10000
+    var started: boolean = false
     while k > 0
         if n >= k or started or k = 1
             started = true
@@ -36,17 +36,17 @@ sub putNumber(n as u16) fails
     end
 end
 
-sub drive() as u8
+sub drive(): u8
     return currentDrive()
 end
 
 sub main() fails
-    var e as entry
-    var text as string[24]
-    var code as u8 = 0
-    var tiny as u8[binaryMode]
-    var i as u8
-    var got as u16
+    var e: entry
+    var text: string[24]
+    var code: u8 = 0
+    var tiny: u8[binaryMode]
+    var i: u8
+    var got: u16
     var free = freeMemory()
     var user = currentUser()
     var f = openRead("DATA.TXT", textMode) else fail

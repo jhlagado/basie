@@ -1,8 +1,8 @@
 // Assignments of constants and program variables (65.4 b).
-var a as u8 = 7
-var b as u16 = 300
-var f as boolean
-var c as u8
+var a: u8 = 7
+var b: u16 = 300
+var f: boolean
+var c: u8
 const k = 5
 const t = true
 

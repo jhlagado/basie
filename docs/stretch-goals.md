@@ -628,8 +628,8 @@ of destructuring without nested patterns or guards.
 
 ```basie
 variant Shape
-    circle(radius as u16)
-    rect(width as u16, height as u16)
+    circle(radius: u16)
+    rect(width: u16, height: u16)
     empty
 end
 

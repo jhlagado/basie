@@ -1,604 +1,604 @@
 // 200 routines and 400 parameters (64 routines and 160 parameters before
 // 68): each routine's record and parameters are kept below the name heap.
-var g as u16
-sub r0(a as u8, b as u8) as u8
+var g: u16
+sub r0(a: u8, b: u8): u8
     return a + b
 end
-sub r1(a as u8, b as u8) as u8
+sub r1(a: u8, b: u8): u8
     return a + b
 end
-sub r2(a as u8, b as u8) as u8
+sub r2(a: u8, b: u8): u8
     return a + b
 end
-sub r3(a as u8, b as u8) as u8
+sub r3(a: u8, b: u8): u8
     return a + b
 end
-sub r4(a as u8, b as u8) as u8
+sub r4(a: u8, b: u8): u8
     return a + b
 end
-sub r5(a as u8, b as u8) as u8
+sub r5(a: u8, b: u8): u8
     return a + b
 end
-sub r6(a as u8, b as u8) as u8
+sub r6(a: u8, b: u8): u8
     return a + b
 end
-sub r7(a as u8, b as u8) as u8
+sub r7(a: u8, b: u8): u8
     return a + b
 end
-sub r8(a as u8, b as u8) as u8
+sub r8(a: u8, b: u8): u8
     return a + b
 end
-sub r9(a as u8, b as u8) as u8
+sub r9(a: u8, b: u8): u8
     return a + b
 end
-sub r10(a as u8, b as u8) as u8
+sub r10(a: u8, b: u8): u8
     return a + b
 end
-sub r11(a as u8, b as u8) as u8
+sub r11(a: u8, b: u8): u8
     return a + b
 end
-sub r12(a as u8, b as u8) as u8
+sub r12(a: u8, b: u8): u8
     return a + b
 end
-sub r13(a as u8, b as u8) as u8
+sub r13(a: u8, b: u8): u8
     return a + b
 end
-sub r14(a as u8, b as u8) as u8
+sub r14(a: u8, b: u8): u8
     return a + b
 end
-sub r15(a as u8, b as u8) as u8
+sub r15(a: u8, b: u8): u8
     return a + b
 end
-sub r16(a as u8, b as u8) as u8
+sub r16(a: u8, b: u8): u8
     return a + b
 end
-sub r17(a as u8, b as u8) as u8
+sub r17(a: u8, b: u8): u8
     return a + b
 end
-sub r18(a as u8, b as u8) as u8
+sub r18(a: u8, b: u8): u8
     return a + b
 end
-sub r19(a as u8, b as u8) as u8
+sub r19(a: u8, b: u8): u8
     return a + b
 end
-sub r20(a as u8, b as u8) as u8
+sub r20(a: u8, b: u8): u8
     return a + b
 end
-sub r21(a as u8, b as u8) as u8
+sub r21(a: u8, b: u8): u8
     return a + b
 end
-sub r22(a as u8, b as u8) as u8
+sub r22(a: u8, b: u8): u8
     return a + b
 end
-sub r23(a as u8, b as u8) as u8
+sub r23(a: u8, b: u8): u8
     return a + b
 end
-sub r24(a as u8, b as u8) as u8
+sub r24(a: u8, b: u8): u8
     return a + b
 end
-sub r25(a as u8, b as u8) as u8
+sub r25(a: u8, b: u8): u8
     return a + b
 end
-sub r26(a as u8, b as u8) as u8
+sub r26(a: u8, b: u8): u8
     return a + b
 end
-sub r27(a as u8, b as u8) as u8
+sub r27(a: u8, b: u8): u8
     return a + b
 end
-sub r28(a as u8, b as u8) as u8
+sub r28(a: u8, b: u8): u8
     return a + b
 end
-sub r29(a as u8, b as u8) as u8
+sub r29(a: u8, b: u8): u8
     return a + b
 end
-sub r30(a as u8, b as u8) as u8
+sub r30(a: u8, b: u8): u8
     return a + b
 end
-sub r31(a as u8, b as u8) as u8
+sub r31(a: u8, b: u8): u8
     return a + b
 end
-sub r32(a as u8, b as u8) as u8
+sub r32(a: u8, b: u8): u8
     return a + b
 end
-sub r33(a as u8, b as u8) as u8
+sub r33(a: u8, b: u8): u8
     return a + b
 end
-sub r34(a as u8, b as u8) as u8
+sub r34(a: u8, b: u8): u8
     return a + b
 end
-sub r35(a as u8, b as u8) as u8
+sub r35(a: u8, b: u8): u8
     return a + b
 end
-sub r36(a as u8, b as u8) as u8
+sub r36(a: u8, b: u8): u8
     return a + b
 end
-sub r37(a as u8, b as u8) as u8
+sub r37(a: u8, b: u8): u8
     return a + b
 end
-sub r38(a as u8, b as u8) as u8
+sub r38(a: u8, b: u8): u8
     return a + b
 end
-sub r39(a as u8, b as u8) as u8
+sub r39(a: u8, b: u8): u8
     return a + b
 end
-sub r40(a as u8, b as u8) as u8
+sub r40(a: u8, b: u8): u8
     return a + b
 end
-sub r41(a as u8, b as u8) as u8
+sub r41(a: u8, b: u8): u8
     return a + b
 end
-sub r42(a as u8, b as u8) as u8
+sub r42(a: u8, b: u8): u8
     return a + b
 end
-sub r43(a as u8, b as u8) as u8
+sub r43(a: u8, b: u8): u8
     return a + b
 end
-sub r44(a as u8, b as u8) as u8
+sub r44(a: u8, b: u8): u8
     return a + b
 end
-sub r45(a as u8, b as u8) as u8
+sub r45(a: u8, b: u8): u8
     return a + b
 end
-sub r46(a as u8, b as u8) as u8
+sub r46(a: u8, b: u8): u8
     return a + b
 end
-sub r47(a as u8, b as u8) as u8
+sub r47(a: u8, b: u8): u8
     return a + b
 end
-sub r48(a as u8, b as u8) as u8
+sub r48(a: u8, b: u8): u8
     return a + b
 end
-sub r49(a as u8, b as u8) as u8
+sub r49(a: u8, b: u8): u8
     return a + b
 end
-sub r50(a as u8, b as u8) as u8
+sub r50(a: u8, b: u8): u8
     return a + b
 end
-sub r51(a as u8, b as u8) as u8
+sub r51(a: u8, b: u8): u8
     return a + b
 end
-sub r52(a as u8, b as u8) as u8
+sub r52(a: u8, b: u8): u8
     return a + b
 end
-sub r53(a as u8, b as u8) as u8
+sub r53(a: u8, b: u8): u8
     return a + b
 end
-sub r54(a as u8, b as u8) as u8
+sub r54(a: u8, b: u8): u8
     return a + b
 end
-sub r55(a as u8, b as u8) as u8
+sub r55(a: u8, b: u8): u8
     return a + b
 end
-sub r56(a as u8, b as u8) as u8
+sub r56(a: u8, b: u8): u8
     return a + b
 end
-sub r57(a as u8, b as u8) as u8
+sub r57(a: u8, b: u8): u8
     return a + b
 end
-sub r58(a as u8, b as u8) as u8
+sub r58(a: u8, b: u8): u8
     return a + b
 end
-sub r59(a as u8, b as u8) as u8
+sub r59(a: u8, b: u8): u8
     return a + b
 end
-sub r60(a as u8, b as u8) as u8
+sub r60(a: u8, b: u8): u8
     return a + b
 end
-sub r61(a as u8, b as u8) as u8
+sub r61(a: u8, b: u8): u8
     return a + b
 end
-sub r62(a as u8, b as u8) as u8
+sub r62(a: u8, b: u8): u8
     return a + b
 end
-sub r63(a as u8, b as u8) as u8
+sub r63(a: u8, b: u8): u8
     return a + b
 end
-sub r64(a as u8, b as u8) as u8
+sub r64(a: u8, b: u8): u8
     return a + b
 end
-sub r65(a as u8, b as u8) as u8
+sub r65(a: u8, b: u8): u8
     return a + b
 end
-sub r66(a as u8, b as u8) as u8
+sub r66(a: u8, b: u8): u8
     return a + b
 end
-sub r67(a as u8, b as u8) as u8
+sub r67(a: u8, b: u8): u8
     return a + b
 end
-sub r68(a as u8, b as u8) as u8
+sub r68(a: u8, b: u8): u8
     return a + b
 end
-sub r69(a as u8, b as u8) as u8
+sub r69(a: u8, b: u8): u8
     return a + b
 end
-sub r70(a as u8, b as u8) as u8
+sub r70(a: u8, b: u8): u8
     return a + b
 end
-sub r71(a as u8, b as u8) as u8
+sub r71(a: u8, b: u8): u8
     return a + b
 end
-sub r72(a as u8, b as u8) as u8
+sub r72(a: u8, b: u8): u8
     return a + b
 end
-sub r73(a as u8, b as u8) as u8
+sub r73(a: u8, b: u8): u8
     return a + b
 end
-sub r74(a as u8, b as u8) as u8
+sub r74(a: u8, b: u8): u8
     return a + b
 end
-sub r75(a as u8, b as u8) as u8
+sub r75(a: u8, b: u8): u8
     return a + b
 end
-sub r76(a as u8, b as u8) as u8
+sub r76(a: u8, b: u8): u8
     return a + b
 end
-sub r77(a as u8, b as u8) as u8
+sub r77(a: u8, b: u8): u8
     return a + b
 end
-sub r78(a as u8, b as u8) as u8
+sub r78(a: u8, b: u8): u8
     return a + b
 end
-sub r79(a as u8, b as u8) as u8
+sub r79(a: u8, b: u8): u8
     return a + b
 end
-sub r80(a as u8, b as u8) as u8
+sub r80(a: u8, b: u8): u8
     return a + b
 end
-sub r81(a as u8, b as u8) as u8
+sub r81(a: u8, b: u8): u8
     return a + b
 end
-sub r82(a as u8, b as u8) as u8
+sub r82(a: u8, b: u8): u8
     return a + b
 end
-sub r83(a as u8, b as u8) as u8
+sub r83(a: u8, b: u8): u8
     return a + b
 end
-sub r84(a as u8, b as u8) as u8
+sub r84(a: u8, b: u8): u8
     return a + b
 end
-sub r85(a as u8, b as u8) as u8
+sub r85(a: u8, b: u8): u8
     return a + b
 end
-sub r86(a as u8, b as u8) as u8
+sub r86(a: u8, b: u8): u8
     return a + b
 end
-sub r87(a as u8, b as u8) as u8
+sub r87(a: u8, b: u8): u8
     return a + b
 end
-sub r88(a as u8, b as u8) as u8
+sub r88(a: u8, b: u8): u8
     return a + b
 end
-sub r89(a as u8, b as u8) as u8
+sub r89(a: u8, b: u8): u8
     return a + b
 end
-sub r90(a as u8, b as u8) as u8
+sub r90(a: u8, b: u8): u8
     return a + b
 end
-sub r91(a as u8, b as u8) as u8
+sub r91(a: u8, b: u8): u8
     return a + b
 end
-sub r92(a as u8, b as u8) as u8
+sub r92(a: u8, b: u8): u8
     return a + b
 end
-sub r93(a as u8, b as u8) as u8
+sub r93(a: u8, b: u8): u8
     return a + b
 end
-sub r94(a as u8, b as u8) as u8
+sub r94(a: u8, b: u8): u8
     return a + b
 end
-sub r95(a as u8, b as u8) as u8
+sub r95(a: u8, b: u8): u8
     return a + b
 end
-sub r96(a as u8, b as u8) as u8
+sub r96(a: u8, b: u8): u8
     return a + b
 end
-sub r97(a as u8, b as u8) as u8
+sub r97(a: u8, b: u8): u8
     return a + b
 end
-sub r98(a as u8, b as u8) as u8
+sub r98(a: u8, b: u8): u8
     return a + b
 end
-sub r99(a as u8, b as u8) as u8
+sub r99(a: u8, b: u8): u8
     return a + b
 end
-sub r100(a as u8, b as u8) as u8
+sub r100(a: u8, b: u8): u8
     return a + b
 end
-sub r101(a as u8, b as u8) as u8
+sub r101(a: u8, b: u8): u8
     return a + b
 end
-sub r102(a as u8, b as u8) as u8
+sub r102(a: u8, b: u8): u8
     return a + b
 end
-sub r103(a as u8, b as u8) as u8
+sub r103(a: u8, b: u8): u8
     return a + b
 end
-sub r104(a as u8, b as u8) as u8
+sub r104(a: u8, b: u8): u8
     return a + b
 end
-sub r105(a as u8, b as u8) as u8
+sub r105(a: u8, b: u8): u8
     return a + b
 end
-sub r106(a as u8, b as u8) as u8
+sub r106(a: u8, b: u8): u8
     return a + b
 end
-sub r107(a as u8, b as u8) as u8
+sub r107(a: u8, b: u8): u8
     return a + b
 end
-sub r108(a as u8, b as u8) as u8
+sub r108(a: u8, b: u8): u8
     return a + b
 end
-sub r109(a as u8, b as u8) as u8
+sub r109(a: u8, b: u8): u8
     return a + b
 end
-sub r110(a as u8, b as u8) as u8
+sub r110(a: u8, b: u8): u8
     return a + b
 end
-sub r111(a as u8, b as u8) as u8
+sub r111(a: u8, b: u8): u8
     return a + b
 end
-sub r112(a as u8, b as u8) as u8
+sub r112(a: u8, b: u8): u8
     return a + b
 end
-sub r113(a as u8, b as u8) as u8
+sub r113(a: u8, b: u8): u8
     return a + b
 end
-sub r114(a as u8, b as u8) as u8
+sub r114(a: u8, b: u8): u8
     return a + b
 end
-sub r115(a as u8, b as u8) as u8
+sub r115(a: u8, b: u8): u8
     return a + b
 end
-sub r116(a as u8, b as u8) as u8
+sub r116(a: u8, b: u8): u8
     return a + b
 end
-sub r117(a as u8, b as u8) as u8
+sub r117(a: u8, b: u8): u8
     return a + b
 end
-sub r118(a as u8, b as u8) as u8
+sub r118(a: u8, b: u8): u8
     return a + b
 end
-sub r119(a as u8, b as u8) as u8
+sub r119(a: u8, b: u8): u8
     return a + b
 end
-sub r120(a as u8, b as u8) as u8
+sub r120(a: u8, b: u8): u8
     return a + b
 end
-sub r121(a as u8, b as u8) as u8
+sub r121(a: u8, b: u8): u8
     return a + b
 end
-sub r122(a as u8, b as u8) as u8
+sub r122(a: u8, b: u8): u8
     return a + b
 end
-sub r123(a as u8, b as u8) as u8
+sub r123(a: u8, b: u8): u8
     return a + b
 end
-sub r124(a as u8, b as u8) as u8
+sub r124(a: u8, b: u8): u8
     return a + b
 end
-sub r125(a as u8, b as u8) as u8
+sub r125(a: u8, b: u8): u8
     return a + b
 end
-sub r126(a as u8, b as u8) as u8
+sub r126(a: u8, b: u8): u8
     return a + b
 end
-sub r127(a as u8, b as u8) as u8
+sub r127(a: u8, b: u8): u8
     return a + b
 end
-sub r128(a as u8, b as u8) as u8
+sub r128(a: u8, b: u8): u8
     return a + b
 end
-sub r129(a as u8, b as u8) as u8
+sub r129(a: u8, b: u8): u8
     return a + b
 end
-sub r130(a as u8, b as u8) as u8
+sub r130(a: u8, b: u8): u8
     return a + b
 end
-sub r131(a as u8, b as u8) as u8
+sub r131(a: u8, b: u8): u8
     return a + b
 end
-sub r132(a as u8, b as u8) as u8
+sub r132(a: u8, b: u8): u8
     return a + b
 end
-sub r133(a as u8, b as u8) as u8
+sub r133(a: u8, b: u8): u8
     return a + b
 end
-sub r134(a as u8, b as u8) as u8
+sub r134(a: u8, b: u8): u8
     return a + b
 end
-sub r135(a as u8, b as u8) as u8
+sub r135(a: u8, b: u8): u8
     return a + b
 end
-sub r136(a as u8, b as u8) as u8
+sub r136(a: u8, b: u8): u8
     return a + b
 end
-sub r137(a as u8, b as u8) as u8
+sub r137(a: u8, b: u8): u8
     return a + b
 end
-sub r138(a as u8, b as u8) as u8
+sub r138(a: u8, b: u8): u8
     return a + b
 end
-sub r139(a as u8, b as u8) as u8
+sub r139(a: u8, b: u8): u8
     return a + b
 end
-sub r140(a as u8, b as u8) as u8
+sub r140(a: u8, b: u8): u8
     return a + b
 end
-sub r141(a as u8, b as u8) as u8
+sub r141(a: u8, b: u8): u8
     return a + b
 end
-sub r142(a as u8, b as u8) as u8
+sub r142(a: u8, b: u8): u8
     return a + b
 end
-sub r143(a as u8, b as u8) as u8
+sub r143(a: u8, b: u8): u8
     return a + b
 end
-sub r144(a as u8, b as u8) as u8
+sub r144(a: u8, b: u8): u8
     return a + b
 end
-sub r145(a as u8, b as u8) as u8
+sub r145(a: u8, b: u8): u8
     return a + b
 end
-sub r146(a as u8, b as u8) as u8
+sub r146(a: u8, b: u8): u8
     return a + b
 end
-sub r147(a as u8, b as u8) as u8
+sub r147(a: u8, b: u8): u8
     return a + b
 end
-sub r148(a as u8, b as u8) as u8
+sub r148(a: u8, b: u8): u8
     return a + b
 end
-sub r149(a as u8, b as u8) as u8
+sub r149(a: u8, b: u8): u8
     return a + b
 end
-sub r150(a as u8, b as u8) as u8
+sub r150(a: u8, b: u8): u8
     return a + b
 end
-sub r151(a as u8, b as u8) as u8
+sub r151(a: u8, b: u8): u8
     return a + b
 end
-sub r152(a as u8, b as u8) as u8
+sub r152(a: u8, b: u8): u8
     return a + b
 end
-sub r153(a as u8, b as u8) as u8
+sub r153(a: u8, b: u8): u8
     return a + b
 end
-sub r154(a as u8, b as u8) as u8
+sub r154(a: u8, b: u8): u8
     return a + b
 end
-sub r155(a as u8, b as u8) as u8
+sub r155(a: u8, b: u8): u8
     return a + b
 end
-sub r156(a as u8, b as u8) as u8
+sub r156(a: u8, b: u8): u8
     return a + b
 end
-sub r157(a as u8, b as u8) as u8
+sub r157(a: u8, b: u8): u8
     return a + b
 end
-sub r158(a as u8, b as u8) as u8
+sub r158(a: u8, b: u8): u8
     return a + b
 end
-sub r159(a as u8, b as u8) as u8
+sub r159(a: u8, b: u8): u8
     return a + b
 end
-sub r160(a as u8, b as u8) as u8
+sub r160(a: u8, b: u8): u8
     return a + b
 end
-sub r161(a as u8, b as u8) as u8
+sub r161(a: u8, b: u8): u8
     return a + b
 end
-sub r162(a as u8, b as u8) as u8
+sub r162(a: u8, b: u8): u8
     return a + b
 end
-sub r163(a as u8, b as u8) as u8
+sub r163(a: u8, b: u8): u8
     return a + b
 end
-sub r164(a as u8, b as u8) as u8
+sub r164(a: u8, b: u8): u8
     return a + b
 end
-sub r165(a as u8, b as u8) as u8
+sub r165(a: u8, b: u8): u8
     return a + b
 end
-sub r166(a as u8, b as u8) as u8
+sub r166(a: u8, b: u8): u8
     return a + b
 end
-sub r167(a as u8, b as u8) as u8
+sub r167(a: u8, b: u8): u8
     return a + b
 end
-sub r168(a as u8, b as u8) as u8
+sub r168(a: u8, b: u8): u8
     return a + b
 end
-sub r169(a as u8, b as u8) as u8
+sub r169(a: u8, b: u8): u8
     return a + b
 end
-sub r170(a as u8, b as u8) as u8
+sub r170(a: u8, b: u8): u8
     return a + b
 end
-sub r171(a as u8, b as u8) as u8
+sub r171(a: u8, b: u8): u8
     return a + b
 end
-sub r172(a as u8, b as u8) as u8
+sub r172(a: u8, b: u8): u8
     return a + b
 end
-sub r173(a as u8, b as u8) as u8
+sub r173(a: u8, b: u8): u8
     return a + b
 end
-sub r174(a as u8, b as u8) as u8
+sub r174(a: u8, b: u8): u8
     return a + b
 end
-sub r175(a as u8, b as u8) as u8
+sub r175(a: u8, b: u8): u8
     return a + b
 end
-sub r176(a as u8, b as u8) as u8
+sub r176(a: u8, b: u8): u8
     return a + b
 end
-sub r177(a as u8, b as u8) as u8
+sub r177(a: u8, b: u8): u8
     return a + b
 end
-sub r178(a as u8, b as u8) as u8
+sub r178(a: u8, b: u8): u8
     return a + b
 end
-sub r179(a as u8, b as u8) as u8
+sub r179(a: u8, b: u8): u8
     return a + b
 end
-sub r180(a as u8, b as u8) as u8
+sub r180(a: u8, b: u8): u8
     return a + b
 end
-sub r181(a as u8, b as u8) as u8
+sub r181(a: u8, b: u8): u8
     return a + b
 end
-sub r182(a as u8, b as u8) as u8
+sub r182(a: u8, b: u8): u8
     return a + b
 end
-sub r183(a as u8, b as u8) as u8
+sub r183(a: u8, b: u8): u8
     return a + b
 end
-sub r184(a as u8, b as u8) as u8
+sub r184(a: u8, b: u8): u8
     return a + b
 end
-sub r185(a as u8, b as u8) as u8
+sub r185(a: u8, b: u8): u8
     return a + b
 end
-sub r186(a as u8, b as u8) as u8
+sub r186(a: u8, b: u8): u8
     return a + b
 end
-sub r187(a as u8, b as u8) as u8
+sub r187(a: u8, b: u8): u8
     return a + b
 end
-sub r188(a as u8, b as u8) as u8
+sub r188(a: u8, b: u8): u8
     return a + b
 end
-sub r189(a as u8, b as u8) as u8
+sub r189(a: u8, b: u8): u8
     return a + b
 end
-sub r190(a as u8, b as u8) as u8
+sub r190(a: u8, b: u8): u8
     return a + b
 end
-sub r191(a as u8, b as u8) as u8
+sub r191(a: u8, b: u8): u8
     return a + b
 end
-sub r192(a as u8, b as u8) as u8
+sub r192(a: u8, b: u8): u8
     return a + b
 end
-sub r193(a as u8, b as u8) as u8
+sub r193(a: u8, b: u8): u8
     return a + b
 end
-sub r194(a as u8, b as u8) as u8
+sub r194(a: u8, b: u8): u8
     return a + b
 end
-sub r195(a as u8, b as u8) as u8
+sub r195(a: u8, b: u8): u8
     return a + b
 end
-sub r196(a as u8, b as u8) as u8
+sub r196(a: u8, b: u8): u8
     return a + b
 end
-sub r197(a as u8, b as u8) as u8
+sub r197(a: u8, b: u8): u8
     return a + b
 end
-sub r198(a as u8, b as u8) as u8
+sub r198(a: u8, b: u8): u8
     return a + b
 end
-sub r199(a as u8, b as u8) as u8
+sub r199(a: u8, b: u8): u8
     return a + b
 end
 sub main() fails

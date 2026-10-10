@@ -2,44 +2,44 @@
 // arguments pushed left to right, widened to words, constants loaded at
 // the parameter's type, calls nested in arguments and in expressions, and
 // RETN removing the arguments (65.4 e).
-var total as u16 = 10
-var small as u8 = 3
-var flag as boolean
+var total: u16 = 10
+var small: u8 = 3
+var flag: boolean
 
 sub note()
     total = total + 1
 end
 
-sub twice(n as u16) as u16
+sub twice(n: u16): u16
     return n + n
 end
 
-sub low(n as u16) as u8
+sub low(n: u16): u8
     return u8(n mod 256)
 end
 
-sub gate(c as boolean)
+sub gate(c: boolean)
     flag = c and flag
 end
 
-sub both(a as u8, b as u16, c as boolean) as u16
-    var sum as u16 = b + a
+sub both(a: u8, b: u16, c: boolean): u16
+    var sum: u16 = b + a
     gate(c)
     return sum
 end
 
-sub pick(a as boolean, b as boolean) as boolean
+sub pick(a: boolean, b: boolean): boolean
     return a or b
 end
 
-sub set(n as u8)
+sub set(n: u8)
     n = n + 1
     small = n
 end
 
 sub main()
-    var a as u16 = twice(total)
-    var b as u8 = low(a + 300)
+    var a: u16 = twice(total)
+    var b: u8 = low(a + 300)
     note()
     a = twice(twice(a)) + both(b, a, true)
     b = low(twice(small)) + low(7)

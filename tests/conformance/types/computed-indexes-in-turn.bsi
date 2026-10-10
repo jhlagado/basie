@@ -6,20 +6,20 @@
 // expect output: ABCDEF\r\n
 
 record Row
-    cells as u8[3]
-    name as string[4]
+    cells: u8[3]
+    name: string[4]
 end
 
-var grid as u8[3][4]
-var rows as Row[2]
-var i as u8 = 1
-var j as u8 = 2
+var grid: u8[3][4]
+var rows: Row[2]
+var i: u8 = 1
+var j: u8 = 2
 
-sub second() as Row
+sub second(): Row
     return rows[1]
 end
 
-sub first(s as string[]) as u8
+sub first(s: string[]): u8
     return s[0]
 end
 

@@ -7,16 +7,16 @@ include "FORMAT.BSI"
 forward pool dnodes
 
 record DNode
-    key as u16
-    next as dnodes?
-    prev as id dnodes?
+    key: u16
+    next: dnodes?
+    prev: id dnodes?
 end
 
-pool dnodes as DNode[64]
-var first as dnodes?
-var last as id dnodes?
+pool dnodes: DNode[64]
+var first: dnodes?
+var last: id dnodes?
 
-sub pushFront(k as u16)
+sub pushFront(k: u16)
     var n = new dnodes(k, none, none)
     select first
     case some(f)
@@ -28,7 +28,7 @@ sub pushFront(k as u16)
     first = move n
 end
 
-sub unlink(x as id dnodes)
+sub unlink(x: id dnodes)
     var nx = move x.next
     select nx
     case some(n)
@@ -45,9 +45,9 @@ sub unlink(x as id dnodes)
 end
 
 sub show() fails
-    var line as string[40]
+    var line: string[40]
     var p = id(first)
-    var started as boolean = false
+    var started: boolean = false
     while true
         select p
         case some(i)

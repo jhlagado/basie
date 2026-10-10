@@ -5,6 +5,6 @@ include "BIGB.BSI"
 include "BIGC.BSI"
 
 sub main()
-    var t as u16
+    var t: u16
     t = secondB(1)
 end

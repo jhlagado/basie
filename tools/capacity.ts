@@ -71,10 +71,10 @@ const say = (line: string) => {
     "ONE.BSI": Array.from(
       { length: n },
       (_, i) =>
-        `sub r${i}(a as u8) as u8\n    var t as u8 = a + ${
+        `sub r${i}(a: u8): u8\n    var t: u8 = a + ${
           i % 200
         }\n    return t\nend\n`,
-    ).join("") + "sub main()\n    var x as u8 = r0(1)\nend\n",
+    ).join("") + "sub main()\n    var x: u8 = r0(1)\nend\n",
   });
   const r = largest(make, 10, 254);
   say(
@@ -87,7 +87,7 @@ const say = (line: string) => {
 // 2. Names visible at once: program variables in one part.
 {
   const make = (n: number) => ({
-    "NAMES.BSI": Array.from({ length: n }, (_, i) => `var v${i} as u16\n`)
+    "NAMES.BSI": Array.from({ length: n }, (_, i) => `var v${i}: u16\n`)
       .join("") + `sub main()\n    v0 = v${n - 1}\nend\n`,
   });
   const r = largest(make, 100, 4000);
@@ -102,7 +102,7 @@ const say = (line: string) => {
 {
   const make = (n: number) => ({
     "LOCALS.BSI": "sub main()\n" +
-      Array.from({ length: n }, (_, i) => `    var l${i} as u8 = ${i % 200}\n`)
+      Array.from({ length: n }, (_, i) => `    var l${i}: u8 = ${i % 200}\n`)
         .join("") +
       `    l0 = l${n - 1}\nend\n`,
   });
@@ -113,7 +113,7 @@ const say = (line: string) => {
 // 4. One routine: the largest body, statements of an assignment each.
 {
   const make = (n: number) => ({
-    "BODY.BSI": "var g as u16\nvar h as u16\nsub main()\n" +
+    "BODY.BSI": "var g: u16\nvar h: u16\nsub main()\n" +
       Array.from({ length: n }, (_, i) => `    g = g + h * ${i % 50 + 1}\n`)
         .join("") +
       "end\n",
@@ -130,16 +130,16 @@ const say = (line: string) => {
 // the main part; the largest program in parts of about 1.7K.
 {
   const part = (p: number) =>
-    Array.from({ length: 20 }, (_, i) => `var p${p}v${i} as u16\n`).join("") +
+    Array.from({ length: 20 }, (_, i) => `var p${p}v${i}: u16\n`).join("") +
     Array.from(
       { length: 12 },
       (_, i) =>
-        `sub p${p}r${i}(a as u16) as u16\n    p${p}v${i} = p${p}v${i} + a\n    return p${p}v${i}\nend\n`,
+        `sub p${p}r${i}(a: u16): u16\n    p${p}v${i} = p${p}v${i} + a\n    return p${p}v${i}\nend\n`,
     ).join("");
   const make = (n: number) => {
     const parts: Record<string, string> = {
       "MANY.BSI": Array.from({ length: n }, (_, p) => `include "P${p}.BSI"\n`)
-        .join("") + "sub main()\n    var x as u16 = p0r0(1)\nend\n",
+        .join("") + "sub main()\n    var x: u16 = p0r0(1)\nend\n",
     };
     for (let p = 0; p < n; p++) parts[`P${p}.BSI`] = part(p);
     return parts;

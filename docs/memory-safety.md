@@ -124,13 +124,13 @@ leased node's owner can't be reached during the lease.
 forward pool nodes            // lets Node's fields name the pool (D40)
 
 record Node
-    value  as u16
-    name   as string[16]
-    next   as nodes?          // owns the next node
-    parent as id nodes?       // refers to the previous one
+    value: u16
+    name: string[16]
+    next: nodes?          // owns the next node
+    parent: id nodes?       // refers to the previous one
 end
 
-pool nodes as Node[64]
+pool nodes: Node[64]
 ```
 
 A pool is placed as a `bss` blob. Each slot holds a 2-byte generation, a
@@ -283,13 +283,13 @@ end
 ### 5.6 Leases
 
 ```basie
-sub bump(var n as Node)
+sub bump(var n: Node)
     n.value = n.value + 1     // direct access: no check
 end
 
 var h = new nodes(1, "a", none, none)
 bump(h)                       // lends h's node
-var p as Node
+var p: Node
 bump(p)                       // a Node in activation storage works too
 ```
 
@@ -335,7 +335,7 @@ A `var` parameter of type `nodes?` lends a place that holds a node or `none`.
 The callee may move into it, move out of it, or overwrite it:
 
 ```basie
-sub push(var list as nodes?, v as u16)
+sub push(var list: nodes?, v: u16)
     var n = new nodes(v, "", move list, none)
     list = move n
 end
@@ -464,13 +464,13 @@ The free list is first in, first out, so frees spread across all slots. A
 ### 5.12 Local aggregates that own
 
 A local record or array may contain owning handles, for example
-`var tmp as Holder` where `Holder` has a field `head as nodes?`, or
-`var arr as nodes?[8]`. At the end of its block, the compiler frees its owning
+`var tmp: Holder` where `Holder` has a field `head: nodes?`, or
+`var arr: nodes?[8]`. At the end of its block, the compiler frees its owning
 fields using the type's descriptor, on every exit path.
 
-- Through a ticket (`h as Holder`), owning fields can be read, tested with `select` and
+- Through a ticket (`h: Holder`), owning fields can be read, tested with `select` and
   turned into identifiers, but not moved or overwritten.
-- Through a `var` parameter (`var h as Holder`), they can be moved and
+- Through a `var` parameter (`var h: Holder`), they can be moved and
   overwritten. Such a store writes the parameter's owner word as the link
   (Section 5.6); when the word is 0 the record is not in a pool and no cycle
   check is needed.
@@ -553,15 +553,15 @@ interrupt-mode-1 pushes. See the [CP/M target](cpm-target.md), Section 4.1.
 **A list.**
 
 ```basie
-var head as nodes?
+var head: nodes?
 
-sub push(v as u16)
+sub push(v: u16)
     var n = new nodes(v, "", move head, none)
     head = move n
 end
 
-sub total() as u32
-    var sum as u32 = 0
+sub total(): u32
+    var sum: u32 = 0
     var p = id(head)                  // id nodes?
     while true
         select p
@@ -596,7 +596,7 @@ the tail's parent or be built at the head.
 **Deleting matching nodes.**
 
 ```basie
-sub removeAll(v as u16)
+sub removeAll(v: u16)
     while true                        // strip matching nodes from the head
         select head
         case some(i)
@@ -634,7 +634,7 @@ subtrees; `parent` is `id trees?`. Removing a subtree is one assignment of
 `none`.
 
 **A graph:** every vertex is owned by one element of a program array
-`vertices as verts?[32]`; edges are `id verts?`. Removing a vertex makes every
+`vertices: verts?[32]`; edges are `id verts?`. Removing a vertex makes every
 edge to it stale, and a sweep drops them with `select`, which never traps.
 
 **A free list** over a program array with integer links still

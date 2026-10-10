@@ -1,7 +1,7 @@
 // A floating-point literal has type f32 and never adapts to an integer.
 // spec: 6.4
-// expect error: type-mismatch at 6:24
+// expect error: type-mismatch at 6:22
 
 sub main()
-    var whole as u16 = 1.5
+    var whole: u16 = 1.5
 end

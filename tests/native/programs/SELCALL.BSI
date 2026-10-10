@@ -2,28 +2,28 @@
 // identifier and an integer subject.
 forward pool nodes
 record Node
-    v as u16
-    next as nodes?
+    v: u16
+    next: nodes?
 end
-pool nodes as Node[4]
+pool nodes: Node[4]
 record Holder
-    head as nodes?
-    ref as id nodes?
-    n as u8
+    head: nodes?
+    ref: id nodes?
+    n: u8
 end
-var hold as Holder
-var all as Holder[2]
-sub get() as Holder
+var hold: Holder
+var all: Holder[2]
+sub get(): Holder
     return hold
 end
-sub row() as Holder[2]
+sub row(): Holder[2]
     return all
 end
 sub main() fails
     hold.head = new nodes(3, none)
     hold.ref = id(hold.head)
     hold.n = 2
-    var t as u16 = 0
+    var t: u16 = 0
     select get().head
     case some(i)
         t = t + i.v

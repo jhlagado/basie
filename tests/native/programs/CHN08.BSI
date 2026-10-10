@@ -1,57 +1,57 @@
 include "CHN09.BSI"
 // Part 8 of a chain of includes: each part includes the next, so all
 // of them are open while the last loads.
-var c8 as u16
-sub p8r0() as u16
+var c8: u16
+sub p8r0(): u16
     c8 = c8 + 0
     c8 = c8 + 1
     c8 = c8 + 2
     c8 = c8 + 3
     return c8
 end
-sub p8r1() as u16
+sub p8r1(): u16
     c8 = c8 + 1
     c8 = c8 + 2
     c8 = c8 + 3
     c8 = c8 + 4
     return c8
 end
-sub p8r2() as u16
+sub p8r2(): u16
     c8 = c8 + 2
     c8 = c8 + 3
     c8 = c8 + 4
     c8 = c8 + 5
     return c8
 end
-sub p8r3() as u16
+sub p8r3(): u16
     c8 = c8 + 3
     c8 = c8 + 4
     c8 = c8 + 5
     c8 = c8 + 6
     return c8
 end
-sub p8r4() as u16
+sub p8r4(): u16
     c8 = c8 + 4
     c8 = c8 + 5
     c8 = c8 + 6
     c8 = c8 + 7
     return c8
 end
-sub p8r5() as u16
+sub p8r5(): u16
     c8 = c8 + 5
     c8 = c8 + 6
     c8 = c8 + 7
     c8 = c8 + 8
     return c8
 end
-sub p8r6() as u16
+sub p8r6(): u16
     c8 = c8 + 6
     c8 = c8 + 7
     c8 = c8 + 8
     c8 = c8 + 9
     return c8
 end
-sub p8r7() as u16
+sub p8r7(): u16
     c8 = c8 + 7
     c8 = c8 + 8
     c8 = c8 + 9

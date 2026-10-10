@@ -654,7 +654,7 @@ the trap prints its address and the lookup command instead.
 The source:
 
 ```basie
-var count as u16
+var count: u16
 
 forward sub reset()
 

@@ -4,12 +4,12 @@ include "INCUTIL.BSI"
 
 private const scale = 5
 
-private sub helper(p as pair) as u16
+private sub helper(p: pair): u16
     return p.b + triple(p.a)
 end
 
-sub combine(a as u8, b as u16) as u16
-    var p as pair
+sub combine(a: u8, b: u16): u16
+    var p: pair
     p.a = a
     p.b = b
     return helper(p) * scale

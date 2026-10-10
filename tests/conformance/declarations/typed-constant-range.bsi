@@ -1,8 +1,8 @@
 // A typed constant must fit its type.
 // spec: 8.4
-// expect error: out-of-range at 5:20
+// expect error: out-of-range at 5:18
 
-const tiny as u8 = 300
+const tiny: u8 = 300
 
 sub main()
 end

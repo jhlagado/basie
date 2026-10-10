@@ -3,6 +3,6 @@
 // expect trap: float-overflow at 7
 
 sub main()
-    var x as f32 = 3.0e38
+    var x: f32 = 3.0e38
     x = x * 10.0
 end

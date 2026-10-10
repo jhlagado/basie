@@ -1,9 +1,9 @@
 // Sixty-four parameters: the first arguments lie beyond IX+127 and are
 // reached through their computed addresses, and RETN removes 128 bytes
 // (65.4 e).
-var sum as u16
+var sum: u16
 
-sub wide(p0 as u8, p1 as u8, p2 as u8, p3 as u8, p4 as u8, p5 as u8, p6 as u8, p7 as u8, p8 as u8, p9 as u8, p10 as u8, p11 as u8, p12 as u8, p13 as u8, p14 as u8, p15 as u8, p16 as u8, p17 as u8, p18 as u8, p19 as u8, p20 as u8, p21 as u8, p22 as u8, p23 as u8, p24 as u8, p25 as u8, p26 as u8, p27 as u8, p28 as u8, p29 as u8, p30 as u8, p31 as u8, p32 as u8, p33 as u8, p34 as u8, p35 as u8, p36 as u8, p37 as u8, p38 as u8, p39 as u8, p40 as u8, p41 as u8, p42 as u8, p43 as u8, p44 as u8, p45 as u8, p46 as u8, p47 as u8, p48 as u8, p49 as u8, p50 as u8, p51 as u8, p52 as u8, p53 as u8, p54 as u8, p55 as u8, p56 as u8, p57 as u8, p58 as u8, p59 as u8, p60 as u8, p61 as u8, p62 as u8, p63 as u8)
+sub wide(p0: u8, p1: u8, p2: u8, p3: u8, p4: u8, p5: u8, p6: u8, p7: u8, p8: u8, p9: u8, p10: u8, p11: u8, p12: u8, p13: u8, p14: u8, p15: u8, p16: u8, p17: u8, p18: u8, p19: u8, p20: u8, p21: u8, p22: u8, p23: u8, p24: u8, p25: u8, p26: u8, p27: u8, p28: u8, p29: u8, p30: u8, p31: u8, p32: u8, p33: u8, p34: u8, p35: u8, p36: u8, p37: u8, p38: u8, p39: u8, p40: u8, p41: u8, p42: u8, p43: u8, p44: u8, p45: u8, p46: u8, p47: u8, p48: u8, p49: u8, p50: u8, p51: u8, p52: u8, p53: u8, p54: u8, p55: u8, p56: u8, p57: u8, p58: u8, p59: u8, p60: u8, p61: u8, p62: u8, p63: u8)
     sum = p0 + p1 + p62 + p63
     p0 = p63
     p2 = 9

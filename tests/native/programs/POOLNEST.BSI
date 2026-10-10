@@ -4,20 +4,20 @@
 forward pool p
 forward pool q
 record A
-    hs as p?[2][2][2]
+    hs: p?[2][2][2]
 end
 record S
-    c as q?[2]
-    k as u8
+    c: q?[2]
+    k: u8
 end
 record R
-    b as S[2]
+    b: S[2]
 end
 record B
-    a as R[2]
-    m as id q?
+    a: R[2]
+    m: id q?
 end
-pool p as A[1]
-pool q as B[2]
+pool p: A[1]
+pool q: B[2]
 sub main()
 end

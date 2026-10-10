@@ -5,7 +5,6 @@
 
 export const KEYWORDS = [
   "and",
-  "as",
   "assert",
   "boolean",
   "case",
@@ -66,6 +65,7 @@ export const PUNCTUATION = [
   ",",
   ".",
   "?",
+  ":",
   "+",
   "-",
   "*",

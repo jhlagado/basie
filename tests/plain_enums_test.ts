@@ -27,14 +27,14 @@ function openArraySource(enumCount: number): string {
     Array.from({ length: enumCount }, (_, i) =>
       `enum E${i}\n    first\n    last\nend\n`).join("\n")
   }
-sub first(items as E${last}[]) as E${last}
+sub first(items: E${last}[]): E${last}
     return items[0]
 end
-sub passOn(items as E${last}[]) as E${last}
+sub passOn(items: E${last}[]): E${last}
     return first(items)
 end
 sub main() fails
-    var items as E${last}[1] = [E${last}.last]
+    var items: E${last}[1] = [E${last}.last]
     assert passOn(items) = E${last}.last
     writeText(console, "V\\r\\n") else fail
 end
@@ -55,9 +55,9 @@ const accepted = [
   {
     name: "MANYENUM",
     source: `${many}
-var early as E0
-var late as E11
-sub last(value as E11) as E11
+var early: E0
+var late: E11
+sub last(value: E11): E11
     return value
 end
 sub main() fails
@@ -73,16 +73,16 @@ end
   {
     name: "ENUM256",
     source: `${members(256)}
-var value as Wide
-var items as Wide[2] = [Wide.m0, Wide.m255]
-sub echo(input as Wide) as Wide
+var value: Wide
+var items: Wide[2] = [Wide.m0, Wide.m255]
+sub echo(input: Wide): Wide
     return input
 end
 sub main() fails
     assert value = Wide.m0
     value = echo(items[1])
     assert value = Wide.m255
-    var found as boolean
+    var found: boolean
     select value
     case Wide.m255
         found = true
@@ -99,7 +99,7 @@ end
     name: "ENUM48",
     source: `${
       Array.from({ length: 48 }, (_, i) =>
-        `enum E${i}\n    first\n    last\nend\nvar v${i} as E${i}\n`).join("\n")
+        `enum E${i}\n    first\n    last\nend\nvar v${i}: E${i}\n`).join("\n")
     }
 sub main() fails
     assert v0 = E0.first
@@ -123,7 +123,7 @@ enum Colour
 end
 `;
 const body = (statement: string) =>
-  `${types}sub main()\n    var direction as Direction = Direction.north\n    ${statement}\nend\n`;
+  `${types}sub main()\n    var direction: Direction = Direction.north\n    ${statement}\nend\n`;
 const refused = [
   ["empty declaration", "enum Empty\nend\nsub main()\nend\n", "empty-enum"],
   [
@@ -145,35 +145,35 @@ const refused = [
     "type-mismatch",
   ],
   ["integer assignment", body("direction = 0"), "type-mismatch"],
-  ["enum into integer", body("var number as u8 = direction"), "type-mismatch"],
+  ["enum into integer", body("var number: u8 = direction"), "type-mismatch"],
   [
     "different enum constant",
-    `${types}const x as Direction = Colour.north\nsub main()\nend\n`,
+    `${types}const x: Direction = Colour.north\nsub main()\nend\n`,
     "type-mismatch",
   ],
   [
     "inferred enum constant keeps nominal identity",
-    `${types}const alien = Colour.north\nconst bad as Direction = alien\nsub main()\nend\n`,
+    `${types}const alien = Colour.north\nconst bad: Direction = alien\nsub main()\nend\n`,
     "type-mismatch",
   ],
   [
     "different enum parameter",
-    `${types}sub take(value as Direction)\nend\nsub main()\n    take(Colour.north)\nend\n`,
+    `${types}sub take(value: Direction)\nend\nsub main()\n    take(Colour.north)\nend\n`,
     "type-mismatch",
   ],
   [
     "different enum return",
-    `${types}sub get() as Direction\n    return Colour.north\nend\nsub main()\nend\n`,
+    `${types}sub get(): Direction\n    return Colour.north\nend\nsub main()\nend\n`,
     "type-mismatch",
   ],
   [
     "different enum array element",
-    `${types}var x as Direction[1] = [Colour.north]\nsub main()\nend\n`,
+    `${types}var x: Direction[1] = [Colour.north]\nsub main()\nend\n`,
     "type-mismatch",
   ],
   [
     "different enum record field",
-    `${types}record R\n    d as Direction\nend\nvar x as R = (Colour.north)\nsub main()\nend\n`,
+    `${types}record R\n    d: Direction\nend\nvar x: R = (Colour.north)\nsub main()\nend\n`,
     "type-mismatch",
   ],
   [
@@ -203,27 +203,27 @@ const refused = [
   ["bit shift", body("direction = direction shl 1"), "type-mismatch"],
   [
     "enum as constant shift count",
-    body("var shifted as u8 = u8(1) shl Direction.north"),
+    body("var shifted: u8 = u8(1) shl Direction.north"),
     "type-mismatch",
   ],
   [
     "enum as computed shift count",
-    body("var shifted as u8 = u8(1) shl direction"),
+    body("var shifted: u8 = u8(1) shl direction"),
     "type-mismatch",
   ],
   [
-    "enum as index",
-    body("var items as u8[2]\n    var element as u8 = items[direction]"),
+    "enum: index",
+    body("var items: u8[2]\n    var element: u8 = items[direction]"),
     "index-type",
   ],
   [
     "numeric left plus enum right",
-    body("var number as u8 = u8(1) + direction"),
+    body("var number: u8 = u8(1) + direction"),
     "type-mismatch",
   ],
   [
     "exact shift cannot infer enum",
-    body("var count as u8 = 1\n    var result as Direction = 1 shl count"),
+    body("var count: u8 = 1\n    var result: Direction = 1 shl count"),
     "no-definite-type",
   ],
   [
@@ -245,32 +245,32 @@ const refused = [
   ],
   [
     "pool of enums",
-    `${types}pool p as Direction[4]\nsub main()\nend\n`,
+    `${types}pool p: Direction[4]\nsub main()\nend\n`,
     "pool-needs-record",
   ],
   [
     "pool name is not a value",
-    `record N\n    a as u8\nend\nvar big as u8[600]\npool nodes as N[4]\nsub main()\n    var y = nodes.x\nend\n`,
+    `record N\n    a: u8\nend\nvar big: u8[600]\npool nodes: N[4]\nsub main()\n    var y = nodes.x\nend\n`,
     "wrong-class",
   ],
   [
     "computed enum for boolean",
-    body("var flag as boolean\n    var same = flag = direction"),
+    body("var flag: boolean\n    var same = flag = direction"),
     "type-mismatch",
   ],
   [
     "computed enum after or",
-    body("var flag as boolean\n    var either = flag or direction"),
+    body("var flag: boolean\n    var either = flag or direction"),
     "type-mismatch",
   ],
   [
     "enum loop bound",
-    body("var i as u8\n    for i = 0 to direction\n    end"),
+    body("var i: u8\n    for i = 0 to direction\n    end"),
     "type-mismatch",
   ],
   [
     "enum constant loop bound",
-    body("var i as u8\n    for i = 0 to Direction.south\n    end"),
+    body("var i: u8\n    for i = 0 to Direction.south\n    end"),
     "type-mismatch",
   ],
 ] as const;

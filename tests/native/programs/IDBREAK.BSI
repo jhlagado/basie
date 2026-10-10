@@ -1,12 +1,12 @@
 // id and an inferred local's handle with their ( after a line end or a
 // comment, within brackets, where the tokenizer passes them (HN_BLANK).
 record Job
-number as u16
+number: u16
 end
-pool jobs as Job[4]
-var g as jobs?
-var keep as id jobs?
-sub look(k as id jobs?)
+pool jobs: Job[4]
+var g: jobs?
+var keep: id jobs?
+sub look(k: id jobs?)
 end
 
 sub main()

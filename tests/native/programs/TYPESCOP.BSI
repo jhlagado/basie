@@ -2,83 +2,83 @@
 // holds at once (24): each routine's body makes types of its own for its
 // locals, released at its end (67h.4, scoped type descriptors), so that
 // the next routine's take their IDs.
-var total as u16
-sub r0() as u16
-    var a as u8[2]
-    var s as string[3]
-    var w as u16[1][2]
+var total: u16
+sub r0(): u16
+    var a: u8[2]
+    var s: string[3]
+    var w: u16[1][2]
     a[1] = 1
     w[0][1] = 100
     return u16(a[1]) + w[0][1]
 end
-sub r1() as u16
-    var a as u8[3]
-    var s as string[4]
-    var w as u16[2][2]
+sub r1(): u16
+    var a: u8[3]
+    var s: string[4]
+    var w: u16[2][2]
     a[2] = 2
     w[1][1] = 101
     return u16(a[2]) + w[1][1]
 end
-sub r2() as u16
-    var a as u8[4]
-    var s as string[5]
-    var w as u16[3][2]
+sub r2(): u16
+    var a: u8[4]
+    var s: string[5]
+    var w: u16[3][2]
     a[3] = 3
     w[2][1] = 102
     return u16(a[3]) + w[2][1]
 end
-sub r3() as u16
-    var a as u8[5]
-    var s as string[6]
-    var w as u16[4][2]
+sub r3(): u16
+    var a: u8[5]
+    var s: string[6]
+    var w: u16[4][2]
     a[4] = 4
     w[3][1] = 103
     return u16(a[4]) + w[3][1]
 end
-sub r4() as u16
-    var a as u8[6]
-    var s as string[7]
-    var w as u16[5][2]
+sub r4(): u16
+    var a: u8[6]
+    var s: string[7]
+    var w: u16[5][2]
     a[5] = 5
     w[4][1] = 104
     return u16(a[5]) + w[4][1]
 end
-sub r5() as u16
-    var a as u8[7]
-    var s as string[8]
-    var w as u16[6][2]
+sub r5(): u16
+    var a: u8[7]
+    var s: string[8]
+    var w: u16[6][2]
     a[6] = 6
     w[5][1] = 105
     return u16(a[6]) + w[5][1]
 end
-sub r6() as u16
-    var a as u8[8]
-    var s as string[9]
-    var w as u16[7][2]
+sub r6(): u16
+    var a: u8[8]
+    var s: string[9]
+    var w: u16[7][2]
     a[7] = 7
     w[6][1] = 106
     return u16(a[7]) + w[6][1]
 end
-sub r7() as u16
-    var a as u8[9]
-    var s as string[10]
-    var w as u16[8][2]
+sub r7(): u16
+    var a: u8[9]
+    var s: string[10]
+    var w: u16[8][2]
     a[8] = 8
     w[7][1] = 107
     return u16(a[8]) + w[7][1]
 end
-sub r8() as u16
-    var a as u8[10]
-    var s as string[11]
-    var w as u16[9][2]
+sub r8(): u16
+    var a: u8[10]
+    var s: string[11]
+    var w: u16[9][2]
     a[9] = 9
     w[8][1] = 108
     return u16(a[9]) + w[8][1]
 end
-sub r9() as u16
-    var a as u8[11]
-    var s as string[12]
-    var w as u16[10][2]
+sub r9(): u16
+    var a: u8[11]
+    var s: string[12]
+    var w: u16[10][2]
     a[10] = 10
     w[9][1] = 109
     return u16(a[10]) + w[9][1]

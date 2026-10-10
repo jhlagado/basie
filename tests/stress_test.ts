@@ -86,15 +86,15 @@ const lines = (n: number, f: (i: number) => string) =>
 Deno.test("an identifier of 255 bytes", async () => {
   const name = "n" + "x".repeat(254);
   await alike("identifier", {
-    "IDENT.BSI": `var ${name} as u8\nsub main()\n    ${name} = 1\nend\n`,
+    "IDENT.BSI": `var ${name}: u8\nsub main()\n    ${name} = 1\nend\n`,
   });
 });
 
 Deno.test("1,000 top-level names, in four parts", async () => {
   const part = (p: number) =>
-    lines(240, (i) => `var p${p}v${i} as u8\n`) +
+    lines(240, (i) => `var p${p}v${i}: u8\n`) +
     lines(5, (i) => `sub p${p}r${i}()\n    p${p}v${i} = ${i}\nend\n`) +
-    lines(5, (i) => `const p${p}c${i} as u16 = ${i * 7}\n`);
+    lines(5, (i) => `const p${p}c${i}: u16 = ${i * 7}\n`);
   await alike("top-level names", {
     "NAMES.BSI": lines(4, (p) => `include "P${p}.BSI"\n`) +
       "sub main()\n    p0r0()\n    p3v239 = u8(p3c4)\nend\n",
@@ -108,24 +108,24 @@ Deno.test("1,000 top-level names, in four parts", async () => {
 Deno.test("128 names visible in one routine", async () => {
   await alike("locals", {
     "LOCALS.BSI": "sub main()\n" +
-      lines(128, (i) => `    var l${i} as u8 = ${i}\n`) +
+      lines(128, (i) => `    var l${i}: u8 = ${i}\n`) +
       "    l0 = l127\nend\n",
   });
 });
 
 Deno.test("32 parameters and 32 arguments", async () => {
-  const params = lines(32, (i) => `${i ? ", " : ""}p${i} as u8`);
+  const params = lines(32, (i) => `${i ? ", " : ""}p${i}: u8`);
   const args = lines(32, (i) => `${i ? ", " : ""}${i}`);
   await alike("parameters", {
-    "PARAMS.BSI": `sub f(${params}) as u8\n    return p0 + p31\nend\n` +
-      `sub main()\n    var x as u8 = f(${args})\nend\n`,
+    "PARAMS.BSI": `sub f(${params}): u8\n    return p0 + p31\nend\n` +
+      `sub main()\n    var x: u8 = f(${args})\nend\n`,
   });
 });
 
 Deno.test("64 fields in one record", async () => {
   await alike("fields", {
-    "FIELDS.BSI": "record R\n" + lines(64, (i) => `    m${i} as u8\n`) +
-      "end\nvar r as R\nsub main()\n    r.m63 = r.m0\nend\n",
+    "FIELDS.BSI": "record R\n" + lines(64, (i) => `    m${i}: u8\n`) +
+      "end\nvar r: R\nsub main()\n    r.m63 = r.m0\nend\n",
   });
 });
 
@@ -149,9 +149,9 @@ Deno.test("statements nested 32 deep, mixed", async () => {
       ? `${pad}for k${i} = 1 to 2\n${body}${pad}end\n`
       : `${pad}select g\n${pad}case 0 to 100\n${body}${pad}case else\n${pad}end\n`;
   }
-  const counters = lines(32, (i) => i % 3 === 1 ? `    var k${i} as u8\n` : "");
+  const counters = lines(32, (i) => i % 3 === 1 ? `    var k${i}: u8\n` : "");
   await alike("nesting", {
-    "NEST.BSI": `var g as u8\nsub main()\n${counters}${body}end\n`,
+    "NEST.BSI": `var g: u8\nsub main()\n${counters}${body}end\n`,
   });
 });
 
@@ -159,13 +159,13 @@ Deno.test("expressions nested 32 deep, an operator pending at each", async () =>
   let e = "x";
   for (let i = 0; i < 32; i++) e = `x * ${i % 5 + 1} + (${e})`;
   await alike("expressions", {
-    "EXPRS.BSI": `var x as u16\nsub main()\n    x = ${e}\nend\n`,
+    "EXPRS.BSI": `var x: u16\nsub main()\n    x = ${e}\nend\n`,
   });
 });
 
 Deno.test("a select of 256 cases", async () => {
   await alike("cases", {
-    "CASES.BSI": "var g as u8\nvar h as u16\nsub main()\n    select h\n" +
+    "CASES.BSI": "var g: u8\nvar h: u16\nsub main()\n    select h\n" +
       lines(256, (i) => `    case ${i * 3}\n        g = ${i % 256}\n`) +
       "    case else\n        g = 0\n    end\nend\n",
   });
@@ -173,8 +173,8 @@ Deno.test("a select of 256 cases", async () => {
 
 Deno.test("64 owning locals in one routine", async () => {
   await alike("owners", {
-    "OWNERS.BSI": "forward pool nodes\nrecord Node\n    value as u8\n" +
-      "    next as nodes?\nend\npool nodes as Node[70]\nsub main()\n" +
+    "OWNERS.BSI": "forward pool nodes\nrecord Node\n    value: u8\n" +
+      "    next: nodes?\nend\npool nodes: Node[70]\nsub main()\n" +
       lines(64, (i) => `    var o${i} = new nodes(${i}, none)\n`) + "end\n",
   });
 });
@@ -216,8 +216,8 @@ function generator(seed: number) {
 function randomProgram(seed: number) {
   const { rnd, pick } = generator(seed);
   let text =
-    "var ga as u16\nvar gb as u16\nvar gc as i16\nvar gf as boolean\n" +
-    "var gt as u8[16]\nrecord Pt\n    x as u16\n    y as i16\nend\nvar gp as Pt\n";
+    "var ga: u16\nvar gb: u16\nvar gc: i16\nvar gf: boolean\n" +
+    "var gt: u8[16]\nrecord Pt\n    x: u16\n    y: i16\nend\nvar gp: Pt\n";
   const routines: string[] = [];
   const word = (vars: string[], depth: number): string => {
     if (depth <= 0 || rnd(3) === 0) {
@@ -286,16 +286,16 @@ function randomProgram(seed: number) {
     return out;
   };
   const counters = (d: number) =>
-    Array.from({ length: d + 1 }, (_, i) => `    var k${i} as u16\n`).join("");
+    Array.from({ length: d + 1 }, (_, i) => `    var k${i}: u16\n`).join("");
   for (let r = 0; r < 3 + rnd(6); r++) {
     const name = `r${r}`;
     const body = block(["p", "q", "t"], ["t"], 2, "    ");
     text +=
-      `sub ${name}(p as u16, q as u16) as u16\n    var t as u16 = p + q\n` +
+      `sub ${name}(p: u16, q: u16): u16\n    var t: u16 = p + q\n` +
       `${counters(2)}${body}    return t + ${word(["p", "t"], 2)}\nend\n`;
     routines.push(name);
   }
-  text += `sub main()\n    var m as u16 = ${rnd(100)}\n${counters(3)}` +
+  text += `sub main()\n    var m: u16 = ${rnd(100)}\n${counters(3)}` +
     block(["m", "ga", "gb"], ["m"], 3, "    ") + "end\n";
   return text;
 }
@@ -348,10 +348,10 @@ Deno.test("a program of 16 parts and 160 routines links and runs as the referenc
   const parts: Parts = {};
   let include = "";
   for (let p = 0; p < 16; p++) {
-    let text = lines(20, (i) => `var p${p}v${i} as u16\n`);
+    let text = lines(20, (i) => `var p${p}v${i}: u16\n`);
     for (let r = 0; r < 10; r++) {
       const prev = r ? `p${p}r${r - 1}` : p ? `p${p - 1}r9` : "";
-      text += `sub p${p}r${r}(a as u16) as u16\n` +
+      text += `sub p${p}r${r}(a: u16): u16\n` +
         `    p${p}v${r} = p${p}v${r} + a * ${r + 1}\n` +
         `    p${p}v${r + 10} = p${p}v${r} xor ${p * 10 + r}\n` +
         (prev
@@ -363,7 +363,7 @@ Deno.test("a program of 16 parts and 160 routines links and runs as the referenc
     include += `include "L${p}.BSI"\n`;
   }
   const main =
-    `${include}sub main() fails\n    var s as u16 = 0\n    var k as u16\n` +
+    `${include}sub main() fails\n    var s: u16 = 0\n    var k: u16\n` +
     "    for k = 1 to 5\n        s = s + p15r9(k)\n    end\n" +
     '    writeText(console, "sum ") else fail\n' +
     "    writeByte(console, u8(48 + (s mod 10))) else fail\n" +

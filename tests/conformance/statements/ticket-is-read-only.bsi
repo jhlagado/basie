@@ -3,11 +3,11 @@
 // expect error: not-writable at 11:5
 
 record Point
-    x as i16
-    y as i16
+    x: i16
+    y: i16
 end
 
-sub nudge(p as Point)
+sub nudge(p: Point)
     p.x = 1
 end
 

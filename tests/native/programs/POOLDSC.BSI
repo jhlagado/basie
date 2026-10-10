@@ -3,16 +3,16 @@
 // is written once, at the first pool of its record.
 forward pool p
 record A
-    h as p?
-    k as u8
+    h: p?
+    k: u8
 end
 record B
-    as1 as A[3]
-    hs as p?[2][2]
-    n as u16
+    as1: A[3]
+    hs: p?[2][2]
+    n: u16
 end
-pool q as B[2]
-pool p as A[1]
-var spare as B
+pool q: B[2]
+pool p: A[1]
+var spare: B
 sub main()
 end

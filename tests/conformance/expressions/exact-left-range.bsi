@@ -3,8 +3,8 @@
 // spec: 8 (expressions)
 // expect error: out-of-range at 9:9
 
-var a as u8 = 1
-var c as u8
+var a: u8 = 1
+var c: u8
 sub main()
     c = 300 + a
 end

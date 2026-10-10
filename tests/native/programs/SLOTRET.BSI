@@ -1,13 +1,13 @@
 // Slot-holders: a moved-out place refilled, a returned owner, a fail.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[8]
-var list as nodes?
+pool nodes: Node[8]
+var list: nodes?
 
-sub pop(var l as nodes?) as u8
+sub pop(var l: nodes?): u8
     select l
     case some(n)
         var v = n.value
@@ -19,12 +19,12 @@ sub pop(var l as nodes?) as u8
     return 0
 end
 
-sub take(var l as nodes?) as nodes?
+sub take(var l: nodes?): nodes?
     var t = move l
     return move t
 end
 
-sub check(var l as nodes?) fails
+sub check(var l: nodes?) fails
     var keep = new nodes(9, none)
     select l
     case none

@@ -4,12 +4,12 @@
 
 include "FORMAT.BSI"
 
-const big as u32 = 70000
+const big: u32 = 70000
 const small = 200
 
 sub main() fails
-    var line as string[20]
-    var b as u8 = small
+    var line: string[20]
+    var b: u8 = small
     appendU32(line, big) else fail
     appendByte(line, ' ') else fail
     appendU16(line, b) else fail

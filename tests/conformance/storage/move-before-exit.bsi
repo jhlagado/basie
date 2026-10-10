@@ -4,16 +4,16 @@
 
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[4]
-sub eat(n as nodes) as u8
+pool nodes: Node[4]
+sub eat(n: nodes): u8
     return 1
 end
 sub main() fails
     var x = new nodes(65, none)
-    var i as u8
+    var i: u8
     for i = 0 to 3
         if i = 2
             eat(move x)

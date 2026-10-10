@@ -3,6 +3,6 @@
 // expect trap: assertion at 7
 
 sub main()
-    var n as u8 = 3
+    var n: u8 = 3
     assert n < 3
 end

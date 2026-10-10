@@ -2,14 +2,14 @@
 // non-optional identifiers on the right, inside and, or and not.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
-    peer as id nodes?
+    value: u8
+    next: nodes?
+    peer: id nodes?
 end
-pool nodes as Node[4]
-var keep as id nodes?
-var out as File
-sub flag(b as boolean) fails
+pool nodes: Node[4]
+var keep: id nodes?
+var out: File
+sub flag(b: boolean) fails
     if b
         writeByte(console, 'T') else fail
     else

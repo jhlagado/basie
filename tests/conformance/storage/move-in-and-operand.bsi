@@ -4,21 +4,21 @@
 
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[4]
-var head as nodes?
-var ident as id nodes?
-sub eat(n as nodes) as u8
+pool nodes: Node[4]
+var head: nodes?
+var ident: id nodes?
+sub eat(n: nodes): u8
     return 1
 end
-sub mk() as nodes
+sub mk(): nodes
     return new nodes(1, none)
 end
 sub main()
     var x = new nodes(1, none)
-    var b as boolean
+    var b: boolean
     if b and eat(move x) = 2
     end
 end

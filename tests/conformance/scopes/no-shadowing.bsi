@@ -3,8 +3,8 @@
 // expect error: shadowed-name at 8:13
 
 sub main()
-    var count as u8 = 1
+    var count: u8 = 1
     if count > 0
-        var count as u8 = 2
+        var count: u8 = 2
     end
 end

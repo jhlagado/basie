@@ -3,5 +3,5 @@
 // spec: 4.4
 // expect error: bad-main at 6:5
 
-sub main(count as u8)
+sub main(count: u8)
 end

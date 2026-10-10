@@ -1,17 +1,17 @@
 // File values in fields, elements and results (74): four bytes each,
 // read and written as a File variable's are.
 record Channel
-    out as File
-    count as u8
+    out: File
+    count: u8
 end
-var chan as Channel
-var outs as File[2]
+var chan: Channel
+var outs: File[2]
 
-sub pick(which as u8) as File
+sub pick(which: u8): File
     return outs[which]
 end
 
-sub say(var c as Channel, text as string[]) fails
+sub say(var c: Channel, text: string[]) fails
     writeText(c.out, text) else fail
     c.count = c.count + 1
 end
@@ -20,13 +20,13 @@ sub main() fails
     chan.out = console
     outs[0] = console
     outs[1] = chan.out
-    var local as Channel
+    var local: Channel
     local.out = pick(1)
     writeText(chan.out, "field\r\n") else fail
     writeText(outs[1], "element\r\n") else fail
     writeText(pick(0), "result\r\n") else fail
     say(local, "through a var record\r\n") else fail
-    var both as File[2]
+    var both: File[2]
     both[1] = outs[0]
     if local.count = 1 and both[1] = console and local.out = console
         writeText(both[1], "files\r\n") else fail

@@ -8,20 +8,20 @@
 include "TEXTIO.BSI"
 
 sub main() fails
-    var name as string[20]
-    var secret as string[20]
+    var name: string[20]
+    var secret: string[20]
     prompt("Name? ", name) else fail
     readSecret(secret) else fail
-    var line as string[60]
+    var line: string[60]
     append(line, "[") else fail
     append(line, name) else fail
     append(line, "] [") else fail
     append(line, secret) else fail
     append(line, "] ") else fail
-    var tail as string[60]
+    var tail: string[60]
     commandTail(tail)
-    var w as string[20]
-    var n as u8 = 0
+    var w: string[20]
+    var n: u8 = 0
     var more = word(tail, 0, w) else fail
     while more
         n = n + 1
@@ -29,7 +29,7 @@ sub main() fails
     end
     appendByte(line, '0' + n) else fail
     append(line, " [") else fail
-    var i as u8 = 0
+    var i: u8 = 0
     while i < n
         if i > 0
             appendByte(line, '|') else fail
@@ -39,9 +39,9 @@ sub main() fails
         i = i + 1
     end
     append(line, "] ") else fail
-    var small as string[2]
-    var code as u8 = 0
-    var found as boolean = false
+    var small: string[2]
+    var code: u8 = 0
+    var found: boolean = false
     found = word(tail, 1, small) handle code
         if code = lineTooLong
             appendByte(line, 'F') else fail

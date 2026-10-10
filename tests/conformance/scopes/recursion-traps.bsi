@@ -3,10 +3,10 @@
 // spec: 7.18, 13.9
 // expect trap: activation-capacity at 8
 
-forward sub down(n as u16)
+forward sub down(n: u16)
 
 sub down
-    var pad as u8[16]
+    var pad: u8[16]
     pad[0] = 1
     down(n + 1)
 end

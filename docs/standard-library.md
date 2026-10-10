@@ -26,15 +26,15 @@ program could have written itself. Internal routines are `private`.
 
 | Routine | Meaning |
 | --- | --- |
-| `clear(var s as string[])` | Make `s` empty |
-| `appendByte(var s as string[], b as u8) fails` | Add one byte |
-| `append(var s as string[], t as string[]) fails` | Add `t` |
-| `copyFrom(var dest as string[], src as string[], start as u8, count as u8) fails` | `dest` becomes `count` bytes of `src` from `start`, fewer where `src` ends first; empty when `start` is at or past the end |
-| `equal(a as string[], b as string[]) as boolean` | Same length and bytes |
-| `compare(a as string[], b as string[]) as i8` | −1, 0 or 1 as `a` sorts before, with or after `b`, byte by byte; a prefix sorts first |
-| `find(s as string[], t as string[]) as u16` | The position of the first `t` in `s`, or `$FFFF`; an empty `t` is at 0 |
-| `toUpper(var s as string[])`, `toLower(var s as string[])` | ASCII letters only |
-| `trim(var s as string[])` | Remove leading and trailing blanks |
+| `clear(var s: string[])` | Make `s` empty |
+| `appendByte(var s: string[], b: u8) fails` | Add one byte |
+| `append(var s: string[], t: string[]) fails` | Add `t` |
+| `copyFrom(var dest: string[], src: string[], start: u8, count: u8) fails` | `dest` becomes `count` bytes of `src` from `start`, fewer where `src` ends first; empty when `start` is at or past the end |
+| `equal(a: string[], b: string[]): boolean` | Same length and bytes |
+| `compare(a: string[], b: string[]): i8` | −1, 0 or 1 as `a` sorts before, with or after `b`, byte by byte; a prefix sorts first |
+| `find(s: string[], t: string[]): u16` | The position of the first `t` in `s`, or `$FFFF`; an empty `t` is at 0 |
+| `toUpper(var s: string[])`, `toLower(var s: string[])` | ASCII letters only |
+| `trim(var s: string[])` | Remove leading and trailing blanks |
 
 These rest on one language rule: through a `var string[]` parameter,
 `.length` can be assigned, and raising it exposes zero bytes (spec §6.8).
@@ -45,22 +45,22 @@ is how it empties one.
 
 | Routine | Meaning |
 | --- | --- |
-| `appendU16(var s, v as u16)`, `appendI16(var s, v as i16)` | Decimal; a minus sign for negatives |
-| `appendU32(var s, v as u32)`, `appendI32(var s, v as i32)` | Decimal |
-| `appendHex8(var s, v as u8)`, `appendHex16(var s, v as u16)` | Two or four upper-case hex digits, no prefix |
-| `appendF32(var s, x as f32, places as u8)` | Fixed point with `places` decimals, rounded half up; `x` scaled by `10^places` must fit a `u32` |
+| `appendU16(var s, v: u16)`, `appendI16(var s, v: i16)` | Decimal; a minus sign for negatives |
+| `appendU32(var s, v: u32)`, `appendI32(var s, v: i32)` | Decimal |
+| `appendHex8(var s, v: u8)`, `appendHex16(var s, v: u16)` | Two or four upper-case hex digits, no prefix |
+| `appendF32(var s, x: f32, places: u8)` | Fixed point with `places` decimals, rounded half up; `x` scaled by `10^places` must fit a `u32` |
 
-Each takes `var s as string[]` first and `fails` with `lineTooLong`.
+Each takes `var s: string[]` first and `fails` with `lineTooLong`.
 
 ## 4. Text to numbers: `PARSE.BSI`
 
 | Routine | Accepts |
 | --- | --- |
-| `parseU16(text as string[]) as u16 fails` | Decimal digits, or `$` and hex digits (either case) |
-| `parseU32(text as string[]) as u32 fails` | The same |
-| `parseI16(text as string[]) as i16 fails` | An optional `+` or `-`, then decimal digits |
-| `parseI32(text as string[]) as i32 fails` | The same |
-| `parseF32(text as string[]) as f32 fails` | An optional sign, digits with an optional `.` and fraction (at least one digit in all), and an optional exponent `e` or `E`, sign, digits: `1.5`, `.25`, `3.`, `-6.02e23` |
+| `parseU16(text: string[]): u16 fails` | Decimal digits, or `$` and hex digits (either case) |
+| `parseU32(text: string[]): u32 fails` | The same |
+| `parseI16(text: string[]): i16 fails` | An optional `+` or `-`, then decimal digits |
+| `parseI32(text: string[]): i32 fails` | The same |
+| `parseF32(text: string[]): f32 fails` | An optional sign, digits with an optional `.` and fraction (at least one digit in all), and an optional exponent `e` or `E`, sign, digits: `1.5`, `.25`, `3.`, `-6.02e23` |
 
 Blanks may surround the number. Anything else, an empty text, or a value
 outside the result type fails with `badNumber`, so the full range of each
@@ -79,12 +79,12 @@ than the library's size justifies.
 
 | Routine | Meaning |
 | --- | --- |
-| `writeLine(f as File, s as string[]) fails` | `s`, then CR LF |
-| `prompt(text as string[], var answer as string[]) fails` | Write `text` to the console, read one edited line (services §3.3), then write the line feed BDOS 10 leaves out |
-| `readSecret(var answer as string[]) fails` | Read keys without echo until return; backspace and delete remove the last character; Control-Z at the start is `endOfInput`; ends with CR LF |
-| `word(text as string[], n as u8, var out as string[]) as boolean fails` | Word `n` (0 first), words separated by blanks; false, with `out` empty, when there are fewer |
-| `readAll(f as File, var buf as u8[]) as u16 fails` | Read to the end of `f`, returning the count; stops when `buf` is full, so a count equal to `buf.length` may mean more remains |
-| `truncate(name as string[], newSize as u32, mode as u8) fails` | Cut the file to its first `newSize` bytes |
+| `writeLine(f: File, s: string[]) fails` | `s`, then CR LF |
+| `prompt(text: string[], var answer: string[]) fails` | Write `text` to the console, read one edited line (services §3.3), then write the line feed BDOS 10 leaves out |
+| `readSecret(var answer: string[]) fails` | Read keys without echo until return; backspace and delete remove the last character; Control-Z at the start is `endOfInput`; ends with CR LF |
+| `word(text: string[], n: u8, var out: string[]): boolean fails` | Word `n` (0 first), words separated by blanks; false, with `out` empty, when there are fewer |
+| `readAll(f: File, var buf: u8[]): u16 fails` | Read to the end of `f`, returning the count; stops when `buf` is full, so a count equal to `buf.length` may mean more remains |
+| `truncate(name: string[], newSize: u32, mode: u8) fails` | Cut the file to its first `newSize` bytes |
 
 `readAll` reads as the file's mode does: a text file ends at Control-Z and
 its line ends read as one byte each, while a binary file reads whole 128-byte
@@ -106,9 +106,9 @@ upper-cases the tail before the program sees it.
 
 | Routine | Meaning |
 | --- | --- |
-| `seedRandom(seed as u16)` | Restart the sequence from `seed`; 0 chooses the default |
-| `random() as u16` | The next value, 1 to 65535 |
-| `randomBelow(n as u16) as u16` | 0 to `n` − 1, each equally likely; 0 when `n` is 0 |
+| `seedRandom(seed: u16)` | Restart the sequence from `seed`; 0 chooses the default |
+| `random(): u16` | The next value, 1 to 65535 |
+| `randomBelow(n: u16): u16` | 0 to `n` − 1, each equally likely; 0 when `n` is 0 |
 
 The generator is a 16-bit xorshift with shifts 7, 9 and 8. From any non-zero
 seed it visits every value from 1 to 65535 once before repeating. Without

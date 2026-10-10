@@ -144,7 +144,7 @@ An implementation may bound statement nesting, active control contexts, branch f
 These are valid simple statements when the names have compatible declarations:
 
 ```basie
-var total as u16 = 0
+var total: u16 = 0
 count = count + 1
 assert count < limit
 cells[index].value = nextValue()

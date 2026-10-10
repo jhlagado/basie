@@ -3,7 +3,7 @@
 // spec: 11.7.2, 13
 // expect output: LHN\r\n
 
-sub half(v as u8) as u8
+sub half(v: u8): u8
     select v
     case 0 to 127
         return 'L'
@@ -12,7 +12,7 @@ sub half(v as u8) as u8
     end
 end
 
-sub sign(v as i32) as u8
+sub sign(v: i32): u8
     select v
     case -2147483648 to -1
         return 'N'

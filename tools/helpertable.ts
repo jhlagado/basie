@@ -234,11 +234,11 @@ export function nativeNames(built: BuiltLibrary): string {
   }
   for (const s of SERVICES) {
     const m = s.signature.match(
-      /^sub (\w+)\(([^)]*)\)(?: as (\S+))?( fails)?$/,
+      /^sub (\w+)\(([^)]*)\)(?:: (\S+))?( fails)?$/,
     );
     if (!m) throw new Error(`unparsed signature ${s.signature}`);
     const params = m[2] === "" ? [] : m[2].split(", ").map((p) => {
-      const q = p.match(/^(var )?\w+ as (\S+)$/);
+      const q = p.match(/^(var )?\w+: (\S+)$/);
       if (!q) throw new Error(`unparsed parameter ${p}`);
       return { type: q[2], isVar: q[1] !== undefined };
     });

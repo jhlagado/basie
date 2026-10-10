@@ -2,21 +2,21 @@
 // address words, and the string's capacity word, are reached through
 // their computed addresses, read through paths and passed on (65.4 h).
 record pair
-    a as u8
-    c as u8[3]
+    a: u8
+    c: u8[3]
 end
 
-var r as pair
-var text as string[9] = "far"
-var i as u8 = 1
-var x as u8
-var y as u16
+var r: pair
+var text: string[9] = "far"
+var i: u8 = 1
+var x: u8
+var y: u16
 
-sub near(s as string[], q as pair) as u8
+sub near(s: string[], q: pair): u8
     return s[0] + q.c[i]
 end
 
-sub far(q as pair, s as string[], v0 as string[], v1 as string[], v2 as string[], v3 as string[], v4 as string[], v5 as string[], v6 as string[], v7 as string[], v8 as string[], v9 as string[], v10 as string[], v11 as string[], v12 as string[], v13 as string[], v14 as string[], v15 as string[], v16 as string[], v17 as string[], v18 as string[], v19 as string[], v20 as string[], v21 as string[], v22 as string[], v23 as string[], v24 as string[], v25 as string[], v26 as string[], v27 as string[], v28 as string[], v29 as string[], v30 as string[], v31 as string[])
+sub far(q: pair, s: string[], v0: string[], v1: string[], v2: string[], v3: string[], v4: string[], v5: string[], v6: string[], v7: string[], v8: string[], v9: string[], v10: string[], v11: string[], v12: string[], v13: string[], v14: string[], v15: string[], v16: string[], v17: string[], v18: string[], v19: string[], v20: string[], v21: string[], v22: string[], v23: string[], v24: string[], v25: string[], v26: string[], v27: string[], v28: string[], v29: string[], v30: string[], v31: string[])
     x = s.length + s[i] + q.a + q.c[i] + v31[0]
     y = s.capacity
     x = near(s, q)

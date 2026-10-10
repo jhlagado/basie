@@ -1,25 +1,25 @@
 // Aggregate arguments in parentheses: an array, a var array in two pairs,
 // a record with spaces, and a call's aggregate result; each is passed as
 // the path itself would be.
-var a as u8[4]
+var a: u8[4]
 record R
-    v as u8
+    v: u8
 end
-var r as R
+var r: R
 
-sub g() as u8[4]
+sub g(): u8[4]
     return a
 end
 
-sub first(x as u8[4]) as u8
+sub first(x: u8[4]): u8
     return x[0]
 end
 
-sub set(var x as u8[4])
+sub set(var x: u8[4])
     x[0] = 7
 end
 
-sub field(x as R) as u8
+sub field(x: R): u8
     return x.v
 end
 

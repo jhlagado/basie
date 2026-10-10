@@ -1,27 +1,27 @@
 // Aggregate constants waiting in a routine's body while more locals are
 // declared after them: the symbol table, growing below the waiting
 // constants, moves them up a record at each (67h.3, RG_LIFT).
-sub f() as u16
-    const a as u8[3] = [1, 2, 3]
-    var x00 as u16 = 0
-    var x01 as u16 = 1
-    var x02 as u16 = 2
-    var x03 as u16 = 3
-    var x04 as u16 = 4
-    var x05 as u16 = 5
-    var x06 as u16 = 6
-    var x07 as u16 = 7
-    var x08 as u16 = 8
-    var x09 as u16 = 9
-    var x10 as u16 = 10
-    var x11 as u16 = 11
-    const b as u16[2] = [100, 200]
-    var y0 as u8 = a[0]
-    var y1 as u8 = a[1]
-    var y2 as u8 = a[2]
-    var y3 as u8 = a[0]
-    var y4 as u8 = a[1]
-    var y5 as u8 = a[2]
+sub f(): u16
+    const a: u8[3] = [1, 2, 3]
+    var x00: u16 = 0
+    var x01: u16 = 1
+    var x02: u16 = 2
+    var x03: u16 = 3
+    var x04: u16 = 4
+    var x05: u16 = 5
+    var x06: u16 = 6
+    var x07: u16 = 7
+    var x08: u16 = 8
+    var x09: u16 = 9
+    var x10: u16 = 10
+    var x11: u16 = 11
+    const b: u16[2] = [100, 200]
+    var y0: u8 = a[0]
+    var y1: u8 = a[1]
+    var y2: u8 = a[2]
+    var y3: u8 = a[0]
+    var y4: u8 = a[1]
+    var y5: u8 = a[2]
     return u16(a[2]) + b[1] + x11 + u16(y5)
 end
 sub main() fails

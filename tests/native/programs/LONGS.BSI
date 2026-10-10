@@ -3,38 +3,38 @@
 // arithmetic, comparison, shifts and bitwise operators; conversions to
 // and from the narrower types; and exact values to 32 bits.
 const big = 4000000000
-const half as i32 = -2147483648
-const mask as u32 = $FFFF0000
+const half: i32 = -2147483648
+const mask: u32 = $FFFF0000
 
 record pair
-    lo as u32
-    hi as i32
+    lo: u32
+    hi: i32
 end
 
-var total as u32 = 123456789
-var delta as i32 = -70000
-var cells as u32[4]
-var p as pair
+var total: u32 = 123456789
+var delta: i32 = -70000
+var cells: u32[4]
+var p: pair
 
-sub mix(a as u32, b as i32, c as u16) as i32
-    var t as i32 = b * 3 - i32(c)
+sub mix(a: u32, b: i32, c: u16): i32
+    var t: i32 = b * 3 - i32(c)
     if a > 100000 and t < 0
         return t / 7 + i32(a mod 1000)
     end
     return -t
 end
 
-sub spread(x as u32) as u32
+sub spread(x: u32): u32
     return (x shl 4) or (x shr 28) xor mask
 end
 
 sub main()
-    var l as u32 = big
-    var m as i32 = half + 1
-    var w as u16 = 40000
-    var s as i16 = -3
-    var b as i8 = -1
-    var u as u8 = 200
+    var l: u32 = big
+    var m: i32 = half + 1
+    var w: u16 = 40000
+    var s: i16 = -3
+    var b: i8 = -1
+    var u: u8 = 200
     l = l / 3 + total mod 97 - u32(w) * 2
     m = mix(l, delta, w) + i32(s) * i32(b) - m
     cells[2] = spread(l) and not total

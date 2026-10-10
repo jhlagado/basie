@@ -7,10 +7,10 @@
 // expect output: ABCDin\r\nE6\r\n
 // expect file OUT.TXT: written\r\n
 
-var out as File
-var spare as File
+var out: File
+var spare: File
 
-sub emit(f as File, b as u8) fails
+sub emit(f: File, b: u8) fails
     var g = f
     writeByte(g, b) else fail
     f = printer
@@ -18,18 +18,18 @@ sub emit(f as File, b as u8) fails
     writeByte(g, b + 1) else fail
 end
 
-sub pick(n as u8, f as File, s as string[]) fails
-    var line as string[8]
+sub pick(n: u8, f: File, s: string[]) fails
+    var line: string[8]
     readLine(f, line) else fail
     writeText(console, line) else fail
     writeText(console, s) else fail
 end
 
 sub main() fails
-    var pad as u8[130]
-    var far as File = console
-    var near as File
-    var code as u8 = 0
+    var pad: u8[130]
+    var far: File = console
+    var near: File
+    var code: u8 = 0
     var small = pad[0] + 2
     var wide = u16(small) * 3
     var yes = small = 2

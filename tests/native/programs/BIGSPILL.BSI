@@ -1,21 +1,21 @@
 // A routine of about 5.4K beside its 9.6K part: its bytes spill to
 // BIGSPILL.$CD as memory fills (68.4) and are read back as its blob is
 // written.
-var g as u16
-var t as u8[4]
+var g: u16
+var t: u8[4]
 sub main() fails
-    var i as u16 = 0
+    var i: u16 = 0
     g = g + 0
-    var loc0 as u16 = g
+    var loc0: u16 = g
     if g > 0
-        var inner0 as u8 = 0
-        const tab0 as u8[3] = [0, 2, 3]
+        var inner0: u8 = 0
+        const tab0: u8[3] = [0, 2, 3]
         t[1] = tab0[0] + inner0
         writeText(console, "step 0\r\n") else fail
     end
     while i < 0
         i = i + 1
-        var w0 as u8 = 1
+        var w0: u8 = 1
     end
     g = g + 1
     g = g + 2
@@ -27,10 +27,10 @@ sub main() fails
     g = g + 8
     g = g + 9
     g = g + 10
-    var loc10 as u16 = g
+    var loc10: u16 = g
     if g > 30
-        var inner10 as u8 = 10
-        const tab10 as u8[3] = [10, 2, 3]
+        var inner10: u8 = 10
+        const tab10: u8[3] = [10, 2, 3]
         t[1] = tab10[0] + inner10
         writeText(console, "step 10\r\n") else fail
     end
@@ -44,10 +44,10 @@ sub main() fails
     g = g + 18
     g = g + 19
     g = g + 20
-    var loc20 as u16 = g
+    var loc20: u16 = g
     if g > 60
-        var inner20 as u8 = 20
-        const tab20 as u8[3] = [20, 2, 3]
+        var inner20: u8 = 20
+        const tab20: u8[3] = [20, 2, 3]
         t[1] = tab20[0] + inner20
         writeText(console, "step 20\r\n") else fail
     end
@@ -58,17 +58,17 @@ sub main() fails
     g = g + 25
     while i < 25
         i = i + 1
-        var w25 as u8 = 1
+        var w25: u8 = 1
     end
     g = g + 26
     g = g + 27
     g = g + 28
     g = g + 29
     g = g + 30
-    var loc30 as u16 = g
+    var loc30: u16 = g
     if g > 90
-        var inner30 as u8 = 30
-        const tab30 as u8[3] = [30, 2, 3]
+        var inner30: u8 = 30
+        const tab30: u8[3] = [30, 2, 3]
         t[1] = tab30[0] + inner30
         writeText(console, "step 30\r\n") else fail
     end
@@ -82,10 +82,10 @@ sub main() fails
     g = g + 38
     g = g + 39
     g = g + 40
-    var loc40 as u16 = g
+    var loc40: u16 = g
     if g > 120
-        var inner40 as u8 = 40
-        const tab40 as u8[3] = [40, 2, 3]
+        var inner40: u8 = 40
+        const tab40: u8[3] = [40, 2, 3]
         t[1] = tab40[0] + inner40
         writeText(console, "step 40\r\n") else fail
     end
@@ -99,16 +99,16 @@ sub main() fails
     g = g + 48
     g = g + 49
     g = g + 50
-    var loc50 as u16 = g
+    var loc50: u16 = g
     if g > 150
-        var inner50 as u8 = 50
-        const tab50 as u8[3] = [50, 2, 3]
+        var inner50: u8 = 50
+        const tab50: u8[3] = [50, 2, 3]
         t[1] = tab50[0] + inner50
         writeText(console, "step 50\r\n") else fail
     end
     while i < 50
         i = i + 1
-        var w50 as u8 = 1
+        var w50: u8 = 1
     end
     g = g + 51
     g = g + 52
@@ -120,10 +120,10 @@ sub main() fails
     g = g + 58
     g = g + 59
     g = g + 60
-    var loc60 as u16 = g
+    var loc60: u16 = g
     if g > 180
-        var inner60 as u8 = 60
-        const tab60 as u8[3] = [60, 2, 3]
+        var inner60: u8 = 60
+        const tab60: u8[3] = [60, 2, 3]
         t[1] = tab60[0] + inner60
         writeText(console, "step 60\r\n") else fail
     end
@@ -137,10 +137,10 @@ sub main() fails
     g = g + 68
     g = g + 69
     g = g + 70
-    var loc70 as u16 = g
+    var loc70: u16 = g
     if g > 210
-        var inner70 as u8 = 70
-        const tab70 as u8[3] = [70, 2, 3]
+        var inner70: u8 = 70
+        const tab70: u8[3] = [70, 2, 3]
         t[1] = tab70[0] + inner70
         writeText(console, "step 70\r\n") else fail
     end
@@ -151,17 +151,17 @@ sub main() fails
     g = g + 75
     while i < 75
         i = i + 1
-        var w75 as u8 = 1
+        var w75: u8 = 1
     end
     g = g + 76
     g = g + 77
     g = g + 78
     g = g + 79
     g = g + 80
-    var loc80 as u16 = g
+    var loc80: u16 = g
     if g > 240
-        var inner80 as u8 = 80
-        const tab80 as u8[3] = [80, 2, 3]
+        var inner80: u8 = 80
+        const tab80: u8[3] = [80, 2, 3]
         t[1] = tab80[0] + inner80
         writeText(console, "step 80\r\n") else fail
     end
@@ -175,10 +175,10 @@ sub main() fails
     g = g + 88
     g = g + 89
     g = g + 90
-    var loc90 as u16 = g
+    var loc90: u16 = g
     if g > 270
-        var inner90 as u8 = 90
-        const tab90 as u8[3] = [90, 2, 3]
+        var inner90: u8 = 90
+        const tab90: u8[3] = [90, 2, 3]
         t[1] = tab90[0] + inner90
         writeText(console, "step 90\r\n") else fail
     end
@@ -192,16 +192,16 @@ sub main() fails
     g = g + 98
     g = g + 99
     g = g + 100
-    var loc100 as u16 = g
+    var loc100: u16 = g
     if g > 300
-        var inner100 as u8 = 100
-        const tab100 as u8[3] = [100, 2, 3]
+        var inner100: u8 = 100
+        const tab100: u8[3] = [100, 2, 3]
         t[1] = tab100[0] + inner100
         writeText(console, "step 100\r\n") else fail
     end
     while i < 100
         i = i + 1
-        var w100 as u8 = 1
+        var w100: u8 = 1
     end
     g = g + 101
     g = g + 102
@@ -213,10 +213,10 @@ sub main() fails
     g = g + 108
     g = g + 109
     g = g + 110
-    var loc110 as u16 = g
+    var loc110: u16 = g
     if g > 330
-        var inner110 as u8 = 110
-        const tab110 as u8[3] = [110, 2, 3]
+        var inner110: u8 = 110
+        const tab110: u8[3] = [110, 2, 3]
         t[1] = tab110[0] + inner110
         writeText(console, "step 110\r\n") else fail
     end
@@ -230,10 +230,10 @@ sub main() fails
     g = g + 118
     g = g + 119
     g = g + 120
-    var loc120 as u16 = g
+    var loc120: u16 = g
     if g > 360
-        var inner120 as u8 = 120
-        const tab120 as u8[3] = [120, 2, 3]
+        var inner120: u8 = 120
+        const tab120: u8[3] = [120, 2, 3]
         t[1] = tab120[0] + inner120
         writeText(console, "step 120\r\n") else fail
     end
@@ -244,17 +244,17 @@ sub main() fails
     g = g + 125
     while i < 125
         i = i + 1
-        var w125 as u8 = 1
+        var w125: u8 = 1
     end
     g = g + 126
     g = g + 127
     g = g + 128
     g = g + 129
     g = g + 130
-    var loc130 as u16 = g
+    var loc130: u16 = g
     if g > 390
-        var inner130 as u8 = 130
-        const tab130 as u8[3] = [130, 2, 3]
+        var inner130: u8 = 130
+        const tab130: u8[3] = [130, 2, 3]
         t[1] = tab130[0] + inner130
         writeText(console, "step 130\r\n") else fail
     end
@@ -268,10 +268,10 @@ sub main() fails
     g = g + 138
     g = g + 139
     g = g + 140
-    var loc140 as u16 = g
+    var loc140: u16 = g
     if g > 420
-        var inner140 as u8 = 140
-        const tab140 as u8[3] = [140, 2, 3]
+        var inner140: u8 = 140
+        const tab140: u8[3] = [140, 2, 3]
         t[1] = tab140[0] + inner140
         writeText(console, "step 140\r\n") else fail
     end
@@ -285,16 +285,16 @@ sub main() fails
     g = g + 148
     g = g + 149
     g = g + 150
-    var loc150 as u16 = g
+    var loc150: u16 = g
     if g > 450
-        var inner150 as u8 = 150
-        const tab150 as u8[3] = [150, 2, 3]
+        var inner150: u8 = 150
+        const tab150: u8[3] = [150, 2, 3]
         t[1] = tab150[0] + inner150
         writeText(console, "step 150\r\n") else fail
     end
     while i < 150
         i = i + 1
-        var w150 as u8 = 1
+        var w150: u8 = 1
     end
     g = g + 151
     g = g + 152
@@ -306,10 +306,10 @@ sub main() fails
     g = g + 158
     g = g + 159
     g = g + 160
-    var loc160 as u16 = g
+    var loc160: u16 = g
     if g > 480
-        var inner160 as u8 = 160
-        const tab160 as u8[3] = [160, 2, 3]
+        var inner160: u8 = 160
+        const tab160: u8[3] = [160, 2, 3]
         t[1] = tab160[0] + inner160
         writeText(console, "step 160\r\n") else fail
     end
@@ -323,10 +323,10 @@ sub main() fails
     g = g + 168
     g = g + 169
     g = g + 170
-    var loc170 as u16 = g
+    var loc170: u16 = g
     if g > 510
-        var inner170 as u8 = 170
-        const tab170 as u8[3] = [170, 2, 3]
+        var inner170: u8 = 170
+        const tab170: u8[3] = [170, 2, 3]
         t[1] = tab170[0] + inner170
         writeText(console, "step 170\r\n") else fail
     end
@@ -337,17 +337,17 @@ sub main() fails
     g = g + 175
     while i < 175
         i = i + 1
-        var w175 as u8 = 1
+        var w175: u8 = 1
     end
     g = g + 176
     g = g + 177
     g = g + 178
     g = g + 179
     g = g + 180
-    var loc180 as u16 = g
+    var loc180: u16 = g
     if g > 540
-        var inner180 as u8 = 180
-        const tab180 as u8[3] = [180, 2, 3]
+        var inner180: u8 = 180
+        const tab180: u8[3] = [180, 2, 3]
         t[1] = tab180[0] + inner180
         writeText(console, "step 180\r\n") else fail
     end
@@ -361,10 +361,10 @@ sub main() fails
     g = g + 188
     g = g + 189
     g = g + 190
-    var loc190 as u16 = g
+    var loc190: u16 = g
     if g > 570
-        var inner190 as u8 = 190
-        const tab190 as u8[3] = [190, 2, 3]
+        var inner190: u8 = 190
+        const tab190: u8[3] = [190, 2, 3]
         t[1] = tab190[0] + inner190
         writeText(console, "step 190\r\n") else fail
     end
@@ -378,16 +378,16 @@ sub main() fails
     g = g + 198
     g = g + 199
     g = g + 200
-    var loc200 as u16 = g
+    var loc200: u16 = g
     if g > 600
-        var inner200 as u8 = 0
-        const tab200 as u8[3] = [200, 2, 3]
+        var inner200: u8 = 0
+        const tab200: u8[3] = [200, 2, 3]
         t[1] = tab200[0] + inner200
         writeText(console, "step 200\r\n") else fail
     end
     while i < 200
         i = i + 1
-        var w200 as u8 = 1
+        var w200: u8 = 1
     end
     g = g + 201
     g = g + 202
@@ -399,10 +399,10 @@ sub main() fails
     g = g + 208
     g = g + 209
     g = g + 210
-    var loc210 as u16 = g
+    var loc210: u16 = g
     if g > 630
-        var inner210 as u8 = 10
-        const tab210 as u8[3] = [210, 2, 3]
+        var inner210: u8 = 10
+        const tab210: u8[3] = [210, 2, 3]
         t[1] = tab210[0] + inner210
         writeText(console, "step 210\r\n") else fail
     end
@@ -416,10 +416,10 @@ sub main() fails
     g = g + 218
     g = g + 219
     g = g + 220
-    var loc220 as u16 = g
+    var loc220: u16 = g
     if g > 660
-        var inner220 as u8 = 20
-        const tab220 as u8[3] = [220, 2, 3]
+        var inner220: u8 = 20
+        const tab220: u8[3] = [220, 2, 3]
         t[1] = tab220[0] + inner220
         writeText(console, "step 220\r\n") else fail
     end
@@ -430,17 +430,17 @@ sub main() fails
     g = g + 225
     while i < 225
         i = i + 1
-        var w225 as u8 = 1
+        var w225: u8 = 1
     end
     g = g + 226
     g = g + 227
     g = g + 228
     g = g + 229
     g = g + 230
-    var loc230 as u16 = g
+    var loc230: u16 = g
     if g > 690
-        var inner230 as u8 = 30
-        const tab230 as u8[3] = [230, 2, 3]
+        var inner230: u8 = 30
+        const tab230: u8[3] = [230, 2, 3]
         t[1] = tab230[0] + inner230
         writeText(console, "step 230\r\n") else fail
     end

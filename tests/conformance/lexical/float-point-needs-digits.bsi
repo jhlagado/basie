@@ -1,7 +1,7 @@
 // A decimal point must have a digit on each side.
 // spec: 3.6
-// expect error: malformed-number at 6:23
+// expect error: malformed-number at 6:21
 
 sub main()
-    var half as f32 = 5.
+    var half: f32 = 5.
 end

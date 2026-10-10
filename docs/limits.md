@@ -147,7 +147,7 @@ excluding disk time:
 
 | Capacity | Guaranteed minimum | Measured | Bound |
 | --- | ---: | ---: | --- |
-| One part of small routines (`sub rN(a as u8) as u8`, a local, a return) | — | 234 routines, 15.1K of source | memory: the part's bytes, the symbols and the routines' records |
+| One part of small routines (`sub rN(a: u8): u8`, a local, a return) | — | 234 routines, 15.1K of source | memory: the part's bytes, the symbols and the routines' records |
 | Program variables in one part | 1,000 top-level names | 708 in 11K of source | memory; spread over parts, more fit (below) |
 | Locals of one routine | 128 | 476 | memory |
 | Statements in one routine, an assignment each | no limit | 413, 7.6K of source | the routine's log (references and statements) in memory beside its part |

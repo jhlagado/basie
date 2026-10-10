@@ -3,7 +3,7 @@
 // expect error: duplicate-case at 9:10
 
 sub main()
-    var c as u8 = 5
+    var c: u8 = 5
     select c
     case 1 to 9
     case 5

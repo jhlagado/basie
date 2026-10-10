@@ -1266,12 +1266,12 @@ and was not decided by this acceptance. The earlier suggestion to require both
 
 ### D52. `:` in place of `as` for types
 
-**Current status, 2026-10-10.** Accepted as a next-milestone plan item alongside D49.
-Colon replaces `as` at type positions: declarations, parameters, results,
-record fields and pool declarations. Typing, ownership permissions, name-first
-order and single-pass parsing are preserved. Modifier placement and coordinated
-migration remain to settle. The feature is unimplemented and is not current 0.1 completion
-work. No implementation is requested now.
+**Current status, 2026-10-11.** Implemented in both compilers, with the
+library, tests, examples, specification and book migrated. Colon replaces `as`
+at every type position: constant, variable and local declarations, parameters
+(`var item: Reading`), results (`): var T from a`), record fields and pool
+declarations (`pool jobs: Job[1]`). `as` is no longer a reserved word; written
+where `:` belongs, it is a syntax error at `as`.
 
 A declared name is followed by `:` and its type, in place of `as`:
 
@@ -1288,7 +1288,7 @@ This revises D14's choice of `as`. Name-first order and single-pass parsing are 
 
 **Why.** The colon is shorter and familiar from TypeScript, Pascal, Rust and Zig. The earlier migration sketch grouped it with `try` (D48) and call-site `var` (D49) to coordinate rewriting the library, tests and book. D49, D52, restricted D48 and D51 are now accepted for the next milestone. Coordinate migration against their final specified rules.
 
-**To settle.** Every place `as` appears today: declarations, parameters, results (`as var T` becomes `: var T`), record fields and pool declarations (`pool jobs as Job[1]`). Whether `as` remains anywhere. Colon has no token in Basie 1.0 (§3), so it is free to take.
+**Settled.** Every place `as` appeared now takes `:`; `as` becomes an ordinary name. The native compiler lexes `:` as the token `as` was, so its grammar is unchanged.
 
 ### Withdrawn and deferred, 2026-10-10
 

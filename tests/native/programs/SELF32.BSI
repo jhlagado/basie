@@ -3,13 +3,13 @@
 // area above NAMES, each loaded again when next needed.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[4]
-var f as f32
+pool nodes: Node[4]
+var f: f32
 sub main()
-    var a as nodes? = new nodes(1, none)
+    var a: nodes? = new nodes(1, none)
     select a
     case some(x)
         f = 1.5 * 2.0

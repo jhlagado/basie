@@ -2,24 +2,24 @@
 // parameters; arithmetic, negation and complement; division and
 // remainder through DIV16S; the orders compared with their sign bits
 // flipped; and the unsigned types that widen to them.
-var sb as i8 = -100
-var sw as i16 = -30000
-var ub as u8 = 200
-var uw as u16 = 60000
-var f as boolean
+var sb: i8 = -100
+var sw: i16 = -30000
+var ub: u8 = 200
+var uw: u16 = 60000
+var f: boolean
 
-sub scale(a as i8, b as i16) as i16
+sub scale(a: i8, b: i16): i16
     return i16(a) * b / 3
 end
 
-sub half(n as i16) as i8
+sub half(n: i16): i8
     return i8(n / 2)
 end
 
 sub main()
-    var x as i8 = -5
-    var y as i16 = 1000
-    var z as i16
+    var x: i8 = -5
+    var y: i16 = 1000
+    var z: i16
     x = x * 3 - sb / 7
     x = sb mod x + 3
     x = -x

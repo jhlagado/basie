@@ -1,5 +1,9 @@
 # Specification change log
 
+2026-10-11: D52 replaces `as` with `:` at every type position: declarations,
+parameters, results (`): var T`), record fields and pools. `:` is a new
+punctuation token; `as` is no longer a reserved word.
+
 2026-10-10: D51 makes value selection exhaustive: an integer or enum `select`
 without `case else` must cover every value of its subject's type
 (`select-incomplete`, 117); an empty `case else` is the explicit no-op. Such a

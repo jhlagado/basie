@@ -1,10 +1,10 @@
 // Basie standard library: numbers to text (D36; standard library section 3).
 include "STRINGS.BSI"
 
-sub appendU16(var s as string[], v as u16) fails
-    var digits as u8[5]
-    var count as u8 = 0
-    var n as u16 = v
+sub appendU16(var s: string[], v: u16) fails
+    var digits: u8[5]
+    var count: u8 = 0
+    var n: u16 = v
     while true
         digits[count] = u8(n mod 10) + '0'
         count = count + 1
@@ -19,7 +19,7 @@ sub appendU16(var s as string[], v as u16) fails
     end
 end
 
-sub appendI16(var s as string[], v as i16) fails
+sub appendI16(var s: string[], v: i16) fails
     if v < 0
         appendByte(s, '-') else fail
         // not v is -v - 1, so this is -v without overflow at -32768.
@@ -29,10 +29,10 @@ sub appendI16(var s as string[], v as i16) fails
     end
 end
 
-sub appendU32(var s as string[], v as u32) fails
-    var digits as u8[10]
-    var count as u8 = 0
-    var n as u32 = v
+sub appendU32(var s: string[], v: u32) fails
+    var digits: u8[10]
+    var count: u8 = 0
+    var n: u32 = v
     while true
         digits[count] = u8(n mod 10) + '0'
         count = count + 1
@@ -47,7 +47,7 @@ sub appendU32(var s as string[], v as u32) fails
     end
 end
 
-sub appendI32(var s as string[], v as i32) fails
+sub appendI32(var s: string[], v: i32) fails
     if v < 0
         appendByte(s, '-') else fail
         appendU32(s, u32(not v) + 1) else fail
@@ -58,24 +58,24 @@ end
 
 // x with the given number of decimal places, rounded to the nearest unit of
 // the last place. The scaled value must fit a u32.
-sub appendF32(var s as string[], x as f32, places as u8) fails
-    var v as f32 = x
+sub appendF32(var s: string[], x: f32, places: u8) fails
+    var v: f32 = x
     if v < 0.0
         appendByte(s, '-') else fail
         v = -v
     end
-    var scale as u32 = 1
-    var i as u8 = 0
+    var scale: u32 = 1
+    var i: u8 = 0
     while i < places
         scale = scale * 10
         i = i + 1
     end
-    var n as u32 = u32(v * f32(scale) + 0.5)
+    var n: u32 = u32(v * f32(scale) + 0.5)
     appendU32(s, n / scale) else fail
     if places > 0
         appendByte(s, '.') else fail
-        var frac as u32 = n mod scale
-        var div as u32 = scale / 10
+        var frac: u32 = n mod scale
+        var div: u32 = scale / 10
         while div > 0
             appendByte(s, u8(frac / div mod 10) + '0') else fail
             div = div / 10
@@ -83,7 +83,7 @@ sub appendF32(var s as string[], x as f32, places as u8) fails
     end
 end
 
-private sub hexDigit(v as u8) as u8
+private sub hexDigit(v: u8): u8
     if v < 10
         return v + '0'
     end
@@ -91,13 +91,13 @@ private sub hexDigit(v as u8) as u8
 end
 
 // Two upper-case hexadecimal digits.
-sub appendHex8(var s as string[], v as u8) fails
+sub appendHex8(var s: string[], v: u8) fails
     appendByte(s, hexDigit(v shr 4)) else fail
     appendByte(s, hexDigit(v and 15)) else fail
 end
 
 // Four upper-case hexadecimal digits.
-sub appendHex16(var s as string[], v as u16) fails
+sub appendHex16(var s: string[], v: u16) fails
     appendHex8(s, u8(v shr 8)) else fail
     appendHex8(s, u8(v and 255)) else fail
 end

@@ -1,56 +1,56 @@
 // Part 16 of a chain of includes: each part includes the next, so all
 // of them are open while the last loads.
-var c16 as u16
-sub p16r0() as u16
+var c16: u16
+sub p16r0(): u16
     c16 = c16 + 0
     c16 = c16 + 1
     c16 = c16 + 2
     c16 = c16 + 3
     return c16
 end
-sub p16r1() as u16
+sub p16r1(): u16
     c16 = c16 + 1
     c16 = c16 + 2
     c16 = c16 + 3
     c16 = c16 + 4
     return c16
 end
-sub p16r2() as u16
+sub p16r2(): u16
     c16 = c16 + 2
     c16 = c16 + 3
     c16 = c16 + 4
     c16 = c16 + 5
     return c16
 end
-sub p16r3() as u16
+sub p16r3(): u16
     c16 = c16 + 3
     c16 = c16 + 4
     c16 = c16 + 5
     c16 = c16 + 6
     return c16
 end
-sub p16r4() as u16
+sub p16r4(): u16
     c16 = c16 + 4
     c16 = c16 + 5
     c16 = c16 + 6
     c16 = c16 + 7
     return c16
 end
-sub p16r5() as u16
+sub p16r5(): u16
     c16 = c16 + 5
     c16 = c16 + 6
     c16 = c16 + 7
     c16 = c16 + 8
     return c16
 end
-sub p16r6() as u16
+sub p16r6(): u16
     c16 = c16 + 6
     c16 = c16 + 7
     c16 = c16 + 8
     c16 = c16 + 9
     return c16
 end
-sub p16r7() as u16
+sub p16r7(): u16
     c16 = c16 + 7
     c16 = c16 + 8
     c16 = c16 + 9

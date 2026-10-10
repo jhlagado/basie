@@ -3,7 +3,7 @@
 // expect error: select-incomplete at 7:5
 
 sub main()
-    var c as u8 = 5
+    var c: u8 = 5
     select c
     case 0 to 254
     end

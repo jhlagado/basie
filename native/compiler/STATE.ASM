@@ -335,7 +335,7 @@ TK_POOL EQU  10                ; Keyword pool.
 TK_FAIL EQU  11                ; Keyword fail.
 TK_END EQU  12                 ; Keyword end.
 TK_VAR EQU  13                 ; Keyword var.
-TK_AS EQU  14                  ; Keyword as.
+TK_AS EQU  14                  ; Colon: introduces a type (D52).
 TK_TYPE EQU  15                ; A type keyword: u8, i8, u16, i16, u32, i32, f32
                                ; or boolean, its type ID in C (SY_U8...).
 TK_ENUMD EQU  28               ; Keyword enum.

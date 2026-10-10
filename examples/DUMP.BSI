@@ -11,11 +11,11 @@ include "TEXTIO.BSI"
 
 const usage = 48
 
-sub dumpLine(offset as u16, bytes as u8[], count as u16) fails
-    var line as string[80]
+sub dumpLine(offset: u16, bytes: u8[], count: u16) fails
+    var line: string[80]
     appendHex16(line, offset) else fail
     append(line, ": ") else fail
-    var i as u16 = 0
+    var i: u16 = 0
     while i < 16
         if i < count
             appendHex8(line, bytes[i]) else fail
@@ -43,8 +43,8 @@ sub dumpLine(offset as u16, bytes as u8[], count as u16) fails
 end
 
 sub main() fails
-    var tail as string[80]
-    var name as string[20]
+    var tail: string[80]
+    var name: string[20]
     commandTail(tail)
     var named = word(tail, 0, name) else fail
     if not named
@@ -53,15 +53,15 @@ sub main() fails
     end
     var there = exists(name) else fail
     if not there
-        var line as string[40]
+        var line: string[40]
         append(line, "No file ") else fail
         append(line, name) else fail
         writeLine(console, line) else fail
         fail fileNotFound
     end
     var f = openRead(name, binaryMode) else fail
-    var bytes as u8[16]
-    var offset as u16 = 0
+    var bytes: u8[16]
+    var offset: u16 = 0
     while true
         var got = readBlock(f, bytes, 16) else fail
         if got = 0

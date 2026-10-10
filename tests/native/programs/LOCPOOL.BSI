@@ -2,20 +2,20 @@
 // the pool reuses the owner descriptor that free made.
 forward pool nodes
 record Node
-    v as u16
-    next as nodes?
+    v: u16
+    next: nodes?
 end
-pool nodes as Node[8]
+pool nodes: Node[8]
 record Holder
-    head as nodes?
+    head: nodes?
 end
-sub use() as u8
-    var tmp as Holder
+sub use(): u8
+    var tmp: Holder
     tmp.head = new nodes(1, none)
     return 1
 end
-pool holders as Holder[2]
+pool holders: Holder[2]
 sub main()
-    var n as u8 = use()
+    var n: u8 = use()
     var h = new holders(new nodes(2, none))
 end

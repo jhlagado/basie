@@ -1,11 +1,11 @@
 // if, elseif and else: computed and constant conditions, nesting, arms
 // that return, and conditions built from and, or and not.
-var a as u8 = 3
-var b as u16 = 500
-var f as boolean
-var r as u8
+var a: u8 = 3
+var b: u16 = 500
+var f: boolean
+var r: u8
 
-sub pick(n as u8) as u8
+sub pick(n: u8): u8
     if n = 0
         return 10
     elseif n = 1
@@ -17,7 +17,7 @@ sub pick(n as u8) as u8
     end
 end
 
-sub flag(x as u16) as boolean
+sub flag(x: u16): boolean
     if x > 1000 or x = 7
         return true
     end

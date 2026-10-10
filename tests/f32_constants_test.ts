@@ -9,7 +9,7 @@ import { compile } from "../ref/compile/index.ts";
 import { readByteStream } from "../ref/object/program.ts";
 
 async function bitsOf(initializer: string): Promise<number[]> {
-  const source = `var f as f32 = ${initializer}\nsub main()\nend\n`;
+  const source = `var f: f32 = ${initializer}\nsub main()\nend\n`;
   const result = await compile("F32.BSI", {
     mainSource: new TextEncoder().encode(source),
   });

@@ -8,7 +8,7 @@ enum Dir
     east
 end
 
-sub letter(d as Dir) as u8
+sub letter(d: Dir): u8
     select d
     case Dir.north
         return 'N'

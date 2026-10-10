@@ -6,17 +6,17 @@
 // select in a loop whose arms exit and continue; nested selects; a
 // function whose arms all return; and a subject beyond IX-128.
 record pair
-    a as u8
-    w as i16
+    a: u8
+    w: i16
 end
-var g as u16 = 300
-var p as pair
-var bytes as u8[4]
-var s as string[6] = "hello"
-var n as u32 = 70000
-const tk as i8 = -2
+var g: u16 = 300
+var p: pair
+var bytes: u8[4]
+var s: string[6] = "hello"
+var n: u32 = 70000
+const tk: i8 = -2
 
-sub code(c as u8) as u8
+sub code(c: u8): u8
     select c
     case 'a' to 'z'
         return 1
@@ -29,14 +29,14 @@ sub code(c as u8) as u8
     end
 end
 
-sub kind(v as i16) as u8
-    var r as u8
+sub kind(v: i16): u8
+    var r: u8
     select v
     case -32768 to -1
         r = 1
     case 0
     case 1, 2, 3
-        var t as u8 = 4
+        var t: u8 = 4
         r = t + 1
     case 100 to 32767
         r = 9
@@ -45,7 +45,7 @@ sub kind(v as i16) as u8
     return r
 end
 
-sub wide(v as u32, m as i32) as u8
+sub wide(v: u32, m: i32): u8
     select v
     case 0
         return 1
@@ -63,8 +63,8 @@ sub wide(v as u32, m as i32) as u8
     return 5
 end
 
-sub all(b as u8, w as u16, sb as i8) as u8
-    var k as u8
+sub all(b: u8, w: u16, sb: i8): u8
+    var k: u8
     select b
     case 0 to 255
         k = 1
@@ -86,8 +86,8 @@ sub all(b as u8, w as u16, sb as i8) as u8
 end
 
 sub far()
-    var big as u8[200]
-    var i as u8
+    var big: u8[200]
+    var i: u8
     select big[i]
     case 0
         big[1] = 1
@@ -103,8 +103,8 @@ sub far()
 end
 
 sub main()
-    var i as u8
-    var total as u16
+    var i: u8
+    var total: u16
     while i < 20
         i = i + 1
         select (i mod 4)

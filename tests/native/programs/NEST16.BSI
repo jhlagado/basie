@@ -1,30 +1,30 @@
 // Control statements nested 16 deep (the native compiler held 8) and an
 // initializer nested six levels (it held four): 67h.5.
 record A1
-    v as u8
+    v: u8
 end
 record A2
-    a as A1
-    w as u8
+    a: A1
+    w: u8
 end
 record A3
-    a as A2
-    w as u8
+    a: A2
+    w: u8
 end
 record A4
-    a as A3
-    w as u8
+    a: A3
+    w: u8
 end
 record A5
-    a as A4
-    w as u8
+    a: A4
+    w: u8
 end
 record A6
-    a as A5
-    w as u8
+    a: A5
+    w: u8
 end
-const deep as A6 = ((((((7), 2), 3), 4), 5), 6)
-var n as u16
+const deep: A6 = ((((((7), 2), 3), 4), 5), 6)
+var n: u16
 sub main() fails
     if n < 100
         while n < 1

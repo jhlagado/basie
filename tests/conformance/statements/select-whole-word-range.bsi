@@ -3,7 +3,7 @@
 // spec: 11.7.2
 // expect output: AAB\r\n
 
-sub wide(v as u16) as u8
+sub wide(v: u16): u8
     select v
     case 0 to 65535
         return 'A'
@@ -11,7 +11,7 @@ sub wide(v as u16) as u8
     return '?'
 end
 
-sub signed(v as i16) as u8
+sub signed(v: i16): u8
     select v
     case -32768 to 32767
         return 'B'

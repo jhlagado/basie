@@ -7,14 +7,14 @@
 include "FORMAT.BSI"
 
 sub main() fails
-    var line as string[40]
-    var x as u8 = 3
-    var a as u8 = 1 shl 3
-    var b as u8 = not 0
-    var c as u8 = 1 shl x
-    var d as u8 = 255 shr 4
-    var e as u8 = 12 and 10
-    var f as u16 = not 1
+    var line: string[40]
+    var x: u8 = 3
+    var a: u8 = 1 shl 3
+    var b: u8 = not 0
+    var c: u8 = 1 shl x
+    var d: u8 = 255 shr 4
+    var e: u8 = 12 and 10
+    var f: u16 = not 1
     appendU16(line, a) else fail
     appendByte(line, ' ') else fail
     appendU16(line, b) else fail

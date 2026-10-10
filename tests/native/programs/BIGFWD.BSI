@@ -90,4 +90,4 @@
 // BIGFWD line 083: these bytes are read, ordered and dropped, then read again.
 // BIGFWD line 084: these bytes are read, ordered and dropped, then read again.
 
-forward sub never(n as u8) as u16
+forward sub never(n: u8): u16

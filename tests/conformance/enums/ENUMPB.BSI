@@ -3,8 +3,8 @@ private enum Choice
     last
 end
 
-private var selected as Choice = Choice.last
+private var selected: Choice = Choice.last
 
-sub fromB() as boolean
+sub fromB(): boolean
     return selected = Choice.last
 end

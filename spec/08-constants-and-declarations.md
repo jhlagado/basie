@@ -43,22 +43,22 @@ private-able-declaration
                         | forward-routine-declaration
                         | routine-definition
 
-const-declaration     ::= "const" NAME [ "as" type ] "="
+const-declaration     ::= "const" NAME [ ":" type ] "="
                           constant-initializer NEWLINE
 assert-declaration    ::= "assert" constant-expression NEWLINE
 
 program-var-declaration
-                      ::= "var" NAME "as" type
+                      ::= "var" NAME ":" type
                           [ "=" static-initializer ] NEWLINE
 
 record-declaration    ::= "record" NAME NEWLINE
                           field-declaration { field-declaration }
                           "end" NEWLINE
-field-declaration     ::= NAME "as" type NEWLINE
+field-declaration     ::= NAME ":" type NEWLINE
 
 forward-pool-declaration
                       ::= "forward" "pool" NAME NEWLINE
-pool-declaration      ::= "pool" NAME "as" NAME "[" constant-expression "]"
+pool-declaration      ::= "pool" NAME ":" NAME "[" constant-expression "]"
                           NEWLINE
 
 forward-routine-declaration
@@ -67,7 +67,7 @@ routine-definition    ::= "sub" NAME ( routine-signature-tail NEWLINE
                                      | NEWLINE ) block "end" NEWLINE
 routine-header        ::= "sub" NAME routine-signature-tail
 
-local-declaration     ::= "var" NAME "as" type [ "=" local-initializer ]
+local-declaration     ::= "var" NAME ":" type [ "=" local-initializer ]
                           NEWLINE
                         | "var" NAME "=" local-initializer NEWLINE
                         | const-declaration
@@ -94,16 +94,16 @@ A named constant is **untyped** or **typed** (design decision D20):
 ```basie
 const bufferLength = 64            // untyped
 const enabled = true               // untyped
-const big as u32 = 70000           // typed
-const half as f32 = 0.5            // typed
-const Origin as Point = (0, 0)     // aggregate constants are always typed
+const big: u32 = 70000           // typed
+const half: f32 = 0.5            // typed
+const Origin: Point = (0, 0)     // aggregate constants are always typed
 ```
 
-**Untyped constants.** Without `as`, the initializer must be a constant expression (Section 8.6) whose value is an exact integer, a `boolean`, or a character. An untyped integer constant behaves like an integer literal at every use: it adopts whatever integer type the context requires, if its value fits that type (Chapter 6). So `const Big = 300` is valid; a use of `Big` where `u8` is required is invalid at that use, while a use where `u16` or `i16` is required is valid. The compiler reports the incompatible use, not the declaration. An untyped constant whose initializer is a floating-point literal or a typed expression is invalid; it must be written with a type.
+**Untyped constants.** Without `:` and a type, the initializer must be a constant expression (Section 8.6) whose value is an exact integer, a `boolean`, or a character. An untyped integer constant behaves like an integer literal at every use: it adopts whatever integer type the context requires, if its value fits that type (Chapter 6). So `const Big = 300` is valid; a use of `Big` where `u8` is required is invalid at that use, while a use where `u16` or `i16` is required is valid. The compiler reports the incompatible use, not the declaration. An untyped constant whose initializer is a floating-point literal or a typed expression is invalid; it must be written with a type.
 
-**Typed scalar constants.** With `as` and a scalar type, the constant has exactly that type at every use, as a variable of that type would. The initializer must be a constant expression compatible with the type under the ordinary conversion rules of Chapter 6; a value outside the type's range is an error at the declaration. A `f32` constant must be typed.
+**Typed scalar constants.** With `:` and a scalar type, the constant has exactly that type at every use, as a variable of that type would. The initializer must be a constant expression compatible with the type under the ordinary conversion rules of Chapter 6; a value outside the type's range is an error at the declaration. A `f32` constant must be typed.
 
-**Aggregate constants.** With `as` and a record, fixed-array or bounded-string type, the constant is a read-only aggregate (Section 8.5).
+**Aggregate constants.** With `:` and a record, fixed-array or bounded-string type, the constant is a read-only aggregate (Section 8.5).
 
 A scalar constant has no storage that source can observe. The compiler may place its value in generated code or read-only data. Named constants are the way to give integers symbolic names, including failure codes (Chapter 14, design decision D26). A constant declaration does not create an enumeration, subrange, distinct integer type or overload.
 
@@ -114,9 +114,9 @@ A scalar constant has no storage that source can observe. The compiler may place
 An aggregate constant declares one explicitly typed, statically initialized record, fixed array or bounded string:
 
 ```basie
-const Origin as Point = (0, 0)
-const Masks as u8[4] = [$01, $02, $04, $08]
-const Prompt as string[8] = "READY"
+const Origin: Point = (0, 0)
+const Masks: u8[4] = [$01, $02, $04, $08]
+const Prompt: string[8] = "READY"
 ```
 
 The initializer is required and follows the static-initializer rules of Section 8.9. The type of an aggregate constant must not be an owning type (Chapter 6) and must contain no handle.
@@ -160,8 +160,8 @@ A record declaration introduces one nominal type:
 
 ```basie
 record Point
-    x as i16
-    y as i16
+    x: i16
+    y: i16
 end
 ```
 
@@ -212,7 +212,7 @@ A local variable may be declared at any statement position in a routine body (de
 
 An initializer for an owning handle follows the transfer rules of Chapter 7: a fresh value, the result of `new` or of a routine returning an owning handle, is stored directly; an existing owner must be written with `move`.
 
-**Inference.** A local declared without `as` takes the type of its initializer (design decision D21), which must have a **definite type**:
+**Inference.** A local declared without `:` and a type takes the type of its initializer (design decision D21), which must have a **definite type**:
 
 - a variable, parameter, typed constant or field, or an element or selection of one;
 - the result of a routine call, a `new` or `new?` expression, or `id(...)`;
@@ -226,7 +226,7 @@ An exact integer has no definite type: an integer literal, an untyped integer co
 var d = distance(a, b)        // the routine's result type
 var p = Origin                // Point, from the constant's type
 var n = new nodes(5, none)    // nodes, an owning handle
-var count as u16 = 0          // a bare literal: the type must be written
+var count: u16 = 0          // a bare literal: the type must be written
 var bad = 0                   // invalid: no definite type
 ```
 
@@ -242,15 +242,15 @@ A pool declaration declares a pool of slots, each holding one record of a single
 forward pool nodes
 
 record Node
-    value  as u16
-    next   as nodes?          // owns the next node
-    parent as id nodes?       // refers to the parent
+    value: u16
+    next: nodes?          // owns the next node
+    parent: id nodes?       // refers to the parent
 end
 
-pool nodes as Node[64]
+pool nodes: Node[64]
 ```
 
-- The element type after `as` must be a record type already declared. A pool of a scalar, array or string type is invalid; such data is wrapped in a record.
+- The element type after `:` must be a record type already declared. A pool of a scalar, array or string type is invalid; such data is wrapped in a record.
 - The capacity in brackets is a constant expression from 1 through 65,535 (Section 8.6).
 - A pool has program lifetime. Its slots start free. Pools are declared only at top level, and a pool may be `private`.
 - The pool name, used as a type, denotes an owning handle into the pool (design decision D22); Chapter 6 defines the four handle types `P`, `P?`, `id P` and `id P?`. The pool name is also the operand of `new` and `new?` (Chapters 7 and 9).
@@ -265,7 +265,7 @@ A forward pool must be completed by exactly one pool declaration of the same nam
 
 ## 8.12 Routine declarations and parameters
 
-A routine header declares a routine name, an ordered list of zero or more parameters, an optional result type, an optional `from` clause, and an optional `fails`. Each parameter is written `NAME as Type`, optionally preceded by `var` (design decision D17). Parameters have no initializers or defaults. Chapter 13 defines parameter passing, `var`, leases, `from`, results and calls.
+A routine header declares a routine name, an ordered list of zero or more parameters, an optional result type, an optional `from` clause, and an optional `fails`. Each parameter is written `NAME: Type`, optionally preceded by `var` (design decision D17). Parameters have no initializers or defaults. Chapter 13 defines parameter passing, `var`, leases, `from`, results and calls.
 
 A forward routine declaration contains the complete signature and no body. The later definition has the abbreviated header `sub NAME`, and the forward's parameter names become the body's parameter bindings (Chapter 4, Section 4.6). A routine whose body is not yet complete can be called only through a forward declaration, which includes a routine calling itself (Chapter 5, Section 5.9).
 
@@ -305,27 +305,27 @@ These declarations are valid:
 
 ```basie
 const cellCount = 8
-const scale as f32 = 0.125
+const scale: f32 = 0.125
 const notFound = 48               // a failure code (Chapter 14)
 
 record Cell
-    value as i16
-    active as boolean
+    value: i16
+    active: boolean
 end
 
-const defaultCell as Cell = (0, false)
-const bitMasks as u8[4] = [1, 2, 4, 8]
-var cells as Cell[cellCount]
-var templates as Cell[2] = [(1, true), (-2, false)]
-var title as string[12] = "BASIE"
+const defaultCell: Cell = (0, false)
+const bitMasks: u8[4] = [1, 2, 4, 8]
+var cells: Cell[cellCount]
+var templates: Cell[2] = [(1, true), (-2, false)]
+var title: string[12] = "BASIE"
 
 forward pool nodes
 record Node
-    value as u16
-    next as nodes?
+    value: u16
+    next: nodes?
 end
-pool nodes as Node[100]
-var head as nodes?
+pool nodes: Node[100]
+var head: nodes?
 
 private const scratchSize = 32
 ```
@@ -333,12 +333,12 @@ private const scratchSize = 32
 A routine declares locals where it needs them:
 
 ```basie
-sub fill(var items as Cell[cellCount], start as i16)
+sub fill(var items: Cell[cellCount], start: i16)
     const stride = 2
     var next = start                  // i16, from the parameter
-    var i as u8
+    var i: u8
     for i = 0 until cellCount
-        var cell as Cell = (0, true)  // a fresh local on every iteration
+        var cell: Cell = (0, true)  // a fresh local on every iteration
         cell.value = next
         items[i] = cell
         next = next + stride
@@ -350,17 +350,17 @@ These are invalid; they are not one compilation:
 
 ```basie
 const Limit = 8
-var Limit as u16                     // exact duplicate
+var Limit: u16                     // exact duplicate
 const half = 0.5                     // a floating-point constant must be typed
-const tiny as u8 = 300               // out of range for u8
-var empty as u8[0]                   // an array length must be at least 1
-var shortText as string[4] = "READY" // the literal is too long
-var owner as nodes                   // a program variable of handle type must be optional
-pool numbers as u16[10]              // a pool holds records
+const tiny: u8 = 300               // out of range for u8
+var empty: u8[0]                   // an array length must be at least 1
+var shortText: string[4] = "READY" // the literal is too long
+var owner: nodes                   // a program variable of handle type must be optional
+pool numbers: u16[10]              // a pool holds records
 
 sub bad()
     var x = 0                        // no definite type
-    var n as nodes                   // a non-optional handle needs an initializer
+    var n: nodes                   // a non-optional handle needs an initializer
     defaultCell.value = 1            // assignment to a constant
 end
 ```

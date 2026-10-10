@@ -3,10 +3,10 @@
 // but 0 it runs through every value from 1 to 65535 before repeating. It is
 // not for cryptography.
 
-private var randomState as u16 = $ACE1
+private var randomState: u16 = $ACE1
 
 // Start the sequence again from seed; 0 chooses the default seed.
-sub seedRandom(seed as u16)
+sub seedRandom(seed: u16)
     if seed = 0
         randomState = $ACE1
     else
@@ -15,8 +15,8 @@ sub seedRandom(seed as u16)
 end
 
 // The next value, from 1 to 65535.
-sub random() as u16
-    var x as u16 = randomState
+sub random(): u16
+    var x: u16 = randomState
     x = x xor (x shl 7)
     x = x xor (x shr 9)
     x = x xor (x shl 8)
@@ -25,14 +25,14 @@ sub random() as u16
 end
 
 // A value from 0 to n - 1, each equally likely; 0 when n is 0.
-sub randomBelow(n as u16) as u16
+sub randomBelow(n: u16): u16
     if n = 0
         return 0
     end
     // random() - 1 runs over 65535 values, 0 to 65534. Rejecting those below
     // 65535 mod n leaves a multiple of n, so no result is more likely.
-    var floor as u16 = $FFFF mod n
-    var x as u16 = random() - 1
+    var floor: u16 = $FFFF mod n
+    var x: u16 = random() - 1
     while x < floor
         x = random() - 1
     end

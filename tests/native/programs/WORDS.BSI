@@ -1,7 +1,7 @@
 // 16-bit arithmetic in every operand position (65.4 c).
-var x as u16 = 1000
-var y as u16 = 7
-var z as u16
+var x: u16 = 1000
+var y: u16 = 7
+var z: u16
 const k = 300
 
 sub main()

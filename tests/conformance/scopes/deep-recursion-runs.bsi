@@ -4,7 +4,7 @@
 
 include "FORMAT.BSI"
 
-forward sub count(n as u16) as u16
+forward sub count(n: u16): u16
 
 sub count
     if n = 0
@@ -14,7 +14,7 @@ sub count
 end
 
 sub main() fails
-    var line as string[8]
+    var line: string[8]
     appendU16(line, count(500)) else fail
     writeText(console, line) else fail
     writeText(console, "\r\n") else fail

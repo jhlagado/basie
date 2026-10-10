@@ -3,13 +3,13 @@
 // width, nesting, exit and continue, and sibling loops whose bounds take
 // the same frame slot.
 const three = 3
-var total as u16
-var top as u8 = 9
-var wide as u16 = 300
+var total: u16
+var top: u8 = 9
+var wide: u16 = 300
 
-sub sum(n as u8) as u16
-    var i as u8
-    var s as u16
+sub sum(n: u8): u16
+    var i: u8
+    var s: u16
     for i = 1 to n
         s = s + i
     end
@@ -17,9 +17,9 @@ sub sum(n as u8) as u16
 end
 
 sub main()
-    var i as u8
-    var j as u8
-    var w as u16
+    var i: u8
+    var j: u8
+    var w: u16
     for i = 0 to 10
         total = total + 1
     end

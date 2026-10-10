@@ -3,7 +3,7 @@
 // expect trap: bounds at 8
 
 sub main() fails
-    var buf as u8[10]
+    var buf: u8[10]
     var f = openWrite("X.BIN", binaryMode) else fail
     writeBlock(f, buf, 11) else fail
 end

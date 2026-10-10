@@ -3,15 +3,15 @@
 // expect output: K\r\n
 
 record Entry
-    value as u8
+    value: u8
 end
 
-sub pick(items as Entry[4], index as u8) as Entry from items
+sub pick(items: Entry[4], index: u8): Entry from items
     return items[index]
 end
 
 sub main() fails
-    var list as Entry[4]
+    var list: Entry[4]
     list[2].value = 'K'
     writeByte(console, pick(list, 2).value) else fail
     writeText(console, "\r\n") else fail

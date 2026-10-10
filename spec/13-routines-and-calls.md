@@ -17,8 +17,8 @@ routine-signature-tail
                      ::= "(" [ formal-parameter
                          { "," formal-parameter } ] ")"
                          [ result-clause ] [ "fails" ]
-formal-parameter     ::= [ "var" ] NAME "as" type
-result-clause        ::= "as" [ "var" ] type [ "from" NAME { "," NAME } ]
+formal-parameter     ::= [ "var" ] NAME ":" type
+result-clause        ::= ":" [ "var" ] type [ "from" NAME { "," NAME } ]
 
 forward-routine      ::= "forward" routine-header NEWLINE
 routine-definition   ::= "sub" NAME routine-definition-tail
@@ -53,7 +53,7 @@ Arguments are evaluated from left to right, and each is bound before the next is
 **Aggregate parameters.** A record, array or bounded-string parameter is an alias to the caller's object; no copy is made (Chapter 7, Section 7.7).
 
 - Without `var` it is a **ticket**: read-only in the routine (design decision D17). Its argument may be any aggregate designator or aggregate result of exactly the parameter's type, including a constant. For a read-only `string[]` parameter, the argument may be a bounded string of any capacity, or a string literal, which the compiler supplies as a constant.
-- With `var`, the routine may write through it. The argument must be a writable designator of exactly the parameter's type, or of any bounded-string capacity for `var s as string[]`, or any complete `T[N]` for `var a as T[]`; a constant or string literal is invalid. A call to a routine whose result is `as var` is also a writable designator, so it may be passed (Section 13.6).
+- With `var`, the routine may write through it. The argument must be a writable designator of exactly the parameter's type, or of any bounded-string capacity for `var s: string[]`, or any complete `T[N]` for `var a: T[]`; a constant or string literal is invalid. A call to a routine whose result is `as var` is also a writable designator, so it may be passed (Section 13.6).
 - A `string[]` parameter carries its argument's capacity, so `.length`, `.capacity` and indexing use the real bound.
 - An aggregate field of a pool record reached through a handle is copied into a hidden temporary of the caller when passed to a ticket (Chapter 7, Section 7.13); it cannot be passed to a `var` parameter except through a lease.
 
@@ -63,10 +63,10 @@ Arguments are evaluated from left to right, and each is bound before the next is
 
 | Parameter | Argument | Effect |
 | --- | --- | --- |
-| `n as P` | a fresh `P` or `move` of a non-optional owner | the callee owns the slot; it is freed when `n` goes out of scope unless moved on |
-| `n as P?` | `none`, a fresh value or a `move` | as above, or `none` |
-| `var n as P?` | a slot-holder: an owning location of type `P?` (Chapter 7, Section 7.14) | the callee may move into it, out of it, or overwrite it |
-| `i as id P`, `i as id P?` | an identifier of the type, or `id(...)` | a copy of the identifier |
+| `n: P` | a fresh `P` or `move` of a non-optional owner | the callee owns the slot; it is freed when `n` goes out of scope unless moved on |
+| `n: P?` | `none`, a fresh value or a `move` | as above, or `none` |
+| `var n: P?` | a slot-holder: an owning location of type `P?` (Chapter 7, Section 7.14) | the callee may move into it, out of it, or overwrite it |
+| `i: id P`, `i: id P?` | an identifier of the type, or `id(...)` | a copy of the identifier |
 
 `var` is invalid on a parameter of type `P`, `id P` or `id P?`.
 
@@ -95,7 +95,7 @@ A **handle result** of an owning type `P` or `P?` is a fresh owning value for th
 An **aggregate result** is an alias to an existing object of exactly the result type, not a copy (Chapter 7, Section 7.7). Its root must be program storage, or a parameter named in the routine's `from` clause; it must never be rooted in the routine's own locals (design decision D8). A `from` clause names parameters of aggregate type; it cannot name a slot-holder. Without a `from` clause, every aggregate result must be rooted in program storage.
 
 ```basie
-sub pick(items as Entry[8], index as u8) as Entry from items
+sub pick(items: Entry[8], index: u8): Entry from items
     return items[index]
 end
 ```
@@ -152,11 +152,11 @@ An implementation may bound parameters, arguments, active expression-call nestin
 A result-free routine and a value routine use the same declaration family:
 
 ```basie
-sub display(value as u8)
+sub display(value: u8)
     return
 end
 
-sub maximum(left as u16, right as u16) as u16
+sub maximum(left: u16, right: u16): u16
     if left >= right
         return left
     else
@@ -174,11 +174,11 @@ largest = maximum(first, second)
 An aggregate result preserves alias identity:
 
 ```basie
-sub entryAt(index as u8) as Entry
+sub entryAt(index: u8): Entry
     return entries[index]
 end
 
-sub update(var items as Entry[8], index as u8)
+sub update(var items: Entry[8], index: u8)
     items[index].value = entryAt(index).value
 end
 ```
@@ -188,7 +188,7 @@ end
 To retain the complete returned value, the caller provides destination storage:
 
 ```basie
-sub retain(index as u8, var destination as Entry)
+sub retain(index: u8, var destination: Entry)
     destination = entryAt(index)
 end
 ```
@@ -198,15 +198,15 @@ or declares a local: `var copy = entryAt(index)` copies the entry into activatio
 Parameters with ownership:
 
 ```basie
-sub sink(n as nodes)                 // takes ownership; n is freed at its end
+sub sink(n: nodes)                 // takes ownership; n is freed at its end
 end
 
-sub push(var list as nodes?, v as u16)
+sub push(var list: nodes?, v: u16)
     var n = new nodes(v, move list)
     list = move n
 end
 
-sub bump(var n as Node)              // a lease when passed a handle
+sub bump(var n: Node)              // a lease when passed a handle
     n.value = n.value + 1
 end
 
@@ -221,9 +221,9 @@ end
 Mutual recursion needs a forward declaration for the routine called first; `even` calls the forward-declared `odd`, which carries the activation-capacity check:
 
 ```basie
-forward sub odd(value as u16) as boolean
+forward sub odd(value: u16): boolean
 
-sub even(value as u16) as boolean
+sub even(value: u16): boolean
     if value = 0
         return true
     end
@@ -241,7 +241,7 @@ end
 These forms are invalid:
 
 ```basie
-sub missing(value as u8) as u8
+sub missing(value: u8): u8
     if value = 0
         return 1
     end
@@ -251,7 +251,7 @@ sub procedure()
     return 1                     // result-free routine
 end
 
-sub value() as u8
+sub value(): u8
     return                       // value routine requires an expression
 end
 ```

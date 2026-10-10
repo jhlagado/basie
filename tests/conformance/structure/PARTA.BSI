@@ -1,6 +1,6 @@
 // A part with a private constant, for private-across-parts.bsi.
 private const k = 1
 
-sub fromA() as u8
+sub fromA(): u8
     return k
 end

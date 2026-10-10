@@ -4,7 +4,7 @@
 // expect trap: loop-range at 8
 
 sub main() fails
-    var s as i32
+    var s: i32
     for s = 2147483640 to 3000000000
     end
 end

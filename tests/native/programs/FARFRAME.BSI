@@ -1,80 +1,80 @@
 // A frame larger than 128 bytes: the locals beyond IX-128 are reached
 // through their computed addresses, with the registers kept pushed around
 // them and counted into the frame (65.4 d).
-var total as u16
-var flag as boolean
+var total: u16
+var flag: boolean
 
 sub main()
-    var w0 as u16 = 0
-    var w1 as u16 = 7
-    var w2 as u16 = 14
-    var w3 as u16 = 21
-    var w4 as u16 = 28
-    var w5 as u16 = 35
-    var w6 as u16 = 42
-    var w7 as u16 = 49
-    var w8 as u16 = 56
-    var w9 as u16 = 63
-    var w10 as u16 = 70
-    var w11 as u16 = 77
-    var w12 as u16 = 84
-    var w13 as u16 = 91
-    var w14 as u16 = 98
-    var w15 as u16 = 105
-    var w16 as u16 = 112
-    var w17 as u16 = 119
-    var w18 as u16 = 126
-    var w19 as u16 = 133
-    var w20 as u16 = 140
-    var w21 as u16 = 147
-    var w22 as u16 = 154
-    var w23 as u16 = 161
-    var w24 as u16 = 168
-    var w25 as u16 = 175
-    var w26 as u16 = 182
-    var w27 as u16 = 189
-    var w28 as u16 = 196
-    var w29 as u16 = 203
-    var w30 as u16 = 210
-    var w31 as u16 = 217
-    var w32 as u16 = 224
-    var w33 as u16 = 231
-    var w34 as u16 = 238
-    var w35 as u16 = 245
-    var w36 as u16 = 252
-    var w37 as u16 = 259
-    var w38 as u16 = 266
-    var w39 as u16 = 273
-    var w40 as u16 = 280
-    var w41 as u16 = 287
-    var w42 as u16 = 294
-    var w43 as u16 = 301
-    var w44 as u16 = 308
-    var w45 as u16 = 315
-    var w46 as u16 = 322
-    var w47 as u16 = 329
-    var w48 as u16 = 336
-    var w49 as u16 = 343
-    var w50 as u16 = 350
-    var w51 as u16 = 357
-    var w52 as u16 = 364
-    var w53 as u16 = 371
-    var w54 as u16 = 378
-    var w55 as u16 = 385
-    var w56 as u16 = 392
-    var w57 as u16 = 399
-    var w58 as u16 = 406
-    var w59 as u16 = 413
-    var w60 as u16 = 420
-    var w61 as u16 = 427
-    var w62 as u16
-    var w63 as u16 = w62 + 1
-    var near as u8 = 9
-    var far8 as u8
-    var farw as u16
-    var farb as boolean = true
-    var farz as boolean
-    var last as u16 = 40000
+    var w0: u16 = 0
+    var w1: u16 = 7
+    var w2: u16 = 14
+    var w3: u16 = 21
+    var w4: u16 = 28
+    var w5: u16 = 35
+    var w6: u16 = 42
+    var w7: u16 = 49
+    var w8: u16 = 56
+    var w9: u16 = 63
+    var w10: u16 = 70
+    var w11: u16 = 77
+    var w12: u16 = 84
+    var w13: u16 = 91
+    var w14: u16 = 98
+    var w15: u16 = 105
+    var w16: u16 = 112
+    var w17: u16 = 119
+    var w18: u16 = 126
+    var w19: u16 = 133
+    var w20: u16 = 140
+    var w21: u16 = 147
+    var w22: u16 = 154
+    var w23: u16 = 161
+    var w24: u16 = 168
+    var w25: u16 = 175
+    var w26: u16 = 182
+    var w27: u16 = 189
+    var w28: u16 = 196
+    var w29: u16 = 203
+    var w30: u16 = 210
+    var w31: u16 = 217
+    var w32: u16 = 224
+    var w33: u16 = 231
+    var w34: u16 = 238
+    var w35: u16 = 245
+    var w36: u16 = 252
+    var w37: u16 = 259
+    var w38: u16 = 266
+    var w39: u16 = 273
+    var w40: u16 = 280
+    var w41: u16 = 287
+    var w42: u16 = 294
+    var w43: u16 = 301
+    var w44: u16 = 308
+    var w45: u16 = 315
+    var w46: u16 = 322
+    var w47: u16 = 329
+    var w48: u16 = 336
+    var w49: u16 = 343
+    var w50: u16 = 350
+    var w51: u16 = 357
+    var w52: u16 = 364
+    var w53: u16 = 371
+    var w54: u16 = 378
+    var w55: u16 = 385
+    var w56: u16 = 392
+    var w57: u16 = 399
+    var w58: u16 = 406
+    var w59: u16 = 413
+    var w60: u16 = 420
+    var w61: u16 = 427
+    var w62: u16
+    var w63: u16 = w62 + 1
+    var near: u8 = 9
+    var far8: u8
+    var farw: u16
+    var farb: boolean = true
+    var farz: boolean
+    var last: u16 = 40000
     far8 = near + 3
     farw = w0 + w61
     farb = farb and far8 > near

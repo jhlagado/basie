@@ -8,13 +8,13 @@ Basie looks very different from Rust on the surface. It uses BASIC-style keyword
 
 ```basie
 record Reading
-    value as u16
-    usable as boolean
+    value: u16
+    usable: boolean
 end
 
-var current as Reading = (12, true)
+var current: Reading = (12, true)
 
-sub update(var item as Reading, value as u16)
+sub update(var item: Reading, value: u16)
     item.value = value
 end
 
@@ -60,14 +60,14 @@ Basie ends blocks with `end` and statements with a newline, where Rust uses brac
 
 | | Basie | Rust |
 | --- | --- | --- |
-| Variable | `var total as u16 = 0` | `let mut total: u16 = 0;` |
+| Variable | `var total: u16 = 0` | `let mut total: u16 = 0;` |
 | Inferred type | `var count = 0` | `let count = 0;` |
-| Constant | `const rows as u8 = 4` | `const ROWS: u8 = 4;` |
+| Constant | `const rows: u8 = 4` | `const ROWS: u8 = 4;` |
 | Mutability | every `var` can be assigned | immutable unless `mut` |
-| Type annotation | `name as type` | `name: type` |
+| Type annotation | `name: type` | `name: type` |
 | Integers | `u8`, `i8`, `u16`, `i16`, `u32`, `i32` | also 64-bit, 128-bit, `usize` and `isize` |
 | Boolean | `boolean` | `bool` |
-| Record | `record … end` with fields `name as type` | `struct` with fields `name: type` |
+| Record | `record … end` with fields `name: type` | `struct` with fields `name: type` |
 | Fixed array | `u8[4]` | `[u8; 4]` |
 | Open array | `T[]` as a parameter, for the call only | `&[T]`, which can be stored |
 | String | `string[32]`: fixed capacity plus a length | `String` or `&str` |
@@ -82,9 +82,9 @@ The largest structural difference is in the last three rows. A Rust program is o
 | | Basie | Rust |
 | --- | --- | --- |
 | Keyword | `sub` | `fn` |
-| Result type | `sub f(a as u8) as u16` | `fn f(a: u8) -> u16` |
-| Writable aggregate parameter | `var item as Reading` | `item: &mut Reading` |
-| Read-only aggregate parameter | `item as Reading`, an alias with no `&` | `item: &Reading` |
+| Result type | `sub f(a: u8): u16` | `fn f(a: u8) -> u16` |
+| Writable aggregate parameter | `var item: Reading` | `item: &mut Reading` |
+| Read-only aggregate parameter | `item: Reading`, an alias with no `&` | `item: &Reading` |
 | Scalar parameter | a copy | a copy for `Copy` types |
 | Returning access | `as var Entry from items` names the source | lifetime annotations such as `-> &'a mut Entry` |
 | A routine that can fail | `fails` in the header | `-> Result<T, E>` |
@@ -104,7 +104,7 @@ Basie's `from` clause does the job of a Rust lifetime annotation. It tells the c
 | Bitwise operations | `and`, `or`, `xor`, `not` on integers | `&`, `\|`, `^`, `!` |
 | Remainder | `mod` | `%` |
 | Shifts | `shl`, `shr` | `<<`, `>>` |
-| Narrowing conversion | `u8(x)` traps if the value doesn't fit | `x as u8` truncates, `u8::try_from(x)` checks |
+| Narrowing conversion | `u8(x)` traps if the value doesn't fit | `x: u8` truncates, `u8::try_from(x)` checks |
 | Integer overflow | wraps, and is defined | panics in debug builds and wraps in release builds |
 | Division by zero | trap | panic |
 
@@ -130,8 +130,8 @@ The two languages are closest in intent here and furthest apart in mechanism.
 
 | | Basie | Rust |
 | --- | --- | --- |
-| Dynamic storage | a fixed pool per record type: `pool jobs as Job[8]` | a general heap: `Box`, `Vec`, `Rc` |
-| Owning reference | a handle typed with the pool name: `first as jobs` | `Box<Job>` |
+| Dynamic storage | a fixed pool per record type: `pool jobs: Job[8]` | a general heap: `Box`, `Vec`, `Rc` |
+| Owning reference | a handle typed with the pool name: `first: jobs` | `Box<Job>` |
 | Allocation | `new jobs(7)` traps if the pool is full, `new? jobs(7)` returns `none` | `Box::new(…)` aborts on exhausted memory |
 | Optional owner | `jobs?`, empty value `none` | `Option<Box<Job>>` |
 | Move | explicit: `consume(move first)` | implicit for every non-`Copy` value |
@@ -152,7 +152,7 @@ Basie marks every transfer of ownership with `move` at the point where it happen
 
 | | Basie | Rust |
 | --- | --- | --- |
-| Declaring failure | `sub parse(…) as u16 fails` | `-> Result<u16, E>` |
+| Declaring failure | `sub parse(…): u16 fails` | `-> Result<u16, E>` |
 | Failing | `fail badNumber`, where the code is an integer constant | `return Err(E::BadNumber)` |
 | Passing a failure on | `else fail` after the call | `?` after the call |
 | Handling a failure | `x = f() handle code … end` | `match f() { Err(code) => …, Ok(v) => … }` |
@@ -178,7 +178,7 @@ In both languages failure is part of a routine's signature, and every call must 
 The next language version brings the surface closer to Rust with `:` for `as` (D52) and `try` for `else fail` (D48). Routines keep `sub` and writable parameters keep `var`. Together the two changes turn this routine:
 
 ```basie
-sub execute(text as string[]) as u16 fails
+sub execute(text: string[]): u16 fails
     var value = parseU16(text) else fail
     return value * 2
 end

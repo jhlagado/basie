@@ -2,7 +2,7 @@
 // spec: 11.7.2
 // expect output: Q.\r\n
 
-sub show(c as u8) fails
+sub show(c: u8) fails
     select c
     case 'q'
         writeByte(console, 'Q') else fail

@@ -3,31 +3,31 @@
 // locals and parameters, a handled call beneath a pushed left operand,
 // handlers inside loops and other handlers, and failable calls as right
 // operands and under not.
-var code as u8
-var total as u16 = 1
+var code: u8
+var total: u16 = 1
 
-sub check(n as u8) as u8 fails
+sub check(n: u8): u8 fails
     if n > 9
         fail n - 9
     end
     return n
 end
 
-sub wide(n as u16) as u16 fails
+sub wide(n: u16): u16 fails
     if n = 0
         fail 1
     end
     return n * 2
 end
 
-sub relay(n as u8) as u8 fails
-    var first as u8 = check(n) else fail
+sub relay(n: u8): u8 fails
+    var first: u8 = check(n) else fail
     first = first + check(n + 1) else fail
     return first
 end
 
-sub keep(e as u8) as u8 fails
-    var local as u8
+sub keep(e: u8): u8 fails
+    var local: u8
     local = check(e) handle e
         local = e
     end
@@ -37,7 +37,7 @@ sub keep(e as u8) as u8 fails
     return local
 end
 
-sub truth(n as u8) as boolean fails
+sub truth(n: u8): boolean fails
     if n = 0
         fail 5
     end
@@ -45,8 +45,8 @@ sub truth(n as u8) as boolean fails
 end
 
 sub operands() fails
-    var x as u8 = 2
-    var b as boolean
+    var x: u8 = 2
+    var b: boolean
     x = 1 + check(x) else fail
     x = x * check(x) handle code
     end
@@ -57,8 +57,8 @@ sub operands() fails
 end
 
 sub main() fails
-    var i as u8
-    var w as u16
+    var i: u8
+    var w: u16
     code = relay(3) else fail
     total = total + wide(5) handle code
         total = 0

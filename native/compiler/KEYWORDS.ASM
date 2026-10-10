@@ -39,7 +39,6 @@ MM_IBEG:                       ; Start of compiler immutable data (marker).
 
 KW_TAB:                        ; The entries.
 .A:                            ; a:
-    DB   's'+$80,TK_AS             ; Introduces a type.
     DB   "sser",'t'+$80,TK_ASSRT   ; Compile-time assertion.
     DB   "n",'d'+$80,TK_AND        ; Logical or bitwise and.
 .B:                            ; b:
@@ -118,7 +117,7 @@ KW_TAB:                        ; The entries.
     DB   .V-KW_TAB,.W-KW_TAB,.X-KW_TAB ; v to x.
     DB   .END-KW_TAB,.END-KW_TAB,.END-KW_TAB ; y, z and the end.
 KW_IDX EQU  .IDX               ; The index, after the entries.
-KW_CNT EQU  50                 ; Entries in KW_TAB.
+KW_CNT EQU  49                 ; Entries in KW_TAB.
 KW_TYPE EQU  $80               ; A type keyword's kind byte: this plus its type.
 
 ; Punctuators found by table search: the character, then a descriptor.
@@ -139,7 +138,8 @@ KW_PUNCT:
     DB   "$",$89                   ; Hexadecimal prefix: at most eight digits.
     DB   "%",$A1                   ; Binary prefix: at most 32 digits.
     DB   "?",TK_QUEST              ; An optional handle type; new?.
-KW_PCNT EQU  10                ; Entries in KW_PUNCT.
+    DB   ":",TK_AS                 ; Introduces a type (D52).
+KW_PCNT EQU  11                ; Entries in KW_PUNCT.
 
 ; Spellings compared against the current NAME token by length-checked
 ; matches, so none needs a length byte.

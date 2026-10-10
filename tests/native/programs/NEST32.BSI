@@ -1,17 +1,17 @@
 // Control statements nested 32 deep (16 before 68): if, while, for and
 // select in turn.
-var n as u16
-var m as u8
-var go as boolean
+var n: u16
+var m: u8
+var go: boolean
 sub main() fails
-    var i2 as u8
-    var i6 as u8
-    var i10 as u8
-    var i14 as u8
-    var i18 as u8
-    var i22 as u8
-    var i26 as u8
-    var i30 as u8
+    var i2: u8
+    var i6: u8
+    var i10: u8
+    var i14: u8
+    var i18: u8
+    var i22: u8
+    var i26: u8
+    var i30: u8
     go = true
     if n < 200
         while go

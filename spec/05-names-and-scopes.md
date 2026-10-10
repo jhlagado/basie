@@ -49,30 +49,30 @@ For example, the single namespace accepts this pair of names:
 
 ```basie
 record Point
-    x as u16
+    x: u16
 end
 
-var origin as Point
+var origin: Point
 ```
 
 Case variants are distinct names, so this declaration is valid:
 
 ```basie
 record Point
-    x as u16
+    x: u16
 end
 
-var point as Point
+var point: Point
 ```
 
 Repeating the exact type name in the same namespace is invalid:
 
 ```basie
 record Point
-    x as u16
+    x: u16
 end
 
-var Point as Point       // invalid: exact duplicate of the type name
+var Point: Point       // invalid: exact duplicate of the type name
 ```
 
 ## 5.5 Declaration visibility
@@ -111,12 +111,12 @@ Lookup never selects a later declaration in preference to an earlier one. Basie 
 A parameter or local must not shadow any ordinary binding visible at its declaration point: a program binding, a part binding, a parameter, or a local of an enclosing block. Basie has no shadowing at any level. Locals in blocks that do not enclose one another may use the same identity, because neither is visible where the other is declared:
 
 ```basie
-sub show(flag as boolean)
+sub show(flag: boolean)
     if flag
-        var count as u8 = 1
+        var count: u8 = 1
         ...
     else
-        var count as u16 = 2     // valid: the first count is out of scope
+        var count: u16 = 2     // valid: the first count is out of scope
         ...
     end
 end
@@ -125,7 +125,7 @@ end
 ```basie
 const limit = 10
 
-sub clamp(limit as u16)       // invalid: parameter shadows visible constant
+sub clamp(limit: u16)       // invalid: parameter shadows visible constant
     return
 end
 ```
@@ -136,11 +136,11 @@ Within one record, two fields with the same exact identity conflict. The same fi
 
 ```basie
 record Point
-    value as u16
+    value: u16
 end
 
 record Sample
-    value as u8            // valid: a different field scope
+    value: u8            // valid: a different field scope
 end
 
 const value = 0     // valid: the ordinary namespace
@@ -175,7 +175,7 @@ Forward declarations apply only to routines and pools. Constants, variables, rec
 This completion matches:
 
 ```basie
-forward sub emit(value as u8)
+forward sub emit(value: u8)
 
 sub emit
     return
@@ -189,9 +189,9 @@ After a routine's complete signature has been checked, its binding is visible in
 Mutual references require forward signatures for every later routine that an earlier body names. In this example both calls are valid: `second` through its forward declaration, and `first` because its body is complete before `second`'s begins:
 
 ```basie
-forward sub second(value as u16)
+forward sub second(value: u16)
 
-sub first(value as u16)
+sub first(value: u16)
     second(value)
     return
 end
@@ -205,7 +205,7 @@ end
 A routine calling itself needs the same form:
 
 ```basie
-forward sub countDown(n as u8)
+forward sub countDown(n: u8)
 
 sub countDown
     if n > 0

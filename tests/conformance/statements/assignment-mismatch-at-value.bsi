@@ -3,7 +3,7 @@
 // spec: 10.4
 // expect error: type-mismatch at 9:11
 
-var count as u8
+var count: u8
 
 sub main()
   count = console

@@ -1,15 +1,15 @@
 // A part for INCMAIN.BSI: included twice, compiled once, first.
 private const scale = 3
-private var calls as u16
+private var calls: u16
 
 record pair
-    a as u8
-    b as u16
+    a: u8
+    b: u16
 end
 
-sub triple(n as u8) as u16
+sub triple(n: u8): u16
     calls = calls + 1
     return u16(n) * scale
 end
 
-forward sub later(n as u8) as u8
+forward sub later(n: u8): u8

@@ -6,10 +6,10 @@
 forward pool nodes
 
 record Node
-    value as u8
+    value: u8
 end
 
-pool nodes as Node[1]
+pool nodes: Node[1]
 
 sub inner() fails
     fail 3
@@ -21,8 +21,8 @@ sub outer() fails
 end
 
 sub main() fails
-    var i as u8
-    var e as u8
+    var i: u8
+    var e: u8
     for i = 1 to 3
         outer() handle e
         end

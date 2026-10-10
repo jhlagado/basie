@@ -1,2 +1,2 @@
 // The second part DLMAIN3 includes: a lexical fault.
-var e as u8 = 2 # 3
+var e: u8 = 2 # 3

@@ -2,43 +2,43 @@
 forward pool boxes
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 record A
-    w as u16
+    w: u16
 end
 record B
-    q as u8
+    q: u8
 end
 record Holder
-    h as nodes?
+    h: nodes?
 end
 record Box
-    a as A
-    b as B
-    hold as Holder
-    name as string[4]
-    own as nodes?
+    a: A
+    b: B
+    hold: Holder
+    name: string[4]
+    own: nodes?
 end
-pool boxes as Box[2]
-pool nodes as Node[2]
-var keep as id boxes?
-var gl as A
-sub mk() as A
+pool boxes: Box[2]
+pool nodes: Node[2]
+var keep: id boxes?
+var gl: A
+sub mk(): A
     return gl
 end
-sub two(x as A, y as A)
+sub two(x: A, y: A)
 end
-sub pb(x as B)
+sub pb(x: B)
 end
-sub vb(var x as B)
+sub vb(var x: B)
 end
-sub ph(x as Holder)
+sub ph(x: Holder)
 end
-sub vs(var s as string[])
+sub vs(var s: string[])
 end
-sub ps(s as string[])
+sub ps(s: string[])
 end
 sub main()
     select keep

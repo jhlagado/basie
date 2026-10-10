@@ -188,7 +188,7 @@ Scalar fields are read and written in place. An **aggregate field** is copied as
 **Slot-holders.** A `var` parameter of type `P?` lends a place that holds a handle or `none`; the callee may move into it, move out of it or overwrite it:
 
 ```basie
-sub push(var list as nodes?, v as u16)
+sub push(var list: nodes?, v: u16)
     var n = new nodes(v, move list)
     list = move n
 end

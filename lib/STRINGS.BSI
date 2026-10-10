@@ -3,12 +3,12 @@
 // exceed the destination's capacity.
 
 // Make s the empty string.
-sub clear(var s as string[])
+sub clear(var s: string[])
     s.length = 0
 end
 
-sub appendByte(var s as string[], b as u8) fails
-    var at as u8 = s.length
+sub appendByte(var s: string[], b: u8) fails
+    var at: u8 = s.length
     if at = s.capacity
         fail lineTooLong
     end
@@ -16,8 +16,8 @@ sub appendByte(var s as string[], b as u8) fails
     s[at] = b
 end
 
-sub append(var s as string[], t as string[]) fails
-    var i as u8 = 0
+sub append(var s: string[], t: string[]) fails
+    var i: u8 = 0
     while i < t.length
         appendByte(s, t[i]) else fail
         i = i + 1
@@ -26,10 +26,10 @@ end
 
 // dest becomes count bytes of src from position start, or fewer where src
 // ends first; a start at or beyond src's end gives the empty string.
-sub copyFrom(var dest as string[], src as string[], start as u8, count as u8) fails
+sub copyFrom(var dest: string[], src: string[], start: u8, count: u8) fails
     dest.length = 0
-    var i as u8 = start
-    var left as u8 = count
+    var i: u8 = start
+    var left: u8 = count
     while left > 0 and i < src.length
         appendByte(dest, src[i]) else fail
         i = i + 1
@@ -37,11 +37,11 @@ sub copyFrom(var dest as string[], src as string[], start as u8, count as u8) fa
     end
 end
 
-sub equal(a as string[], b as string[]) as boolean
+sub equal(a: string[], b: string[]): boolean
     if a.length <> b.length
         return false
     end
-    var i as u8 = 0
+    var i: u8 = 0
     while i < a.length
         if a[i] <> b[i]
             return false
@@ -53,8 +53,8 @@ end
 
 // -1, 0 or 1 as a sorts before, with or after b, byte by byte; a string
 // sorts before any longer string it begins.
-sub compare(a as string[], b as string[]) as i8
-    var i as u8 = 0
+sub compare(a: string[], b: string[]): i8
+    var i: u8 = 0
     while i < a.length and i < b.length
         if a[i] < b[i]
             return -1
@@ -72,14 +72,14 @@ sub compare(a as string[], b as string[]) as i8
 end
 
 // The position of the first t within s, or $FFFF; an empty t is found at 0.
-sub find(s as string[], t as string[]) as u16
+sub find(s: string[], t: string[]): u16
     if t.length > s.length
         return $FFFF
     end
-    var last as u16 = u16(s.length - t.length)
-    var at as u16 = 0
+    var last: u16 = u16(s.length - t.length)
+    var at: u16 = 0
     while at <= last
-        var j as u8 = 0
+        var j: u8 = 0
         while j < t.length and s[at + u16(j)] = t[j]
             j = j + 1
         end
@@ -91,8 +91,8 @@ sub find(s as string[], t as string[]) as u16
     return $FFFF
 end
 
-sub toUpper(var s as string[])
-    var i as u8 = 0
+sub toUpper(var s: string[])
+    var i: u8 = 0
     while i < s.length
         if s[i] >= 'a' and s[i] <= 'z'
             s[i] = s[i] - 32
@@ -101,8 +101,8 @@ sub toUpper(var s as string[])
     end
 end
 
-sub toLower(var s as string[])
-    var i as u8 = 0
+sub toLower(var s: string[])
+    var i: u8 = 0
     while i < s.length
         if s[i] >= 'A' and s[i] <= 'Z'
             s[i] = s[i] + 32
@@ -111,21 +111,21 @@ sub toLower(var s as string[])
     end
 end
 
-private sub blank(b as u8) as boolean
+private sub blank(b: u8): boolean
     return b = ' ' or b = 9
 end
 
 // Remove leading and trailing spaces and tabs.
-sub trim(var s as string[])
-    var last as u8 = s.length
+sub trim(var s: string[])
+    var last: u8 = s.length
     while last > 0 and blank(s[last - 1])
         last = last - 1
     end
-    var first as u8 = 0
+    var first: u8 = 0
     while first < last and blank(s[first])
         first = first + 1
     end
-    var i as u8 = 0
+    var i: u8 = 0
     while first < last
         s[i] = s[first]
         i = i + 1

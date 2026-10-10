@@ -3,16 +3,16 @@
 // unless the value fits: a word's high byte, a byte's sign, the sign of
 // i16's low byte against its high one; and known values converted at
 // compile time.
-var ub as u8 = 200
-var sb as i8 = -3
-var uw as u16 = 300
-var sw as i16 = -300
+var ub: u8 = 200
+var sb: i8 = -3
+var uw: u16 = 300
+var sw: i16 = -300
 
 sub main()
-    var b as u8
-    var c as i8
-    var w as u16
-    var v as i16
+    var b: u8
+    var c: i8
+    var w: u16
+    var v: i16
     w = ub
     v = sb
     v = ub

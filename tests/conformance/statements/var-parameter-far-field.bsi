@@ -4,14 +4,14 @@
 // expect output: B\r\n
 
 record Triple
-    a as u16
-    b as u16
-    c as u16
+    a: u16
+    b: u16
+    c: u16
 end
 
-var t as Triple
+var t: Triple
 
-sub set(var p as Triple)
+sub set(var p: Triple)
     p.c = 66
 end
 

@@ -5,13 +5,13 @@
 forward pool nodes
 
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 
-pool nodes as Node[4]
+pool nodes: Node[4]
 
-var head as nodes?
+var head: nodes?
 
 sub main() fails
     head = new nodes('H', none)

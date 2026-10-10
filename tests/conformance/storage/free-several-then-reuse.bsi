@@ -10,20 +10,20 @@ include "FORMAT.BSI"
 forward pool nodes
 
 record Node
-    key as u8
-    next as nodes?
+    key: u8
+    next: nodes?
 end
 
-pool nodes as Node[3]
-var head as nodes?
+pool nodes: Node[3]
+var head: nodes?
 
-sub push(k as u8)
+sub push(k: u8)
     var n = new nodes(k, none)
     n.next = move head
     head = move n
 end
 
-sub show(var line as string[]) fails
+sub show(var line: string[]) fails
     var p = id(head)
     while true
         select p
@@ -37,7 +37,7 @@ sub show(var line as string[]) fails
     end
 end
 
-sub stale(var line as string[], i as id nodes?) fails
+sub stale(var line: string[], i: id nodes?) fails
     select i
     case some(n)
         append(line, "live ") else fail
@@ -47,15 +47,15 @@ sub stale(var line as string[], i as id nodes?) fails
 end
 
 sub main() fails
-    var line as string[60]
+    var line: string[60]
     push(1)
     push(2)
     push(3)
     show(line) else fail
     append(line, "| ") else fail
     var a = id(head)
-    var b as id nodes? = none
-    var c as id nodes? = none
+    var b: id nodes? = none
+    var c: id nodes? = none
     select head
     case some(h)
         b = id(h.next)

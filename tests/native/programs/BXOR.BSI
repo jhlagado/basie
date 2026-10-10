@@ -1,10 +1,10 @@
 // Boolean xor: known and computed operands on either side, chained,
 // mixed with or, and in a constant.
-const K as boolean = true xor false
-var a as boolean
-var b as boolean
-var r as boolean
-sub show(v as boolean) fails
+const K: boolean = true xor false
+var a: boolean
+var b: boolean
+var r: boolean
+sub show(v: boolean) fails
     if v
         writeByte(console, 'T') else fail
     else

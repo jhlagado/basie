@@ -2,20 +2,20 @@
 // a bit at a time or the whole width (zero, or the sign for a signed
 // shr), and by computed counts clamped to the width and shifted in a
 // loop; shifts of typed constants loaded first, and exact shifts folded.
-var ub as u8 = $81
-var sb as i8 = -16
-var uw as u16 = $8001
-var sw as i16 = -1000
-var n as u8 = 3
-var wn as u16 = 20
-const k as u8 = 6
+var ub: u8 = $81
+var sb: i8 = -16
+var uw: u16 = $8001
+var sw: i16 = -1000
+var n: u8 = 3
+var wn: u16 = 20
+const k: u8 = 6
 const e = 1 shl 20 shr 18
 
 sub main()
-    var b as u8
-    var c as i8
-    var w as u16
-    var v as i16
+    var b: u8
+    var c: i8
+    var w: u16
+    var v: i16
     b = ub shl 1
     b = ub shr 7
     b = ub shl 8

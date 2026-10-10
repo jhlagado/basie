@@ -3,9 +3,9 @@
 // the native compiler's fallthrough set), statements after a return, and
 // routines whose end is or is not reached, which decides their success
 // return.
-var g as u8
+var g: u8
 
-sub sign(n as u8) as u8
+sub sign(n: u8): u8
     if n = 0
         return 0
     elseif n < 128
@@ -15,8 +15,8 @@ sub sign(n as u8) as u8
     end
 end
 
-sub scan(limit as u8) as u8
-    var i as u8
+sub scan(limit: u8): u8
+    var i: u8
     while true
         if i = limit
             return i
@@ -45,7 +45,7 @@ sub late() fails
     end
 end
 
-sub nested(n as u8) as u8
+sub nested(n: u8): u8
     if n > 10
         if n > 20
             return 3

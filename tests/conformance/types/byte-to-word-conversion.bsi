@@ -4,9 +4,9 @@
 // expect trap: narrowing at 12
 
 sub main()
-    var b as i8 = 100
-    var w as u16 = u16(b)
-    var c as u8 = u8(w - 100)
+    var b: i8 = 100
+    var w: u16 = u16(b)
+    var c: u8 = u8(w - 100)
     b = -1 + i8(c)
     w = 7
     w = u16(b)

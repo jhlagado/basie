@@ -4,7 +4,7 @@
 include "BIGB.BSI"
 include "BIGC.BSI"
 
-var total as u16
+var total: u16
 
 sub main() fails
     total = secondB(2) + later(1)

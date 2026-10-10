@@ -3,16 +3,16 @@
 forward pool nodes
 
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 
-pool nodes as Node[4]
+pool nodes: Node[4]
 
-var keep as id nodes?
-var loose as Node
+var keep: id nodes?
+var loose: Node
 
-sub mark(var n as Node)
+sub mark(var n: Node)
     keep = id(n)
 end
 
@@ -29,7 +29,7 @@ sub main() fails
     var h = new nodes('A', none)
     mark(h)
     show() else fail
-    var list as nodes? = new nodes('B', none)
+    var list: nodes? = new nodes('B', none)
     select list
     case some(k)
         keep = id(k)

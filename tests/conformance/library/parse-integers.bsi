@@ -7,9 +7,9 @@
 include "FORMAT.BSI"
 include "PARSE.BSI"
 
-sub u16Case(var line as string[], text as string[]) fails
-    var code as u8 = 0
-    var v as u16 = 0
+sub u16Case(var line: string[], text: string[]) fails
+    var code: u8 = 0
+    var v: u16 = 0
     v = parseU16(text) handle code
         append(line, "B ") else fail
         return
@@ -18,9 +18,9 @@ sub u16Case(var line as string[], text as string[]) fails
     appendByte(line, ' ') else fail
 end
 
-sub i16Case(var line as string[], text as string[]) fails
-    var code as u8 = 0
-    var v as i16 = 0
+sub i16Case(var line: string[], text: string[]) fails
+    var code: u8 = 0
+    var v: i16 = 0
     v = parseI16(text) handle code
         append(line, "B ") else fail
         return
@@ -29,9 +29,9 @@ sub i16Case(var line as string[], text as string[]) fails
     appendByte(line, ' ') else fail
 end
 
-sub u32Case(var line as string[], text as string[]) fails
-    var code as u8 = 0
-    var v as u32 = 0
+sub u32Case(var line: string[], text: string[]) fails
+    var code: u8 = 0
+    var v: u32 = 0
     v = parseU32(text) handle code
         append(line, "B ") else fail
         return
@@ -40,9 +40,9 @@ sub u32Case(var line as string[], text as string[]) fails
     appendByte(line, ' ') else fail
 end
 
-sub i32Case(var line as string[], text as string[]) fails
-    var code as u8 = 0
-    var v as i32 = 0
+sub i32Case(var line: string[], text: string[]) fails
+    var code: u8 = 0
+    var v: i32 = 0
     v = parseI32(text) handle code
         append(line, "B ") else fail
         return
@@ -51,14 +51,14 @@ sub i32Case(var line as string[], text as string[]) fails
     appendByte(line, ' ') else fail
 end
 
-sub finish(var line as string[]) fails
+sub finish(var line: string[]) fails
     append(line, "\r\n") else fail
     writeText(console, line) else fail
     clear(line)
 end
 
 sub main() fails
-    var line as string[100]
+    var line: string[100]
     u16Case(line, "0") else fail
     u16Case(line, "65535") else fail
     u16Case(line, "65536") else fail

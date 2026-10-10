@@ -4,16 +4,16 @@
 // array of owners through a var parameter.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[8]
-var hs as nodes[2]
-var ids as id nodes[2]
-var g as u8
-var i as u8
+pool nodes: Node[8]
+var hs: nodes[2]
+var ids: id nodes[2]
+var g: u8
+var i: u8
 
-sub f(var a as nodes[2], k as u8) as u8
+sub f(var a: nodes[2], k: u8): u8
     a[k].value = 7
     return a[0].value
 end

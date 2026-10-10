@@ -1,15 +1,15 @@
 // An optional owner moved leaves none, which select tests.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[8]
-var head as nodes?
-var g as u8
-var c as boolean
+pool nodes: Node[8]
+var head: nodes?
+var g: u8
+var c: boolean
 sub main()
-    var a as nodes? = new nodes(1, none)
+    var a: nodes? = new nodes(1, none)
     head = move a
     select a
     case some(x)

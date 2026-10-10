@@ -5,12 +5,12 @@
 include "FORMAT.BSI"
 
 sub main() fails
-    var small as u8 = 200
-    var wide as u16 = small
-    var delta as i8 = -3
-    var signed as i16 = delta
-    var both as i16 = small
-    var line as string[40]
+    var small: u8 = 200
+    var wide: u16 = small
+    var delta: i8 = -3
+    var signed: i16 = delta
+    var both: i16 = small
+    var line: string[40]
     appendU16(line, wide) else fail
     appendByte(line, ' ') else fail
     appendI16(line, signed) else fail

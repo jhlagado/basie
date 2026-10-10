@@ -1,57 +1,57 @@
 include "CHN07.BSI"
 // Part 6 of a chain of includes: each part includes the next, so all
 // of them are open while the last loads.
-var c6 as u16
-sub p6r0() as u16
+var c6: u16
+sub p6r0(): u16
     c6 = c6 + 0
     c6 = c6 + 1
     c6 = c6 + 2
     c6 = c6 + 3
     return c6
 end
-sub p6r1() as u16
+sub p6r1(): u16
     c6 = c6 + 1
     c6 = c6 + 2
     c6 = c6 + 3
     c6 = c6 + 4
     return c6
 end
-sub p6r2() as u16
+sub p6r2(): u16
     c6 = c6 + 2
     c6 = c6 + 3
     c6 = c6 + 4
     c6 = c6 + 5
     return c6
 end
-sub p6r3() as u16
+sub p6r3(): u16
     c6 = c6 + 3
     c6 = c6 + 4
     c6 = c6 + 5
     c6 = c6 + 6
     return c6
 end
-sub p6r4() as u16
+sub p6r4(): u16
     c6 = c6 + 4
     c6 = c6 + 5
     c6 = c6 + 6
     c6 = c6 + 7
     return c6
 end
-sub p6r5() as u16
+sub p6r5(): u16
     c6 = c6 + 5
     c6 = c6 + 6
     c6 = c6 + 7
     c6 = c6 + 8
     return c6
 end
-sub p6r6() as u16
+sub p6r6(): u16
     c6 = c6 + 6
     c6 = c6 + 7
     c6 = c6 + 8
     c6 = c6 + 9
     return c6
 end
-sub p6r7() as u16
+sub p6r7(): u16
     c6 = c6 + 7
     c6 = c6 + 8
     c6 = c6 + 9

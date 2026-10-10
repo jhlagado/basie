@@ -3,20 +3,20 @@
 // exit and continue that leaves them, innermost scope first.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[4]
-var head as nodes?
-sub count(k as u8) as u16
+pool nodes: Node[4]
+var head: nodes?
+sub count(k: u8): u16
     var t = new nodes(k, none)
     if k = 0
         return 7
     end
-    var u as nodes? = none
+    var u: nodes? = none
     return u16(k) + 1
 end
-sub check(k as u8) fails
+sub check(k: u8) fails
     var t = new? nodes(k, none)
     if k = 3
         fail 9
@@ -24,13 +24,13 @@ sub check(k as u8) fails
 end
 sub main() fails
     var a = new nodes(1, none)
-    var b as nodes? = new? nodes(2, new nodes(3, none))
-    var c as nodes?
+    var b: nodes? = new? nodes(2, new nodes(3, none))
+    var c: nodes?
     head = new nodes(4, none)
     if true
         var d = new nodes(5, none)
     end
-    var i as u8
+    var i: u8
     for i = 1 to 3
         var n = new? nodes(i, none)
         if i = 2

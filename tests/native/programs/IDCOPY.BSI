@@ -3,21 +3,21 @@
 forward pool boxes
 
 record Inner
-    w as u16
-    c as u8
+    w: u16
+    c: u8
 end
 
 record Box
-    inner as Inner
-    name as string[8]
-    bytes as u8[3]
+    inner: Inner
+    name: string[8]
+    bytes: u8[3]
 end
 
-pool boxes as Box[2]
+pool boxes: Box[2]
 
-var keep as id boxes?
+var keep: id boxes?
 
-sub look(x as Inner, s as string[], b as u8[]) fails
+sub look(x: Inner, s: string[], b: u8[]) fails
     writeByte(console, x.c) else fail
     writeByte(console, s[0]) else fail
     writeByte(console, b[2]) else fail

@@ -3,22 +3,22 @@
 // aggregate variable, constant or routine result is copied, and a scalar
 // a path selects begins an expression that goes on.
 record point
-    x as u8
-    y as u16
+    x: u8
+    y: u16
 end
-const origin as point = (1, 2)
-const delta as u16 = 40
-var where as point
-var row as u8[4] = [1, 2, 3, 4]
-var name as string[6] = "abc"
-var out as u16
+const origin: point = (1, 2)
+const delta: u16 = 40
+var where: point
+var row: u8[4] = [1, 2, 3, 4]
+var name: string[6] = "abc"
+var out: u16
 
-sub make(n as u8) as point
+sub make(n: u8): point
     where.x = n
     return where
 end
 
-sub maybe(n as u8) as point fails
+sub maybe(n: u8): point fails
     if n = 0
         fail 9
     end

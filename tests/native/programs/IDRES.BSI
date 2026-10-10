@@ -2,19 +2,19 @@
 // caller may keep; it is checked on each use, so a stale one tests none.
 forward pool nodes
 record Node
-    value as u16
-    next as nodes?
+    value: u16
+    next: nodes?
 end
-pool nodes as Node[8]
-var head as nodes?
-var kept as id nodes?
+pool nodes: Node[8]
+var head: nodes?
+var kept: id nodes?
 
-sub push(v as u16)
+sub push(v: u16)
     var n = new nodes(v, move head)
     head = move n
 end
 
-sub find(key as u16) as id nodes?
+sub find(key: u16): id nodes?
     var p = id(head)
     while true
         select p
@@ -30,11 +30,11 @@ sub find(key as u16) as id nodes?
     return p
 end
 
-sub first() as id nodes?
+sub first(): id nodes?
     return id(head)
 end
 
-sub pick(key as u16) as id nodes? fails
+sub pick(key: u16): id nodes? fails
     var p = find(key)
     select p
     case some(i)
@@ -49,7 +49,7 @@ sub main() fails
     push(20)
     push(30)
     kept = find(20)
-    var found as u8 = 0
+    var found: u8 = 0
     select kept
     case some(i)
         i.value = 21

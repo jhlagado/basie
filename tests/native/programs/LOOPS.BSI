@@ -1,12 +1,12 @@
 // while loops with exit and continue, nested in ifs and in each other,
 // constant conditions, and a routine whose every path ends in a loop's
 // exit or a return.
-var n as u16 = 0
-var k as u8
-var done as boolean
+var n: u16 = 0
+var k: u8
+var done: boolean
 
-sub find(limit as u16) as u16
-    var i as u16
+sub find(limit: u16): u16
+    var i: u16
     while true
         i = i + 1
         if i = limit
@@ -20,7 +20,7 @@ sub find(limit as u16) as u16
 end
 
 sub main()
-    var j as u8
+    var j: u8
     while n < 100
         n = n + 3
         if n mod 2 = 0

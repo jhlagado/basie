@@ -2,37 +2,37 @@
 forward pool nodes
 
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 
 record Box
-    tag as u8
-    head as nodes?
-    more as nodes?[2]
+    tag: u8
+    head: nodes?
+    more: nodes?[2]
 end
 
-pool nodes as Node[8]
+pool nodes: Node[8]
 
-var list as nodes?
-var box as Box
-var i as u8
+var list: nodes?
+var box: Box
+var i: u8
 
-sub push(var l as nodes?, v as u8)
+sub push(var l: nodes?, v: u8)
     var n = new nodes(v, move l)
     l = move n
 end
 
-sub drop(var l as nodes?)
+sub drop(var l: nodes?)
     l = none
 end
 
-sub twice(var l as nodes?, v as u8)
+sub twice(var l: nodes?, v: u8)
     push(l, v)
     push(l, v + 1)
 end
 
-sub show(var l as nodes?) fails
+sub show(var l: nodes?) fails
     select l
     case some(n)
         writeByte(console, n.value) else fail
@@ -46,7 +46,7 @@ sub show(var l as nodes?) fails
 end
 
 sub main() fails
-    var mine as nodes?
+    var mine: nodes?
     push(list, 'A')
     push(box.head, 'B')
     push(box.more[1], 'C')

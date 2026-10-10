@@ -3,32 +3,32 @@
 // checked against each array and string, records inside records and
 // arrays, and arrays and strings inside records (65.4 h).
 record point
-    x as u8
-    y as u16
-    on as boolean
+    x: u8
+    y: u16
+    on: boolean
 end
 
 record shape
-    name as string[6]
-    at as point
-    corners as point[3]
-    marks as u8[5]
+    name: string[6]
+    at: point
+    corners: point[3]
+    marks: u8[5]
 end
 
-var p as point
-var s as shape
-var shapes as shape[3]
-var cells as u8[4]
-var words as u16[300]
-var title as string[12] = "paths"
-const primes as u8[5] = [2, 3, 5, 7, 11]
-const origin as point = (1, 2, true)
-var i as u8 = 1
-var j as u8 = 2
-var w as u16 = 299
-var x as u8
-var y as u16
-var f as boolean
+var p: point
+var s: shape
+var shapes: shape[3]
+var cells: u8[4]
+var words: u16[300]
+var title: string[12] = "paths"
+const primes: u8[5] = [2, 3, 5, 7, 11]
+const origin: point = (1, 2, true)
+var i: u8 = 1
+var j: u8 = 2
+var w: u16 = 299
+var x: u8
+var y: u16
+var f: boolean
 
 sub main()
     x = p.x

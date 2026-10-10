@@ -4,47 +4,47 @@
 // their fields, elements and characters read, written and passed on
 // (65.4 h).
 record pair
-    a as u8
-    b as u16
+    a: u8
+    b: u16
 end
 
-var g as pair
-var name as string[6] = "basie"
-const twos as u8[3] = [2, 4, 8]
-var i as u8 = 1
-var x as u8
-var y as u16
+var g: pair
+var name: string[6] = "basie"
+const twos: u8[3] = [2, 4, 8]
+var i: u8 = 1
+var x: u8
+var y: u16
 
-sub first(s as string[]) as u8
+sub first(s: string[]): u8
     return s[0]
 end
 
-sub sum(p as pair) as u16
+sub sum(p: pair): u16
     return p.a + p.b
 end
 
-sub made() as pair
+sub made(): pair
     return g
 end
 
-sub copies(q as pair)
-    var mine as pair = q
-    var also as pair = made()
+sub copies(q: pair)
+    var mine: pair = q
+    var also: pair = made()
     mine.b = also.b + 1
     y = sum(mine)
 end
 
 sub main()
-    var small as pair
-    var cells as u8[4]
-    var text as string[8]
-    var big as u16[6]
-    var word as string[5] = "hi"
-    var spot as pair = (7, 700)
-    var row as u8[3] = [1, 2, 3]
-    var pairs as pair[2] = [(1, 10), (2, 20)]
-    var copy as u8[3] = twos
-    var other as string[6] = name
+    var small: pair
+    var cells: u8[4]
+    var text: string[8]
+    var big: u16[6]
+    var word: string[5] = "hi"
+    var spot: pair = (7, 700)
+    var row: u8[3] = [1, 2, 3]
+    var pairs: pair[2] = [(1, 10), (2, 20)]
+    var copy: u8[3] = twos
+    var other: string[6] = name
     small.a = 3
     small.b = small.b + spot.b
     cells[i] = row[2] + cells[3]

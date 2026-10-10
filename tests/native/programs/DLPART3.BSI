@@ -1,2 +1,2 @@
 // The first part DLMAIN3 includes: a parse fault.
-var c as u8 = 1 +
+var c: u8 = 1 +

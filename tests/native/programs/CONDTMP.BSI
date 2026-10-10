@@ -1,11 +1,11 @@
 // A path through a handle in if and while conditions: its temporary stays
 // allocated until the enclosing block ends, as the reference's does.
 record Leaf
-    v as u8
-    s as string[3]
+    v: u8
+    s: string[3]
 end
-pool leaves as Leaf[3]
-var g as u8
+pool leaves: Leaf[3]
+var g: u8
 sub main()
     var a = new leaves(1)
     if a.v = 0

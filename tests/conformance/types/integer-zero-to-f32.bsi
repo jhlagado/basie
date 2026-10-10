@@ -6,14 +6,14 @@
 
 include "FORMAT.BSI"
 
-const minus as i16 = -0
-var a as f32 = -0
-var b as f32 = 0 * -5
-var c as f32 = f32(-0)
+const minus: i16 = -0
+var a: f32 = -0
+var b: f32 = 0 * -5
+var c: f32 = f32(-0)
 
 sub main() fails
-    var line as string[24]
-    var d as f32 = minus
+    var line: string[24]
+    var d: f32 = minus
     appendF32(line, a, 2) else fail
     appendByte(line, ' ') else fail
     appendF32(line, b, 2) else fail

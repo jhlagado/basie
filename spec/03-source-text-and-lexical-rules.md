@@ -88,7 +88,7 @@ After scanning the longest identifier, the tokenizer compares its exact spelling
 The Basie 1.0 reserved words are:
 
 ```text
-and      as       assert   boolean  case     const    continue
+and      assert   boolean  case     const    continue
 else     elseif   end      enum     exit     f32      fail     fails
 false    for      forward  handle   i16      i32      i8
 if       include  mod      move     new      none     not
@@ -106,6 +106,9 @@ record may have a field named `id`, and a variable may be named `id`.
 `from` is a **contextual word** too: it is a keyword only after the result
 type in a routine header, where it begins the `from` clause (Chapter 13,
 Section 13.6). Everywhere else it is an ordinary identifier.
+
+A declared type follows `:` (design decision D52). `as` is not a reserved
+word: it is an ordinary name.
 
 `elseif` is one keyword. `else if` produces the two keywords `else` and `if` and does not form an `elseif` clause. `ELSEIF` is a `NAME`, not a keyword.
 
@@ -185,6 +188,7 @@ The tokenizer recognizes these punctuation tokens:
 | `,`      | item and argument separator                            |
 | `.`      | record-field selection and qualified enum members; also the decimal point inside a floating-point literal |
 | `?`      | the optional suffix on a handle type (`nodes?`)        |
+| `:`      | introduces a declared type (`var total: u32`)          |
 | `+` `-`  | arithmetic punctuation; also unary punctuation         |
 | `*` `/`  | arithmetic punctuation                                 |
 | `=`      | assignment or equality, according to grammar context   |
@@ -196,7 +200,7 @@ Chapter 9 defines which expression operators are admitted, their operand types, 
 
 At each punctuation start, the tokenizer uses deterministic longest match. It recognizes `//` before `/`, and `<>`, `<=`, and `>=` before their one-character prefixes. No other two-character punctuation token is formed. `!=` and `==` are not comparison spellings.
 
-Braces, colon, semicolon, hash, at sign, and backtick have no token in this draft. A source byte that begins no name, number, literal, comment, whitespace, line ending, or listed punctuation token is a lexical error. Basie 1.0 has no lexical preprocessor directive or macro form.
+Braces, semicolon, hash, at sign, and backtick have no token in this draft. A source byte that begins no name, number, literal, comment, whitespace, line ending, or listed punctuation token is a lexical error. Basie 1.0 has no lexical preprocessor directive or macro form.
 
 ## 3.9 Token contract
 

@@ -9,7 +9,7 @@
 
 include "STRINGS.BSI"
 
-sub flag(b as boolean) as u8
+sub flag(b: boolean): u8
     if b
         return 'T'
     end
@@ -17,8 +17,8 @@ sub flag(b as boolean) as u8
 end
 
 sub main() fails
-    var line as string[60]
-    var name as string[14]
+    var line: string[60]
+    var name: string[14]
     var there = exists("A.TXT") else fail
     appendByte(line, flag(there)) else fail
     appendByte(line, ' ') else fail

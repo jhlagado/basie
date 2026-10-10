@@ -3,44 +3,44 @@
 // +0 and the one value that rounds up to it kept; integers adopting f32
 // exactly; conversions rounded or truncated; -0.0 kept where the reference
 // keeps it, an integer zero +0.0.
-const third as f32 = 1.0 / 3.0
-const back as f32 = third * 3.0 - 1.0
-const negzero as f32 = -0.0
-const intzero as f32 = -0
-const bigsum as f32 = 16777216.0 + 1.0
-const largest as f32 = 3.4028234e38
-const tiny as f32 = 1.17549435e-38
-const halved as f32 = tiny * 0.5
-const kept as f32 = tiny / 1.0000001
-const whole as f32 = 100
-const rounded as f32 = f32(16777217)
-const negated as f32 = -(2.5)
-const exponent as f32 = 6.02e23
-const fraction as f32 = 0.000001
-const long as f32 = 123456789012345678901234567890.0
-const ties as f32 = 16777218.0 + 1.0
-const scaled as f32 = 2.5e-3 * 4e3
-const unsigned as f32 = f32(4294967295)
-const signed as f32 = f32(-2147483648)
-var lt as boolean = third < back
-var eq as boolean = negzero = 0.0
-var mixed as boolean = 1.5 > 1
-var trunc as i32 = i32(-2.75)
-var high as u8 = u8(255.9)
-var low as i16 = i16(-32768.5)
-var table as f32[5] = [1.0, 2, -3.5e-3, 1e10, intzero]
+const third: f32 = 1.0 / 3.0
+const back: f32 = third * 3.0 - 1.0
+const negzero: f32 = -0.0
+const intzero: f32 = -0
+const bigsum: f32 = 16777216.0 + 1.0
+const largest: f32 = 3.4028234e38
+const tiny: f32 = 1.17549435e-38
+const halved: f32 = tiny * 0.5
+const kept: f32 = tiny / 1.0000001
+const whole: f32 = 100
+const rounded: f32 = f32(16777217)
+const negated: f32 = -(2.5)
+const exponent: f32 = 6.02e23
+const fraction: f32 = 0.000001
+const long: f32 = 123456789012345678901234567890.0
+const ties: f32 = 16777218.0 + 1.0
+const scaled: f32 = 2.5e-3 * 4e3
+const unsigned: f32 = f32(4294967295)
+const signed: f32 = f32(-2147483648)
+var lt: boolean = third < back
+var eq: boolean = negzero = 0.0
+var mixed: boolean = 1.5 > 1
+var trunc: i32 = i32(-2.75)
+var high: u8 = u8(255.9)
+var low: i16 = i16(-32768.5)
+var table: f32[5] = [1.0, 2, -3.5e-3, 1e10, intzero]
 
 record point
-x as f32
-y as f32
+x: f32
+y: f32
 end
 
-var origin as point = (0.0, -1.5)
+var origin: point = (0.0, -1.5)
 
 sub main()
-    const k as u16 = 40000
-    var w as f32 = k
-    var u as f32 = whole + k * 2.0
+    const k: u16 = 40000
+    var w: f32 = k
+    var u: f32 = whole + k * 2.0
     var v = 0.25
     v = v + third
     w = w / largest

@@ -2,18 +2,18 @@
 // library section 5).
 include "STRINGS.BSI"
 
-private sub blank(b as u8) as boolean
+private sub blank(b: u8): boolean
     return b = ' ' or b = 9
 end
 
 // s followed by CR LF.
-sub writeLine(f as File, s as string[]) fails
+sub writeLine(f: File, s: string[]) fails
     writeText(f, s) else fail
     writeText(f, "\r\n") else fail
 end
 
 // Write text to the console and read one edited line into answer.
-sub prompt(text as string[], var answer as string[]) fails
+sub prompt(text: string[], var answer: string[]) fails
     writeText(console, text) else fail
     readLine(console, answer) else fail
     // BDOS 10 echoes the return key as CR alone.
@@ -23,7 +23,7 @@ end
 // Read a line from the keyboard without echo, for a password. Backspace and
 // delete remove the last character; return ends the line; Control-Z at the
 // start is endOfInput.
-sub readSecret(var answer as string[]) fails
+sub readSecret(var answer: string[]) fails
     clear(answer)
     while true
         var k = readKey()
@@ -47,10 +47,10 @@ end
 
 // Word n of text (0 for the first), words being separated by spaces and
 // tabs. False, with out empty, when text has fewer words.
-sub word(text as string[], n as u8, var out as string[]) as boolean fails
+sub word(text: string[], n: u8, var out: string[]): boolean fails
     clear(out)
-    var i as u8 = 0
-    var count as u8 = 0
+    var i: u8 = 0
+    var count: u8 = 0
     while true
         while i < text.length and blank(text[i])
             i = i + 1
@@ -75,10 +75,10 @@ end
 
 // Read f to its end into buf, returning the bytes read. Reading stops early
 // when buf is full; the count then equals buf.length.
-sub readAll(f as File, var buf as u8[]) as u16 fails
-    var count as u16 = 0
-    var code as u8 = 0
-    var b as u8 = 0
+sub readAll(f: File, var buf: u8[]): u16 fails
+    var count: u16 = 0
+    var code: u8 = 0
+    var b: u8 = 0
     while count < buf.length
         b = readByte(f) handle code
             if code = endOfFile
@@ -99,9 +99,9 @@ end
 // copies the prefix to NAME.~ and replaces the file with it. It fails with
 // fileExists, touching nothing, if NAME.~ already exists. (File types
 // beginning with $ belong to the runtime.)
-sub truncate(name as string[], newSize as u32, mode as u8) fails
-    var temp as string[16]
-    var i as u8 = 0
+sub truncate(name: string[], newSize: u32, mode: u8) fails
+    var temp: string[16]
+    var i: u8 = 0
     while i < name.length and name[i] <> '.'
         appendByte(temp, name[i]) else fail
         i = i + 1
@@ -111,18 +111,18 @@ sub truncate(name as string[], newSize as u32, mode as u8) fails
     if there
         fail fileExists
     end
-    var code as u8 = 0
+    var code: u8 = 0
     var source = openRead(name, mode) else fail
     var target = openWrite(temp, mode) else fail
-    var left as u32 = newSize
+    var left: u32 = newSize
     if mode = binaryMode
-        var block as u8[128]
+        var block: u8[128]
         while left > 0
-            var want as u16 = 128
+            var want: u16 = 128
             if left < 128
                 want = u16(left)
             end
-            var got as u16 = 0
+            var got: u16 = 0
             got = readBlock(source, block, want) handle code
                 abort(source)
                 abort(target)
@@ -139,7 +139,7 @@ sub truncate(name as string[], newSize as u32, mode as u8) fails
             left = left - u32(got)
         end
     else
-        var b as u8 = 0
+        var b: u8 = 0
         while left > 0
             b = readByte(source) handle code
                 if code = endOfFile

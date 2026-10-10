@@ -2,12 +2,12 @@
 // blob where its body is, checks its need against the stack, counts zero
 // in its callers' needs until its body is complete, and may call itself;
 // the limits record flags the program (65.4 e).
-forward sub down(n as u16) as boolean
-var depth as u16
-forward sub even(n as u8) as boolean
+forward sub down(n: u16): boolean
+var depth: u16
+forward sub even(n: u8): boolean
 forward sub tick()
 
-sub odd(n as u8) as boolean
+sub odd(n: u8): boolean
     return n <> 0 and even(n - 1)
 end
 
@@ -26,7 +26,7 @@ sub tick
 end
 
 sub main()
-    var seen as boolean = down(20)
+    var seen: boolean = down(20)
     seen = even(7) or odd(4)
     tick()
 end

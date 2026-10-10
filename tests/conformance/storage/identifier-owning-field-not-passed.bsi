@@ -5,20 +5,20 @@
 include "FORMAT.BSI"
 forward pool nodes
 record Node
-    v as u16
-    next as nodes?
+    v: u16
+    next: nodes?
 end
-pool nodes as Node[1]
+pool nodes: Node[1]
 record Holder
-    h as nodes?
-    w as u16
+    h: nodes?
+    w: u16
 end
 record Box
-    inner as Holder
+    inner: Holder
 end
-pool boxes as Box[1]
-var gb as boxes?
-sub look(x as Holder) fails
+pool boxes: Box[1]
+var gb: boxes?
+sub look(x: Holder) fails
     gb = none
     gb = new boxes()
     select gb
@@ -27,7 +27,7 @@ sub look(x as Holder) fails
         bi.inner.w = 555
     case none
     end
-    var line as string[20]
+    var line: string[20]
     appendU16(line, x.w) else fail
     appendByte(line, ' ') else fail
     select x.h

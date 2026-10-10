@@ -8,7 +8,7 @@ enum Dir
 end
 
 sub main()
-    var d as Dir
+    var d: Dir
     select d
     case Dir.north
     end

@@ -59,12 +59,12 @@ declaration
       | routine-definition
 
 const-declaration
-    ::= "const" NAME [ "as" type ] "=" static-initializer NEWLINE
+    ::= "const" NAME [ ":" type ] "=" static-initializer NEWLINE
 assert-declaration
     ::= "assert" expression NEWLINE
 
 program-var-declaration
-    ::= "var" NAME "as" type [ "=" static-initializer ] NEWLINE
+    ::= "var" NAME ":" type [ "=" static-initializer ] NEWLINE
 static-initializer
     ::= expression
       | STRING
@@ -85,10 +85,10 @@ record-declaration
         field-declaration { field-declaration }
         "end" NEWLINE
 field-declaration
-    ::= NAME "as" type NEWLINE
+    ::= NAME ":" type NEWLINE
 
 pool-declaration
-    ::= "pool" NAME "as" NAME "[" expression "]" NEWLINE
+    ::= "pool" NAME ":" NAME "[" expression "]" NEWLINE
 forward-declaration
     ::= "forward" ( "pool" NAME | routine-header ) NEWLINE
 
@@ -101,9 +101,9 @@ routine-signature-tail
     ::= "(" [ formal-parameter { "," formal-parameter } ] ")"
         [ result-clause ] [ "fails" ]
 formal-parameter
-    ::= [ "var" ] NAME "as" type
+    ::= [ "var" ] NAME ":" type
 result-clause
-    ::= "as" [ "var" ] type [ "from" NAME { "," NAME } ]
+    ::= ":" [ "var" ] type [ "from" NAME { "," NAME } ]
 
 type
     ::= type-atom { "[" [ expression ] "]" }
@@ -126,9 +126,9 @@ statement
       | while-statement
       | for-statement
 local-declaration
-    ::= "var" NAME ( "as" type [ "=" local-initializer ]
+    ::= "var" NAME ( ":" type [ "=" local-initializer ]
                    | "=" local-initializer ) NEWLINE
-      | "const" NAME [ "as" type ] "=" static-initializer NEWLINE
+      | "const" NAME [ ":" type ] "=" static-initializer NEWLINE
 local-initializer
     ::= expression [ failure-propagation ]
       | STRING

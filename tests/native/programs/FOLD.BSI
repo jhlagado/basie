@@ -1,7 +1,7 @@
 // Constant folding, unary minus and the narrowing check (65.4 c).
-var a as u8
-var x as u16
-var f as boolean
+var a: u8
+var x: u16
+var f: boolean
 const k = 12
 const big = 60000
 

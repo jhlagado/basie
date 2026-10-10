@@ -3,7 +3,7 @@
 // spec: 3.5, 9.2
 // expect error: wrong-class at 6:5
 
-sub id(x as u8) as u8
+sub id(x: u8): u8
     return x
 end
 

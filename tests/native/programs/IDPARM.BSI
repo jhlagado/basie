@@ -2,13 +2,13 @@
 // through, passed on, and stale after a free.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[4]
-var keep as id nodes?
+pool nodes: Node[4]
+var keep: id nodes?
 
-sub show(i as id nodes?) fails
+sub show(i: id nodes?) fails
     select i
     case some(n)
         writeByte(console, n.value) else fail
@@ -17,11 +17,11 @@ sub show(i as id nodes?) fails
     end
 end
 
-sub bump(i as id nodes)
+sub bump(i: id nodes)
     i.value = i.value + 1
 end
 
-sub twice(i as id nodes?) fails
+sub twice(i: id nodes?) fails
     show(i) else fail
     show(i) else fail
 end

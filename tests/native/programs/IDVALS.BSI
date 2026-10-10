@@ -3,18 +3,18 @@
 // and selected on.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
-    peer as id nodes?
+    value: u8
+    next: nodes?
+    peer: id nodes?
 end
-pool nodes as Node[8]
-var keep as id nodes?
-var g as u8
+pool nodes: Node[8]
+var keep: id nodes?
+var g: u8
 sub main()
     var n = new nodes(1, none, none)
     var i = id(n)
-    var j as id nodes? = none
-    var k as id nodes? = id(n)
+    var j: id nodes? = none
+    var k: id nodes? = id(n)
     j = i
     keep = id(n)
     n.peer = j

@@ -5,11 +5,11 @@
 forward pool nodes
 
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 
-pool nodes as Node[2]
+pool nodes: Node[2]
 
 sub main()
     var a = new nodes(1, none)

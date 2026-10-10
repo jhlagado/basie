@@ -1,23 +1,23 @@
 // Top-level declarations become data, rodata and bss blobs (65.4 b).
-var a as u8 = 7
-var b as u16 = 300
-var f as boolean = true
-var g as boolean
-var c as u8
-var d as u16
+var a: u8 = 7
+var b: u16 = 300
+var f: boolean = true
+var g: boolean
+var c: u8
+var d: u16
 const k = 5
 const t = true
 const big = 1000
-var arr as u8[4] = [1, 2, 3, 4]
-var buf as u8[3]
-const table as u16[2] = [10, 20]
-const word as string[5] = "hi"
+var arr: u8[4] = [1, 2, 3, 4]
+var buf: u8[3]
+const table: u16[2] = [10, 20]
+const word: string[5] = "hi"
 record point
-    x as u8
-    y as u16
+    x: u8
+    y: u16
 end
-var p as point
-var q as point = (1, 2)
+var p: point
+var q: point = (1, 2)
 
 sub main()
 end

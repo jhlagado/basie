@@ -5,15 +5,15 @@
 // expect output: 1
 include "FORMAT.BSI"
 record Inner
-    w as u16
+    w: u16
 end
 record Box
-    inner as Inner
-    name as string[8]
+    inner: Inner
+    name: string[8]
 end
-pool boxes as Box[1]
-var gb as boxes?
-sub look(x as Inner, s as string[]) fails
+pool boxes: Box[1]
+var gb: boxes?
+sub look(x: Inner, s: string[]) fails
     gb = none
     gb = new boxes()
     select gb
@@ -21,13 +21,13 @@ sub look(x as Inner, s as string[]) fails
         bi.inner.w = 555
     case none
     end
-    var line as string[20]
+    var line: string[20]
     appendU16(line, x.w) else fail
     writeText(console, line) else fail
 end
 sub main() fails
     gb = new boxes()
-    var i as id boxes? = none
+    var i: id boxes? = none
     select gb
     case some(bi)
         bi.inner.w = 1

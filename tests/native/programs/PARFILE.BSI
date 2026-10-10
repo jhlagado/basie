@@ -3,23 +3,23 @@
 // compared with one in parentheses; an owner lent in parentheses; and a
 // variable named id read as an identifier's value, id(...) beside it.
 record Channel
-    out as File
+    out: File
 end
 record Job
-    number as u16
+    number: u16
 end
-pool jobs as Job[4]
-var chan as Channel
-var out as File
-var g as jobs?
-var id as id jobs?
-var keep as id jobs?
+pool jobs: Job[4]
+var chan: Channel
+var out: File
+var g: jobs?
+var id: id jobs?
+var keep: id jobs?
 
-sub mk() as Channel
+sub mk(): Channel
     return chan
 end
 
-sub look(j as Job) as u16
+sub look(j: Job): u16
     return j.number
 end
 
@@ -31,7 +31,7 @@ sub main() fails
     writeText(((chan.out)), "c") else fail
     var same = out = (console)
     var other = out <> ((chan.out))
-    var h as jobs = new jobs(4)
+    var h: jobs = new jobs(4)
     var n = look((h))
     keep = id
     keep = id (g)

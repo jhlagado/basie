@@ -3,9 +3,9 @@
 // spec: 9.11, 13.4
 // expect output: N\r\n
 
-var x as boolean
+var x: boolean
 
-sub long(s as string[]) as boolean
+sub long(s: string[]): boolean
     return s.length > 2
 end
 

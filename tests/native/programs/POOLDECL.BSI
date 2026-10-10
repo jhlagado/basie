@@ -2,17 +2,17 @@
 // handle program variables, arrays of handles among them.
 forward pool cells
 record Node
-    value as u16
-    next as cells?
-    other as id cells?
+    value: u16
+    next: cells?
+    other: id cells?
 end
 record Leaf
-    v as u8
+    v: u8
 end
-pool leaves as Leaf[3]
-pool cells as Node[2]
-var head as cells?
-var mark as id leaves?
-var grid as cells?[3]
+pool leaves: Leaf[3]
+pool cells: Node[2]
+var head: cells?
+var mark: id leaves?
+var grid: cells?[3]
 sub main()
 end

@@ -16,14 +16,14 @@ sub main() fails
     writeLine(out, "one") else fail
     writeLine(out, "two") else fail
     close(out) else fail
-    var buf as u8[16]
+    var buf: u8[16]
     var f = openRead("DATA.TXT", textMode) else fail
     var count = readAll(f, buf) else fail
     close(f) else fail
-    var line as string[30]
+    var line: string[30]
     appendU16(line, count) else fail
     appendByte(line, ' ') else fail
-    var four as u8[4]
+    var four: u8[4]
     f = openRead("DATA.TXT", textMode) else fail
     count = readAll(f, four) else fail
     close(f) else fail
@@ -35,7 +35,7 @@ sub main() fails
     close(f) else fail
     appendU16(line, count) else fail
     truncate("RAW.BIN", 4, binaryMode) else fail
-    var data as u8[130]
+    var data: u8[130]
     f = openRead("RAW.BIN", binaryMode) else fail
     count = readAll(f, data) else fail
     close(f) else fail

@@ -4,7 +4,7 @@
 // expect trap: loop-range at 8
 
 sub main() fails
-    var c as u8
+    var c: u8
     for c = 250 to 300
     end
 end

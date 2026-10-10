@@ -7,13 +7,13 @@ const small = -2000000000
 const back = big - 3999990000
 const neg = -5
 const mask = $FFFF0000 and $12345678
-const ti8 as i8 = -100
-const ti16 as i16 = -30000
-const tw as u16 = 65535
-var w as u16
-var v as i16
-var b as u8
-var c as i8
+const ti8: i8 = -100
+const ti16: i16 = -30000
+const tw: u16 = 65535
+var w: u16
+var v: i16
+var b: u8
+var c: i8
 
 sub main()
     w = back

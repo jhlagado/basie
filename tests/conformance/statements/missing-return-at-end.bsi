@@ -3,7 +3,7 @@
 // spec: 13.5
 // expect error: missing-return at 10:1
 
-sub sign(n as u8) as u8
+sub sign(n: u8): u8
   if n = 0
     return 0
   end

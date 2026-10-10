@@ -3,28 +3,28 @@
 // passed on from a var record parameter, a field of it or its whole; a
 // var result passed as a var argument; a far field through the alias.
 record Inner
-    a as u8
-    b as u16
-    c as u32
+    a: u8
+    b: u16
+    c: u32
 end
 
 record Outer
-    n as u16
-    i as Inner
-    pad as u8[40]
-    far as i16
+    n: u16
+    i: Inner
+    pad: u8[40]
+    far: i16
 end
 
-var g as Outer
-var cells as u16[4]
+var g: Outer
+var cells: u16[4]
 
-sub inner(var r as Inner)
+sub inner(var r: Inner)
     r.a = r.a + 1
     r.b = 4000
     r.c = r.c + 70000
 end
 
-sub outer(var o as Outer, k as Outer)
+sub outer(var o: Outer, k: Outer)
     o.n = k.n + 1
     inner(o.i)
     o.far = -5
@@ -33,25 +33,25 @@ sub outer(var o as Outer, k as Outer)
     o.far = o.far - 1
 end
 
-sub again(var o as Outer)
+sub again(var o: Outer)
     outer(o, g)
     inner(o.i)
 end
 
-sub keep(var o as Outer) as var Inner from o
+sub keep(var o: Outer): var Inner from o
     return o.i
 end
 
-sub fill(var w as u16[4], var t as string[10])
+sub fill(var w: u16[4], var t: string[10])
     w[2] = w[1] + 3
     t = "abc"
     t[1] = 'X'
 end
 
 sub main()
-    var l as Outer
-    var rs as Inner[3]
-    var s as string[10]
+    var l: Outer
+    var rs: Inner[3]
+    var s: string[10]
     outer(l, g)
     again(g)
     inner(rs[2])

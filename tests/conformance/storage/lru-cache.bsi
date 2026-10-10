@@ -7,19 +7,19 @@ include "FORMAT.BSI"
 forward pool entries
 
 record Entry
-    key as u16
-    value as u16
-    next as entries?
-    prev as id entries?
+    key: u16
+    value: u16
+    next: entries?
+    prev: id entries?
 end
 
-pool entries as Entry[3]
-var mru as entries?
-var lru as id entries?
-var count as u8 = 0
-var hit as u16
+pool entries: Entry[3]
+var mru: entries?
+var lru: id entries?
+var count: u8 = 0
+var hit: u16
 
-sub detach(x as id entries) as entries?
+sub detach(x: id entries): entries?
     var nx = move x.next
     select nx
     case some(n)
@@ -39,7 +39,7 @@ sub detach(x as id entries) as entries?
     end
 end
 
-sub attachFront(e as entries)
+sub attachFront(e: entries)
     e.prev = none
     select mru
     case some(m)
@@ -51,7 +51,7 @@ sub attachFront(e as entries)
     mru = move e
 end
 
-sub get(k as u16) as boolean
+sub get(k: u16): boolean
     var p = id(mru)
     while true
         select p
@@ -74,7 +74,7 @@ sub get(k as u16) as boolean
     return false
 end
 
-sub put(k as u16, v as u16)
+sub put(k: u16, v: u16)
     if get(k)
         select mru
         case some(m)
@@ -95,7 +95,7 @@ sub put(k as u16, v as u16)
     count = count + 1
 end
 
-sub flag(b as boolean) as u16
+sub flag(b: boolean): u16
     if b
         return 1
     end
@@ -103,7 +103,7 @@ sub flag(b as boolean) as u16
 end
 
 sub main() fails
-    var line as string[20]
+    var line: string[20]
     put(1, 10)
     put(2, 20)
     put(3, 30)

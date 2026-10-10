@@ -3,33 +3,33 @@
 // literals copied into strings, and scalars selected from parameters and
 // from calls' aggregate results (65.4 h).
 record entry
-    key as u8
-    text as string[5]
-    hits as u16[2]
+    key: u8
+    text: string[5]
+    hits: u16[2]
 end
 
-var a as entry
-var b as entry
-var table as entry[4]
-var line as string[5]
-var copy as string[5]
-var counts as u16[2]
-const blank as entry = (0, "none", [0, 0])
-var i as u8 = 1
-var x as u8
-var y as u16
+var a: entry
+var b: entry
+var table: entry[4]
+var line: string[5]
+var copy: string[5]
+var counts: u16[2]
+const blank: entry = (0, "none", [0, 0])
+var i: u8 = 1
+var x: u8
+var y: u16
 
-sub pick(n as u8) as entry
+sub pick(n: u8): entry
     return table[n]
 end
 
-sub hitsOf(e as entry) as u16[2]
+sub hitsOf(e: entry): u16[2]
     x = e.key + e.text[0] + e.text.length
     y = e.hits[i]
     return counts
 end
 
-sub firstOf(s as string[5]) as u8
+sub firstOf(s: string[5]): u8
     return s[0]
 end
 

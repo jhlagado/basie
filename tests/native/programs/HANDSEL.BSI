@@ -3,19 +3,19 @@
 // through and rechecked; none and case else arms; owners freed in arms.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
-    name as string[4]
+    value: u8
+    next: nodes?
+    name: string[4]
 end
-pool nodes as Node[6]
+pool nodes: Node[6]
 record Box
-    n as nodes?
+    n: nodes?
 end
-var head as nodes?
-var box as Box
-var g as u8
+var head: nodes?
+var box: Box
+var g: u8
 sub main()
-    var a as nodes? = new? nodes(1, none)
+    var a: nodes? = new? nodes(1, none)
     select a
     case some(x)
         x.value = 5

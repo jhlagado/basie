@@ -91,9 +91,9 @@
 
 private const scale = 3
 
-forward sub later(n as u8) as u16
+forward sub later(n: u8): u16
 
-sub firstA(n as u8) as u16
+sub firstA(n: u8): u16
     return later(n) * scale
 end
 

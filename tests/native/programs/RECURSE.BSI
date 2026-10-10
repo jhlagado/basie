@@ -1,24 +1,24 @@
 // Recursion through a forward routine, run: each activation checks the
 // stack, and the results are checked by the narrowing trap, which the
 // last statement reaches only when every result is right (65.4 e).
-forward sub count(n as u16, by as u8) as boolean
-var depth as u16
-var check as u16
-var out as u8
+forward sub count(n: u16, by: u8): boolean
+var depth: u16
+var check: u16
+var out: u8
 
 sub count
-    var below as u16 = n - by
+    var below: u16 = n - by
     depth = depth + by
     return n < by or count(below, by)
 end
 
-sub add3(a as u8, b as u16, c as u8) as u16
+sub add3(a: u8, b: u16, c: u8): u16
     return a + b * 2 + c * 3
 end
 
 sub main()
-    var done as boolean = count(40, 1)
-    var r as u16 = add3(1, 2, 3) xor 14
+    var done: boolean = count(40, 1)
+    var r: u16 = add3(1, 2, 3) xor 14
     check = r + (depth xor 41)
     r = add3(200, 1000, 50) xor 2350
     check = check + r

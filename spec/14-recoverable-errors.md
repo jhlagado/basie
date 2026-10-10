@@ -24,7 +24,7 @@ A routine that can return a recoverable error writes `fails` at the end of its h
 routine-header ::= "sub" NAME "(" [ formal-parameter
                    { "," formal-parameter } ] ")"
                    [ result-clause ] [ "fails" ]
-result-clause  ::= "as" [ "var" ] type [ "from" NAME { "," NAME } ]
+result-clause  ::= ":" [ "var" ] type [ "from" NAME { "," NAME } ]
 ```
 
 `fails` is part of the routine signature. A forward declaration records it once; the later abbreviated body header cannot repeat it. An ordinary routine without a forward includes it in its complete header. The clause does not change the declared parameters or optional success-result type.
@@ -54,7 +54,7 @@ Named codes are ordinary constants:
 const badDigit = 1
 const tooLarge = 2
 
-sub parseDigit(value as u8) as u8 fails
+sub parseDigit(value: u8): u8 fails
     if value < '0' or value > '9'
         fail badDigit
     end
@@ -88,8 +88,8 @@ failure-propagation ::= "else" "fail"
 On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `else fail` immediately returns the same `u8` code from the enclosing routine, leaving every block as `fail` does, so its owning locals and parameters are freed (Section 7.12). The enclosing routine must declare `fails`.
 
 ```basie
-sub loadByte() as u8 fails
-    var value as u8 = readInputByte() else fail
+sub loadByte(): u8 fails
+    var value: u8 = readInputByte() else fail
     return value
 end
 ```
@@ -111,8 +111,8 @@ On success, the call supplies its ordinary result, the assignment occurs when pr
 
 ```basie
 sub copyOne()
-    var code as u8
-    var value as u8
+    var code: u8
+    var value: u8
 
     value = readInputByte() handle code
         return

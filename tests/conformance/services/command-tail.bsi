@@ -4,7 +4,7 @@
 // expect output: [HELLO WORLD]\r\n
 
 sub main() fails
-    var text as string[40]
+    var text: string[40]
     commandTail(text)
     writeText(console, "[") else fail
     writeText(console, text) else fail

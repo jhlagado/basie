@@ -1,11 +1,11 @@
 // File elements at computed places (74): stored and loaded through their
 // addresses as a long is.
-var outs as File[3]
-sub pick(i as u8) as File
+var outs: File[3]
+sub pick(i: u8): File
     return outs[i]
 end
 sub main() fails
-    var i as u8
+    var i: u8
     for i = 0 to 2
         outs[i] = console
     end

@@ -4,7 +4,7 @@
 include "INCLIB.BSI"
 include "INCUTIL.BSI"
 
-var total as u16
+var total: u16
 private const scale = 7
 
 sub main()

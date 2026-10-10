@@ -1,8 +1,8 @@
 // u8 and u16 together, widening and the conversions (65.4 c).
-var a as u8 = 200
-var b as u8 = 9
-var x as u16 = 1000
-var y as u16
+var a: u8 = 200
+var b: u8 = 9
+var x: u16 = 1000
+var y: u16
 
 sub main()
     y = a + x

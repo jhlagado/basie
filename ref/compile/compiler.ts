@@ -489,7 +489,7 @@ export class Compiler {
     this.expectKeyword("const");
     const name = this.expectName();
     let type: Type | undefined;
-    if (this.acceptKeyword("as")) {
+    if (this.acceptPunct(":")) {
       const typeAt = this.token;
       type = this.parseType();
       this.refuseOpenView(type, typeAt, "a constant");
@@ -554,7 +554,7 @@ export class Compiler {
   private programVar(isPrivate: boolean): void {
     this.expectKeyword("var");
     const name = this.expectName();
-    this.expectKeyword("as");
+    this.expectPunct(":");
     const typeAt = this.token;
     const type = this.parseType();
     this.refuseOpenView(type, typeAt, "a program variable");
@@ -613,7 +613,7 @@ export class Compiler {
         continue;
       }
       const field = this.expectName();
-      this.expectKeyword("as");
+      this.expectPunct(":");
       const typeAt = this.token;
       const ftype = this.parseType();
       this.refuseOpenView(ftype, typeAt, "a field");
@@ -961,7 +961,7 @@ export class Compiler {
       do {
         const isVar = this.acceptKeyword("var");
         const pname = this.expectName();
-        this.expectKeyword("as");
+        this.expectPunct(":");
         const ptype = this.parseType();
         if (
           isVar &&
@@ -995,7 +995,7 @@ export class Compiler {
     let result: Type | undefined;
     let varResult = false;
     const from: string[] = [];
-    if (this.acceptKeyword("as")) {
+    if (this.acceptPunct(":")) {
       varResult = this.acceptKeyword("var");
       const resultAt = this.token;
       result = this.parseType();
@@ -1405,7 +1405,7 @@ export class Compiler {
     this.expectKeyword("var");
     const name = this.expectName();
     let type: Type | undefined;
-    if (this.acceptKeyword("as")) {
+    if (this.acceptPunct(":")) {
       const typeAt = this.token;
       type = this.parseType();
       this.refuseOpenView(type, typeAt, "a local");
@@ -2174,7 +2174,7 @@ export class Compiler {
   private poolDeclaration(isPrivate: boolean): void {
     this.expectKeyword("pool");
     const name = this.expectName();
-    this.expectKeyword("as");
+    this.expectPunct(":");
     const recName = this.token;
     if (recName.kind !== "name") {
       fail("pool-needs-record", recName, "a pool holds records");

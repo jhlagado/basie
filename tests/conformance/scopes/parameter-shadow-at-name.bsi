@@ -1,11 +1,11 @@
 // A parameter that would hide a visible name is reported at the
 // parameter's name, not at the routine's `sub`.
 // spec: 5.10
-// expect error: shadowed-name at 8:23
+// expect error: shadowed-name at 8:21
 
-var limit as u8
+var limit: u8
 
-sub clip(value as u8, limit as u8) as u8
+sub clip(value: u8, limit: u8): u8
   return value
 end
 

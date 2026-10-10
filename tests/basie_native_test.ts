@@ -52,7 +52,7 @@ function run(tail: string, files: Files = {}) {
 
 const USAGE = "Usage: BASIE PART[,PART...] [OPTIONS]\r\n";
 
-const PROGRAM = "var value as u16 = 3\nvar cleared as u8\nsub main()\n" +
+const PROGRAM = "var value: u16 = 3\nvar cleared: u8\nsub main()\n" +
   "value = value * 2\nend\n";
 
 const MAIN = { "MAIN.BSI": PROGRAM };
@@ -123,7 +123,7 @@ Deno.test("BASIE compiles a program from a file", () => {
 
 Deno.test("BASIE compiles a program of several parts", () => {
   const files = {
-    "DATA.BSI": "var result as u8\n",
+    "DATA.BSI": "var result: u8\n",
     "MAIN.BSI": "sub main()\nresult = 12\nend\n",
   };
   assertEquals(run("DATA, MAIN [C]", files), "");
@@ -157,8 +157,8 @@ Deno.test("BASIE loads the parts a part includes, each once, before it", () => {
     "MAIN.BSI": 'include "LIB.BSI"\ninclude "BASE.BSI"\nsub main()\n' +
       "result = twice(3)\nend\n",
     "LIB.BSI": '// The library.\ninclude "BASE.BSI"\n\n' +
-      "sub twice(n as u8) as u8\nreturn n + n + base\nend\n",
-    "BASE.BSI": "var result as u8\nconst base = 0\n",
+      "sub twice(n: u8): u8\nreturn n + n + base\nend\n",
+    "BASE.BSI": "var result: u8\nconst base = 0\n",
   };
   const result = build("MAIN [C,K]", files);
   assertEquals(result.output, "");
@@ -185,7 +185,7 @@ Deno.test("a part gone when it is loaded again is L-MISSING, and the streams go"
       "BASIE.OVL": OVL,
       "CPM22.BRL": LIBRARY,
       "MAIN.BSI": "sub main()\nend\n",
-      "BASE.BSI": "var b as u8\n",
+      "BASE.BSI": "var b: u8\n",
     },
     maxSteps: 50_000_000,
     onBdos: (c) => {
@@ -205,7 +205,7 @@ Deno.test("a part gone when it is loaded again is L-MISSING, and the streams go"
 
 Deno.test("an include is looked for on its part's drive, then on L's or A:", () => {
   const main = 'include "LIB.BSI"\nsub main()\nresult = 1\nend\n';
-  const lib = "var result as u8\n";
+  const lib = "var result: u8\n";
   // On the including part's drive first,
   assertEquals(
     run("B:MAIN [C]", { "B:MAIN.BSI": main, "B:LIB.BSI": lib }),
@@ -314,14 +314,14 @@ Deno.test("expressions nest 32 deep, the stack's bound, and deeper is a capacity
   // since 68); the spec's minimum is 32 (limits §5.1). Unchecked, 48
   // levels ran into the part table below the stack.
   const nested = (n: number) =>
-    `sub main()\n    var x as u16\n    x = ${"(".repeat(n)}x${
+    `sub main()\n    var x: u16\n    x = ${"(".repeat(n)}x${
       " + 1)".repeat(n)
     }\nend\n`;
   assertEquals(run("MAIN [C]", { "MAIN.BSI": nested(32) }), "");
   // Nested to the right, each level keeps its left operand on the operand
   // stack (32 entries since 68) as well as the machine stack.
   const right = (n: number) =>
-    `sub main()\n    var x as u16\n    x = ${"x + (".repeat(n)}x${
+    `sub main()\n    var x: u16\n    x = ${"x + (".repeat(n)}x${
       ")".repeat(n)
     }\nend\n`;
   assertEquals(run("MAIN [C]", { "MAIN.BSI": right(32) }), "");
@@ -341,7 +341,7 @@ Deno.test("statements nest 32 deep, and deeper is a capacity", () => {
         "    ".repeat(i)
       }end\n`;
     }
-    return `var n as u8\nsub main()\n${body}end\n`;
+    return `var n: u8\nsub main()\n${body}end\n`;
   };
   assertEquals(run("MAIN [C]", { "MAIN.BSI": nested(32) }), "");
   assertEquals(
@@ -441,7 +441,7 @@ Deno.test("BASIE refuses a bad, repeated or misplaced option as BLINK does", () 
 });
 
 /** A program that traps, compiled and linked by the reference. */
-const TRAPPING = "var cells as u8[4]\nvar i as u8\nsub main()\n" +
+const TRAPPING = "var cells: u8[4]\nvar i: u8\nsub main()\n" +
   "    i = 9\n  cells[i] = 1\nend\n";
 const linked = await compile("MAIN.BSI", {
   mainSource: new TextEncoder().encode(TRAPPING),
@@ -616,7 +616,7 @@ Deno.test("BASIE looks for the library on L's drive or the first part's, then A:
 Deno.test("BASIE writes the streams on the spool drive, with the first part's name", () => {
   const streams = ["$DR", "$BY", "$LN", "$NM"];
   let result = build("B:MAIN,C:MORE [M,C]", {
-    "B:MAIN.BSI": "var x as u8\n",
+    "B:MAIN.BSI": "var x: u8\n",
     "C:MORE.BSI": "sub main()\nx = 1\nend\n",
   });
   assertEquals(result.output, "");
@@ -702,7 +702,7 @@ Deno.test("BASIE HELLO compiles and links HELLO.COM, which prints Hello", () => 
   for (const t of STREAMS) assertEquals(result.disk.has(`HELLO.${t}`), false);
   // Several parts: the program and its files take the first part's name.
   const parts = chain("DATA, MAIN", {
-    "DATA.BSI": "var x as u8 = 72\n",
+    "DATA.BSI": "var x: u8 = 72\n",
     "MAIN.BSI": "sub main() fails\nwriteByte(console, x) else fail\nend\n",
   });
   assertEquals(parts.output, "");

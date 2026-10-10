@@ -7,13 +7,13 @@
 forward pool nodes
 
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
 
-pool nodes as Node[4]
+pool nodes: Node[4]
 
-sub flag(b as boolean) as u8
+sub flag(b: boolean): u8
     if b
         return 'T'
     end
@@ -26,7 +26,7 @@ sub main() fails
     var ia = id(a)
     var ib = id(b)
     var ia2 = id(a)
-    var empty as id nodes? = none
+    var empty: id nodes? = none
     writeByte(console, flag(ia = ia2)) else fail
     writeByte(console, flag(ia = ib)) else fail
     writeByte(console, flag(ia <> ib)) else fail

@@ -3,9 +3,9 @@
 // only once the jumps inside them shrink; string literals after shrunk
 // code; and a routine long enough that its references and line entries
 // need absolute offsets once the dropped jumps are gone.
-var n as u16
-var b as u8
-var s as string[20]
+var n: u16
+var b: u8
+var s: string[20]
 
 sub edge0()
     while n < 1000

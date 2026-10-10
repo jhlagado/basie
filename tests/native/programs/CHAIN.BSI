@@ -1,6 +1,6 @@
 include "CHN01.BSI"
 // A chain of sixteen includes (74).
-var t as u16
+var t: u16
 sub main() fails
     t = t + p1r7()
     t = t + p2r7()

@@ -1,21 +1,21 @@
 // id( is id(...), whatever is declared: here beside a variable named id.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
-    peer as id nodes?
-    ps as id nodes?[2]
+    value: u8
+    next: nodes?
+    peer: id nodes?
+    ps: id nodes?[2]
 end
-pool nodes as Node[8]
-var keep as id nodes?
-var ks as id nodes?[3]
-var g as u8
-var head as nodes?
-sub take(x as nodes?)
+pool nodes: Node[8]
+var keep: id nodes?
+var ks: id nodes?[3]
+var g: u8
+var head: nodes?
+sub take(x: nodes?)
 end
 sub main()
-    var id as u8 = 2
-    var n as nodes? = new nodes(1, none, none)
+    var id: u8 = 2
+    var n: nodes? = new nodes(1, none, none)
     var o = new nodes(2, none, none)
     keep = id(o)
 end

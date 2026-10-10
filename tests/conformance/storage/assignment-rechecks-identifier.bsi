@@ -4,18 +4,18 @@
 // expect trap: stale-handle at 32
 include "FORMAT.BSI"
 record Box
-    w as u16
-    arr as u16[4]
+    w: u16
+    arr: u16[4]
 end
-pool boxes as Box[1]
-var gb as boxes?
-sub churn() as u16
+pool boxes: Box[1]
+var gb: boxes?
+sub churn(): u16
     gb = none
     gb = new boxes()
     return 7
 end
 sub show() fails
-    var line as string[20]
+    var line: string[20]
     select gb
     case some(j)
         appendU16(line, j.w) else fail

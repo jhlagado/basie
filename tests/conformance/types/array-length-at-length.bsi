@@ -1,9 +1,9 @@
 // An array length out of range is reported at the length, not at the
 // start of the type.
 // spec: 6.7
-// expect error: out-of-range at 6:17
+// expect error: out-of-range at 6:15
 
-var table as u8[0]
+var table: u8[0]
 
 sub main()
 end

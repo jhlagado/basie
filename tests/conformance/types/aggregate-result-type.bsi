@@ -2,9 +2,9 @@
 // spec: 13.6
 // expect error: type-mismatch at 8:12
 
-var name as string[8]
+var name: string[8]
 
-sub cells() as u8[4]
+sub cells(): u8[4]
     return name
 end
 

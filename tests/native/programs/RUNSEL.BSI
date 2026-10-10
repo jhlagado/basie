@@ -4,13 +4,13 @@
 // the reference build must print too.
 // expect output: aabbcdz\r\nABCDEFG\r\nhijkl\r\nmnomn\r\n13 8\r\n
 
-var line as string[20]
+var line: string[20]
 
-sub put(c as u8) fails
+sub put(c: u8) fails
     writeByte(console, c) else fail
 end
 
-sub bytes(v as u8) as u8
+sub bytes(v: u8): u8
     select v
     case 0
         return 'a'
@@ -25,7 +25,7 @@ sub bytes(v as u8) as u8
     end
 end
 
-sub signed(v as i8) as u8
+sub signed(v: i8): u8
     select v
     case -128 to -100
         return 'A'
@@ -41,7 +41,7 @@ sub signed(v as i8) as u8
     return '?'
 end
 
-sub words(v as u16, s as i16) as u8
+sub words(v: u16, s: i16): u8
     select v
     case 0 to 999
         select s
@@ -61,7 +61,7 @@ sub words(v as u16, s as i16) as u8
     return '?'
 end
 
-sub longs(v as u32, s as i32) as u8
+sub longs(v: u32, s: i32): u8
     select s
     case -2147483648
         return 'k'
@@ -109,9 +109,9 @@ sub main() fails
     put(longs(99999, 1)) else fail
     put(longs(4294967294, 1)) else fail
     writeText(console, "\r\n") else fail
-    var i as u8
-    var sum as u8
-    var odd as u8
+    var i: u8
+    var sum: u8
+    var odd: u8
     while i < 30
         i = i + 1
         select (i mod 3)

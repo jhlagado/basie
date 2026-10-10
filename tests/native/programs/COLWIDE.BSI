@@ -1,5 +1,5 @@
 // A statement starting past column 255: its column is kept as 255.
-var x as u8
+var x: u8
 sub main()
                                                                                                                                                                                                                                                                                                            x = 1
 end

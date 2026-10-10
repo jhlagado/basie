@@ -9,7 +9,7 @@ enum Choice
 end
 
 sub main() fails
-    var selected as Choice
+    var selected: Choice
     assert selected = Choice.own
     assert fromA()
     assert fromB()

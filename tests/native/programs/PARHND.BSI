@@ -2,16 +2,16 @@
 // owner made, moved or none, assigned, passed, returned and initializing
 // a typed local; an identifier made or none, assigned.
 record Job
-    number as u16
+    number: u16
 end
-pool jobs as Job[4]
-var g as jobs?
-var k as id jobs?
+pool jobs: Job[4]
+var g: jobs?
+var k: id jobs?
 
-sub take(x as jobs?)
+sub take(x: jobs?)
 end
 
-sub make() as jobs?
+sub make(): jobs?
     return (new jobs(3))
 end
 
@@ -20,7 +20,7 @@ sub main()
     k = (id(g))
     take(((move g)))
     take((new jobs(2)))
-    var h as jobs? = (make())
+    var h: jobs? = (make())
     g = (none)
     k = ((none))
 end

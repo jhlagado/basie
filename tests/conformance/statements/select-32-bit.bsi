@@ -3,7 +3,7 @@
 // spec: 11.7.2
 // expect output: abcde fgh\r\n
 
-sub classify(v as u32) as u8
+sub classify(v: u32): u8
     select v
     case 0
         return 'a'
@@ -18,7 +18,7 @@ sub classify(v as u32) as u8
     end
 end
 
-sub sign(v as i32) as u8
+sub sign(v: i32): u8
     select v
     case -2147483648 to -1
         return 'f'

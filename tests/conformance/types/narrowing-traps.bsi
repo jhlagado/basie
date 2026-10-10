@@ -3,7 +3,7 @@
 // expect trap: narrowing at 8
 
 sub main()
-    var wide as u16 = 300
-    var byte as u8
+    var wide: u16 = 300
+    var byte: u8
     byte = u8(wide)
 end

@@ -6,19 +6,19 @@ forward pool nodes
 forward pool subs
 
 record Sub
-    x as u16
+    x: u16
 end
 
 record Node
-    value as u16
-    inner as Sub
-    next as nodes?
+    value: u16
+    inner: Sub
+    next: nodes?
 end
 
-pool nodes as Node[8]
-pool subs as Sub[8]
+pool nodes: Node[8]
+pool subs: Sub[8]
 
-sub poke(var s as Sub) fails
+sub poke(var s: Sub) fails
     var i = id(s)
     select i
     case some(j)
@@ -28,7 +28,7 @@ sub poke(var s as Sub) fails
     end
 end
 
-sub bump(var n as Node) fails
+sub bump(var n: Node) fails
     poke(n.inner) else fail
 end
 

@@ -122,77 +122,77 @@ const c116 = 116
 const c117 = 117
 const c118 = 118
 const c119 = 119
-var g00 as u16
-var g01 as u16
-var g02 as u16
-var g03 as u16
-var g04 as u16
-var g05 as u16
-var g06 as u16
-var g07 as u16
-var g08 as u16
-var g09 as u16
-var g10 as u16
-var g11 as u16
-var g12 as u16
-var g13 as u16
-var g14 as u16
-var g15 as u16
-var g16 as u16
-var g17 as u16
-var g18 as u16
-var g19 as u16
-var g20 as u16
-var g21 as u16
-var g22 as u16
-var g23 as u16
-var g24 as u16
-var g25 as u16
-var g26 as u16
-var g27 as u16
-var g28 as u16
-var g29 as u16
-sub total() as u16
-    var l00 as u16 = c000
-    var l01 as u16 = c003
-    var l02 as u16 = c006
-    var l03 as u16 = c009
-    var l04 as u16 = c012
-    var l05 as u16 = c015
-    var l06 as u16 = c018
-    var l07 as u16 = c021
-    var l08 as u16 = c024
-    var l09 as u16 = c027
-    var l10 as u16 = c030
-    var l11 as u16 = c033
-    var l12 as u16 = c036
-    var l13 as u16 = c039
-    var l14 as u16 = c042
-    var l15 as u16 = c045
-    var l16 as u16 = c048
-    var l17 as u16 = c051
-    var l18 as u16 = c054
-    var l19 as u16 = c057
-    var l20 as u16 = c060
-    var l21 as u16 = c063
-    var l22 as u16 = c066
-    var l23 as u16 = c069
-    var l24 as u16 = c072
-    var l25 as u16 = c075
-    var l26 as u16 = c078
-    var l27 as u16 = c081
-    var l28 as u16 = c084
-    var l29 as u16 = c087
-    var l30 as u16 = c090
-    var l31 as u16 = c093
-    var l32 as u16 = c096
-    var l33 as u16 = c099
-    var l34 as u16 = c102
-    var l35 as u16 = c105
-    var l36 as u16 = c108
-    var l37 as u16 = c111
-    var l38 as u16 = c114
-    var l39 as u16 = c117
+var g00: u16
+var g01: u16
+var g02: u16
+var g03: u16
+var g04: u16
+var g05: u16
+var g06: u16
+var g07: u16
+var g08: u16
+var g09: u16
+var g10: u16
+var g11: u16
+var g12: u16
+var g13: u16
+var g14: u16
+var g15: u16
+var g16: u16
+var g17: u16
+var g18: u16
+var g19: u16
+var g20: u16
+var g21: u16
+var g22: u16
+var g23: u16
+var g24: u16
+var g25: u16
+var g26: u16
+var g27: u16
+var g28: u16
+var g29: u16
+sub total(): u16
+    var l00: u16 = c000
+    var l01: u16 = c003
+    var l02: u16 = c006
+    var l03: u16 = c009
+    var l04: u16 = c012
+    var l05: u16 = c015
+    var l06: u16 = c018
+    var l07: u16 = c021
+    var l08: u16 = c024
+    var l09: u16 = c027
+    var l10: u16 = c030
+    var l11: u16 = c033
+    var l12: u16 = c036
+    var l13: u16 = c039
+    var l14: u16 = c042
+    var l15: u16 = c045
+    var l16: u16 = c048
+    var l17: u16 = c051
+    var l18: u16 = c054
+    var l19: u16 = c057
+    var l20: u16 = c060
+    var l21: u16 = c063
+    var l22: u16 = c066
+    var l23: u16 = c069
+    var l24: u16 = c072
+    var l25: u16 = c075
+    var l26: u16 = c078
+    var l27: u16 = c081
+    var l28: u16 = c084
+    var l29: u16 = c087
+    var l30: u16 = c090
+    var l31: u16 = c093
+    var l32: u16 = c096
+    var l33: u16 = c099
+    var l34: u16 = c102
+    var l35: u16 = c105
+    var l36: u16 = c108
+    var l37: u16 = c111
+    var l38: u16 = c114
+    var l39: u16 = c117
     return l00 + l04 + l08 + l12 + l16 + l20 + l24 + l28 + l32 + l36 + c119
 end
 sub main() fails

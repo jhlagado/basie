@@ -2,8 +2,8 @@
 // calls it back, and a routine after it calls it too; a counter ends the
 // recursion.
 forward sub main()
-var depth as u8
-var calls as u16
+var depth: u8
+var calls: u16
 
 sub helper()
     calls = calls + 1

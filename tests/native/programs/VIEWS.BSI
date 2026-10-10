@@ -2,29 +2,29 @@
 // capacity and characters, passed string literals, declared strings,
 // strings reached through paths, and views passed on (65.4 h).
 record person
-    name as string[10]
-    age as u8
+    name: string[10]
+    age: u8
 end
 
-var people as person[3]
-var greeting as string[20] = "hello"
-var i as u8 = 1
-var x as u8
-var y as u16
+var people: person[3]
+var greeting: string[20] = "hello"
+var i: u8 = 1
+var x: u8
+var y: u16
 
-sub count(s as string[]) as u8
+sub count(s: string[]): u8
     return s.length
 end
 
-sub room(s as string[]) as u16
+sub room(s: string[]): u16
     return s.capacity
 end
 
-sub nth(s as string[], n as u8) as u8
+sub nth(s: string[], n: u8): u8
     return s[n]
 end
 
-sub both(a as string[], b as string[]) as u8
+sub both(a: string[], b: string[]): u8
     x = count(a) + nth(b, 0)
     y = room(a) + room(b)
     return nth(a, i) + b.length

@@ -3,6 +3,6 @@
 // expect error: chained-comparison at 7:20
 
 sub main()
-    var a as u8 = 1
+    var a: u8 = 1
     var ok = a < 2 < 3
 end

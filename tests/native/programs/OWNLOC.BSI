@@ -2,13 +2,13 @@
 // freed at the end of their block, at a return and at exit.
 forward pool nodes
 record Node
-    value as u8
-    next as nodes?
+    value: u8
+    next: nodes?
 end
-pool nodes as Node[2]
+pool nodes: Node[2]
 
 sub fill() fails
-    var head as Node
+    var head: Node
     head.next = new nodes('A', none)
     select head.next
     case some(n)
@@ -17,14 +17,14 @@ sub fill() fails
     end
 end
 
-sub early(stop as boolean) as u8
-    var head as Node
+sub early(stop: boolean): u8
+    var head: Node
     head.next = new nodes('B', none)
     if stop
         return 1
     end
     while true
-        var inner as Node
+        var inner: Node
         inner.next = new nodes('C', none)
         exit
     end

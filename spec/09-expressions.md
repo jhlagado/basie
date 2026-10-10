@@ -162,7 +162,7 @@ The six comparison operators produce `boolean`.
 
 These operators work logically on `boolean` operands and bit by bit on integer operands, as in Pascal (design decision D31). Mixing a `boolean` and an integer operand is invalid. Integer operands follow Section 9.7 and the result has their common type; `f32` operands are invalid.
 
-- `not` on a `boolean` exchanges `true` and `false`; on an integer it complements every bit of the operand's type. An exact operand takes the context's expected integer type, so `var b as u8 = not 0` gives 255; without one, `not` of an exact integer is invalid.
+- `not` on a `boolean` exchanges `true` and `false`; on an integer it complements every bit of the operand's type. An exact operand takes the context's expected integer type, so `var b: u8 = not 0` gives 255; without one, `not` of an exact integer is invalid.
 - `and`, `or` and `xor` on two exact integers are folded exactly; both must be non-negative, since an exact value has no width to complement.
 - `and` and `or` on integers combine corresponding bits and evaluate both operands.
 - `xor` combines by exclusive OR, on integers bit by bit and on `boolean` values logically. It always evaluates both operands.
@@ -232,12 +232,12 @@ not not flag        // not (not flag)
 Mixed operands:
 
 ```basie
-var small as u8 = 200
-var wide as i16 = -5
+var small: u8 = 200
+var wide: i16 = -5
 var x = small + wide        // i16 addition: u8 widens to i16; x is i16
 var y = wide + 1            // i16; the literal adopts i16
 var z = f32(wide) * 0.5     // f32
-var w as u16 = 40000
+var w: u16 = 40000
 var bad = w + wide          // invalid: u16 and i16 don't widen to each other
 var ok = i32(w) + wide      // i32
 ```

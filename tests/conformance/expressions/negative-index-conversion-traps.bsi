@@ -2,9 +2,9 @@
 // spec: 9.4, 9.6
 // expect trap: narrowing at 9
 
-var cells as u8[4]
+var cells: u8[4]
 
 sub main()
-    var i as i8 = -1
+    var i: i8 = -1
     cells[u8(i)] = 0
 end
