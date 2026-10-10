@@ -3,7 +3,7 @@
 // spec: 12.5, 15.2
 // expect trap: loop-range at 8
 
-sub main() fails
+sub main() fails IoError
     var s: i32
     for s = 2147483640 to 3000000000
     end

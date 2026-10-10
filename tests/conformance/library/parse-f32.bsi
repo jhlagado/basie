@@ -1,13 +1,18 @@
 // PARSE.BSI: parseF32, exact for short numbers; zero below f32's range,
-// badNumber above it and on malformed text.
+// ParseError.badNumber above it and on malformed text.
 // spec: 16.4; standard library 4
 // expect output: TTTTTTTTT 0 BBBBBB\r\n
 
 include "STRINGS.BSI"
 include "PARSE.BSI"
 
-sub same(var line: string[], text: string[], want: f32) fails
-    var v = try parseF32(text)
+sub same(var line: string[], text: string[], want: f32) fails IoError
+    var e: ParseError
+    var v: f32 = 0.0
+    v = parseF32(text) handle e
+        try appendByte(var line, 'X')
+        return
+    end
     if v = want
         try appendByte(var line, 'T')
     else
@@ -15,11 +20,11 @@ sub same(var line: string[], text: string[], want: f32) fails
     end
 end
 
-sub bad(var line: string[], text: string[]) fails
-    var code: u8 = 0
+sub bad(var line: string[], text: string[]) fails IoError
+    var code: ParseError
     var v: f32 = 0.0
     v = parseF32(text) handle code
-        if code = badNumber
+        if code = ParseError.badNumber
             try appendByte(var line, 'B')
         end
         return
@@ -27,7 +32,7 @@ sub bad(var line: string[], text: string[]) fails
     try appendByte(var line, '?')
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[40]
     try same(var line, "1.5", 1.5)
     try same(var line, "-0.25", -0.25)
@@ -38,7 +43,10 @@ sub main() fails
     try same(var line, "3.14159", 3.14159)
     try same(var line, "1234.5678", 1234.5678)
     try same(var line, "123456789012", 123456789012.0)
-    var tiny = try parseF32("1e-50")
+    var e: ParseError
+    var tiny: f32 = 1.0
+    tiny = parseF32("1e-50") handle e
+    end
     if tiny = 0.0
         try append(var line, " 0 ")
     end

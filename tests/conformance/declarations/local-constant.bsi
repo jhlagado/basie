@@ -2,7 +2,7 @@
 // spec: 8.4
 // expect output: *\r\n
 
-sub main() fails
+sub main() fails IoError
     const mark = '*'
     try writeByte(console, mark)
     try writeText(console, "\r\n")

@@ -102,7 +102,7 @@ sub flag(b: boolean): u16
     return 0
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[20]
     put(1, 10)
     put(2, 20)

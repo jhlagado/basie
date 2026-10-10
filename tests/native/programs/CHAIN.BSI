@@ -1,7 +1,7 @@
 include "CHN01.BSI"
 // A chain of sixteen includes (74).
 var t: u16
-sub main() fails
+sub main() fails IoError
     t = t + p1r7()
     t = t + p2r7()
     t = t + p3r7()

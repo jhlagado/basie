@@ -28,14 +28,14 @@ end
 sub look(n: nodes): u8
     return n.value
 end
-sub lease(n: nodes?) fails
+sub lease(n: nodes?) fails IoError
     select n
     case some(x)
         x.value = 3
-        fail 4
+        fail IoError.fileNotFound
     end
 end
-sub main() fails
+sub main() fails IoError
     var a = make(1)
     var b: nodes? = maybe(2)
     keep(move a)

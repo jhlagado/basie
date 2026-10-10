@@ -127,8 +127,9 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | 111 | `arity` | ^1 takes ^2 arguments |
 | 112 | `not-failable` | try and handle go with a call to a routine that fails |
 | 113 | `failure-unconsumed` | ^1 fails: add try or handle |
-| 114 | `handle-destination` | handle needs a writable u8 variable |
+| 114 | `handle-destination` | handle needs a writable variable of the failure's enum, ^1 |
 | 115 | `move-position` | move can't appear in ^1 |
+| 119 | `failure-domain` | ^1 fails with another enum: handle it and fail with this one's |
 
 ## Capacity and internal
 

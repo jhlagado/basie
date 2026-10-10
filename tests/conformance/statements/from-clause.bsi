@@ -10,7 +10,7 @@ sub pick(items: Entry[4], index: u8): Entry from items
     return items[index]
 end
 
-sub main() fails
+sub main() fails IoError
     var list: Entry[4]
     list[2].value = 'K'
     try writeByte(console, pick(list, 2).value)

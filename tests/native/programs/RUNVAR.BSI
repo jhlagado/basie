@@ -22,7 +22,7 @@ sub addAll(var a: Acc, vs: u16[])
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var acc: Acc
     var vs: u16[4] = [10, 20, 30, 40]
     var s: string[16]

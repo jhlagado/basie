@@ -8,7 +8,7 @@ include "FORMAT.BSI"
 
 const C = 'A'
 
-sub main() fails
+sub main() fails IoError
     var line: string[30]
     var a: i8 = 'A'
     var b: i8 = a + 1

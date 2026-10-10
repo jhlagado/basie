@@ -10,6 +10,7 @@
 import { buildLibrary, type BuiltLibrary } from "./brl.ts";
 import {
   CONSOLE_FILE,
+  IO_ERROR_MEMBERS,
   PREDECLARED_CONSTANTS,
   PRINTER_FILE,
   SERVICES,
@@ -234,7 +235,7 @@ export function nativeNames(built: BuiltLibrary): string {
   }
   for (const s of SERVICES) {
     const m = s.signature.match(
-      /^sub (\w+)\(([^)]*)\)(?:: (\S+))?( fails)?$/,
+      /^sub (\w+)\(([^)]*)\)(?:: (\S+))?( fails IoError)?$/,
     );
     if (!m) throw new Error(`unparsed signature ${s.signature}`);
     const params = m[2] === "" ? [] : m[2].split(", ").map((p) => {
@@ -244,7 +245,7 @@ export function nativeNames(built: BuiltLibrary): string {
     });
     const ids = params.map((p) => nativeType(p.type, p.isVar));
     const result = m[3] === undefined ? "0" : nativeType(m[3], false);
-    const flags = m[4] ? "RO_FFAIL" : "0";
+    const flags = m[4] ? "RO_FFAIL+RO_FSVC" : "0";
     const h = built.helpers.find((x) => x.ordinal === s.ordinal);
     if (!h || h.convention !== 1 || h.returning > 0xff) {
       throw new Error(`${s.name} is not a service below 256 bytes of stack`);
@@ -277,6 +278,20 @@ export function nativeNames(built: BuiltLibrary): string {
     );
     count += 1;
   }
+  // IoError, the services' failure domain (D54): its member nodes, each
+  // the spelling's address and length, its ordinal and the next node's
+  // address, as EN_DECL makes them (ENDECL.ASM), and its own spelling.
+  const io: string[] = [];
+  IO_ERROR_MEMBERS.forEach((name, i) => {
+    const next = i + 1 < IO_ERROR_MEMBERS.length ? `HP_N${i + 1}` : "0";
+    io.push(`${`HP_N${i}:`.padEnd(31)}; ${name}, ${i}:`);
+    io.push(`${`    DW   HP_S${i}`.padEnd(35)}; its spelling,`);
+    io.push(`${`    DB   ${name.length},${i}`.padEnd(35)}; length and ordinal,`);
+    io.push(`${`    DW   ${next}`.padEnd(35)}; the next.`);
+  });
+  IO_ERROR_MEMBERS.forEach((name, i) => {
+    io.push(`${`HP_S${i}: DB "${name}"`.padEnd(31)}; ${name}'s spelling.`);
+  });
   return [
     ";==========================================================================",
     ";  Predeclared names",
@@ -300,11 +315,19 @@ export function nativeNames(built: BuiltLibrary): string {
     ";  A zero length byte ends the table.",
     ";",
     ";  The table is the NAMES overlay of BASIE.OVL (OVERLAY.ASM), at the",
-    ";  overlay area's start, where it stays for the whole compilation.",
+    ";  overlay area's start, where it stays for the whole compilation. It",
+    ";  begins with IoError (D54): the address of its member nodes, then its",
+    ";  name's length and spelling, HP_SKIP bytes that PREP reads (PP_RUN)",
+    ";  and RO_LIB passes over.",
     "",
+    "HP_IOERR:",
+    `${"    DW   HP_N0".padEnd(35)}; IoError's members,`,
+    `${'    DB   7,"IoError"'.padEnd(35)}; and its name.`,
     "HP_NAMES:",
     ...lines,
     `${`    DB   0`.padEnd(35)}; The end of the table: ${count} names.`,
+    "",
+    ...io,
     "",
   ].join("\n");
 }

@@ -363,7 +363,7 @@ Deno.test("a program of 16 parts and 160 routines links and runs as the referenc
     include += `include "L${p}.BSI"\n`;
   }
   const main =
-    `${include}sub main() fails\n    var s: u16 = 0\n    var k: u16\n` +
+    `${include}sub main() fails IoError\n    var s: u16 = 0\n    var k: u16\n` +
     "    for k = 1 to 5\n        s = s + p15r9(k)\n    end\n" +
     '    try writeText(console, "sum ")\n' +
     "    try writeByte(console, u8(48 + (s mod 10)))\n" +

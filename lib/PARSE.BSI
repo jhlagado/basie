@@ -1,8 +1,11 @@
 // Basie standard library: text to numbers (D36; standard library section 4).
 // Spaces and tabs may surround the number. Each routine fails with
-// badNumber on text that isn't a number of its kind or doesn't fit.
+// ParseError.badNumber on text that isn't a number of its kind or doesn't
+// fit (D54).
 
-const badNumber: u8 = 32
+enum ParseError
+    badNumber
+end
 
 private sub blank(b: u8): boolean
     return b = ' ' or b = 9
@@ -34,7 +37,7 @@ end
 
 // The unsigned number from position at to the end of the text: decimal, or
 // hexadecimal after $ when hex is allowed, no larger than limit.
-private sub magnitude(text: string[], at: u8, hex: boolean, limit: u32): u32 fails
+private sub magnitude(text: string[], at: u8, hex: boolean, limit: u32): u32 fails ParseError
     var i: u8 = at
     var base: u8 = 10
     if hex and i < text.length and text[i] = '$'
@@ -49,14 +52,14 @@ private sub magnitude(text: string[], at: u8, hex: boolean, limit: u32): u32 fai
             exit
         end
         if n > (limit - u32(d)) / u32(base)
-            fail badNumber
+            fail ParseError.badNumber
         end
         n = n * u32(base) + u32(d)
         digits = 1
         i = i + 1
     end
     if digits = 0 or skipBlanks(text, i) <> text.length
-        fail badNumber
+        fail ParseError.badNumber
     end
     return n
 end
@@ -70,17 +73,17 @@ private sub signed(text: string[], at: u8): boolean
     return at < text.length and (text[at] = '-' or text[at] = '+')
 end
 
-sub parseU16(text: string[]): u16 fails
+sub parseU16(text: string[]): u16 fails ParseError
     var n = try magnitude(text, skipBlanks(text, 0), true, 65535)
     return u16(n)
 end
 
-sub parseU32(text: string[]): u32 fails
+sub parseU32(text: string[]): u32 fails ParseError
     var n = try magnitude(text, skipBlanks(text, 0), true, $FFFFFFFF)
     return n
 end
 
-sub parseI16(text: string[]): i16 fails
+sub parseI16(text: string[]): i16 fails ParseError
     var at: u8 = skipBlanks(text, 0)
     var minus = negative(text, at)
     if signed(text, at)
@@ -97,7 +100,7 @@ sub parseI16(text: string[]): i16 fails
     return i16(n)
 end
 
-sub parseI32(text: string[]): i32 fails
+sub parseI32(text: string[]): i32 fails ParseError
     var at: u8 = skipBlanks(text, 0)
     var minus = negative(text, at)
     if signed(text, at)
@@ -132,7 +135,7 @@ end
 // A decimal number with an optional fraction and exponent, such as -1.5,
 // .25, 3. or 6.02e23. The result is rounded to f32; a value too small for
 // f32 becomes zero, and one too large fails.
-sub parseF32(text: string[]): f32 fails
+sub parseF32(text: string[]): f32 fails ParseError
     var at: u8 = skipBlanks(text, 0)
     var minus = negative(text, at)
     if signed(text, at)
@@ -162,7 +165,7 @@ sub parseF32(text: string[]): f32 fails
         end
     end
     if digits = 0
-        fail badNumber
+        fail ParseError.badNumber
     end
     if at < text.length and (text[at] = 'e' or text[at] = 'E')
         at = at + 1
@@ -171,7 +174,7 @@ sub parseF32(text: string[]): f32 fails
             at = at + 1
         end
         if not isDigit(text, at)
-            fail badNumber
+            fail ParseError.badNumber
         end
         var e: i16 = 0
         while isDigit(text, at)
@@ -187,7 +190,7 @@ sub parseF32(text: string[]): f32 fails
         end
     end
     if skipBlanks(text, at) <> text.length
-        fail badNumber
+        fail ParseError.badNumber
     end
     var v: f32 = f32(mantissa)
     if mantissa <> 0
@@ -198,7 +201,7 @@ sub parseF32(text: string[]): f32 fails
             end
             var p = power10(k)
             if v > 3.4028234e38 / p
-                fail badNumber
+                fail ParseError.badNumber
             end
             v = v * p
             scale = scale - i16(k)

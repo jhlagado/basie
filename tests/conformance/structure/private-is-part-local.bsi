@@ -4,6 +4,6 @@
 
 private const greeting = 1
 
-sub main() fails
+sub main() fails IoError
     try writeText(console, "OK\r\n")
 end

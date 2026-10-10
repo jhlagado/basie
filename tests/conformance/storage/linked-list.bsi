@@ -80,7 +80,7 @@ sub remove(k: u16): boolean
     return false
 end
 
-sub show() fails
+sub show() fails IoError
     var line: string[40]
     var p = id(head)
     var first: boolean = true
@@ -101,7 +101,7 @@ sub show() fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     insert(5)
     insert(1)
     insert(7)

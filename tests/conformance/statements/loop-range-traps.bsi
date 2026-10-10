@@ -3,7 +3,7 @@
 // spec: 12.5, 15.2
 // expect trap: loop-range at 8
 
-sub main() fails
+sub main() fails IoError
     var c: u8
     for c = 250 to 300
     end

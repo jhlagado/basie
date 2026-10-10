@@ -7,16 +7,16 @@ sub clear(var s: string[])
     s.length = 0
 end
 
-sub appendByte(var s: string[], b: u8) fails
+sub appendByte(var s: string[], b: u8) fails IoError
     var at: u8 = s.length
     if at = s.capacity
-        fail lineTooLong
+        fail IoError.lineTooLong
     end
     s.length = at + 1
     s[at] = b
 end
 
-sub append(var s: string[], t: string[]) fails
+sub append(var s: string[], t: string[]) fails IoError
     var i: u8 = 0
     while i < t.length
         try appendByte(var s, t[i])
@@ -26,7 +26,7 @@ end
 
 // dest becomes count bytes of src from position start, or fewer where src
 // ends first; a start at or beyond src's end gives the empty string.
-sub copyFrom(var dest: string[], src: string[], start: u8, count: u8) fails
+sub copyFrom(var dest: string[], src: string[], start: u8, count: u8) fails IoError
     dest.length = 0
     var i: u8 = start
     var left: u8 = count

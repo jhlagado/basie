@@ -32,7 +32,7 @@ sub total(): u8
     return eat(move a) + 1
 end
 
-sub main() fails
+sub main() fails IoError
     var x = new nodes('A', none)
     g = eat(move x)
     try writeByte(console, g)

@@ -13,7 +13,7 @@ end
 pool nodes: Node[8]
 var head: nodes?
 
-sub g(x: nodes) fails
+sub g(x: nodes) fails IoError
     select move head
     case some(hh)
         x.next = move hh
@@ -33,7 +33,7 @@ sub g(x: nodes) fails
     try writeText(console, "\r\n")
 end
 
-sub main() fails
+sub main() fails IoError
     head = new nodes('H', new nodes('O', none))
     var ih = id(head)
     select ih

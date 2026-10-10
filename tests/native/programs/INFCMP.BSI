@@ -18,7 +18,7 @@ sub twice(x: u16): u16
     return 0
 end
 
-sub main() fails
+sub main() fails IoError
     var n = new nodes(1, none)
     var m = new nodes(2, none)
     keep = id(n)

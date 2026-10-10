@@ -4,7 +4,7 @@
 var big: u16 = 300
 var r: u8
 
-sub tally(limit: u8): u16 fails
+sub tally(limit: u8): u16 fails IoError
     var i: u8
     var s: u16
     for i = 1 to limit
@@ -12,24 +12,26 @@ sub tally(limit: u8): u16 fails
             continue
         end
         if i > 20
-            fail i
+            fail IoError.fileBusy
         end
         s = s + i
     end
     return s
 end
 
-sub main() fails
+sub main() fails IoError
     var t: u16
     var w: u16
-    var e: u8
+    var e: IoError
     var n: u8
     t = try tally(10)
     for w = 1000 to 0 step -300
         t = t + w / 100
     end
     t = t + tally(30) handle e
-        t = t + e
+        if e = IoError.fileBusy
+            t = t + 21
+        end
     end
     while n < 250
         n = n + 50

@@ -41,12 +41,12 @@ sub chop(var s: string[], n: u8)
     s[0] = u8(s.capacity)
 end
 
-sub reads(f: File, var buf: u8[]): u16 fails
+sub reads(f: File, var buf: u8[]): u16 fails IoError
     var n = try readBlock(f, var buf, 4)
     return n
 end
 
-sub main() fails
+sub main() fails IoError
     var w: u16[5] = [1, 2, 3, 4, 5]
     var ps: Pair[4]
     var gr: u8[2][3]

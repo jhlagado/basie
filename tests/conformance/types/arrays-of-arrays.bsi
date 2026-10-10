@@ -4,7 +4,7 @@
 
 var screen: u8[25][40]
 
-sub main() fails
+sub main() fails IoError
     screen[24][39] = 'X'
     try writeOutputByte(screen[24][39])
     try writeText(console, "\r\n")

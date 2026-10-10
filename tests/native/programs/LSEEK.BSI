@@ -5,7 +5,7 @@ var buf: u8[200]
 var check: u32
 var out: u8
 
-sub main() fails
+sub main() fails IoError
     var i: u16
     for i = 0 until 200
         buf[i] = u8(i mod 256)

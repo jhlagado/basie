@@ -81,7 +81,7 @@ record Small
 end
 var w: Wide
 const k: Small = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90)
-sub main() fails
+sub main() fails IoError
     w.x63 = 7
     w.x00 = 1
     if u16(w.x63) + u16(w.x00) + k.s9 = 98

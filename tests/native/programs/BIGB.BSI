@@ -95,6 +95,6 @@ sub secondB(n: u8): u16
     return firstA(n) + u16(n) * scale
 end
 
-sub showB() fails
+sub showB() fails IoError
     try writeText(console, "B: the second part\r\n")
 end

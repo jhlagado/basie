@@ -8,11 +8,12 @@ program could have written itself. Internal routines are `private`.
 
 ## 1. Conventions
 
-- **Failure codes.** The library uses codes 32 to 47 (spec §14.1). Version 1
-  defines one, `badNumber` (32), in `PARSE.BSI`. Otherwise routines fail
-  with the service codes (`lineTooLong`, `endOfInput`, `fileExists`, and
-  any code a service they call returns).
-- **Strings.** A routine that writes a string fails with `lineTooLong` rather
+- **Failure codes.** Every library routine that can fail names its failure
+  enum (spec §14.1, D54). `PARSE.BSI` declares `ParseError`, with one member,
+  `badNumber`, for its parsing routines. The others fail with `IoError`, the
+  services' enum (`IoError.lineTooLong`, `IoError.endOfInput`,
+  `IoError.fileExists`, and any code a service they call returns).
+- **Strings.** A routine that writes a string fails with `IoError.lineTooLong` rather
   than exceed the destination's capacity. What it wrote before the failure
   stays. Strings are at most 253 bytes (D25; capacity audit §2.2).
 - **Blanks** are spaces and tabs.
@@ -27,9 +28,9 @@ program could have written itself. Internal routines are `private`.
 | Routine | Meaning |
 | --- | --- |
 | `clear(var s: string[])` | Make `s` empty |
-| `appendByte(var s: string[], b: u8) fails` | Add one byte |
-| `append(var s: string[], t: string[]) fails` | Add `t` |
-| `copyFrom(var dest: string[], src: string[], start: u8, count: u8) fails` | `dest` becomes `count` bytes of `src` from `start`, fewer where `src` ends first; empty when `start` is at or past the end |
+| `appendByte(var s: string[], b: u8) fails IoError` | Add one byte |
+| `append(var s: string[], t: string[]) fails IoError` | Add `t` |
+| `copyFrom(var dest: string[], src: string[], start: u8, count: u8) fails IoError` | `dest` becomes `count` bytes of `src` from `start`, fewer where `src` ends first; empty when `start` is at or past the end |
 | `equal(a: string[], b: string[]): boolean` | Same length and bytes |
 | `compare(a: string[], b: string[]): i8` | −1, 0 or 1 as `a` sorts before, with or after `b`, byte by byte; a prefix sorts first |
 | `find(s: string[], t: string[]): u16` | The position of the first `t` in `s`, or `$FFFF`; an empty `t` is at 0 |
@@ -49,26 +50,27 @@ is how it empties one.
 | `appendU32(var s, v: u32)`, `appendI32(var s, v: i32)` | Decimal |
 | `appendHex8(var s, v: u8)`, `appendHex16(var s, v: u16)` | Two or four upper-case hex digits, no prefix |
 | `appendF32(var s, x: f32, places: u8)` | Fixed point with `places` decimals, rounded half up; `x` scaled by `10^places` must fit a `u32` |
+| `appendIoError(var s, e: IoError)` | The member's name, such as `fileNotFound` |
 
-Each takes `var s: string[]` first and `fails` with `lineTooLong`.
+Each takes `var s: string[]` first and `fails IoError` with `IoError.lineTooLong`.
 
 ## 4. Text to numbers: `PARSE.BSI`
 
 | Routine | Accepts |
 | --- | --- |
-| `parseU16(text: string[]): u16 fails` | Decimal digits, or `$` and hex digits (either case) |
-| `parseU32(text: string[]): u32 fails` | The same |
-| `parseI16(text: string[]): i16 fails` | An optional `+` or `-`, then decimal digits |
-| `parseI32(text: string[]): i32 fails` | The same |
-| `parseF32(text: string[]): f32 fails` | An optional sign, digits with an optional `.` and fraction (at least one digit in all), and an optional exponent `e` or `E`, sign, digits: `1.5`, `.25`, `3.`, `-6.02e23` |
+| `parseU16(text: string[]): u16 fails ParseError` | Decimal digits, or `$` and hex digits (either case) |
+| `parseU32(text: string[]): u32 fails ParseError` | The same |
+| `parseI16(text: string[]): i16 fails ParseError` | An optional `+` or `-`, then decimal digits |
+| `parseI32(text: string[]): i32 fails ParseError` | The same |
+| `parseF32(text: string[]): f32 fails ParseError` | An optional sign, digits with an optional `.` and fraction (at least one digit in all), and an optional exponent `e` or `E`, sign, digits: `1.5`, `.25`, `3.`, `-6.02e23` |
 
 Blanks may surround the number. Anything else, an empty text, or a value
-outside the result type fails with `badNumber`, so the full range of each
+outside the result type fails with `ParseError.badNumber`, so the full range of each
 type parses, including `-32768` and `-2147483648`.
 
 `parseF32` keeps the first 9 significant digits. A value too small for `f32`
 becomes zero, following `f32`'s flush-to-zero rule; one too large fails with
-`badNumber` rather than trapping. The result is the nearest `f32` when the
+`ParseError.badNumber` rather than trapping. The result is the nearest `f32` when the
 number has at most 7 significant digits and needs a decimal scale of at most
 10 either way, which covers ordinary input. Otherwise it can be up to 3 units
 in the last place away: a sweep of 200,000 random cases on the host found no
@@ -79,12 +81,12 @@ than the library's size justifies.
 
 | Routine | Meaning |
 | --- | --- |
-| `writeLine(f: File, s: string[]) fails` | `s`, then CR LF |
-| `prompt(text: string[], var answer: string[]) fails` | Write `text` to the console, read one edited line (services §3.3), then write the line feed BDOS 10 leaves out |
-| `readSecret(var answer: string[]) fails` | Read keys without echo until return; backspace and delete remove the last character; Control-Z at the start is `endOfInput`; ends with CR LF |
-| `word(text: string[], n: u8, var out: string[]): boolean fails` | Word `n` (0 first), words separated by blanks; false, with `out` empty, when there are fewer |
-| `readAll(f: File, var buf: u8[]): u16 fails` | Read to the end of `f`, returning the count; stops when `buf` is full, so a count equal to `buf.length` may mean more remains |
-| `truncate(name: string[], newSize: u32, mode: u8) fails` | Cut the file to its first `newSize` bytes |
+| `writeLine(f: File, s: string[]) fails IoError` | `s`, then CR LF |
+| `prompt(text: string[], var answer: string[]) fails IoError` | Write `text` to the console, read one edited line (services §3.3), then write the line feed BDOS 10 leaves out |
+| `readSecret(var answer: string[]) fails IoError` | Read keys without echo until return; backspace and delete remove the last character; Control-Z at the start is `IoError.endOfInput`; ends with CR LF |
+| `word(text: string[], n: u8, var out: string[]): boolean fails IoError` | Word `n` (0 first), words separated by blanks; false, with `out` empty, when there are fewer |
+| `readAll(f: File, var buf: u8[]): u16 fails IoError` | Read to the end of `f`, returning the count; stops when `buf` is full, so a count equal to `buf.length` may mean more remains |
+| `truncate(name: string[], newSize: u32, mode: u8) fails IoError` | Cut the file to its first `newSize` bytes |
 
 `readAll` reads as the file's mode does: a text file ends at Control-Z and
 its line ends read as one byte each, while a binary file reads whole 128-byte

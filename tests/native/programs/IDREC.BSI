@@ -16,7 +16,7 @@ sub mark(var n: Node)
     keep = id(n)
 end
 
-sub show() fails
+sub show() fails IoError
     select keep
     case some(k)
         try writeByte(console, k.value)
@@ -25,7 +25,7 @@ sub show() fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var h = new nodes('A', none)
     mark(var h)
     try show()

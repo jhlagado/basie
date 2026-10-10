@@ -4,7 +4,7 @@
 
 include "FORMAT.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[30]
     var u: u8 = 255
     var s: i16 = 32767

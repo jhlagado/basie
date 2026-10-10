@@ -12,7 +12,7 @@ var i: u8
 sub push(var l: nodes?, v: u8)
     l = new nodes(v, none)
 end
-sub main() fails
+sub main() fails IoError
     root = new nodes('R', none)
     keep = id(root)
     i = 1

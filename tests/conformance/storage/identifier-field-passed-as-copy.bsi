@@ -13,7 +13,7 @@ record Box
 end
 pool boxes: Box[1]
 var gb: boxes?
-sub look(x: Inner, s: string[]) fails
+sub look(x: Inner, s: string[]) fails IoError
     gb = none
     gb = new boxes()
     select gb
@@ -25,7 +25,7 @@ sub look(x: Inner, s: string[]) fails
     try appendU16(var line, x.w)
     try writeText(console, line)
 end
-sub main() fails
+sub main() fails IoError
     gb = new boxes()
     var i: id boxes? = none
     select gb

@@ -3,7 +3,7 @@
 // tail: HELLO WORLD
 // expect output: [HELLO WORLD]\r\n
 
-sub main() fails
+sub main() fails IoError
     var text: string[40]
     commandTail(var text)
     try writeText(console, "[")

@@ -10,17 +10,17 @@
 
 include "TEXTIO.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[10]
-    var code: u8 = 0
+    var code: IoError
     truncate("KEEP.TXT", 2, textMode) handle code
-        if code = fileExists
+        if code = IoError.fileExists
             try append(var line, "E ")
         end
     end
     var secret: string[10]
     readSecret(var secret) handle code
-        if code = endOfInput
+        if code = IoError.endOfInput
             try append(var line, "E")
         end
     end

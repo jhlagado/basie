@@ -4,7 +4,7 @@
 
 include "FORMAT.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[30]
     var i: i8
     for i = 2 to -2 step -2

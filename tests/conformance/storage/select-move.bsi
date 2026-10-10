@@ -12,7 +12,7 @@ end
 pool nodes: Node[4]
 var head: nodes?
 
-sub bumpOut() fails
+sub bumpOut() fails IoError
     select move head
     case some(n)
         try writeByte(console, n.value)
@@ -21,7 +21,7 @@ sub bumpOut() fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     head = new nodes('A', none)
     try bumpOut()
     select head

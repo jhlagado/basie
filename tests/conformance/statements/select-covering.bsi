@@ -21,7 +21,7 @@ sub sign(v: i32): u8
     end
 end
 
-sub main() fails
+sub main() fails IoError
     try writeByte(console, half(3))
     try writeByte(console, half(200))
     try writeByte(console, sign(-7))

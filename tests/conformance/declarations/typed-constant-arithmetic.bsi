@@ -10,7 +10,7 @@ const a: u8 = 200
 const c: u16 = a * 2
 const m: i8 = -5
 
-sub main() fails
+sub main() fails IoError
     var line: string[30]
     var b: u8 = a + 100
     var n: i8 = m + 1

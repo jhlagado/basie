@@ -1,5 +1,5 @@
-// else fail passes a failure on and leaves the routine, so its owning
-// locals are freed first, as a fail statement frees them.
+// try passes a failure on and leaves the routine, so its owning locals
+// are freed first, as a fail statement frees them.
 // spec: 7.12, 14.4
 // expect output: ok\r\n
 
@@ -11,18 +11,18 @@ end
 
 pool nodes: Node[1]
 
-sub inner() fails
-    fail 3
+sub inner() fails IoError
+    fail IoError.outputFailure
 end
 
-sub outer() fails
+sub outer() fails IoError
     var n = new nodes(1)
     try inner()
 end
 
-sub main() fails
+sub main() fails IoError
     var i: u8
-    var e: u8
+    var e: IoError
     for i = 1 to 3
         outer() handle e
         end

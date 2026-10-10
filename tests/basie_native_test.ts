@@ -703,7 +703,7 @@ Deno.test("BASIE HELLO compiles and links HELLO.COM, which prints Hello", () => 
   // Several parts: the program and its files take the first part's name.
   const parts = chain("DATA, MAIN", {
     "DATA.BSI": "var x: u8 = 72\n",
-    "MAIN.BSI": "sub main() fails\ntry writeByte(console, x)\nend\n",
+    "MAIN.BSI": "sub main() fails IoError\ntry writeByte(console, x)\nend\n",
   });
   assertEquals(parts.output, "");
   assertEquals(output(parts.disk.get("DATA.COM")!), "H");
@@ -828,7 +828,7 @@ Deno.test("BASIE.OVL describes every overlay, each loaded when first needed", ()
     // FLOAT, OWNERS, SPILL and ENUMS load above NAMES, from NAMES' last
     // byte, since NAMES stays while they are used; every other overlay at the
     // area's start.
-    const at = ["FLOAT", "OWNERS", "SPILL", "ENUMS"].includes(o.name)
+    const at = ["FLOAT", "OWNERS", "SPILL", "ENUMS", "PREP"].includes(o.name)
       ? built.area + names.bytes.length
       : built.area;
     assertEquals(OVL[e] | (OVL[e + 1] << 8), at, o.name);

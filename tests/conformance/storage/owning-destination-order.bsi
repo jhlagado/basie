@@ -10,7 +10,7 @@ record Node
 end
 pool nodes: Node[8]
 var hs: nodes?[4]
-var code: u8
+var code: IoError
 sub t(): u8
     writeOutputByte('T') handle code
     end
@@ -21,7 +21,7 @@ sub r(): nodes
     end
     return new nodes(1, none)
 end
-sub main() fails
+sub main() fails IoError
     hs[t()] = r()
     try writeText(console, "\r\n")
 end

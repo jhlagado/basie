@@ -3,7 +3,7 @@
 // file LOG.TXT: first\r\n\x1a
 // expect file LOG.TXT: first\r\nsecond\r\n
 
-sub main() fails
+sub main() fails IoError
     var f = try openAppend("LOG.TXT", textMode)
     try writeText(f, "second")
     try writeByte(f, 10)

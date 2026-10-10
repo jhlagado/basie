@@ -32,13 +32,13 @@ sub scan(limit: u8): u8
     return 255
 end
 
-sub early() fails
+sub early() fails IoError
     return
     g = 1
 end
 
-sub late() fails
-    fail 3
+sub late() fails IoError
+    fail IoError.storageFailure
     g = 2
     if g = 2
         g = 3
@@ -57,7 +57,7 @@ sub nested(n: u8): u8
     end
 end
 
-sub main() fails
+sub main() fails IoError
     g = sign(5) + scan(7) + nested(g)
     try early()
     try late()

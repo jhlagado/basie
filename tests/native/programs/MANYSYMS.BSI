@@ -195,7 +195,7 @@ sub total(): u16
     var l39: u16 = c117
     return l00 + l04 + l08 + l12 + l16 + l20 + l24 + l28 + l32 + l36 + c119
 end
-sub main() fails
+sub main() fails IoError
     g00 = c090
     g06 = c096
     g12 = c102

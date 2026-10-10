@@ -5,25 +5,16 @@
 
 A **recoverable error** is an expected unsuccessful result that source code may propagate or handle. A **trap** is a non-recoverable safety failure defined by Chapter 15. Error handling does not intercept, convert, or resume after a trap.
 
-Basie represents a recoverable error with a `u8` code carried beside a routine's ordinary success result. The code has no separate error-set type. Programs give codes names with constants (design decision D26). The code space is shared by every routine and divided as follows ([services](../docs/services.md), Section 9):
-
-| Codes | Use |
-| --- | --- |
-| 1–31 | Services; 1 to 18 are defined, the rest reserved (Chapter 16) |
-| 32–47 | The standard library |
-| 48–253 | Programs |
-| 0, 254, 255 | Reserved; 254 is `invalid` |
-
-The compiler does not enforce the ranges; they are a convention that keeps codes from different sources distinct. Enumerations of failure codes, checked at `fail` and `handle`, are planned for version 2.
+Basie represents a recoverable error with a code carried beside a routine's ordinary success result. The code is a member of the routine's **failure enum** (design decision D54), a plain enum (Chapter 6, Section 6.16) that the routine names after `fails`. The services fail with the predeclared enum `IoError` (Chapter 16); the standard library's number parsing fails with `ParseError`; a program declares enums of its own. Each enum is its own domain: a code passes on only to a routine of the same enum (Section 14.5), so codes from different sources can't be confused.
 
 ## 14.2 Failable signatures
 
-A routine that can return a recoverable error writes `fails` at the end of its header:
+A routine that can return a recoverable error writes `fails` and the name of its failure enum at the end of its header:
 
 ```text
 routine-header ::= "sub" NAME "(" [ formal-parameter
                    { "," formal-parameter } ] ")"
-                   [ result-clause ] [ "fails" ]
+                   [ result-clause ] [ "fails" NAME ]
 result-clause  ::= ":" [ "var" ] type [ "from" NAME { "," NAME } ]
 ```
 
@@ -32,7 +23,7 @@ result-clause  ::= ":" [ "var" ] type [ "from" NAME { "," NAME } ]
 Absent a trap, a failable invocation completes in exactly one of two ways:
 
 - **success**, with the ordinary scalar value, aggregate alias, or no result declared by the header; or
-- **failure**, with one `u8` error code and no success result.
+- **failure**, with one code, a member of its failure enum, and no success result.
 
 An infallible routine has only successful completion. It cannot use `fail` or propagate a callee's failure.
 
@@ -44,19 +35,21 @@ The statement
 fail-statement ::= "fail" expression
 ```
 
-ends the current failable routine with failure. The expression is evaluated once and must be compatible with `u8`; an exact literal must fit, and `u16` requires explicit checked narrowing. The activation ends after the code is obtained. No later statement in that routine executes.
+ends the current failable routine with failure. The expression is evaluated once and must be a value of the routine's failure enum, a qualified member or a variable of that enum; anything else is `type-mismatch`, at the expression. The activation ends after the code is obtained. No later statement in that routine executes.
 
 `fail` in an infallible routine is invalid. A trap while evaluating the code remains a trap and does not become a recoverable error.
 
-Named codes are ordinary constants:
+A routine's codes are its enum's members:
 
 ```basie
-const badDigit = 1
-const tooLarge = 2
+enum DigitError
+    badDigit
+    tooLarge
+end
 
-sub parseDigit(value: u8): u8 fails
+sub parseDigit(value: u8): u8 fails DigitError
     if value < '0' or value > '9'
-        fail badDigit
+        fail DigitError.badDigit
     end
     return value - '0'
 end
@@ -87,16 +80,16 @@ try-call ::= "try" NAME "(" [ arguments ] ")"
 
 `try` must be followed by the name of a routine or service, which is called; anything else is a syntax error at the token after `try`. The call must end its statement: a token after its `)` other than the line's end is a syntax error there, so `try` never propagates from inside a larger expression, an argument, or another `try`, and `return try` is invalid. `try` before a routine that cannot fail is `not-failable`, at `try`.
 
-On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `try` immediately returns the same `u8` code from the enclosing routine, leaving every block as `fail` does, so its owning locals and parameters are freed (Section 7.12). The enclosing routine must declare `fails`.
+On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `try` immediately returns the same code from the enclosing routine, leaving every block as `fail` does, so its owning locals and parameters are freed (Section 7.12). The enclosing routine must declare `fails` with the callee's failure enum: `try` before a call of another enum is `failure-domain`, at the call. A failure crosses from one enum to another only explicitly, by `handle` and a `fail` of the other enum.
 
 ```basie
-sub loadByte(): u8 fails
+sub loadByte(): u8 fails IoError
     var value: u8 = try readInputByte()
     return value
 end
 ```
 
-Propagation is explicit at every intermediate call. Basie has no implicit propagation, error-set inclusion, code remapping, handler stack, or unwinding.
+Propagation is explicit at every intermediate call. Basie has no implicit propagation, error-set inclusion, implicit code remapping, handler stack, or unwinding.
 
 ## 14.6 Local handling
 
@@ -107,13 +100,13 @@ failure-handler ::= "handle" NAME NEWLINE
                     statement-sequence "end" NEWLINE
 ```
 
-The name must resolve to an existing writable `u8` variable, parameter or local. A local serving as an active counted-loop counter is read-only and cannot be the error destination. The clause declares no binding. The handler body is a block with its own scope (Chapter 5).
+The name must resolve to an existing writable variable, parameter or local whose type is the handled call's failure enum (`handle-destination` otherwise). A local serving as an active counted-loop counter is read-only and cannot be the error destination. The clause declares no binding. The handler body is a block with its own scope (Chapter 5).
 
-On success, the call supplies its ordinary result, the assignment occurs when present, and the handler body is skipped. On failure, no success-result store occurs, then the compiler stores the error code in the named `u8` destination and executes the handler body. This ordering also applies when the assignment destination and error destination are the same variable: the variable receives the error code. Normal completion of the body continues after its closing `end`. A `return`, `fail`, `exit`, or `continue` inside the body has its ordinary enclosing context.
+On success, the call supplies its ordinary result, the assignment occurs when present, and the handler body is skipped. On failure, no success-result store occurs, then the compiler stores the error code in the named destination and executes the handler body. This ordering also applies when the assignment destination and error destination are the same variable: the variable receives the error code. Normal completion of the body continues after its closing `end`. A `return`, `fail`, `exit`, or `continue` inside the body has its ordinary enclosing context.
 
 ```basie
 sub copyOne()
-    var code: u8
+    var code: IoError
     var value: u8
 
     value = readInputByte() handle code
@@ -134,7 +127,7 @@ Ordinary `return` denotes successful completion only. A result-free failable rou
 
 `try` can exit on failure and continue on success, so it does not by itself make following source unreachable. A `handle` body can complete normally unless it has a non-fallthrough statement on every path.
 
-The fixed `main` routine may declare `fails`. A failure returned from `main` has no source caller and performs the unhandled-error trap in Chapter 15 with the returned code. A successful return from `main` terminates normally.
+The fixed `main` routine may declare `fails`. A failure returned from `main` has no source caller and performs the unhandled-error trap in Chapter 15 with the returned code, reported as the member's ordinal, its position in its enum counting from zero. A successful return from `main` terminates normally.
 
 ### 14.7.1 Failure and owning values
 
@@ -142,7 +135,7 @@ The fixed `main` routine may declare `fails`. A failure returned from `main` has
 
 ## 14.8 Lowering boundary
 
-The source semantics require a success/failure discriminant and a `u8` code for each failable result. The [code generation contract](../docs/code-generation.md) defines their required target behavior while leaving the carrier choice private. Carry plus a byte register is one possible calling convention, not source semantics.
+The source semantics require a success/failure discriminant and a code, the member's ordinal as a byte, for each failable result. The [code generation contract](../docs/code-generation.md) defines their required target behavior while leaving the carrier choice private. Carry plus a byte register is one possible calling convention, not source semantics.
 
 Failure propagation is an ordinary conditional return. Local handling is an ordinary conditional branch. Basie has no exception object, stack walk, cleanup action, hidden handler registration, or resumable failure state. The all-caller-save-compatible call semantics in Chapter 13 apply to both outcomes.
 
@@ -151,12 +144,13 @@ Failure propagation is an ordinary conditional return. Local handling is an ordi
 The compiler must diagnose:
 
 - `fail` or `try` in an infallible routine;
-- a failure code incompatible with `u8`;
+- a `fails` clause that does not name an enum, or a failure code that is not a value of the routine's failure enum;
+- `try` before a call whose failure enum is not the enclosing routine's (`failure-domain`);
 - a failable invocation in a nested expression or unsupported context;
 - a failable invocation with no consumer or more than one consumer;
 - `handle` attached to an ineligible statement;
 - a propagating `return` form;
-- an error destination that is unavailable, non-writable, not `u8`, or an active counted-loop counter;
+- an error destination that is unavailable, non-writable, not of the call's failure enum, or an active counted-loop counter;
 - a `fails` clause or other signature text repeated on an abbreviated forward body; and
 - a result-bearing failable routine that can reach its end without success or failure.
 

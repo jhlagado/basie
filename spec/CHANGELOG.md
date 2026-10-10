@@ -1,5 +1,11 @@
 # Specification change log
 
+2026-10-11: D54 gives every failure an enum domain: `fails NAME` names the
+routine's failure enum, `fail` takes its members, `try` passes a failure on
+only within one enum (`failure-domain`, 119) and a handler's variable is of
+the call's enum. The services fail with the predeclared `IoError`, whose
+ordinals are the runtime's codes; the failure-code constants are removed.
+
 2026-10-11: D49 requires `var` before the argument for every `var` parameter,
 and refuses it anywhere else (`var-marker`, 118).
 

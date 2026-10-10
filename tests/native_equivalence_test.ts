@@ -1135,11 +1135,11 @@ const REFUSED: Record<string, string> = {
   "a u8 counter with a u32 bound (D58)":
     "var n: u32 = 300\nsub main()\nvar i: u8\nfor i = 0 to n\nend\nend\n",
   "an indexed path from a call's result that is no File":
-    'record Channel\nitems: u8[4]\nend\nvar chan: Channel\nvar i: u8\nsub mk(): Channel\nreturn chan\nend\nsub main() fails\ntry writeText(mk().items[i + 1], "x")\nend\n',
+    'record Channel\nitems: u8[4]\nend\nvar chan: Channel\nvar i: u8\nsub mk(): Channel\nreturn chan\nend\nsub main() fails IoError\ntry writeText(mk().items[i + 1], "x")\nend\n',
   "id undeclared, read as an identifier's value":
     "record Job\nnumber: u16\nend\npool jobs: Job[4]\nvar g: jobs?\nvar keep: id jobs?\nsub main()\nkeep = id\nend\n",
   "a File argument's parenthesis left open":
-    'sub main() fails\n    try writeText((console, "x")\nend\n',
+    'sub main() fails IoError\n    try writeText((console, "x")\nend\n',
   "a mismatch after an inferred new in parentheses, at its own value":
     "record Job\nnumber: u16\nend\npool jobs: Job[4]\nsub main()\nvar h = (new jobs(1))\nvar x: jobs = 5\nend\n",
   "an identifier moved in parentheses, inferred":
@@ -1263,7 +1263,7 @@ const REFUSED: Record<string, string> = {
   "a loop counter counting again":
     "sub main()\nvar i: u8\nfor i = 1 to 3\nfor i = 1 to 2\nend\nend\nend\n",
   "a loop counter as a handler's variable":
-    "sub f() fails\nend\nsub main()\nvar i: u8\nfor i = 1 to 3\nf() handle i\nend\nend\nend\n",
+    "sub f() fails IoError\nend\nsub main()\nvar i: u8\nfor i = 1 to 3\nf() handle i\nend\nend\nend\n",
   "a parameter as a counter":
     "sub f(i: u8)\nfor i = 1 to 3\nend\nend\nsub main()\nend\n",
   "a Boolean counter":
@@ -1278,36 +1278,36 @@ const REFUSED: Record<string, string> = {
   "a Boolean bound": "sub main()\nvar i: u8\nfor i = 1 to true\nend\nend\n",
   "a non-Boolean condition": "sub main()\nif 1\nend\nend\n",
   "a failable call unconsumed":
-    "sub f() fails\nend\nsub main() fails\nf()\nend\n",
+    "sub f() fails IoError\nend\nsub main() fails IoError\nf()\nend\n",
   "try in a routine that cannot fail":
-    "sub f() fails\nend\nsub main()\ntry f()\nend\n",
+    "sub f() fails IoError\nend\nsub main()\ntry f()\nend\n",
   "try before a call that cannot fail":
-    "sub f()\nend\nsub main() fails\ntry f()\nend\n",
+    "sub f()\nend\nsub main() fails IoError\ntry f()\nend\n",
   "handle after a call that cannot fail":
     "var e: u8\nsub f()\nend\nsub main()\nf() handle e\nend\nend\n",
   "a failable call as an operand's left":
-    "sub f(): u8 fails\nreturn 1\nend\nsub main() fails\nvar x: u8\nx = try f() + 1\nend\n",
+    "sub f(): u8 fails IoError\nreturn 1\nend\nsub main() fails IoError\nvar x: u8\nx = try f() + 1\nend\n",
   "a failable call in parentheses":
-    "sub f(): u8 fails\nreturn 1\nend\nsub main() fails\nvar x: u8\nx = try (f())\nend\n",
+    "sub f(): u8 fails IoError\nreturn 1\nend\nsub main() fails IoError\nvar x: u8\nx = try (f())\nend\n",
   "a failable call as an argument":
-    "sub f(): u8 fails\nreturn 1\nend\nsub g(a: u8)\nend\nsub main() fails\ntry g(f())\nend\n",
+    "sub f(): u8 fails IoError\nreturn 1\nend\nsub g(a: u8)\nend\nsub main() fails IoError\ntry g(f())\nend\n",
   "try before an if":
-    "sub f(): boolean fails\nreturn true\nend\nsub main() fails\ntry if f()\nend\nend\n",
+    "sub f(): boolean fails IoError\nreturn true\nend\nsub main() fails IoError\ntry if f()\nend\nend\n",
   "a failable call in a return":
-    "sub f(): u8 fails\nreturn 1\nend\nsub g(): u8 fails\ntry return f()\nend\nsub main()\nend\n",
+    "sub f(): u8 fails IoError\nreturn 1\nend\nsub g(): u8 fails IoError\ntry return f()\nend\nsub main()\nend\n",
   "a handler after a local's initializer":
-    "var e: u8\nsub f(): u8 fails\nreturn 1\nend\nsub main()\nvar x: u8 = f() handle e\nend\nend\n",
+    "var e: u8\nsub f(): u8 fails IoError\nreturn 1\nend\nsub main()\nvar x: u8 = f() handle e\nend\nend\n",
   "a handler's variable of the wrong type":
-    "var e: u16\nsub f() fails\nend\nsub main()\nf() handle e\nend\nend\n",
+    "var e: u16\nsub f() fails IoError\nend\nsub main()\nf() handle e\nend\nend\n",
   "a handler's variable a constant":
-    "const e = 1\nsub f() fails\nend\nsub main()\nf() handle e\nend\nend\n",
+    "const e = 1\nsub f() fails IoError\nend\nsub main()\nf() handle e\nend\nend\n",
   "fail in a routine that cannot fail": "sub main()\nfail 1\nend\n",
-  "fail with a u16 code": "sub f() fails\nfail 300\nend\nsub main()\nend\n",
+  "fail with a u16 code": "sub f() fails IoError\nfail 300\nend\nsub main()\nend\n",
   "else if for elseif": "sub main()\nif true\nelse if false\nend\nend\nend\n",
   "a failable start value":
-    "sub f(): u8 fails\nreturn 1\nend\nsub main() fails\nvar i: u8\nfor i = try f() to 3\nend\nend\n",
+    "sub f(): u8 fails IoError\nreturn 1\nend\nsub main() fails IoError\nvar i: u8\nfor i = try f() to 3\nend\nend\n",
   "try followed by a handler":
-    "var e: u8\nsub f() fails\nend\nsub main() fails\ntry f() handle e\nend\nend\n",
+    "var e: u8\nsub f() fails IoError\nend\nsub main() fails IoError\ntry f() handle e\nend\nend\n",
   // h: records, arrays and strings.
   "a constant index past the end":
     "var c: u8[4]\nsub main()\nc[4] = 1\nend\n",
@@ -1364,41 +1364,41 @@ const REFUSED: Record<string, string> = {
   "an inner index past its own bound":
     "var g: u8[2][3]\nsub main()\ng[1][3] = 1\nend\n",
   "a local record from a call that fails, unhandled":
-    "record r\na: u8\nend\nvar v: r\nsub f(): r fails\nreturn v\nend\nsub main()\nvar x: r = f()\nend\n",
+    "record r\na: u8\nend\nvar v: r\nsub f(): r fails IoError\nreturn v\nend\nsub main()\nvar x: r = f()\nend\n",
   // i: services and the predeclared names.
   "a routine named after a service": "sub size()\nend\nsub main()\nend\n",
   "a variable named after a constant":
-    "var fileNotFound: u8\nsub main()\nend\n",
+    "var textMode: u8\nsub main()\nend\n",
   "a local named console": "sub main()\nvar console: u8\nend\n",
   "a parameter named close": "sub f(close: u8)\nend\nsub main()\nend\n",
   "a record named printer": "record printer\na: u8\nend\nsub main()\nend\n",
   "a constant named textMode": "const textMode = 2\nsub main()\nend\n",
-  "a predeclared constant assigned": "sub main()\nendOfInput = 2\nend\n",
+  "a predeclared constant assigned": "sub main()\ntextMode = 2\nend\n",
   "a service named as a value": "var x: u8\nsub main()\nx = readKey\nend\n",
   "a service's failure unconsumed":
-    "sub main() fails\nwriteByte(console, 1)\nend\n",
+    "sub main() fails IoError\nwriteByte(console, 1)\nend\n",
   "try before a service that cannot fail":
-    "sub main() fails\ntry resetDisks()\nend\n",
+    "sub main() fails IoError\ntry resetDisks()\nend\n",
   "a service given too few arguments":
-    "sub main() fails\ntry writeText(console)\nend\n",
+    "sub main() fails IoError\ntry writeText(console)\nend\n",
   "a number passed as a File":
-    "sub main() fails\ntry writeByte(1, 2)\nend\n",
+    "sub main() fails IoError\ntry writeByte(1, 2)\nend\n",
   "a File as an operand":
     "var f: File\nvar x: u16\nsub main()\nx = f + 1\nend\n",
   "a File where a number is wanted":
     "var x: u8\nsub main()\nx = console\nend\n",
   "a literal passed to a var string[]":
-    'sub main() fails\ntry readLine(console, var "abc")\nend\n',
+    'sub main() fails IoError\ntry readLine(console, var "abc")\nend\n',
   "a string[] parameter passed to a var string[]":
-    "sub f(s: string[]) fails\ntry readLine(console, var s)\nend\nsub main()\nend\n",
+    "sub f(s: string[]) fails IoError\ntry readLine(console, var s)\nend\nsub main()\nend\n",
   "a constant passed to a var string[]":
-    'const k: string[4] = "ab"\nsub main() fails\ntry readLine(console, var k)\nend\n',
+    'const k: string[4] = "ab"\nsub main() fails IoError\ntry readLine(console, var k)\nend\n',
   "a u16 array passed as a u8[]":
-    "var w: u16[4]\nsub main() fails\ntry writeBlock(console, w, 2)\nend\n",
+    "var w: u16[4]\nsub main() fails IoError\ntry writeBlock(console, w, 2)\nend\n",
   "a string passed as a u8[]":
-    "var s: string[4]\nsub main() fails\ntry writeBlock(console, s, 2)\nend\n",
+    "var s: string[4]\nsub main() fails IoError\ntry writeBlock(console, s, 2)\nend\n",
   "an array passed as a string[]":
-    "var c: u8[4]\nsub main() fails\ntry writeText(console, c)\nend\n",
+    "var c: u8[4]\nsub main() fails IoError\ntry writeText(console, c)\nend\n",
   "a File as a step":
     "sub main()\nvar i: u8\nfor i = 1 to 3 step console\nend\nend\n",
   "a zero step from a predeclared constant":
@@ -1574,15 +1574,15 @@ const REFUSED: Record<string, string> = {
   "a number returned as a File":
     "sub f(): File\n    return 3\nend\nsub main()\nend\n",
   "a call's number where a File is wanted":
-    'sub n(): u8\n    return 1\nend\nsub main() fails\n    try writeText(n(), "x")\nend\n',
+    'sub n(): u8\n    return 1\nend\nsub main() fails IoError\n    try writeText(n(), "x")\nend\n',
   "a call's number after its arguments where a File is wanted":
     "sub g(x: u8): u16\n    return 1\nend\nsub main()\n    var f: File = console\n    f = g(5)\nend\n",
   "a call's owner path compared as a select subject":
-    "forward pool nodes\nrecord Node\n    v: u16\n    next: nodes?\nend\npool nodes: Node[4]\nrecord Holder\n    head: nodes?\n    ref: id nodes?\n    n: u8\nend\nvar hold: Holder\nsub get(): Holder\n    return hold\nend\nsub getf(): Holder fails\n    return hold\nend\nsub main()\n    select get().head = none\n    case 1\n    case else\n    end\nend\n",
+    "forward pool nodes\nrecord Node\n    v: u16\n    next: nodes?\nend\npool nodes: Node[4]\nrecord Holder\n    head: nodes?\n    ref: id nodes?\n    n: u8\nend\nvar hold: Holder\nsub get(): Holder\n    return hold\nend\nsub getf(): Holder fails IoError\n    return hold\nend\nsub main()\n    select get().head = none\n    case 1\n    case else\n    end\nend\n",
   "a call's identifier paths compared as a select subject":
-    "forward pool nodes\nrecord Node\n    v: u16\n    next: nodes?\nend\npool nodes: Node[4]\nrecord Holder\n    head: nodes?\n    ref: id nodes?\n    n: u8\nend\nvar hold: Holder\nsub get(): Holder\n    return hold\nend\nsub getf(): Holder fails\n    return hold\nend\nsub main()\n    select get().ref = get().ref\n    case 1\n    case else\n    end\nend\n",
+    "forward pool nodes\nrecord Node\n    v: u16\n    next: nodes?\nend\npool nodes: Node[4]\nrecord Holder\n    head: nodes?\n    ref: id nodes?\n    n: u8\nend\nvar hold: Holder\nsub get(): Holder\n    return hold\nend\nsub getf(): Holder fails IoError\n    return hold\nend\nsub main()\n    select get().ref = get().ref\n    case 1\n    case else\n    end\nend\n",
   "a failable call's record as a select subject":
-    "forward pool nodes\nrecord Node\n    v: u16\n    next: nodes?\nend\npool nodes: Node[4]\nrecord Holder\n    head: nodes?\n    ref: id nodes?\n    n: u8\nend\nvar hold: Holder\nsub get(): Holder\n    return hold\nend\nsub getf(): Holder fails\n    return hold\nend\nsub main() fails\n    try select getf()\n    case 1\n    case else\n    end\nend\n",
+    "forward pool nodes\nrecord Node\n    v: u16\n    next: nodes?\nend\npool nodes: Node[4]\nrecord Holder\n    head: nodes?\n    ref: id nodes?\n    n: u8\nend\nvar hold: Holder\nsub get(): Holder\n    return hold\nend\nsub getf(): Holder fails IoError\n    return hold\nend\nsub main() fails IoError\n    try select getf()\n    case 1\n    case else\n    end\nend\n",
   "a call's Boolean field as a select subject":
     "record R\n    b: boolean\n    n: u8\nend\nvar r: R\nsub get2(x: u8): R\n    return r\nend\nsub main()\n    select get2(5).b\n    case 1\n    case else\n    end\nend\n",
   "a call's record as a select subject":
@@ -1606,7 +1606,7 @@ const REFUSED: Record<string, string> = {
   "an assert of a number": "sub main()\nassert 5\nend\n",
   "an assert of a u8": "var x: u8\nsub main()\nassert x\nend\n",
   "a failable call in an assert":
-    "sub f(): boolean fails\nreturn true\nend\nsub main()\nassert f()\nend\n",
+    "sub f(): boolean fails IoError\nreturn true\nend\nsub main()\nassert f()\nend\n",
   "an assert with more after it":
     "var x: u8\nsub main()\nassert x = 3 x\nend\n",
   "an assert of nothing": "sub main()\nassert\nend\n",
@@ -1657,9 +1657,9 @@ const REFUSED: Record<string, string> = {
   "a statement before the first case":
     "var x: u8\nsub main()\nselect x\nx = 1\ncase 1\nend\nend\n",
   "a failable select subject":
-    "sub f(): u8 fails\nreturn 1\nend\nsub main() fails\nselect f()\ncase 1\nend\nend\n",
+    "sub f(): u8 fails IoError\nreturn 1\nend\nsub main() fails IoError\nselect f()\ncase 1\nend\nend\n",
   "try before a select":
-    "sub f(): u8 fails\nreturn 1\nend\nsub main() fails\ntry select f()\ncase 1\nend\nend\n",
+    "sub f(): u8 fails IoError\nreturn 1\nend\nsub main() fails IoError\ntry select f()\ncase 1\nend\nend\n",
   "exit in a select outside a loop":
     "var x: u8\nsub main()\nselect x\ncase 1\nexit\nend\nend\n",
   "a value routine whose select has no case else":
@@ -1687,7 +1687,19 @@ const REFUSED: Record<string, string> = {
     "tests/conformance/statements/var-marker-extra.bsi",
   ),
   "a service's var argument unmarked":
-    "sub main() fails\n    var s: string[8]\n    try readLine(console, s)\nend\n",
+    "sub main() fails IoError\n    var s: string[8]\n    try readLine(console, s)\nend\n",
+  "fails naming a record": Deno.readTextFileSync(
+    "tests/conformance/statements/fails-names-enum.bsi",
+  ),
+  "fails without an enum": "sub f() fails\nend\nsub main()\nend\n",
+  "try across failure enums": Deno.readTextFileSync(
+    "tests/conformance/statements/try-other-enum.bsi",
+  ),
+  "a handler's variable of another enum": Deno.readTextFileSync(
+    "tests/conformance/statements/handle-wrong-enum.bsi",
+  ),
+  "fail with another enum's member":
+    "enum A\nx\nend\nsub f() fails IoError\nfail A.x\nend\nsub main()\nend\n",
   "an incomplete i32 select":
     "var x: i32\nsub main()\nselect x\ncase -2147483648 to 2147483646\nend\nend\n",
   "an incomplete u16 select":

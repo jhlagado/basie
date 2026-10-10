@@ -7,7 +7,7 @@
 include "TWICEA.BSI"
 include "TWICEB.BSI"
 
-sub main() fails
+sub main() fails IoError
     try writeByte(console, '0' + fromA() + fromB())
     try writeText(console, "\r\n")
 end

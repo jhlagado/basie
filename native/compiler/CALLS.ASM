@@ -744,7 +744,20 @@ RO_ARGS:
     PUSH AF                        ; is returned, so keep it.
     INC  HL                        ; Then its flags,
     LD   A,(HL)                    ; whether it can fail,
-    PUSH AF                        ; are kept too,
+    PUSH AF                        ; are kept too;
+    LD   B,AG_FIRST                ; a service's failure enum is IoError,
+    BIT  6,A                       ; (RO_FSVC)
+    JR   NZ,.DOM                   ; a routine's
+    PUSH HL                        ; in
+    LD   DE,RO_RDOM-RO_RFLAG       ; its
+    ADD  HL,DE                     ; record
+    LD   B,(HL)                    ; (D54),
+    POP  HL                        ; kept
+.DOM:                          ; for try
+    LD   A,B                       ; and
+    LD   (RO_KDOM),A               ; handle;
+    POP  AF                        ; the flags
+    PUSH AF                        ; again.
     AND  RO_FVRES                  ; and whether
     XOR  RO_FVRES                  ; its result
     LD   (RO_CRO),A                ; is read-only.
@@ -823,6 +836,11 @@ RO_FAILS:
     AND  RO_FFAIL                  ; a failable routine;
     LD   A,DG_SAFE                 ; this one is not:
     JR   Z,.AT                     ; not-failable.
+    LD   A,(RO_KDOM)               ; The callee's failure enum
+    LD   HL,RO_CDOM                ; must be
+    CP   (HL)                      ; this routine's (D54),
+    LD   A,DG_FDOM                 ; else failure-domain,
+    JR   NZ,.LOST                  ; naming the callee.
     CALL HN_RELAY                  ; To the exit, owners freed, A the code.
     LD   A,RG_EXIT                 ; The exit
     JR   .PEND                     ; is pending.

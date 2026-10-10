@@ -710,6 +710,7 @@
       "lhs": "fails-opt",
       "rhs": [
         "TokenFails",
+        "TokenName",
         "a:MarkSubFails"
       ]
     },

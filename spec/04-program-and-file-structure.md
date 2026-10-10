@@ -52,7 +52,7 @@ include-line ::= "include" string-literal NEWLINE
 include "STRINGS.BSI"
 include "FORMAT.BSI"
 
-sub main() fails
+sub main() fails IoError
     ...
 end
 ```

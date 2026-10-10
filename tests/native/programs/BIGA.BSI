@@ -97,7 +97,7 @@ sub firstA(n: u8): u16
     return later(n) * scale
 end
 
-sub showA() fails
+sub showA() fails IoError
     try writeText(console, "A: the first part, ")
     try writeText(console, "dropped and loaded again\r\n")
 end

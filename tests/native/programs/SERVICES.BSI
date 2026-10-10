@@ -7,7 +7,7 @@
 // input: Line\rxy
 // tail: SOME WORDS
 // file DATA.TXT: abc\r\n\x1a
-// expect output: [SOME WORDS]<Line>xy 5 1 T abc 301 3\r\n
+// expect output: [SOME WORDS]<Line>xy 4 1 T abc 301 3\r\n
 
 record entry
     tag: u8
@@ -18,11 +18,11 @@ end
 var cells: u8[6]
 var total: u16
 
-sub put(s: string[]) fails
+sub put(s: string[]) fails IoError
     try writeText(console, s)
 end
 
-sub putNumber(n: u16) fails
+sub putNumber(n: u16) fails IoError
     var digits: string[6]
     var k: u16 = 10000
     var started: boolean = false
@@ -40,10 +40,10 @@ sub drive(): u8
     return currentDrive()
 end
 
-sub main() fails
+sub main() fails IoError
     var e: entry
     var text: string[24]
-    var code: u8 = 0
+    var code: IoError
     var tiny: u8[binaryMode]
     var i: u8
     var got: u16
@@ -63,7 +63,9 @@ sub main() fails
     try writeByte(console, ' ')
     openRead("NOPE.TXT", textMode) handle code
     end
-    try putNumber(code)
+    if code = IoError.fileNotFound
+        try putNumber(4)
+    end
     try writeByte(console, ' ')
     try putNumber(drive() + user + binaryMode)
     if free > 1000 or keyReady()
@@ -72,7 +74,7 @@ sub main() fails
     try readLine(f, var text)
     try close(f)
     try put(text)
-    total = endOfInput + 300
+    total = binaryMode + 300
     try writeByte(console, ' ')
     try putNumber(total)
     for i = 0 to 4 step binaryMode

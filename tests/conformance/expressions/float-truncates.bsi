@@ -4,7 +4,7 @@
 
 include "FORMAT.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[12]
     var x: f32 = -2.75
     try appendI16(var line, i16(x))

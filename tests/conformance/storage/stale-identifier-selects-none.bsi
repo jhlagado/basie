@@ -18,7 +18,7 @@ sub make()
     keep = id(n)
 end
 
-sub main() fails
+sub main() fails IoError
     make()
     select keep
     case some(i)

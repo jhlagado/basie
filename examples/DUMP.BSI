@@ -9,9 +9,7 @@
 include "FORMAT.BSI"
 include "TEXTIO.BSI"
 
-const usage = 48
-
-sub dumpLine(offset: u16, bytes: u8[], count: u16) fails
+sub dumpLine(offset: u16, bytes: u8[], count: u16) fails IoError
     var line: string[80]
     try appendHex16(var line, offset)
     try append(var line, ": ")
@@ -42,14 +40,14 @@ sub dumpLine(offset: u16, bytes: u8[], count: u16) fails
     try writeLine(console, line)
 end
 
-sub main() fails
+sub main() fails IoError
     var tail: string[80]
     var name: string[20]
     commandTail(var tail)
     var named = try word(tail, 0, var name)
     if not named
         try writeLine(console, "Usage: DUMP NAME.EXT")
-        fail usage
+        fail IoError.badName
     end
     var there = try exists(name)
     if not there
@@ -57,7 +55,7 @@ sub main() fails
         try append(var line, "No file ")
         try append(var line, name)
         try writeLine(console, line)
-        fail fileNotFound
+        fail IoError.fileNotFound
     end
     var f = try openRead(name, binaryMode)
     var bytes: u8[16]

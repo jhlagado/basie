@@ -1,24 +1,28 @@
 // handle stores the failure code and runs its body; the success store is skipped.
 // spec: 14.6
-// expect output: 48 7\r\n
+// expect output: N 7\r\n
 
 include "FORMAT.BSI"
 
-const notReady = 48
+enum Readiness
+    notReady
+end
 
-sub tryIt(ok: boolean): u8 fails
+sub tryIt(ok: boolean): u8 fails Readiness
     if not ok
-        fail notReady
+        fail Readiness.notReady
     end
     return 7
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[12]
-    var code: u8 = 0
+    var code: Readiness
     var value: u8 = 0
     value = tryIt(false) handle code
-        try appendU16(var line, code)
+        if code = Readiness.notReady
+            try appendByte(var line, 'N')
+        end
     end
     try appendByte(var line, ' ')
     value = tryIt(true) handle code

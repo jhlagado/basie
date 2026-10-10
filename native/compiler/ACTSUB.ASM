@@ -457,13 +457,32 @@ AC_FROM:
     CALL DG_RNAME                  ; from-clause,
     DB   DG_FROM                   ; naming it.
 
-;@ROUTINE CLOBBERS HL
-; MarkSubFails: the routine can fail.
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; MarkSubFails, the name after `fails` current: the routine can fail, its
+; codes members of that enum (D54), RO_CDOM; any other name is
+; type-mismatch at it.
 
 AC_FAILS:
     LD   HL,RO_CFLAG               ; The routine's flags
     SET  0,(HL)                    ; gain RO_FFAIL.
-    RET                            ; Back to the engine.
+    CALL SY_FIND                   ; The name's symbol:
+    JR   NC,.NOT                   ; none,
+    INC  HL                        ; or
+    INC  HL                        ; its
+    INC  HL                        ; class,
+    LD   A,(HL)                    ; a type
+    CP   SY_TYPE                   ; name's,
+    JR   NZ,.NOT                   ; whose
+    INC  HL                        ; type
+    LD   A,(HL)                    ; ID
+    CP   AG_FIRST                  ; is
+    JR   C,.NOT                    ; an
+    CALL AG_SCAL                   ; enum's.
+    LD   (RO_CDOM),A               ; Kept.
+    RET  C                         ; Back to the engine.
+.NOT:                          ; Anything else:
+    CALL DG_RAISE                  ; type-mismatch,
+    DB   DG_CLASH                  ; at the name.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL,IX
 ; BeginForwardBody: `sub NAME` without a signature opens the body of an
@@ -721,17 +740,19 @@ AC_FAIL:
     LD   A,(RO_CFLAG)              ; The routine's flags.
     AND  RO_FFAIL                  ; Failable?
     JR   Z,AC_ESAFE                ; No: raise not-failable at `fail`.
-    LD   A,SY_U8                   ; The code is a u8.
+    LD   A,(RO_CDOM)               ; The code is its enum's (D54).
     JP   AC_WANT                   ; Expect it.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; CommitFail (failStatement): check the u8 code, with no failure pending,
+; CommitFail (failStatement): check the code, a member of the routine's
+; failure enum (RO_CDOM), with no failure pending,
 ; and bring it into A; then PUSH AF and POP AF around the frees (none in
 ; this subset), SCF, carry set for failure, and JP to the exit. The code
 ; that follows is unreachable.
 
 AC_THROW:
-    LD   E,SY_U8                   ; The code must be a u8
+    LD   A,(RO_CDOM)               ; The code must be of
+    LD   E,A                       ; the routine's enum
     CALL AC_VALOK                  ; with no failure pending.
     CALL GX_TOREG                  ; The code in A.
     CALL HN_FAIL                   ; PUSH AF, the frees, POP AF,
@@ -888,7 +909,8 @@ AC_FIND:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; BeginHandle, with the handler's variable as the current NAME: it must be
-; a u8 variable (DG_CLASH) and not an active for counter (DG_INUSE). The
+; a variable of the call's failure enum (RO_KDOM; handle-destination) and
+; not an active for counter. The
 ; failure lands here: the temporaries it left are dropped, POP DE for each
 ; two bytes, and its code, in A, is stored in the variable. The handler's
 ; body is reachable.
@@ -905,10 +927,11 @@ AC_ONERR:
     CALL CT_COUNT                  ; a for loop,
     JR   C,.DEST                   ; neither.
 .TYPE:                         ; A variable.
-    CALL EX_DTYPE                  ; Its type.
-    CP   SY_U8                     ; Error codes are u8.
+    CALL EX_DTYPE                  ; Its type:
+    LD   HL,RO_KDOM                ; the call's
+    CP   (HL)                      ; failure enum's (D54)?
     JR   Z,.U8                     ; Anything else is no destination.
-.DEST:                         ; Not a writable u8 variable.
+.DEST:                         ; Not a writable variable of it.
     CALL DG_RAISE                  ; Raise the diagnostic below:
     DB   DG_DEST                   ; handle-destination.
 .U8:                           ; The variable takes the code.

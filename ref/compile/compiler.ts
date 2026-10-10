@@ -22,6 +22,7 @@ import {
   Helper,
   HELPER_VERSION,
   helperStack,
+  IO_ERROR_MEMBERS,
   PREDECLARED_CONSTANTS,
   PRINTER_FILE,
   SERVICES,
@@ -200,6 +201,13 @@ export class Compiler {
 
   private predeclare(): void {
     const at = this.tokens[0];
+    // The services' failure domain (D54), before the services that name it.
+    const ioError: EnumType = {
+      kind: "enum",
+      name: "IoError",
+      members: [...IO_ERROR_MEMBERS],
+    };
+    this.scopes.declare({ kind: "enum", name: "IoError", type: ioError }, at);
     for (const [name, value] of PREDECLARED_CONSTANTS) {
       this.scopes.declare({ kind: "const", name, value }, at);
     }
@@ -222,6 +230,7 @@ export class Compiler {
         [],
         false,
       );
+      sub.scopes.declare({ kind: "enum", name: "IoError", type: ioError }, at);
       const sig = sub.parseHeader(sub.expectKeyword("sub"));
       this.scopes.declare({
         kind: "routine",
@@ -1014,6 +1023,16 @@ export class Compiler {
       }
     }
     const fails = this.acceptKeyword("fails");
+    // The failure's domain, an enum (D54): `fails E`.
+    let domain: EnumType | undefined;
+    if (fails) {
+      const dn = this.expectName();
+      const ds = this.scopes.lookup(dn.text);
+      if (ds?.kind !== "enum") {
+        fail("type-mismatch", dn, "a failure domain is an enum type");
+      }
+      domain = (ds as { type: EnumType }).type;
+    }
     // Offsets: the last parameter is at IX+4; each earlier one is above it.
     let offset = 4;
     for (let i = parameters.length - 1; i >= 0; i -= 1) {
@@ -1040,6 +1059,7 @@ export class Compiler {
       varResult,
       from,
       fails,
+      domain,
       argumentBytes: offset - 4,
     };
   }
@@ -1590,10 +1610,15 @@ export class Compiler {
       const dest = this.expectName();
       const sym = this.scopes.lookup(dest.text);
       if (
-        sym?.kind !== "var" || !isScalar(sym.type, "u8") || sym.readonly ||
+        sym?.kind !== "var" || sym.type !== pending.domain || sym.readonly ||
         sym.counting
       ) {
-        fail("handle-destination", dest, "handle needs a writable u8 variable");
+        fail(
+          "handle-destination",
+          dest,
+          `handle needs a writable ${pending.domain.name} variable`,
+          [pending.domain.name],
+        );
       }
       this.expectNewline();
       const r = this.routine!;
@@ -1644,6 +1669,8 @@ export class Compiler {
   private pendingFailure?: { kind: "fail" } | {
     kind: "handle";
     failLabel: number;
+    /** The callee's failure domain, the handler variable's type (D54). */
+    domain: EnumType;
     /** Temporaries pushed beneath the call, which a failure leaves behind. */
     pushed: number;
   };
@@ -1739,8 +1766,9 @@ export class Compiler {
       fail("not-failable", at, "fail needs a routine declared fails");
     }
     const codeAt = this.token;
-    const v = this.expression(U8);
-    this.toRegisters(v, U8, codeAt);
+    const domain = r.symbol.signature.domain!;
+    const v = this.expression(domain);
+    this.toRegisters(v, domain, codeAt);
     this.expectNewline();
     r.blob.u8(0xf5); // PUSH AF
     this.emitFrees(this.scopes.scopesFrom(this.scopes.routineDepth()));
@@ -4304,6 +4332,16 @@ export class Compiler {
         if (!r.symbol.signature.fails) {
           fail("not-failable", at, "try needs a routine declared fails");
         }
+        if (r.symbol.signature.domain !== sig.domain) {
+          fail(
+            "failure-domain",
+            at,
+            `${callee.name} fails with ${sig.domain!.name}, not ${
+              r.symbol.signature.domain!.name
+            }`,
+            [callee.name],
+          );
+        }
         // Passing the failure on leaves the routine, so its owners are freed
         // first, as a fail statement frees them; A and carry are kept.
         const owners = this.scopes.scopesFrom(this.scopes.routineDepth());
@@ -4320,7 +4358,12 @@ export class Compiler {
       } else if (this.isKeyword("handle")) {
         const failLabel = r.blob.newLabel();
         r.blob.jpIf(JP_C, failLabel);
-        this.pendingFailure = { kind: "handle", failLabel, pushed: r.pushed };
+        this.pendingFailure = {
+          kind: "handle",
+          failLabel,
+          pushed: r.pushed,
+          domain: sig.domain!,
+        };
       } else {
         fail(
           "failure-unconsumed",

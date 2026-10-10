@@ -8,7 +8,7 @@ enum Choice
     own
 end
 
-sub main() fails
+sub main() fails IoError
     var selected: Choice
     assert selected = Choice.own
     assert fromA()

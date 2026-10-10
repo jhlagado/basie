@@ -90,7 +90,7 @@ RO_FIND:
 ; service (its result type). Carry clear means neither.
 
 RO_LIB:
-    LD   HL,OV_AREA                ; HP_NAMES: a length byte and spelling each.
+    LD   HL,OV_AREA+HP_SKIP        ; HP_NAMES: a length byte and spelling each.
 .LOOP:                         ; Compare one entry.
     LD   A,(HL)                    ; Read the entry's length;
     OR   A                         ; zero ends the table,
@@ -128,11 +128,11 @@ RO_LIB:
 
 PR_BUILD:
     LD   (PR_SP),SP                ; A diagnostic returns from here.
-    LD   A,OV_PREP                 ; The state a compilation
-    CALL OV_LOAD                   ; begins with is made by
-    CALL OV_AREA                   ; the PREP overlay (PP_RUN),
-    LD   A,OV_NAMES                ; then the predeclared names
-    CALL OV_LOAD                   ; take the overlay area.
+    LD   A,OV_NAMES                ; The predeclared names
+    CALL OV_LOAD                   ; take the overlay area;
+    XOR  A                         ; the state a compilation begins with
+    LD   B,OV_PREP                 ; is made by the PREP overlay above
+    CALL OV_XCALL                  ; them (PP_RUN), IoError among it.
     XOR  A                         ; Part zero of the stream
     CALL SRC_BODY                  ; is current;
     LD   A,1                       ; a diagnostic waits for

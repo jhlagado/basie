@@ -13,7 +13,7 @@ pool nodes: Node[4]
 var a: nodes?
 var b: nodes?
 
-sub main() fails
+sub main() fails IoError
     a = move b
     select a
     case some(i)

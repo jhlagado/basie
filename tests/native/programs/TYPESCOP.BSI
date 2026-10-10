@@ -83,7 +83,7 @@ sub r9(): u16
     w[9][1] = 109
     return u16(a[10]) + w[9][1]
 end
-sub main() fails
+sub main() fails IoError
     total = r0() + r1() + r2() + r3() + r4() + r5() + r6() + r7() + r8() + r9()
     if total = 1100
         try writeText(console, "scoped types\r\n")

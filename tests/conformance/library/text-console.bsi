@@ -7,7 +7,7 @@
 
 include "TEXTIO.BSI"
 
-sub main() fails
+sub main() fails IoError
     var name: string[20]
     var secret: string[20]
     try prompt("Name? ", var name)
@@ -40,10 +40,10 @@ sub main() fails
     end
     try append(var line, "] ")
     var small: string[2]
-    var code: u8 = 0
+    var code: IoError
     var found: boolean = false
     found = word(tail, 1, var small) handle code
-        if code = lineTooLong
+        if code = IoError.lineTooLong
             try appendByte(var line, 'F')
         end
     end

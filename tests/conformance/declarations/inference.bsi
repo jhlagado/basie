@@ -8,7 +8,7 @@ sub twice(n: i16): i16
     return n * 2
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[12]
     var d = twice(-21)
     try appendI16(var line, d)

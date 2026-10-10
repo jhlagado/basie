@@ -33,7 +33,7 @@ end
 sub passOn(items: E${last}[]): E${last}
     return first(items)
 end
-sub main() fails
+sub main() fails IoError
     var items: E${last}[1] = [E${last}.last]
     assert passOn(items) = E${last}.last
     try writeText(console, "V\\r\\n")
@@ -44,7 +44,7 @@ const accepted = [
   { name: "ENUMS", source: values, output: "E\r\n" },
   {
     name: "ENOPEN39",
-    source: openArraySource(24),
+    source: openArraySource(23),
     output: "V\r\n",
   },
   {
@@ -60,7 +60,7 @@ var late: E11
 sub last(value: E11): E11
     return value
 end
-sub main() fails
+sub main() fails IoError
     assert early = E0.first
     assert late = E11.first
     late = last(E11.last)
@@ -78,7 +78,7 @@ var items: Wide[2] = [Wide.m0, Wide.m255]
 sub echo(input: Wide): Wide
     return input
 end
-sub main() fails
+sub main() fails IoError
     assert value = Wide.m0
     value = echo(items[1])
     assert value = Wide.m255
@@ -98,14 +98,14 @@ end
   {
     name: "ENUM48",
     source: `${
-      Array.from({ length: 48 }, (_, i) =>
+      Array.from({ length: 47 }, (_, i) =>
         `enum E${i}\n    first\n    last\nend\nvar v${i}: E${i}\n`).join("\n")
     }
-sub main() fails
+sub main() fails IoError
     assert v0 = E0.first
-    assert v47 = E47.first
-    v47 = E47.last
-    assert v47 = E47.last
+    assert v46 = E46.first
+    v46 = E46.last
+    assert v46 = E46.last
     try writeText(console, "T\\r\\n")
 end
 `,
@@ -298,11 +298,12 @@ for (const [name, source, code] of refused) {
   });
 }
 
-Deno.test("plain enums native: 49 types exceed the shared descriptor capacity", async () => {
+// IoError, predeclared (D54), takes the first of the 48 shared slots.
+Deno.test("plain enums native: 48 declared types exceed the shared descriptor capacity", async () => {
   const { compiler, runtime } = await native();
   const source = encoder.encode(
     `${
-      Array.from({ length: 49 }, (_, i) => `enum E${i}\n    first\nend\n`).join(
+      Array.from({ length: 48 }, (_, i) => `enum E${i}\n    first\nend\n`).join(
         "\n",
       )
     }sub main()\nend\n`,
@@ -331,7 +332,7 @@ function assertMatchCapacity(output: string) {
 
 Deno.test("plain enums reference: open-array enum ID40 runs", async () => {
   const reference = await compile("ENOPEN40.BSI", {
-    mainSource: encoder.encode(openArraySource(25)),
+    mainSource: encoder.encode(openArraySource(24)),
   });
   assert(reference.ok, JSON.stringify(reference));
   assertEquals(runCom(reference.com, { maxSteps: 5_000_000 }).output, "V\r\n");
@@ -339,7 +340,7 @@ Deno.test("plain enums reference: open-array enum ID40 runs", async () => {
 
 Deno.test("plain enums native: open-array enum ID40 reaches encoding capacity", async () => {
   const { compiler, runtime } = await native();
-  const source = encoder.encode(openArraySource(25));
+  const source = encoder.encode(openArraySource(24));
   const reference = await compile("ENOPEN40.BSI", { mainSource: source });
   assert(reference.ok, JSON.stringify(reference));
   const compiled = runCom(compiler.com, {

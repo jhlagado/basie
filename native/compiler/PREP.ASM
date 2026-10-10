@@ -4,12 +4,15 @@
 ;
 ;  The PREP overlay (OVERLAY.ASM): the state a compilation begins with,
 ;  made once, after the start-up has loaded the parts and opened the
-;  streams and before NAMES takes the overlay area for the parse. It runs
+;  streams and after NAMES has taken the overlay area for the parse, above
+;  it, so that it reads IoError's header there (D54). It runs
 ;  inside PR_BUILD (ROUTINES.ASM), whose saved SP a diagnostic returns to,
 ;  so the memory's check may raise DG_ROOM here as anywhere in the parse.
 ;
 ;  Principal entries:
-;    PP_RUN    clear the parse state and place the tables, at OV_AREA
+;    PP_RUN    clear the parse state and place the tables, then declare
+;              IoError (D54) from NAMES' header; at PREP's address, above
+;              NAMES, which PR_BUILD loads first
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; Clear the state one compilation accumulates: the diagnostic, the
@@ -22,7 +25,7 @@
 ; table, the owner descriptors' ordinals and the routine state; the tables
 ; are written before they are read.
 
-PP_RUN:                        ; At OV_AREA.
+PP_RUN:                        ; Above NAMES.
     XOR  A                         ; Zero for every cleared field.
     LD   H,A                       ; HL is zero
     LD   L,A                       ; for the word fields.
@@ -102,7 +105,31 @@ PP_RUN:                        ; At OV_AREA.
     CALL .WIPE                     ; none yet;
     LD   HL,RO_BASE                ; and the routine state:
     LD   B,RO_SPAR-RO_BASE         ; its counts, fields, hash chains and
-                                   ; record; fall into .WIPE and return.
+    CALL .WIPE                     ; record.
+    LD   HL,OV_AREA+2              ; IoError (D54), the services' failure
+    LD   A,(HL)                    ; enum, the first type (AG_FIRST): its
+    INC  HL                        ; name, from NAMES' header,
+    LD   (TK_PTR),HL               ; the current
+    LD   (TK_LEN),A                ; name,
+    CALL EX_KEEP                   ; retained;
+    LD   HL,(OV_AREA)              ; its members,
+    LD   (AG_NDIM),HL              ; NAMES' nodes,
+    LD   A,19                      ; nineteen
+    LD   (AG_NAUX),A               ; of them,
+    LD   A,AG_KENUM                ; an
+    LD   (AG_NKIND),A              ; enum's,
+    LD   HL,1                      ; a byte
+    LD   (AG_NSIZE),HL             ; each:
+    CALL AG_ADD                    ; its type, A,
+    LD   C,A                       ; the payload
+    LD   B,0                       ; of a type
+    LD   D,SY_TYPE                 ; name's
+    CALL EX_PREP                   ; symbol,
+    JP   SY_CMT                    ; committed; return.
+
+;@ROUTINE IN B,HL OUT A CLOBBERS B,HL,ZERO,SIGN,PARITY,HALFCARRY
+; Clear B bytes at HL; A is zero after.
+
 .WIPE:                         ; Clear B bytes at HL; A is zero after.
     XOR  A                         ; zero
 .ZERO:                         ; each

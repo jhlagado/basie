@@ -7,7 +7,7 @@ record Node
 end
 pool nodes: Node[2]
 
-sub fill() fails
+sub fill() fails IoError
     var head: Node
     head.next = new nodes('A', none)
     select head.next
@@ -31,7 +31,7 @@ sub early(stop: boolean): u8
     return 2
 end
 
-sub main() fails
+sub main() fails IoError
     try fill()
     try fill()
     try fill()

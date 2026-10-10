@@ -44,7 +44,7 @@ sub unlink(x: id dnodes)
     end
 end
 
-sub show() fails
+sub show() fails IoError
     var line: string[40]
     var p = id(first)
     var started: boolean = false
@@ -65,7 +65,7 @@ sub show() fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     pushFront(1)
     pushFront(2)
     pushFront(3)

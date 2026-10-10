@@ -26,7 +26,7 @@ sub fill(): u16
     return words[1499] + words[750]
 end
 
-sub main() fails
+sub main() fails IoError
     var i: u16
     for i = 0 to 4095
         buf[i] = u8(i and 255)

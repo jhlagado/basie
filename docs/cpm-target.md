@@ -251,7 +251,7 @@ The library provides one reporter blob for each trap reason (`bounds`,
 TRAP bounds at 1A3F (BASIE name [T=1A3F])
 ```
 
-then sets the return code to `$FF02` and exits as in Section 5. An unhandled failure from `main` prints `FAIL` and the code in decimal, such as `FAIL 48`, sets the return code to `$FF01`, and exits the same way. The address is
+then sets the return code to `$FF02` and exits as in Section 5. An unhandled failure from `main` prints `FAIL` and the code in decimal, such as `FAIL 4`, sets the return code to `$FF01`, and exits the same way. The address is
 that of the instruction that called into the failing code: the trap site in the
 program. The parenthesis is the command that looks the address up (Section
 10.3, design decision D47); a program under CP/M 2.2 doesn't know the name it

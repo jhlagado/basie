@@ -100,7 +100,7 @@ RO_TARM EQU  RO_BASE+$08       ; Byte: nonzero while a `try` waits for its call 
 RO_PEND EQU  RO_BASE+$09       ; Byte: $80 and a failure's label while it is unconsumed.
 RO_KEPT EQU  RO_BASE+$0A       ; Byte: temporaries' bytes beneath a handled call.
 RO_MFLAG EQU  RO_BASE+$0B      ; Byte: RO_FMAIN once main is declared (AC_PUB).
-; RO_BASE+$0C: free.
+RO_KDOM EQU  RO_BASE+$0C       ; Byte: the last call's failure enum (RO_ARGS), for try and handle.
 RO_ESC EQU  RO_BASE+$0D        ; Byte: nonzero when the last path's root is in the frame.
 ; RO_BASE+$0E: free.
 RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FAILS).
@@ -136,7 +136,8 @@ RO_HTAB EQU  RO_STEND          ; SY_HCAP words: the routines' hash chains' heads
 RO_RHEAD EQU  RO_HTAB+2*SY_HCAP ; Word: the first routine declared, zero for none.
 RO_RLAST EQU  RO_RHEAD+2      ; Word: the last, whose RO_RNEXT the next takes.
 RO_HEND EQU  RO_RLAST+2        ; Their end.
-RO_RLEN EQU  20                ; Bytes in one routine record.
+RO_RLEN EQU  21                ; Bytes in one routine record.
+RO_RDOM EQU  20                ; Byte: a failable routine's failure enum's type ID (D54).
 RO_RNAME EQU  0                ; Word: address of the routine's name.
 RO_RNLEN EQU  2                ; Byte: length of the name.
 RO_RPIDX EQU  3                ; Word: its first parameter's record.
@@ -160,6 +161,7 @@ RO_CPIDX EQU  RO_CREC+RO_RPIDX ; Word: its first parameter's record.
 RO_CPCNT EQU  RO_CREC+RO_RPCNT ; Byte: its parameters so far.
 RO_CTYPE EQU  RO_CREC+RO_RTYPE ; Byte: its result type ordinal, zero for none.
 RO_CFLAG EQU  RO_CREC+RO_RFLAG ; Byte: its flags.
+RO_CDOM EQU  RO_CREC+RO_RDOM  ; Byte: its failure enum (D54).
 RO_CARGS EQU  RO_CREC+RO_RARGS ; Byte: its argument bytes, removed by RETN.
 RO_PLEN EQU  5                 ; Bytes in one parameter record.
 RO_SCAP EQU  64                ; Parameters of one routine; DG_PARAM beyond.
@@ -225,4 +227,6 @@ RO_FOPEN EQU  4                ; Routine flag: a forward still awaiting its body
 RO_FFWD EQU  8                 ; Routine flag: declared forward; it checks the stack.
 RO_FVRES EQU  $10              ; Routine flag: its aggregate result is var.
 RO_FPRIV EQU  $20              ; Routine flag: private, hidden when its part ends.
+RO_FSVC EQU  $40               ; Routine flag: a service, failing with IoError (AG_FIRST).
+HP_SKIP EQU  10                ; NAMES' IoError header before HP_NAMES (PREDEF.ASM).
 

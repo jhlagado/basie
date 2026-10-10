@@ -29,7 +29,7 @@ import { assertThrows } from "@std/assert";
 const built = await buildRuntime();
 const byOrdinal = new Map(HELPER_TABLE.map((h) => [h.ordinal, h]));
 const hello = new TextEncoder().encode(
-  'sub main() fails\n    try writeText(console, "hi")\nend\n',
+  'sub main() fails IoError\n    try writeText(console, "hi")\nend\n',
 );
 
 Deno.test("the compiler's helper table and the published one are current", async () => {

@@ -42,7 +42,7 @@ var items: Item[3] = [("lamp", hall), ("key", library), ("gold", vault)]
 
 var here: u8 = cellar
 
-sub say(text: string[]) fails
+sub say(text: string[]) fails IoError
     try writeLine(console, text)
 end
 
@@ -63,7 +63,7 @@ sub carrying(name: string[]): boolean
     return i <> 255 and items[i].place = carried
 end
 
-sub look() fails
+sub look() fails IoError
     if here = passage and not carrying("lamp")
         try say("It is too dark to see.")
         return
@@ -83,7 +83,7 @@ sub look() fails
     end
 end
 
-sub go(way: u8) fails
+sub go(way: u8) fails IoError
     if way = blocked
         try say("You can't go that way.")
         return
@@ -96,7 +96,7 @@ sub go(way: u8) fails
     try look()
 end
 
-sub take(noun: string[]) fails
+sub take(noun: string[]) fails IoError
     var i = itemNamed(noun)
     if i = 255 or items[i].place <> here
         try say("You don't see that here.")
@@ -106,7 +106,7 @@ sub take(noun: string[]) fails
     try say("Taken.")
 end
 
-sub drop(noun: string[]) fails
+sub drop(noun: string[]) fails IoError
     var i = itemNamed(noun)
     if i = 255 or items[i].place <> carried
         try say("You aren't carrying that.")
@@ -116,7 +116,7 @@ sub drop(noun: string[]) fails
     try say("Dropped.")
 end
 
-sub inventory() fails
+sub inventory() fails IoError
     var empty = true
     var i: u8 = 0
     while i < 3
@@ -134,16 +134,16 @@ sub inventory() fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[60]
     var verb: string[12]
     var noun: string[12]
-    var code: u8 = 0
+    var code: IoError
     try say("ADVENT: bring the gold back to the cellar.")
     try look()
     while true
         prompt("> ", var line) handle code
-            if code = endOfInput
+            if code = IoError.endOfInput
                 return
             end
             fail code

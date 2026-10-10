@@ -13,7 +13,7 @@ pool nodes: Node[4]
 
 var head: nodes?
 
-sub main() fails
+sub main() fails IoError
     head = new nodes('H', none)
     select head
     case some(i)

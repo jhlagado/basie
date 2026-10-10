@@ -18,14 +18,14 @@ sub make(n: u8): point
     return where
 end
 
-sub maybe(n: u8): point fails
+sub maybe(n: u8): point fails IoError
     if n = 0
-        fail 9
+        fail IoError.diskFull
     end
     return where
 end
 
-sub main() fails
+sub main() fails IoError
     var c = 'A'
     var d = ('B')
     var e = +'C'

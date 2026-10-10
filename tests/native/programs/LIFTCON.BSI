@@ -24,7 +24,7 @@ sub f(): u16
     var y5: u8 = a[2]
     return u16(a[2]) + b[1] + x11 + u16(y5)
 end
-sub main() fails
+sub main() fails IoError
     if f() = 217
         try writeText(console, "constants kept\r\n")
     end

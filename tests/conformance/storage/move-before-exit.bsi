@@ -11,7 +11,7 @@ pool nodes: Node[4]
 sub eat(n: nodes): u8
     return 1
 end
-sub main() fails
+sub main() fails IoError
     var x = new nodes(65, none)
     var i: u8
     for i = 0 to 3

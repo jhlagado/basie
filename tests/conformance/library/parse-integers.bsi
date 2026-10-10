@@ -7,8 +7,8 @@
 include "FORMAT.BSI"
 include "PARSE.BSI"
 
-sub u16Case(var line: string[], text: string[]) fails
-    var code: u8 = 0
+sub u16Case(var line: string[], text: string[]) fails IoError
+    var code: ParseError
     var v: u16 = 0
     v = parseU16(text) handle code
         try append(var line, "B ")
@@ -18,8 +18,8 @@ sub u16Case(var line: string[], text: string[]) fails
     try appendByte(var line, ' ')
 end
 
-sub i16Case(var line: string[], text: string[]) fails
-    var code: u8 = 0
+sub i16Case(var line: string[], text: string[]) fails IoError
+    var code: ParseError
     var v: i16 = 0
     v = parseI16(text) handle code
         try append(var line, "B ")
@@ -29,8 +29,8 @@ sub i16Case(var line: string[], text: string[]) fails
     try appendByte(var line, ' ')
 end
 
-sub u32Case(var line: string[], text: string[]) fails
-    var code: u8 = 0
+sub u32Case(var line: string[], text: string[]) fails IoError
+    var code: ParseError
     var v: u32 = 0
     v = parseU32(text) handle code
         try append(var line, "B ")
@@ -40,8 +40,8 @@ sub u32Case(var line: string[], text: string[]) fails
     try appendByte(var line, ' ')
 end
 
-sub i32Case(var line: string[], text: string[]) fails
-    var code: u8 = 0
+sub i32Case(var line: string[], text: string[]) fails IoError
+    var code: ParseError
     var v: i32 = 0
     v = parseI32(text) handle code
         try append(var line, "B ")
@@ -51,13 +51,13 @@ sub i32Case(var line: string[], text: string[]) fails
     try appendByte(var line, ' ')
 end
 
-sub finish(var line: string[]) fails
+sub finish(var line: string[]) fails IoError
     try append(var line, "\r\n")
     try writeText(console, line)
     clear(var line)
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[100]
     try u16Case(var line, "0")
     try u16Case(var line, "65535")

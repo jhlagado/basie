@@ -1,13 +1,13 @@
 // The file table holds four files by default; a fifth open fails.
 // spec: 16; services 2
 // file A.TXT: x
-// expect output: 8\r\n
+// expect output: tooManyFiles\r\n
 
 include "FORMAT.BSI"
 
-sub main() fails
-    var line: string[8]
-    var code: u8 = 0
+sub main() fails IoError
+    var line: string[48]
+    var code: IoError
     var a = try openRead("A.TXT", textMode)
     var b = try openRead("A.TXT", textMode)
     var c = try openRead("A.TXT", textMode)
@@ -15,7 +15,7 @@ sub main() fails
     var e: File
     e = openRead("A.TXT", textMode) handle code
     end
-    try appendU16(var line, code)
+    try appendIoError(var line, code)
     try writeText(console, line)
     try writeText(console, "\r\n")
 end

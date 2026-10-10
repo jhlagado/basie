@@ -156,7 +156,7 @@ Basie marks every transfer of ownership with `move` at the point where it happen
 | Failing | `fail badNumber`, where the code is an integer constant | `return Err(E::BadNumber)` |
 | Passing a failure on | `try` before the call | `?` after the call |
 | Handling a failure | `x = f() handle code … end` | `match f() { Err(code) => …, Ok(v) => … }` |
-| Unhandled failure from `main` | the runtime prints `FAIL 48` | `main` returns `Err` and the error is printed |
+| Unhandled failure from `main` | the runtime prints `FAIL 4` | `main` returns `Err` and the error is printed |
 | Unrecoverable error | a trap, which nothing can catch | a panic, which `catch_unwind` can catch |
 | Error data | an integer code only | any type |
 
@@ -178,7 +178,7 @@ In both languages failure is part of a routine's signature, and every call must 
 The next language version brings the surface closer to Rust with `:` for `as` (D52) and `try` for `else fail` (D48). Routines keep `sub` and writable parameters keep `var`. Together the two changes turn this routine:
 
 ```basie
-sub execute(text: string[]): u16 fails
+sub execute(text: string[]): u16 fails IoError
     var value = try parseU16(text)
     return value * 2
 end
@@ -187,7 +187,7 @@ end
 into:
 
 ```basie
-sub execute(text: string[]): u16 fails
+sub execute(text: string[]): u16 fails IoError
     var value = try parseU16(text)
     return value * 2
 end

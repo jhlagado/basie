@@ -94,6 +94,6 @@ sub later
     return u16(n) * scale + 1
 end
 
-sub showC() fails
+sub showC() fails IoError
     try writeText(console, "C: the third part\r\n")
 end

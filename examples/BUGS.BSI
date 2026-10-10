@@ -67,7 +67,7 @@ sub spawn()
     end
 end
 
-sub draw() fails
+sub draw() fails IoError
     var line: string[20]
     var y: u8 = 0
     while y < height
@@ -210,11 +210,11 @@ sub walk(d: u8)
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[40]
     var verb: string[8]
     var noun: string[8]
-    var code: u8 = 0
+    var code: IoError
     var turn: u16 = 0
     try writeLine(console, "BUGS: zap 8 bugs before one reaches you.")
     while true
@@ -223,7 +223,7 @@ sub main() fails
         end
         try draw()
         prompt("> ", var line) handle code
-            if code = endOfInput
+            if code = IoError.endOfInput
                 return
             end
             fail code

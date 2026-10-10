@@ -331,33 +331,31 @@ and 31) is left to a later library release.
 
 ## 9. Failure codes
 
-Codes 1 to 4 and 254 keep their z80-services `byteGateway/0` meanings. Every service shares one code space:
+Every service that can fail is declared `fails IoError` (design decision D54). The predeclared enum `IoError` has these members, in ordinal order; the runtime returns a failure's ordinal as its code. The codes were renumbered for D54 to be the ordinals: earlier revisions numbered them from 1, with `invalid` 254 as z80-services `byteGateway/0` has it, and named code 1 `endOfFile` too.
 
-| Code | Name | Meaning |
+| Ordinal | Member | Meaning |
 | ---: | --- | --- |
-| 1 | `endOfInput` | The end of a file or of console input. `endOfFile` is another name for it |
-| 2 | `inputFailure` | Input failed for another reason |
-| 3 | `outputFailure` | The console or printer could not accept a byte |
-| 4 | `storageFailure` | A disk error the BDOS reported and returned from |
-| 5 | `fileNotFound` | The file does not exist |
-| 6 | `fileExists` | The new name is already taken |
-| 7 | `badName` | Not a valid file name (Section 4.1) |
-| 8 | `tooManyFiles` | The file table is full |
-| 9 | `fileClosed` | The file number doesn't refer to an open file |
-| 10 | `diskFull` | No space left on the disk |
-| 11 | `directoryFull` | No directory entries left |
-| 12 | `readOnly` | The drive or file is read-only |
-| 13 | `seekFailure` | The position is outside what the file allows, or beyond CP/M's 8 megabytes |
-| 14 | `lineTooLong` | A line or name didn't fit the string |
-| 15 | `notAvailable` | The target or device doesn't provide this |
-| 16 | `fileBusy` | The name is open on another file number |
-| 17 | `noSearch` | `findNext` with no search in progress |
-| 18 | `badMode` | An invalid mode, or a block operation on a text file |
-| 19–31 | — | Reserved for future services |
-| 32–47 | — | The standard library, starting with `badNumber` (32) |
-| 48–253 | — | Programs |
-| 254 | `invalid` | z80-services `invalid`, reserved |
-| 255 | — | Reserved |
+| 0 | `IoError.endOfInput` | The end of a file or of console input |
+| 1 | `IoError.inputFailure` | Input failed for another reason |
+| 2 | `IoError.outputFailure` | The console or printer could not accept a byte |
+| 3 | `IoError.storageFailure` | A disk error the BDOS reported and returned from |
+| 4 | `IoError.fileNotFound` | The file does not exist |
+| 5 | `IoError.fileExists` | The new name is already taken |
+| 6 | `IoError.badName` | Not a valid file name (Section 4.1) |
+| 7 | `IoError.tooManyFiles` | The file table is full |
+| 8 | `IoError.fileClosed` | The file number doesn't refer to an open file |
+| 9 | `IoError.diskFull` | No space left on the disk |
+| 10 | `IoError.directoryFull` | No directory entries left |
+| 11 | `IoError.readOnly` | The drive or file is read-only |
+| 12 | `IoError.seekFailure` | The position is outside what the file allows, or beyond CP/M's 8 megabytes |
+| 13 | `IoError.lineTooLong` | A line or name didn't fit the string |
+| 14 | `IoError.notAvailable` | The target or device doesn't provide this |
+| 15 | `IoError.fileBusy` | The name is open on another file number |
+| 16 | `IoError.noSearch` | `findNext` with no search in progress |
+| 17 | `IoError.badMode` | An invalid mode, or a block operation on a text file |
+| 18 | `IoError.invalid` | z80-services `invalid` |
+
+The standard library's number parsing fails with its own enum, `ParseError`, whose one member is `badNumber` (standard library, Section 4). A program declares enums of its own.
 
 ## 10. Alignment with the shared contracts
 

@@ -601,7 +601,7 @@ end
 sub r199(a: u8, b: u8): u8
     return a + b
 end
-sub main() fails
+sub main() fails IoError
     g = g + r0(0, 1)
     g = g + r16(16, 1)
     g = g + r32(32, 1)

@@ -17,13 +17,13 @@ pool boxes: Box[2]
 
 var keep: id boxes?
 
-sub look(x: Inner, s: string[], b: u8[]) fails
+sub look(x: Inner, s: string[], b: u8[]) fails IoError
     try writeByte(console, x.c)
     try writeByte(console, s[0])
     try writeByte(console, b[2])
 end
 
-sub main() fails
+sub main() fails IoError
     var h = new boxes()
     keep = id(h)
     select keep

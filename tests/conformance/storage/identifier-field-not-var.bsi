@@ -16,7 +16,7 @@ sub bump(var x: Inner)
     gb = new boxes()
     x.w = 3
 end
-sub main() fails
+sub main() fails IoError
     gb = new boxes()
     select gb
     case some(j)

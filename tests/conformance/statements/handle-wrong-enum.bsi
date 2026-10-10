@@ -1,0 +1,17 @@
+// A handler's variable has the type of the call's failure enum (D54).
+// spec: 14.6
+// expect error: handle-destination at 15:16
+
+enum Mine
+    broken
+end
+
+sub f() fails Mine
+    fail Mine.broken
+end
+
+sub main()
+    var code: IoError
+    f() handle code
+    end
+end

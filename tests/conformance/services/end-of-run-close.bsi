@@ -3,7 +3,7 @@
 // spec: 16; services 7
 // expect file KEEP.TXT: kept\r\n
 
-sub main() fails
+sub main() fails IoError
     var f = try openWrite("KEEP.TXT", textMode)
     try writeText(f, "kept")
     try writeByte(f, 10)

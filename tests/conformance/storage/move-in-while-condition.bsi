@@ -12,7 +12,7 @@ var count: u8
 sub eat(n: nodes): u8
     return n.value
 end
-sub main() fails
+sub main() fails IoError
     var x = new nodes(65, none)
     while eat(move x) <> 0 and count < 3
         count = count + 1

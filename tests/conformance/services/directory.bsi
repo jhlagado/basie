@@ -16,7 +16,7 @@ sub flag(b: boolean): u8
     return 'F'
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[60]
     var name: string[14]
     var there = try exists("A.TXT")

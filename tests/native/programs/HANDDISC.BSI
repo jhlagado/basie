@@ -15,18 +15,20 @@ sub make(v: u8): nodes
 end
 sub nothing()
 end
-sub mk(v: u8): nodes fails
+sub mk(v: u8): nodes fails IoError
     if v = 0
-        fail 1
+        fail IoError.inputFailure
     end
     return new nodes(v, none)
 end
-sub main() fails
+sub main() fails IoError
     make(1)
     try mk(2)
-    var e: u8
+    var e: IoError
     mk(3) handle e
-        g = e
+        if e = IoError.inputFailure
+            g = 1
+        end
     end
     var a = new nodes(1, none)
     var y = a.value

@@ -13,12 +13,12 @@ Before the first source token, the compiler establishes in the program scope:
 
 - the **service routines** of the profile's helper table, with their signatures ([services](../docs/services.md), Sections 3 to 6);
 - the type **`File`**, and the values **`console`** and **`printer`** of that type (Section 16.3);
-- the **failure-code constants** of [services](../docs/services.md), Section 9, as untyped integer constants: `endOfInput` (1), `inputFailure` (2), `outputFailure` (3), `storageFailure` (4), `fileNotFound` (5), `fileExists` (6), `badName` (7), `tooManyFiles` (8), `fileClosed` (9), `diskFull` (10), `directoryFull` (11), `readOnly` (12), `seekFailure` (13), `lineTooLong` (14), `notAvailable` (15), `fileBusy` (16), `noSearch` (17), `badMode` (18) and `invalid` (254), with `endOfFile` another name for 1; and
+- the services' failure enum **`IoError`** ([services](../docs/services.md), Section 9; design decision D54), whose members in ordinal order, each ordinal the code the runtime returns, are `endOfInput`, `inputFailure`, `outputFailure`, `storageFailure`, `fileNotFound`, `fileExists`, `badName`, `tooManyFiles`, `fileClosed`, `diskFull`, `directoryFull`, `readOnly`, `seekFailure`, `lineTooLong`, `notAvailable`, `fileBusy`, `noSearch`, `badMode` and `invalid` (0 to 18), written qualified as `IoError.fileNotFound`; and
 - the mode constants **`textMode`** (0) and **`binaryMode`** (1) ([services](../docs/services.md), Section 4.2).
 
 Revision 2 of the services uses no other predeclared type.
 
-Predeclared names cannot be redeclared or shadowed (Chapter 5, Section 5.10). Service routines are called exactly like source routines; a service that can fail is declared `fails` and follows Chapter 14. A call to a service that the selected profile does not provide is a compile-time error. A program carries only the services it calls.
+Predeclared names cannot be redeclared or shadowed (Chapter 5, Section 5.10). Service routines are called exactly like source routines; a service that can fail is declared `fails IoError` and follows Chapter 14. A call to a service that the selected profile does not provide is a compile-time error. A program carries only the services it calls.
 
 `readInputByte()` and `writeOutputByte(b)` are predeclared as shorthands for `readByte(console)` and `writeByte(console, b)`.
 

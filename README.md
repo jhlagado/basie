@@ -28,8 +28,9 @@ step 74 records completion of the current implementation scope, with open arrays
 of handles and `File`s retained for the next development milestone
 ([limits](docs/limits.md)). Plain nominal enums are implemented in both compilers as the first next-milestone feature
 ([types](spec/06-types.md#616-plain-enumerations)), followed by exhaustive value selection (D51,
-[select](spec/11-conditional-control.md#117-select)).
-`BASIE.COM` takes 25,534 resident bytes and a 2,611-byte overlay area, 527 bytes under
+[select](spec/11-conditional-control.md#117-select)), colon types (D52), `try` (D48),
+call-site `var` (D49) and enum failure domains (D54), which complete the milestone's first
+tier. `BASIE.COM` takes 25,597 resident bytes and a 2,666-byte overlay area, 409 bytes under
 its 28 KiB limit.
 
 The [forward development plan](docs/development-plan.md) records the next milestone's

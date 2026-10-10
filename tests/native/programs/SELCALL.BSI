@@ -19,7 +19,7 @@ end
 sub row(): Holder[2]
     return all
 end
-sub main() fails
+sub main() fails IoError
     hold.head = new nodes(3, none)
     hold.ref = id(hold.head)
     hold.n = 2
@@ -36,7 +36,7 @@ sub main() fails
     end
     select row()[1].ref
     case some(i)
-        fail 1
+        fail IoError.inputFailure
     case none
         t = t + 1
     end

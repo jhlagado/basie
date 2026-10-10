@@ -9,14 +9,14 @@ end
 pool nodes: Node[4]
 var keep: id nodes?
 var out: File
-sub flag(b: boolean) fails
+sub flag(b: boolean) fails IoError
     if b
         try writeByte(console, 'T')
     else
         try writeByte(console, 'F')
     end
 end
-sub main() fails
+sub main() fails IoError
     var a = new nodes(1, none, none)
     var b = new nodes(2, none, none)
     var ia = id(a)

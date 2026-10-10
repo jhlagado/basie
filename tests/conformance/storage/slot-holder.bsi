@@ -18,7 +18,7 @@ sub push(var l: nodes?, v: u8)
     l = move n
 end
 
-sub main() fails
+sub main() fails IoError
     push(var list, 'X')
     push(var list, 'Y')
     select list

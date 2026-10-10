@@ -10,15 +10,15 @@ record pair
     b: u16
 end
 
-sub work(n: u8): u8 fails
+sub work(n: u8): u8 fails IoError
     if n > 200
-        fail n
+        fail IoError.badMode
     end
     var doubled: u8 = n + n
     return doubled
 end
 
-sub main() fails
+sub main() fails IoError
     total = 1
     var first: u8 = 3
     total = total + first
@@ -59,9 +59,12 @@ sub main() fails
         end
         total = total + square
     end
-    var code: u8
+    var code: IoError
     total = total + work(250) handle code
-        var shifted: u16 = code
+        var shifted: u16 = 250
+        if code <> IoError.badMode
+            shifted = 0
+        end
         total = total + shifted
     end
     var p: pair

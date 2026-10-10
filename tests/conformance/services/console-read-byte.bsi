@@ -1,24 +1,24 @@
 // readByte on the console echoes each key; Control-Z ends console input, for good.
 // spec: 16; services 3.2
 // input: ab
-// expect output: ab[1][1]\r\n
+// expect output: ab[endOfInput][endOfInput]\r\n
 
 include "FORMAT.BSI"
 
-sub main() fails
-    var line: string[12]
-    var code: u8
+sub main() fails IoError
+    var line: string[48]
+    var code: IoError
     var b: u8
     b = try readByte(console)
     b = try readByte(console)
     b = readByte(console) handle code
         try appendByte(var line, '[')
-        try appendU16(var line, code)
+        try appendIoError(var line, code)
         try appendByte(var line, ']')
     end
     b = readByte(console) handle code
         try appendByte(var line, '[')
-        try appendU16(var line, code)
+        try appendIoError(var line, code)
         try appendByte(var line, ']')
     end
     try writeText(console, line)

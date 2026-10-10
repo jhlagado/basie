@@ -8,7 +8,7 @@ include "PARTB.BSI"
 
 const k = 3
 
-sub main() fails
+sub main() fails IoError
     try writeByte(console, '0' + fromA())
     try writeByte(console, ' ')
     try writeByte(console, '0' + fromB())

@@ -1,2 +1,2 @@
 Usage: DUMP NAME.EXT
-FAIL 48
+FAIL 6

@@ -309,7 +309,7 @@ sub pick(): u8
     end
     return g
 end
-sub main() fails
+sub main() fails IoError
     h = 149
     if pick() = 149
         try writeText(console, "a")

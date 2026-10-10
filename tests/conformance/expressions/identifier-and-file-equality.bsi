@@ -20,7 +20,7 @@ sub flag(b: boolean): u8
     return 'F'
 end
 
-sub main() fails
+sub main() fails IoError
     var a = new nodes(1, none)
     var b = new nodes(2, none)
     var ia = id(a)

@@ -36,7 +36,7 @@ from completing that review. Current dispositions are:
 | --- | --- |
 | Required call-site `var` | Accepted next-milestone plan item after renewed review; unimplemented, with no request to implement or change to current 0.1 completion scope. |
 | Colon type syntax | Accepted next-milestone plan item alongside call-site `var`; unimplemented, with modifier placement and coordinated migration still to settle. Current 0.1 scope is unchanged. |
-| Restricted `try` | Accepted next-milestone prefix replacement for `else fail` within current call positions; unimplemented. Nested failable calls and general expression use are outside scope. |
+| Restricted `try` | Implemented (D48, 2026-10-11): the prefix replaces `else fail` within the existing call positions. Nested failable calls and general expression use are outside scope. |
 | Plain enums and enum-typed failures | Accepted next-milestone directions: enums first, then typed failures. Plain enums are implemented in both compilers (D53); typed failures remain separate accepted work. The measured footprint is recorded in the test report. |
 | Exhaustive value selection | Accepted next-milestone plan item: compile-time whole-domain coverage or explicit `case else`. Empty default is intended; formal grammar remains to settle. Handle completeness is undecided. |
 | Open-array descriptor correction | Accepted next-milestone compatibility/capacity work before dependent slice and array extensions. Preserve address/extent calls and ownership/view/lease rules; verify types, diagnostics and workspace. |

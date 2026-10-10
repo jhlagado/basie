@@ -10,7 +10,7 @@ end
 
 var part: Part
 
-sub main() fails
+sub main() fails IoError
     var line: string[8]
     part.id = 7
     try appendU16(var line, part.id)

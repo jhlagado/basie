@@ -11,7 +11,7 @@ end
 
 pool nodes: Node[4]
 
-sub main() fails
+sub main() fails IoError
     var n = new nodes('X', none)
     try writeByte(console, n.value)
     try writeText(console, "\r\n")

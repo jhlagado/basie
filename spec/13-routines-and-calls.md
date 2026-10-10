@@ -16,7 +16,7 @@ routine-header       ::= "sub" NAME routine-signature-tail
 routine-signature-tail
                      ::= "(" [ formal-parameter
                          { "," formal-parameter } ] ")"
-                         [ result-clause ] [ "fails" ]
+                         [ result-clause ] [ "fails" NAME ]
 formal-parameter     ::= [ "var" ] NAME ":" type
 result-clause        ::= ":" [ "var" ] type [ "from" NAME { "," NAME } ]
 
@@ -34,7 +34,7 @@ return-statement     ::= "return" [ expression ]
 
 Chapter 8 remains authoritative for declaration placement; a routine body is a block, in which locals may be declared at any statement position. The fragments here complete their call and result meaning. Parentheses are required in every complete header and invocation, including a routine with no parameters or arguments. The abbreviated header is available only to the body that completes an earlier forward.
 
-An omitted result clause declares a result-free routine. A written type declares one result of that type: a scalar, a handle, or an aggregate returned as an alias (Section 13.6). The optional `fails` effect is defined by Chapter 14. The header has no separate procedure/function keyword and no result-name declaration.
+An omitted result clause declares a result-free routine. A written type declares one result of that type: a scalar, a handle, or an aggregate returned as an alias (Section 13.6). The optional `fails` effect, with the enum its codes come from, is defined by Chapter 14. The header has no separate procedure/function keyword and no result-name declaration.
 
 ## 13.3 Visible signatures and invocation
 

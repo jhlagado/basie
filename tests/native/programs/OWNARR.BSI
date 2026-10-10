@@ -29,7 +29,7 @@ sub fill(): u8
     return made
 end
 
-sub main() fails
+sub main() fails IoError
     var total: u8 = 0
     var round: u8
     for round = 1 to 4

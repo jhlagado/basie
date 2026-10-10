@@ -7,7 +7,7 @@
 var x: boolean
 var y: u16 = 3
 
-sub main() fails
+sub main() fails IoError
     x = false and (y > 1 and y < 5)
     y = 19279
     try writeOutputByte(u8(y mod 256))

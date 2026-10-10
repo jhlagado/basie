@@ -18,7 +18,7 @@ record Box
 end
 pool boxes: Box[1]
 var gb: boxes?
-sub look(x: Holder) fails
+sub look(x: Holder) fails IoError
     gb = none
     gb = new boxes()
     select gb
@@ -38,7 +38,7 @@ sub look(x: Holder) fails
     end
     try writeText(console, line)
 end
-sub main() fails
+sub main() fails IoError
     gb = new boxes()
     select gb
     case some(bi)

@@ -18,7 +18,7 @@ end
 sub maybe(n: nodes?): u8
     return 1
 end
-sub main() fails
+sub main() fails IoError
     w = big(new nodes(1, none)) and not 0
     g = g + eat(new nodes(1, none))
     b = false and maybe(new nodes(1, none)) = 1

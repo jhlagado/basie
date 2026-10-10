@@ -11,7 +11,7 @@ var a: f32 = -0
 var b: f32 = 0 * -5
 var c: f32 = f32(-0)
 
-sub main() fails
+sub main() fails IoError
     var line: string[24]
     var d: f32 = minus
     try appendF32(var line, a, 2)

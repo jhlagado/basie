@@ -3,6 +3,6 @@
 // expect output: Hello\r\n
 // expect return: 0
 
-sub main() fails
+sub main() fails IoError
     try writeText(console, "Hello\r\n")
 end

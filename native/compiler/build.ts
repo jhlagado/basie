@@ -78,7 +78,15 @@ export const OVERLAYS = [
     offset: 0,
     after: "NAMES",
   },
-  { name: "PREP", equate: "OV_PREP", files: ["PREP.ASM"], offset: 0 },
+  // Above NAMES too: the compilation's starting state, which reads IoError
+  // from NAMES' header (D54).
+  {
+    name: "PREP",
+    equate: "OV_PREP",
+    files: ["PREP.ASM"],
+    offset: 0,
+    after: "NAMES",
+  },
   // Above NAMES too: the spill, which OV_SCALL runs from any overlay.
   {
     name: "SPILL",

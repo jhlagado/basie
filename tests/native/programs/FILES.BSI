@@ -10,7 +10,7 @@
 var out: File
 var spare: File
 
-sub emit(f: File, b: u8) fails
+sub emit(f: File, b: u8) fails IoError
     var g = f
     try writeByte(g, b)
     f = printer
@@ -18,18 +18,18 @@ sub emit(f: File, b: u8) fails
     try writeByte(g, b + 1)
 end
 
-sub pick(n: u8, f: File, s: string[]) fails
+sub pick(n: u8, f: File, s: string[]) fails IoError
     var line: string[8]
     try readLine(f, var line)
     try writeText(console, line)
     try writeText(console, s)
 end
 
-sub main() fails
+sub main() fails IoError
     var pad: u8[130]
     var far: File = console
     var near: File
-    var code: u8 = 0
+    var code: IoError
     var small = pad[0] + 2
     var wide = u16(small) * 3
     var yes = small = 2

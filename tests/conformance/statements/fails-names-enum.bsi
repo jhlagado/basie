@@ -1,0 +1,13 @@
+// fails names the enum of the routine's codes (D54); a record is no enum.
+// spec: 14.2
+// expect error: type-mismatch at 9:15
+
+record Point
+    x: u8
+end
+
+sub f() fails Point
+end
+
+sub main()
+end

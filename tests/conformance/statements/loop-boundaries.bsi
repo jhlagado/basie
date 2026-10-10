@@ -6,7 +6,7 @@
 
 include "FORMAT.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[60]
     var c: u8
     var s: i8

@@ -19,7 +19,7 @@ sub signed(v: i16): u8
     return '?'
 end
 
-sub main() fails
+sub main() fails IoError
     try writeByte(console, wide(0))
     try writeByte(console, wide(40000))
     try writeByte(console, signed(-5))

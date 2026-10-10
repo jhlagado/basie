@@ -1,2 +1,2 @@
-sub main() fails
+sub main() fails IoError
 end

@@ -28,7 +28,7 @@ sub use(i: id nodes?): u8
         return 0
     end
 end
-sub main() fails
+sub main() fails IoError
     var n = new nodes(5, none)
     hold.ref = id(n)
     var p: id nodes? = get().ref

@@ -23,7 +23,7 @@ sub look(j: Job): u16
     return j.number
 end
 
-sub main() fails
+sub main() fails IoError
     chan.out = console
     out = console
     try writeText(mk().out, "a")

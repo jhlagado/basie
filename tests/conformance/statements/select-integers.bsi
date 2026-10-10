@@ -2,7 +2,7 @@
 // spec: 11.7.2
 // expect output: QD?\r\n
 
-sub classify(c: u8) fails
+sub classify(c: u8) fails IoError
     select c
     case 'q', 'Q'
         try writeByte(console, 'Q')
@@ -13,7 +13,7 @@ sub classify(c: u8) fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     try classify('Q')
     try classify('7')
     try classify('x')

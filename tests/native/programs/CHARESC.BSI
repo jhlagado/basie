@@ -8,7 +8,7 @@ var f: u8 = '\\'
 var g: u8 = '"'
 var h: u8 = 'z'
 var s: string[8] = "a\x42\'c"
-sub main() fails
+sub main() fails IoError
     if a = 10 and b = 9 and c = 0 and d = 65 and e = 39 and f = 92 and g = 34 and h = 122 and s.length = 4
         try writeText(console, "chars\r\n")
     end
@@ -16,6 +16,6 @@ sub main() fails
     case '\n'
         try writeText(console, "newline\r\n")
     case else
-        fail 1
+        fail IoError.inputFailure
     end
 end

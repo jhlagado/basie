@@ -6,7 +6,7 @@
 
 var line: string[20]
 
-sub put(c: u8) fails
+sub put(c: u8) fails IoError
     try writeByte(console, c)
 end
 
@@ -80,7 +80,7 @@ sub longs(v: u32, s: i32): u8
     return '?'
 end
 
-sub main() fails
+sub main() fails IoError
     try put(bytes(0))
     try put(bytes(0))
     try put(bytes(5))

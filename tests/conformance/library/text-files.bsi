@@ -11,7 +11,7 @@
 include "FORMAT.BSI"
 include "TEXTIO.BSI"
 
-sub main() fails
+sub main() fails IoError
     var out = try openWrite("OUT.TXT", textMode)
     try writeLine(out, "one")
     try writeLine(out, "two")

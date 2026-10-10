@@ -11,12 +11,12 @@ sub pick(which: u8): File
     return outs[which]
 end
 
-sub say(var c: Channel, text: string[]) fails
+sub say(var c: Channel, text: string[]) fails IoError
     try writeText(c.out, text)
     c.count = c.count + 1
 end
 
-sub main() fails
+sub main() fails IoError
     chan.out = console
     outs[0] = console
     outs[1] = chan.out

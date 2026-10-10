@@ -14,7 +14,7 @@ pool nodes: Node[4]
 var head: nodes?
 var spare: nodes?
 
-sub main() fails
+sub main() fails IoError
     head = new nodes('A', none)
     spare = move head
     select head

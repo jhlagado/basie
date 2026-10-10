@@ -183,9 +183,20 @@ const TABLE: [number, string, string, Group][] = [
     OWN,
   ],
   [113, "failure-unconsumed", "^1 fails: add try or handle", OWN],
-  [114, "handle-destination", "handle needs a writable u8 variable", OWN],
+  [
+    114,
+    "handle-destination",
+    "handle needs a writable variable of the failure's enum, ^1",
+    OWN,
+  ],
   [115, "move-position", "move can't appear in ^1", OWN],
   [116, "empty-enum", "An enum needs at least one member", DECL],
+  [
+    119,
+    "failure-domain",
+    "^1 fails with another enum: handle it and fail with this one's",
+    OWN,
+  ],
   [
     118,
     "var-marker",

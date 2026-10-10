@@ -29,7 +29,7 @@ sub sign(v: i32): u8
     end
 end
 
-sub main() fails
+sub main() fails IoError
     try writeByte(console, classify(0))
     try writeByte(console, classify(300))
     try writeByte(console, classify(70000))

@@ -19,7 +19,7 @@ end
 pool nodes: Node[8]
 pool subs: Sub[8]
 
-sub poke(var s: Sub) fails
+sub poke(var s: Sub) fails IoError
     var i = id(s)
     select i
     case some(j)
@@ -29,11 +29,11 @@ sub poke(var s: Sub) fails
     end
 end
 
-sub bump(var n: Node) fails
+sub bump(var n: Node) fails IoError
     try poke(var n.inner)
 end
 
-sub main() fails
+sub main() fails IoError
     var h = new nodes()
     try bump(var h)
 end

@@ -7,13 +7,13 @@ private sub blank(b: u8): boolean
 end
 
 // s followed by CR LF.
-sub writeLine(f: File, s: string[]) fails
+sub writeLine(f: File, s: string[]) fails IoError
     try writeText(f, s)
     try writeText(f, "\r\n")
 end
 
 // Write text to the console and read one edited line into answer.
-sub prompt(text: string[], var answer: string[]) fails
+sub prompt(text: string[], var answer: string[]) fails IoError
     try writeText(console, text)
     try readLine(console, var answer)
     // BDOS 10 echoes the return key as CR alone.
@@ -23,7 +23,7 @@ end
 // Read a line from the keyboard without echo, for a password. Backspace and
 // delete remove the last character; return ends the line; Control-Z at the
 // start is endOfInput.
-sub readSecret(var answer: string[]) fails
+sub readSecret(var answer: string[]) fails IoError
     clear(var answer)
     while true
         var k = readKey()
@@ -31,7 +31,7 @@ sub readSecret(var answer: string[]) fails
             exit
         elseif k = 26
             if answer.length = 0
-                fail endOfInput
+                fail IoError.endOfInput
             end
             exit
         elseif k = 8 or k = 127
@@ -47,7 +47,7 @@ end
 
 // Word n of text (0 for the first), words being separated by spaces and
 // tabs. False, with out empty, when text has fewer words.
-sub word(text: string[], n: u8, var out: string[]): boolean fails
+sub word(text: string[], n: u8, var out: string[]): boolean fails IoError
     clear(var out)
     var i: u8 = 0
     var count: u8 = 0
@@ -75,13 +75,13 @@ end
 
 // Read f to its end into buf, returning the bytes read. Reading stops early
 // when buf is full; the count then equals buf.length.
-sub readAll(f: File, var buf: u8[]): u16 fails
+sub readAll(f: File, var buf: u8[]): u16 fails IoError
     var count: u16 = 0
-    var code: u8 = 0
+    var code: IoError
     var b: u8 = 0
     while count < buf.length
         b = readByte(f) handle code
-            if code = endOfFile
+            if code = IoError.endOfInput
                 exit
             end
             fail code
@@ -99,7 +99,7 @@ end
 // copies the prefix to NAME.~ and replaces the file with it. It fails with
 // fileExists, touching nothing, if NAME.~ already exists. (File types
 // beginning with $ belong to the runtime.)
-sub truncate(name: string[], newSize: u32, mode: u8) fails
+sub truncate(name: string[], newSize: u32, mode: u8) fails IoError
     var temp: string[16]
     var i: u8 = 0
     while i < name.length and name[i] <> '.'
@@ -109,9 +109,9 @@ sub truncate(name: string[], newSize: u32, mode: u8) fails
     try append(var temp, ".~")
     var there = try exists(temp)
     if there
-        fail fileExists
+        fail IoError.fileExists
     end
-    var code: u8 = 0
+    var code: IoError
     var source = try openRead(name, mode)
     var target = try openWrite(temp, mode)
     var left: u32 = newSize
@@ -142,7 +142,7 @@ sub truncate(name: string[], newSize: u32, mode: u8) fails
         var b: u8 = 0
         while left > 0
             b = readByte(source) handle code
-                if code = endOfFile
+                if code = IoError.endOfInput
                     exit
                 end
                 abort(source)

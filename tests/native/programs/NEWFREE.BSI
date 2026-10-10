@@ -16,13 +16,13 @@ sub count(k: u8): u16
     var u: nodes? = none
     return u16(k) + 1
 end
-sub check(k: u8) fails
+sub check(k: u8) fails IoError
     var t = new? nodes(k, none)
     if k = 3
-        fail 9
+        fail IoError.diskFull
     end
 end
-sub main() fails
+sub main() fails IoError
     var a = new nodes(1, none)
     var b: nodes? = new? nodes(2, new nodes(3, none))
     var c: nodes?

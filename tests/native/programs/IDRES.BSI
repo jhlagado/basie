@@ -34,17 +34,17 @@ sub first(): id nodes?
     return id(head)
 end
 
-sub pick(key: u16): id nodes? fails
+sub pick(key: u16): id nodes? fails IoError
     var p = find(key)
     select p
     case some(i)
         return p
     case none
-        fail 3
+        fail IoError.storageFailure
     end
 end
 
-sub main() fails
+sub main() fails IoError
     push(10)
     push(20)
     push(30)
@@ -58,7 +58,7 @@ sub main() fails
     end
     select find(99)
     case some(i)
-        fail 1
+        fail IoError.inputFailure
     case none
         found = found + 1
     end
@@ -74,7 +74,7 @@ sub main() fails
     head = none
     select kept
     case some(i)
-        fail 1
+        fail IoError.inputFailure
     case none
         found = found + 1
     end

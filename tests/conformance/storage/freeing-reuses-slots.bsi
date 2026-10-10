@@ -11,7 +11,7 @@ end
 
 pool nodes: Node[1]
 
-sub main() fails
+sub main() fails IoError
     var i: u8
     for i = 1 to 5
         var n = new nodes(i, none)

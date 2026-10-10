@@ -2,7 +2,7 @@
 // spec: 16; services 4.4
 // expect trap: bounds at 8
 
-sub main() fails
+sub main() fails IoError
     var buf: u8[10]
     var f = try openWrite("X.BIN", binaryMode)
     try writeBlock(f, buf, 11)

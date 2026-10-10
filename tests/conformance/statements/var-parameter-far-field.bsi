@@ -15,7 +15,7 @@ sub set(var p: Triple)
     p.c = 66
 end
 
-sub main() fails
+sub main() fails IoError
     set(var t)
     try writeOutputByte(u8(t.c))
     try writeOutputByte(13)

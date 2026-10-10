@@ -1,17 +1,17 @@
 // STRINGS.BSI: clear, copyFrom, compare, find, case, trim and the capacity rule.
 // spec: 16.4; standard library 2
-// expect output: lo W|-1 0 1 -1 1|4 0 65535 65535|HELLO, hello,|[a b]|[]|F14\r\n
+// expect output: lo W|-1 0 1 -1 1|4 0 65535 65535|HELLO, hello,|[a b]|[]|FlineTooLong\r\n
 
 include "FORMAT.BSI"
 
-sub sign(var line: string[], v: i8, last: boolean) fails
+sub sign(var line: string[], v: i8, last: boolean) fails IoError
     try appendI16(var line, i16(v))
     if not last
         try appendByte(var line, ' ')
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[80]
     var part: string[8]
     try copyFrom(var part, "Hello World", 3, 4)
@@ -51,10 +51,10 @@ sub main() fails
     try append(var line, "]|")
     var small: string[3]
     try copyFrom(var small, "abcdef", 0, 2)
-    var code: u8 = 0
+    var code: IoError
     copyFrom(var small, "abcdef", 1, 5) handle code
         try appendByte(var line, 'F')
-        try appendU16(var line, u16(code))
+        try appendIoError(var line, code)
     end
     try writeText(console, line)
     try writeText(console, "\r\n")

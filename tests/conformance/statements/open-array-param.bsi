@@ -14,7 +14,7 @@ sub total(items: u16[]): u16
     return sum
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[12]
     var three: u16[3] = [10, 20, 30]
     try appendU16(var line, 3)

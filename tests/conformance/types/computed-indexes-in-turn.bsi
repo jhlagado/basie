@@ -23,7 +23,7 @@ sub first(s: string[]): u8
     return s[0]
 end
 
-sub main() fails
+sub main() fails IoError
     grid[1][2] = 'A'
     rows[1].cells[2] = 'B'
     rows[1].name = "CD"

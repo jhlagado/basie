@@ -7,7 +7,7 @@ include "FORMAT.BSI"
 const big: u32 = 70000
 const small = 200
 
-sub main() fails
+sub main() fails IoError
     var line: string[20]
     var b: u8 = small
     try appendU32(var line, big)

@@ -59,7 +59,7 @@ sub total(slots: jobs?[3]): u16
     return sum
 end
 
-sub main() fails
+sub main() fails IoError
     fill(var spare, 10)
     var before: u16 = total(spare)
     swap(var spare)
@@ -68,10 +68,10 @@ sub main() fails
     select spare[0]
     case some(j)
         if j.number <> 12
-            fail 1
+            fail IoError.inputFailure
         end
     case none
-        fail 2
+        fail IoError.outputFailure
     end
     var local: jobs?[3]
     fill(var local, 20)

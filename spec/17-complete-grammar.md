@@ -99,7 +99,7 @@ routine-header
     ::= "sub" NAME routine-signature-tail
 routine-signature-tail
     ::= "(" [ formal-parameter { "," formal-parameter } ] ")"
-        [ result-clause ] [ "fails" ]
+        [ result-clause ] [ "fails" NAME ]
 formal-parameter
     ::= [ "var" ] NAME ":" type
 result-clause

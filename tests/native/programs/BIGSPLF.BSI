@@ -4,7 +4,7 @@
 var g: u16
 var h: f32
 var t: u8[4]
-sub main() fails
+sub main() fails IoError
   var i: u16 = 0
   g = g + 0
   h = h + 0.5 * 2.0

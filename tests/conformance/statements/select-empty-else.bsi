@@ -2,7 +2,7 @@
 // spec: 11.7.2
 // expect output: Q.\r\n
 
-sub show(c: u8) fails
+sub show(c: u8) fails IoError
     select c
     case 'q'
         try writeByte(console, 'Q')
@@ -10,7 +10,7 @@ sub show(c: u8) fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     try show('q')
     try show('x')
     try writeText(console, ".\r\n")

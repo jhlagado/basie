@@ -6,7 +6,7 @@
 include "FORMAT.BSI"
 include "RANDOM.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[60]
     var i: u8 = 0
     for i = 1 to 3

@@ -15,7 +15,7 @@ sub bump(var n: Node)
     n.value = n.value + 1
 end
 
-sub main() fails
+sub main() fails IoError
     var h = new nodes('A', none)
     bump(var h)
     try writeByte(console, h.value)

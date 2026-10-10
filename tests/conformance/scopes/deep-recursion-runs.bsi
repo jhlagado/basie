@@ -13,7 +13,7 @@ sub count
     return count(n - 1) + 1
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[8]
     try appendU16(var line, count(500))
     try writeText(console, line)

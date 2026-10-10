@@ -1,7 +1,7 @@
 // Basie standard library: numbers to text (D36; standard library section 3).
 include "STRINGS.BSI"
 
-sub appendU16(var s: string[], v: u16) fails
+sub appendU16(var s: string[], v: u16) fails IoError
     var digits: u8[5]
     var count: u8 = 0
     var n: u16 = v
@@ -19,7 +19,7 @@ sub appendU16(var s: string[], v: u16) fails
     end
 end
 
-sub appendI16(var s: string[], v: i16) fails
+sub appendI16(var s: string[], v: i16) fails IoError
     if v < 0
         try appendByte(var s, '-')
         // not v is -v - 1, so this is -v without overflow at -32768.
@@ -29,7 +29,7 @@ sub appendI16(var s: string[], v: i16) fails
     end
 end
 
-sub appendU32(var s: string[], v: u32) fails
+sub appendU32(var s: string[], v: u32) fails IoError
     var digits: u8[10]
     var count: u8 = 0
     var n: u32 = v
@@ -47,7 +47,7 @@ sub appendU32(var s: string[], v: u32) fails
     end
 end
 
-sub appendI32(var s: string[], v: i32) fails
+sub appendI32(var s: string[], v: i32) fails IoError
     if v < 0
         try appendByte(var s, '-')
         try appendU32(var s, u32(not v) + 1)
@@ -58,7 +58,7 @@ end
 
 // x with the given number of decimal places, rounded to the nearest unit of
 // the last place. The scaled value must fit a u32.
-sub appendF32(var s: string[], x: f32, places: u8) fails
+sub appendF32(var s: string[], x: f32, places: u8) fails IoError
     var v: f32 = x
     if v < 0.0
         try appendByte(var s, '-')
@@ -91,13 +91,57 @@ private sub hexDigit(v: u8): u8
 end
 
 // Two upper-case hexadecimal digits.
-sub appendHex8(var s: string[], v: u8) fails
+sub appendHex8(var s: string[], v: u8) fails IoError
     try appendByte(var s, hexDigit(v shr 4))
     try appendByte(var s, hexDigit(v and 15))
 end
 
 // Four upper-case hexadecimal digits.
-sub appendHex16(var s: string[], v: u16) fails
+sub appendHex16(var s: string[], v: u16) fails IoError
     try appendHex8(var s, u8(v shr 8))
     try appendHex8(var s, u8(v and 255))
+end
+
+// Append the name of a service failure, such as fileNotFound (D54).
+sub appendIoError(var s: string[], e: IoError) fails IoError
+    select e
+    case IoError.endOfInput
+        try append(var s, "endOfInput")
+    case IoError.inputFailure
+        try append(var s, "inputFailure")
+    case IoError.outputFailure
+        try append(var s, "outputFailure")
+    case IoError.storageFailure
+        try append(var s, "storageFailure")
+    case IoError.fileNotFound
+        try append(var s, "fileNotFound")
+    case IoError.fileExists
+        try append(var s, "fileExists")
+    case IoError.badName
+        try append(var s, "badName")
+    case IoError.tooManyFiles
+        try append(var s, "tooManyFiles")
+    case IoError.fileClosed
+        try append(var s, "fileClosed")
+    case IoError.diskFull
+        try append(var s, "diskFull")
+    case IoError.directoryFull
+        try append(var s, "directoryFull")
+    case IoError.readOnly
+        try append(var s, "readOnly")
+    case IoError.seekFailure
+        try append(var s, "seekFailure")
+    case IoError.lineTooLong
+        try append(var s, "lineTooLong")
+    case IoError.notAvailable
+        try append(var s, "notAvailable")
+    case IoError.fileBusy
+        try append(var s, "fileBusy")
+    case IoError.noSearch
+        try append(var s, "noSearch")
+    case IoError.badMode
+        try append(var s, "badMode")
+    case IoError.invalid
+        try append(var s, "invalid")
+    end
 end

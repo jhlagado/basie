@@ -31,6 +31,8 @@ export type Signature = {
   varResult: boolean;
   from: string[];
   fails: boolean;
+  /** The enum a failable routine's codes come from (D54). */
+  domain?: EnumType;
   /** Bytes of arguments on the stack. */
   argumentBytes: number;
 };

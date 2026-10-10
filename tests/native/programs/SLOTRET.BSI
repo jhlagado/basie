@@ -24,16 +24,16 @@ sub take(var l: nodes?): nodes?
     return move t
 end
 
-sub check(var l: nodes?) fails
+sub check(var l: nodes?) fails IoError
     var keep = new nodes(9, none)
     select l
     case none
-        fail 7
+        fail IoError.tooManyFiles
     case some(x)
     end
 end
 
-sub main() fails
+sub main() fails IoError
     list = new nodes('A', new nodes('B', none))
     try writeByte(console, pop(var list))
     var t = take(var list)

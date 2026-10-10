@@ -20,49 +20,15 @@
 ;  A zero length byte ends the table.
 ;
 ;  The table is the NAMES overlay of BASIE.OVL (OVERLAY.ASM), at the
-;  overlay area's start, where it stays for the whole compilation.
+;  overlay area's start, where it stays for the whole compilation. It
+;  begins with IoError (D54): the address of its member nodes, then its
+;  name's length and spelling, HP_SKIP bytes that PREP reads (PP_RUN)
+;  and RO_LIB passes over.
 
+HP_IOERR:
+    DW   HP_N0                     ; IoError's members,
+    DB   7,"IoError"               ; and its name.
 HP_NAMES:
-    DB   10,"endOfInput"           ; endOfInput: a constant,
-    DB   SY_KNOWN+SY_EXACT,1       ; exact, 1.
-    DB   9,"endOfFile"             ; endOfFile: a constant,
-    DB   SY_KNOWN+SY_EXACT,1       ; exact, 1.
-    DB   12,"inputFailure"         ; inputFailure: a constant,
-    DB   SY_KNOWN+SY_EXACT,2       ; exact, 2.
-    DB   13,"outputFailure"        ; outputFailure: a constant,
-    DB   SY_KNOWN+SY_EXACT,3       ; exact, 3.
-    DB   14,"storageFailure"       ; storageFailure: a constant,
-    DB   SY_KNOWN+SY_EXACT,4       ; exact, 4.
-    DB   12,"fileNotFound"         ; fileNotFound: a constant,
-    DB   SY_KNOWN+SY_EXACT,5       ; exact, 5.
-    DB   10,"fileExists"           ; fileExists: a constant,
-    DB   SY_KNOWN+SY_EXACT,6       ; exact, 6.
-    DB   7,"badName"               ; badName: a constant,
-    DB   SY_KNOWN+SY_EXACT,7       ; exact, 7.
-    DB   12,"tooManyFiles"         ; tooManyFiles: a constant,
-    DB   SY_KNOWN+SY_EXACT,8       ; exact, 8.
-    DB   10,"fileClosed"           ; fileClosed: a constant,
-    DB   SY_KNOWN+SY_EXACT,9       ; exact, 9.
-    DB   8,"diskFull"              ; diskFull: a constant,
-    DB   SY_KNOWN+SY_EXACT,10      ; exact, 10.
-    DB   13,"directoryFull"        ; directoryFull: a constant,
-    DB   SY_KNOWN+SY_EXACT,11      ; exact, 11.
-    DB   8,"readOnly"              ; readOnly: a constant,
-    DB   SY_KNOWN+SY_EXACT,12      ; exact, 12.
-    DB   11,"seekFailure"          ; seekFailure: a constant,
-    DB   SY_KNOWN+SY_EXACT,13      ; exact, 13.
-    DB   11,"lineTooLong"          ; lineTooLong: a constant,
-    DB   SY_KNOWN+SY_EXACT,14      ; exact, 14.
-    DB   12,"notAvailable"         ; notAvailable: a constant,
-    DB   SY_KNOWN+SY_EXACT,15      ; exact, 15.
-    DB   8,"fileBusy"              ; fileBusy: a constant,
-    DB   SY_KNOWN+SY_EXACT,16      ; exact, 16.
-    DB   8,"noSearch"              ; noSearch: a constant,
-    DB   SY_KNOWN+SY_EXACT,17      ; exact, 17.
-    DB   7,"badMode"               ; badMode: a constant,
-    DB   SY_KNOWN+SY_EXACT,18      ; exact, 18.
-    DB   7,"invalid"               ; invalid: a constant,
-    DB   SY_KNOWN+SY_EXACT,254     ; exact, 254.
     DB   8,"textMode"              ; textMode: a constant,
     DB   SY_KNOWN+SY_EXACT,0       ; exact, 0.
     DB   10,"binaryMode"           ; binaryMode: a constant,
@@ -72,23 +38,23 @@ HP_NAMES:
     DB   7,"printer"               ; printer: a constant,
     DB   SY_KNOWN+AG_FILE,2        ; the File the runtime fixes as 2.
     DB   9,"writeText"             ; writeText: service $020.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $020,30                   ; Ordinal $020, 30 bytes of stack.
     DB   8,2,AG_FILE,AG_VIEW       ; 8 argument bytes; 2 parameters.
     DB   9,"writeByte"             ; writeByte: service $021.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $021,26                   ; Ordinal $021, 26 bytes of stack.
     DB   6,2,AG_FILE,SY_U8         ; 6 argument bytes; 2 parameters.
     DB   15,"writeOutputByte"      ; writeOutputByte: service $022.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $022,16                   ; Ordinal $022, 16 bytes of stack.
     DB   2,1,SY_U8                 ; 2 argument bytes; one parameter.
     DB   8,"readByte"              ; readByte: service $06D.
-    DB   SY_U8,RO_FFAIL            ; Result u8; it can fail.
+    DB   SY_U8,RO_FFAIL+RO_FSVC    ; Result u8; it can fail.
     DW   $06D,22                   ; Ordinal $06D, 22 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   13,"readInputByte"        ; readInputByte: service $06E.
-    DB   SY_U8,RO_FFAIL            ; Result u8; it can fail.
+    DB   SY_U8,RO_FFAIL+RO_FSVC    ; Result u8; it can fail.
     DW   $06E,16                   ; Ordinal $06E, 16 bytes of stack.
     DB   0,0                       ; 0 argument bytes; no parameters.
     DB   7,"readKey"               ; readKey: service $06F.
@@ -100,27 +66,27 @@ HP_NAMES:
     DW   $070,10                   ; Ordinal $070, 10 bytes of stack.
     DB   0,0                       ; 0 argument bytes; no parameters.
     DB   8,"readLine"              ; readLine: service $071.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $071,22                   ; Ordinal $071, 22 bytes of stack.
     DB   8,2,AG_FILE,AG_VIEW+AG_VAR; 8 argument bytes; 2 parameters.
     DB   8,"openRead"              ; openRead: service $072.
-    DB   AG_FILE,RO_FFAIL          ; Result File; it can fail.
+    DB   AG_FILE,RO_FFAIL+RO_FSVC  ; Result File; it can fail.
     DW   $072,18                   ; Ordinal $072, 18 bytes of stack.
     DB   6,2,AG_VIEW,SY_U8         ; 6 argument bytes; 2 parameters.
     DB   9,"openWrite"             ; openWrite: service $073.
-    DB   AG_FILE,RO_FFAIL          ; Result File; it can fail.
+    DB   AG_FILE,RO_FFAIL+RO_FSVC  ; Result File; it can fail.
     DW   $073,20                   ; Ordinal $073, 20 bytes of stack.
     DB   6,2,AG_VIEW,SY_U8         ; 6 argument bytes; 2 parameters.
     DB   10,"openAppend"           ; openAppend: service $074.
-    DB   AG_FILE,RO_FFAIL          ; Result File; it can fail.
+    DB   AG_FILE,RO_FFAIL+RO_FSVC  ; Result File; it can fail.
     DW   $074,20                   ; Ordinal $074, 20 bytes of stack.
     DB   6,2,AG_VIEW,SY_U8         ; 6 argument bytes; 2 parameters.
     DB   10,"openUpdate"           ; openUpdate: service $075.
-    DB   AG_FILE,RO_FFAIL          ; Result File; it can fail.
+    DB   AG_FILE,RO_FFAIL+RO_FSVC  ; Result File; it can fail.
     DW   $075,20                   ; Ordinal $075, 20 bytes of stack.
     DB   4,1,AG_VIEW               ; 4 argument bytes; one parameter.
     DB   5,"close"                 ; close: service $076.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $076,24                   ; Ordinal $076, 24 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   5,"abort"                 ; abort: service $077.
@@ -128,47 +94,47 @@ HP_NAMES:
     DW   $077,20                   ; Ordinal $077, 20 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   5,"flush"                 ; flush: service $078.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $078,18                   ; Ordinal $078, 18 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   9,"readBlock"             ; readBlock: service $079.
-    DB   SY_U16,RO_FFAIL           ; Result u16; it can fail.
+    DB   SY_U16,RO_FFAIL+RO_FSVC   ; Result u16; it can fail.
     DW   $079,24                   ; Ordinal $079, 24 bytes of stack.
     DB   10,3,AG_FILE,AG_BUF+AG_VAR,SY_U16; 10 argument bytes; 3 parameters.
     DB   10,"writeBlock"           ; writeBlock: service $07A.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $07A,28                   ; Ordinal $07A, 28 bytes of stack.
     DB   10,3,AG_FILE,AG_BUF,SY_U16; 10 argument bytes; 3 parameters.
     DB   4,"seek"                  ; seek: service $07B.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $07B,18                   ; Ordinal $07B, 18 bytes of stack.
     DB   8,2,AG_FILE,SY_U32        ; 8 argument bytes; 2 parameters.
     DB   8,"position"              ; position: service $07C.
-    DB   SY_U32,RO_FFAIL           ; Result u32; it can fail.
+    DB   SY_U32,RO_FFAIL+RO_FSVC   ; Result u32; it can fail.
     DW   $07C,8                    ; Ordinal $07C, 8 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   4,"size"                  ; size: service $07D.
-    DB   SY_U32,RO_FFAIL           ; Result u32; it can fail.
+    DB   SY_U32,RO_FFAIL+RO_FSVC   ; Result u32; it can fail.
     DW   $07D,18                   ; Ordinal $07D, 18 bytes of stack.
     DB   4,1,AG_FILE               ; 4 argument bytes; one parameter.
     DB   6,"exists"                ; exists: service $07E.
-    DB   SY_BOOL,RO_FFAIL          ; Result boolean; it can fail.
+    DB   SY_BOOL,RO_FFAIL+RO_FSVC  ; Result boolean; it can fail.
     DW   $07E,18                   ; Ordinal $07E, 18 bytes of stack.
     DB   4,1,AG_VIEW               ; 4 argument bytes; one parameter.
     DB   6,"delete"                ; delete: service $07F.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $07F,20                   ; Ordinal $07F, 20 bytes of stack.
     DB   4,1,AG_VIEW               ; 4 argument bytes; one parameter.
     DB   6,"rename"                ; rename: service $080.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $080,20                   ; Ordinal $080, 20 bytes of stack.
     DB   8,2,AG_VIEW,AG_VIEW       ; 8 argument bytes; 2 parameters.
     DB   9,"findFirst"             ; findFirst: service $081.
-    DB   SY_BOOL,RO_FFAIL          ; Result boolean; it can fail.
+    DB   SY_BOOL,RO_FFAIL+RO_FSVC  ; Result boolean; it can fail.
     DW   $081,18                   ; Ordinal $081, 18 bytes of stack.
     DB   8,2,AG_VIEW,AG_VIEW+AG_VAR; 8 argument bytes; 2 parameters.
     DB   8,"findNext"              ; findNext: service $082.
-    DB   SY_BOOL,RO_FFAIL          ; Result boolean; it can fail.
+    DB   SY_BOOL,RO_FFAIL+RO_FSVC  ; Result boolean; it can fail.
     DW   $082,12                   ; Ordinal $082, 12 bytes of stack.
     DB   4,1,AG_VIEW+AG_VAR        ; 4 argument bytes; one parameter.
     DB   11,"commandTail"          ; commandTail: service $084.
@@ -188,7 +154,7 @@ HP_NAMES:
     DW   $087,8                    ; Ordinal $087, 8 bytes of stack.
     DB   0,0                       ; 0 argument bytes; no parameters.
     DB   11,"selectDrive"          ; selectDrive: service $088.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $088,12                   ; Ordinal $088, 12 bytes of stack.
     DB   2,1,SY_U8                 ; 2 argument bytes; one parameter.
     DB   11,"currentUser"          ; currentUser: service $089.
@@ -196,7 +162,7 @@ HP_NAMES:
     DW   $089,8                    ; Ordinal $089, 8 bytes of stack.
     DB   0,0                       ; 0 argument bytes; no parameters.
     DB   7,"setUser"               ; setUser: service $08A.
-    DB   0,RO_FFAIL                ; No result; it can fail.
+    DB   0,RO_FFAIL+RO_FSVC        ; No result; it can fail.
     DW   $08A,12                   ; Ordinal $08A, 12 bytes of stack.
     DB   2,1,SY_U8                 ; 2 argument bytes; one parameter.
     DB   13,"driveReadOnly"        ; driveReadOnly: service $08B.
@@ -207,4 +173,100 @@ HP_NAMES:
     DB   SY_U16,0                  ; Result u16.
     DW   $08C,2                    ; Ordinal $08C, 2 bytes of stack.
     DB   0,0                       ; 0 argument bytes; no parameters.
-    DB   0                         ; The end of the table: 58 names.
+    DB   0                         ; The end of the table: 38 names.
+
+HP_N0:                         ; endOfInput, 0:
+    DW   HP_S0                     ; its spelling,
+    DB   10,0                      ; length and ordinal,
+    DW   HP_N1                     ; the next.
+HP_N1:                         ; inputFailure, 1:
+    DW   HP_S1                     ; its spelling,
+    DB   12,1                      ; length and ordinal,
+    DW   HP_N2                     ; the next.
+HP_N2:                         ; outputFailure, 2:
+    DW   HP_S2                     ; its spelling,
+    DB   13,2                      ; length and ordinal,
+    DW   HP_N3                     ; the next.
+HP_N3:                         ; storageFailure, 3:
+    DW   HP_S3                     ; its spelling,
+    DB   14,3                      ; length and ordinal,
+    DW   HP_N4                     ; the next.
+HP_N4:                         ; fileNotFound, 4:
+    DW   HP_S4                     ; its spelling,
+    DB   12,4                      ; length and ordinal,
+    DW   HP_N5                     ; the next.
+HP_N5:                         ; fileExists, 5:
+    DW   HP_S5                     ; its spelling,
+    DB   10,5                      ; length and ordinal,
+    DW   HP_N6                     ; the next.
+HP_N6:                         ; badName, 6:
+    DW   HP_S6                     ; its spelling,
+    DB   7,6                       ; length and ordinal,
+    DW   HP_N7                     ; the next.
+HP_N7:                         ; tooManyFiles, 7:
+    DW   HP_S7                     ; its spelling,
+    DB   12,7                      ; length and ordinal,
+    DW   HP_N8                     ; the next.
+HP_N8:                         ; fileClosed, 8:
+    DW   HP_S8                     ; its spelling,
+    DB   10,8                      ; length and ordinal,
+    DW   HP_N9                     ; the next.
+HP_N9:                         ; diskFull, 9:
+    DW   HP_S9                     ; its spelling,
+    DB   8,9                       ; length and ordinal,
+    DW   HP_N10                    ; the next.
+HP_N10:                        ; directoryFull, 10:
+    DW   HP_S10                    ; its spelling,
+    DB   13,10                     ; length and ordinal,
+    DW   HP_N11                    ; the next.
+HP_N11:                        ; readOnly, 11:
+    DW   HP_S11                    ; its spelling,
+    DB   8,11                      ; length and ordinal,
+    DW   HP_N12                    ; the next.
+HP_N12:                        ; seekFailure, 12:
+    DW   HP_S12                    ; its spelling,
+    DB   11,12                     ; length and ordinal,
+    DW   HP_N13                    ; the next.
+HP_N13:                        ; lineTooLong, 13:
+    DW   HP_S13                    ; its spelling,
+    DB   11,13                     ; length and ordinal,
+    DW   HP_N14                    ; the next.
+HP_N14:                        ; notAvailable, 14:
+    DW   HP_S14                    ; its spelling,
+    DB   12,14                     ; length and ordinal,
+    DW   HP_N15                    ; the next.
+HP_N15:                        ; fileBusy, 15:
+    DW   HP_S15                    ; its spelling,
+    DB   8,15                      ; length and ordinal,
+    DW   HP_N16                    ; the next.
+HP_N16:                        ; noSearch, 16:
+    DW   HP_S16                    ; its spelling,
+    DB   8,16                      ; length and ordinal,
+    DW   HP_N17                    ; the next.
+HP_N17:                        ; badMode, 17:
+    DW   HP_S17                    ; its spelling,
+    DB   7,17                      ; length and ordinal,
+    DW   HP_N18                    ; the next.
+HP_N18:                        ; invalid, 18:
+    DW   HP_S18                    ; its spelling,
+    DB   7,18                      ; length and ordinal,
+    DW   0                         ; the next.
+HP_S0: DB "endOfInput"         ; endOfInput's spelling.
+HP_S1: DB "inputFailure"       ; inputFailure's spelling.
+HP_S2: DB "outputFailure"      ; outputFailure's spelling.
+HP_S3: DB "storageFailure"     ; storageFailure's spelling.
+HP_S4: DB "fileNotFound"       ; fileNotFound's spelling.
+HP_S5: DB "fileExists"         ; fileExists's spelling.
+HP_S6: DB "badName"            ; badName's spelling.
+HP_S7: DB "tooManyFiles"       ; tooManyFiles's spelling.
+HP_S8: DB "fileClosed"         ; fileClosed's spelling.
+HP_S9: DB "diskFull"           ; diskFull's spelling.
+HP_S10: DB "directoryFull"     ; directoryFull's spelling.
+HP_S11: DB "readOnly"          ; readOnly's spelling.
+HP_S12: DB "seekFailure"       ; seekFailure's spelling.
+HP_S13: DB "lineTooLong"       ; lineTooLong's spelling.
+HP_S14: DB "notAvailable"      ; notAvailable's spelling.
+HP_S15: DB "fileBusy"          ; fileBusy's spelling.
+HP_S16: DB "noSearch"          ; noSearch's spelling.
+HP_S17: DB "badMode"           ; badMode's spelling.
+HP_S18: DB "invalid"           ; invalid's spelling.

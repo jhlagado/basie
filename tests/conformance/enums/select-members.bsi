@@ -17,7 +17,7 @@ sub letter(d: Dir): u8
     end
 end
 
-sub main() fails
+sub main() fails IoError
     try writeByte(console, letter(Dir.north))
     try writeByte(console, letter(Dir.east))
     try writeText(console, "\r\n")

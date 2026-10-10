@@ -11,7 +11,7 @@ end
 
 pool nodes: Node[1]
 
-sub main() fails
+sub main() fails IoError
     var a = new nodes(1, none)
     var b = new? nodes(2, none)
     select b

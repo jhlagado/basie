@@ -32,7 +32,7 @@ sub twice(var l: nodes?, v: u8)
     push(var l, v + 1)
 end
 
-sub show(var l: nodes?) fails
+sub show(var l: nodes?) fails IoError
     select l
     case some(n)
         try writeByte(console, n.value)
@@ -45,7 +45,7 @@ sub show(var l: nodes?) fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var mine: nodes?
     push(var list, 'A')
     push(var box.head, 'B')

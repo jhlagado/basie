@@ -3,7 +3,7 @@
 var n: u16
 var m: u8
 var go: boolean
-sub main() fails
+sub main() fails IoError
     var i2: u8
     var i6: u8
     var i10: u8

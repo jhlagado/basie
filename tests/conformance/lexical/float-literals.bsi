@@ -5,7 +5,7 @@
 
 include "FORMAT.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[40]
     try appendF32(var line, 1.5, 2)
     try appendByte(var line, ' ')

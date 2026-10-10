@@ -202,3 +202,28 @@ The native cost is 125 resident bytes (25,570; total 28,181, 491 below the
 28 KiB limit). The source/symbol region begins at `$8686`, 154 bytes higher;
 BIGSPLF's indentation was reduced again, keeping every statement and its
 code spill.
+
+## 8. The first tier's syntax and failure domains (D52, D48, D49, D54)
+
+Four changes landed in turn, each with the library, tests, examples,
+specification and book migrated by scripts and checked by the reference
+compiler's diagnostics:
+
+- **D52**, `:` for `as` at every type position. Natively `:` lexes as the
+  token `as` was and `as` is no longer reserved: no resident cost.
+- **D48**, `try` before a call in place of the `else fail` suffix (token
+  kind 27; AC_TRY in three islands; RO_ARGS keeps it across the arguments):
+  66 resident bytes.
+- **D49**, `var` before the argument for every `var` parameter
+  (`var-marker`, 118; checked in RO_ARGS): 26 resident bytes.
+- **D54**, an enum failure domain for every failable routine: the services'
+  `IoError`, whose ordinals the runtime's codes now are; `ParseError` in
+  `PARSE.BSI`; `failure-domain` (119); a routine record gains its enum.
+  `IoError` is declared by PREP, now loaded above NAMES, from a node list in
+  NAMES' header: 63 resident bytes and 55 more in NAMES, so the overlay area
+  grows to 2,666.
+
+`BASIE.COM` is 25,597 resident bytes with a 2,666-byte area: 28,263 in all,
+409 below the 28 KiB limit. Programs that failed as the last operand of an
+expression now handle the failure, and tests that printed failure codes as
+numbers print member names through the library's new `appendIoError`.

@@ -12,7 +12,7 @@ end
 
 pool trees: Tree[8]
 
-sub main() fails
+sub main() fails IoError
     var t = new trees('1')
     try writeByte(console, t.key)
     select t.kids[3]

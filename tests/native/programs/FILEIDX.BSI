@@ -4,7 +4,7 @@ var outs: File[3]
 sub pick(i: u8): File
     return outs[i]
 end
-sub main() fails
+sub main() fails IoError
     var i: u8
     for i = 0 to 2
         outs[i] = console
@@ -13,6 +13,6 @@ sub main() fails
     try writeText(outs[i], "computed\r\n")
     outs[i + 1] = pick(i)
     if outs[2] <> console
-        fail 1
+        fail IoError.inputFailure
     end
 end

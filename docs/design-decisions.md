@@ -1319,7 +1319,8 @@ assembled image and compile–link–run proof.
 
 ### D54. Every failure has an enum domain
 
-**Decided 2026-10-10 by John; unimplemented.** Enum-typed failure codes
+**Implemented 2026-10-11 in both compilers**, with the runtime, library, tests,
+examples, specification and book migrated. Decided 2026-10-10 by John. Enum-typed failure codes
 replace `u8` failure codes. Every failable routine names the enum its codes
 come from, `sub open(name as string[]) fails FileError`; plain `fails` with a
 `u8` code is removed, from services, the library, tests, examples and the book.
@@ -1338,8 +1339,12 @@ come from, `sub open(name as string[]) fails FileError`; plain `fails` with a
 code be read as a parser code, and the code ranges (14.1) were only a
 convention. A domain on every failable routine makes each crossing visible.
 
-**To settle before specification.** The services' domain or domains and their
-members (today codes 1–18 and 254, `invalid`, fixed by the runtime, while enum
-ordinals count from zero); the standard library's codes (32–47); what the
-unhandled-error trap reports for `main`; and sequencing with the D48 `try`
-migration, which rewrites the same sources. Supersedes D26's `u8` codes.
+**Settled.** One predeclared enum, `IoError`, for every service, its 19 members
+in the runtime's order; the runtime's codes are renumbered to be its ordinals
+(0 to 18; `invalid` was 254, and `endOfFile`, another name for code 1, is
+dropped). `PARSE.BSI` declares `ParseError` (`badNumber`); the other library
+parts fail with `IoError`, and `FORMAT.BSI` gains `appendIoError`, which
+appends a member's name. The unhandled-error trap reports the ordinal. `try`
+across enums is `failure-domain` (119), at the call. Natively, `IoError` is
+the first type (ID 16), declared by PREP from NAMES' header; a routine record
+gains its enum's ID. Supersedes D26's `u8` codes.

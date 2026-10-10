@@ -541,6 +541,7 @@ DG_EMEM EQU  DG_CAP+18         ; Enum members, at most 256.
 DG_EENUM EQU  116              ; Empty enum.
 DG_SINC EQU  117               ; select-incomplete: no case else, a value uncovered.
 DG_VMARK EQU  118              ; var-marker: a var parameter's argument is marked var, no other's.
+DG_FDOM EQU  119               ; failure-domain: try passes a failure of another enum.
 DG_OWNRS EQU  DG_CAP+17        ; Owners in scope (FW_CAP).
 
 

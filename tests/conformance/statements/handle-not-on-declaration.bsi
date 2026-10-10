@@ -3,11 +3,11 @@
 // spec: 14.4, 14.6
 // expect error: syntax at 11:21
 
-sub g(): u8 fails
+sub g(): u8 fails IoError
     return 1
 end
 
-sub main() fails
+sub main() fails IoError
     var x: u8 = g() handle c
     end
 end

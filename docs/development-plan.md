@@ -200,7 +200,10 @@ book and release examples through the public compile/link/run workflow.
 | Bounded prototypes | Verify descriptor corrections and read-only slices; evaluate full routine values under the explicit back-out gate | Safety and machine costs are measured for each item. Routine-value scope includes parameters and storage together. |
 | Implementation admission | Admit each change under section 5 | Specification, reference/native equivalence, independent safety tests and migrated examples pass within D43. Decisions to defer, reject or back out are explicit. |
 
-Plain enums (D53) and exhaustive value selection (D51) are implemented. Priority does not provide
+Tier 1 is implemented: plain enums (D53), exhaustive value selection (D51), colon types
+(D52), restricted `try` (D48), call-site `var` (D49) and enum-typed failure codes (D54),
+with the library, tests, examples, specification and book migrated once to the final
+syntax. Priority does not provide
 missing semantics or a measured budget. The current 0.1 toolchain contract
 remains the immediate obligation. Neither planning document changes the current
 source language.

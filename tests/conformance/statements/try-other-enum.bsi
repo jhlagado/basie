@@ -1,0 +1,15 @@
+// try passes a failure on only within its enum (D54).
+// spec: 14.5
+// expect error: failure-domain at 14:9
+
+enum Mine
+    broken
+end
+
+sub f() fails Mine
+    fail Mine.broken
+end
+
+sub main() fails IoError
+    try f()
+end

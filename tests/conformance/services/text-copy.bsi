@@ -8,15 +8,15 @@
 
 include "FORMAT.BSI"
 
-sub main() fails
+sub main() fails IoError
     var line: string[40]
     var count: u16 = 0
-    var code: u8
+    var code: IoError
     var src = try openRead("IN.TXT", textMode)
     var dst = try openWrite("OUT.TXT", textMode)
     while true
         readLine(src, var line) handle code
-            if code = endOfInput
+            if code = IoError.endOfInput
                 exit
             end
             fail code

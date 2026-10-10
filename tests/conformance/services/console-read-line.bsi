@@ -3,7 +3,7 @@
 // input: hello\r
 // expect output: <hello>\r\n
 
-sub main() fails
+sub main() fails IoError
     var line: string[40]
     try readLine(console, var line)
     try writeText(console, "<")

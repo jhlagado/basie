@@ -13,7 +13,7 @@ sub nudge(var p: Point)
     p.x = p.x + 5
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[8]
     var here: Point = (1, 2)
     nudge(var here)

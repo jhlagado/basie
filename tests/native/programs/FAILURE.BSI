@@ -1,51 +1,58 @@
-// Failure: fail with exact and computed codes, else fail after calls,
+// Failure: fail with exact and computed codes, try after calls,
 // assignments and local initializers, handle into program variables,
 // locals and parameters, a handled call beneath a pushed left operand,
 // handlers inside loops and other handlers, and failable calls as right
 // operands and under not.
-var code: u8
+var code: IoError
+var count: u8
 var total: u16 = 1
 
-sub check(n: u8): u8 fails
+sub check(n: u8): u8 fails IoError
     if n > 9
-        fail n - 9
+        var e: IoError = IoError.storageFailure
+        if n > 20
+            e = IoError.badName
+        end
+        fail e
     end
     return n
 end
 
-sub wide(n: u16): u16 fails
+sub wide(n: u16): u16 fails IoError
     if n = 0
-        fail 1
+        fail IoError.inputFailure
     end
     return n * 2
 end
 
-sub relay(n: u8): u8 fails
+sub relay(n: u8): u8 fails IoError
     var first: u8 = try check(n)
     var second: u8 = try check(n + 1)
     first = first + second
     return first
 end
 
-sub keep(e: u8): u8 fails
-    var local: u8
-    local = check(e) handle e
+sub keep(n: u8, e: IoError): u8 fails IoError
+    var local: IoError
+    var r: u8
+    r = check(n) handle e
+        r = 0
         local = e
     end
-    check(e + 20) handle local
-        total = total + local
+    check(n + 20) handle local
+        total = total + 1
     end
-    return local
+    return r
 end
 
-sub truth(n: u8): boolean fails
+sub truth(n: u8): boolean fails IoError
     if n = 0
-        fail 5
+        fail IoError.fileExists
     end
     return n > 1
 end
 
-sub operands() fails
+sub operands() fails IoError
     var x: u8 = 2
     var b: boolean
     x = 1 + check(x) handle code
@@ -63,10 +70,10 @@ sub operands() fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var i: u8
     var w: u16
-    code = try relay(3)
+    count = try relay(3)
     total = total + wide(5) handle code
         total = 0
     end
@@ -77,15 +84,16 @@ sub main() fails
                 exit
             end
         end
-        if code > 1
+        if code = IoError.inputFailure
             continue
         end
     end
-    while code < 5
-        check(code + 10) handle code
+    while count < 9
+        check(count + 10) handle code
         end
-        code = try keep(code)
+        count = try keep(count, code)
+        count = count + 1
     end
     try operands()
-    fail 4
+    fail IoError.fileNotFound
 end

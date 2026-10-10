@@ -8,13 +8,13 @@ include "FORMAT.BSI"
 
 var base: u16 = 1
 
-sub probe(): u16 fails
-    fail 7
+sub probe(): u16 fails IoError
+    fail IoError.tooManyFiles
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[20]
-    var code: u8 = 0
+    var code: IoError
     var total: u16 = 0
     var passes: u16 = 0
     var i: u16
@@ -23,7 +23,9 @@ sub main() fails
             passes = passes + 1
         end
     end
-    try appendU16(var line, code)
+    if code = IoError.tooManyFiles
+        try appendByte(var line, '7')
+    end
     try appendByte(var line, ' ')
     try appendU16(var line, passes)
     try appendByte(var line, ' ')

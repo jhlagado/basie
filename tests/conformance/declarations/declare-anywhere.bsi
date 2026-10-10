@@ -2,7 +2,7 @@
 // spec: 8.10
 // expect output: AB\r\n
 
-sub main() fails
+sub main() fails IoError
     try writeText(console, "A")
     var later: string[4] = "B"
     try writeText(console, later)

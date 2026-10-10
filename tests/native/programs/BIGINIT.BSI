@@ -157,7 +157,7 @@ var table: u16[1500] = [
 ]
 var small: u8[4] = [1, 2, 3, 4]
 
-sub main() fails
+sub main() fails IoError
     var sum: u32 = 0
     var i: u16
     for i = 0 to 1499

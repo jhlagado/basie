@@ -23,7 +23,7 @@ sub push(k: u8)
     head = move n
 end
 
-sub show(var line: string[]) fails
+sub show(var line: string[]) fails IoError
     var p = id(head)
     while true
         select p
@@ -37,7 +37,7 @@ sub show(var line: string[]) fails
     end
 end
 
-sub stale(var line: string[], i: id nodes?) fails
+sub stale(var line: string[], i: id nodes?) fails IoError
     select i
     case some(n)
         try append(var line, "live ")
@@ -46,7 +46,7 @@ sub stale(var line: string[], i: id nodes?) fails
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var line: string[60]
     push(1)
     push(2)

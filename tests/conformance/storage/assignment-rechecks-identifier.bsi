@@ -14,7 +14,7 @@ sub churn(): u16
     gb = new boxes()
     return 7
 end
-sub show() fails
+sub show() fails IoError
     var line: string[20]
     select gb
     case some(j)
@@ -25,7 +25,7 @@ sub show() fails
     end
     try writeText(console, line)
 end
-sub main() fails
+sub main() fails IoError
     gb = new boxes()
     select gb
     case some(j)

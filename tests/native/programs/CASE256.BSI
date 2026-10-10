@@ -522,7 +522,7 @@ sub pick(): u8
     end
     return g
 end
-sub main() fails
+sub main() fails IoError
     h = 255
     if pick() = 255
         try writeText(console, "256 cases\r\n")

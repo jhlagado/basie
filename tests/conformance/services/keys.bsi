@@ -3,7 +3,7 @@
 // input: xy
 // expect output: T<x><y>\r\n
 
-sub main() fails
+sub main() fails IoError
     if keyReady()
         try writeByte(console, 'T')
     end

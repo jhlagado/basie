@@ -48,7 +48,7 @@ sub first(items: Direction[]): Direction
     return items[0]
 end
 
-sub main() fails
+sub main() fails IoError
     var local: Direction
     var inferred = Direction.west
     const east: Direction = Direction.east

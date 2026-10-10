@@ -18,7 +18,7 @@ sub f(flag: boolean)
     end
 end
 
-sub main() fails
+sub main() fails IoError
     var i: u8
     for i = 1 to 20
         f(true)

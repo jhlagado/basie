@@ -1,7 +1,7 @@
 sub first()
 end
 
-sub second() fails
+sub second() fails IoError
     return
 end
 

@@ -4,14 +4,14 @@ const K: boolean = true xor false
 var a: boolean
 var b: boolean
 var r: boolean
-sub show(v: boolean) fails
+sub show(v: boolean) fails IoError
     if v
         try writeByte(console, 'T')
     else
         try writeByte(console, 'F')
     end
 end
-sub main() fails
+sub main() fails IoError
     a = true
     b = false
     r = a xor b

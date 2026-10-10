@@ -9,7 +9,7 @@ sub long(s: string[]): boolean
     return s.length > 2
 end
 
-sub main() fails
+sub main() fails IoError
     x = false and long("abc")
     if x
         try writeOutputByte('Y')
