@@ -33,7 +33,7 @@ sub main() fails
     var p = origin
     var q = where
     var r = make(3)
-    var t = maybe(4) else fail
+    var t = try maybe(4)
     var x = where.x + 1
     var y = row[2] * 2 + c
     var z = name.length

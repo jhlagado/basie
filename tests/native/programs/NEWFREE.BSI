@@ -45,5 +45,5 @@ sub main() fails
         end
     end
     var r = count(2)
-    check(1) else fail
+    try check(1)
 end

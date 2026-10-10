@@ -23,7 +23,6 @@ statement               ::= local-declaration
 name-statement          ::= assignment-statement
                           | routine-call-statement
 name-statement-tail     ::= NEWLINE
-                          | "else" "fail" NEWLINE
                           | "handle" NAME NEWLINE
                             block "end" NEWLINE
 other-simple-statement  ::= return-statement

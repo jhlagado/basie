@@ -22,8 +22,8 @@ sub look(x: Inner, s: string[]) fails
     case none
     end
     var line: string[20]
-    appendU16(line, x.w) else fail
-    writeText(console, line) else fail
+    try appendU16(line, x.w)
+    try writeText(console, line)
 end
 sub main() fails
     gb = new boxes()
@@ -36,7 +36,7 @@ sub main() fails
     end
     select i
     case some(j)
-        look(j.inner, j.name) else fail
+        try look(j.inner, j.name)
     case none
     end
 end

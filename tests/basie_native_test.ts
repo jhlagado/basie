@@ -703,7 +703,7 @@ Deno.test("BASIE HELLO compiles and links HELLO.COM, which prints Hello", () => 
   // Several parts: the program and its files take the first part's name.
   const parts = chain("DATA, MAIN", {
     "DATA.BSI": "var x: u8 = 72\n",
-    "MAIN.BSI": "sub main() fails\nwriteByte(console, x) else fail\nend\n",
+    "MAIN.BSI": "sub main() fails\ntry writeByte(console, x)\nend\n",
   });
   assertEquals(parts.output, "");
   assertEquals(output(parts.disk.get("DATA.COM")!), "H");

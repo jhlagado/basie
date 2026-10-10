@@ -86,6 +86,6 @@ end
 sub main() fails
     total = r0() + r1() + r2() + r3() + r4() + r5() + r6() + r7() + r8() + r9()
     if total = 1100
-        writeText(console, "scoped types\r\n") else fail
+        try writeText(console, "scoped types\r\n")
     end
 end

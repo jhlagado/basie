@@ -28,12 +28,12 @@ sub main() fails
     rows[1].cells[2] = 'B'
     rows[1].name = "CD"
     grid[2][1] = 'E'
-    writeOutputByte(grid[i][j]) else fail
-    writeOutputByte(rows[i].cells[j]) else fail
-    writeOutputByte(rows[i].name[i - 1]) else fail
-    writeOutputByte(second().name[i]) else fail
-    writeOutputByte(grid[j][i]) else fail
-    writeOutputByte(first(rows[i].name) + 3) else fail
-    writeOutputByte(13) else fail
-    writeOutputByte(10) else fail
+    try writeOutputByte(grid[i][j])
+    try writeOutputByte(rows[i].cells[j])
+    try writeOutputByte(rows[i].name[i - 1])
+    try writeOutputByte(second().name[i])
+    try writeOutputByte(grid[j][i])
+    try writeOutputByte(first(rows[i].name) + 3)
+    try writeOutputByte(13)
+    try writeOutputByte(10)
 end

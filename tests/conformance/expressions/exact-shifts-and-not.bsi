@@ -15,17 +15,17 @@ sub main() fails
     var d: u8 = 255 shr 4
     var e: u8 = 12 and 10
     var f: u16 = not 1
-    appendU16(line, a) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, b) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, c) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, d) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, e) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, f) else fail
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try appendU16(line, a)
+    try appendByte(line, ' ')
+    try appendU16(line, b)
+    try appendByte(line, ' ')
+    try appendU16(line, c)
+    try appendByte(line, ' ')
+    try appendU16(line, d)
+    try appendByte(line, ' ')
+    try appendU16(line, e)
+    try appendByte(line, ' ')
+    try appendU16(line, f)
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

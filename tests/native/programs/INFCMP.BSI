@@ -32,6 +32,6 @@ sub main() fails
     var isout = f = console
     var also = outs[1] = console or same
     if equal and differ and isout and also and not same and twice(4) = 8
-        writeText(f, "comparisons\r\n") else fail
+        try writeText(f, "comparisons\r\n")
     end
 end

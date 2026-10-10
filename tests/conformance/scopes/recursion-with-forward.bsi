@@ -6,12 +6,12 @@ forward sub countDown(n: u8) fails
 
 sub countDown
     if n > 0
-        writeByte(console, '0' + n) else fail
-        countDown(n - 1) else fail
+        try writeByte(console, '0' + n)
+        try countDown(n - 1)
     end
 end
 
 sub main() fails
-    countDown(3) else fail
-    writeText(console, "\r\n") else fail
+    try countDown(3)
+    try writeText(console, "\r\n")
 end

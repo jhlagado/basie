@@ -18,12 +18,12 @@ sub show() fails
     var line: string[20]
     select gb
     case some(j)
-        appendU16(line, j.w) else fail
-        appendByte(line, ' ') else fail
-        appendU16(line, j.arr[2]) else fail
+        try appendU16(line, j.w)
+        try appendByte(line, ' ')
+        try appendU16(line, j.arr[2])
     case none
     end
-    writeText(console, line) else fail
+    try writeText(console, line)
 end
 sub main() fails
     gb = new boxes()
@@ -32,5 +32,5 @@ sub main() fails
         j.w = churn()
     case none
     end
-    show() else fail
+    try show()
 end

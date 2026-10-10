@@ -17,7 +17,7 @@ end
 
 sub main() fails
     set(t)
-    writeOutputByte(u8(t.c)) else fail
-    writeOutputByte(13) else fail
-    writeOutputByte(10) else fail
+    try writeOutputByte(u8(t.c))
+    try writeOutputByte(13)
+    try writeOutputByte(10)
 end

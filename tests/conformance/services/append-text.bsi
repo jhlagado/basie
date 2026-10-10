@@ -4,8 +4,8 @@
 // expect file LOG.TXT: first\r\nsecond\r\n
 
 sub main() fails
-    var f = openAppend("LOG.TXT", textMode) else fail
-    writeText(f, "second") else fail
-    writeByte(f, 10) else fail
-    close(f) else fail
+    var f = try openAppend("LOG.TXT", textMode)
+    try writeText(f, "second")
+    try writeByte(f, 10)
+    try close(f)
 end

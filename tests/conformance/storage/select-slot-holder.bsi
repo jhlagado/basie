@@ -16,12 +16,12 @@ sub f(var list: nodes?) fails
         head = none
         var m = new nodes(66, none)
         n.value = 90
-        writeByte(console, m.value) else fail
+        try writeByte(console, m.value)
     case none
     end
 end
 sub main() fails
     head = new nodes(65, none)
-    f(head) else fail
-    writeText(console, "\r\n") else fail
+    try f(head)
+    try writeText(console, "\r\n")
 end

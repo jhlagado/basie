@@ -14,44 +14,44 @@ sub main() fails
     var count: u16 = 0
     for c = 7 to 0 step -1
         if c = 7
-            appendU16(line, c) else fail
+            try appendU16(line, c)
         end
     end
-    append(line, "..") else fail
-    appendU16(line, c) else fail
+    try append(line, "..")
+    try appendU16(line, c)
     for c = 0 to 255
     end
-    appendByte(line, ' ') else fail
-    appendU16(line, c) else fail
+    try appendByte(line, ' ')
+    try appendU16(line, c)
     for c = 0 to 254 step 2
     end
-    appendByte(line, ' ') else fail
-    appendU16(line, c) else fail
+    try appendByte(line, ' ')
+    try appendU16(line, c)
     for s = 0 to 127
     end
-    appendByte(line, ' ') else fail
-    appendI16(line, i16(s)) else fail
+    try appendByte(line, ' ')
+    try appendI16(line, i16(s))
     for w = 5 to 0 step -1
         if w = 5
-            appendByte(line, ' ') else fail
-            appendU16(line, w) else fail
+            try appendByte(line, ' ')
+            try appendU16(line, w)
         end
     end
-    append(line, "..") else fail
-    appendU16(line, w) else fail
+    try append(line, "..")
+    try appendU16(line, w)
     for w = 0 to 3
     end
-    appendByte(line, ' ') else fail
-    appendU16(line, w) else fail
+    try appendByte(line, ' ')
+    try appendU16(line, w)
     for w = 65535 to 0 step -65535
         count = count + 1
     end
-    appendByte(line, ' ') else fail
-    appendU16(line, w) else fail
+    try appendByte(line, ' ')
+    try appendU16(line, w)
     for w = 0 to 65535
     end
-    appendByte(line, ' ') else fail
-    appendU16(line, w) else fail
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try appendByte(line, ' ')
+    try appendU16(line, w)
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

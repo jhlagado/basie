@@ -3,7 +3,7 @@
 ;==========================================================================
 ;
 ;  The actions for routine signatures, forward declarations, routine and
-;  main bodies, recoverable failure (fail, `else fail`) and local handlers
+;  main bodies, recoverable failure (fail, `try`) and local handlers
 ;  (`handle`). The calling convention and the declaration state are those
 ;  of ACTIONS.ASM.
 ;
@@ -14,7 +14,7 @@
 ;    AC_PARAM, AC_JOIN, AC_GIVES, AC_GIVEN, AC_FAILS  signature parts
 ;    AC_BODY, AC_IMPL, AC_END  open and close a routine or main body
 ;    AC_FAIL, AC_THROW  the fail statement
-;    AC_ROUTE, AC_RELAY  attach `else fail` or a handler to a failable call
+;    AC_ROUTE, AC_RELAY  attach a try or a handler to a failable call
 ;    AC_ONERR  open a handler (AC_NOERR, in ACTSTMT.ASM, closes it)
 ;    AC_SAFE, AC_ELEAK  reject an unhandled failure
 ;    AC_LIVE, AC_DEAD  set the fallthrough state
@@ -36,9 +36,9 @@
 ;  Failure (the reference's failure model, D41). A routine fails by
 ;  returning with carry set and the code in A. A call to a failable
 ;  routine decides at once how its failure is consumed (RO_FAILS): before
-;  `else fail` it writes JP C,exit, and before `handle` JP C to a new
+;  after a try it writes JP C,exit, and before `handle` JP C to a new
 ;  label; anything else raises DG_LEAK. RO_PEND then holds $80 plus that
-;  label (RG_EXIT for `else fail`) until the statement's end consumes it
+;  label (RG_EXIT for a try) until the statement's end consumes it
 ;  (AC_ROUTE, AC_RELAY), and RO_KEPT the temporaries' bytes pushed beneath
 ;  the call, which a handler drops.
 ;
@@ -765,47 +765,64 @@ AC_ESAFE:
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_SAFE                   ; not-failable.
 
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Require "=", then fall into AC_TRY: an assignment's source.
+
+AC_EQTRY:                      ; Before the source.
+    CALL PR_EQUAL                  ; The equals sign; fall into AC_TRY.
+
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
+; Take `try` (D48) where a failable call may stand, a call statement, a
+; local's initializer or an assignment's source: it waits (RO_TARM, its
+; offset RO_TPOS) for the call, whose routine or service must be named
+; next (syntax at that token otherwise, a name expected).
+
+AC_TRY:                        ; Where a call may stand.
+    CALL PR_PEEK                   ; A try
+    CP   TK_TRY                    ; here?
+    RET  NZ                        ; No.
+    CALL PR_TAKE                   ; Taken:
+    LD   HL,(TK_POS)               ; its
+    LD   (RO_TPOS),HL              ; offset,
+    LD   (RO_TARM),A               ; waiting (A is TK_TRY).
+    CALL PR_PEEK                   ; A name
+    CP   TK_NAME                   ; follows,
+    JR   NZ,.NAME                  ; a routine's
+    CALL RO_FIND                   ; (Z)
+    RET  Z                         ; or
+    CALL RO_LIB                    ; a service's
+    JR   NC,.NAME                  ; (carry,
+    RET  P                         ; sign clear).
+.NAME:                         ; Anything else:
+    CALL DG_RAISE                  ; syntax, a name
+    DB   DG_TOKEN+TK_NAME          ; expected.
+
 ;@ROUTINE NORETURN
-; Raise syntax, the end of the line expected: what follows a pending
-; failure that no `else fail` or handler can consume where it stands, as
-; the reference finds the statement's end there.
+; Raise syntax, the end of the line expected: what follows a call after
+; try, or a handler after a local's initializer, where the reference finds
+; the statement's end.
 
 AC_ELINE:
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_EOL                    ; Expected the end of the line.
 
 ;@ROUTINE NORETURN
-; Raise not-failable at the statement's start (AC_SPOS): `else fail` or a
-; handler after a statement whose calls cannot fail.
+; Raise not-failable at the statement's start (AC_SPOS): a handler after
+; a statement whose calls cannot fail.
 
 AC_EMOOT:
     LD   A,DG_SAFE                 ; not-failable,
     JP   DG_KEPT                   ; at the statement. No return.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; A failure is pending after a local initializer: only `else fail` may
-; follow (DG_LEAK otherwise; a handler would leave the local without a
-; value).
+; A failure is pending after a local initializer: only a try's, passed to
+; the exit; a handler would leave the local without a value (syntax at
+; `handle`, the declaration's end expected). Fall into AC_DROP.
 
 AC_RELAY:
-    CALL PR_PEEK                   ; What follows the initializer?
-    CP   TK_ELSE                   ; `else fail`?
-    JR   NZ,AC_ELINE               ; No: the declaration should have ended.
-
-;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
-; `else fail` follows a call whose failure goes to the exit (RO_FAILS has
-; written JP C,exit): consume it, and nothing more may handle the failure
-; (DG_LEAK).
-
-AC_PASS:
-    CALL PR_TAKE                   ; Consume `else`.
-    LD   E,TK_FAIL                 ; It must be `else fail`.
-    CALL PR_NEED                   ; Consume `fail`.
-    CALL PR_PEEK                   ; What follows?
-    CP   TK_HANDL                  ; A handler as well?
-    JR   Z,AC_ELINE                ; The statement should have ended.
-    CP   TK_ELSE                   ; Another else?
-    JR   Z,AC_ELINE                ; Likewise; fall into AC_DROP.
+    LD   A,(RO_PEND)               ; The failure's
+    AND  $7F                       ; label: the exit's,
+    JR   NZ,AC_ELINE               ; or a handler's.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY
 ; The pending failure is handled. Returns A zero.
@@ -817,7 +834,7 @@ AC_DROP:
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,BC,DE,HL
 ; After a name statement, attach what follows to a pending failure
-; (nameStatementTail): `else fail` (AC_PASS), or a handler: open a
+; (nameStatementTail): a try's (AC_DROP), or a handler: open a
 ; CT_KTRAP frame holding the failure's label, which it frees with its own
 ; when it closes, and the temporaries the failure leaves on the stack, and
 ; jump over the handler to its skip label on success. A handler or else
@@ -828,14 +845,12 @@ AC_ROUTE:
     OR   A                         ; Zero means none.
     JR   NZ,.PENDING               ; Attach its handling.
     CALL PR_PEEK                   ; What follows the statement?
-    CP   TK_ELSE                   ; `else fail`
-    JR   Z,AC_EMOOT                ; with nothing to pass on,
-    CP   TK_HANDL                  ; or a handler
+    CP   TK_HANDL                  ; A handler
     JR   Z,AC_EMOOT                ; with nothing to handle.
     RET                            ; Back to the engine.
 .PENDING:                      ; A is $80 and the failure's label.
     AND  $7F                       ; The label:
-    JR   Z,AC_PASS                 ; RG_EXIT for `else fail`.
+    JR   Z,AC_DROP                 ; RG_EXIT, a try's.
     PUSH AF                        ; A handler's: keep it.
     LD   B,CT_KTRAP                ; Open a handler's frame;
     CALL CT_PUSH                   ; HL addresses it.

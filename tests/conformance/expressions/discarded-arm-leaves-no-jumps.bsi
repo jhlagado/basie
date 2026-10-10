@@ -10,8 +10,8 @@ var y: u16 = 3
 sub main() fails
     x = false and (y > 1 and y < 5)
     y = 19279
-    writeOutputByte(u8(y mod 256)) else fail
-    writeOutputByte(u8(y / 256)) else fail
-    writeOutputByte(13) else fail
-    writeOutputByte(10) else fail
+    try writeOutputByte(u8(y mod 256))
+    try writeOutputByte(u8(y / 256))
+    try writeOutputByte(13)
+    try writeOutputByte(10)
 end

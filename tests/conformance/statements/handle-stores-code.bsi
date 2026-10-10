@@ -18,13 +18,13 @@ sub main() fails
     var code: u8 = 0
     var value: u8 = 0
     value = tryIt(false) handle code
-        appendU16(line, code) else fail
+        try appendU16(line, code)
     end
-    appendByte(line, ' ') else fail
+    try appendByte(line, ' ')
     value = tryIt(true) handle code
-        appendByte(line, '!') else fail
+        try appendByte(line, '!')
     end
-    appendU16(line, value) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, value)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

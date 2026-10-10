@@ -8,6 +8,6 @@ include "TWICEA.BSI"
 include "TWICEB.BSI"
 
 sub main() fails
-    writeByte(console, '0' + fromA() + fromB()) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, '0' + fromA() + fromB())
+    try writeText(console, "\r\n")
 end

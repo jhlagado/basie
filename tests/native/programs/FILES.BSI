@@ -12,17 +12,17 @@ var spare: File
 
 sub emit(f: File, b: u8) fails
     var g = f
-    writeByte(g, b) else fail
+    try writeByte(g, b)
     f = printer
     g = console
-    writeByte(g, b + 1) else fail
+    try writeByte(g, b + 1)
 end
 
 sub pick(n: u8, f: File, s: string[]) fails
     var line: string[8]
-    readLine(f, line) else fail
-    writeText(console, line) else fail
-    writeText(console, s) else fail
+    try readLine(f, line)
+    try writeText(console, line)
+    try writeText(console, s)
 end
 
 sub main() fails
@@ -35,22 +35,22 @@ sub main() fails
     var yes = small = 2
     out = far
     spare = out
-    emit(spare, 'A') else fail
+    try emit(spare, 'A')
     near = out
-    emit(near, 'C') else fail
+    try emit(near, 'C')
     near = openRead("IN.TXT", textMode) handle code
     end
-    pick(small, near, "\r\n") else fail
-    close(near) else fail
-    far = openWrite("OUT.TXT", textMode) else fail
-    writeText(far, "written") else fail
-    writeByte(far, 10) else fail
-    close(far) else fail
+    try pick(small, near, "\r\n")
+    try close(near)
+    far = try openWrite("OUT.TXT", textMode)
+    try writeText(far, "written")
+    try writeByte(far, 10)
+    try close(far)
     near = openRead("NONE.TXT", binaryMode) handle code
-        writeByte(console, 'E') else fail
+        try writeByte(console, 'E')
     end
     if yes
-        writeByte(console, u8(wide) + '0') else fail
+        try writeByte(console, u8(wide) + '0')
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

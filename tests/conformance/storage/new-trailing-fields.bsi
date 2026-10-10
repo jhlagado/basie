@@ -14,12 +14,12 @@ pool trees: Tree[8]
 
 sub main() fails
     var t = new trees('1')
-    writeByte(console, t.key) else fail
+    try writeByte(console, t.key)
     select t.kids[3]
     case some(k)
-        writeByte(console, k.key) else fail
+        try writeByte(console, k.key)
     case none
-        writeByte(console, '-') else fail
+        try writeByte(console, '-')
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

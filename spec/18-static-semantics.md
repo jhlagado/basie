@@ -30,7 +30,7 @@ Constant expressions are evaluated exactly as at run time; an operation that wou
 
 ## 18.6 Routines and failure
 
-Calls match their signatures in arity, order, type and parameter kind. Every failing call has exactly one consumer: `else fail` in a failing routine, or `handle` (Chapter 14). A value routine's end must be unreachable without `return` (Chapter 13, Section 13.7).
+Calls match their signatures in arity, order, type and parameter kind. Every failing call has exactly one consumer: `try` in a failing routine, or `handle` (Chapter 14). A value routine's end must be unreachable without `return` (Chapter 13, Section 13.7).
 
 ## 18.7 Control
 

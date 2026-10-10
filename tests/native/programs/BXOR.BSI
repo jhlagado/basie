@@ -6,23 +6,23 @@ var b: boolean
 var r: boolean
 sub show(v: boolean) fails
     if v
-        writeByte(console, 'T') else fail
+        try writeByte(console, 'T')
     else
-        writeByte(console, 'F') else fail
+        try writeByte(console, 'F')
     end
 end
 sub main() fails
     a = true
     b = false
     r = a xor b
-    show(r) else fail
-    show(a xor true) else fail
-    show(true xor a) else fail
-    show(false xor b) else fail
-    show(a xor b xor a) else fail
-    show(a xor b or b) else fail
-    show(K) else fail
-    show(true xor true) else fail
-    show((a xor b) = true) else fail
-    writeText(console, "\r\n") else fail
+    try show(r)
+    try show(a xor true)
+    try show(true xor a)
+    try show(false xor b)
+    try show(a xor b xor a)
+    try show(a xor b or b)
+    try show(K)
+    try show(true xor true)
+    try show((a xor b) = true)
+    try writeText(console, "\r\n")
 end

@@ -89,5 +89,5 @@ sub main() fails
         matched = false
     end
     assert matched
-    writeText(console, "E\r\n") else fail
+    try writeText(console, "E\r\n")
 end

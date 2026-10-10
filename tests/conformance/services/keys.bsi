@@ -5,13 +5,13 @@
 
 sub main() fails
     if keyReady()
-        writeByte(console, 'T') else fail
+        try writeByte(console, 'T')
     end
     var a = readKey()
     var b = readKey()
-    writeByte(console, '<') else fail
-    writeByte(console, a) else fail
-    writeText(console, "><") else fail
-    writeByte(console, b) else fail
-    writeText(console, ">\r\n") else fail
+    try writeByte(console, '<')
+    try writeByte(console, a)
+    try writeText(console, "><")
+    try writeByte(console, b)
+    try writeText(console, ">\r\n")
 end

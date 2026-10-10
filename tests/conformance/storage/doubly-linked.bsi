@@ -52,14 +52,14 @@ sub show() fails
         select p
         case some(i)
             if started
-                appendByte(line, ' ') else fail
+                try appendByte(line, ' ')
             end
             started = true
-            appendU16(line, i.key) else fail
+            try appendU16(line, i.key)
             p = id(i.next)
         case none
-            writeText(console, line) else fail
-            writeText(console, "\r\n") else fail
+            try writeText(console, line)
+            try writeText(console, "\r\n")
             return
         end
     end
@@ -69,7 +69,7 @@ sub main() fails
     pushFront(1)
     pushFront(2)
     pushFront(3)
-    show() else fail
+    try show()
     var p = id(first)
     select p
     case some(i)
@@ -80,5 +80,5 @@ sub main() fails
         end
     case none
     end
-    show() else fail
+    try show()
 end

@@ -9,9 +9,9 @@ sub main() fails
     var a: boolean = true
     var m: u8 = $F0
     if a xor false
-        appendByte(line, 'T') else fail
+        try appendByte(line, 'T')
     end
-    appendU16(line, m xor $FF) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, m xor $FF)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

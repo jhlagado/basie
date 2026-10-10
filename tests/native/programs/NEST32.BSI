@@ -121,6 +121,6 @@ sub main() fails
         m = 9
     end
     if n > 0
-        writeText(console, "nested 32\r\n") else fail
+        try writeText(console, "nested 32\r\n")
     end
 end

@@ -18,7 +18,7 @@ sub letter(d: Dir): u8
 end
 
 sub main() fails
-    writeByte(console, letter(Dir.north)) else fail
-    writeByte(console, letter(Dir.east)) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, letter(Dir.north))
+    try writeByte(console, letter(Dir.east))
+    try writeText(console, "\r\n")
 end

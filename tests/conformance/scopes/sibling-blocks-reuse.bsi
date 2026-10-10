@@ -6,10 +6,10 @@ sub main() fails
     var flag: boolean = true
     if flag
         var count: u8 = 1
-        writeText(console, "A") else fail
+        try writeText(console, "A")
     else
         var count: u16 = 2
-        writeText(console, "B") else fail
+        try writeText(console, "B")
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

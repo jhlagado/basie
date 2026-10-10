@@ -13,7 +13,7 @@ Basie 1.0 is one language (design decision D24). Every conforming compiler provi
 | Statements | Assignment, calls, `return`, `fail`, run-time `assert`, `exit`, `continue`; `if`/`elseif`/`else`; `select` on integers, characters, ranges, enum members and optional handles, with `select move`; a value selection covers every value or has `case else` (D51); `while`; counted `for` with signed counters and steps |
 | Routines | Scalar, aggregate, `var`, handle and slot-holder parameters; leases; results including aggregate aliases with `from`; recursion through forward declarations |
 | Memory safety | Program, activation and pool storage; automatic freeing; generations; owner links and the cycle check; the statement rule and the flow check; the stack bound |
-| Failure | `fails`, `fail`, `else fail`, `handle`; named failure codes; the traps of Chapter 15 |
+| Failure | `fails`, `fail`, `try`, `handle`; named failure codes; the traps of Chapter 15 |
 | System | Basie Services revision 2 and the standard library written in Basie (Chapter 16) |
 
 ## 20.2 Implementation-defined limits

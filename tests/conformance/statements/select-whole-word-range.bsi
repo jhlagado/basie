@@ -20,8 +20,8 @@ sub signed(v: i16): u8
 end
 
 sub main() fails
-    writeByte(console, wide(0)) else fail
-    writeByte(console, wide(40000)) else fail
-    writeByte(console, signed(-5)) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, wide(0))
+    try writeByte(console, wide(40000))
+    try writeByte(console, signed(-5))
+    try writeText(console, "\r\n")
 end

@@ -25,10 +25,10 @@ sub main() fails
     case some(r)
         select r.kids[1]
         case some(c)
-            writeByte(console, c.value) else fail
+            try writeByte(console, c.value)
         case none
         end
     case none
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

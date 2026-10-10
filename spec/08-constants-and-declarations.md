@@ -71,7 +71,7 @@ local-declaration     ::= "var" NAME ":" type [ "=" local-initializer ]
                           NEWLINE
                         | "var" NAME "=" local-initializer NEWLINE
                         | const-declaration
-local-initializer     ::= expression [ "else" "fail" ]
+local-initializer     ::= [ "try" ] expression
                         | static-initializer
 
 constant-initializer  ::= constant-expression | static-initializer
@@ -207,7 +207,7 @@ A local variable may be declared at any statement position in a routine body (de
 **Initializers.** A local's initializer is one of:
 
 - an expression of a type compatible with the declared type (Chapters 6 and 9), evaluated once at the declaration;
-- a direct call to a failing routine followed by `else fail` (Chapter 14); or
+- a direct call to a failing routine after `try` (Chapter 14); or
 - for a declared record, array or string type, a static initializer (Section 8.9), which may then use only constants.
 
 An initializer for an owning handle follows the transfer rules of Chapter 7: a fresh value, the result of `new` or of a routine returning an owning handle, is stored directly; an existing owner must be written with `move`.

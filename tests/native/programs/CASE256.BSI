@@ -525,6 +525,6 @@ end
 sub main() fails
     h = 255
     if pick() = 255
-        writeText(console, "256 cases\r\n") else fail
+        try writeText(console, "256 cases\r\n")
     end
 end

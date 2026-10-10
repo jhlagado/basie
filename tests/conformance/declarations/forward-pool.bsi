@@ -13,6 +13,6 @@ pool nodes: Node[4]
 
 sub main() fails
     var n = new nodes('X', none)
-    writeByte(console, n.value) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, n.value)
+    try writeText(console, "\r\n")
 end

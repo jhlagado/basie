@@ -3,8 +3,8 @@
 // expect output: AB\r\n
 
 sub main() fails
-    writeText(console, "A") else fail
+    try writeText(console, "A")
     var later: string[4] = "B"
-    writeText(console, later) else fail
-    writeText(console, "\r\n") else fail
+    try writeText(console, later)
+    try writeText(console, "\r\n")
 end

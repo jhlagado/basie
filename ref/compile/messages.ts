@@ -179,10 +179,10 @@ const TABLE: [number, string, string, Group][] = [
   [
     112,
     "not-failable",
-    "else fail and handle follow a call to a routine that fails",
+    "try and handle go with a call to a routine that fails",
     OWN,
   ],
-  [113, "failure-unconsumed", "^1 fails: add else fail or handle", OWN],
+  [113, "failure-unconsumed", "^1 fails: add try or handle", OWN],
   [114, "handle-destination", "handle needs a writable u8 variable", OWN],
   [115, "move-position", "move can't appear in ^1", OWN],
   [116, "empty-enum", "An enum needs at least one member", DECL],

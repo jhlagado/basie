@@ -19,24 +19,24 @@ end
 sub show() fails
     select keep
     case some(k)
-        writeByte(console, k.value) else fail
+        try writeByte(console, k.value)
     case none
-        writeByte(console, '-') else fail
+        try writeByte(console, '-')
     end
 end
 
 sub main() fails
     var h = new nodes('A', none)
     mark(h)
-    show() else fail
+    try show()
     var list: nodes? = new nodes('B', none)
     select list
     case some(k)
         keep = id(k)
     case none
     end
-    show() else fail
+    try show()
     mark(loose)
-    show() else fail
-    writeText(console, "\r\n") else fail
+    try show()
+    try writeText(console, "\r\n")
 end

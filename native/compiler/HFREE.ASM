@@ -226,7 +226,7 @@ HN_ANY:                        ; Every scope of the routine.
     RET                            ; seen.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; `else fail` passes a failure on (RO_FAILS): with no owner in scope, JP
+; A try passes a failure on (RO_FAILS): with no owner in scope, JP
 ; C to the exit; with owners, which leave the routine, JP NC past, PUSH AF,
 ; every owner freed, POP AF, JP to the exit, as a fail statement frees
 ; them. A and carry reach the exit as the call left them.

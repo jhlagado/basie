@@ -28,8 +28,8 @@ sub show(var line: string[]) fails
     while true
         select p
         case some(i)
-            appendU16(line, i.key) else fail
-            appendByte(line, ' ') else fail
+            try appendU16(line, i.key)
+            try appendByte(line, ' ')
             p = id(i.next)
         case none
             return
@@ -40,9 +40,9 @@ end
 sub stale(var line: string[], i: id nodes?) fails
     select i
     case some(n)
-        append(line, "live ") else fail
+        try append(line, "live ")
     case none
-        append(line, "none ") else fail
+        try append(line, "none ")
     end
 end
 
@@ -51,8 +51,8 @@ sub main() fails
     push(1)
     push(2)
     push(3)
-    show(line) else fail
-    append(line, "| ") else fail
+    try show(line)
+    try append(line, "| ")
     var a = id(head)
     var b: id nodes? = none
     var c: id nodes? = none
@@ -67,21 +67,21 @@ sub main() fails
     case none
     end
     head = none
-    stale(line, a) else fail
-    stale(line, b) else fail
-    stale(line, c) else fail
-    append(line, "| ") else fail
+    try stale(line, a)
+    try stale(line, b)
+    try stale(line, c)
+    try append(line, "| ")
     push(4)
     push(5)
     push(6)
-    show(line) else fail
+    try show(line)
     var extra = new? nodes(7, none)
     select extra
     case some(n)
-        append(line, "| room") else fail
+        try append(line, "| room")
     case none
-        append(line, "| full") else fail
+        try append(line, "| full")
     end
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

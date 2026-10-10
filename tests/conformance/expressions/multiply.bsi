@@ -9,11 +9,11 @@ sub main() fails
     var a: u16 = 300
     var b: i16 = -3
     var c: u8 = 200
-    appendU16(line, a * 200) else fail
-    appendByte(line, ' ') else fail
-    appendI16(line, b * 2) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, c * 3) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, a * 200)
+    try appendByte(line, ' ')
+    try appendI16(line, b * 2)
+    try appendByte(line, ' ')
+    try appendU16(line, c * 3)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

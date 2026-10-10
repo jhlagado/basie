@@ -22,8 +22,8 @@ sub main() fails
     make()
     select keep
     case some(i)
-        writeText(console, "live\r\n") else fail
+        try writeText(console, "live\r\n")
     case none
-        writeText(console, "gone\r\n") else fail
+        try writeText(console, "gone\r\n")
     end
 end

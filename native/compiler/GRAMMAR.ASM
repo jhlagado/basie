@@ -82,31 +82,31 @@ GR_ROWX:
     DB   105,DG_TYPE               ; GR_ROW22-GR_ROWS; result-var-opt
     DB   111,DG_EOL                ; GR_ROW23-GR_ROWS; fails-opt
     DB   115,DG_STMT               ; GR_ROW24-GR_ROWS; routine-body
-    DB   132,DG_VAR                ; GR_ROW25-GR_ROWS; local-declaration
-    DB   134,DG_EOL                ; GR_ROW26-GR_ROWS; local-initializer-opt
-    DB   138,DG_STMT               ; GR_ROW27-GR_ROWS; statement-sequence
-    DB   156,DG_STMT               ; GR_ROW28-GR_ROWS; statement
-    DB   179,DG_CASE               ; GR_ROW29-GR_ROWS; select-arms
-    DB   183,DG_VALUE              ; GR_ROW30-GR_ROWS; case-arm
-    DB   197,DG_RET                ; GR_ROW31-GR_ROWS; return-statement
-    DB   199,DG_EOL                ; GR_ROW32-GR_ROWS; return-value-opt
-    DB   212,DG_KFAIL              ; GR_ROW33-GR_ROWS; fail-statement
-    DB   214,DG_EOL                ; GR_ROW34-GR_ROWS; name-statement-tail
-    DB   218,DG_LOOP               ; GR_ROW35-GR_ROWS; transfer-statement
-    DB   222,DG_IF                 ; GR_ROW36-GR_ROWS; if-statement
-    DB   224,DG_STMT               ; GR_ROW37-GR_ROWS; if-tail
-    DB   230,DG_VALUE              ; GR_ROW38-GR_ROWS; while-statement
-    DB   232,DG_FOR                ; GR_ROW39-GR_ROWS; for-statement
-    DB   234,DG_UPTO               ; GR_ROW40-GR_ROWS; for-bound
-    DB   238,DG_EOL                ; GR_ROW41-GR_ROWS; for-step-opt
-    DB   242,DG_TYPE               ; GR_ROW42-GR_ROWS; type
-    DB   246,DG_TYPE               ; GR_ROW43-GR_ROWS; type-atom
-    DB   252,DG_TYPE               ; GR_ROW44-GR_ROWS; type-optional-opt
-    DB   6,DG_VALUE                ; GR_ROW45-GR_ROWS-256; string-capacity
-    DB   19,DG_VALUE               ; GR_ROW46-GR_ROWS-256; type-array-opt
-    DB   28,DG_VALUE               ; GR_ROW47-GR_ROWS-256; array-bound
-    DB   41,DG_TYPE                ; GR_ROW48-GR_ROWS-256; scalar-type
-    DB   43,DG_TYPE                ; GR_ROW49-GR_ROWS-256; local-shape
+    DB   133,DG_VAR                ; GR_ROW25-GR_ROWS; local-declaration
+    DB   135,DG_EOL                ; GR_ROW26-GR_ROWS; local-initializer-opt
+    DB   139,DG_STMT               ; GR_ROW27-GR_ROWS; statement-sequence
+    DB   158,DG_STMT               ; GR_ROW28-GR_ROWS; statement
+    DB   182,DG_CASE               ; GR_ROW29-GR_ROWS; select-arms
+    DB   186,DG_VALUE              ; GR_ROW30-GR_ROWS; case-arm
+    DB   200,DG_RET                ; GR_ROW31-GR_ROWS; return-statement
+    DB   202,DG_EOL                ; GR_ROW32-GR_ROWS; return-value-opt
+    DB   215,DG_KFAIL              ; GR_ROW33-GR_ROWS; fail-statement
+    DB   217,DG_EOL                ; GR_ROW34-GR_ROWS; name-statement-tail
+    DB   221,DG_LOOP               ; GR_ROW35-GR_ROWS; transfer-statement
+    DB   225,DG_IF                 ; GR_ROW36-GR_ROWS; if-statement
+    DB   227,DG_STMT               ; GR_ROW37-GR_ROWS; if-tail
+    DB   233,DG_VALUE              ; GR_ROW38-GR_ROWS; while-statement
+    DB   235,DG_FOR                ; GR_ROW39-GR_ROWS; for-statement
+    DB   237,DG_UPTO               ; GR_ROW40-GR_ROWS; for-bound
+    DB   241,DG_EOL                ; GR_ROW41-GR_ROWS; for-step-opt
+    DB   245,DG_TYPE               ; GR_ROW42-GR_ROWS; type
+    DB   249,DG_TYPE               ; GR_ROW43-GR_ROWS; type-atom
+    DB   255,DG_TYPE               ; GR_ROW44-GR_ROWS; type-optional-opt
+    DB   9,DG_VALUE                ; GR_ROW45-GR_ROWS-256; string-capacity
+    DB   22,DG_VALUE               ; GR_ROW46-GR_ROWS-256; type-array-opt
+    DB   31,DG_VALUE               ; GR_ROW47-GR_ROWS-256; array-bound
+    DB   44,DG_TYPE                ; GR_ROW48-GR_ROWS-256; scalar-type
+    DB   46,DG_TYPE                ; GR_ROW49-GR_ROWS-256; local-shape
 GR_ROWXE:                      ; End of the row directory.
 
 ; Rows: alternatives of production byte and predicting token kinds.
@@ -264,6 +264,7 @@ GR_ROW24:                      ; routine-body
     DB   TK_NAME
     DB   TK_RET
     DB   TK_SEL
+    DB   TK_TRY
     DB   TK_VAR
     DB   TK_WHILE+$80
     DB   36+$80
@@ -289,6 +290,7 @@ GR_ROW27:                      ; statement-sequence
     DB   TK_NAME
     DB   TK_RET
     DB   TK_SEL
+    DB   TK_TRY
     DB   TK_VAR
     DB   TK_WHILE+$80
     DB   2+$80
@@ -298,7 +300,8 @@ GR_ROW27:                      ; statement-sequence
     DB   TK_END+$80
 GR_ROW28:                      ; statement
     DB   41
-    DB   TK_NAME+$80
+    DB   TK_NAME
+    DB   TK_TRY+$80
     DB   42
     DB   TK_RET+$80
     DB   43

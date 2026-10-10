@@ -12,7 +12,7 @@ sub fill() fails
     head.next = new nodes('A', none)
     select head.next
     case some(n)
-        writeByte(console, n.value) else fail
+        try writeByte(console, n.value)
     case none
     end
 end
@@ -32,11 +32,11 @@ sub early(stop: boolean): u8
 end
 
 sub main() fails
-    fill() else fail
-    fill() else fail
-    fill() else fail
-    writeByte(console, '0' + early(true)) else fail
-    writeByte(console, '0' + early(false)) else fail
-    writeByte(console, '0' + early(false)) else fail
-    writeText(console, "\r\n") else fail
+    try fill()
+    try fill()
+    try fill()
+    try writeByte(console, '0' + early(true))
+    try writeByte(console, '0' + early(false))
+    try writeByte(console, '0' + early(false))
+    try writeText(console, "\r\n")
 end

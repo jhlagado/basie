@@ -6,17 +6,17 @@ include "FORMAT.BSI"
 
 sub main() fails
     var line: string[40]
-    appendHex8(line, 0) else fail
-    appendByte(line, ' ') else fail
-    appendHex8(line, 127) else fail
-    appendByte(line, ' ') else fail
-    appendHex8(line, 255) else fail
-    appendByte(line, ' ') else fail
-    appendHex16(line, 0) else fail
-    appendByte(line, ' ') else fail
-    appendHex16(line, $BEEF) else fail
-    appendByte(line, ' ') else fail
-    appendHex16(line, $0A0B) else fail
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try appendHex8(line, 0)
+    try appendByte(line, ' ')
+    try appendHex8(line, 127)
+    try appendByte(line, ' ')
+    try appendHex8(line, 255)
+    try appendByte(line, ' ')
+    try appendHex16(line, 0)
+    try appendByte(line, ' ')
+    try appendHex16(line, $BEEF)
+    try appendByte(line, ' ')
+    try appendHex16(line, $0A0B)
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

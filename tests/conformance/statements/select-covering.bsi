@@ -22,8 +22,8 @@ sub sign(v: i32): u8
 end
 
 sub main() fails
-    writeByte(console, half(3)) else fail
-    writeByte(console, half(200)) else fail
-    writeByte(console, sign(-7)) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, half(3))
+    try writeByte(console, half(200))
+    try writeByte(console, sign(-7))
+    try writeText(console, "\r\n")
 end

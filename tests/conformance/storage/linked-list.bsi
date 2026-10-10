@@ -88,14 +88,14 @@ sub show() fails
         select p
         case some(i)
             if not first
-                appendByte(line, ' ') else fail
+                try appendByte(line, ' ')
             end
             first = false
-            appendU16(line, i.key) else fail
+            try appendU16(line, i.key)
             p = id(i.next)
         case none
-            writeText(console, line) else fail
-            writeText(console, "\r\n") else fail
+            try writeText(console, line)
+            try writeText(console, "\r\n")
             return
         end
     end
@@ -106,8 +106,8 @@ sub main() fails
     insert(1)
     insert(7)
     insert(3)
-    show() else fail
+    try show()
     var gone: boolean = remove(3)
     gone = remove(9)
-    show() else fail
+    try show()
 end

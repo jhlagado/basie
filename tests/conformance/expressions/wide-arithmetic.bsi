@@ -12,21 +12,21 @@ sub main() fails
     var d: i32 = -21
     a = a - 1
     b = b + 1
-    appendU32(line, a) else fail
-    appendByte(line, ' ') else fail
-    appendI32(line, b) else fail
-    appendByte(line, ' ') else fail
-    appendU32(line, c * 30000) else fail
-    appendByte(line, ' ') else fail
-    appendI32(line, d / 3) else fail
-    appendByte(line, ' ') else fail
-    appendI32(line, (d shr 1) and 1) else fail
-    appendByte(line, ' ') else fail
-    appendU32(line, c shr 16 + 1) else fail
-    appendByte(line, ' ') else fail
+    try appendU32(line, a)
+    try appendByte(line, ' ')
+    try appendI32(line, b)
+    try appendByte(line, ' ')
+    try appendU32(line, c * 30000)
+    try appendByte(line, ' ')
+    try appendI32(line, d / 3)
+    try appendByte(line, ' ')
+    try appendI32(line, (d shr 1) and 1)
+    try appendByte(line, ' ')
+    try appendU32(line, c shr 16 + 1)
+    try appendByte(line, ' ')
     if c * 30000 > c
-        appendByte(line, 'T') else fail
+        try appendByte(line, 'T')
     end
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

@@ -35,10 +35,10 @@ end
 sub show(var l: nodes?) fails
     select l
     case some(n)
-        writeByte(console, n.value) else fail
+        try writeByte(console, n.value)
         select n.next
         case some(m)
-            writeByte(console, m.value) else fail
+            try writeByte(console, m.value)
         case none
         end
     case none
@@ -54,12 +54,12 @@ sub main() fails
     push(box.more[i], 'D')
     push(mine, 'E')
     twice(mine, 'F')
-    show(list) else fail
-    show(box.head) else fail
-    show(box.more[0]) else fail
-    show(box.more[1]) else fail
-    show(mine) else fail
+    try show(list)
+    try show(box.head)
+    try show(box.more[0])
+    try show(box.more[1])
+    try show(mine)
     drop(mine)
-    show(mine) else fail
-    writeText(console, "\r\n") else fail
+    try show(mine)
+    try writeText(console, "\r\n")
 end

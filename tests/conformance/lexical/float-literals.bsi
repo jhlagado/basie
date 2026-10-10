@@ -7,13 +7,13 @@ include "FORMAT.BSI"
 
 sub main() fails
     var line: string[40]
-    appendF32(line, 1.5, 2) else fail
-    appendByte(line, ' ') else fail
-    appendF32(line, 0.25, 2) else fail
-    appendByte(line, ' ') else fail
-    appendF32(line, 1e3, 2) else fail
-    appendByte(line, ' ') else fail
-    appendF32(line, 2.5e-3, 2) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendF32(line, 1.5, 2)
+    try appendByte(line, ' ')
+    try appendF32(line, 0.25, 2)
+    try appendByte(line, ' ')
+    try appendF32(line, 1e3, 2)
+    try appendByte(line, ' ')
+    try appendF32(line, 2.5e-3, 2)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

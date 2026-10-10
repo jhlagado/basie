@@ -6,10 +6,10 @@ sub main() fails
     var d: i8 = -3
     select d
     case -5 to -1
-        writeText(console, "neg\r\n") else fail
+        try writeText(console, "neg\r\n")
     case 0
-        writeText(console, "zero\r\n") else fail
+        try writeText(console, "zero\r\n")
     case else
-        writeText(console, "pos\r\n") else fail
+        try writeText(console, "pos\r\n")
     end
 end

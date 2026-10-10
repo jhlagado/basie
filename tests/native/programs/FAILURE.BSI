@@ -21,8 +21,9 @@ sub wide(n: u16): u16 fails
 end
 
 sub relay(n: u8): u8 fails
-    var first: u8 = check(n) else fail
-    first = first + check(n + 1) else fail
+    var first: u8 = try check(n)
+    var second: u8 = try check(n + 1)
+    first = first + second
     return first
 end
 
@@ -47,19 +48,25 @@ end
 sub operands() fails
     var x: u8 = 2
     var b: boolean
-    x = 1 + check(x) else fail
+    x = 1 + check(x) handle code
+        fail code
+    end
     x = x * check(x) handle code
     end
-    b = not truth(x) else fail
+    b = not truth(x) handle code
+        fail code
+    end
     b = x > 3 and truth(x) handle code
     end
-    x = 200 - check(x) else fail
+    x = 200 - check(x) handle code
+        fail code
+    end
 end
 
 sub main() fails
     var i: u8
     var w: u16
-    code = relay(3) else fail
+    code = try relay(3)
     total = total + wide(5) handle code
         total = 0
     end
@@ -77,8 +84,8 @@ sub main() fails
     while code < 5
         check(code + 10) handle code
         end
-        code = keep(code) else fail
+        code = try keep(code)
     end
-    operands() else fail
+    try operands()
     fail 4
 end

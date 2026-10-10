@@ -29,6 +29,6 @@ sub main() fails
     elseif b and g = 1
         g = 2
     end
-    writeByte(console, '0' + g) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, '0' + g)
+    try writeText(console, "\r\n")
 end

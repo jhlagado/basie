@@ -13,7 +13,7 @@ var part: Part
 sub main() fails
     var line: string[8]
     part.id = 7
-    appendU16(line, part.id) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, part.id)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

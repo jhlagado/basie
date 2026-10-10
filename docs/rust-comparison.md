@@ -154,7 +154,7 @@ Basie marks every transfer of ownership with `move` at the point where it happen
 | --- | --- | --- |
 | Declaring failure | `sub parse(…): u16 fails` | `-> Result<u16, E>` |
 | Failing | `fail badNumber`, where the code is an integer constant | `return Err(E::BadNumber)` |
-| Passing a failure on | `else fail` after the call | `?` after the call |
+| Passing a failure on | `try` before the call | `?` after the call |
 | Handling a failure | `x = f() handle code … end` | `match f() { Err(code) => …, Ok(v) => … }` |
 | Unhandled failure from `main` | the runtime prints `FAIL 48` | `main` returns `Err` and the error is printed |
 | Unrecoverable error | a trap, which nothing can catch | a panic, which `catch_unwind` can catch |
@@ -179,7 +179,7 @@ The next language version brings the surface closer to Rust with `:` for `as` (D
 
 ```basie
 sub execute(text: string[]): u16 fails
-    var value = parseU16(text) else fail
+    var value = try parseU16(text)
     return value * 2
 end
 ```

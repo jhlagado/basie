@@ -78,6 +78,7 @@ AC_INIT EQU  AC_TOVAR          ; BeginLocalInitializer: expect the local's type.
 ; (AC_LCOPY).
 
 AC_LINIT:
+    CALL AC_TRY                    ; A try before a call (D48).
     LD   A,(AG_CTYPE)              ; The local's type.
     CALL AG_SCAL                 ; A scalar?
     JP   C,AC_EXPR                 ; A run-time expression.
@@ -140,6 +141,7 @@ AC_FILE:
 ; as a typed local is.
 
 AC_INFER:
+    CALL AC_TRY                    ; A try before a call (D48).
     CALL PR_SPOT                   ; A string literal
     CP   TK_TEXT                   ; has no definite type:
     LD   A,DG_INFER                ; no-definite-type,
@@ -277,22 +279,16 @@ AC_ZERO:
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
 ; FinishLocalInitializer: a scalar's value must fit the local's type. A
-; pending failure must be followed by `else fail`; without one, a
-; following else raises DG_LEAK.
+; pending failure must be a try's (AC_RELAY).
 
 AC_ADOPT:
     LD   A,(AG_CTYPE)              ; A scalar local's
     CALL AG_SCAL                 ; value
     CALL C,AC_FIT                  ; must fit its type.
     LD   A,(RO_PEND)               ; Is a failure pending?
-    OR   A                         ; Zero means none.
-    JP   NZ,AC_RELAY               ; Require `else fail`.
-    CALL PR_PEEK                   ; What follows?
-    CP   TK_ELSE                   ; An else, with nothing to handle,
-    LD   A,DG_SAFE                 ; is not-failable,
-    LD   HL,AC_DPOS                ; at the local's name.
-    JP   Z,DG_AT                   ; No return.
-    RET                            ; Back to the engine.
+    OR   A                         ; Zero means none;
+    RET  Z                         ; a try's
+    JP   AC_RELAY                  ; is passed on.
 
 ;@ROUTINE OUT A,CARRY,ZERO CLOBBERS SIGN,PARITY,HALFCARRY,DE,HL
 ; Check the expression just parsed against the declaration's type.
@@ -403,6 +399,7 @@ AC_BIND:
 ; what follows the statement is checked for failure handling (AC_ROUTE).
 
 AC_STMT:
+    CALL AC_TRY                    ; A try before a call (D48).
     CALL PR_TAKE                   ; Consume the name.
     LD   HL,(TK_POS)               ; The statement's offset,
     LD   (AC_SPOS),HL              ; where its failure handling is reported.
@@ -436,7 +433,7 @@ AC_STMT:
     CALL DG_RNAME                  ; raise the diagnostic below, named:
     DB   DG_CLASS                  ; wrong-class.
 .WRITE:                        ; A variable.
-    CALL PR_EQUAL                  ; Require "=".
+    CALL AC_EQTRY                  ; Require "=", then any try.
     CALL EX_DTYPE                  ; The variable's type...
     CALL EX_RUN                    ; ...is expected of the value; A is its metadata.
     LD   D,A                       ; Keep the metadata.

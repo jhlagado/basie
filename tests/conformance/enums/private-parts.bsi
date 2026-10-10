@@ -13,5 +13,5 @@ sub main() fails
     assert selected = Choice.own
     assert fromA()
     assert fromB()
-    writeText(console, "P\r\n") else fail
+    try writeText(console, "P\r\n")
 end

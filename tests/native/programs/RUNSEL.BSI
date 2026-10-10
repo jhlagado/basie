@@ -7,7 +7,7 @@
 var line: string[20]
 
 sub put(c: u8) fails
-    writeByte(console, c) else fail
+    try writeByte(console, c)
 end
 
 sub bytes(v: u8): u8
@@ -81,34 +81,34 @@ sub longs(v: u32, s: i32): u8
 end
 
 sub main() fails
-    put(bytes(0)) else fail
-    put(bytes(0)) else fail
-    put(bytes(5)) else fail
-    put(bytes(11)) else fail
-    put(bytes(10)) else fail
-    put(bytes(255)) else fail
-    put(bytes(100)) else fail
-    writeText(console, "\r\n") else fail
-    put(signed(-128)) else fail
-    put(signed(-50)) else fail
-    put(signed(0)) else fail
-    put(signed(5)) else fail
-    put(signed(127)) else fail
-    put(words(5, -1)) else fail
-    put(words(5, 1)) else fail
-    writeText(console, "\r\n") else fail
-    put(words(1000, 0)) else fail
-    put(words(3000, 0)) else fail
-    put(words(65535, 0)) else fail
-    put(longs(0, -2147483648)) else fail
-    put(longs(0, 2147483647)) else fail
-    writeText(console, "\r\n") else fail
-    put(longs(5, 0)) else fail
-    put(longs(100000, 0)) else fail
-    put(longs(4294967295, 0)) else fail
-    put(longs(99999, 1)) else fail
-    put(longs(4294967294, 1)) else fail
-    writeText(console, "\r\n") else fail
+    try put(bytes(0))
+    try put(bytes(0))
+    try put(bytes(5))
+    try put(bytes(11))
+    try put(bytes(10))
+    try put(bytes(255))
+    try put(bytes(100))
+    try writeText(console, "\r\n")
+    try put(signed(-128))
+    try put(signed(-50))
+    try put(signed(0))
+    try put(signed(5))
+    try put(signed(127))
+    try put(words(5, -1))
+    try put(words(5, 1))
+    try writeText(console, "\r\n")
+    try put(words(1000, 0))
+    try put(words(3000, 0))
+    try put(words(65535, 0))
+    try put(longs(0, -2147483648))
+    try put(longs(0, 2147483647))
+    try writeText(console, "\r\n")
+    try put(longs(5, 0))
+    try put(longs(100000, 0))
+    try put(longs(4294967295, 0))
+    try put(longs(99999, 1))
+    try put(longs(4294967294, 1))
+    try writeText(console, "\r\n")
     var i: u8
     var sum: u8
     var odd: u8
@@ -128,9 +128,9 @@ sub main() fails
             sum = sum + 1
         end
     end
-    writeByte(console, '0' + i / 10) else fail
-    writeByte(console, '0' + i mod 10) else fail
-    writeByte(console, ' ') else fail
-    writeByte(console, '0' + sum + odd) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, '0' + i / 10)
+    try writeByte(console, '0' + i mod 10)
+    try writeByte(console, ' ')
+    try writeByte(console, '0' + sum + odd)
+    try writeText(console, "\r\n")
 end

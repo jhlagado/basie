@@ -23,11 +23,11 @@ sub main() fails
             passes = passes + 1
         end
     end
-    appendU16(line, code) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, passes) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, total) else fail
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try appendU16(line, code)
+    try appendByte(line, ' ')
+    try appendU16(line, passes)
+    try appendByte(line, ' ')
+    try appendU16(line, total)
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

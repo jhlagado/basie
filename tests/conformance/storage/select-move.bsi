@@ -15,20 +15,20 @@ var head: nodes?
 sub bumpOut() fails
     select move head
     case some(n)
-        writeByte(console, n.value) else fail
+        try writeByte(console, n.value)
     case none
-        writeByte(console, '?') else fail
+        try writeByte(console, '?')
     end
 end
 
 sub main() fails
     head = new nodes('A', none)
-    bumpOut() else fail
+    try bumpOut()
     select head
     case some(i)
-        writeByte(console, i.value) else fail
+        try writeByte(console, i.value)
     case none
-        writeByte(console, '-') else fail
+        try writeByte(console, '-')
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

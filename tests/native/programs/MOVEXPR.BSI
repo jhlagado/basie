@@ -35,25 +35,25 @@ end
 sub main() fails
     var x = new nodes('A', none)
     g = eat(move x)
-    writeByte(console, g) else fail
+    try writeByte(console, g)
     var y = new nodes('B', none)
     if eat(move y) = 'B'
-        writeByte(console, 'b') else fail
+        try writeByte(console, 'b')
     end
-    writeByte(console, eat(wrap('C'))) else fail
-    writeByte(console, eat(new nodes('D', none)) + 1) else fail
-    writeByte(console, maybe(none)) else fail
+    try writeByte(console, eat(wrap('C')))
+    try writeByte(console, eat(new nodes('D', none)) + 1)
+    try writeByte(console, maybe(none))
     var z: nodes? = new nodes('F', none)
     select maybe(move z)
     case 'F'
-        writeByte(console, 'f') else fail
+        try writeByte(console, 'f')
     case else
     end
     var w = new nodes(3, none)
     var i: u8
     for i = 1 to eat(move w)
-        writeByte(console, '0' + i) else fail
+        try writeByte(console, '0' + i)
     end
-    writeByte(console, '0' + total()) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, '0' + total())
+    try writeText(console, "\r\n")
 end

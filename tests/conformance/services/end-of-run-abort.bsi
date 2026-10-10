@@ -6,7 +6,7 @@
 // expect return: $FF01
 
 sub main() fails
-    var f = openWrite("KEEP.TXT", textMode) else fail
-    writeText(f, "new") else fail
+    var f = try openWrite("KEEP.TXT", textMode)
+    try writeText(f, "new")
     fail 48
 end

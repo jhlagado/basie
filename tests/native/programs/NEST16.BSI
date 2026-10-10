@@ -60,6 +60,6 @@ sub main() fails
         end
     end
     if n = 1 and deep.a.a.a.a.a.v = 7 and deep.w = 6
-        writeText(console, "nested deep\r\n") else fail
+        try writeText(console, "nested deep\r\n")
     end
 end

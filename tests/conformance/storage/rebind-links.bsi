@@ -25,12 +25,12 @@ sub g(x: nodes) fails
         jh.next = new nodes('9', none)
         select jh.next
         case some(k)
-            writeByte(console, k.value) else fail
+            try writeByte(console, k.value)
         case none
         end
     case none
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end
 
 sub main() fails
@@ -40,7 +40,7 @@ sub main() fails
     case some(i)
         select move i.next
         case some(o)
-            g(move o) else fail
+            try g(move o)
         case none
         end
     case none

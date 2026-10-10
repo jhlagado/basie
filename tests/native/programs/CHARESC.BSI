@@ -10,11 +10,11 @@ var h: u8 = 'z'
 var s: string[8] = "a\x42\'c"
 sub main() fails
     if a = 10 and b = 9 and c = 0 and d = 65 and e = 39 and f = 92 and g = 34 and h = 122 and s.length = 4
-        writeText(console, "chars\r\n") else fail
+        try writeText(console, "chars\r\n")
     end
     select a
     case '\n'
-        writeText(console, "newline\r\n") else fail
+        try writeText(console, "newline\r\n")
     case else
         fail 1
     end

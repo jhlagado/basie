@@ -19,25 +19,25 @@ end
 sub main() fails
     var line: string[60]
     var name: string[14]
-    var there = exists("A.TXT") else fail
-    appendByte(line, flag(there)) else fail
-    appendByte(line, ' ') else fail
-    there = exists("Q.TXT") else fail
-    appendByte(line, flag(there)) else fail
-    var more = findFirst("*.TXT", name) else fail
+    var there = try exists("A.TXT")
+    try appendByte(line, flag(there))
+    try appendByte(line, ' ')
+    there = try exists("Q.TXT")
+    try appendByte(line, flag(there))
+    var more = try findFirst("*.TXT", name)
     while more
-        appendByte(line, ' ') else fail
-        append(line, name) else fail
-        more = findNext(name) else fail
+        try appendByte(line, ' ')
+        try append(line, name)
+        more = try findNext(name)
     end
-    delete("C.DAT") else fail
-    rename("A.TXT", "Z.TXT") else fail
-    appendByte(line, ';') else fail
-    more = findFirst("Z*.*", name) else fail
+    try delete("C.DAT")
+    try rename("A.TXT", "Z.TXT")
+    try appendByte(line, ';')
+    more = try findFirst("Z*.*", name)
     if more
-        appendByte(line, ' ') else fail
-        append(line, name) else fail
+        try appendByte(line, ' ')
+        try append(line, name)
     end
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

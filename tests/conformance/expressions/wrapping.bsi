@@ -10,9 +10,9 @@ sub main() fails
     var s: i16 = 32767
     u = u + 1
     s = s + 1
-    appendU16(line, u) else fail
-    appendByte(line, ' ') else fail
-    appendI16(line, s) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, u)
+    try appendByte(line, ' ')
+    try appendI16(line, s)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

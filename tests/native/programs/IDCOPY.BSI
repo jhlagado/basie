@@ -18,9 +18,9 @@ pool boxes: Box[2]
 var keep: id boxes?
 
 sub look(x: Inner, s: string[], b: u8[]) fails
-    writeByte(console, x.c) else fail
-    writeByte(console, s[0]) else fail
-    writeByte(console, b[2]) else fail
+    try writeByte(console, x.c)
+    try writeByte(console, s[0])
+    try writeByte(console, b[2])
 end
 
 sub main() fails
@@ -31,8 +31,8 @@ sub main() fails
         j.inner.c = 'I'
         j.name = "Name"
         j.bytes[2] = 'Z'
-        look(j.inner, j.name, j.bytes) else fail
+        try look(j.inner, j.name, j.bytes)
     case none
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

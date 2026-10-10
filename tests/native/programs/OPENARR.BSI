@@ -42,7 +42,7 @@ sub chop(var s: string[], n: u8)
 end
 
 sub reads(f: File, var buf: u8[]): u16 fails
-    var n = readBlock(f, buf, 4) else fail
+    var n = try readBlock(f, buf, 4)
     return n
 end
 
@@ -57,5 +57,5 @@ sub main() fails
     pairs(ps, 7)
     var c: u8 = grid(gr)
     chop(line, 2)
-    var n = reads(console, bytes) else fail
+    var n = try reads(console, bytes)
 end

@@ -17,7 +17,7 @@ end
 
 sub outer() fails
     var n = new nodes(1)
-    inner() else fail
+    try inner()
 end
 
 sub main() fails
@@ -27,5 +27,5 @@ sub main() fails
         outer() handle e
         end
     end
-    writeText(console, "ok\r\n") else fail
+    try writeText(console, "ok\r\n")
 end

@@ -71,12 +71,12 @@ private sub signed(text: string[], at: u8): boolean
 end
 
 sub parseU16(text: string[]): u16 fails
-    var n = magnitude(text, skipBlanks(text, 0), true, 65535) else fail
+    var n = try magnitude(text, skipBlanks(text, 0), true, 65535)
     return u16(n)
 end
 
 sub parseU32(text: string[]): u32 fails
-    var n = magnitude(text, skipBlanks(text, 0), true, $FFFFFFFF) else fail
+    var n = try magnitude(text, skipBlanks(text, 0), true, $FFFFFFFF)
     return n
 end
 
@@ -87,13 +87,13 @@ sub parseI16(text: string[]): i16 fails
         at = at + 1
     end
     if minus
-        var n = magnitude(text, at, false, 32768) else fail
+        var n = try magnitude(text, at, false, 32768)
         if n = 32768
             return -32768
         end
         return -i16(n)
     end
-    var n = magnitude(text, at, false, 32767) else fail
+    var n = try magnitude(text, at, false, 32767)
     return i16(n)
 end
 
@@ -104,13 +104,13 @@ sub parseI32(text: string[]): i32 fails
         at = at + 1
     end
     if minus
-        var n = magnitude(text, at, false, 2147483648) else fail
+        var n = try magnitude(text, at, false, 2147483648)
         if n = 2147483648
             return -2147483648
         end
         return -i32(n)
     end
-    var n = magnitude(text, at, false, 2147483647) else fail
+    var n = try magnitude(text, at, false, 2147483647)
     return i32(n)
 end
 

@@ -15,14 +15,14 @@ sub main() fails
     var code: u8 = 0
     truncate("KEEP.TXT", 2, textMode) handle code
         if code = fileExists
-            append(line, "E ") else fail
+            try append(line, "E ")
         end
     end
     var secret: string[10]
     readSecret(secret) handle code
         if code = endOfInput
-            append(line, "E") else fail
+            try append(line, "E")
         end
     end
-    writeLine(console, line) else fail
+    try writeLine(console, line)
 end

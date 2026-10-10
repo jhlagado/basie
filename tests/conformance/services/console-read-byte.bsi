@@ -9,18 +9,18 @@ sub main() fails
     var line: string[12]
     var code: u8
     var b: u8
-    b = readByte(console) else fail
-    b = readByte(console) else fail
+    b = try readByte(console)
+    b = try readByte(console)
     b = readByte(console) handle code
-        appendByte(line, '[') else fail
-        appendU16(line, code) else fail
-        appendByte(line, ']') else fail
+        try appendByte(line, '[')
+        try appendU16(line, code)
+        try appendByte(line, ']')
     end
     b = readByte(console) handle code
-        appendByte(line, '[') else fail
-        appendU16(line, code) else fail
-        appendByte(line, ']') else fail
+        try appendByte(line, '[')
+        try appendU16(line, code)
+        try appendByte(line, ']')
     end
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

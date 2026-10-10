@@ -42,6 +42,6 @@ sub main() fails
     sum = u16(buf[4095]) + u16(big.data[2047]) + big.tail + cells[99].c
     sum = sum + u16(cells[99].b[29]) + fill()
     if sum = 255 + 9 + 1234 + 198 + 99 + 4497 + 2250
-        writeText(console, "big data\r\n") else fail
+        try writeText(console, "big data\r\n")
     end
 end

@@ -66,30 +66,32 @@ end
 
 Every call of a failable routine must consume failure at that call site. Basie provides exactly two forms:
 
-1. `else fail` propagates the code from the current failable routine.
-2. Immediate `handle NAME ... end` handles the code locally.
+1. `try` before the call propagates the code from the current failable routine (design decision D48).
+2. Immediate `handle NAME ... end` after the call handles the code locally.
 
 A failable invocation cannot appear inside an argument, arithmetic operation, comparison, condition, index, general conversion, or other larger expression. It may be only:
 
-- the complete expression initializer of a local declaration, of any type, followed by `else fail`;
-- the complete right side of an assignment, followed by `else fail` or `handle`;
-- the complete routine-call statement, followed by `else fail` or `handle`.
+- the complete expression initializer of a local declaration, of any type, after `try`;
+- the complete right side of an assignment, after `try` or followed by `handle`;
+- the complete routine-call statement, after `try` or followed by `handle`.
 
 Local declarations admit propagation but not handling. `return` admits no failable invocation: it represents success only. An unconsumed failable invocation, two consumers on one invocation, or a failable invocation in any other position is invalid. Program-variable and constant initializers cannot call routines under Chapter 8 and therefore cannot be failable.
 
 ## 14.5 Propagation
 
-The propagation suffix is:
+The propagation prefix is `try`, written directly before the routine's name:
 
 ```text
-failure-propagation ::= "else" "fail"
+try-call ::= "try" NAME "(" [ arguments ] ")"
 ```
 
-On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `else fail` immediately returns the same `u8` code from the enclosing routine, leaving every block as `fail` does, so its owning locals and parameters are freed (Section 7.12). The enclosing routine must declare `fails`.
+`try` must be followed by the name of a routine or service, which is called; anything else is a syntax error at the token after `try`. The call must end its statement: a token after its `)` other than the line's end is a syntax error there, so `try` never propagates from inside a larger expression, an argument, or another `try`, and `return try` is invalid. `try` before a routine that cannot fail is `not-failable`, at `try`.
+
+On success, the surrounding declaration or assignment uses the callee's ordinary result, or the call statement continues. On failure, `try` immediately returns the same `u8` code from the enclosing routine, leaving every block as `fail` does, so its owning locals and parameters are freed (Section 7.12). The enclosing routine must declare `fails`.
 
 ```basie
 sub loadByte(): u8 fails
-    var value: u8 = readInputByte() else fail
+    var value: u8 = try readInputByte()
     return value
 end
 ```
@@ -130,7 +132,7 @@ The handled call must be the complete right side of the assignment or the comple
 
 Ordinary `return` denotes successful completion only. A result-free failable routine may use bare `return` or reach its closing `end`. A result-bearing failable routine must return a compatible success result or fail on every path under the fallthrough rules in Section 13.7, extended so `fail` does not fall through. A caller that needs to propagate a failable result does so in a preceding local initializer, assignment, or call statement, then returns only the successful result.
 
-`else fail` can exit on failure and continue on success, so it does not by itself make following source unreachable. A `handle` body can complete normally unless it has a non-fallthrough statement on every path.
+`try` can exit on failure and continue on success, so it does not by itself make following source unreachable. A `handle` body can complete normally unless it has a non-fallthrough statement on every path.
 
 The fixed `main` routine may declare `fails`. A failure returned from `main` has no source caller and performs the unhandled-error trap in Chapter 15 with the returned code. A successful return from `main` terminates normally.
 
@@ -148,7 +150,7 @@ Failure propagation is an ordinary conditional return. Local handling is an ordi
 
 The compiler must diagnose:
 
-- `fail` or `else fail` in an infallible routine;
+- `fail` or `try` in an infallible routine;
 - a failure code incompatible with `u8`;
 - a failable invocation in a nested expression or unsupported context;
 - a failable invocation with no consumer or more than one consumer;

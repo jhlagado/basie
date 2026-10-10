@@ -43,7 +43,7 @@ var items: Item[3] = [("lamp", hall), ("key", library), ("gold", vault)]
 var here: u8 = cellar
 
 sub say(text: string[]) fails
-    writeLine(console, text) else fail
+    try writeLine(console, text)
 end
 
 // The item named, or 255.
@@ -65,19 +65,19 @@ end
 
 sub look() fails
     if here = passage and not carrying("lamp")
-        say("It is too dark to see.") else fail
+        try say("It is too dark to see.")
         return
     end
-    say(rooms[here].name) else fail
-    say(rooms[here].text) else fail
+    try say(rooms[here].name)
+    try say(rooms[here].text)
     var i: u8 = 0
     while i < 3
         if items[i].place = here
             var line: string[40]
-            append(line, "There is a ") else fail
-            append(line, items[i].name) else fail
-            append(line, " here.") else fail
-            say(line) else fail
+            try append(line, "There is a ")
+            try append(line, items[i].name)
+            try append(line, " here.")
+            try say(line)
         end
         i = i + 1
     end
@@ -85,35 +85,35 @@ end
 
 sub go(way: u8) fails
     if way = blocked
-        say("You can't go that way.") else fail
+        try say("You can't go that way.")
         return
     end
     if way = vault and not carrying("key")
-        say("The iron door is locked.") else fail
+        try say("The iron door is locked.")
         return
     end
     here = way
-    look() else fail
+    try look()
 end
 
 sub take(noun: string[]) fails
     var i = itemNamed(noun)
     if i = 255 or items[i].place <> here
-        say("You don't see that here.") else fail
+        try say("You don't see that here.")
         return
     end
     items[i].place = carried
-    say("Taken.") else fail
+    try say("Taken.")
 end
 
 sub drop(noun: string[]) fails
     var i = itemNamed(noun)
     if i = 255 or items[i].place <> carried
-        say("You aren't carrying that.") else fail
+        try say("You aren't carrying that.")
         return
     end
     items[i].place = here
-    say("Dropped.") else fail
+    try say("Dropped.")
 end
 
 sub inventory() fails
@@ -122,15 +122,15 @@ sub inventory() fails
     while i < 3
         if items[i].place = carried
             var line: string[20]
-            append(line, "  ") else fail
-            append(line, items[i].name) else fail
-            say(line) else fail
+            try append(line, "  ")
+            try append(line, items[i].name)
+            try say(line)
             empty = false
         end
         i = i + 1
     end
     if empty
-        say("You are empty-handed.") else fail
+        try say("You are empty-handed.")
     end
 end
 
@@ -139,8 +139,8 @@ sub main() fails
     var verb: string[12]
     var noun: string[12]
     var code: u8 = 0
-    say("ADVENT: bring the gold back to the cellar.") else fail
-    look() else fail
+    try say("ADVENT: bring the gold back to the cellar.")
+    try look()
     while true
         prompt("> ", line) handle code
             if code = endOfInput
@@ -149,37 +149,37 @@ sub main() fails
             fail code
         end
         toLower(line)
-        var hasVerb = word(line, 0, verb) else fail
-        var hasNoun = word(line, 1, noun) else fail
+        var hasVerb = try word(line, 0, verb)
+        var hasNoun = try word(line, 1, noun)
         if not hasVerb
             continue
         end
         if equal(verb, "look") or equal(verb, "l")
-            look() else fail
+            try look()
         elseif equal(verb, "north") or equal(verb, "n")
-            go(rooms[here].north) else fail
+            try go(rooms[here].north)
         elseif equal(verb, "south") or equal(verb, "s")
-            go(rooms[here].south) else fail
+            try go(rooms[here].south)
         elseif equal(verb, "east") or equal(verb, "e")
-            go(rooms[here].east) else fail
+            try go(rooms[here].east)
         elseif equal(verb, "west") or equal(verb, "w")
-            go(rooms[here].west) else fail
+            try go(rooms[here].west)
         elseif equal(verb, "take") or equal(verb, "get")
-            take(noun) else fail
+            try take(noun)
         elseif equal(verb, "drop")
-            drop(noun) else fail
+            try drop(noun)
         elseif equal(verb, "inventory") or equal(verb, "i")
-            inventory() else fail
+            try inventory()
         elseif equal(verb, "help")
-            say("Try LOOK, N, S, E, W, TAKE, DROP, I and QUIT.") else fail
+            try say("Try LOOK, N, S, E, W, TAKE, DROP, I and QUIT.")
         elseif equal(verb, "quit") or equal(verb, "q")
-            say("Goodbye.") else fail
+            try say("Goodbye.")
             return
         else
-            say("I don't understand that.") else fail
+            try say("I don't understand that.")
         end
         if items[2].place = cellar
-            say("The gold is safe in the cellar. You win!") else fail
+            try say("The gold is safe in the cellar. You win!")
             return
         end
     end

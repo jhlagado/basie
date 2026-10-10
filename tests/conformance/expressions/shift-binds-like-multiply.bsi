@@ -8,7 +8,7 @@ sub main() fails
     var line: string[8]
     var a: u16 = 1
     var b: u16 = 3
-    appendU16(line, a + b shl 2) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, a + b shl 2)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

@@ -98,6 +98,6 @@ sub firstA(n: u8): u16
 end
 
 sub showA() fails
-    writeText(console, "A: the first part, ") else fail
-    writeText(console, "dropped and loaded again\r\n") else fail
+    try writeText(console, "A: the first part, ")
+    try writeText(console, "dropped and loaded again\r\n")
 end

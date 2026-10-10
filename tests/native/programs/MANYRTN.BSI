@@ -617,6 +617,6 @@ sub main() fails
     g = g + r192(92, 1)
     g = g + r199(2, 3)
     if g = 666
-        writeText(console, "200 routines\r\n") else fail
+        try writeText(console, "200 routines\r\n")
     end
 end

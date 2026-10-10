@@ -60,6 +60,6 @@ sub main() fails
         total = total + once() + twice()
     end
     if total = 95
-        writeText(console, "local owners\r\n") else fail
+        try writeText(console, "local owners\r\n")
     end
 end

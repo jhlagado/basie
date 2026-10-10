@@ -12,10 +12,10 @@ end
 sub main() fails
     x = false and long("abc")
     if x
-        writeOutputByte('Y') else fail
+        try writeOutputByte('Y')
     else
-        writeOutputByte('N') else fail
+        try writeOutputByte('N')
     end
-    writeOutputByte(13) else fail
-    writeOutputByte(10) else fail
+    try writeOutputByte(13)
+    try writeOutputByte(10)
 end

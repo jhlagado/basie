@@ -5,17 +5,17 @@
 sub classify(c: u8) fails
     select c
     case 'q', 'Q'
-        writeByte(console, 'Q') else fail
+        try writeByte(console, 'Q')
     case '0' to '9'
-        writeByte(console, 'D') else fail
+        try writeByte(console, 'D')
     case else
-        writeByte(console, '?') else fail
+        try writeByte(console, '?')
     end
 end
 
 sub main() fails
-    classify('Q') else fail
-    classify('7') else fail
-    classify('x') else fail
-    writeText(console, "\r\n") else fail
+    try classify('Q')
+    try classify('7')
+    try classify('x')
+    try writeText(console, "\r\n")
 end

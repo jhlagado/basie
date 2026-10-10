@@ -19,14 +19,14 @@ sub main() fails
     spare = move head
     select head
     case some(i)
-        writeByte(console, 'H') else fail
+        try writeByte(console, 'H')
     case none
-        writeByte(console, '-') else fail
+        try writeByte(console, '-')
     end
     select spare
     case some(i)
-        writeByte(console, i.value) else fail
+        try writeByte(console, i.value)
     case none
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

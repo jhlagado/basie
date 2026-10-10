@@ -4,7 +4,7 @@
 
 include "FORMAT.BSI"
 
-sub try(name: string[]): u8
+sub attempt(name: string[]): u8
     var code: u8 = 0
     var f: File
     f = openRead(name, textMode) handle code
@@ -14,13 +14,13 @@ end
 
 sub main() fails
     var line: string[20]
-    appendU16(line, try("TOOLONGNAME.TXT")) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, try("A B.TXT")) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, try("X.$01")) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, try("")) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, attempt("TOOLONGNAME.TXT"))
+    try appendByte(line, ' ')
+    try appendU16(line, attempt("A B.TXT"))
+    try appendByte(line, ' ')
+    try appendU16(line, attempt("X.$01"))
+    try appendByte(line, ' ')
+    try appendU16(line, attempt(""))
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

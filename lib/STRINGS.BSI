@@ -19,7 +19,7 @@ end
 sub append(var s: string[], t: string[]) fails
     var i: u8 = 0
     while i < t.length
-        appendByte(s, t[i]) else fail
+        try appendByte(s, t[i])
         i = i + 1
     end
 end
@@ -31,7 +31,7 @@ sub copyFrom(var dest: string[], src: string[], start: u8, count: u8) fails
     var i: u8 = start
     var left: u8 = count
     while left > 0 and i < src.length
-        appendByte(dest, src[i]) else fail
+        try appendByte(dest, src[i])
         i = i + 1
         left = left - 1
     end

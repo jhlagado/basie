@@ -365,9 +365,9 @@ Deno.test("a program of 16 parts and 160 routines links and runs as the referenc
   const main =
     `${include}sub main() fails\n    var s: u16 = 0\n    var k: u16\n` +
     "    for k = 1 to 5\n        s = s + p15r9(k)\n    end\n" +
-    '    writeText(console, "sum ") else fail\n' +
-    "    writeByte(console, u8(48 + (s mod 10))) else fail\n" +
-    '    writeText(console, "\\r\\n") else fail\nend\n';
+    '    try writeText(console, "sum ")\n' +
+    "    try writeByte(console, u8(48 + (s mod 10)))\n" +
+    '    try writeText(console, "\\r\\n")\nend\n';
   const all: Parts = { "LARGE.BSI": main, ...parts };
   const run = await alike("large", all);
   const blink = comBytes(await assembleFile("native/linker/BLINK.ASM"));

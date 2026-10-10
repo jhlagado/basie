@@ -10,7 +10,7 @@ sub main() fails
         outs[i] = console
     end
     i = 1
-    writeText(outs[i], "computed\r\n") else fail
+    try writeText(outs[i], "computed\r\n")
     outs[i + 1] = pick(i)
     if outs[2] <> console
         fail 1

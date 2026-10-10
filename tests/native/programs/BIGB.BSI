@@ -96,5 +96,5 @@ sub secondB(n: u8): u16
 end
 
 sub showB() fails
-    writeText(console, "B: the second part\r\n") else fail
+    try writeText(console, "B: the second part\r\n")
 end

@@ -35,6 +35,6 @@ sub main() fails
     keep = get().ref
     var k: u8 = use(get().ref) + use(row()[1].ref)
     if p = keep and k = 1
-        writeText(console, "identifiers from calls\r\n") else fail
+        try writeText(console, "identifiers from calls\r\n")
     end
 end

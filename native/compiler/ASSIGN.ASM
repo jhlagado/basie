@@ -35,6 +35,7 @@ RO_LET:
     LD   A,(RO_PRO)                ; A read-only target
     OR   A                         ; cannot be
     JP   NZ,RO_EROOT               ; assigned: raise DG_CONST at it.
+    CALL AC_TRY                    ; A try before a call (D48).
     POP  AF                        ; The target's type.
     CALL HN_NOTE                   ; Its root used or moved (flow).
     CALL PL_ISHND                  ; A handle's type-mismatch

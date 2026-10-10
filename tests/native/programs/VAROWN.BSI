@@ -81,6 +81,6 @@ sub main() fails
     add(row(table, 2), 7)
     var c: u8 = table[2].count + table[0].count
     if before = 33 and after = 22 and l = 43 and c = 3
-        writeText(console, "var owning arrays\r\n") else fail
+        try writeText(console, "var owning arrays\r\n")
     end
 end

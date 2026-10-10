@@ -10,42 +10,42 @@ include "TEXTIO.BSI"
 sub main() fails
     var name: string[20]
     var secret: string[20]
-    prompt("Name? ", name) else fail
-    readSecret(secret) else fail
+    try prompt("Name? ", name)
+    try readSecret(secret)
     var line: string[60]
-    append(line, "[") else fail
-    append(line, name) else fail
-    append(line, "] [") else fail
-    append(line, secret) else fail
-    append(line, "] ") else fail
+    try append(line, "[")
+    try append(line, name)
+    try append(line, "] [")
+    try append(line, secret)
+    try append(line, "] ")
     var tail: string[60]
     commandTail(tail)
     var w: string[20]
     var n: u8 = 0
-    var more = word(tail, 0, w) else fail
+    var more = try word(tail, 0, w)
     while more
         n = n + 1
-        more = word(tail, n, w) else fail
+        more = try word(tail, n, w)
     end
-    appendByte(line, '0' + n) else fail
-    append(line, " [") else fail
+    try appendByte(line, '0' + n)
+    try append(line, " [")
     var i: u8 = 0
     while i < n
         if i > 0
-            appendByte(line, '|') else fail
+            try appendByte(line, '|')
         end
-        var got = word(tail, i, w) else fail
-        append(line, w) else fail
+        var got = try word(tail, i, w)
+        try append(line, w)
         i = i + 1
     end
-    append(line, "] ") else fail
+    try append(line, "] ")
     var small: string[2]
     var code: u8 = 0
     var found: boolean = false
     found = word(tail, 1, small) handle code
         if code = lineTooLong
-            appendByte(line, 'F') else fail
+            try appendByte(line, 'F')
         end
     end
-    writeLine(console, line) else fail
+    try writeLine(console, line)
 end

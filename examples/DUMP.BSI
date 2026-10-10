@@ -13,62 +13,62 @@ const usage = 48
 
 sub dumpLine(offset: u16, bytes: u8[], count: u16) fails
     var line: string[80]
-    appendHex16(line, offset) else fail
-    append(line, ": ") else fail
+    try appendHex16(line, offset)
+    try append(line, ": ")
     var i: u16 = 0
     while i < 16
         if i < count
-            appendHex8(line, bytes[i]) else fail
+            try appendHex8(line, bytes[i])
         else
-            append(line, "  ") else fail
+            try append(line, "  ")
         end
-        appendByte(line, ' ') else fail
+        try appendByte(line, ' ')
         if i = 7
-            appendByte(line, ' ') else fail
+            try appendByte(line, ' ')
         end
         i = i + 1
     end
-    appendByte(line, ' ') else fail
+    try appendByte(line, ' ')
     i = 0
     while i < count
         var b = bytes[i]
         if b >= 32 and b < 127
-            appendByte(line, b) else fail
+            try appendByte(line, b)
         else
-            appendByte(line, '.') else fail
+            try appendByte(line, '.')
         end
         i = i + 1
     end
-    writeLine(console, line) else fail
+    try writeLine(console, line)
 end
 
 sub main() fails
     var tail: string[80]
     var name: string[20]
     commandTail(tail)
-    var named = word(tail, 0, name) else fail
+    var named = try word(tail, 0, name)
     if not named
-        writeLine(console, "Usage: DUMP NAME.EXT") else fail
+        try writeLine(console, "Usage: DUMP NAME.EXT")
         fail usage
     end
-    var there = exists(name) else fail
+    var there = try exists(name)
     if not there
         var line: string[40]
-        append(line, "No file ") else fail
-        append(line, name) else fail
-        writeLine(console, line) else fail
+        try append(line, "No file ")
+        try append(line, name)
+        try writeLine(console, line)
         fail fileNotFound
     end
-    var f = openRead(name, binaryMode) else fail
+    var f = try openRead(name, binaryMode)
     var bytes: u8[16]
     var offset: u16 = 0
     while true
-        var got = readBlock(f, bytes, 16) else fail
+        var got = try readBlock(f, bytes, 16)
         if got = 0
             exit
         end
-        dumpLine(offset, bytes, got) else fail
+        try dumpLine(offset, bytes, got)
         offset = offset + got
     end
-    close(f) else fail
+    try close(f)
 end

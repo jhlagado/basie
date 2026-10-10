@@ -16,5 +16,5 @@ sub main() fails
     for i = 1 to 5
         var n = new nodes(i, none)
     end
-    writeText(console, "ok\r\n") else fail
+    try writeText(console, "ok\r\n")
 end

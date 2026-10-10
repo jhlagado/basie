@@ -19,7 +19,7 @@ var cells: u8[6]
 var total: u16
 
 sub put(s: string[]) fails
-    writeText(console, s) else fail
+    try writeText(console, s)
 end
 
 sub putNumber(n: u16) fails
@@ -29,7 +29,7 @@ sub putNumber(n: u16) fails
     while k > 0
         if n >= k or started or k = 1
             started = true
-            writeByte(console, u8(n / k) + '0') else fail
+            try writeByte(console, u8(n / k) + '0')
             n = n mod k
         end
         k = k / 10
@@ -49,39 +49,39 @@ sub main() fails
     var got: u16
     var free = freeMemory()
     var user = currentUser()
-    var f = openRead("DATA.TXT", textMode) else fail
+    var f = try openRead("DATA.TXT", textMode)
     commandTail(text)
-    put("[") else fail
-    put(text) else fail
-    writeText(console, "]<") else fail
-    readLine(console, e.name) else fail
-    writeText(console, e.name) else fail
-    writeByte(console, '>') else fail
+    try put("[")
+    try put(text)
+    try writeText(console, "]<")
+    try readLine(console, e.name)
+    try writeText(console, e.name)
+    try writeByte(console, '>')
     e.tag = readKey()
-    writeByte(console, e.tag) else fail
-    writeByte(console, readKey()) else fail
-    writeByte(console, ' ') else fail
+    try writeByte(console, e.tag)
+    try writeByte(console, readKey())
+    try writeByte(console, ' ')
     openRead("NOPE.TXT", textMode) handle code
     end
-    putNumber(code) else fail
-    writeByte(console, ' ') else fail
-    putNumber(drive() + user + binaryMode) else fail
+    try putNumber(code)
+    try writeByte(console, ' ')
+    try putNumber(drive() + user + binaryMode)
     if free > 1000 or keyReady()
-        writeText(console, " T ") else fail
+        try writeText(console, " T ")
     end
-    readLine(f, text) else fail
-    close(f) else fail
-    put(text) else fail
+    try readLine(f, text)
+    try close(f)
+    try put(text)
     total = endOfInput + 300
-    writeByte(console, ' ') else fail
-    putNumber(total) else fail
+    try writeByte(console, ' ')
+    try putNumber(total)
     for i = 0 to 4 step binaryMode
         cells[i] = i
     end
     e.data[2] = 3
     got = readBlock(console, e.data, 2) handle code
     end
-    writeByte(console, ' ') else fail
-    putNumber(e.data[2]) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, ' ')
+    try putNumber(e.data[2])
+    try writeText(console, "\r\n")
 end

@@ -36,7 +36,7 @@ end
 sub main() fails
     var items: E${last}[1] = [E${last}.last]
     assert passOn(items) = E${last}.last
-    writeText(console, "V\\r\\n") else fail
+    try writeText(console, "V\\r\\n")
 end
 `;
 }
@@ -65,7 +65,7 @@ sub main() fails
     assert late = E11.first
     late = last(E11.last)
     assert late = E11.last
-    writeText(console, "M\\r\\n") else fail
+    try writeText(console, "M\\r\\n")
 end
 `,
     output: "M\r\n",
@@ -90,7 +90,7 @@ sub main() fails
         found = false
     end
     assert found
-    writeText(console, "W\\r\\n") else fail
+    try writeText(console, "W\\r\\n")
 end
 `,
     output: "W\r\n",
@@ -106,7 +106,7 @@ sub main() fails
     assert v47 = E47.first
     v47 = E47.last
     assert v47 = E47.last
-    writeText(console, "T\\r\\n") else fail
+    try writeText(console, "T\\r\\n")
 end
 `,
     output: "T\r\n",

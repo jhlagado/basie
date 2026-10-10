@@ -15,17 +15,17 @@ sub appendU16(var s: string[], v: u16) fails
     end
     while count > 0
         count = count - 1
-        appendByte(s, digits[count]) else fail
+        try appendByte(s, digits[count])
     end
 end
 
 sub appendI16(var s: string[], v: i16) fails
     if v < 0
-        appendByte(s, '-') else fail
+        try appendByte(s, '-')
         // not v is -v - 1, so this is -v without overflow at -32768.
-        appendU16(s, u16(not v) + 1) else fail
+        try appendU16(s, u16(not v) + 1)
     else
-        appendU16(s, u16(v)) else fail
+        try appendU16(s, u16(v))
     end
 end
 
@@ -43,16 +43,16 @@ sub appendU32(var s: string[], v: u32) fails
     end
     while count > 0
         count = count - 1
-        appendByte(s, digits[count]) else fail
+        try appendByte(s, digits[count])
     end
 end
 
 sub appendI32(var s: string[], v: i32) fails
     if v < 0
-        appendByte(s, '-') else fail
-        appendU32(s, u32(not v) + 1) else fail
+        try appendByte(s, '-')
+        try appendU32(s, u32(not v) + 1)
     else
-        appendU32(s, u32(v)) else fail
+        try appendU32(s, u32(v))
     end
 end
 
@@ -61,7 +61,7 @@ end
 sub appendF32(var s: string[], x: f32, places: u8) fails
     var v: f32 = x
     if v < 0.0
-        appendByte(s, '-') else fail
+        try appendByte(s, '-')
         v = -v
     end
     var scale: u32 = 1
@@ -71,13 +71,13 @@ sub appendF32(var s: string[], x: f32, places: u8) fails
         i = i + 1
     end
     var n: u32 = u32(v * f32(scale) + 0.5)
-    appendU32(s, n / scale) else fail
+    try appendU32(s, n / scale)
     if places > 0
-        appendByte(s, '.') else fail
+        try appendByte(s, '.')
         var frac: u32 = n mod scale
         var div: u32 = scale / 10
         while div > 0
-            appendByte(s, u8(frac / div mod 10) + '0') else fail
+            try appendByte(s, u8(frac / div mod 10) + '0')
             div = div / 10
         end
     end
@@ -92,12 +92,12 @@ end
 
 // Two upper-case hexadecimal digits.
 sub appendHex8(var s: string[], v: u8) fails
-    appendByte(s, hexDigit(v shr 4)) else fail
-    appendByte(s, hexDigit(v and 15)) else fail
+    try appendByte(s, hexDigit(v shr 4))
+    try appendByte(s, hexDigit(v and 15))
 end
 
 // Four upper-case hexadecimal digits.
 sub appendHex16(var s: string[], v: u16) fails
-    appendHex8(s, u8(v shr 8)) else fail
-    appendHex8(s, u8(v and 255)) else fail
+    try appendHex8(s, u8(v shr 8))
+    try appendHex8(s, u8(v and 255))
 end

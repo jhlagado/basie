@@ -43,5 +43,5 @@ sub main() fails
     drop(new nodes(4, none), 5)
     drop(none, 6)
     keep(make(7))
-    lease(none) else fail
+    try lease(none)
 end

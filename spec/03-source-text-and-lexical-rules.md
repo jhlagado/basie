@@ -93,7 +93,7 @@ else     elseif   end      enum     exit     f32      fail     fails
 false    for      forward  handle   i16      i32      i8
 if       include  mod      move     new      none     not
 or       pool     private  record   return   select   shl
-shr      some     step     string   sub      to       true
+shr      some     step     string   sub      to       true     try
 u16      u32      u8       until    var      while    xor
 ```
 

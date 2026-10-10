@@ -14,13 +14,13 @@ sub main() fails
     var b: i8 = a + 1
     var w: u16 = 'C'
     var c = 'A'
-    appendI16(line, i16(a)) else fail
-    appendByte(line, ' ') else fail
-    appendI16(line, i16(b)) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, w) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, c) else fail
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try appendI16(line, i16(a))
+    try appendByte(line, ' ')
+    try appendI16(line, i16(b))
+    try appendByte(line, ' ')
+    try appendU16(line, w)
+    try appendByte(line, ' ')
+    try appendU16(line, c)
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

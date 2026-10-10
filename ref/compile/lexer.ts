@@ -46,6 +46,7 @@ export const KEYWORDS = [
   "sub",
   "to",
   "true",
+  "try",
   "u16",
   "u32",
   "u8",

@@ -5,13 +5,13 @@
 sub show(c: u8) fails
     select c
     case 'q'
-        writeByte(console, 'Q') else fail
+        try writeByte(console, 'Q')
     case else
     end
 end
 
 sub main() fails
-    show('q') else fail
-    show('x') else fail
-    writeText(console, ".\r\n") else fail
+    try show('q')
+    try show('x')
+    try writeText(console, ".\r\n")
 end

@@ -8,16 +8,16 @@ end
 
 // s followed by CR LF.
 sub writeLine(f: File, s: string[]) fails
-    writeText(f, s) else fail
-    writeText(f, "\r\n") else fail
+    try writeText(f, s)
+    try writeText(f, "\r\n")
 end
 
 // Write text to the console and read one edited line into answer.
 sub prompt(text: string[], var answer: string[]) fails
-    writeText(console, text) else fail
-    readLine(console, answer) else fail
+    try writeText(console, text)
+    try readLine(console, answer)
     // BDOS 10 echoes the return key as CR alone.
-    writeByte(console, 10) else fail
+    try writeByte(console, 10)
 end
 
 // Read a line from the keyboard without echo, for a password. Backspace and
@@ -39,10 +39,10 @@ sub readSecret(var answer: string[]) fails
                 answer.length = answer.length - 1
             end
         elseif k >= 32
-            appendByte(answer, k) else fail
+            try appendByte(answer, k)
         end
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end
 
 // Word n of text (0 for the first), words being separated by spaces and
@@ -60,7 +60,7 @@ sub word(text: string[], n: u8, var out: string[]): boolean fails
         end
         if count = n
             while i < text.length and not blank(text[i])
-                appendByte(out, text[i]) else fail
+                try appendByte(out, text[i])
                 i = i + 1
             end
             return true
@@ -103,17 +103,17 @@ sub truncate(name: string[], newSize: u32, mode: u8) fails
     var temp: string[16]
     var i: u8 = 0
     while i < name.length and name[i] <> '.'
-        appendByte(temp, name[i]) else fail
+        try appendByte(temp, name[i])
         i = i + 1
     end
-    append(temp, ".~") else fail
-    var there = exists(temp) else fail
+    try append(temp, ".~")
+    var there = try exists(temp)
     if there
         fail fileExists
     end
     var code: u8 = 0
-    var source = openRead(name, mode) else fail
-    var target = openWrite(temp, mode) else fail
+    var source = try openRead(name, mode)
+    var target = try openWrite(temp, mode)
     var left: u32 = newSize
     if mode = binaryMode
         var block: u8[128]
@@ -157,8 +157,8 @@ sub truncate(name: string[], newSize: u32, mode: u8) fails
             left = left - 1
         end
     end
-    close(source) else fail
-    close(target) else fail
-    delete(name) else fail
-    rename(temp, name) else fail
+    try close(source)
+    try close(target)
+    try delete(name)
+    try rename(temp, name)
 end

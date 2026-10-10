@@ -11,9 +11,9 @@ var keep: id nodes?
 sub show(i: id nodes?) fails
     select i
     case some(n)
-        writeByte(console, n.value) else fail
+        try writeByte(console, n.value)
     case none
-        writeByte(console, '-') else fail
+        try writeByte(console, '-')
     end
 end
 
@@ -22,19 +22,19 @@ sub bump(i: id nodes)
 end
 
 sub twice(i: id nodes?) fails
-    show(i) else fail
-    show(i) else fail
+    try show(i)
+    try show(i)
 end
 
 sub main() fails
     var a = new nodes('A', none)
     var x = id(a)
     bump(x)
-    show(id(a)) else fail
-    twice(x) else fail
-    show(none) else fail
+    try show(id(a))
+    try twice(x)
+    try show(none)
     keep = id(a)
     a = new nodes('Q', none)
-    show(keep) else fail
-    writeText(console, "\r\n") else fail
+    try show(keep)
+    try writeText(console, "\r\n")
 end

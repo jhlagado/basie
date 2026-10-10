@@ -63,7 +63,7 @@ sub main() fails
         found = found + 1
     end
     var f = first()
-    var g = pick(30) else fail
+    var g = try pick(30)
     select f
     case some(i)
         if i.value = 30 and g = f
@@ -79,6 +79,6 @@ sub main() fails
         found = found + 1
     end
     if found = 4
-        writeText(console, "identifier results\r\n") else fail
+        try writeText(console, "identifier results\r\n")
     end
 end

@@ -124,8 +124,8 @@ type. The tables below are generated from `ref/compile/messages.ts` by
 | 109 | `loop-moves-owner` | ^1 may have been moved when the loop repeats |
 | 110 | `id-ambiguous` | ^1 belongs to more than one pool |
 | 111 | `arity` | ^1 takes ^2 arguments |
-| 112 | `not-failable` | else fail and handle follow a call to a routine that fails |
-| 113 | `failure-unconsumed` | ^1 fails: add else fail or handle |
+| 112 | `not-failable` | try and handle go with a call to a routine that fails |
+| 113 | `failure-unconsumed` | ^1 fails: add try or handle |
 | 114 | `handle-destination` | handle needs a writable u8 variable |
 | 115 | `move-position` | move can't appear in ^1 |
 

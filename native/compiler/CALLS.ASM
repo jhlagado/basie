@@ -547,6 +547,10 @@ RO_SVC:
 ; behind (RO_ESC). A returns the result type, zero for none.
 
 RO_ARGS:
+    LD   A,(RO_TARM)               ; A try before the call
+    PUSH AF                        ; is kept: no call
+    XOR  A                         ; among its arguments
+    LD   (RO_TARM),A               ; takes it.
     LD   BC,(TK_POS)               ; The callee's name is current: its offset
     PUSH BC                        ; is kept for a failure's diagnostics.
     LD   A,(RO_DEPTH)              ; Calls already being parsed.
@@ -717,7 +721,9 @@ RO_ARGS:
     LD   HL,RO_DEPTH               ; This call
     DEC  (HL)                      ; is parsed.
     POP  HL                        ; The callee's name's offset
-    LD   (RO_CALLP),HL             ; for RO_FAILS.
+    LD   (RO_CALLP),HL             ; for RO_FAILS,
+    POP  AF                        ; and the try
+    LD   (RO_TARM),A               ; before it.
     POP  HL                        ; The callee's record from RO_RTYPE.
     LD   A,(HL)                    ; Its result type
     PUSH AF                        ; is returned, so keep it.
@@ -752,9 +758,16 @@ RO_ARGS:
     POP  AF                        ; The callee's flags:
     AND  RO_FFAIL                  ; can it fail?
     CALL NZ,RO_FAILS               ; Then its failure is consumed.
+    LD   A,(RO_TARM)               ; A try still waiting
+    OR   A                         ; is before a call
+    JR   NZ,.MOOT                  ; that cannot fail.
     POP  AF                        ; A is the result type.
     OR   A                         ; Carry clear.
     RET                            ; The result is in A or HL.
+.MOOT:                         ; not-failable,
+    LD   HL,RO_TPOS                ; at the try.
+    LD   A,DG_SAFE                 ; No
+    JP   DG_AT                     ; return.
 .DEEP:                         ; Calls nest too deeply in arguments.
     CALL DG_RAISE                  ; Abandon the build.
     DB   DG_DEEP                   ; Nested too deeply.
@@ -763,23 +776,31 @@ RO_ARGS:
     DB   DG_ARITY                  ; arity.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; A failable routine has just been called: its failure is consumed by
-; what follows the call directly, as the reference's call decides it.
-; Before `else` (fail) the routine must be failable itself (not-failable),
-; and JP C goes to its exit, A holding the code; before `handle`, JP C
-; goes to a new label, and the temporaries pushed beneath the call are
-; kept in RO_KEPT for the handler to drop. Anything else is
-; failure-unconsumed. Both are reported at the call, RO_CALLP, the first
-; naming the callee. RO_PEND is $80 plus the label, which the statement's
-; end consumes.
+; A failable routine has just been called: its failure is consumed as the
+; reference's call decides it. After `try` (RO_TARM, cleared) the call
+; must end its statement (syntax at what follows) and the routine must be
+; failable itself (not-failable), and JP C goes to its exit, A holding the
+; code; before `handle`, JP C goes to a new label, and the temporaries
+; pushed beneath the call are kept in RO_KEPT for the handler to drop.
+; Anything else is failure-unconsumed. Both are reported at the call,
+; RO_CALLP, the first naming the callee. RO_PEND is $80 plus the label,
+; which the statement's end consumes.
 
 RO_FAILS:
+    LD   A,(RO_TARM)               ; After try?
+    OR   A                         ; Then
+    JR   NZ,.TRY                   ; it is passed on.
     CALL PR_PEEK                   ; What follows the call?
     CP   TK_HANDL                  ; A handler?
     JR   Z,.TRAP                   ; Jump to it on failure.
-    CP   TK_ELSE                   ; `else fail`?
-    LD   A,DG_LEAK                 ; Neither: the failure is lost,
-    JR   NZ,.LOST                  ; failure-unconsumed.
+    LD   A,DG_LEAK                 ; Otherwise the failure is lost,
+    JR   .LOST                     ; failure-unconsumed.
+.TRY:                          ; The try is consumed:
+    XOR  A                         ; none
+    LD   (RO_TARM),A               ; waits.
+    CALL PR_PEEK                   ; The call
+    CP   TK_EOL                    ; ends its
+    JP   NZ,AC_ELINE               ; statement.
     LD   A,(RO_CFLAG)              ; Passing it on needs
     AND  RO_FFAIL                  ; a failable routine;
     LD   A,DG_SAFE                 ; this one is not:

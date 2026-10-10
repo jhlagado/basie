@@ -1,7 +1,7 @@
 // A field that owns handles, reached through an identifier, can't be passed:
 // a copy would duplicate its owner (7.13; review finding B2).
 // spec: 7.13
-// expect error: owning-copy at 47:14
+// expect error: owning-copy at 47:18
 include "FORMAT.BSI"
 forward pool nodes
 record Node
@@ -28,15 +28,15 @@ sub look(x: Holder) fails
     case none
     end
     var line: string[20]
-    appendU16(line, x.w) else fail
-    appendByte(line, ' ') else fail
+    try appendU16(line, x.w)
+    try appendByte(line, ' ')
     select x.h
     case some(k)
-        appendU16(line, k.v) else fail
+        try appendU16(line, k.v)
     case none
-        appendByte(line, 'N') else fail
+        try appendByte(line, 'N')
     end
-    writeText(console, line) else fail
+    try writeText(console, line)
 end
 sub main() fails
     gb = new boxes()
@@ -44,7 +44,7 @@ sub main() fails
     case some(bi)
         bi.inner.h = new nodes(7, none)
         bi.inner.w = 1
-        look(bi.inner) else fail
+        try look(bi.inner)
     case none
     end
 end

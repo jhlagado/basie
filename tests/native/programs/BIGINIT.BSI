@@ -169,6 +169,6 @@ sub main() fails
         n = n + u16(screen[r].length)
     end
     if sum = 41613750 and n = 1246 and small[3] = 4
-        writeText(console, "large initializers\r\n") else fail
+        try writeText(console, "large initializers\r\n")
     end
 end

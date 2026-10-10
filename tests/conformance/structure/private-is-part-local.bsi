@@ -5,5 +5,5 @@
 private const greeting = 1
 
 sub main() fails
-    writeText(console, "OK\r\n") else fail
+    try writeText(console, "OK\r\n")
 end

@@ -1157,9 +1157,12 @@ completion comes first; no language-feature implementation is requested now.
 
 ### D48. `try` passes a failure on
 
-**Current status, 2026-10-10.** Accepted for the next milestone as a prefix replacement for
-`else fail`, retaining the current failure-call position restrictions. The
-feature is unimplemented; the current 0.1 completion scope is unchanged and no implementation is requested now.
+**Current status, 2026-10-11.** Implemented in both compilers; `else fail` is removed and
+the library, tests, examples, specification and book are migrated. `try` must be followed
+by a routine or service name (syntax otherwise, at that token), the call must end its
+statement (syntax at what follows), and `try` before a routine that cannot fail is
+`not-failable` at `try`. A failing call as the last operand of an expression can no longer
+propagate; `handle` it, or call it into a local first.
 
 `try` before a failable call propagates that call's failure with the same code
 from the enclosing routine. It consumes one invocation's failure and requires

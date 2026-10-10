@@ -38,6 +38,6 @@ sub main() fails
     var grid: jobs?[2][2]
     assert addJob(grid[1][1], 5)
     if total = 12
-        writeText(console, "owning arrays\r\n") else fail
+        try writeText(console, "owning arrays\r\n")
     end
 end

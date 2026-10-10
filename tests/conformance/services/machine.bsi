@@ -6,13 +6,13 @@ include "FORMAT.BSI"
 
 sub main() fails
     var line: string[20]
-    appendU16(line, currentDrive()) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, currentUser()) else fail
-    appendByte(line, ' ') else fail
+    try appendU16(line, currentDrive())
+    try appendByte(line, ' ')
+    try appendU16(line, currentUser())
+    try appendByte(line, ' ')
     if freeMemory() > 1000
-        appendByte(line, 'T') else fail
+        try appendByte(line, 'T')
     end
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

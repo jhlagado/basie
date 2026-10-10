@@ -26,6 +26,6 @@ sub f(): u16
 end
 sub main() fails
     if f() = 217
-        writeText(console, "constants kept\r\n") else fail
+        try writeText(console, "constants kept\r\n")
     end
 end

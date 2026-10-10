@@ -120,6 +120,7 @@ block
 statement
     ::= local-declaration
       | name-statement name-statement-tail
+      | "try" name-statement NEWLINE
       | other-simple-statement NEWLINE
       | if-statement
       | select-statement
@@ -130,19 +131,16 @@ local-declaration
                    | "=" local-initializer ) NEWLINE
       | "const" NAME [ ":" type ] "=" static-initializer NEWLINE
 local-initializer
-    ::= expression [ failure-propagation ]
+    ::= [ "try" ] expression
       | STRING
       | record-initializer
       | array-initializer
 
 name-statement
-    ::= NAME { postfix-suffix } [ "=" expression ]
+    ::= NAME { postfix-suffix } [ "=" [ "try" ] expression ]
 name-statement-tail
     ::= NEWLINE
-      | failure-propagation NEWLINE
       | "handle" NAME NEWLINE block "end" NEWLINE
-failure-propagation
-    ::= "else" "fail"
 other-simple-statement
     ::= "return" [ expression ]
       | "fail" expression
@@ -228,13 +226,13 @@ The grammar is deterministic with one token of lookahead, given these semantic p
 | `isInitializerForDeclaredType` | The declared type selects the scalar, string, record or array initializer; `(` begins a record initializer only when the expected type is a record. |
 | `isConstantContext` | Constants, bounds, capacities, `select` labels, steps and static initializers admit only the operands of Chapter 8, Section 8.6. |
 | `isIncompleteForwardName` | `sub NAME NEWLINE` is a body header only when `NAME` is one incomplete forward routine; its stored parameters become the body's bindings. |
-| `isFailableCall` | `else fail` and `handle` follow only a complete statement or initializer whose source is exactly one direct call to a failing routine. |
+| `isFailableCall` | `try` precedes, and `handle` follows, only a complete statement or initializer whose source is exactly one direct call to a failing routine. |
 
 After an enum type name, `.NAME` resolves a qualified member of that enum (Section 6.16). Otherwise, field lookup after `.` uses the selected record or handle type, or the string intrinsics `.length` and `.capacity`. Static initializer checking descends the declared type and records the expected component before each nested initializer. These are static checks over a deterministic token stream, not backtracking.
 
 ## 17.4 Predictive analysis
 
-The only predicate-resolved choices are the name-led statement (assignment or call), the type-directed initializer, and the contextual word `id`. A same-line `else fail` follows a complete statement or initializer, while `else` at the start of a logical line is an `if` clause; the newline makes the two deterministic. The expression repetitions are written iteratively and associate to the left as Chapter 9, Section 9.3 specifies; unary operators and `not` are right-recursive by design.
+The only predicate-resolved choices are the name-led statement (assignment or call), the type-directed initializer, and the contextual word `id`. The expression repetitions are written iteratively and associate to the left as Chapter 9, Section 9.3 specifies; unary operators and `not` are right-recursive by design.
 
 Read as plain LL(1), the grammar has the conflicts below and no others. Each is resolved as the table says, by a predicate of Section 17.3 or by a fixed preference, so the parser still needs one token of lookahead and never backtracks.
 

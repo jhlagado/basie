@@ -51,12 +51,12 @@ KW_TAB:                        ; The entries.
     DB   "nu",'m'+$80,TK_ENUMD     ; Nominal enumeration declaration.
     DB   "n",'d'+$80,TK_END        ; Closes a block.
     DB   "lsei",'f'+$80,TK_ELSIF   ; Further conditional arm.
-    DB   "ls",'e'+$80,TK_ELSE      ; Final arm; also `else fail`.
+    DB   "ls",'e'+$80,TK_ELSE      ; Final arm.
     DB   "xi",'t'+$80,TK_EXIT      ; Leave the innermost loop.
 .F:                            ; f:
     DB   "3",'2'+$80,KW_TYPE+SY_F32 ; Floating-point type.
     DB   "als",'e'+$80,TK_FALSE    ; Boolean literal.
-    DB   "ai",'l'+$80,TK_FAIL      ; Raise a recoverable failure; also `else fail`.
+    DB   "ai",'l'+$80,TK_FAIL      ; Raise a recoverable failure.
     DB   "ail",'s'+$80,TK_FAILS    ; Marks a routine that can fail.
     DB   "o",'r'+$80,TK_FOR        ; Counted loop.
     DB   "orwar",'d'+$80,TK_FORW   ; Forward routine signature.
@@ -92,6 +92,7 @@ KW_TAB:                        ; The entries.
     DB   "elec",'t'+$80,TK_SEL     ; Selection by a subject's value.
     DB   "om",'e'+$80,TK_SOME      ; A handle selection's arm.
 .T:                            ; t:
+    DB   "r",'y'+$80,TK_TRY        ; Passes a call's failure on.
     DB   "ru",'e'+$80,TK_TRUE      ; Boolean literal.
     DB   'o'+$80,TK_TO             ; Inclusive counted-loop bound.
 .U:                            ; u:
@@ -117,7 +118,7 @@ KW_TAB:                        ; The entries.
     DB   .V-KW_TAB,.W-KW_TAB,.X-KW_TAB ; v to x.
     DB   .END-KW_TAB,.END-KW_TAB,.END-KW_TAB ; y, z and the end.
 KW_IDX EQU  .IDX               ; The index, after the entries.
-KW_CNT EQU  49                 ; Entries in KW_TAB.
+KW_CNT EQU  50                 ; Entries in KW_TAB.
 KW_TYPE EQU  $80               ; A type keyword's kind byte: this plus its type.
 
 ; Punctuators found by table search: the character, then a descriptor.

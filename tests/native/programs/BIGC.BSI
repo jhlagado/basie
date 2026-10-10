@@ -95,5 +95,5 @@ sub later
 end
 
 sub showC() fails
-    writeText(console, "C: the third part\r\n") else fail
+    try writeText(console, "C: the third part\r\n")
 end

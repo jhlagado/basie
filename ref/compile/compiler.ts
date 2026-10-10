@@ -1384,7 +1384,10 @@ export class Compiler {
     else if (this.isKeyword("return")) this.returnStatement();
     else if (this.isKeyword("fail")) this.failStatement();
     else if (this.isKeyword("assert")) this.assertStatement();
-    else if (this.isKeyword("exit")) this.exitStatement("exit");
+    else if (this.isKeyword("try")) {
+      this.takeTry();
+      this.nameStatement();
+    } else if (this.isKeyword("exit")) this.exitStatement("exit");
     else if (this.isKeyword("continue")) this.exitStatement("continue");
     else if (t.kind === "name") this.nameStatement();
     else fail("syntax", t, `expected a statement, found ${this.describe(t)}`);
@@ -1427,6 +1430,7 @@ export class Compiler {
         this.expectNewline();
         return;
       }
+      this.takeTry();
       const at = this.token;
       const v = this.expression(type);
       let actual: Type;
@@ -1564,23 +1568,15 @@ export class Compiler {
     this.nameStatementTail(name, undefined);
   }
 
-  /** After a call or assignment: NEWLINE, `else fail`, or `handle NAME`. */
+  /** After a call or assignment: NEWLINE, or `handle NAME`. */
   private nameStatementTail(
     at: Token,
     callee?: Symbol & { kind: "routine" },
   ): void {
     const pending = this.pendingFailure;
     this.pendingFailure = undefined;
-    if (this.acceptKeyword("else")) {
-      this.expectKeyword("fail");
-      if (!pending || pending.kind !== "fail") {
-        fail(
-          "not-failable",
-          at,
-          "else fail follows a call to a routine that fails",
-        );
-      }
-      this.expectNewline();
+    if (pending?.kind === "fail") {
+      this.expectNewline(); // try consumed the failure (D48)
       return;
     }
     if (this.acceptKeyword("handle")) {
@@ -1619,11 +1615,29 @@ export class Compiler {
       fail(
         "failure-unconsumed",
         at,
-        `${callee?.name ?? "the call"} fails; add else fail or handle`,
+        `${callee?.name ?? "the call"} fails; add try or handle`,
         callee ? [callee.name] : undefined,
       );
     }
     this.expectNewline();
+  }
+
+  /** `try` before a call (D48), armed until that call is parsed. */
+  private tryArm?: Token;
+
+  /**
+   * Take `try` where a failable call may stand: a call statement, a local's
+   * initializer or an assignment's source. A routine's name must follow.
+   */
+  private takeTry(): void {
+    if (!this.isKeyword("try")) return;
+    this.tryArm = this.advance();
+    const sym = this.token.kind === "name"
+      ? this.scopes.lookup(this.token.text)
+      : undefined;
+    if (sym?.kind !== "routine") {
+      fail("syntax", this.token, "try precedes a call");
+    }
   }
 
   /** Set by a failing call: how its failure is consumed. */
@@ -3159,6 +3173,7 @@ export class Compiler {
 
   private assign(d: Designator, at: Token): void {
     const r = this.routine!;
+    this.takeTry();
     if (d.setLength !== undefined) {
       // s.length = e, through the runtime, which checks and zeroes (D25).
       const v = this.expression(U8);
@@ -4248,6 +4263,9 @@ export class Compiler {
   private call(callee: Symbol & { kind: "routine" }, at: Token): Value {
     const r = this.routine!;
     const sig = callee.signature;
+    // A try before this call (D48) applies to it alone, not to its arguments.
+    const armed = this.tryArm;
+    this.tryArm = undefined;
     this.expectPunct("(");
     let pushedHere = 0;
     sig.parameters.forEach((p, i) => {
@@ -4274,11 +4292,17 @@ export class Compiler {
     this.noteCall(callee, at);
     r.blob.callBlob(callee.ordinal);
     this.pop(pushedHere);
+    if (armed && !sig.fails) {
+      fail("not-failable", armed, "try precedes a call to a routine that fails");
+    }
     if (sig.fails) {
       // The consumer follows the call directly (chapter 14): decide now.
-      if (this.isKeyword("else") && this.isKeyword("fail", this.peek())) {
+      if (armed) {
+        if (this.token.kind !== "newline") {
+          fail("syntax", this.token, "a call after try ends its statement");
+        }
         if (!r.symbol.signature.fails) {
-          fail("not-failable", at, "else fail needs a routine declared fails");
+          fail("not-failable", at, "try needs a routine declared fails");
         }
         // Passing the failure on leaves the routine, so its owners are freed
         // first, as a fail statement frees them; A and carry are kept.
@@ -4301,7 +4325,7 @@ export class Compiler {
         fail(
           "failure-unconsumed",
           at,
-          `${callee.name} fails; add else fail or handle`,
+          `${callee.name} fails; add try or handle`,
           [callee.name],
         );
       }

@@ -1,5 +1,9 @@
 # Specification change log
 
+2026-10-11: D48 replaces the `else fail` suffix with the `try` prefix: `try`
+before a call statement, a local's initializer or an assignment's source
+passes the call's failure on. `try` is a reserved word.
+
 2026-10-11: D52 replaces `as` with `:` at every type position: declarations,
 parameters, results (`): var T`), record fields and pools. `:` is a new
 punctuation token; `as` is no longer a reserved word.

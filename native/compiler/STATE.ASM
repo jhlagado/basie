@@ -338,6 +338,7 @@ TK_VAR EQU  13                 ; Keyword var.
 TK_AS EQU  14                  ; Colon: introduces a type (D52).
 TK_TYPE EQU  15                ; A type keyword: u8, i8, u16, i16, u32, i32, f32
                                ; or boolean, its type ID in C (SY_U8...).
+TK_TRY EQU  27                 ; Keyword try: a call passes its failure on (D48).
 TK_ENUMD EQU  28               ; Keyword enum.
 TK_FOR EQU  16                 ; Keyword for.
 TK_UNTIL EQU  17               ; Keyword until.

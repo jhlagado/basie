@@ -8,7 +8,7 @@ sub main() fails
     var line: string[12]
     var small: u8 = 200
     var delta: i16 = -250
-    appendI16(line, small + delta) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendI16(line, small + delta)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

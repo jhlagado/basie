@@ -6,6 +6,6 @@ var screen: u8[25][40]
 
 sub main() fails
     screen[24][39] = 'X'
-    writeOutputByte(screen[24][39]) else fail
-    writeText(console, "\r\n") else fail
+    try writeOutputByte(screen[24][39])
+    try writeText(console, "\r\n")
 end

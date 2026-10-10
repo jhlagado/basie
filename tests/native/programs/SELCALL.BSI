@@ -51,6 +51,6 @@ sub main() fails
     case else
     end
     if t = 117
-        writeText(console, "select on calls\r\n") else fail
+        try writeText(console, "select on calls\r\n")
     end
 end

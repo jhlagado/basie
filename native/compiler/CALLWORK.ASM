@@ -96,7 +96,7 @@ AC_IPOS EQU  RO_BASE+$02       ; Word: the offset of an inferred local's initial
 AC_PPOS EQU  RO_BASE+$04       ; Word: the offset of the token after `private` (AC_MARK).
 RO_TBASE EQU  RO_BASE+$06      ; Byte: AG_TCNT as the body opened (AG_SCOPE).
 RO_DEPTH EQU  RO_BASE+$07      ; Byte: calls whose arguments are being parsed.
-; RO_BASE+$08: free.
+RO_TARM EQU  RO_BASE+$08       ; Byte: nonzero while a `try` waits for its call (AC_TRY).
 RO_PEND EQU  RO_BASE+$09       ; Byte: $80 and a failure's label while it is unconsumed.
 RO_KEPT EQU  RO_BASE+$0A       ; Byte: temporaries' bytes beneath a handled call.
 RO_MFLAG EQU  RO_BASE+$0B      ; Byte: RO_FMAIN once main is declared (AC_PUB).
@@ -107,7 +107,7 @@ RO_CALLP EQU  RO_BASE+$0F      ; Word: the offset of the call just parsed (RO_FA
 ; RO_BASE+$11: free.
 AC_DPART EQU  RO_BASE+$12      ; Byte: SRC_ID of the top-level declaration being parsed.
 AC_PRIV EQU  RO_BASE+$13       ; Byte: nonzero while a private declaration is parsed.
-; RO_BASE+$14 and +$15: free.
+RO_TPOS EQU  RO_BASE+$14       ; Word: the offset of that `try`.
 RO_VARP EQU  RO_BASE+$16       ; Byte: nonzero for a var parameter being parsed.
 RO_CRO EQU  RO_VARP+1          ; Byte: nonzero when the last call's result is read-only.
 ; The path in hand (GENAGGR.ASM): its place and type, as the reference's

@@ -109,13 +109,13 @@ sub main() fails
     put(3, 30)
     put(1, 11)
     put(4, 40)
-    appendU16(line, hit) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, flag(get(1))) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, flag(get(2))) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, flag(get(4))) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, hit)
+    try appendByte(line, ' ')
+    try appendU16(line, flag(get(1)))
+    try appendByte(line, ' ')
+    try appendU16(line, flag(get(2)))
+    try appendByte(line, ' ')
+    try appendU16(line, flag(get(4)))
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

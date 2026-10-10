@@ -16,7 +16,7 @@ sub main() fails
     var x = new nodes(65, none)
     while eat(move x) <> 0 and count < 3
         count = count + 1
-        writeByte(console, '0' + count) else fail
+        try writeByte(console, '0' + count)
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

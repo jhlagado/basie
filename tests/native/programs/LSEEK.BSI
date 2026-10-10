@@ -10,22 +10,22 @@ sub main() fails
     for i = 0 until 200
         buf[i] = u8(i mod 256)
     end
-    var f = openWrite("DATA.BIN", binaryMode) else fail
-    writeBlock(f, buf, 200) else fail
-    var at = position(f) else fail
+    var f = try openWrite("DATA.BIN", binaryMode)
+    try writeBlock(f, buf, 200)
+    var at = try position(f)
     check = at - 200
-    close(f) else fail
-    var g = openUpdate("DATA.BIN") else fail
-    var length = size(g) else fail
+    try close(f)
+    var g = try openUpdate("DATA.BIN")
+    var length = try size(g)
     check = check + length - 256
-    seek(g, 7) else fail
-    var b = readByte(g) else fail
+    try seek(g, 7)
+    var b = try readByte(g)
     check = check + u32(b) - 7
-    seek(g, at - 150) else fail
-    var n = readBlock(g, buf, 150) else fail
+    try seek(g, at - 150)
+    var n = try readBlock(g, buf, 150)
     check = check + u32(buf[0]) - 50 + u32(n) - 150
-    at = position(g) else fail
+    at = try position(g)
     check = check + at - 200
-    close(g) else fail
+    try close(g)
     out = u8(256 - check)
 end

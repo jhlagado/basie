@@ -6,7 +6,7 @@
 sub main() fails
     var text: string[40]
     commandTail(text)
-    writeText(console, "[") else fail
-    writeText(console, text) else fail
-    writeText(console, "]\r\n") else fail
+    try writeText(console, "[")
+    try writeText(console, text)
+    try writeText(console, "]\r\n")
 end

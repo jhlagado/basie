@@ -23,17 +23,17 @@ sub poke(var s: Sub) fails
     var i = id(s)
     select i
     case some(j)
-        writeText(console, "some\r\n") else fail
+        try writeText(console, "some\r\n")
     case none
-        writeText(console, "none\r\n") else fail
+        try writeText(console, "none\r\n")
     end
 end
 
 sub bump(var n: Node) fails
-    poke(n.inner) else fail
+    try poke(n.inner)
 end
 
 sub main() fails
     var h = new nodes()
-    bump(h) else fail
+    try bump(h)
 end

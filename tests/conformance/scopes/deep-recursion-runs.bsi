@@ -15,7 +15,7 @@ end
 
 sub main() fails
     var line: string[8]
-    appendU16(line, count(500)) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, count(500))
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

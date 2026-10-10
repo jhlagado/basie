@@ -13,7 +13,7 @@ sub main() fails
     var inner0: u8 = 0
     const tab0: u8[3] = [0, 2, 3]
     t[1] = tab0[0] + inner0
-    writeText(console, "step 0\r\n") else fail
+    try writeText(console, "step 0\r\n")
   end
   while i < 0
     i = i + 1
@@ -36,7 +36,7 @@ sub main() fails
     var inner10: u8 = 10
     const tab10: u8[3] = [10, 2, 3]
     t[1] = tab10[0] + inner10
-    writeText(console, "step 10\r\n") else fail
+    try writeText(console, "step 10\r\n")
   end
   g = g + 11
   g = g + 12
@@ -56,7 +56,7 @@ sub main() fails
     var inner20: u8 = 20
     const tab20: u8[3] = [20, 2, 3]
     t[1] = tab20[0] + inner20
-    writeText(console, "step 20\r\n") else fail
+    try writeText(console, "step 20\r\n")
   end
   g = g + 21
   g = g + 22
@@ -79,7 +79,7 @@ sub main() fails
     var inner30: u8 = 30
     const tab30: u8[3] = [30, 2, 3]
     t[1] = tab30[0] + inner30
-    writeText(console, "step 30\r\n") else fail
+    try writeText(console, "step 30\r\n")
   end
   g = g + 31
   g = g + 32
@@ -99,7 +99,7 @@ sub main() fails
     var inner40: u8 = 40
     const tab40: u8[3] = [40, 2, 3]
     t[1] = tab40[0] + inner40
-    writeText(console, "step 40\r\n") else fail
+    try writeText(console, "step 40\r\n")
   end
   g = g + 41
   g = g + 42
@@ -118,7 +118,7 @@ sub main() fails
     var inner50: u8 = 50
     const tab50: u8[3] = [50, 2, 3]
     t[1] = tab50[0] + inner50
-    writeText(console, "step 50\r\n") else fail
+    try writeText(console, "step 50\r\n")
   end
   while i < 50
     i = i + 1
@@ -142,7 +142,7 @@ sub main() fails
     var inner60: u8 = 60
     const tab60: u8[3] = [60, 2, 3]
     t[1] = tab60[0] + inner60
-    writeText(console, "step 60\r\n") else fail
+    try writeText(console, "step 60\r\n")
   end
   g = g + 61
   g = g + 62
@@ -161,7 +161,7 @@ sub main() fails
     var inner70: u8 = 70
     const tab70: u8[3] = [70, 2, 3]
     t[1] = tab70[0] + inner70
-    writeText(console, "step 70\r\n") else fail
+    try writeText(console, "step 70\r\n")
   end
   g = g + 71
   g = g + 72
@@ -185,7 +185,7 @@ sub main() fails
     var inner80: u8 = 80
     const tab80: u8[3] = [80, 2, 3]
     t[1] = tab80[0] + inner80
-    writeText(console, "step 80\r\n") else fail
+    try writeText(console, "step 80\r\n")
   end
   g = g + 81
   g = g + 82
@@ -204,7 +204,7 @@ sub main() fails
     var inner90: u8 = 90
     const tab90: u8[3] = [90, 2, 3]
     t[1] = tab90[0] + inner90
-    writeText(console, "step 90\r\n") else fail
+    try writeText(console, "step 90\r\n")
   end
   g = g + 91
   g = g + 92
@@ -224,7 +224,7 @@ sub main() fails
     var inner100: u8 = 100
     const tab100: u8[3] = [100, 2, 3]
     t[1] = tab100[0] + inner100
-    writeText(console, "step 100\r\n") else fail
+    try writeText(console, "step 100\r\n")
   end
   while i < 100
     i = i + 1
@@ -247,7 +247,7 @@ sub main() fails
     var inner110: u8 = 110
     const tab110: u8[3] = [110, 2, 3]
     t[1] = tab110[0] + inner110
-    writeText(console, "step 110\r\n") else fail
+    try writeText(console, "step 110\r\n")
   end
   g = g + 111
   g = g + 112
@@ -267,7 +267,7 @@ sub main() fails
     var inner120: u8 = 120
     const tab120: u8[3] = [120, 2, 3]
     t[1] = tab120[0] + inner120
-    writeText(console, "step 120\r\n") else fail
+    try writeText(console, "step 120\r\n")
   end
   g = g + 121
   g = g + 122
@@ -290,7 +290,7 @@ sub main() fails
     var inner130: u8 = 130
     const tab130: u8[3] = [130, 2, 3]
     t[1] = tab130[0] + inner130
-    writeText(console, "step 130\r\n") else fail
+    try writeText(console, "step 130\r\n")
   end
   g = g + 131
   g = g + 132
@@ -310,7 +310,7 @@ sub main() fails
     var inner140: u8 = 140
     const tab140: u8[3] = [140, 2, 3]
     t[1] = tab140[0] + inner140
-    writeText(console, "step 140\r\n") else fail
+    try writeText(console, "step 140\r\n")
   end
   g = g + 141
   g = g + 142
@@ -329,7 +329,7 @@ sub main() fails
     var inner150: u8 = 150
     const tab150: u8[3] = [150, 2, 3]
     t[1] = tab150[0] + inner150
-    writeText(console, "step 150\r\n") else fail
+    try writeText(console, "step 150\r\n")
   end
   while i < 150
     i = i + 1
@@ -353,7 +353,7 @@ sub main() fails
     var inner160: u8 = 160
     const tab160: u8[3] = [160, 2, 3]
     t[1] = tab160[0] + inner160
-    writeText(console, "step 160\r\n") else fail
+    try writeText(console, "step 160\r\n")
   end
   g = g + 161
   g = g + 162
@@ -372,7 +372,7 @@ sub main() fails
     var inner170: u8 = 170
     const tab170: u8[3] = [170, 2, 3]
     t[1] = tab170[0] + inner170
-    writeText(console, "step 170\r\n") else fail
+    try writeText(console, "step 170\r\n")
   end
   g = g + 171
   g = g + 172
@@ -396,7 +396,7 @@ sub main() fails
     var inner180: u8 = 180
     const tab180: u8[3] = [180, 2, 3]
     t[1] = tab180[0] + inner180
-    writeText(console, "step 180\r\n") else fail
+    try writeText(console, "step 180\r\n")
   end
   g = g + 181
   g = g + 182
@@ -415,7 +415,7 @@ sub main() fails
     var inner190: u8 = 190
     const tab190: u8[3] = [190, 2, 3]
     t[1] = tab190[0] + inner190
-    writeText(console, "step 190\r\n") else fail
+    try writeText(console, "step 190\r\n")
   end
   g = g + 191
   g = g + 192
@@ -435,7 +435,7 @@ sub main() fails
     var inner200: u8 = 0
     const tab200: u8[3] = [200, 2, 3]
     t[1] = tab200[0] + inner200
-    writeText(console, "step 200\r\n") else fail
+    try writeText(console, "step 200\r\n")
   end
   while i < 200
     i = i + 1
@@ -458,7 +458,7 @@ sub main() fails
     var inner210: u8 = 10
     const tab210: u8[3] = [210, 2, 3]
     t[1] = tab210[0] + inner210
-    writeText(console, "step 210\r\n") else fail
+    try writeText(console, "step 210\r\n")
   end
   g = g + 211
   g = g + 212
@@ -478,7 +478,7 @@ sub main() fails
     var inner220: u8 = 20
     const tab220: u8[3] = [220, 2, 3]
     t[1] = tab220[0] + inner220
-    writeText(console, "step 220\r\n") else fail
+    try writeText(console, "step 220\r\n")
   end
   g = g + 221
   g = g + 222
@@ -501,7 +501,7 @@ sub main() fails
     var inner230: u8 = 30
     const tab230: u8[3] = [230, 2, 3]
     t[1] = tab230[0] + inner230
-    writeText(console, "step 230\r\n") else fail
+    try writeText(console, "step 230\r\n")
   end
   g = g + 231
   g = g + 232
@@ -514,5 +514,5 @@ sub main() fails
   g = g + 237
   g = g + 238
   g = g + 239
-  writeText(console, "done\r\n") else fail
+  try writeText(console, "done\r\n")
 end

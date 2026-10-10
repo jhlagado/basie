@@ -17,9 +17,9 @@ sub main() fails
     head = new nodes('H', none)
     select head
     case some(i)
-        writeByte(console, i.value) else fail
+        try writeByte(console, i.value)
     case none
-        writeByte(console, '-') else fail
+        try writeByte(console, '-')
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

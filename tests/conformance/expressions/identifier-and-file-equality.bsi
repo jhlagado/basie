@@ -27,15 +27,15 @@ sub main() fails
     var ib = id(b)
     var ia2 = id(a)
     var empty: id nodes? = none
-    writeByte(console, flag(ia = ia2)) else fail
-    writeByte(console, flag(ia = ib)) else fail
-    writeByte(console, flag(ia <> ib)) else fail
-    writeByte(console, flag(ia = empty)) else fail
-    writeByte(console, flag(empty = none)) else fail
-    writeByte(console, ' ') else fail
+    try writeByte(console, flag(ia = ia2))
+    try writeByte(console, flag(ia = ib))
+    try writeByte(console, flag(ia <> ib))
+    try writeByte(console, flag(ia = empty))
+    try writeByte(console, flag(empty = none))
+    try writeByte(console, ' ')
     var f = console
-    writeByte(console, flag(f = console)) else fail
-    writeByte(console, flag(f = printer)) else fail
-    writeByte(console, flag(f <> printer)) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, flag(f = console))
+    try writeByte(console, flag(f = printer))
+    try writeByte(console, flag(f <> printer))
+    try writeText(console, "\r\n")
 end

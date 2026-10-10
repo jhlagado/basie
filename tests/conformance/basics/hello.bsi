@@ -4,5 +4,5 @@
 // expect return: 0
 
 sub main() fails
-    writeText(console, "Hello\r\n") else fail
+    try writeText(console, "Hello\r\n")
 end

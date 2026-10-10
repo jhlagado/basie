@@ -26,8 +26,8 @@ sub main() fails
     var line: string[20]
     select gb
     case some(j)
-        appendU16(line, j.inner.w) else fail
+        try appendU16(line, j.inner.w)
     case none
     end
-    writeText(console, line) else fail
+    try writeText(console, line)
 end

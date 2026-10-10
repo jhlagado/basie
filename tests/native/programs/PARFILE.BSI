@@ -26,9 +26,9 @@ end
 sub main() fails
     chan.out = console
     out = console
-    writeText(mk().out, "a") else fail
-    writeText((console), "b") else fail
-    writeText(((chan.out)), "c") else fail
+    try writeText(mk().out, "a")
+    try writeText((console), "b")
+    try writeText(((chan.out)), "c")
     var same = out = (console)
     var other = out <> ((chan.out))
     var h: jobs = new jobs(4)

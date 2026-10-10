@@ -11,77 +11,77 @@ sub u16Case(var line: string[], text: string[]) fails
     var code: u8 = 0
     var v: u16 = 0
     v = parseU16(text) handle code
-        append(line, "B ") else fail
+        try append(line, "B ")
         return
     end
-    appendU16(line, v) else fail
-    appendByte(line, ' ') else fail
+    try appendU16(line, v)
+    try appendByte(line, ' ')
 end
 
 sub i16Case(var line: string[], text: string[]) fails
     var code: u8 = 0
     var v: i16 = 0
     v = parseI16(text) handle code
-        append(line, "B ") else fail
+        try append(line, "B ")
         return
     end
-    appendI16(line, v) else fail
-    appendByte(line, ' ') else fail
+    try appendI16(line, v)
+    try appendByte(line, ' ')
 end
 
 sub u32Case(var line: string[], text: string[]) fails
     var code: u8 = 0
     var v: u32 = 0
     v = parseU32(text) handle code
-        append(line, "B ") else fail
+        try append(line, "B ")
         return
     end
-    appendU32(line, v) else fail
-    appendByte(line, ' ') else fail
+    try appendU32(line, v)
+    try appendByte(line, ' ')
 end
 
 sub i32Case(var line: string[], text: string[]) fails
     var code: u8 = 0
     var v: i32 = 0
     v = parseI32(text) handle code
-        append(line, "B ") else fail
+        try append(line, "B ")
         return
     end
-    appendI32(line, v) else fail
-    appendByte(line, ' ') else fail
+    try appendI32(line, v)
+    try appendByte(line, ' ')
 end
 
 sub finish(var line: string[]) fails
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try append(line, "\r\n")
+    try writeText(console, line)
     clear(line)
 end
 
 sub main() fails
     var line: string[100]
-    u16Case(line, "0") else fail
-    u16Case(line, "65535") else fail
-    u16Case(line, "65536") else fail
-    u16Case(line, "") else fail
-    u16Case(line, "$1234") else fail
-    u16Case(line, "$") else fail
-    u16Case(line, " \t12  ") else fail
-    u16Case(line, "1 2") else fail
-    finish(line) else fail
-    i16Case(line, "-32768") else fail
-    i16Case(line, "32767") else fail
-    i16Case(line, "32768") else fail
-    i16Case(line, "-32769") else fail
-    i16Case(line, "+5") else fail
-    i16Case(line, " -7 ") else fail
-    i16Case(line, "$10") else fail
-    finish(line) else fail
-    u32Case(line, "4294967295") else fail
-    u32Case(line, "4294967296") else fail
-    i32Case(line, "-2147483648") else fail
-    i32Case(line, "2147483647") else fail
-    i32Case(line, "2147483648") else fail
-    i32Case(line, "32") else fail
-    i32Case(line, "-") else fail
-    finish(line) else fail
+    try u16Case(line, "0")
+    try u16Case(line, "65535")
+    try u16Case(line, "65536")
+    try u16Case(line, "")
+    try u16Case(line, "$1234")
+    try u16Case(line, "$")
+    try u16Case(line, " \t12  ")
+    try u16Case(line, "1 2")
+    try finish(line)
+    try i16Case(line, "-32768")
+    try i16Case(line, "32767")
+    try i16Case(line, "32768")
+    try i16Case(line, "-32769")
+    try i16Case(line, "+5")
+    try i16Case(line, " -7 ")
+    try i16Case(line, "$10")
+    try finish(line)
+    try u32Case(line, "4294967295")
+    try u32Case(line, "4294967296")
+    try i32Case(line, "-2147483648")
+    try i32Case(line, "2147483647")
+    try i32Case(line, "2147483648")
+    try i32Case(line, "32")
+    try i32Case(line, "-")
+    try finish(line)
 end

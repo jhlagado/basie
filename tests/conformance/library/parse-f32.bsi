@@ -7,11 +7,11 @@ include "STRINGS.BSI"
 include "PARSE.BSI"
 
 sub same(var line: string[], text: string[], want: f32) fails
-    var v = parseF32(text) else fail
+    var v = try parseF32(text)
     if v = want
-        appendByte(line, 'T') else fail
+        try appendByte(line, 'T')
     else
-        appendByte(line, 'F') else fail
+        try appendByte(line, 'F')
     end
 end
 
@@ -20,34 +20,34 @@ sub bad(var line: string[], text: string[]) fails
     var v: f32 = 0.0
     v = parseF32(text) handle code
         if code = badNumber
-            appendByte(line, 'B') else fail
+            try appendByte(line, 'B')
         end
         return
     end
-    appendByte(line, '?') else fail
+    try appendByte(line, '?')
 end
 
 sub main() fails
     var line: string[40]
-    same(line, "1.5", 1.5) else fail
-    same(line, "-0.25", -0.25) else fail
-    same(line, ".5", 0.5) else fail
-    same(line, "3.", 3.0) else fail
-    same(line, " 2.5e+1 ", 25.0) else fail
-    same(line, "0.1", 0.1) else fail
-    same(line, "3.14159", 3.14159) else fail
-    same(line, "1234.5678", 1234.5678) else fail
-    same(line, "123456789012", 123456789012.0) else fail
-    var tiny = parseF32("1e-50") else fail
+    try same(line, "1.5", 1.5)
+    try same(line, "-0.25", -0.25)
+    try same(line, ".5", 0.5)
+    try same(line, "3.", 3.0)
+    try same(line, " 2.5e+1 ", 25.0)
+    try same(line, "0.1", 0.1)
+    try same(line, "3.14159", 3.14159)
+    try same(line, "1234.5678", 1234.5678)
+    try same(line, "123456789012", 123456789012.0)
+    var tiny = try parseF32("1e-50")
     if tiny = 0.0
-        append(line, " 0 ") else fail
+        try append(line, " 0 ")
     end
-    bad(line, "1e39") else fail
-    bad(line, "abc") else fail
-    bad(line, "1e") else fail
-    bad(line, "1.2.3") else fail
-    bad(line, "-") else fail
-    bad(line, ".") else fail
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try bad(line, "1e39")
+    try bad(line, "abc")
+    try bad(line, "1e")
+    try bad(line, "1.2.3")
+    try bad(line, "-")
+    try bad(line, ".")
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

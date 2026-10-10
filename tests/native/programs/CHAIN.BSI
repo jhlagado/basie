@@ -19,6 +19,6 @@ sub main() fails
     t = t + p15r7()
     t = t + p16r7()
     if t > 0
-        writeText(console, "chain\r\n") else fail
+        try writeText(console, "chain\r\n")
     end
 end

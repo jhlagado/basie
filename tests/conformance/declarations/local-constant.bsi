@@ -4,6 +4,6 @@
 
 sub main() fails
     const mark = '*'
-    writeByte(console, mark) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, mark)
+    try writeText(console, "\r\n")
 end

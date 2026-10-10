@@ -11,9 +11,9 @@ var keep: id nodes?
 var out: File
 sub flag(b: boolean) fails
     if b
-        writeByte(console, 'T') else fail
+        try writeByte(console, 'T')
     else
-        writeByte(console, 'F') else fail
+        try writeByte(console, 'F')
     end
 end
 sub main() fails
@@ -22,14 +22,14 @@ sub main() fails
     var ia = id(a)
     keep = id(b)
     a.peer = id(b)
-    flag(id(a) = ia) else fail
-    flag(a.peer = keep) else fail
-    flag(keep <> none) else fail
-    flag(ia = keep or ia = none) else fail
-    flag(not (ia = keep)) else fail
-    flag(ia <> keep and keep = a.peer) else fail
+    try flag(id(a) = ia)
+    try flag(a.peer = keep)
+    try flag(keep <> none)
+    try flag(ia = keep or ia = none)
+    try flag(not (ia = keep))
+    try flag(ia <> keep and keep = a.peer)
     out = printer
-    flag(out = printer) else fail
-    flag(console <> out) else fail
-    writeText(console, "\r\n") else fail
+    try flag(out = printer)
+    try flag(console <> out)
+    try writeText(console, "\r\n")
 end

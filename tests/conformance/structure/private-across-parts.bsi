@@ -9,10 +9,10 @@ include "PARTB.BSI"
 const k = 3
 
 sub main() fails
-    writeByte(console, '0' + fromA()) else fail
-    writeByte(console, ' ') else fail
-    writeByte(console, '0' + fromB()) else fail
-    writeByte(console, ' ') else fail
-    writeByte(console, '0' + k) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, '0' + fromA())
+    try writeByte(console, ' ')
+    try writeByte(console, '0' + fromB())
+    try writeByte(console, ' ')
+    try writeByte(console, '0' + k)
+    try writeText(console, "\r\n")
 end

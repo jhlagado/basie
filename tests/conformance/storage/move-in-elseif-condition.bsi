@@ -1,6 +1,6 @@
 // A move in an elseif condition reaches the else body (review finding C2).
 // spec: 10.8, 11.4.1, 12.5.1
-// expect error: use-after-move at 20:28
+// expect error: use-after-move at 20:32
 
 forward pool nodes
 record Node
@@ -17,9 +17,9 @@ sub main() fails
     if b
     elseif eat(move x) = 2
     else
-        writeByte(console, x.value) else fail
+        try writeByte(console, x.value)
         x.value = 99
-        writeByte(console, x.value) else fail
+        try writeByte(console, x.value)
     end
-    writeText(console, "\r\n") else fail
+    try writeText(console, "\r\n")
 end

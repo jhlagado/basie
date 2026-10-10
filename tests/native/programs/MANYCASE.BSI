@@ -312,66 +312,66 @@ end
 sub main() fails
     h = 149
     if pick() = 149
-        writeText(console, "a") else fail
-        writeText(console, "b") else fail
-        writeText(console, "c") else fail
-        writeText(console, "d") else fail
-        writeText(console, "e") else fail
-        writeText(console, "f") else fail
-        writeText(console, "g") else fail
-        writeText(console, "h") else fail
-        writeText(console, "i") else fail
-        writeText(console, "j") else fail
-        writeText(console, "k") else fail
-        writeText(console, "l") else fail
-        writeText(console, "m") else fail
-        writeText(console, "n") else fail
-        writeText(console, "o") else fail
-        writeText(console, "p") else fail
-        writeText(console, "q") else fail
-        writeText(console, "r") else fail
-        writeText(console, "s") else fail
-        writeText(console, "t") else fail
-        writeText(console, "u") else fail
-        writeText(console, "v") else fail
-        writeText(console, "w") else fail
-        writeText(console, "x") else fail
-        writeText(console, "y") else fail
-        writeText(console, "z") else fail
-        writeText(console, "a") else fail
-        writeText(console, "b") else fail
-        writeText(console, "c") else fail
-        writeText(console, "d") else fail
-        writeText(console, "e") else fail
-        writeText(console, "f") else fail
-        writeText(console, "g") else fail
-        writeText(console, "h") else fail
-        writeText(console, "i") else fail
-        writeText(console, "j") else fail
-        writeText(console, "k") else fail
-        writeText(console, "l") else fail
-        writeText(console, "m") else fail
-        writeText(console, "n") else fail
-        writeText(console, "o") else fail
-        writeText(console, "p") else fail
-        writeText(console, "q") else fail
-        writeText(console, "r") else fail
-        writeText(console, "s") else fail
-        writeText(console, "t") else fail
-        writeText(console, "u") else fail
-        writeText(console, "v") else fail
-        writeText(console, "w") else fail
-        writeText(console, "x") else fail
-        writeText(console, "y") else fail
-        writeText(console, "z") else fail
-        writeText(console, "a") else fail
-        writeText(console, "b") else fail
-        writeText(console, "c") else fail
-        writeText(console, "d") else fail
-        writeText(console, "e") else fail
-        writeText(console, "f") else fail
-        writeText(console, "g") else fail
-        writeText(console, "h") else fail
-        writeText(console, "\r\n") else fail
+        try writeText(console, "a")
+        try writeText(console, "b")
+        try writeText(console, "c")
+        try writeText(console, "d")
+        try writeText(console, "e")
+        try writeText(console, "f")
+        try writeText(console, "g")
+        try writeText(console, "h")
+        try writeText(console, "i")
+        try writeText(console, "j")
+        try writeText(console, "k")
+        try writeText(console, "l")
+        try writeText(console, "m")
+        try writeText(console, "n")
+        try writeText(console, "o")
+        try writeText(console, "p")
+        try writeText(console, "q")
+        try writeText(console, "r")
+        try writeText(console, "s")
+        try writeText(console, "t")
+        try writeText(console, "u")
+        try writeText(console, "v")
+        try writeText(console, "w")
+        try writeText(console, "x")
+        try writeText(console, "y")
+        try writeText(console, "z")
+        try writeText(console, "a")
+        try writeText(console, "b")
+        try writeText(console, "c")
+        try writeText(console, "d")
+        try writeText(console, "e")
+        try writeText(console, "f")
+        try writeText(console, "g")
+        try writeText(console, "h")
+        try writeText(console, "i")
+        try writeText(console, "j")
+        try writeText(console, "k")
+        try writeText(console, "l")
+        try writeText(console, "m")
+        try writeText(console, "n")
+        try writeText(console, "o")
+        try writeText(console, "p")
+        try writeText(console, "q")
+        try writeText(console, "r")
+        try writeText(console, "s")
+        try writeText(console, "t")
+        try writeText(console, "u")
+        try writeText(console, "v")
+        try writeText(console, "w")
+        try writeText(console, "x")
+        try writeText(console, "y")
+        try writeText(console, "z")
+        try writeText(console, "a")
+        try writeText(console, "b")
+        try writeText(console, "c")
+        try writeText(console, "d")
+        try writeText(console, "e")
+        try writeText(console, "f")
+        try writeText(console, "g")
+        try writeText(console, "h")
+        try writeText(console, "\r\n")
     end
 end

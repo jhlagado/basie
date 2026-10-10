@@ -75,17 +75,17 @@ sub draw() fails
         var x: u8 = 0
         while x < width
             if x = playerX and y = playerY and bugAt(x, y)
-                appendByte(line, '*') else fail
+                try appendByte(line, '*')
             elseif x = playerX and y = playerY
-                appendByte(line, '@') else fail
+                try appendByte(line, '@')
             elseif bugAt(x, y)
-                appendByte(line, 'B') else fail
+                try appendByte(line, 'B')
             else
-                appendByte(line, '.') else fail
+                try appendByte(line, '.')
             end
             x = x + 1
         end
-        writeLine(console, line) else fail
+        try writeLine(console, line)
         y = y + 1
     end
 end
@@ -216,12 +216,12 @@ sub main() fails
     var noun: string[8]
     var code: u8 = 0
     var turn: u16 = 0
-    writeLine(console, "BUGS: zap 8 bugs before one reaches you.") else fail
+    try writeLine(console, "BUGS: zap 8 bugs before one reaches you.")
     while true
         if turn mod 2 = 0
             spawn()
         end
-        draw() else fail
+        try draw()
         prompt("> ", line) handle code
             if code = endOfInput
                 return
@@ -229,8 +229,8 @@ sub main() fails
             fail code
         end
         toLower(line)
-        var hasVerb = word(line, 0, verb) else fail
-        var hasNoun = word(line, 1, noun) else fail
+        var hasVerb = try word(line, 0, verb)
+        var hasNoun = try word(line, 1, noun)
         if equal(verb, "zap") or equal(verb, "z")
             var d = direction(noun)
             var hit = false
@@ -245,9 +245,9 @@ sub main() fails
             end
             if hit
                 zapped = zapped + 1
-                writeLine(console, "Zap!") else fail
+                try writeLine(console, "Zap!")
             else
-                writeLine(console, "Missed.") else fail
+                try writeLine(console, "Missed.")
             end
         elseif equal(verb, "quit") or equal(verb, "q")
             return
@@ -255,12 +255,12 @@ sub main() fails
             walk(direction(verb))
         end
         if zapped = goal
-            writeLine(console, "The cave is safe. You win!") else fail
+            try writeLine(console, "The cave is safe. You win!")
             return
         end
         if crawl()
-            draw() else fail
-            writeLine(console, "A bug got you!") else fail
+            try draw()
+            try writeLine(console, "A bug got you!")
             return
         end
         turn = turn + 1

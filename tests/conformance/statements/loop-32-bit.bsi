@@ -12,32 +12,32 @@ sub main() fails
     var n: u16 = 0
     for u = 70000 to 70003
         if u = 70000
-            appendU32(line, u) else fail
+            try appendU32(line, u)
         end
     end
-    append(line, "..") else fail
-    appendU32(line, u) else fail
+    try append(line, "..")
+    try appendU32(line, u)
     for u = 4294967290 to 4294967295
     end
-    appendByte(line, ' ') else fail
-    appendU32(line, u) else fail
+    try appendByte(line, ' ')
+    try appendU32(line, u)
     for s = 2 to -2 step -1
     end
-    appendByte(line, ' ') else fail
-    appendI32(line, s) else fail
+    try appendByte(line, ' ')
+    try appendI32(line, s)
     for s = -2 to 2
     end
-    append(line, "..") else fail
-    appendI32(line, s) else fail
+    try append(line, "..")
+    try appendI32(line, s)
     for u = 0 until 1000000 step 300000
         n = n + 1
     end
-    appendByte(line, ' ') else fail
-    appendU16(line, n - 1) else fail
+    try appendByte(line, ' ')
+    try appendU16(line, n - 1)
     for u = 5 to 0 step -1
     end
-    appendByte(line, ' ') else fail
-    appendU32(line, u) else fail
-    append(line, "\r\n") else fail
-    writeText(console, line) else fail
+    try appendByte(line, ' ')
+    try appendU32(line, u)
+    try append(line, "\r\n")
+    try writeText(console, line)
 end

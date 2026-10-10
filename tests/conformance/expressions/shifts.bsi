@@ -9,13 +9,13 @@ sub main() fails
     var s: i16 = -8
     var u: u16 = $8000
     var n: u8 = 20
-    appendI16(line, s shr 1) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, u shr 15) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, u shl n) else fail
-    appendByte(line, ' ') else fail
-    appendI16(line, s shr n) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendI16(line, s shr 1)
+    try appendByte(line, ' ')
+    try appendU16(line, u shr 15)
+    try appendByte(line, ' ')
+    try appendU16(line, u shl n)
+    try appendByte(line, ' ')
+    try appendI16(line, s shr n)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

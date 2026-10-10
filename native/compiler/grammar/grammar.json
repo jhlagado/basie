@@ -47,7 +47,8 @@
     "TokenCase": "TK_CASE",
     "TokenPool": "TK_POOL",
     "TokenQuestion": "TK_QUEST",
-    "TokenEnum": "TK_ENUMD"
+    "TokenEnum": "TK_ENUMD",
+    "TokenTry": "TK_TRY"
   },
   "diagnosticCodes": {
     "DiagnosticExpectedDeclaration": "DG_DECL",
@@ -285,7 +286,8 @@
       "TokenElseIf"
     ],
     "NameStatement": [
-      "TokenName"
+      "TokenName",
+      "TokenTry"
     ],
     "ReturnValue": [
       "TokenNumber",
@@ -311,7 +313,8 @@
       "TokenType",
       "TokenPlus",
       "TokenMinus",
-      "TokenNot"
+      "TokenNot",
+      "TokenTry"
     ],
     "InferredInitializer": [
       "TokenNumber",
@@ -323,7 +326,8 @@
       "TokenType",
       "TokenPlus",
       "TokenMinus",
-      "TokenNot"
+      "TokenNot",
+      "TokenTry"
     ],
     "SelectSubject": [
       "TokenNumber",

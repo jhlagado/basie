@@ -135,6 +135,6 @@ sub main() fails
     x29.v = 5
     a9[10] = 7
     if u16(x29.v) + u16(a9[10]) = 12
-        writeText(console, "many types\r\n") else fail
+        try writeText(console, "many types\r\n")
     end
 end

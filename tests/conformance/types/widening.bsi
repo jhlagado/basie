@@ -11,11 +11,11 @@ sub main() fails
     var signed: i16 = delta
     var both: i16 = small
     var line: string[40]
-    appendU16(line, wide) else fail
-    appendByte(line, ' ') else fail
-    appendI16(line, signed) else fail
-    appendByte(line, ' ') else fail
-    appendI16(line, both) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, wide)
+    try appendByte(line, ' ')
+    try appendI16(line, signed)
+    try appendByte(line, ' ')
+    try appendI16(line, both)
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

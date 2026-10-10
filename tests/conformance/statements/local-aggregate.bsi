@@ -8,8 +8,8 @@ sub main() fails
     var line: string[20]
     var grid: u8[3][4]
     grid[2][3] = 9
-    appendU16(line, grid[0][0]) else fail
-    appendU16(line, grid[2][3]) else fail
-    writeText(console, line) else fail
-    writeText(console, "\r\n") else fail
+    try appendU16(line, grid[0][0])
+    try appendU16(line, grid[2][3])
+    try writeText(console, line)
+    try writeText(console, "\r\n")
 end

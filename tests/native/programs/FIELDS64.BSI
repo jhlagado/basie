@@ -85,6 +85,6 @@ sub main() fails
     w.x63 = 7
     w.x00 = 1
     if u16(w.x63) + u16(w.x00) + k.s9 = 98
-        writeText(console, "many fields\r\n") else fail
+        try writeText(console, "many fields\r\n")
     end
 end

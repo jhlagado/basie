@@ -12,38 +12,38 @@ include "FORMAT.BSI"
 include "TEXTIO.BSI"
 
 sub main() fails
-    var out = openWrite("OUT.TXT", textMode) else fail
-    writeLine(out, "one") else fail
-    writeLine(out, "two") else fail
-    close(out) else fail
+    var out = try openWrite("OUT.TXT", textMode)
+    try writeLine(out, "one")
+    try writeLine(out, "two")
+    try close(out)
     var buf: u8[16]
-    var f = openRead("DATA.TXT", textMode) else fail
-    var count = readAll(f, buf) else fail
-    close(f) else fail
+    var f = try openRead("DATA.TXT", textMode)
+    var count = try readAll(f, buf)
+    try close(f)
     var line: string[30]
-    appendU16(line, count) else fail
-    appendByte(line, ' ') else fail
+    try appendU16(line, count)
+    try appendByte(line, ' ')
     var four: u8[4]
-    f = openRead("DATA.TXT", textMode) else fail
-    count = readAll(f, four) else fail
-    close(f) else fail
-    appendU16(line, count) else fail
-    appendByte(line, ' ') else fail
-    truncate("DATA.TXT", 3, textMode) else fail
-    f = openRead("DATA.TXT", textMode) else fail
-    count = readAll(f, buf) else fail
-    close(f) else fail
-    appendU16(line, count) else fail
-    truncate("RAW.BIN", 4, binaryMode) else fail
+    f = try openRead("DATA.TXT", textMode)
+    count = try readAll(f, four)
+    try close(f)
+    try appendU16(line, count)
+    try appendByte(line, ' ')
+    try truncate("DATA.TXT", 3, textMode)
+    f = try openRead("DATA.TXT", textMode)
+    count = try readAll(f, buf)
+    try close(f)
+    try appendU16(line, count)
+    try truncate("RAW.BIN", 4, binaryMode)
     var data: u8[130]
-    f = openRead("RAW.BIN", binaryMode) else fail
-    count = readAll(f, data) else fail
-    close(f) else fail
-    appendByte(line, ' ') else fail
-    appendU16(line, count) else fail
-    appendByte(line, ' ') else fail
-    appendHex8(line, data[3]) else fail
-    appendByte(line, ' ') else fail
-    appendHex8(line, data[4]) else fail
-    writeLine(console, line) else fail
+    f = try openRead("RAW.BIN", binaryMode)
+    count = try readAll(f, data)
+    try close(f)
+    try appendByte(line, ' ')
+    try appendU16(line, count)
+    try appendByte(line, ' ')
+    try appendHex8(line, data[3])
+    try appendByte(line, ' ')
+    try appendHex8(line, data[4])
+    try writeLine(console, line)
 end

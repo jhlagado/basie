@@ -24,7 +24,7 @@ sub main() fails
     var w: u16
     var e: u8
     var n: u8
-    t = tally(10) else fail
+    t = try tally(10)
     for w = 1000 to 0 step -300
         t = t + w / 100
     end

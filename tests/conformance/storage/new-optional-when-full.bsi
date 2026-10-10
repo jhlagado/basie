@@ -16,8 +16,8 @@ sub main() fails
     var b = new? nodes(2, none)
     select b
     case some(n)
-        writeText(console, "got\r\n") else fail
+        try writeText(console, "got\r\n")
     case none
-        writeText(console, "full\r\n") else fail
+        try writeText(console, "full\r\n")
     end
 end

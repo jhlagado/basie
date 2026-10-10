@@ -59,6 +59,6 @@ end
 
 sub main() fails
     g = sign(5) + scan(7) + nested(g)
-    early() else fail
-    late() else fail
+    try early()
+    try late()
 end

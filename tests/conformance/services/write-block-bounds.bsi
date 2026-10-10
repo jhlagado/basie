@@ -4,6 +4,6 @@
 
 sub main() fails
     var buf: u8[10]
-    var f = openWrite("X.BIN", binaryMode) else fail
-    writeBlock(f, buf, 11) else fail
+    var f = try openWrite("X.BIN", binaryMode)
+    try writeBlock(f, buf, 11)
 end

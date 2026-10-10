@@ -23,7 +23,7 @@ sub mk(v: u8): nodes fails
 end
 sub main() fails
     make(1)
-    mk(2) else fail
+    try mk(2)
     var e: u8
     mk(3) handle e
         g = e

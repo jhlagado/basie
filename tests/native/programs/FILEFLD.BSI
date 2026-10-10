@@ -12,7 +12,7 @@ sub pick(which: u8): File
 end
 
 sub say(var c: Channel, text: string[]) fails
-    writeText(c.out, text) else fail
+    try writeText(c.out, text)
     c.count = c.count + 1
 end
 
@@ -22,13 +22,13 @@ sub main() fails
     outs[1] = chan.out
     var local: Channel
     local.out = pick(1)
-    writeText(chan.out, "field\r\n") else fail
-    writeText(outs[1], "element\r\n") else fail
-    writeText(pick(0), "result\r\n") else fail
-    say(local, "through a var record\r\n") else fail
+    try writeText(chan.out, "field\r\n")
+    try writeText(outs[1], "element\r\n")
+    try writeText(pick(0), "result\r\n")
+    try say(local, "through a var record\r\n")
     var both: File[2]
     both[1] = outs[0]
     if local.count = 1 and both[1] = console and local.out = console
-        writeText(both[1], "files\r\n") else fail
+        try writeText(both[1], "files\r\n")
     end
 end

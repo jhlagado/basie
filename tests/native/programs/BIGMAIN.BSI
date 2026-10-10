@@ -8,7 +8,7 @@ var total: u16
 
 sub main() fails
     total = secondB(2) + later(1)
-    showA() else fail
-    showB() else fail
-    showC() else fail
+    try showA()
+    try showB()
+    try showC()
 end

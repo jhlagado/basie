@@ -202,6 +202,6 @@ sub main() fails
     g18 = c108
     g24 = c114
     if total() + g00 + g24 = 863
-        writeText(console, "many names\r\n") else fail
+        try writeText(console, "many names\r\n")
     end
 end

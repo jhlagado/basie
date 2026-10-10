@@ -13,6 +13,6 @@ end
 sub main() fails
     var list: Entry[4]
     list[2].value = 'K'
-    writeByte(console, pick(list, 2).value) else fail
-    writeText(console, "\r\n") else fail
+    try writeByte(console, pick(list, 2).value)
+    try writeText(console, "\r\n")
 end
