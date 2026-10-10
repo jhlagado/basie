@@ -6,8 +6,8 @@
 ;  free memory needs: writing the blob's whole records to NAME.$CD as the
 ;  memory fills (SP_WRITE, for BL_FLUSH), and opening it again to read
 ;  them back as the blob is written (SP_RBACK, for BL_RBACK). It loads
-;  above NAMES, and OV_SCALL loads again the overlay it replaced, whose
-;  code may be the one emitting, before it returns.
+;  above NAMES; an overlay it replaced whose code is the one emitting
+;  (OWNERS' descriptors) is loaded again before it returns (OV_XCALL).
 ;
 ;  Principal entries:
 ;    SP_WRITE  spill L whole records, at OV_AREA (above NAMES)

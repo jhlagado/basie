@@ -117,10 +117,11 @@ CL_SEEN EQU  CL_LIB+8          ; CL_NOPT bytes: each option given, or zero.
 DG_ARG1 EQU  CL_SEEN+CL_NOPT   ; Word: a diagnostic's argument 1, or 0 (MESSAGE.ASM).
 DG_ARG2 EQU  DG_ARG1+2         ; Word: its argument 2, or 0.
 MS_REC EQU  DG_ARG2+2          ; Byte: the record of BASIE.MSG in MS_BUF.
-OV_CUR EQU  MS_REC+1           ; Byte: the overlay loaded last, $FF for none (OVERLAY.ASM).
+OV_RUN EQU  MS_REC+1           ; Byte: the overlay whose entry runs, $FF for none (OV_XCALL).
+OV_CUR EQU  OV_RUN+1           ; Byte: the overlay loaded last, $FF for none (OVERLAY.ASM).
 OV_FCB EQU  OV_CUR+1           ; SH_FLEN bytes: BASIE.OVL's FCB, open once loaded.
 OV_DIR EQU  OV_FCB+SH_FLEN     ; OV_DCAP entries of four: each overlay's address, records.
-OV_DCAP EQU  9                 ; Overlays BASIE.OVL may describe.
+OV_DCAP EQU  10                ; Overlays BASIE.OVL may describe.
 SH_WEND EQU  OV_DIR+4*OV_DCAP  ; The build checks this is at or below MM_BLOB.
 
 ;@ROUTINE NORETURN

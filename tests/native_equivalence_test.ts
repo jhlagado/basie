@@ -1672,6 +1672,14 @@ const REFUSED: Record<string, string> = {
   "an enum select missing a member": Deno.readTextFileSync(
     "tests/conformance/enums/select-missing.bsi",
   ),
+  // An f32 literal read while an overlay above NAMES runs loads FLOAT over
+  // it; OV_XCALL loads the overlay again (it ran FLOAT's bytes before).
+  "an f32 literal where a pool's record goes":
+    "record R\nv as u8\nend\npool p as 1.5[4]\nsub main()\nend\n",
+  "an f32 literal after an enum member":
+    "enum E\na 1.5\nend\nsub main()\nend\n",
+  "an f32 literal after a forward pool":
+    "forward pool p 2.5\nsub main()\nend\n",
   "an incomplete i32 select":
     "var x as i32\nsub main()\nselect x\ncase -2147483648 to 2147483646\nend\nend\n",
   "an incomplete u16 select":

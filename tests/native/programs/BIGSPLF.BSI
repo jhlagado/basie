@@ -1,6 +1,6 @@
 // BIGSPILL with an f32 constant folded at every fourth step, so that the
 // spill to BIGSPLF.$CD happens with the FLOAT overlay loaded above NAMES,
-// where SPILL loads: it is loaded again after each spill (OV_SCALL).
+// where SPILL loads: it is loaded again when next needed (OV_FCALL).
 var g as u16
 var h as f32
 var t as u8[4]

@@ -40,8 +40,8 @@ SH_START:                      ; Entered from the jump at $0100.
     XOR  A                         ; nor waits for
     LD   (DG_MODE),A               ; its part's rest (DG_PLACE).
     CALL OV_OPEN                   ; BASIE.OVL is opened and checked;
-    LD   A,$FF                     ; no overlay
-    LD   (OV_CUR),A                ; is loaded yet:
+    LD   HL,$FFFF                  ; no overlay runs
+    LD   (OV_RUN),HL               ; or is loaded yet (OV_CUR):
     JP   SH_GO                     ; the start-up goes on there.
 
 ;@ROUTINE CLOBBERS A,BC,DE,HL,IX,IY,CARRY,ZERO,SIGN,PARITY,HALFCARRY

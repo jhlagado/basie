@@ -43,11 +43,15 @@
 ;                           descriptors (OV_PCALL, for POOLS.ASM, reaches
 ;                           its entries),
 ;                           loaded above NAMES in FLOAT's place
+;    OV_ENUMS  ENDECL.ASM   enum declarations (EN_DECL, through OV_XCALL),
+;                           above NAMES in FLOAT's place too
 ;  A later overlay may load above another in the area, so that both are
 ;  there at once: FLOAT and OWNERS load after the predeclared names, which
 ;  stay loaded while they are used, so the area is as large as NAMES'
 ;  records and the larger of them together. They replace each other, each
-;  loaded again when next needed. The end of a routine and the writing of
+;  loaded again when next needed; one whose entry is running when another
+;  replaces it (an f32 literal read in OWNERS' actions, a spill while they
+;  write a blob) is loaded again before control returns to it (OV_RUN). The end of a routine and the writing of
 ;  a blob, used by every routine, are resident (CLOSE.ASM, BLEND.ASM).
 ;
 ;  BASIE.OVL is magic BSIO, version 1.0, the 16-bit sum of the resident
@@ -78,6 +82,7 @@ OV_FLOAT EQU  5                ; f32 constants: literals and folding.
 OV_OWNS EQU  6                 ; Owner descriptors.
 OV_PREP EQU  7                 ; A compilation's starting state.
 OV_SPILL EQU  8                ; The blob writer's spill to NAME.$CD.
+OV_ENUMS EQU  9                ; Enum declarations.
 OV_HEAD EQU  9                 ; Bytes of BASIE.OVL's header before its directory.
 OV_RAND EQU  33                ; BDOS read random: the record is in the FCB.
 
@@ -134,15 +139,45 @@ OV_FCALL:                      ; A is the offset, HL the argument.
     LD   B,OV_FLOAT                ; FLOAT's;
     JR   OV_XCALL                  ; called.
 
-;@ROUTINE IN A,HL OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
-; Load overlay B (OWNERS for OV_PCALL, FLOAT for OV_FCALL) unless it is
-; the one loaded last, and run its entry at offset A with HL; A, HL and
-; the flags return as the entry leaves them. IX and IY, which loading may
-; change, are kept.
+;@ROUTINE IN A,B,HL OUT HL CLOBBERS A,BC,DE,CARRY,ZERO,SIGN,PARITY,HALFCARRY
+; Load overlay B (OWNERS for OV_PCALL, FLOAT for OV_FCALL, SPILL for
+; OV_SCALL) unless it is the one loaded last, and run its entry at offset
+; A with HL; A, HL and the flags return as the entry leaves them. IX and
+; IY, which loading may change, are kept. An overlay whose entry was
+; running (OV_RUN), its code below on the stack, which B's replaced
+; above NAMES (an f32 literal read inside OWNERS' actions, a spill while
+; it writes a blob), is loaded again before the return.
 
 OV_PCALL:                      ; A is the entry's offset.
     LD   B,OV_OWNS                 ; OWNERS'; fall into OV_XCALL.
 OV_XCALL:                      ; B is the overlay.
+    LD   C,A                       ; (the offset)
+    LD   A,(OV_RUN)                ; The overlay running, if any,
+    PUSH AF                        ; kept;
+    LD   A,B                       ; B's
+    LD   (OV_RUN),A                ; runs now:
+    LD   A,C                       ; its entry
+    CALL .CALL                     ; is run.
+    EX   (SP),HL                   ; H: the one that ran before,
+    PUSH AF                        ; (the entry's A and flags)
+    LD   A,H                       ; again
+    LD   (OV_RUN),A                ; the one running:
+    INC  A                         ; none,
+    JR   Z,.BACK                   ; or
+    DEC  A                         ; one still
+    LD   HL,OV_CUR                 ; loaded,
+    CP   (HL)                      ; stays;
+    JR   Z,.BACK                   ; another
+    PUSH IX                        ; is loaded
+    PUSH IY                        ; again,
+    CALL OV_LOAD                   ; IX and IY
+    POP  IY                        ; kept
+    POP  IX                        ; (BDOS).
+.BACK:                         ; The entry's
+    POP  AF                        ; A and flags,
+    POP  HL                        ; and HL.
+    RET                            ; Done.
+.CALL:                         ; A is the offset, HL the argument.
     PUSH IX                        ; Keep IX
     PUSH IY                        ; and IY,
     PUSH HL                        ; the argument
@@ -177,32 +212,13 @@ OV_XCALL:                      ; B is the overlay.
 
 ;@ROUTINE IN A,HL OUT CARRY CLOBBERS A,BC,DE,HL,ZERO,SIGN,PARITY,HALFCARRY
 ; Run the SPILL overlay's entry A with HL (OV_XCALL), from wherever the
-; blob writer was called, OWNERS' or FLOAT's code among them: SPILL loads
-; above NAMES, so NAMES stays, and the overlay it replaced is loaded again
-; before the return. Carry returns as the entry leaves it; IY is kept
-; (OWNERS' descriptor walk holds a frame in it while it emits).
+; blob writer was called: SPILL loads above NAMES, so NAMES stays, and an
+; overlay running there, OWNERS' descriptor walk with its frame in IY, is
+; loaded again before the return. Carry returns as the entry leaves it.
 
 OV_SCALL:                      ; A is the entry, HL its argument.
-    LD   B,A                       ; (the entry)
-    LD   A,(OV_CUR)                ; The overlay loaded,
-    PUSH AF                        ; kept.
-    LD   A,B                       ; The entry
-    LD   B,OV_SPILL                ; of SPILL
-    CALL OV_XCALL                  ; runs.
-    POP  BC                        ; B is the overlay it replaced.
-    PUSH AF                        ; (the entry's flags)
-    LD   A,B                       ; NAMES,
-    CP   OV_NAMES                  ; intact below SPILL,
-    JR   NZ,.LOAD                  ; is current again
-    LD   (OV_CUR),A                ; as it is;
-    JR   .BACK                     ; any other
-.LOAD:                         ; is loaded
-    PUSH IY                        ; again,
-    CALL OV_LOAD                   ; IY kept
-    POP  IY                        ; (OV_LOAD's BDOS calls may not).
-.BACK:                         ; The entry's
-    POP  AF                        ; flags.
-    RET                            ; Done.
+    LD   B,OV_SPILL                ; SPILL's;
+    JR   OV_XCALL                  ; run.
 
 ;@ROUTINE IN C,HL OUT CARRY CLOBBERS A,DE,IX,IY,ZERO,SIGN,PARITY,HALFCARRY
 ; Read record C of BASIE.OVL to HL. Carry if it can't be read. B, C and

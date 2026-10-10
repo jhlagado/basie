@@ -29,7 +29,7 @@ of handles and `File`s retained for the next development milestone
 ([limits](docs/limits.md)). Plain nominal enums are implemented in both compilers as the first next-milestone feature
 ([types](spec/06-types.md#616-plain-enumerations)), followed by exhaustive value selection (D51,
 [select](spec/11-conditional-control.md#117-select)).
-`BASIE.COM` takes 25,570 resident bytes and a 2,611-byte overlay area, 491 bytes under
+`BASIE.COM` takes 25,442 resident bytes and a 2,611-byte overlay area, 619 bytes under
 its 28 KiB limit.
 
 The [forward development plan](docs/development-plan.md) records the next milestone's

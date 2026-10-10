@@ -69,74 +69,14 @@ EN_FIND:
     EX   DE,HL
     JR   EN_FIND
 
-; Island after `enum`: retain the name, then nonempty member lines/end.
-EN_DECL:
-    CALL RO_NAME
-    CALL EX_DECL
-    LD   E,TK_EOL
-    CALL PR_NEED
-    LD   HL,0
-    LD   (EN_HEAD),HL
-    LD   (EN_COUNT),HL
-.MEMBER:
-    CALL PR_PEEK
-    CP   TK_END
-    JR   Z,.END
-    CALL RO_NAME
-    LD   HL,(EN_HEAD)
-    CALL EN_FIND
-    LD   A,DG_DUP
-    JP   C,DG_NAMED
-    LD   A,(EN_COUNT+1)
-    OR   A
-    LD   A,DG_EMEM
-    JP   NZ,DG_ISSUE
-    LD   BC,6
-    CALL NH_ALLOC
-    PUSH DE
-    EX   DE,HL
-    CALL TK_KEEP
-    INC  HL
-    LD   DE,(EN_COUNT)
-    LD   (HL),E
-    INC  DE
-    LD   (EN_COUNT),DE
-    INC  HL
-    LD   DE,(EN_HEAD)
-    LD   (HL),E
-    INC  HL
-    LD   (HL),D
-    POP  HL
-    LD   (EN_HEAD),HL
-    LD   E,TK_EOL
-    CALL PR_NEED
-    JR   .MEMBER
-.END:
-    LD   HL,(EN_COUNT)
-    LD   A,H
-    OR   L
-    LD   A,DG_EENUM
-    JR   NZ,.NONEMPTY
-    LD   HL,AC_DPOS
-    JP   DG_AT
-.NONEMPTY:
-    LD   A,L                     ; Zero encodes the full 256 members.
-    LD   (AG_NAUX),A
-    LD   A,AG_KENUM
-    LD   (AG_NKIND),A
-    LD   HL,(EN_HEAD)
-    LD   (AG_NDIM),HL
-    LD   HL,1
-    LD   (AG_NSIZE),HL
-    CALL AG_ADD
-    LD   C,A
-    LD   B,0
-    LD   D,SY_TYPE
-    CALL EX_PREP
-    CALL SY_CMT
-    CALL PR_TAKE                 ; Consume end.
-    LD   E,TK_EOL
-    JP   PR_NEED
+;@ROUTINE OUT A,CARRY,ZERO CLOBBERS BC,DE,HL,SIGN,PARITY,HALFCARRY
+; Island EnumDeclaration, after `enum`: the ENUMS overlay's entry (ED_RUN,
+; ENDECL.ASM), run above NAMES through OV_XCALL.
+
+EN_DECL:                       ; After `enum`.
+    XOR  A                         ; Entry 0
+    LD   B,OV_ENUMS                ; of ENUMS
+    JP   OV_XCALL                  ; runs; it returns.
 
 ; A type name's payload BC. Resolve its qualified member as known enum.
 ; Non-enum names retain the existing wrong-class diagnostic.

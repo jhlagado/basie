@@ -33,10 +33,11 @@ disks in the tests and the Triptych machine's.
 | `PREP` | `PREP.ASM` | 165 | once, by `PR_BUILD`: the parse state cleared and the tables placed above the largest part |
 | `NAMES` | `PREDEF.ASM` | 947 | before the parse, for all of it: the predeclared names stay where `RO_LIB` reads them, so lookups are as fast as from the image |
 | `FLOAT` | `FLOAT.ASM` | 1,458 | above `NAMES`, when a compilation meets an `f32` constant: decimal literals to `f32` and the folding of `f32` constants |
-| `OWNERS` | `OWNERS.ASM` | 1,639 | above `NAMES`, in `FLOAT`'s place: pool and record declarations and owner descriptors |
-| `SPILL` | `SPILL.ASM` | 199 | above `NAMES`, only when a routine outgrows the free memory: its whole records written to `NAME.$CD`, and the file opened again to read them back; `OV_SCALL` loads again the overlay it replaced |
+| `OWNERS` | `OWNERS.ASM` | 1,663 | above `NAMES`, in `FLOAT`'s place: pool and record declarations and owner descriptors |
+| `SPILL` | `SPILL.ASM` | 199 | above `NAMES`, only when a routine outgrows the free memory: its whole records written to `NAME.$CD`, and the file opened again to read them back |
+| `ENUMS` | `ENDECL.ASM` | 149 | above `NAMES`, in `FLOAT`'s place: an enum declaration and its members |
 | `CHAIN` | `CHAIN.ASM`, `BLCLOSE.ASM` | 496 | after a compilation, to write the entry and limits records, close the streams and, unless option C, run `BLINK`; with option X, to run `BLINK` alone |
-| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,110 | to print a diagnostic, to delete the streams after a failure, and, after a fault while the program is parsed, to read the parts not yet read for a lexical one first, in the order they were loaded (`MS_LEXS`, within its first 947 bytes, which `FLOAT` loading above `NAMES` leaves) |
+| `DIAG` | `MESSAGE.ASM`, `PARTNAME.ASM` | 1,286 | to print a diagnostic, to delete the streams after a failure, and, after a fault while the program is parsed, to read the parts not yet read for a lexical one first, in the order they were loaded (`MS_LEXS`, within its first 947 bytes, which `FLOAT` loading above `NAMES` leaves) |
 | `LOOKUP` | `LOOKUP.ASM`, `FILENAME.ASM` | 1,063 | with option T, to look up a trap's address |
 
 The overlay area is 2,611 bytes: `NAMES` and `OWNERS` above it, the

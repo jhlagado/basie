@@ -87,6 +87,14 @@ export const OVERLAYS = [
     offset: 0,
     after: "NAMES",
   },
+  // Above NAMES too: enum declarations (EN_DECL through OV_XCALL).
+  {
+    name: "ENUMS",
+    equate: "OV_ENUMS",
+    files: ["ENDECL.ASM"],
+    offset: 0,
+    after: "NAMES",
+  },
 ];
 
 export type Overlay = {
