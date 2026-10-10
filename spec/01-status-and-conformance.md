@@ -5,6 +5,13 @@
 
 This specification is a working draft. Basie 1.0 has not been frozen or released as a standard, and later revisions may change rules recorded here. This revision defines the complete proposed Basie 1.0 source language and supports conformance review, but the project may still correct it before the freeze.
 
+The current software development line is **0.1**. The **1.0** designation in
+this specification refers to the proposed language standard when ready to
+stabilize, not to a delivered toolchain release. The previously named "version
+two" development work is the **next development milestone**; no next software
+release number is assigned. These labels do not change source semantics,
+conformance requirements, target contracts or binary format versions.
+
 The language under design is named **Basie 1.0**. It has one source language: no language levels, selectable language profiles, or compiler-selected subsets of standard syntax exist.
 
 ## 1.2 Scope

@@ -91,7 +91,7 @@ cycle checks and stack checks.
 | Program storage | top-level `var`, `const` | the whole run | never |
 | Activation storage | locals, at any statement position (D28) | to the end of the enclosing block | at the end of the block |
 | Pool storage | slots of a top-level `pool` | from `new` until freed | when its owner goes away |
-| Arena storage | version 2 | one scope | at the end of the scope |
+| Arena storage | indefinitely deferred proposal | one scope | at the end of the scope |
 
 There is no general heap. Every byte a program can use is declared in the
 source, at a size fixed when the program is linked.
@@ -672,7 +672,14 @@ compiles and is memory safe by bounds checking, but detects no stale index.
 Compiler memory: a flow state per owning local per open block, and `need` per
 routine. No effect sets and no alias provenance are needed.
 
-## 11. Version 2
+## 11. Future-feature safety notes
+
+These notes retain safety obligations from earlier sketches. The
+[forward plan](version-2.md) governs admission and the
+[catalogue](stretch-goals.md) governs disposition: variants and arenas are
+indefinitely deferred. Full typed noncapturing routine values are provisionally
+accepted for the next milestone, including parameters, variables and record fields, with an
+explicit back-out gate. Closures are excluded.
 
 **Variants with owning payloads** need rules for binding (an owning payload binds
 as an identifier), construction, overwrite (the old payload is freed through a
@@ -682,8 +689,18 @@ tag-selected descriptor) and pool-field subjects.
 allocation needs its own capacity check, because the static stack bound can't
 cover a run-time size.
 
-**Routine values** must carry their `from` clause in their type, and a call
-through one counts as a forward call for the stack rule.
+**Routine values** require complete signatures, including writable and ownership
+permissions, failure effects and `from` provenance. Define initialisation and
+valid targets for variables and record fields. Indirect calls must preserve
+stack safety and linker liveness; applying the forward-call check is an earlier
+implementation sketch to verify, not a completed safety proof.
+
+**Temporary read-only array slices** are accepted for the next milestone as checked subrange
+arguments to existing typed open-array routines. Preserve the backing object's
+lifetime and pool lease protections. Writes through the view are forbidden;
+backing storage is not globally frozen. Specify empty views, endpoints, checked
+arithmetic and nesting before implementation. Writable and string slices remain
+deferred, and the current 0.1 completion scope is unchanged.
 
 ## 12. Open questions
 

@@ -7,6 +7,16 @@ This document records the language decisions made so far, with the reasons for
 each, and the questions still open. The [specification](../spec/README.md) is
 the authority for the rules; these entries record why they are as they are.
 
+## Current version terminology
+
+As of 2026-10-10, the software development line is **0.1**. Version **1.0** is
+reserved for eventual language stabilization; the proposed language specification
+remains a working draft. The formerly named "version two" scope is the **next
+development milestone**, with no assigned release number. Older version-one and
+version-two entries retain their historical wording; current status notes and
+the [forward plan](version-2.md) govern present planning. Format, ABI, helper and
+CP/M version numbers are independent and unchanged.
+
 ## Decided
 
 ### D1. One source pass
@@ -350,7 +360,11 @@ the node, as a lease does; for any other subject it binds an identifier.
 `select move x` moves the value out of `x` and, in `some(n)`, binds `n` as a
 non-optional owning local, which is how a `nodes?` becomes a `nodes`.
 
-**Version 2.** Enumerations and variants whose cases carry data, with
+**Later planning.** The original grouping below is superseded by the
+[forward plan](version-2.md): plain enums and typed failure codes are accepted
+for the next milestone, with enums first as a dependency. Payload variants remain indefinitely deferred.
+
+**Original version-two sketch.** Enumerations and variants whose cases carry data, with
 exhaustiveness checking and one level of destructuring, come together in
 version 2 (D24), since an enumeration is a variant without data. They extend
 `select`; Rust-style nested patterns and guards are not planned. Version 1
@@ -550,7 +564,19 @@ handles, local aggregates with `from`, arrays of arrays, `var` parameters, pools
 and handles with `move`, `private` and `include`, run-time `assert`, and
 services for I/O.
 
-Deferred to **version 2**: enumerations and variants whose cases carry data,
+The list below records the original deferral from 1.0. Current priorities and
+dispositions are in the [forward plan](version-2.md) and
+[catalogue](stretch-goals.md). Plain enums and typed failures are accepted
+next-milestone directions, with design completion and separate measured budgets required.
+The open-array descriptor correction is accepted for the next milestone before dependent
+slice and array extensions, preserving address/extent calls and ownership rules.
+Full typed noncapturing routine values are provisionally accepted for the next milestone, with
+a whole-feature prototype and back-out gate. Temporary read-only array slices
+are accepted for the next milestone, with checked ranges and transient lifetime/lease rules.
+Writable and string slices, variants and precompiled libraries remain deferred. Closures are excluded. Limited type
+parameters remain rejected.
+
+Originally deferred to **version 2**: enumerations and variants whose cases carry data,
 expression blocks (O3), arenas (O4), routine values (O5), default parameter
 values (O6), generics (D23) and `repeat`.
 
@@ -571,8 +597,14 @@ be initialised by zeroing only its length byte.
 
 ### D26. Failure codes are named constants; enumerations later
 
+**Forward status, 2026-10-10.** Plain enums and enum-typed failure codes are
+accepted for the next milestone, with enums first as a dependency. Their design completion and
+separate measured budgets remain required. No payload errors or variants are
+admitted. The current 0.1 completion scope remains unchanged and no implementation is requested now.
+
 A failable routine reports a `u8` code, normally named by a
-constant: `const fileMissing = 1`. In version 2, when enumerations arrive, a
+constant: `const fileMissing = 1`. In the next milestone, after enums are
+implemented, a
 routine may name the enumeration its codes come from,
 `sub open(name as string[]) fails FileError`, and the compiler checks that
 `fail` and `handle` use that enumeration's values. Richer error values carrying
@@ -839,6 +871,13 @@ programming language, software product or retro-computing project uses Basie.
 
 ## Open
 
+O3–O6 retain earlier design notes. The version-two labels are historical, not
+release commitments. The [forward plan](version-2.md) governs priorities.
+Expression blocks, arenas and default parameters are indefinitely deferred.
+Full noncapturing routine values are provisionally accepted under the
+[catalogue](stretch-goals.md#typed-noncapturing-routine-values), with evaluation
+of parameters and stored values together. Closures remain excluded.
+
 ### O1. Exclusivity (resolved)
 
 Resolved by D16 and D17: Basie has no exclusivity rule. Overlapping aliases to
@@ -869,6 +908,14 @@ the end of static storage and the stack is available for this at run time,
 starting at the address of the `FREE` pseudo-object ([object format](object-format.md), §3.4).
 
 ### O5. Routine values (version 2)
+
+**Current status, 2026-10-10.** Provisionally accepted for the next milestone as the whole typed
+noncapturing feature, including parameters and storage in variables and record
+fields. This supersedes parameter-only and stored-reference deferral. Prototype
+the full scope; an unacceptable complexity or measured budget requires an
+explicit back-out decision. Signature checking, defined initialisation,
+indirect-call stack safety and linker liveness are required. Closures remain
+excluded. The current 0.1 completion scope is unchanged and no implementation is requested now.
 
 Function pointers or routine values. The build pipeline already handles them
 for tree shaking (a routine whose address is taken by live code stays live),
@@ -1084,27 +1131,72 @@ plainly.
 
 ## Adopted for the next language version
 
-Decided by John on 2026-10-10, following comparisons with [Rust](rust-comparison.md) and Zig. D48 to D52 apply to the language after Basie 1.0 and are listed in order of importance. The 1.0 specification is unchanged until each has specification text and conformance tests. Each must also be measured against the compiler budget (D43) before the native compiler admits it. The [stretch goals](stretch-goals.md#adopted-for-the-next-language-version) record the design points still to settle and the cost evidence.
+D48–D52 record the 2026-10-10 directions following comparisons with
+[Rust](rust-comparison.md) and Zig. Their numeric order is historical, not the
+current priority. The proposed 1.0 language specification remains unchanged
+until a direction has normative text and conformance tests. Each compiler
+change must also pass the budget checks in D43.
+
+The [forward plan](version-2.md#2-selected-next-development-milestone) and
+[catalogue](stretch-goals.md#priority-and-confidence) order the accepted next
+milestone by value, confidence and dependencies. Call-site `var`, colon types,
+restricted `try`, plain enums, exhaustive value selection and typed failure
+codes are high-priority foundations. Plain enums have a clear safety purpose;
+typed failures depend on them. Open-array descriptors are accepted compatibility
+work before dependent slices. Temporary read-only slices need a bounded
+range/lifetime prototype. Full noncapturing routine values, including storage,
+have the greatest uncertainty and retain a whole-feature prototype and explicit
+back-out gate. Confidence never waives measurements. Coordinate the broad source
+migrations after the rules are specified.
+
+Candidate selection is complete; design and measured admission remain open.
+D50 is explicitly deferred, superseding its earlier adoption. Writable and
+string slices, variants, libraries and interfaces remain deferred. Current 0.1
+completion comes first; no language-feature implementation is requested now.
 
 ### D48. `try` passes a failure on
 
-`try` before a failable call passes its failure on: if the call fails, the routine fails with the same code. It replaces `else fail`.
+**Current status, 2026-10-10.** Accepted for the next milestone as a prefix replacement for
+`else fail`, retaining the current failure-call position restrictions. The
+feature is unimplemented; the current 0.1 completion scope is unchanged and no implementation is requested now.
+
+`try` before a failable call propagates that call's failure with the same code
+from the enclosing routine. It consumes one invocation's failure and requires
+an enclosing routine declared `fails`.
 
 ```basie
 try writeText(console, "Name? ")
 var count = try parseU16(text)
-try appendU16(report, try parseU16(text))
+count = try parseU16(otherText)
 ```
 
-Only a routine declared `fails` may use `try`, as with `else fail` today. A failure can still be dealt with in place with `handle code … end` after the call. So `try` at the front means the line may leave the routine, and `handle` after the call means the failure is dealt with there.
+The call must be the complete expression initializer of a local declaration,
+the complete assignment source or a complete routine-call statement. Preserve
+the existing `handle` behaviour and exactly one failure consumer per call.
+`try` does not propagate failures implicitly across a whole statement. Failable
+calls remain forbidden inside arguments or larger expressions, including nested
+`try` calls and `return try`. Successful results and cleanup on propagated
+failure retain the current rules in specification §14.4.
+
+The earlier illustration `try appendU16(report, try parseU16(text))` is outside
+the accepted scope. Larger-expression failure handling remains a separate
+deferred possibility, with no next-milestone nomination.
 
 **Why.** About nine failures in ten are passed on: the library, examples and tests have 1,172 `else fail` and 120 `handle`. The commonest case should be the shortest, and `else fail` is ten characters repeated on most lines of input and output code. `try` is visible at the start of the line, like `move`, which also marks an effect before the expression it applies to. Zig and Swift use the same keyword for the same job.
 
 **Rejected.** Implicit propagation, because every failable call would become a hidden exit. `?` after the call, because `?` already marks optional types and `new?`. `!` after the call, because one character at the end of a line is easy to miss, and readers of TypeScript, Kotlin and Swift take a trailing `!` to mean "this can't fail".
 
-**To settle.** `try` applies to one call, so a nested failable call needs its own `try`. Whether `try` is allowed on a call inside a larger expression or only where the call's value is used directly. The 1,172 `else fail` uses change mechanically.
+**To settle.** Prefix parsing, diagnostics and coordinated replacement of
+`else fail` within the existing permitted positions. This is a spelling change,
+not admission of nested failure calls or new expression positions.
 
 ### D49. A writable argument is marked `var` at the call
+
+**Current status, 2026-10-10.** Accepted for the next-milestone plan after review.
+The feature is unimplemented and does not change the
+current 0.1 completion scope. It marks permission to mutate caller storage,
+not ownership transfer or Rust-style exclusivity. Lease arguments and forwarded
+writable-result spelling remain to settle. No implementation is requested now.
 
 A call to a routine with a `var` parameter marks the argument:
 
@@ -1121,6 +1213,14 @@ The marker is required. A missing or unexpected `var` is a compile error. D17 is
 **To settle.** The marker for a lease (`bump(var h)`, D30) and for passing on a `var` result.
 
 ### D50. `for … in` iterates over an array
+
+**Current status, 2026-10-10.** Explicitly deferred, superseding earlier
+adoption. Counted loops already express traversal; the added syntax and concepts
+do not justify accepting this feature under cognitive smallness. It is not
+accepted next-milestone scope and no implementation is requested. Read-only slices are
+independently accepted for the next milestone; writable and string-slice extensions remain
+deferred. The
+sketch below retains the earlier proposal, not a current language rule.
 
 A loop can run over an array's elements directly:
 
@@ -1142,19 +1242,34 @@ for i, item in readings       // i counts 0, 1, 2 … as a u16
 end
 ```
 
-**Why.** A counted loop can drift from the array it indexes. The loop's bound and the array's length are written separately, and nothing traps when they disagree. Iterating over the array removes that bug, which is the main safety benefit Rust gets from iterators. The index is always in range, so the loop needs no bounds check.
+**Earlier rationale.** Tying traversal to an object's extent could reduce mismatched loop bounds. Existing bounds checks already trap out-of-range indexing, but a shorter loop can silently omit elements. This convenience does not establish sufficient benefit to accept the additional syntax now.
 
 **To settle.** Whether scalar elements and string bytes are bound as copies, and the index's type for arrays that fit a `u8`.
 
 ### D51. A value `select` needs `case else` unless it covers every value
 
+**Current status, 2026-10-10.** Accepted for the next milestone. The feature is unimplemented;
+the current 0.1 completion scope is unchanged and no implementation is requested now. Coverage is checked at
+compile time. A selection must cover every possible subject value or have an
+explicit `case else`. Intentional do-nothing behaviour must be explicit.
+
 A `select` on an integer, character or Boolean subject must have `case else`, unless its labels cover every value of the subject's type.
 
-**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Enumerations, when they arrive, will use the same rule for exhaustive selection.
+**Why.** Today a value that matches no case runs nothing and passes unnoticed. Requiring `case else` makes that choice visible. Accepted next-milestone plain enums use the same exhaustiveness rule.
 
-**To settle.** Whether `case else` may be empty, and whether a handle `select` must always have both its `some` arm and its `none` or `else` arm (recommended: yes).
+**To settle.** An empty `case else` is the intended explicit no-op; settle its
+formal grammar. Handle-selection completeness is a separate unresolved question
+and was not decided by this acceptance. The earlier suggestion to require both
+`some` and `none` or `else` is not an accepted rule.
 
 ### D52. `:` in place of `as` for types
+
+**Current status, 2026-10-10.** Accepted as a next-milestone plan item alongside D49.
+Colon replaces `as` at type positions: declarations, parameters, results,
+record fields and pool declarations. Typing, ownership permissions, name-first
+order and single-pass parsing are preserved. Modifier placement and coordinated
+migration remain to settle. The feature is unimplemented and is not current 0.1 completion
+work. No implementation is requested now.
 
 A declared name is followed by `:` and its type, in place of `as`:
 
@@ -1169,10 +1284,10 @@ end
 
 This revises D14's choice of `as`. Name-first order and single-pass parsing are unchanged.
 
-**Why.** The colon is shorter and is the form most programmers know, from TypeScript, Pascal, Go, Rust and Zig. It is made in the same rewrite as `try` (D48) and `var` at the call site (D49), which touch nearly every source file anyway, so the cost of rewriting the library, tests and book is paid once.
+**Why.** The colon is shorter and familiar from TypeScript, Pascal, Rust and Zig. The earlier migration sketch grouped it with `try` (D48) and call-site `var` (D49) to coordinate rewriting the library, tests and book. D49, D52, restricted D48 and D51 are now accepted for the next milestone. Coordinate migration against their final specified rules.
 
 **To settle.** Every place `as` appears today: declarations, parameters, results (`as var T` becomes `: var T`), record fields and pool declarations (`pool jobs as Job[1]`). Whether `as` remains anywhere. Colon has no token in Basie 1.0 (§3), so it is free to take.
 
 ### Withdrawn and deferred, 2026-10-10
 
-Each adopted change was then tested against real Basie code, and only those that prevent a real bug, remove frequent friction or add a missing capability were kept ([stretch goals](stretch-goals.md)). `else` with a value, `defer`, default field values and block comments were withdrawn. Named record initialisers were deferred. Namespaced includes moved to version 2, with module interfaces, and shadowing stays refused (spec §5.6).
+Each adopted change was then tested against real Basie code, and only those that prevent a real bug, remove frequent friction or add a missing capability were kept ([stretch goals](stretch-goals.md)). `else` with a value, `defer`, default field values and block comments were withdrawn. Named record initialisers were deferred. Namespaced includes were grouped with module interfaces in the earlier next-milestone sketch. Both are now deferred in the [forward plan](version-2.md). Shadowing stays refused (spec §5.6).

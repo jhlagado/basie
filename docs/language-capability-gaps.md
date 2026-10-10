@@ -7,7 +7,12 @@ This document examines ordinary programming operations that the proposed Basie 1
 
 Type safety, memory safety, defined behaviour and an understandable compiler remain design goals. A restriction is not justified merely because an earlier design had it. Nor does familiarity in another language establish that a feature belongs in Basie. The question is what a programmer cannot express cleanly and what information a safe implementation would need.
 
-The [specification](../spec/README.md) remains authoritative. The [stretch-goals brief](stretch-goals.md) records evaluation priorities and existing cost estimates. Neither document admits new syntax into the frozen 1.0 language.
+The [specification](../spec/README.md) remains authoritative for current programs.
+The [forward development plan](version-2.md) governs future priorities. The
+[stretch-goals catalogue](stretch-goals.md) records selected, deferred and
+rejected dispositions with provisional costs. This discussion retains earlier motivations
+and candidate sketches, not current implementation commitments. None admits
+new syntax into the proposed 1.0 language working draft.
 
 ## Feedback into ongoing development
 
@@ -19,7 +24,7 @@ John explicitly supports retaining enumerations, tagged unions and enumeration-i
 
 The examples and candidate mechanisms below are suggestions raised in that discussion. They are not all endorsed language changes. John asked for the capability argument to come before cost measurement: explain what ordinary programming becomes awkward or impossible to express directly, why a safe alternative could help and what obligations it introduces. Cost figures remain provisional and implementation requires a further design decision.
 
-For the ongoing work: finish the existing 1.0 commitments and capacity corrections while retaining this agenda. Revisit the relevant candidate when changing its subsystem, record evidence and unresolved questions here and in the design record, and avoid silently treating either an existing restriction or a suggested extension as settled authority.
+For the ongoing work: finish the current 0.1 toolchain commitments and capacity corrections while retaining this agenda. Revisit the relevant candidate when changing its subsystem, record evidence and unresolved questions here and in the design record, and avoid silently treating either an existing restriction or a suggested extension as settled authority.
 
 ## Passing part of an existing object
 
@@ -31,15 +36,31 @@ A checked slice could package the region and its bounds together. The useful cap
 
 String slices need a separate decision: a read-only sequence of bytes is different from a writable bounded string whose length can change. Slicing must not silently permit mutation of another object's length or capacity. Empty regions, writable views and alias results also require explicit rules.
 
+Temporary read-only array slices are now accepted for the next milestone as checked subrange
+arguments to existing typed open-array routines. Writable slices and string-slice
+semantics remain separately deferred. Specify endpoints, empty slices, checked
+arithmetic, nested views and transient lifetime/lease protection. This is no current-scope
+amendment or request to implement now.
+
 ## Returning a constructed record or array
 
-A routine computes a point and wants to return the result as one object. Basie's aggregate results are aliases, never fresh aggregate values. An alias cannot refer to the callee's local storage. A caller can supply a writable destination, copy an alias to longer-lived storage, or receive a pool handle instead (spec 6.5, 7.7 and 13.6).
+A routine computes a point and needs a result object. Basie's aggregate results
+are aliases, never fresh aggregate values. An alias cannot refer to the callee's
+local storage. A caller can supply a writable destination, copy an alias to
+longer-lived storage, or receive a pool handle instead (spec 6.5, 7.7 and 13.6).
 
-Value returns for non-owning aggregates would let a routine construct and return a result without arranging longer-lived storage. The caller could supply hidden result storage, keeping the source operation safe without retaining a pointer to an expired local. This is a candidate mechanism, not a chosen calling convention.
+Fresh non-owning aggregate value returns are now
+[rejected](stretch-goals.md#fresh-aggregate-value-returns), superseding the earlier
+deferred proposal. Hidden caller-result storage could safely support the
+mechanism. Nested calls such as `draw(makePoint(...))` would also need implicit
+statement temporaries, lifetime and cleanup rules and stack accounting.
+Explicit destinations and pool handles already cover the need, so that added
+machinery conflicts with Basie's design constraints. The mechanism is technically possible;
+it is not an implementation or next-milestone nomination candidate.
 
-Records and arrays with owning fields are a separate problem. Copying them duplicates ownership and is invalid today. Moving whole owning aggregates would require its own transfer and cleanup rules. A limited non-owning value-return feature need not imply that extension.
-
-The design must state result evaluation order, destination placement, alias interactions, stack costs and behaviour when the routine fails. Large fixed results can be safe and still expensive to copy.
+Records and arrays with owning fields require separate transfer and cleanup
+rules. Copying them duplicates ownership and remains invalid. No extension to
+aggregate ownership transfer follows from this discussion.
 
 ## Supplying behaviour to an algorithm
 
@@ -48,6 +69,13 @@ Sorting records requires a comparison operation. Tree traversal requires an acti
 A specialised sorter or walker can implement the algorithm today. The restriction is separation and reuse: application behaviour becomes part of the algorithm's implementation, or the implementation is duplicated.
 
 Two bounded alternatives deserve separate discussion. Compile-time binding of a named operation could produce direct calls in a specialised algorithm. A call-bound routine parameter could lend behaviour for one invocation without allowing it to escape. Neither requires general closures. The former raises questions about source processing and duplicated code. The latter introduces indirect calls whose signatures, failure effects, stack requirements and alias rules must be checked. A context argument may be needed to supply state without capturing a caller's frame.
+
+The current forward decision provisionally accepts full typed noncapturing
+routine values for the next milestone, including parameters and storage in variables and record
+fields. That supersedes a parameter-only candidate boundary. The whole-feature
+prototype must establish signature safety, initialisation, indirect-call stack
+checks and linker liveness, or lead to an explicit back-out decision. Closures
+remain excluded and no implementation is requested now.
 
 ## Reusing an algorithm across element types
 
@@ -62,6 +90,11 @@ Possible costs include specialised code copies, retained declarations and additi
 Basie already distinguishes successful results, recoverable errors and terminating safety traps. Every failable call must have one explicit consumer. It can be a complete local initializer with propagation, a complete assignment source or a complete call statement. It cannot be nested in an argument or a larger expression (spec 14.4).
 
 A programmer therefore extracts each potentially failing operation into a separate statement before combining results. This is often clear, but imposes extra staging in parsers and pipelines. Explicit propagation within expressions could preserve checked failure handling while permitting composition. Its design must define left-to-right evaluation, the first failure, ownership transferred by earlier arguments, temporary cleanup and whether a destination remains unchanged.
+
+D48 is now accepted for the next milestone only as a prefix replacement for `else fail` within
+those current call positions. Nested failable calls and larger-expression
+composition remain separately deferred, with no next-milestone nomination. This capability
+argument does not expand the accepted scope.
 
 This is separate from typed errors. Enumerations could distinguish error domains, and tagged unions could attach data such as an input position. Payload-bearing errors would need transfer and lifetime rules. General result values could be stored and inspected, whereas the existing failure channel is attached to an invocation. These are independent capabilities, not one required replacement of fails and handle. Safety traps remain non-recoverable unless a separate design explicitly changes that contract.
 

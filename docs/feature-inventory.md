@@ -1,14 +1,14 @@
 # Basie feature inventory
 
-- Status: version 1 list frozen (roadmap step 5); costs updated as measured
+- Status: current 0.1 completion feature list fixed; historical costs retained
 - Date: 2026-10-04
 - Related: [design decisions](design-decisions.md) (D9 budget, D24 scope),
   [memory safety](memory-safety.md), [build pipeline](build-pipeline.md)
 
 ## 1. Purpose
 
-This document lists every feature of Basie, what each costs, and which version
-it belongs to. It is the ledger the compiler budget is kept against.
+This document lists every feature of Basie, its estimated costs and its
+current disposition. It is the ledger the compiler budget is kept against.
 
 All sizes are **estimates** until measured. They are anchored to one measured
 figure: a compiler core for the base language (the first row of Section 3) is
@@ -38,9 +38,12 @@ The compiler is kept within budget by:
    conversion, in `BASIE.OVL`;
 5. writing strings, formatting and other library facilities in Basie source;
    and
-6. deferring features to version 2 when they don't fit.
+6. deferring features that do not fit, without assigning them a release number.
 
 ## 3. Version 1
+
+This historical heading names the current 0.1 completion scope, not a delivered
+1.0 release. The table retains the original estimates.
 
 | Feature | Compiler | Runtime, if used | Notes |
 | --- | --- | --- | --- |
@@ -69,13 +72,28 @@ The standard library, written in Basie and tree-shaken, provides string
 building, comparison and searching, conversion between numbers and text
 (including `f32`), and the console and file conveniences built on the services.
 
-**Frozen.** This is the complete version 1 language. A feature is added to
-version 1 only by a new design decision that also says what it displaces or
-which measured saving pays for it; otherwise new ideas go to version 2. The
+**Feature selection frozen.** This list is the current 0.1 completion scope.
+Earlier entries call it version one; that label is historical.
+The specification remains a working draft; this is not a formal specification
+freeze. Adding a feature to current completion requires a new design decision
+that says what it displaces or which measured saving pays for it. Otherwise it
+remains a future candidate, subject to the forward plan. The
 standard library (D36), the message file (D39) and the link-time file table
 (D38) add nothing to the compiler's language cost.
 
-## 4. Version 2
+## 4. Historical extension estimates
+
+These estimates retain the original version-two inventory. That earlier label
+has been replaced by the next development milestone, without an assigned release
+number. The table also contains deferred and rejected items outside that scope. The
+[forward plan](version-2.md) governs nomination and admission. The plain enum
+estimate in the [catalogue](stretch-goals.md) is separate from the combined
+enum-and-variant row below. The catalogue gathers all proposals under review
+and records deferrals and rejections.
+A row here does not schedule a feature or authorise its estimated cost. Full
+typed noncapturing routine values are provisionally accepted for the next milestone under the
+catalogue's whole-feature prototype and explicit back-out gate; the O5 estimate
+below remains unmeasured.
 
 | Feature | Compiler | Notes |
 | --- | --- | --- |
@@ -120,11 +138,16 @@ forward references.
 **Cost.** About 0.6K of compiler, nothing at run time. It
 replaces long `elseif` chains, which are larger and slower.
 
-## 6. Enumerations and variants, in version 2
+## 6. Earlier enumeration and variant sketch
+
+Plain enums and typed failure codes are now accepted next-milestone directions, with enums
+first and separate measured budgets required. Payload variants remain
+indefinitely deferred. The [forward plan](version-2.md)
+supersedes the schedule implied by this earlier sketch.
 
 Rust's `match` is powerful because of variants whose cases carry data,
-destructuring, and exhaustiveness. Basie's version 2 takes the first and third
-with one level of destructuring, leaving out nested patterns and guards:
+destructuring and exhaustiveness. The earlier Basie sketch proposed the first
+and third with one level of destructuring, leaving out nested patterns and guards:
 
 ```basie
 variant Shape

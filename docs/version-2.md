@@ -1,258 +1,202 @@
-# Version 2 plan
+# Forward development plan
 
-Roadmap step 72. Basie 1.0's specification is frozen; this plan proposes
-what version 2 adds, in what order, and what it costs, so that each feature
-can be admitted by a design decision with its specification and conformance
-changes. It builds on the [feature inventory](feature-inventory.md) §4 and §6,
-design decisions D15, D24, D26 and O3 to O5, [memory safety](memory-safety.md)
-§11 and the [stretch goals](stretch-goals.md) brief.
+Updated 2026-10-10. This is the authoritative plan for the current **0.1
+toolchain line** and the **next development milestone**. Version **1.0** is
+reserved for eventual language stabilization, not a delivered toolchain release.
+The next milestone has no assigned release number; it replaces the earlier
+"version two" label. The historical path `version-2.md` is retained.
 
-## 1. Where version 1 stands
+Current 0.1 completion comes first. The selected scope comprises call-site `var`,
+colon types, restricted `try`, plain enums, exhaustive value selection, typed
+failure codes, the open-array descriptor correction and temporary read-only
+array slices. Full typed noncapturing routine values are provisionally included
+with an explicit back-out gate.
 
-At step 71 the native toolchain compiles the whole of Basie 1.0 that the
-conformance corpus and the claimed programs use, byte for byte as the
-reference compiler does (D45), with a few constructs still refused (limits
-§5.1, "Constructs compiled"). Its capacities are measured (limits §5.1): the
-specification's minimums hold, with a source area of 22.5K beside a
-`BASIE.COM` of 25,441 bytes and a 2,560-byte overlay area, 28,001 bytes in all.
+The [stretch-goals catalogue](stretch-goals.md) holds the feature arguments,
+semantics to settle and deferred or rejected dispositions in one place. The
+[feature inventory](feature-inventory.md) retains provisional estimates, not
+measured budgets or implementation permission. Selection is complete for this
+review; design and measured admission remain unfinished. No implementation is
+requested now.
 
-That total is the binding constraint. D43 sets a 26K target and a 28K limit
-(28,672 bytes) and forbids crossing 30K; version 1 ends 671 bytes under the
-limit. The headline version 2 features are estimated at 2.7 to 4.2K of compiler
-(§3), more than the margin, so version 2 begins with room.
+The [proposed 1.0 language specification](../spec/01-status-and-conformance.md)
+governs current programs and remains a working draft. The feature-selection freeze for completion
+excludes optional additions, not corrections to existing rules. It is separate
+from formally freezing the eventual 1.0 language specification. A planned
+feature requires normative text, conformance tests and an admitted native implementation before becoming
+available. This plan and the [design decisions](design-decisions.md) record
+forward directions; they add no syntax to the current language.
 
-## 2. Room first
+## 1. Complete the current language first
 
-No version 2 feature lands until an increment before it recovers at least its
-measured cost. The sources of room, in the order to try them:
+Basie is a general-purpose language for small systems, in the BASIC and Pascal
+tradition. Extensions should make algorithms clearer while preserving static
+typing, explicit ownership and `move`, transient aggregate aliases, fixed pools
+and checked non-owning identifiers. They must remain understandable to readers
+and implementable by the single-pass CP/M compiler. Cognitive smallness is the
+primary admission criterion: preserve a small conventional imperative language
+with few concepts and clear rules. Compact machine implementation is a separate
+constraint.
 
-1. **Compression passes** over the resident image. Step 68's census found the
-   largest routines (`AC_LABEL`, `BL_WRITE`, `RO_ARGS`, `GX_TRIM`, `RO_ASGN`)
-   and the repeated sequences; 68.5 took the first 32 bytes. A systematic
-   pass, file by file, counting a pattern's sites before rewriting any one
-   of them (`deno task census:basie`), is expected to find 0.5 to 1K.
-2. **Declaration code into overlays.** Record, pool, constant and type
-   declarations run once each and only at top level; moving them out of the
-   resident image costs an overlay load at the first declaration of each kind,
-   which the user has asked to keep rare. Only code that a typical build calls
-   once may move; profiles (step 68) decide it.
-3. **A second overlay phase** ([overlay phase exploration](overlay-phase-exploration.md)):
-   the statement compiler and the declaration compiler in separate overlays,
-   swapped per top-level declaration. Larger saving, but a load per routine;
-   measured on the corpus before adoption.
-4. **The limit itself.** D43 allows a limit up to, but never at, 30K. Every
-   byte above 28K comes out of the source area, now 22.5K, and so out of the
-   largest compilable part and routine (limits §5.1). A raised limit needs its
-   own decision weighing those losses.
+Roadmap step 74 is recorded as complete for the current completion scope
+(formerly called version one). Before extensions,
+confirm the current conformance corpus, native/reference equivalence, capacity
+minimums, stress tests and release workflow. Resolve capacity defects against
+the existing contract. A correction to a compiler limit is not a new language
+feature. Representation corrections deferred from current completion remain tracked below.
 
-Each feature below states its estimated cost; its increment measures the
-real cost, and the room it needs is found before it starts.
+The [limits register](limits.md) and the current build's size checks supply the
+capacity baseline. Historical source-area and image figures are not a budget
+for new work. D43 sets a 26 KiB target and a 28 KiB limit, with 30 KiB a ceiling
+that no decision may cross. This plan does not raise the 28 KiB limit.
 
-## 3. Features
+Count the resident image and reserved overlay window together. Account for
+writable workspace, buffers and stack separately. A smaller COM file does not
+establish a smaller memory footprint. Repeated overlay loads can also make a
+build slower. Compression and overlay changes need their own correctness and
+latency measurements before their savings can fund an extension.
 
-### 3.1 Enumerations
+## 2. Selected next development milestone
 
-A closed set of named values, a distinct type with no implicit conversion to
-or from integers.
+Priority follows safety value, design confidence and dependencies, rather than
+simply taking the smallest estimated implementation first. Plain nominal enums
+are a high-confidence safety improvement: unrelated sets of codes become
+distinct types, without payloads or Pascal's wider ordinal model. The enum,
+exhaustiveness and typed-failure cluster is a high priority alongside clearer
+call and declaration syntax.
 
-```basie
-enum Direction
-    north
-    east
-    south
-    west
-end
+| Tier | Accepted work | Why it belongs here | Design and verification still required |
+| --- | --- | --- | --- |
+| 1. Dependable foundations | Required call-site `var` (D49), colon types (D52), restricted `try` (D48); plain nominal enums, exhaustive value selection (D51), then enum-typed failure codes | Make writable access and propagation visible; distinguish code domains and expose missing cases. These have comparatively clear purposes and bounded scope. | Settle syntax, modifiers, enum representation and conversions, coverage and failure-domain rules. Verify each change's safety, diagnostics and compiler budget. |
+| 2. Compatibility correction | Open-array type descriptors | Repair an existing representation restriction rather than add an optional language concept. This must precede dependent slice and array work. | Verify element matching, stride, scoped descriptor lifetime, workspace, diagnostics and unchanged address/extent calls. |
+| 3. Bounded capability | Temporary read-only array slices | Let existing typed open-array routines process checked subranges without copying. The representation is familiar, but range and lifetime rules need a careful prototype. | Specify endpoints, empty ranges, overflow, nesting and transient lifetime/lease protection; measure checks, generated code and workspace. |
+| 4. Greatest uncertainty | Full typed noncapturing routine values, including parameters, variables and record fields | Supply reusable behaviour and stored operations, with more extensive signature, target-liveness and indirect-call safety obligations. Inclusion remains provisional. | Prototype the whole feature; verify initialisation, signatures, result provenance, failures, stack checks and linker retention. Explicitly back out if complexity or measured budget is unacceptable. |
 
-var heading as Direction = Direction.north
+High confidence means less uncertainty about the feature's purpose and scope.
+It does not mean a free implementation, settled semantics or waived measurements.
+Every tier must pass section 5. Tiers express planning priority, not a rigid
+implementation order: finish 0.1 first, correct descriptors before dependent
+slices, and establish enums before typed failure codes. Coordinate the broad
+`var`, colon and `try` source migrations after their rules are specified, so
+library, test and book sources do not undergo repeated incompatible rewrites.
+Descriptor work can proceed before that migration where its dependencies require it.
 
-select heading
-case north, south
-    vertical()
-case east, west
-    horizontal()
-end
-```
+The [catalogue](stretch-goals.md#priority-and-confidence) records the same tiers
+and each feature's unresolved rules. D48–D52 retain their original decision
+order as history, not current priority. D50, `for … in`, is explicitly deferred;
+counted loops remain, independently of accepted read-only slices.
 
-- **Representation:** a byte, the members numbered from zero in declaration
-  order; at most 256 members. A program variable without an initializer is
-  its first member, as zero storage gives.
-- **Names:** a member is written `Direction.north`, qualified, so that members
-  of different enumerations never collide and shadowing (§5.6) is not
-  disturbed; in a `case` whose subject is an enumeration, the member alone.
-- **Conversions:** `u8(d)` gives the member's number; `Direction(n)` converts
-  a number, trapping when it names no member, as a narrowing conversion does.
-- **Selection:** `select` over an enumeration is checked for exhaustiveness
-  when it has no `case else`: a missing member is a compile-time diagnostic,
-  so adding a member finds every selection that must handle it.
-- **Equality** `=` and `<>` only; no ordering, arithmetic or ranges, which are
-  Pascal's ordinal model and not proposed.
-- **Cost:** estimated 0.6 to 1K (the inventory's 1.7 to 2.7K covers
-  enumerations and variants together).
+Restricted `try` preserves the current complete local-initializer,
+assignment-source and call-statement positions. It consumes one call's failure
+in an enclosing `fails` routine and preserves `handle` and cleanup. Nested
+failable calls, `return try`, implicit whole-statement propagation and general
+expression extensions are outside this acceptance.
 
-### 3.2 Typed failure codes
+Exhaustive value selection requires compile-time whole-domain coverage or an
+explicit `case else`. An empty default is intended, with formal grammar still
+to settle. Handle-selection completeness remains separately undecided. Enums
+have no payloads, ordinal arithmetic or enum-indexed arrays; typed failures
+introduce compatible error domains, not rich payload errors.
 
-D26 in full: `sub open(name as string[]) fails FileError` names the
-enumeration its codes come from; `fail FileError.missing` and `fail missing`
-are checked against it, and `handle` arms select on it as on an enumeration.
-An unqualified `fails` keeps today's `u8` codes. Estimated 0.1K once
-enumerations exist.
+Read-only slices forbid writes through the view while preserving transient
+lifetimes and pool leases. They do not globally freeze backing storage or impose
+Rust exclusivity. Writable slices and string slices remain separately deferred.
+Routine values capture no local environment; closures remain excluded. No
+feature implementation is requested and current 0.1 completion is unchanged.
 
-### 3.3 Variants
+## 3. Selected scope and deferred proposals
 
-Alternatives carrying differently typed payloads, the inventory's §6:
+All feature arguments and unresolved semantics are in the
+[catalogue](stretch-goals.md#accepted-next-milestone-directions). Its
+[checkpoint](stretch-goals.md#review-checkpoint) records the completed review.
+The selected scope does not automatically include nearby proposals: `for … in`,
+writable and string slices, payload variants, libraries and module interfaces
+remain deferred. Fresh aggregate value returns are rejected. Closures are
+excluded. The other deferred and rejected items retain their recorded status.
 
-```basie
-variant Shape
-    circle(radius as u16)
-    rect(width as u16, height as u16)
-    empty
-end
+Selection supplies planning scope, not missing semantics or verified costs.
+Full routine values must be evaluated and prototyped with parameters, variables
+and record fields together; an unacceptable result requires an explicit back-out
+decision. All selected items remain subject to section 5 before implementation
+admission. Current 0.1 completion remains the immediate obligation.
 
-var s as Shape = Shape.rect(4, 5)
+## 4. Open-array descriptor correction
 
-select s
-case circle(r)
-    area = 3 * u32(r) * u32(r)
-case rect(w, h)
-    area = u32(w) * u32(h)
-case empty
-    area = 0
-end
-```
+The [descriptor correction](stretch-goals.md#open-array-descriptor-correction)
+is accepted next-milestone compatibility and capacity work before dependent
+slice and array extensions. It remains deferred from current 0.1 completion.
+It concerns an existing facility rather than optional syntax or generics. Preserve address/extent calls and ownership, view and lease
+rules. Complete the current 0.1 toolchain completion contract first, then verify this
+correction before extensions that depend on the affected element types.
+The older 150–250 byte estimate across about 20 ID-range tests is unmeasured.
+No implementation is requested now.
 
-- **Representation:** a tag byte followed by the largest case's fields; no
-  allocation. An enumeration is a variant whose cases carry nothing, and the
-  two share the compiler's code.
-- **Construction** by `Shape.rect(4, 5)`, the payload in declaration order;
-  assignment replaces the whole value.
-- **Selection** binds an arm's payload as read-only names, one level deep: no
-  nested patterns and no guards. Exhaustive as for enumerations.
-- **Owning payloads** (memory safety §11): a handle in a payload binds as an
-  identifier, not an owner; construction moves an owner in; overwriting a
-  value frees the old payload's owners through a descriptor selected by the
-  old tag, which the runtime's `OBJ_FREE` gains (the helper table's version
-  rises); a variant with an owning case is an owning type, so local variants
-  are freed at their scope's end as local records are.
-- **Cost:** estimated 1.1 to 1.7K, the larger part of the inventory's figure,
-  and a runtime helper change.
+## 5. Evaluation and admission
 
-### 3.4 Expression blocks and `select` as an expression
+The primary admission criterion is cognitive smallness. A feature needs a
+concrete safety or capability benefit in real Basie algorithms sufficient to
+justify its additional language rules. Assess clarity and frequent friction
+through the same examples. Elegance for an experienced programmer, familiar
+syntax in another language and a shorter spelling do not establish that benefit.
 
-O3: a block that yields a value with `result`, `return` still leaving the
-routine; first as `select` used as an expression.
+Start with representative library or application code and compare equivalent
+behaviour before and after. Include the clearest existing statement-based
+solution as the alternative. Retain it when it adequately expresses the algorithm.
+Assess the proposed language as a whole:
 
-```basie
-var cost as u16 = select s
-case circle(r)
-    result r * 3
-case rect(w, h)
-    result w * h
-case empty
-    result 0
-end
-```
+- additional concepts a reader must learn;
+- special cases and interactions with existing rules;
+- duplicate spellings or parallel statement and expression forms;
+- subtle syntax that changes behaviour or requires expert interpretation.
 
-- Every path through every arm must reach `result` with a value of one type;
-  arms that trap or `fail` need none. The single pass checks it as it checks
-  that a routine returns.
-- The value is left in the registers a scalar result uses (A, HL, DEHL), so
-  the join needs no temporary; an aggregate result is not proposed.
-- **Cost:** estimated 0.5K.
+Apply a high bar to each added facility. Even a compact implementation can add
+substantial concepts and rules for readers. The conventional imperative
+character remains a design constraint, even where a more expressive
+alternative is technically feasible.
 
-### 3.5 Routine values
+A candidate that clears this conceptual test may proceed to a bounded prototype.
+Compiler bytes and measured machine costs are independent admission constraints.
+Spare capacity does not justify extra language complexity. The prototype must measure:
 
-O5: passing an operation, such as a comparison to a sort, without closures.
+- resident compiler code and immutable data, overlay file and reserved window;
+- writable workspace, descriptors, buffers and peak stack;
+- generated program bytes and runtime helpers, including cleanup machinery;
+- compile CPU cost, overlay traffic and disk latency on a stated model or target;
+- remaining source and routine capacities at the relevant conformance minimums.
 
-```basie
-type Order = sub(a as Item, b as Item) as boolean
+Record the source baseline, equivalent functionality and limits of each
+measurement. An estimate remains an estimate until a prototype establishes
+its cost. Do not add independent provisional ranges as though they form a
+measured package budget.
 
-sub sort(var items as Item[], before as Order)
-    ...
-    if before(items[j], items[i])
-    ...
-end
+The outcome is an explicit **adopt**, **defer** or **reject** decision. Adoption
+requires cognitive smallness, a coherent safety contract, concrete source-level
+benefits and measured capacity under D43. Recover any required room before
+landing the feature. Preserve restart-vector availability under D46. A proposal
+to change the 28 KiB limit requires a separate decision and is not assumed by
+this plan.
 
-sort(stock, byPrice)
-```
+For provisionally included routine values, prototype parameters and stored
+values together. Record an explicit back-out decision if complexity, safety or
+measured capacity fails admission. Do not impose a parameter-only scope without
+a new decision. Acceptance for evaluation does not bypass this gate.
 
-- A routine value is a non-capturing routine's address, two bytes; a type
-  names its signature, including `fails` and any `from` clause (memory
-  safety §11). Only routines declared at top level may be values.
-- A call through a value is indirect (a small runtime helper, `CALL (HL)`'s
-  equivalent), and counts as a call to a forward routine for the stack rule:
-  the callee's need is unknown, so the call checks the stack as recursion
-  does.
-- A routine whose address is taken by live code stays live in the linker
-  already (O5); the object format needs no change.
-- Values may be parameters, locals, fields and program variables; there are
-  no closures and no values that capture a frame.
-- **Cost:** estimated 0.5 to 1K, and one runtime helper.
+For an admitted change, update the specification and reference compiler first,
+then accepted and rejected conformance cases. Implement the native compiler
+against those streams under D45. Follow the correctness, compression and review
+cycle required by D43. Extend relevant stress generators and verify library,
+book and release examples through the public compile/link/run workflow.
 
-### 3.6 Open arrays as type descriptors
+## 6. Work sequence and dispositions
 
-An open array's type ID is `AG_OPEN` plus its element's ID, so its element
-must have an ID below `$28`: a handle's (`$68` up) cannot be one, and a
-string, array or record type declared late (ID `$28` up) cannot be one
-either. `slots as jobs?[]`, an open array of handles, waits for this
-(Error 191), as does an open array of a type past `$28` (Error 190,
-`types`); an open array of records that own handles works from 74.20, and a
-record wrapping the handle is the workaround meanwhile.
-
-- An open array becomes a descriptor in the type table, kind open array
-  with its element's ID, interned as the other descriptors are, so any
-  element type may be one.
-- The tests by ID range (`AG_ISVW`, `CP AG_OPEN`, `SUB AG_OPEN`: about 20
-  sites) read the descriptor's kind and element instead.
-- Agreed with the user on 2026-10-09: fix it properly, not with spare IDs
-  for the handles, and later.
-- **Cost:** estimated 150 to 250 bytes.
-
-## 4. Order of work
-
-Each feature is one roadmap step, run as version 1's were: the reference
-compiler and the specification first, conformance programs that pass on the
-reference toolchain, then the native compiler, byte for byte (D45), with the
-D43 cycle and its census at every increment.
-
-| Step | Work | Depends on |
+| Stage | Work | Completion condition |
 | --- | --- | --- |
-| V2.0 | Room: compression and overlay increments to at least 1.5K below the limit | — |
-| V2.1 | Enumerations, exhaustive `select` | V2.0 |
-| V2.2 | Typed failure codes | V2.1 |
-| V2.3 | Variants, owning payloads, `OBJ_FREE` by tag | V2.1, room |
-| V2.4 | `select` as an expression, then expression blocks | V2.3 for variant arms |
-| V2.5 | Routine values | room |
-| V2.5a | Open arrays as type descriptors: open arrays of handles and of late types | room |
-| V2.6 | The book's version 2 chapters, the release | all |
+| Immediate scope | Finish and verify the current 0.1 toolchain completion contract | Existing guarantees hold or have an explicit documented disposition. |
+| Priority and dependencies | Develop the tier-1 foundations; establish enums before typed failures and descriptor corrections before dependent slices | Rules and dependencies are explicit; source migration is coordinated rather than repeated for each spelling change. |
+| Bounded prototypes | Verify descriptor corrections and read-only slices; evaluate full routine values under the explicit back-out gate | Safety and machine costs are measured for each item. Routine-value scope includes parameters and storage together. |
+| Implementation admission | Admit each change under section 5 | Specification, reference/native equivalence, independent safety tests and migrated examples pass within D43. Decisions to defer, reject or back out are explicit. |
 
-Room is found again before V2.3 and V2.5, the two largest.
-
-## 5. Tests
-
-- Conformance programs for each feature, accepted and refused, in the
-  reference corpus first.
-- Native equivalence: each feature's claimed programs, linked and run, and its
-  refusals refused alike.
-- The stress generator (`tests/stress_test.ts`) extended with each feature:
-  random enumerations in `select`, variants constructed and selected,
-  `select` expressions and routine values passed to sorts.
-- Programming Basie gains chapters, verified by its script and by
-  `tests/book_test.ts`.
-
-## 6. Open questions
-
-1. Whether a variant's payload may be bound writable (`case circle(var r)`),
-   and what that does to the alias rules.
-2. Whether enumeration-indexed arrays (stretch goals) come with V2.1 or wait.
-3. The syntax of routine value types: `type` declarations, or the signature
-   written in place.
-4. Whether a `select` expression may yield an aggregate, by a hidden local.
-5. How much of §2's room comes from overlays rather than compression, given
-   the preference for few overlay loads.
-
-## 7. Not in version 2
-
-Arenas (O4), default parameter values (O6), generics (D23), `repeat` and a
-general `loop`, precompiled libraries, checked slices and module interfaces
-stay in the [stretch goals](stretch-goals.md) for evaluation, as do the
-syntax proposals there (`mut`, `fun`, `:` and shadowing).
+Implementation of the next milestone has not started. Priority does not provide
+missing semantics or a measured budget. The current 0.1 toolchain contract
+remains the immediate obligation. Neither planning document changes the current
+source language.

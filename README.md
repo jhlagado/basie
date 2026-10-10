@@ -19,12 +19,21 @@ of a call, and no reference can outlive the storage it points into.
 
 ## Status
 
-Version 1 is complete: the native compiler `BASIE.COM` and linker `BLINK.COM`
-run on CP/M 2.2 and compile every program the reference toolchain compiles,
-byte for byte, apart from the open arrays of handles that wait for version 2
-([roadmap](docs/roadmap.md) step 74, [limits](docs/limits.md)). `BASIE.COM`
-takes 24,927 bytes and a 2,611-byte overlay area, 1,134 bytes under its 28K
-limit. Version 2 is planned in [the version 2 plan](docs/version-2.md).
+The current toolchain development line is **0.1**. Version **1.0** is reserved
+for the language when it is ready to stabilize; the proposed 1.0 specification
+remains a working draft. It is not a delivered 1.0 release.
+
+The native compiler `BASIE.COM` and linker `BLINK.COM` run on CP/M 2.2. Roadmap
+step 74 records completion of the current implementation scope, with open arrays
+of handles and `File`s retained for the next development milestone
+([limits](docs/limits.md)). Current completion and verification remain immediate.
+`BASIE.COM` takes 24,927 bytes and a 2,611-byte overlay area, 1,134 bytes under
+its 28K limit.
+
+The [forward development plan](docs/version-2.md) records the next milestone's
+selected directions and admission gates. No next release number is assigned.
+This is the work previously discussed as "version two"; its accepted scope is
+unchanged. No tag or release publication is implied by these labels.
 
 ## What Basie is
 
@@ -102,10 +111,10 @@ These terms are provisional, but the documents use them consistently.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
 - [Feature inventory](docs/feature-inventory.md): every feature, its cost
-  against the compiler budget (26K target, 28K limit), and whether it is in version 1 or 2.
+  against the compiler budget (26K target, 28K limit), and its current or next-milestone disposition.
 - [Input, output and effects](docs/io-and-effects.md): services and the
   external-effects channel instead of operating-system or port primitives.
-- [Services](docs/services.md): the version 1 console, file, command-line and
+- [Services](docs/services.md): the current console, file, command-line and
   machine services, and their failure codes.
 - [Memory safety](docs/memory-safety.md): how Basie is memory safe without a
   garbage collector: storage classes, aliases, pools and handles, `move`, and
@@ -116,9 +125,10 @@ These terms are provisional, but the documents use them consistently.
   minimum capacities the toolchain guarantees.
 - [Test report](docs/test-report.md): what the test suite proves, the large
   programs and stress tests, and the limits they found.
-- [Version 2 plan](docs/version-2.md): enumerations and variants, typed
-  failure codes, expression blocks and routine values, and the room they
-  need.
+- [Forward development plan](docs/version-2.md): current 0.1 completion,
+  accepted next-milestone work and measured admission.
+- [Stretch-goals catalogue](docs/stretch-goals.md): all proposals under review,
+  accepted next-milestone directions, deferred candidates and rejected proposals.
 - [Implementation plan](docs/implementation-plan.md): how Basie will be built:
   a reference toolchain in TypeScript on Deno, then the native Z80 toolchain.
 - [Build pipeline](docs/build-pipeline.md): why Basie compiles to machine-code
