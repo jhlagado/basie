@@ -4,7 +4,7 @@ Updated 2026-10-10. This is the authoritative plan for the current **0.1
 toolchain line** and the **next development milestone**. Version **1.0** is
 reserved for eventual language stabilization, not a delivered toolchain release.
 The next milestone has no assigned release number; it replaces the earlier
-"version two" label. The historical path `version-2.md` is retained.
+"version two" label.
 
 Current 0.1 completion comes first. The selected scope comprises call-site `var`,
 colon types, restricted `try`, plain enums, exhaustive value selection, typed
@@ -14,8 +14,8 @@ with an explicit back-out gate.
 
 The [stretch-goals catalogue](stretch-goals.md) holds the feature arguments,
 semantics to settle and deferred or rejected dispositions in one place. The
-[feature inventory](feature-inventory.md) retains provisional estimates, not
-measured budgets or implementation permission. Selection is complete for this
+[historical cost estimates](#historical-cost-estimates) below retain provisional
+figures, not measured budgets or implementation permission. Selection is complete for this
 review; design and measured admission remain unfinished. No implementation is
 requested now.
 
@@ -200,3 +200,116 @@ Implementation of the next milestone has not started. Priority does not provide
 missing semantics or a measured budget. The current 0.1 toolchain contract
 remains the immediate obligation. Neither planning document changes the current
 source language.
+
+## Historical cost estimates
+
+These tables consolidate the former feature inventory. They retain its
+2026-10-04 estimates and do not replace the current build measurements or
+limits register. The base compiler core was measured at about 15K with 12K
+as the earlier compact-core aim. Do not add these ranges to establish a
+measured package budget.
+
+Compiler cost is paid by every user through resident code and the reserved
+overlay window. It reduces the working space available for compilation. Runtime
+helpers cost program space only when used because the linker removes unused
+helpers. BLINK is a separate executable and does not count towards BASIE's
+image budget. Workspace and stack still require separate accounting.
+
+The existing budget mechanisms are runtime helpers for wider arithmetic,
+diagnostic text in BASIE.MSG, overlays for infrequent compiler work and
+source-level library facilities. Overlay placement beyond existing phases
+requires measurement. Library contents and services are described in
+[the standard library](standard-library.md) and [I/O and effects](io-and-effects.md).
+
+### Current completion scope estimates
+
+| Feature | Compiler | Runtime, if used | Notes |
+| --- | --- | --- | --- |
+| Base language: declarations, records, arrays, bounded strings, `if`, `while`, `for`, routines, `fails`, traps | 12–15K | multiply, divide, bounds, copy, trap reporters | measured at about 15K |
+| Signed `i8`, `i16` | 0.5K | 0.1–0.2K | D3 |
+| Shifts and bitwise operators | 0.3K | 0.1K | |
+| `u32`, `i32`, through helpers | 0.8K | 0.4–0.7K | D3, D9 |
+| `f32`, through helpers; literal conversion in an overlay | 1K | 1–1.5K arithmetic; formatting and parsing in the library | D7 |
+| `select` on integers, characters and optional handles | 0.6K | — | D15 |
+| Arrays of arrays | 0.3K | — | D32 |
+| `private` and `include` | 0.5K | — | D33 |
+| Run-time `assert` | 0.1K | 0.05K | D34 |
+| Local aggregates and `from` | 1K | — | D8 |
+| `var` parameters | 0.2K | — | D17, D30 |
+| Declarations anywhere, block scope | 0.2K | — | D28 |
+| Typed and local constants; inference from typed initialisers | 0.2K | — | D20, D21 |
+| Pools, handles, `forward pool`, `move`, automatic freeing, flow check | 2.5K | 0.4–0.7K | memory safety |
+| Stack bound and checks | 0.2K | 0.1K | memory safety §7 |
+| Services for I/O | 0.7K for the services' signatures | per service used | [services](services.md) |
+| Blob output for the linker | about neutral against output placed at final addresses, which it replaces | — | build pipeline |
+| CP/M shell: command line, buffered files, library check, compilation stamp, chain loader | 2.3K, about 1.3K of it in overlays | — | [native compiler](native-compiler.md) §4 |
+| Branch shrinking | 0.3K | — | build pipeline §6.3 |
+| **Total** | **about 25.5–27.5K** on a 15K core (22.5–24.5K on a 12K one), with the shell's one-shot parts in overlays | | at or just over the 26K target: compression passes and early removal of machinery Basie does not use are planned from the start (D43, [native compiler](native-compiler.md) §4) |
+
+The standard library, written in Basie and tree-shaken, provides string
+building, comparison and searching, conversion between numbers and text
+(including `f32`), and the console and file conveniences built on the services.
+
+**Feature selection fixed.** This list is the current 0.1 completion scope.
+Earlier entries call it version one; that label is historical.
+The specification remains a working draft; this is not a formal specification
+freeze. Adding a feature to current completion requires a new design decision
+that says what it displaces or which measured saving pays for it. Otherwise it
+remains a future candidate, subject to the forward plan. The
+standard library (D36), the message file (D39) and the link-time file table
+(D38) add nothing to the compiler's language cost.
+
+### Extension estimates
+
+These are historical estimates for accepted, deferred and rejected proposals.
+The [catalogue](stretch-goals.md) supplies their current dispositions. Its
+plain-enum estimate is separate from the combined enum-and-variant row below.
+Routine values require the whole-feature prototype and back-out gate described
+above. No row authorises its estimated cost.
+
+| Feature | Compiler | Notes |
+| --- | --- | --- |
+| Enumerations, and variants whose cases carry data, in `select` | 1.7–2.7K | D15, D24; rules in memory safety §11 |
+| Failure codes named by an enumeration (`fails FileError`) | 0.1K | D26 |
+| Expression blocks with `result`; `select` as an expression | 0.5K | O3 |
+| Routine values | 0.5–1K | O5 |
+| Arenas | 0.5–1K | O4 |
+| Default parameter values | 0.3–0.5K | O6 |
+| Generics | 1–2K | D23 |
+| `repeat` and a general `loop` | 0.2K | convenience |
+| Precompiled libraries | 1–2K | build pipeline §9.3 |
+
+### Selection code and cost
+
+The following notes are retained from the earlier inventory. The specification
+governs accepted source and current compiler output supplies measured costs.
+
+
+```basie
+select key
+case 'q', 'Q'
+    exit
+case '0' to '9'
+    digit(key - '0')
+case else
+    beep()
+end
+```
+
+- The subject is an integer, a character, a `boolean`, or an optional handle or
+  identifier.
+- Each `case` lists constants or constant ranges (`to`); values may not repeat.
+- `case else` covers everything else and comes last.
+- There is no fall-through.
+- Over an optional handle, the cases are `some(x)` and `none`
+  ([memory safety](memory-safety.md), Section 5.5).
+
+**Code.** The compiler emits the case bodies first, with a jump around them, and
+the dispatch code after the last case, when every value is known. It then chooses
+between a compare chain for sparse values (4 to 6 bytes per value) and a jump
+table for dense ranges (a bounds check and an indexed jump, then 2 bytes per
+value). The dispatch jumps backwards into the bodies, so case labels need no
+forward references.
+
+**Cost.** About 0.6K of compiler, nothing at run time. It
+replaces long `elseif` chains, which are larger and slower.

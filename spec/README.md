@@ -4,7 +4,7 @@
 - Decisions by chapter: [change log](CHANGELOG.md)
 - Design record: [design decisions](../docs/design-decisions.md), [memory safety](../docs/memory-safety.md)
 
-The [change log](CHANGELOG.md) says which design decisions each chapter carries. The adversarial review of 2026-10-05 ([report](../docs/reviews/2026-10-05-spec-review.md)) checked it against the reference compiler.
+The [change log](CHANGELOG.md) says which design decisions each chapter carries. The adversarial review of 2026-10-05 ([report](../docs/archive/reviews/2026-10-05-spec-review.md)) checked it against the reference compiler.
 
 ## Contents
 

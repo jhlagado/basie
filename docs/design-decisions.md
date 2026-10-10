@@ -14,7 +14,7 @@ reserved for eventual language stabilization; the proposed language specificatio
 remains a working draft. The formerly named "version two" scope is the **next
 development milestone**, with no assigned release number. Older version-one and
 version-two entries retain their historical wording; current status notes and
-the [forward plan](version-2.md) govern present planning. Format, ABI, helper and
+the [forward plan](development-plan.md) govern present planning. Format, ABI, helper and
 CP/M version numbers are independent and unchanged.
 
 ## Decided
@@ -361,7 +361,7 @@ the node, as a lease does; for any other subject it binds an identifier.
 non-optional owning local, which is how a `nodes?` becomes a `nodes`.
 
 **Later planning.** The original grouping below is superseded by the
-[forward plan](version-2.md): plain enums and typed failure codes are accepted
+[forward plan](development-plan.md): plain enums and typed failure codes are accepted
 for the next milestone, with enums first as a dependency. Payload variants remain indefinitely deferred.
 
 **Original version-two sketch.** Enumerations and variants whose cases carry data, with
@@ -565,7 +565,7 @@ and handles with `move`, `private` and `include`, run-time `assert`, and
 services for I/O.
 
 The list below records the original deferral from 1.0. Current priorities and
-dispositions are in the [forward plan](version-2.md) and
+dispositions are in the [forward plan](development-plan.md) and
 [catalogue](stretch-goals.md). Plain enums and typed failures are accepted
 next-milestone directions, with design completion and separate measured budgets required.
 The open-array descriptor correction is accepted for the next milestone before dependent
@@ -872,7 +872,7 @@ programming language, software product or retro-computing project uses Basie.
 ## Open
 
 O3–O6 retain earlier design notes. The version-two labels are historical, not
-release commitments. The [forward plan](version-2.md) governs priorities.
+release commitments. The [forward plan](development-plan.md) governs priorities.
 Expression blocks, arenas and default parameters are indefinitely deferred.
 Full noncapturing routine values are provisionally accepted under the
 [catalogue](stretch-goals.md#typed-noncapturing-routine-values), with evaluation
@@ -1137,7 +1137,7 @@ current priority. The proposed 1.0 language specification remains unchanged
 until a direction has normative text and conformance tests. Each compiler
 change must also pass the budget checks in D43.
 
-The [forward plan](version-2.md#2-selected-next-development-milestone) and
+The [forward plan](development-plan.md#2-selected-next-development-milestone) and
 [catalogue](stretch-goals.md#priority-and-confidence) order the accepted next
 milestone by value, confidence and dependencies. Call-site `var`, colon types,
 restricted `try`, plain enums, exhaustive value selection and typed failure
@@ -1290,4 +1290,4 @@ This revises D14's choice of `as`. Name-first order and single-pass parsing are 
 
 ### Withdrawn and deferred, 2026-10-10
 
-Each adopted change was then tested against real Basie code, and only those that prevent a real bug, remove frequent friction or add a missing capability were kept ([stretch goals](stretch-goals.md)). `else` with a value, `defer`, default field values and block comments were withdrawn. Named record initialisers were deferred. Namespaced includes were grouped with module interfaces in the earlier next-milestone sketch. Both are now deferred in the [forward plan](version-2.md). Shadowing stays refused (spec §5.6).
+Each adopted change was then tested against real Basie code, and only those that prevent a real bug, remove frequent friction or add a missing capability were kept ([stretch goals](stretch-goals.md)). `else` with a value, `defer`, default field values and block comments were withdrawn. Named record initialisers were deferred. Namespaced includes were grouped with module interfaces in the earlier next-milestone sketch. Both are now deferred in the [forward plan](development-plan.md). Shadowing stays refused (spec §5.6).

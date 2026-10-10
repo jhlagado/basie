@@ -2,7 +2,7 @@
 
 - Status: approved (design decision D35)
 - Date: 2026-10-04
-- Related: [design decisions](design-decisions.md), [feature inventory](feature-inventory.md),
+- Related: [design decisions](design-decisions.md), [historical cost estimates](development-plan.md#historical-cost-estimates),
   [build pipeline](build-pipeline.md), [memory safety](memory-safety.md),
   [services](services.md)
 
@@ -213,13 +213,13 @@ the commit.
 
 ## 5. Budget discipline
 
-- Every feature has an entry in the [feature inventory](feature-inventory.md)
+- Every feature has an entry in the [historical cost estimates](development-plan.md#historical-cost-estimates)
   with its estimated cost, replaced by its measured cost as soon as it exists.
 - The native compiler's size and workspace are measured on every commit that
   touches it.
 - **Stop rule:** if `BASIE.COM` exceeds its 28K limit, no further features are
   added until it is back within it, by size work or by
-  moving a feature to version 2. The feature inventory records which.
+  deferring a feature. The development plan and stretch-goals catalogue record its disposition.
 - The reference compiler's generated code is measured too, so code-size
   regressions show up before native work.
 

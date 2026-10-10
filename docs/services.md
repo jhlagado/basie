@@ -5,7 +5,7 @@
 - Related: [input, output and effects](io-and-effects.md),
   [design decisions](design-decisions.md) (D10, D25, D26, D36, D38),
   [CP/M target](cpm-target.md), [memory safety](memory-safety.md) §2.1,
-  [review](reviews/2026-10-04-services-review.md)
+  [review](archive/reviews/2026-10-04-services-review.md)
 - Shared contracts: z80-services `byteGateway/0`; z80-tool-services ABI v1 for
   named-file semantics (Section 10)
 

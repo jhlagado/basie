@@ -16,7 +16,7 @@ back-out gate. Candidate sorting is complete for this review.
 
 Plan selection is distinct from implementation admission. Specification,
 prototype safety and measured budgets remain required; no feature implementation
-is requested now. The [forward development plan](version-2.md) defines admission
+is requested now. The [forward development plan](development-plan.md) defines admission
 and dependencies. The [proposed 1.0 language specification](../spec/01-status-and-conformance.md)
 remains authoritative for current programs and remains a working draft. Its
 feature-selection freeze for completion work is separate from formally freezing
@@ -84,7 +84,7 @@ single-pass compilation and D43's 26 KiB target and 28 KiB limit. Spare COM byte
 alone do not establish spare memory or acceptable performance.
 
 The result must be an explicit adopt, defer or reject decision. The
-[plan's admission process](version-2.md#5-evaluation-and-admission) governs it.
+[plan's admission process](development-plan.md#5-evaluation-and-admission) governs it.
 All cost ranges below are provisional and unmeasured.
 
 ## Accepted next-milestone directions
@@ -115,7 +115,7 @@ slice work even though they appear in a separate tier. Coordinate `var`, colon
 and `try` migrations once their rules are settled to avoid repeated source churn.
 High confidence does not waive normal budget verification or resolve every
 semantic detail. Every accepted change remains subject to the
-[plan's admission gate](version-2.md#5-evaluation-and-admission).
+[plan's admission gate](development-plan.md#5-evaluation-and-admission).
 
 ### Earlier directions and current dispositions
 
@@ -229,7 +229,7 @@ with existing `u8` failures and, if separately admitted, precompiled signatures.
 Preserve the distinction between recoverable failures and terminating safety
 traps.
 
-The inventory's incremental estimate is 0.1 KiB once enums exist, unmeasured.
+The historical inventory's incremental estimate is 0.1 KiB once enums exist, unmeasured.
 It does not cover rich errors with payloads, conversions between domains or a
 general stored result type. Admit this increment on its own measured costs.
 
@@ -392,7 +392,7 @@ ordering and compatibility of services, profiles and object formats. The
 single-pass compiler must check a client against an available interface without
 loading an unrestricted collection of implementation sources.
 
-The inventory's precompiled-library estimate is 1–2 KiB, unmeasured. The
+The historical inventory's precompiled-library estimate is 1–2 KiB, unmeasured. The
 catalogue's namespace estimate is another 300–600 bytes, also unmeasured.
 Neither is a measured cost for a complete module system. Compare these mechanisms
 separately before deciding what a bounded first implementation includes.
@@ -436,7 +436,7 @@ could extend `OBJ_FREE`, with a versioned runtime-helper change. Writable
 payload bindings need a separate alias policy. Payloads containing pool objects
 retain their lifetime and generation obligations.
 
-The inventory's combined enum-and-variant estimate is 1.7–2.7 KiB. The earlier version-two
+The historical inventory's combined enum-and-variant estimate is 1.7–2.7 KiB. The earlier version-two
 sketch attributed 1.1–1.7 KiB to variants plus a runtime change. These are distinct
 provisional estimates, not measured incremental costs after plain enums.
 Rich errors with payloads and general stored success/failure values need their
@@ -585,9 +585,69 @@ an explicit back-out gate. Closures remain excluded.
 Preserve type safety, memory safety, defined behaviour and platform restart
 vectors under D46 throughout.
 
-References: [forward plan](version-2.md), [feature inventory](feature-inventory.md),
-[design decisions](design-decisions.md), [memory safety](memory-safety.md),
-[build pipeline](build-pipeline.md) and
-[capability discussion](language-capability-gaps.md). The capability discussion
-retains earlier motivations. Its candidate lists do not supersede the dispositions
-recorded here or the nomination and admission process in the plan.
+References: [development plan](development-plan.md),
+[design decisions](design-decisions.md), [memory safety](memory-safety.md) and
+[build pipeline](build-pipeline.md). Historical costs are retained in the
+[plan](development-plan.md#historical-cost-estimates).
+
+## Capability assessment
+
+This section consolidates the capability discussion of 6 October 2026. Its
+purpose was to identify awkward ordinary programming operations before choosing
+mechanisms or measuring implementations. The current dispositions above
+supersede its earlier candidate lists. Type safety, memory safety and defined
+behaviour remain constraints. Familiarity in another language does not establish
+that a feature belongs in Basie and an existing restriction needs a concrete
+safety or representation rationale.
+
+The recurring examples are passing a buffer's remainder to a parser, separating
+a sorting algorithm from its comparison operation and representing alternatives
+without meaningless combinations of fields. These motivate slices, routine
+values and enums respectively. Explicit destinations and pool handles cover
+constructed results. Each capability is assessed separately from syntax and
+machine budget under the plan's admission process.
+
+### Reuse across element types
+
+Open arrays generalise length while retaining a fixed element type. A Point
+array routine cannot thereby accept FileEntry records. A generic stack, queue
+or sorting routine would need explicit operations on its parameter type and
+checks for each use. Comparison-based algorithms also need a way to supply
+behaviour. Specialised code copies, retained declarations and compilation
+machinery are potential costs. Raw addresses and byte widths cannot substitute
+for type identity and object extents. Limited type parameters remain rejected
+under the recorded source comparison.
+
+Enum-indexed arrays would describe one entry per member of a finite domain
+and reject indices of unrelated types. Default initialisation, external data,
+representation and array initialisation would require explicit rules. They
+remain rejected and are separate from accepted plain enums.
+
+### Earlier variant sketch
+
+The former feature inventory included this unimplemented sketch using the
+current `as` spelling. Payload variants remain deferred. It proposed one level
+of destructuring without nested patterns or guards.
+
+```basie
+variant Shape
+    circle(radius as u16)
+    rect(width as u16, height as u16)
+    empty
+end
+
+select s
+case circle(r)
+    area = 3 * u32(r) * u32(r)
+case rect(w, h)
+    area = u32(w) * u32(h)
+case empty
+    area = 0
+end
+```
+
+The suggested representation is a tag byte followed by storage for the
+largest payload. Declaration-before-use could support single-pass coverage
+checks. Owning payloads still require the construction, binding and overwrite
+rules discussed above and in [memory safety](memory-safety.md#11-future-feature-safety-notes).
+This sketch establishes no implementation commitment or measured cost.

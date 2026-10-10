@@ -4,8 +4,8 @@
 - Date: 2026-10-03
 - Related: [object format](object-format.md), [linker](linker.md),
   [toolchain](toolchain.md), reviews
-  [1](reviews/2026-10-03-linker-spec-review.md) and
-  [2](reviews/2026-10-03-linker-spec-review-2.md)
+  [1](archive/reviews/2026-10-03-linker-spec-review.md) and
+  [2](archive/reviews/2026-10-03-linker-spec-review-2.md)
 
 ## 1. Scope
 

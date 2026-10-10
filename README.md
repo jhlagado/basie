@@ -30,7 +30,7 @@ of handles and `File`s retained for the next development milestone
 `BASIE.COM` takes 24,927 bytes and a 2,611-byte overlay area, 1,134 bytes under
 its 28K limit.
 
-The [forward development plan](docs/version-2.md) records the next milestone's
+The [forward development plan](docs/development-plan.md) records the next milestone's
 selected directions and admission gates. No next release number is assigned.
 This is the work previously discussed as "version two"; its accepted scope is
 unchanged. No tag or release publication is implied by these labels.
@@ -110,8 +110,6 @@ These terms are provisional, but the documents use them consistently.
   ownership and errors side by side with Rust.
 - [Design decisions](docs/design-decisions.md): the language decisions made so
   far and the questions still open.
-- [Feature inventory](docs/feature-inventory.md): every feature, its cost
-  against the compiler budget (26K target, 28K limit), and its current or next-milestone disposition.
 - [Input, output and effects](docs/io-and-effects.md): services and the
   external-effects channel instead of operating-system or port primitives.
 - [Services](docs/services.md): the current console, file, command-line and
@@ -125,10 +123,12 @@ These terms are provisional, but the documents use them consistently.
   minimum capacities the toolchain guarantees.
 - [Test report](docs/test-report.md): what the test suite proves, the large
   programs and stress tests, and the limits they found.
-- [Forward development plan](docs/version-2.md): current 0.1 completion,
-  accepted next-milestone work and measured admission.
-- [Stretch-goals catalogue](docs/stretch-goals.md): all proposals under review,
-  accepted next-milestone directions, deferred candidates and rejected proposals.
+- [Development plan](docs/development-plan.md): current 0.1 completion,
+  ordered next-milestone work, admission gates and historical cost estimates.
+- [Stretch-goals catalogue](docs/stretch-goals.md): feature arguments,
+  accepted directions, deferred candidates and rejected proposals.
+- [Historical investigations and reviews](docs/archive/README.md): dated evidence
+  retained separately from active contracts.
 - [Implementation plan](docs/implementation-plan.md): how Basie will be built:
   a reference toolchain in TypeScript on Deno, then the native Z80 toolchain.
 - [Build pipeline](docs/build-pipeline.md): why Basie compiles to machine-code

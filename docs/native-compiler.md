@@ -228,7 +228,7 @@ and `f32`, so those come early.
 | Starting core (step 64) | measured | 15.3K |
 | Step 65 | −2.3K placed output, banking, startup and trap endings; +1.9K CP/M core; +0.45K chain, stamp and library check; +0.9K blob, line and name writers; +0.3K `frame`/`need` and helper stack table; +0.3K table widening | 17.0–17.6K; measured at its end, 16,171 bytes, of which the command line, the library check and stamp and the chain, for the overlay, take 1.6K (`COMMAND.ASM` 836, `LIBRARY.ASM` 488, `CHAIN.ASM` 266) and the predeclared names 0.9K |
 | Step 66 | message file and overlay loader | about 18K; measured, 13,895 bytes resident and a 1,024-byte overlay area: the one-shot code, the diagnostics and the predeclared names left the image |
-| Step 67 | the Basie features of the [feature inventory](feature-inventory.md) not yet present | about 27K |
+| Step 67 | the Basie features of the [historical cost estimates](development-plan.md#historical-cost-estimates) not yet present | about 27K |
 
 That exceeds the 26K target, so these levers are planned from the start:
 

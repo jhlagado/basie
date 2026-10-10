@@ -3,13 +3,13 @@
 - Status: **frozen**, revision 6 (2026-10-04)
 - Date: 2026-10-04
 - Decisions it rests on: [design decisions](design-decisions.md) D8, D15–D31
-- Reviews: [1](reviews/2026-10-03-memory-safety-review.md),
-  [2](reviews/2026-10-03-memory-safety-review-2.md),
-  [whole design](reviews/2026-10-04-design-review.md),
-  [3](reviews/2026-10-04-memory-safety-review-3.md),
-  [verification](reviews/2026-10-04-memory-safety-verification.md)
+- Reviews: [1](archive/reviews/2026-10-03-memory-safety-review.md),
+  [2](archive/reviews/2026-10-03-memory-safety-review-2.md),
+  [whole design](archive/reviews/2026-10-04-design-review.md),
+  [3](archive/reviews/2026-10-04-memory-safety-review-3.md),
+  [verification](archive/reviews/2026-10-04-memory-safety-verification.md)
 - Related: [CP/M target](cpm-target.md) (stack checks, traps),
-  [feature inventory](feature-inventory.md) (`select`)
+  [selection code and cost](development-plan.md#selection-code-and-cost)
 
 ## 1. In plain terms
 
@@ -675,7 +675,7 @@ routine. No effect sets and no alias provenance are needed.
 ## 11. Future-feature safety notes
 
 These notes retain safety obligations from earlier sketches. The
-[forward plan](version-2.md) governs admission and the
+[forward plan](development-plan.md) governs admission and the
 [catalogue](stretch-goals.md) governs disposition: variants and arenas are
 indefinitely deferred. Full typed noncapturing routine values are provisionally
 accepted for the next milestone, including parameters, variables and record fields, with an

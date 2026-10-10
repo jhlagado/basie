@@ -351,7 +351,7 @@ These are collected from the specifications:
   executable, and added aliases, pseudo-objects as regions, the blob library
   file with its profile block, the line table and the trap lookup mode.
 - **Revision 4** incorporated an adversarial review of the four
-  specifications ([review](reviews/2026-10-03-linker-spec-review.md)). Its
+  specifications ([review](archive/reviews/2026-10-03-linker-spec-review.md)). Its
   main corrections: an `OPTIONS` pseudo-object so prebuilt startup code can see
   link options; stamp deduplication that no longer drops the first blob's
   edges; Phase C reading the directories to recover placement order; literals
@@ -364,7 +364,7 @@ These are collected from the specifications:
   the streams; the image written on the output drive; and deleting files before
   creating them.
 - **Revision 5** incorporated a second adversarial review
-  ([review 2](reviews/2026-10-03-linker-spec-review-2.md)): part records first
+  ([review 2](archive/reviews/2026-10-03-linker-spec-review-2.md)): part records first
   in the line stream; aliases' effective sizes for range checks; the reporter
   contract extended to forbid tail calls to helpers and to cover nested helpers
   and restart-vector helpers; alignment codes stored in the linker's tables, with

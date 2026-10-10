@@ -36,7 +36,7 @@ every byte. The language exposes no port addresses or hardware primitives.
 
 Basie source has no way to call a BDOS function, execute `IN` or `OUT`, or name
 a memory address. This withdraws the port built-ins listed in an earlier draft of the
-[feature inventory](feature-inventory.md).
+[historical cost estimates](development-plan.md#historical-cost-estimates).
 
 ### 3.2 Services
 

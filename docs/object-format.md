@@ -4,8 +4,8 @@
 - Date: 2026-10-03
 - Related: [build pipeline](build-pipeline.md) (overview and rationale),
   [linker](linker.md), [toolchain](toolchain.md), [CP/M target](cpm-target.md),
-  reviews [1](reviews/2026-10-03-linker-spec-review.md) and
-  [2](reviews/2026-10-03-linker-spec-review-2.md)
+  reviews [1](archive/reviews/2026-10-03-linker-spec-review.md) and
+  [2](archive/reviews/2026-10-03-linker-spec-review-2.md)
 
 ## 1. Scope
 
