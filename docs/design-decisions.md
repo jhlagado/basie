@@ -597,7 +597,8 @@ be initialised by zeroing only its length byte.
 
 ### D26. Failure codes are named constants; enumerations later
 
-**Forward status, 2026-10-10.** Plain enums and enum-typed failure codes are
+**Forward status, 2026-10-10.** Superseded by D54: every failure has an enum
+domain, and `u8` failure codes are removed. Plain enums and enum-typed failure codes are
 accepted for the next milestone, with enums first as a dependency. Their design completion and
 separate measured budgets remain required. No payload errors or variants are
 admitted. The current 0.1 completion scope remains unchanged and no implementation is requested now.
@@ -1311,3 +1312,30 @@ and their existing type-tag byte. Code generation uses the byte ABI. No new
 overlay or overlay load is introduced. Compiler footprint, source capacity
 and correctness remain admission gates; no estimate substitutes for the
 assembled image and compile–link–run proof.
+
+### D54. Every failure has an enum domain
+
+**Decided 2026-10-10 by John; unimplemented.** Enum-typed failure codes
+replace `u8` failure codes. Every failable routine names the enum its codes
+come from, `sub open(name as string[]) fails FileError`; plain `fails` with a
+`u8` code is removed, from services, the library, tests, examples and the book.
+
+- **Same domain only.** Propagation (`else fail`, and `try` after D48) requires
+  the caller's domain to be the callee's enum. Crossing domains is explicit:
+  `handle` the callee's code, then `fail` with a member of the caller's domain.
+  No implicit conversion between domains, or from a domain to an integer.
+- **Always qualified.** `fail FileError.notFound`, as members are written
+  everywhere (D53). No contextual unqualified lookup after `fail` or in cases.
+- `fail` takes a value of the routine's domain; a `handle` destination is a
+  writable variable of the callee's domain. A `select` on it is exhaustive
+  under D51.
+
+**Why.** A failure code's meaning depends on its source; a `u8` lets a file
+code be read as a parser code, and the code ranges (14.1) were only a
+convention. A domain on every failable routine makes each crossing visible.
+
+**To settle before specification.** The services' domain or domains and their
+members (today codes 1–18 and 254, `invalid`, fixed by the runtime, while enum
+ordinals count from zero); the standard library's codes (32–47); what the
+unhandled-error trap reports for `main`; and sequencing with the D48 `try`
+migration, which rewrites the same sources. Supersedes D26's `u8` codes.
